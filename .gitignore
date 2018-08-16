@@ -5,6 +5,7 @@
 /apps/HelloMatlab/iir_blur.mex
 bazel-*
 bin/*
+build/*
 python_bindings/bin/*
 build-64/*
 build-ios/*
