@@ -11,22 +11,22 @@ using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
-    Buffer<float> input(69, 69);
-    Buffer<float> filter(5, 5);
+    Buffer<uint8_t> input(69, 69);
+    Buffer<uint8_t> filter(5, 5);
 
       for (int y = 0; y < input.height(); y++) {
         for (int x = 0; x < input.width(); x++) {
-          input(x, y) = rand();
+          input(x, y) = (uint8_t)rand();
         }
       }
 
       for (int y = 0; y < filter.height(); y++) {
         for (int x = 0; x < filter.width(); x++) {
-          filter(x, y) = rand();
+          filter(x, y) = (uint8_t)rand();
         }
       }
 
-    Buffer<float> output(64, 64);
+    Buffer<uint8_t> output(64, 64);
 
     conv_layer(input, filter, output);
 
