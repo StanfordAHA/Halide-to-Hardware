@@ -6,13 +6,10 @@ using namespace Halide;
 
 class ConvolutionLayer : public Halide::Generator<ConvolutionLayer> {
 public:
-    Input<Buffer<float>>  input{"input", 2};
-    Input<Buffer<float>>  filter{"filter", 2};
-
-    //Output<Buffer<float>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Input<Buffer<uint8_t>>  filter{"filter", 2};
 
     Func build() {
-    //void generate() {
         /* THE ALGORITHM */
       
         Func output("output");
@@ -20,8 +17,6 @@ public:
 
         Func f_conv("conv");
         RDom r(0, 5, 0, 5);
-
-        f_conv(x, y) = 0.0f;
 
         f_conv(x, y) += filter(r.x, r.y) * input(x + r.x, y + r.y);
 
