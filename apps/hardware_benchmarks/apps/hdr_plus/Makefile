@@ -24,4 +24,4 @@ test: $(BIN)/run
 	$(BIN)/run data 
 
 clean:
-	rm -rf $(BIN)
+	rm -rf $(BIN) output
