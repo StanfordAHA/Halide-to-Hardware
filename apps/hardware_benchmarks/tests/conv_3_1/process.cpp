@@ -1,37 +1,30 @@
 #include <cstdio>
-#include <chrono>
 
 #include "conv_3_1.h"
 
-#include "halide_benchmark.h"
-#include "HalideBuffer.h"
+#include "hardware_process_helper.h"
+#include "halide_image_io.h"
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
-  int kernel_width  = 1;
-  int kernel_height = 3;
-  int image_size = 10;
+
+  OneInOneOut_ProcessController processor("cpu",
+                                          "conv_3_1",
+                                          [&]() {
+                                            conv_3_1(processor.input,
+                                                     processor.output);
+                                          });
+
+  int kernel_width  = 1; int kw = kernel_width;
+  int kernel_height = 3; int kh = kernel_height;
+  int image_size = 10;   int N = image_size;
   
-  Buffer<int16_t> input(image_size + kernel_width-1,
-                        image_size + kernel_height-1);
+  processor.input = Buffer<uint16_t>(N, N);
+  processor.output = Buffer<uint16_t>(N - kw, N - kh);
 
-  for (int y = 0; y < input.height(); y++) {
-    for (int x = 0; x < input.width(); x++) {
-      input(x, y) = rand();
-    }
-  }
-
-  Buffer<int16_t> output(image_size, image_size);
-
-  conv_3_1(input, output);
-
-  // Timing code
-  double min_t_manual = benchmark(10, 10, [&]() {
-      conv_3_1(input, output);
-    });
-  printf("Manually-tuned time: %gms\n", min_t_manual * 1e3);
-
-  return 0;
+  
+  processor.process_command(argc, argv);
+  
 }

@@ -1,26 +1,16 @@
 include ../../hw_support/Makefile.inc
 
-BIN ?= bin
+TESTNAME = conv_3_1
 
-all: $(BIN)/process
+include ../../hw_support/hardware_targets.mk
 
-$(BIN)/conv_3_1.generator: conv_3_1_generator.cpp $(GENERATOR_DEPS)
-	@-mkdir -p $(BIN)
-	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
-
-$(BIN)/conv_3_1.a: $(BIN)/conv_3_1.generator
-	@-mkdir -p $(BIN)
-	$^ -g conv_3_1 -o $(BIN) -f conv_3_1 target=$(HL_TARGET)
-
-$(BIN)/process: process.cpp $(BIN)/conv_3_1.a 
-	@-mkdir -p $(BIN)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -Wall -O3 $^ -o $@ $(LDFLAGS)
-
-run: $(BIN)/process
-	@-mkdir -p $(BIN)
-	$(BIN)/process
-
-clean:
-	rm -rf $(BIN)
-
-test: run
+# Usage:
+#  make all:       compiles all code without running
+#       generator: create Halide generator
+#       design:    create cpu design
+#       image:     create an image with random data
+#       run:       run cpu design with image
+#       compare:   compare two output images
+#       test:      run and compare to cpu output
+#       eval:      evaluate runtime
+#       clean:     remove bin directory
