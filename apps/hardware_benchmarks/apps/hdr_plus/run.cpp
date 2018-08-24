@@ -54,6 +54,10 @@ static bool load_imgs(std::string dir_path, Buffer<uint8_t> &imgs) {
     Buffer<uint8_t> img_tmp = load_image(dir_path + "/" + img_names[0]); 
     int num_imgs = img_names.size();
     int width, height, channel;
+    int ref = num_imgs/2;
+    for (int i = ref; i > 0 ; i--) {
+        std::iter_swap(img_names.begin() + i, img_names.begin() + i - 1);
+    }
 
     for (int i = 0; i < num_imgs; i++) {
         img_tmp = load_image(dir_path + "/" + img_names[i]);
@@ -73,11 +77,20 @@ static bool load_imgs(std::string dir_path, Buffer<uint8_t> &imgs) {
 }
 static bool save_imgs(std::string dir_path, Buffer<uint8_t> &imgs) {
     int num_imgs = imgs.extent(3);
+    int ref = num_imgs / 2;
+    int target;
     Buffer<uint8_t> output;
+        
     for (int i = 0; i < num_imgs; i++) {
         output = imgs.sliced(3, i);
-        save_image(output, dir_path + "/output" + std::to_string(i) + ".png");
-        printf("saved output%d.png\n", i);
+        if (i == 0)
+            target = ref;
+        else if (i <= ref)
+            target = i - 1;
+        else
+            target = i;
+        save_image(output, dir_path + "/output" + std::to_string(target) + ".png");
+        printf("saved output%d.png\n", target);
     }
 
     return true;
