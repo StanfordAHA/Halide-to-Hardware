@@ -37,9 +37,9 @@ private:
 
         // Need to change to integer or fixed point operation.
         angle = atan2(motion(tx, ty, 1, n), motion(tx, ty, 0, n)) * 180.0f / 3.141592f;
-        magnitude = clamp(sqrt(f32(motion(tx, ty, 0, n)) * f32(motion(tx, ty, 0, n))  + f32(motion(tx, ty, 1, n)) * f32(motion(tx, ty, 1, n))), 0.0f, 64.0f);
+        magnitude = clamp(sqrt(f32(motion(tx, ty, 0, n)) * f32(motion(tx, ty, 0, n))  + f32(motion(tx, ty, 1, n)) * f32(motion(tx, ty, 1, n))), 0.0f, 128.0f);
 
-        Expr scale = Expr(1.0f / 64.0f);
+        Expr scale = Expr(1.0f / 128.0f);
         HSV(tx, ty, c, n) = select(c == 0, angle, c == 1, magnitude * scale, Expr(1.0f));
         
         output(tx, ty, c, n) = HSV(tx, ty, c, n);
