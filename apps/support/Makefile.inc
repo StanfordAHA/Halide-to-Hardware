@@ -1,5 +1,7 @@
-HALIDE_BIN_PATH ?= ../..
-HALIDE_SRC_PATH ?= ../..
+PROJECTROOT=/nobackupkiwi/kongty/AHA/Halide-to-Hardware
+HALIDE_BIN_PATH ?= $(PROJECTROOT)
+HALIDE_SRC_PATH ?= $(PROJECTROOT)
+
 LDFLAGS ?=
 BIN ?= ./bin
 IMAGES ?= ../images
@@ -8,9 +10,9 @@ UNAME ?= $(shell uname)
 
 ifeq ($(OS), Windows_NT)
 # Flags for mingw environment
-LDFLAGS += -lz -lole32 -lkernel32 -lpsapi -luuid -Wl,--stack,8388608
+LDFLAGS += -lz -lole32 -lkernel32 -lpsapi -luuid -lcurses -Wl,--stack,8388608
 else
-LDFLAGS += -ldl -lpthread -lz
+LDFLAGS += -ldl -lpthread -lz -lcurses
 endif
 
 CXX ?= g++
