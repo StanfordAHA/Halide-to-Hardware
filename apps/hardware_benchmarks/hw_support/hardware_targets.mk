@@ -5,11 +5,14 @@
 #       run:       run cpu design with image
 #       compare:   compare two output images
 #       eval:      evaluate runtime
+#       golden:    copy design and output image
 #       clean:     remove bin directory
 
 
 # define defulats to environment variables
+SHELL = bash
 BIN ?= bin
+GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 
 # set default to TESTNAME which forces failure
@@ -39,13 +42,43 @@ image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process image
 
-run run-cpu: $(BIN)/process
+$(BIN)/output.png run run-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run input.png
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process eval input.png
+
+update_golden updategolden golden: $(BIN)/output.png
+	@-mkdir -p $(GOLDEN)
+	cp $(BIN)/output.png $(GOLDEN)/golden_output.png
+
+check:
+	@printf "%-15s" $(TESTNAME);
+	@if [ -f "$(BIN)/design_prepass.json" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " coreir"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
+	fi
+	@if [ -f "$(BIN)/process" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " process"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!process"; \
+	fi
+	@if [ -f "$(BIN)/output.png" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " output.png"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
+	fi
+	@if [ -f "passed.md5" ]; then \
+	  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
+	fi
+	@if [ -f "failed.md5" ]; then \
+	  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
+	fi
+	@printf "\n"
+
 
 
 clean:
