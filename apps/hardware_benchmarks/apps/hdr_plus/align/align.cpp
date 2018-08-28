@@ -96,7 +96,8 @@ private:
         RDom r_tile(0, tile_s, 0, tile_s);
         RDom r_search(-1 * search_s, 2 * search_s + 1, -1 * search_s, 2 * search_s + 1);
 
-        coarse_offset(tx, ty, xy, n) = clamp(upsample * coarse_alignment((tx+upsample/2)/upsample, (ty+upsample/2)/upsample, xy, n), align_min, align_max);
+        // CGRA does not support division. Convert division to shift.
+        coarse_offset(tx, ty, xy, n) = clamp(upsample * coarse_alignment((tx+upsample >> 1) / upsample, (ty+upsample >> 1) / upsample, xy, n), align_min, align_max);
 
         Expr x_ref = tx * tile_s + r_tile.x;
         Expr y_ref = ty * tile_s + r_tile.y;
