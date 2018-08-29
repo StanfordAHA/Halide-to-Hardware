@@ -9,7 +9,7 @@ class Merge : public Halide::Generator<Merge> {
 public:
     GeneratorParam<uint8_t>     scale{"scale", 8, 1, 16}; 
     GeneratorParam<uint16_t>     min_dist{"min_dist", 16, 1, 128}; 
-    GeneratorParam<uint16_t>     max_dist{"max_dist", 64, 32, 4096}; 
+    GeneratorParam<uint16_t>     max_dist{"max_dist", 256, 32, 4096}; 
     Input<Buffer<uint8_t>>  input{"input", 4};
     Input<Buffer<int16_t>>  alignment{"alignment", 4};
     Output<Buffer<uint8_t>> output{"output", 3};
@@ -50,7 +50,7 @@ public:
         Func weight, sum_weight;
         weight(tx, ty, n) = select(n == 0, 256,
                 dist_norm < min_dist, 256,
-                print(dist_norm) > max_dist, 0, 
+                dist_norm > max_dist, 0, 
                 256 / dist_norm);
         sum_weight(tx, ty) = sum(u16(weight(tx, ty, r_imgs)));
 
@@ -66,7 +66,7 @@ public:
         tile_y = y >> 4;
         ix = x - tile_x*16;
         iy = y - tile_y*16;
-        Func val, output_pre;
+        Func val;
         val(xi, yi, tx, ty, c, n) = select(n == 0, ref_val, alt_val);
         output(x, y, c) = u8(sum(u32(weight(tile_x, tile_y, r_imgs)) * u32(val(ix, iy, tile_x, tile_y, c, r_imgs))) / sum_weight(tile_x, tile_y));
 
