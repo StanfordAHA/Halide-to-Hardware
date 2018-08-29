@@ -8,6 +8,7 @@
 #include "bin/align.h"
 #include "bin/motion.h"
 #include "bin/merge.h"
+#include "bin/finish.h"
 #include "dirent.h"
 //#include "tiny_dng_loader.h"
 
@@ -22,11 +23,13 @@ public:
 
     Buffer<uint8_t> process() {
         Buffer<int16_t> align_out(imgs.width()/16, imgs.height()/16, 3, imgs.extent(3));
-        Buffer<uint8_t> output(imgs.width(), imgs.height(), 3);
         Buffer<uint8_t> align_rgb(imgs.width()/16, imgs.height()/16, 3, imgs.extent(3));
+        Buffer<uint8_t> merge_out(imgs.width(), imgs.height(), 3);
+        Buffer<uint8_t> output(imgs.width(), imgs.height(), 3);
         align(imgs, align_out);
         motion_to_RGB(align_out, align_rgb);
-        merge(imgs, align_out, output);
+        merge(imgs, align_out, merge_out);
+        finish(merge_out, output);
         save_imgs("output", align_rgb);
         
         return output;
