@@ -20,6 +20,7 @@ add_subdirectory(linear_blur)
 add_subdirectory(local_laplacian)
 add_subdirectory(nl_means)
 add_subdirectory(resize)
+add_subdirectory(stencil_chain)
 
 # add_subdirectory(hardware_benchmarks/tests/conv_bw)
 add_subdirectory(hardware_benchmarks)
