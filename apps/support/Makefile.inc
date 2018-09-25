@@ -1,6 +1,5 @@
-PROJECTROOT=/nobackupkiwi/kongty/AHA/Halide-to-Hardware
-HALIDE_BIN_PATH ?= $(PROJECTROOT)
-HALIDE_SRC_PATH ?= $(PROJECTROOT)
+HALIDE_BIN_PATH ?= ../..
+HALIDE_SRC_PATH ?= ../..
 
 LDFLAGS ?=
 BIN ?= ./bin
@@ -10,9 +9,9 @@ UNAME ?= $(shell uname)
 
 ifeq ($(OS), Windows_NT)
 # Flags for mingw environment
-LDFLAGS += -lz -lole32 -lkernel32 -lpsapi -luuid -lcurses -Wl,--stack,8388608
+LDFLAGS += -lz -lole32 -lkernel32 -lpsapi -luuid -Wl,--stack,8388608
 else
-LDFLAGS += -ldl -lpthread -lz -lcurses
+LDFLAGS += -ldl -lpthread -lz
 endif
 
 CXX ?= g++
@@ -132,3 +131,6 @@ HL_AVCONV ?= avconv
 # Utility to show h264 video
 HL_VIDEOPLAYER ?= mplayer
 
+# For CoreIR generation
+LDFLAGS += -lcurses
+LDFLAGS += -lcoreir-commonlib -lcoreir

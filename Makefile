@@ -160,6 +160,12 @@ LLVM_HAS_NO_RTTI = $(findstring -fno-rtti, $(LLVM_CXX_FLAGS))
 WITH_RTTI ?= $(if $(LLVM_HAS_NO_RTTI),, not-empty)
 RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 
+# Compiling for CoreIR requires some extra links
+COREIR_DIR ?= $(ROOT_DIR)/../coreir
+COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
+COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir
+#COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
+
 CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-unknown-warning-option -Wno-psabi
 CXX_FLAGS = $(CXX_WARNING_FLAGS) $(RTTI_CXX_FLAGS) -Woverloaded-virtual $(FPIC) $(OPTIMIZE) -fno-omit-frame-pointer -DCOMPILING_HALIDE
 
@@ -178,6 +184,7 @@ CXX_FLAGS += $(POWERPC_CXX_FLAGS)
 CXX_FLAGS += $(INTROSPECTION_CXX_FLAGS)
 CXX_FLAGS += $(EXCEPTIONS_CXX_FLAGS)
 CXX_FLAGS += $(AMDGPU_CXX_FLAGS)
+CXX_FLAGS += $(COREIR_CXX_FLAGS)
 
 # This is required on some hosts like powerpc64le-linux-gnu because we may build
 # everything with -fno-exceptions.  Without -funwind-tables, libHalide.so fails
@@ -359,6 +366,9 @@ SOURCE_FILES = \
   Closure.cpp \
   CodeGen_ARM.cpp \
   CodeGen_C.cpp \
+  CodeGen_CoreIR_Base.cpp \
+  CodeGen_CoreIR_Target.cpp \
+  CodeGen_CoreIR_Testbench.cpp \
   CodeGen_GPU_Dev.cpp \
   CodeGen_GPU_Host.cpp \
   CodeGen_Hexagon.cpp \
@@ -786,6 +796,8 @@ TEST_LD_FLAGS += -Wl,--rpath=$(HL_HEXAGON_TOOLS)/lib/iss
 endif
 endif
 endif
+
+TEST_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 .PHONY: all
 all: $(LIB_DIR)/libHalide.a $(BIN_DIR)/libHalide.$(SHARED_EXT) $(INCLUDE_DIR)/Halide.h $(RUNTIME_EXPORTED_INCLUDES) test_internal

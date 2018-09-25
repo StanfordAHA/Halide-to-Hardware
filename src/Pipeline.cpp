@@ -223,13 +223,20 @@ void Pipeline::compile_to_assembly(const string &filename,
     m.compile(Outputs().assembly(output_name(filename, m, ".s")));
 }
 
-
 void Pipeline::compile_to_c(const string &filename,
                             const vector<Argument> &args,
                             const string &fn_name,
                             const Target &target) {
     Module m = compile_to_module(args, fn_name, target);
     m.compile(Outputs().c_source(output_name(filename, m, ".c")));
+}
+
+void Pipeline::compile_to_coreir(const string &filename,
+                                 const vector<Argument> &args,
+                                 const string &fn_name,
+                                 const Target &target) {
+  Module m = compile_to_module(args, fn_name, target);
+  m.compile(Outputs().coreir_source(output_name(filename, m, ".cpp")));
 }
 
 void Pipeline::compile_to_python_extension(const string &filename,

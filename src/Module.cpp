@@ -6,6 +6,7 @@
 
 #include "CodeGen_C.h"
 #include "CodeGen_Internal.h"
+#include "CodeGen_CoreIR_Testbench.h"
 #include "Debug.h"
 #include "HexagonOffload.h"
 #include "IROperator.h"
@@ -427,6 +428,14 @@ void Module::compile(const Outputs &output_files_arg) const {
                                Internal::CodeGen_C::CPlusPlusImplementation : Internal::CodeGen_C::CImplementation);
         cg.compile(*this);
     }
+    if (!output_files.coreir_source_name.empty()) {
+      debug(1) << "Module.compile(): coreir_source_name " << output_files.coreir_source_name << "\n";
+      std::ofstream file(output_files.coreir_source_name);
+      Internal::CodeGen_CoreIR_Testbench cg(file,
+                                            target());
+      cg.compile(*this);
+    }
+
     if (!output_files.python_extension_name.empty()) {
         debug(1) << "Module.compile(): python_extension_name " << output_files.python_extension_name << "\n";
         std::string c_header_name = output_files.c_header_name;
