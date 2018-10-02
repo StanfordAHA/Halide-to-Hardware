@@ -1061,7 +1061,13 @@ public:
 
 };
 
-
+void copy_stages(const vector<BoundsInference::Stage> &src,
+                 vector<BoundsInference_Stage> &des) {
+    for (size_t i = 0; i < src.size(); i++) {
+        const BoundsInference::Stage &stage = src[i];
+        des.push_back({stage.name, stage.stage, stage.consumers, stage.bounds});
+    }
+}
 
 Stmt bounds_inference(Stmt s,
                       const vector<Function> &outputs,
@@ -1069,6 +1075,7 @@ Stmt bounds_inference(Stmt s,
                       const vector<vector<string>> &fused_groups,
                       const map<string, Function> &env,
                       const FuncValueBounds &func_bounds,
+                      vector<BoundsInference_Stage> &inlined_stages,
                       const Target &target) {
 
     vector<Function> funcs(order.size());
@@ -1110,8 +1117,11 @@ Stmt bounds_inference(Stmt s,
 
     // Add an outermost bounds inference marker
     s = For::make("<outermost>", 0, 1, ForType::Serial, DeviceAPI::None, s);
-    s = BoundsInference(funcs, fused_func_groups, fused_pairs_in_groups,
-                        outputs, func_bounds, target).mutate(s);
+    BoundsInference bounds_inference(funcs, fused_func_groups, fused_pairs_in_groups,
+                                     outputs, func_bounds, target);
+    s = bounds_inference.mutate(s);
+    copy_stages(bounds_inference.stages, inlined_stages);
+    
     return s.as<For>()->body;
 }
 

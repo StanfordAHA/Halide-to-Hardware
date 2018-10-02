@@ -44,11 +44,19 @@ image image-cpu: $(BIN)/process
 
 $(BIN)/output.png run run-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process run input.png
+	$(BIN)/process run cpu input.png
+
+run-coreir: $(BIN)/process
+	@-mkdir -p $(BIN)
+	$(BIN)/process run coreir input.png
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process eval input.png
+	$(BIN)/process eval cpu input.png
+
+eval-coreir: $(BIN)/process
+	@-mkdir -p $(BIN)
+	$(BIN)/process eval coreir input.png
 
 update_golden updategolden golden: $(BIN)/output.png
 	@-mkdir -p $(GOLDEN)

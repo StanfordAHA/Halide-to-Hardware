@@ -23,6 +23,7 @@
 #include "LLVM_Headers.h"
 #include "LLVM_Output.h"
 #include "Lower.h"
+#include "MarkHWKernels.h"
 #include "Outputs.h"
 #include "Param.h"
 #include "PrintLoopNest.h"
@@ -2440,6 +2441,69 @@ Func &Func::store_at(Func f, Var var) {
 
 Func &Func::store_root() {
     return store_at(LoopLevel::root());
+}
+
+Func &Func::accelerate(vector<Func> inputs,
+                       Var compute_var, Var store_var,
+                       vector<Func> taps) {
+    /*
+      This method prepares enough information on related function schedules,
+      in order to draw the boundaries of the accelerator in the DAG of functinos.
+     */
+    invalidate_cache();
+
+    debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+
+    for (size_t i = 0; i < inputs.size(); i++) {
+        Function hw_in = inputs[i].function();
+        // save the hw inputs of the accelerator pipeline in the schedule
+        func.schedule().accelerate_inputs().insert(hw_in.name());
+
+        // mark the hw input as linebuffered and store in kernel buffer slice
+        hw_in.schedule().is_kernel_buffer_slice() = true;  // FIXME
+        // stores input in the kernel buffer
+        hw_in.schedule().is_kernel_buffer() = true;
+    }
+
+    // schedule the compute and store levels of the hw_out,
+    // which later becomes the constraints of the accelerator pipeline.
+    func.schedule().is_accelerated() = true;
+    func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var);
+    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var);
+
+    // hw_out is stored in kernel buffer slice, this function store in kernel buffer
+    func.schedule().is_kernel_buffer_slice() = true;
+    func.schedule().is_kernel_buffer() = true;
+
+
+    // mark all the halide functions in the pipeline to be "hw_kernel"
+    std::set<string> tap_names;
+    for (const auto &f : taps)  tap_names.insert(f.name());
+    mark_hw_kernels(func, func.schedule().accelerate_inputs(), tap_names);
+
+    debug(3) << "check function " << func.name() << " " << func.schedule().is_accelerated() <<  "\n";
+    debug(3) << func.schedule().store_level().func() << " " << func.schedule().store_level().var().name() << "\n";
+    debug(3) << func.schedule().compute_level().func() << " " << func.schedule().compute_level().var().name() << "\n";
+
+    return *this;
+}
+
+Func &Func::linebuffer() {
+    invalidate_cache();
+    func.schedule().is_linebuffered() = true;
+    return *this;
+}
+
+Func &Func::fifo_depth(Func consumer, int depth) {
+    invalidate_cache();
+    user_assert(depth > 0) << "Fifo depth must be greater than zero.\n";
+
+    // TODO check if consumer is a linebuffered function downstreaming
+    // from this function.
+    // Also check if the this function is scheduled to be linebuffered
+    func.schedule().fifo_depths()[consumer.name()] = depth;
+    return *this;
 }
 
 Func &Func::compute_inline() {

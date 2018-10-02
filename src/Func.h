@@ -2232,6 +2232,24 @@ public:
      * outside the outermost loop. */
     Func &store_root();
 
+    /** Schedule a function onto the hardware accelerator.
+     * Extract the pipeline from inputs to this function.
+     * In addition, compute_var and store_var, specify
+     * the compute and store levels of all linebuffered
+     * functions in the pipeline w.r.t this function.
+     */
+    Func &accelerate(std::vector<Func> inputs,
+                            Var compute_var, Var store_var,
+                            std::vector<Func> taps = {});
+
+    /** Schedule a function to be linebuffered.
+     */
+    Func &linebuffer();
+
+    /** Set the depth of the fifo from this function to consumer
+     */
+    Func &fifo_depth(Func consumer, int depth);
+
     /** Aggressively inline all uses of this function. This is the
      * default schedule, so you're unlikely to need to call this. For
      * a Func with an update definition, that means it gets computed

@@ -399,6 +399,7 @@ SOURCE_FILES = \
   Elf.cpp \
   EliminateBoolVectors.cpp \
   Error.cpp \
+  ExtractHWKernelDAG.cpp \
   FastIntegerDivide.cpp \
   FindCalls.cpp \
   Float16.cpp \
@@ -433,6 +434,7 @@ SOURCE_FILES = \
   LoopCarry.cpp \
   Lower.cpp \
   LowerWarpShuffles.cpp \
+  MarkHWKernels.cpp \
   MatlabWrapper.cpp \
   Memoization.cpp \
   Module.cpp \
@@ -490,6 +492,7 @@ SOURCE_FILES = \
   StmtToHtml.cpp \
   StorageFlattening.cpp \
   StorageFolding.cpp \
+  StreamOpt.cpp \
   StrictifyFloat.cpp \
   Substitute.cpp \
   Target.cpp \

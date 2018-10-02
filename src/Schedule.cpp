@@ -214,6 +214,17 @@ struct FuncScheduleContents {
     std::map<std::string, Internal::FunctionPtr> wrappers;
     bool memoized;
     MemoryType memory_type;
+      bool is_hw_kernel;   // TODO equivalent to !accelerate_exit.empty()
+    bool is_accelerated;  // TODO equivalent to !accelerate_input.empty()
+    bool is_linebuffered;
+    std::set<std::string> accelerate_inputs;
+    std::string accelerate_exit;
+    LoopLevel accelerate_compute_level, accelerate_store_level;
+    std::map<std::string, int> fifo_depths;   // key is the name of the consumer
+    bool is_kernel_buffer;
+    bool is_kernel_buffer_slice;
+    std::map<std::string, Function> tap_funcs;
+    std::map<std::string, Parameter> tap_params;
 
     FuncScheduleContents() :
         store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
@@ -329,6 +340,20 @@ FuncSchedule FuncSchedule::deep_copy(
     copy.contents->memoized = contents->memoized;
     copy.contents->memory_type = contents->memory_type;
 
+    // HLS related fields
+    copy.contents->is_hw_kernel = contents->is_hw_kernel;
+    copy.contents->is_accelerated = contents->is_accelerated;
+    copy.contents->is_linebuffered = contents->is_linebuffered;
+    copy.contents->accelerate_inputs = contents->accelerate_inputs;
+    copy.contents->accelerate_exit = contents->accelerate_exit;
+    copy.contents->accelerate_compute_level = contents->accelerate_compute_level;
+    copy.contents->accelerate_store_level = contents->accelerate_store_level;
+    copy.contents->fifo_depths = contents->fifo_depths;
+    copy.contents->is_kernel_buffer = contents->is_kernel_buffer;
+    copy.contents->is_kernel_buffer_slice = contents->is_kernel_buffer_slice;
+    copy.contents->tap_funcs = contents->tap_funcs;
+    copy.contents->tap_params = contents->tap_params;
+
     // Deep-copy wrapper functions.
     for (const auto &iter : contents->wrappers) {
         FunctionPtr &copied_func = copied_map[iter.second];
@@ -414,6 +439,106 @@ const LoopLevel &FuncSchedule::store_level() const {
 
 const LoopLevel &FuncSchedule::compute_level() const {
     return contents->compute_level;
+}
+
+bool &FuncSchedule::is_hw_kernel() {
+    return contents->is_hw_kernel;
+}
+
+bool FuncSchedule::is_hw_kernel() const {
+    return contents->is_hw_kernel;
+}
+
+bool FuncSchedule::is_accelerated() const {
+    return contents->is_accelerated;
+}
+
+bool &FuncSchedule::is_accelerated() {
+    return contents->is_accelerated;
+}
+
+bool FuncSchedule::is_linebuffered() const {
+    return contents->is_linebuffered;
+}
+
+bool &FuncSchedule::is_linebuffered() {
+    return contents->is_linebuffered;
+}
+
+bool FuncSchedule::is_kernel_buffer() const {
+    return contents->is_kernel_buffer;
+}
+
+bool &FuncSchedule::is_kernel_buffer() {
+    return contents->is_kernel_buffer;
+}
+
+bool FuncSchedule::is_kernel_buffer_slice() const {
+    return contents->is_kernel_buffer_slice;
+}
+
+bool &FuncSchedule::is_kernel_buffer_slice() {
+    return contents->is_kernel_buffer_slice;
+}
+
+const std::set<std::string> &FuncSchedule::accelerate_inputs() const{
+    return contents->accelerate_inputs;
+}
+
+std::set<std::string> &FuncSchedule::accelerate_inputs() {
+    return contents->accelerate_inputs;
+}
+
+const std::map<std::string, Function> &FuncSchedule::tap_funcs() const {
+    return contents->tap_funcs;
+}
+
+std::map<std::string, Function> &FuncSchedule::tap_funcs() {
+    return contents->tap_funcs;
+}
+
+const std::map<std::string, Parameter> &FuncSchedule::tap_params() const {
+    return contents->tap_params;
+}
+
+std::map<std::string, Parameter> &FuncSchedule::tap_params() {
+    return contents->tap_params;
+}
+
+const std::map<std::string, int> &FuncSchedule::fifo_depths() const {
+    return contents->fifo_depths;
+}
+
+std::map<std::string, int> &FuncSchedule::fifo_depths() {
+    return contents->fifo_depths;
+}
+
+const std::string &FuncSchedule::accelerate_exit() const{
+    return contents->accelerate_exit;
+}
+
+std::string &FuncSchedule::accelerate_exit() {
+    return contents->accelerate_exit;
+}
+
+LoopLevel &FuncSchedule::accelerate_compute_level() {
+    internal_assert(is_accelerated());
+    return contents->accelerate_compute_level;
+}
+
+const LoopLevel &FuncSchedule::accelerate_compute_level() const {
+    internal_assert(is_accelerated());
+    return contents->accelerate_compute_level;
+}
+
+LoopLevel &FuncSchedule::accelerate_store_level() {
+    internal_assert(is_accelerated());
+    return contents->accelerate_store_level;
+}
+
+const LoopLevel &FuncSchedule::accelerate_store_level() const {
+    internal_assert(is_accelerated());
+    return contents->accelerate_store_level;
 }
 
 void FuncSchedule::accept(IRVisitor *visitor) const {

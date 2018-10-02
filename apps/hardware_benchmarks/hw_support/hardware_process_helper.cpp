@@ -76,10 +76,27 @@ void ProcessController::print_usage() {
             << "  make eval\n";
 }
 
+std::string enumerate_keys(std::map<std::string, std::function<void()>> run_calls) {
+  std::string hardware_set = "{";
+  bool first_call = true;
+  for (auto hw_func_pair : run_calls) {
+    if (!first_call) {
+      hardware_set += ",";
+    }
+    hardware_set += hw_func_pair.first;
+  }
+  hardware_set += "}";
+  return hardware_set;
+}
+
+bool function_defined(std::string key, std::map<std::string, std::function<void()>> map) {
+  return map.count(key) > 0;
+}
+
 int OneInOneOut_ProcessController::make_image_def(std::vector<std::string> args) {
   if (args.size() != 0) {
     std::cout << "Usage:\n"
-              << "  make image\n";
+              << "  ./process image\n";
     return 1;
   }
 
@@ -91,19 +108,25 @@ int OneInOneOut_ProcessController::make_image_def(std::vector<std::string> args)
 }
 
 int OneInOneOut_ProcessController::make_run_def(std::vector<std::string> args) {
+  // Check hardware name used exists in run_calls
+  bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
+  
   // Input image: create or load
-  if (args.size() == 0) {
+  if (args.size() == 1 && hw_name_defined) {
     create_image(&input);
-  } else if (args.size() == 1) {
-    input = load_and_convert_image(args[0]);
+  } else if (args.size() == 2 && hw_name_defined) {
+    input = load_and_convert_image(args[1]);
   } else {
+    std::string hardware_set = enumerate_keys(run_calls);
     std::cout << "Usage:\n"
-              << "  make run-" << hardware_name << " {input.png}\n"
+              << "  ./process run " << hardware_set << " [input.png]\n"
               << "  Note: input.png is optional\n";
     return 1;
   }
 
   // run on input image
+  std::string hardware_name = args[0];
+  std::function<void()> run_call = run_calls.at(hardware_name);
   run_call();
   convert_and_save_image(output, "bin/output.png");
     
@@ -121,7 +144,7 @@ int OneInOneOut_ProcessController::make_compare_def(std::vector<std::string> arg
     output_comparison = load_and_convert_image(args[1]);
   } else {
     printf("Usage:\n");
-    printf("  make compare output0.png output1.png\n");
+    printf("  ./process compare output0.png output1.png\n");
     return 1;
   }
 
@@ -144,18 +167,24 @@ int OneInOneOut_ProcessController::make_test_def(std::vector<std::string> args) 
 }
 
 int OneInOneOut_ProcessController::make_eval_def(std::vector<std::string> args) {
+  // Check hardware name used exists in run_calls
+  bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
+    
   // Input image: create or load
-  if (args.size() == 0) {
+  if (args.size() == 1 && hw_name_defined) {
     create_image(&input);
-  } else if (args.size() == 1) {
-    input = load_and_convert_image(args[0]);
+  } else if (args.size() == 2 && hw_name_defined) {
+    input = load_and_convert_image(args[1]);
   } else {
-    printf("Usage:\n");
-    printf("  make eval {input.png}\n");
-    printf("  Note: input.png is optional");
+    std::string hardware_set = enumerate_keys(run_calls);
+    std::cout << "Usage:\n"
+              << "  ./process eval " << hardware_set << " [input.png]\n"
+              << "  Note: input.png is optional\n";
     return 1;
   }
 
+  std::string hardware_name = args[0];
+  std::function<void()> run_call = run_calls.at(hardware_name);
   // Timing code
   double min_t_manual = benchmark(10, 10, [&]() {
       run_call();

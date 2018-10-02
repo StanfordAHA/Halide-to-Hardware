@@ -10,11 +10,12 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController processor("cpu",
-                                          "conv_3_3",
-                                          [&]() {
-                                            conv_3_3(processor.input, processor.output);
-                                          });
+    OneInOneOut_ProcessController processor("conv_3_3",
+                                            {
+                                              {"cpu",
+                                                  [&]() { conv_3_3(processor.input, processor.output); }
+                                              }
+                                            });
 
   processor.input = Buffer<uint16_t>(64, 64);
   processor.output = Buffer<uint16_t>(62, 62);

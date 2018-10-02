@@ -1,12 +1,12 @@
 #include <cstdio>
+#include <map>
 
 #include "HalideBuffer.h"
 
 class ProcessController {
  public:
-  ProcessController(std::string hw_name, std::string name) :
-    hardware_name(hw_name), design_name(name) {
-    
+  ProcessController(std::string app_name) :
+    design_name(app_name) {
   }
   
   int process_command(int argc, char **argv);
@@ -27,8 +27,8 @@ class ProcessController {
 
 class OneInOneOut_ProcessController : public ProcessController {
  public:
- OneInOneOut_ProcessController(std::string hw_name, std::string name, std::function<void()> op) :
-  ProcessController(hw_name, name), run_call(op) { }
+ OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
+  ProcessController(app_name), run_calls(ops) { }
 
   // overridden methods
   virtual int make_image_def(std::vector<std::string> args);
@@ -40,5 +40,5 @@ class OneInOneOut_ProcessController : public ProcessController {
   // buffers
   Halide::Runtime::Buffer<uint16_t> input;
   Halide::Runtime::Buffer<uint16_t> output;
-  std::function<void()> run_call;
+  std::map<std::string, std::function<void()>> run_calls;
 };

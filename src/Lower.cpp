@@ -18,6 +18,7 @@
 #include "DebugToFile.h"
 #include "Deinterleave.h"
 #include "EarlyFree.h"
+#include "ExtractHWKernelDAG.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "Function.h"
@@ -53,6 +54,7 @@
 #include "SplitTuples.h"
 #include "StorageFlattening.h"
 #include "StorageFolding.h"
+#include "StreamOpt.h"
 #include "StrictifyFloat.h"
 #include "Substitute.h"
 #include "Tracing.h"
@@ -159,8 +161,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     // This pass injects nested definitions of variable names, so we
     // can't simplify statements from here until we fix them up. (We
     // can still simplify Exprs).
+    vector<BoundsInference_Stage> inlined_stages;
     debug(1) << "Performing computation bounds inference...\n";
-    s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, t);
+    s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, inlined_stages, t);
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
@@ -182,6 +185,20 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
+    {
+      // passes specific to HLS backend
+      debug(1) << "Performing HLS target optimization..\n";
+      vector<HWKernelDAG> dags;
+      s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+
+      for(const HWKernelDAG &dag : dags) {
+        s = stream_opt(s, dag);
+        //s = replace_image_param(s, dag);
+      }
+
+      debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
+    }
+    
     debug(1) << "Simplifying...\n";
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
