@@ -300,6 +300,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"tsan", Target::TSAN},
     {"asan", Target::ASAN},
     {"check_unsafe_promises", Target::CheckUnsafePromises},
+    {"coreir", Target::CoreIR},
     {"coreir_valid", Target::CoreIRValid},
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.

@@ -1144,8 +1144,9 @@ typedef enum halide_target_feature_t {
     halide_target_feature_asan = 53, ///< Enable hooks for ASAN support.
     halide_target_feature_d3d12compute = 54, ///< Enable Direct3D 12 Compute runtime.
     halide_target_feature_check_unsafe_promises = 55, ///< Insert assertions for promises.
-    halide_target_feature_coreir_valid = 56, ///< Enable output signal valid for CoreIR.
-    halide_target_feature_end = 57 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
+    halide_target_feature_coreir = 56, ///< Enable output to CoreIR.
+    halide_target_feature_coreir_valid = 57, ///< Enable output signal valid for CoreIR.
+    halide_target_feature_end = 58 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
 } halide_target_feature_t;
 
 /** This function is called internally by Halide in some situations to determine

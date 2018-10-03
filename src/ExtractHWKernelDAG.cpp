@@ -668,8 +668,8 @@ public:
     BuildDAGForFunction(Function f, const map<string, Function> &e,
                         const vector<BoundsInference_Stage> &s)
         : func(f), env(e), inlined_stages(s),
-          compute_level(f.schedule().accelerate_compute_level()),
-          store_level(f.schedule().accelerate_store_level()),
+          compute_level(f.schedule().accelerate_compute_level().lock()),
+          store_level(f.schedule().accelerate_store_level().lock()),
           is_scan_loops(false) {}
 
     HWKernelDAG build(Stmt s) {

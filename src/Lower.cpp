@@ -185,7 +185,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    {
+    if (t.has_feature(Target::CoreIR)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       vector<HWKernelDAG> dags;

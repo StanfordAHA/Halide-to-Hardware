@@ -99,6 +99,7 @@ struct Target {
         TSAN = halide_target_feature_tsan,
         ASAN = halide_target_feature_asan,
         CheckUnsafePromises = halide_target_feature_check_unsafe_promises,
+        CoreIR = halide_target_feature_coreir,
         CoreIRValid = halide_target_feature_coreir_valid,
         FeatureEnd = halide_target_feature_end
     };
