@@ -2201,7 +2201,6 @@ Stmt schedule_functions(const vector<Function> &outputs,
             // copy the compute and store levels from the accelerator
             // pipeline exit function
             if (f.schedule().is_hw_kernel() && f.schedule().is_linebuffered()) {
-              std::cout << "xcel exit is " << f.schedule().accelerate_exit() << std::endl;
               internal_assert(env.count(f.schedule().accelerate_exit()));
               Function func_exit = env.find(f.schedule().accelerate_exit())->second;
               f.schedule().compute_level() = func_exit.schedule().accelerate_compute_level();

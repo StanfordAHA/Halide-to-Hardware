@@ -346,11 +346,6 @@ FuncSchedule FuncSchedule::deep_copy(
     // HLS related fields
     copy.contents->is_hw_kernel = contents->is_hw_kernel;
     copy.contents->is_accelerated = contents->is_accelerated;
-    if (contents->is_accelerated) {
-      std::cout << "deep copying: ";
-      std::cout << contents->store_level.lock().func() << "\n";
-      //std::cout << "." << contents->store_level.lock().var().name() << "\n";
-    }
     copy.contents->is_linebuffered = contents->is_linebuffered;
     copy.contents->accelerate_inputs = contents->accelerate_inputs;
     copy.contents->accelerate_exit = contents->accelerate_exit;

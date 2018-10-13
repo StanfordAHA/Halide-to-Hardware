@@ -530,15 +530,12 @@ class StorageFolding : public IRMutator {
         // Get the function associated with this realization, which
         // contains the explicit fold directives from the schedule.
         auto func_it = env.find(op->name);
-        bool func_found = (func_it != env.end());
-        std::cout << op->name << " with found=" << func_found << std::endl;
 
         // if it is a realize node of a stream or a stencil, skip it
         if (ends_with(op->name, ".stencil") ||
             ends_with(op->name, ".stencil_update") ||
             ends_with(op->name, ".stream")) {
           debug(3) << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
-          std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
           if (body.same_as(op->body)) {
             stmt = op;
           } else {

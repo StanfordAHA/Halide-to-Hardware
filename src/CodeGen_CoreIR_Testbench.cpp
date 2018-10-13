@@ -26,7 +26,6 @@ public:
   CoreIR_Closure(Stmt s, string output_string)  {
         s.accept(this);
         output_name = output_string;
-        std::cout << "creating closure with name " << output_name << std::endl;
     }
 
     vector<CoreIR_Argument> arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &scope);
@@ -56,7 +55,6 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Bas
     internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
         debug(3) << "var: " << i.first << "\n";
-        std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
             CodeGen_CoreIR_Base::Stencil_Type stype = streams_scope.get(i.first);
@@ -99,10 +97,8 @@ CodeGen_CoreIR_Testbench::~CodeGen_CoreIR_Testbench() {
 void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
     string target_prefix = "_hls_target.";
     if (starts_with(op->name, target_prefix)) {
-      std::cout << "found hls target named " << op->name << "\n";
       if (op->is_producer) {
         Stmt hw_body = op->body;
-        std::cout << op->body << std::endl;
 
         debug(1) << "compute the closure for " << op->name << '\n';
 

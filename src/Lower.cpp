@@ -191,7 +191,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
-      std::cout << "extracted dags for a total of " << dags.size() << "\n";
       for(const HWKernelDAG &dag : dags) {
         s = stream_opt(s, dag);
         //s = replace_image_param(s, dag);
@@ -208,8 +207,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = storage_folding(s, env);
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
 
-    std::cout << "finished storage opts\n" << s << std::endl;
-    
     debug(1) << "Injecting debug_to_file calls...\n";
     s = debug_to_file(s, outputs, env);
     debug(2) << "Lowering after injecting debug_to_file calls:\n" << s << '\n';
@@ -226,14 +223,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = split_tuples(s, env);
     debug(2) << "Lowering after destructuring tuple-valued realizations:\n" << s << "\n\n";
 
-    std::cout << "before flattening opts\n" << s << std::endl;
-    
     debug(1) << "Performing storage flattening...\n";
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
 
-    std::cout << "after flattening opt\n" << s << std::endl;
-    
     debug(1) << "Unpacking buffer arguments...\n";
     s = unpack_buffers(s);
     debug(2) << "Lowering after unpacking buffer arguments...\n" << s << "\n\n";
@@ -283,8 +276,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = unroll_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after unrolling:\n" << s << "\n\n";
-
-    std::cout << "finished unrolling opts\n" << s << std::endl;
 
     debug(1) << "Vectorizing...\n";
     s = vectorize_loops(s, t);

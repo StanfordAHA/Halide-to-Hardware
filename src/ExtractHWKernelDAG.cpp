@@ -415,7 +415,6 @@ class BuildDAGForFunction : public IRVisitor {
     using IRVisitor::visit;
 
     void visit(const ProducerConsumer *op) {
-      std::cout << "visiting pc in builddag\n";
         // match store level at PC node in case the looplevel is outermost
       if (store_level.lock().func() == op->name &&
           store_level.lock().var().name() == Var::outermost().name()) {
@@ -425,7 +424,6 @@ class BuildDAGForFunction : public IRVisitor {
     }
 
     void visit(const For *op) {
-      std::cout << "visiting for in builddag\n";
         // scan loops are loops between store level (exclusive) and
         // the compute level (inclusive) of the accelerated function
         if (is_scan_loops && starts_with(op->name, func.name() + ".")) {
@@ -537,12 +535,6 @@ class BuildDAGForFunction : public IRVisitor {
                     if (dag.kernels.count(stage.name))
                         cur_kernel = dag.kernels[stage.name];
 
-                    std::cout << stage.name
-                              << " has compute=" << cur_func.schedule().compute_level().lock().to_string()
-                              << " has store=" << cur_func.schedule().store_level().lock().to_string()
-                              << " has xcompute=" << compute_level.lock().to_string()
-                              << " has xstore=" << store_level.lock().to_string()
-                              << std::endl;
                     // figure out whether it is a line buffered kernel or an inlined kernel
                     if (func.schedule().accelerate_inputs().count(stage.name) ||
                         (compute_level == cur_func.schedule().compute_level() &&
@@ -550,20 +542,16 @@ class BuildDAGForFunction : public IRVisitor {
                         // it is a linebuffered kernel
                         cur_kernel.is_inlined = false;
                         debug(3) << "[buffered]\n";
-                        std::cout << "[buffered]\n";
                     } else {
                         // It is a function "inlined" into a buffered kernel
                         cur_kernel.is_inlined = true;
                         debug(3) << "[inlined]\n";
-                        std::cout << "[inlined]\n";
                     }
 
                     // merge the bounds of consumers if they are inlined into the same buffered kernel
                     map<string, Box> consumer_boxes;
-                    std::cout << "kernel " << cur_kernel.name << " has consumers: ";
                     for (size_t j = 0; j < stage.consumers.size(); j++) {
                         const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
-                        std::cout << consumer.name;
                         const Box &b = stage.bounds.find(make_pair(consumer.name,
                                                                    consumer.stage))->second;
 
@@ -577,21 +565,17 @@ class BuildDAGForFunction : public IRVisitor {
                             // the consumer is the kernel itself, meaning the kernel is non-pure
                             // TODO check if there is something to be done in this branch
                             buffered_kernel_name = cur_kernel.name;
-                            std::cout << "*";
                         } else {
                             internal_assert(dag.kernels.count(consumer.name) == 1);
                             const HWKernel &consumer_kernel = dag.kernels[consumer.name];
                             if (!consumer_kernel.is_inlined) {
                                 buffered_kernel_name = consumer_kernel.name;
-                                std::cout << "~";
                             } else {
                                 internal_assert(consumer_kernel.consumer_stencils.size() == 1)
                                     << "The inlined kernel " << consumer.name << "has more than one consumer.\n";
                                 buffered_kernel_name = consumer_kernel.consumer_stencils.begin()->first;
-                                std::cout << "^";
                             }
                         }
-                        std::cout << " (" << buffered_kernel_name << "), ";
 
                         // merge the bounds given the name of the buffered kernel
                         if (consumer_boxes.count(buffered_kernel_name)) {
@@ -600,14 +584,12 @@ class BuildDAGForFunction : public IRVisitor {
                             consumer_boxes[buffered_kernel_name] = b;
                         }
                     }
-                    std::cout << std::endl;
 
                     // extract the stencil specs for each merged consumer bounds
                     for (const auto &p : consumer_boxes) {
                         // insert the consumer name if it is not the kernel function itself
                         // FIXME I am not sure whether this IF condition is correct
                         if (p.first != cur_kernel.name) {
-                          std::cout << "extracted stencil: " << p.first << "\n";
                             vector<StencilDimSpecs> consumer_stencil;
                             consumer_stencil = extract_stencil_specs(p.second, scan_loops, stencil_bounds, store_bounds);
                             debug(3) << "extracted stencil: " << consumer_stencil << "\n";
@@ -691,11 +673,6 @@ public:
           is_scan_loops(false) {
       debug(0) << "creating builddag\n";
 
-      std::cout << "compute level: " << compute_level.to_string() << std::endl;
-      std::cout << "store level: " << store_level.to_string() << std::endl;
-      //          << store_level.var().name() << "\n";
-      //compute_level.set(f.schedule().accelerate_compute_level());
-      //store_level.set(f.schedule().accelerate_store_level());
     }
 
     HWKernelDAG build(Stmt s) {
@@ -741,8 +718,6 @@ Stmt extract_hw_kernel_dag(Stmt s, const map<string, Function> &env,
         }
         debug(3) << "Found accelerate function " << func.name() << "\n";
         debug(3) << store_locked.func() << " " << store_varname << "\n";
-        std::cout << "Found accelerate function " << func.name() << "\n"
-                  << store_locked.func() << " " << store_varname << "\n";
         BuildDAGForFunction builder(func, env, inlined_stages);
         dags.push_back(builder.build(s));
     }

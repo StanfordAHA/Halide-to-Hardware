@@ -150,8 +150,8 @@ bool can_use_rom(Stmt s, string allocname) {
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
-    srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-//srcc(src_stream, CodeGen_CoreIR_C::CPlusPlusImplementation, target) { }
+    //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,

@@ -417,7 +417,6 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, const Scope<Expr> &scope) 
         Stmt produce_stmt = op->first;
       
         const HWKernel &kernel = dag.kernels.find(consume_node->name)->second;
-        std::cout << "transforming kernel named " << kernel.name << std::endl;
         internal_assert(!kernel.is_output);
         if (kernel.is_inlined) {
             // if it is a function inlined into the output function,
@@ -670,7 +669,6 @@ class StreamOpt : public IRMutator {
     using IRMutator::visit;
 
     void visit(const For *op) {
-      std::cout << "visit for streamopt\n";
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
             IRMutator::visit(op);
         } else if (dag.compute_level.match(op->name)) {
@@ -842,11 +840,7 @@ public:
 
 Stmt stream_opt(Stmt s, const HWKernelDAG &dag) {
     debug(3) << s << "\n";
-    std::cout << s << "\n";
-    std::cout << "doing stream opt for dag\n";
     s = StreamOpt(dag).mutate(s);
-    std::cout << "finished stream opt for dag\n";
-    std::cout << s << "\n";
     debug(3) << s << "\n";
     return s;
 }
