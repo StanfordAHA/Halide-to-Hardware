@@ -403,16 +403,21 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, const Scope<Expr> &scope) 
     Stmt ret;
 
     if (const Block *op = s.as<Block>()) { 
-        const ProducerConsumer *consume_node = op->first.as<ProducerConsumer>();
-        internal_assert(consume_node && !consume_node->is_producer);
-        const ProducerConsumer *produce_node = op->rest.as<ProducerConsumer>();
-        internal_assert(produce_node && produce_node->is_producer);
-        internal_assert(consume_node->name == produce_node->name);
+        const ProducerConsumer *produce_node = op->first.as<ProducerConsumer>();
+        const ProducerConsumer *consume_node = op->rest.as<ProducerConsumer>();
+        if (!(consume_node && produce_node)) {
+          std::cout << "didn't find pc" << std::endl;
+        }
 
-        Stmt consume_stmt = op->first;
-        Stmt produce_stmt = op->rest;
+        internal_assert(consume_node->name == produce_node->name);
+        internal_assert(consume_node && !consume_node->is_producer);
+        internal_assert(produce_node && produce_node->is_producer);
+
+        Stmt consume_stmt = op->rest;
+        Stmt produce_stmt = op->first;
       
         const HWKernel &kernel = dag.kernels.find(consume_node->name)->second;
+        std::cout << "transforming kernel named " << kernel.name << std::endl;
         internal_assert(!kernel.is_output);
         if (kernel.is_inlined) {
             // if it is a function inlined into the output function,
@@ -665,6 +670,7 @@ class StreamOpt : public IRMutator {
     using IRMutator::visit;
 
     void visit(const For *op) {
+      std::cout << "visit for streamopt\n";
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
             IRMutator::visit(op);
         } else if (dag.compute_level.match(op->name)) {
@@ -836,7 +842,11 @@ public:
 
 Stmt stream_opt(Stmt s, const HWKernelDAG &dag) {
     debug(3) << s << "\n";
+    std::cout << s << "\n";
+    std::cout << "doing stream opt for dag\n";
     s = StreamOpt(dag).mutate(s);
+    std::cout << "finished stream opt for dag\n";
+    std::cout << s << "\n";
     debug(3) << s << "\n";
     return s;
 }

@@ -79,6 +79,11 @@ public:
         debug(3) << "marked tap funcs: " << tap_funcs << "\n";
         debug(3) << "marked tap params: " << tap_params << "\n";
 
+        std::cout << "marked inputs: " << input_funcs << "\n";
+        std::cout << "marked kernels: " << kernel_funcs << "\n";
+        std::cout << "marked tap funcs: " << tap_funcs << "\n";
+        std::cout << "marked tap params: " << tap_params << "\n";
+        std::cout << "exit will be: " << output_func.name() << std::endl;
 
         for (auto &&p : kernel_funcs) {
             p.second.schedule().is_hw_kernel() = true;

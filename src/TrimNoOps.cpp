@@ -110,6 +110,17 @@ class IsNoOp : public IRVisitor {
         }
     }
 
+
+    void visit(const Provide *op) {
+      // Store op to stencil is needed op
+      if (ends_with(op->name, ".stencil")) {
+        // TODO align with Store rule
+        condition = const_false();
+      } else {
+        internal_error;
+      }
+    }
+  
     void visit(const For *op) {
         if (is_zero(condition)) {
             return;
@@ -150,6 +161,14 @@ class IsNoOp : public IRVisitor {
         if (!op->is_pure()) {
             condition = const_false();
             return;
+        }
+        if (op->call_type == Call::Intrinsic &&
+            (op->name == Call::image_store ||
+             op->name == "write_stream" ||
+             op->name == "stream_subimage" ||
+             op->name == "buffer_to_stencil")) {
+          condition = const_false();
+          return;
         }
         IRVisitor::visit(op);
     }

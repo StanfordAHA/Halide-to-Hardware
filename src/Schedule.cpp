@@ -133,7 +133,8 @@ int LoopLevel::stage_index() const {
 
 VarOrRVar LoopLevel::var() const {
     check_defined_and_locked();
-    internal_assert(!is_inlined() && !is_root());
+    internal_assert(!is_inlined());
+    internal_assert(!is_root());
     return VarOrRVar(contents->var_name, contents->is_rvar);
 }
 
@@ -214,7 +215,7 @@ struct FuncScheduleContents {
     std::map<std::string, Internal::FunctionPtr> wrappers;
     bool memoized;
     MemoryType memory_type;
-      bool is_hw_kernel;   // TODO equivalent to !accelerate_exit.empty()
+    bool is_hw_kernel;   // TODO equivalent to !accelerate_exit.empty()
     bool is_accelerated;  // TODO equivalent to !accelerate_input.empty()
     bool is_linebuffered;
     std::set<std::string> accelerate_inputs;
@@ -228,7 +229,8 @@ struct FuncScheduleContents {
 
     FuncScheduleContents() :
         store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
-        memoized(false), memory_type(MemoryType::Auto) {};
+        memoized(false), memory_type(MemoryType::Auto), is_hw_kernel(false),
+        is_accelerated(false), is_linebuffered(false) {};
 
     // Pass an IRMutator2 through to all Exprs referenced in the FuncScheduleContents
     void mutate(IRMutator2 *mutator) {
@@ -331,6 +333,7 @@ FuncSchedule FuncSchedule::deep_copy(
         std::map<FunctionPtr, FunctionPtr> &copied_map) const {
 
     internal_assert(contents.defined()) << "Cannot deep-copy undefined FuncSchedule\n";
+      
     FuncSchedule copy;
     copy.contents->store_level = contents->store_level;
     copy.contents->compute_level = contents->compute_level;
@@ -343,6 +346,11 @@ FuncSchedule FuncSchedule::deep_copy(
     // HLS related fields
     copy.contents->is_hw_kernel = contents->is_hw_kernel;
     copy.contents->is_accelerated = contents->is_accelerated;
+    if (contents->is_accelerated) {
+      std::cout << "deep copying: ";
+      std::cout << contents->store_level.lock().func() << "\n";
+      //std::cout << "." << contents->store_level.lock().var().name() << "\n";
+    }
     copy.contents->is_linebuffered = contents->is_linebuffered;
     copy.contents->accelerate_inputs = contents->accelerate_inputs;
     copy.contents->accelerate_exit = contents->accelerate_exit;

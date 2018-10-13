@@ -432,7 +432,8 @@ class MightBeSkippable : public IRVisitor {
 
     void visit(const Call *op) {
         IRVisitor::visit(op);
-        if (op->call_type == Call::Halide) {
+        if (op->call_type == Call::Halide ||
+            (ends_with(op->name, ".stencil"))) {
             unconditionally_used.insert(op->name);
         }
     }

@@ -2631,6 +2631,7 @@ public:
         bool emit_stmt{false};
         bool emit_stmt_html{false};
         bool emit_static_library{true};
+        bool emit_coreir{false};
         bool emit_cpp_stub{false};
         bool emit_schedule{false};
 

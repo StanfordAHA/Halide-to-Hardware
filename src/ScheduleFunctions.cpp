@@ -1973,7 +1973,7 @@ bool validate_schedule(Function f, Stmt s, const Target &target, bool is_output,
             user_error << "Func " << f.name() << " is an output, so must"
                        << " be scheduled compute_root (which is the default).\n";
         }
-    }
+    }    
 
     // Otherwise inspect the uses to see what's ok.
     ComputeLegalSchedules legal(f, env);
@@ -2195,6 +2195,17 @@ Stmt schedule_functions(const vector<Function> &outputs,
             bool is_output = false;
             for (Function o : outputs) {
                 is_output = is_output | o.same_as(f);
+            }
+
+            // if the function is linebuffered hardware kernel,
+            // copy the compute and store levels from the accelerator
+            // pipeline exit function
+            if (f.schedule().is_hw_kernel() && f.schedule().is_linebuffered()) {
+              std::cout << "xcel exit is " << f.schedule().accelerate_exit() << std::endl;
+              internal_assert(env.count(f.schedule().accelerate_exit()));
+              Function func_exit = env.find(f.schedule().accelerate_exit())->second;
+              f.schedule().compute_level() = func_exit.schedule().accelerate_compute_level();
+              f.schedule().store_level() = func_exit.schedule().accelerate_store_level();
             }
 
             bool necessary = validate_schedule(f, s, target, is_output, env);

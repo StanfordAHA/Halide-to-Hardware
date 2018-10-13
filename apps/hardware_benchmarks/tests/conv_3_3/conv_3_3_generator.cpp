@@ -27,14 +27,30 @@ public:
         conv(x, y) = 0;
 
         conv(x, y)  += kernel(r.x, r.y) * input(x + r.x, y + r.y);
-        output(x, y) = cast<uint16_t>(conv(x, y));
+
+        Func hw_output;
+        hw_output(x, y) = cast<uint16_t>(conv(x, y));
+        output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
-        kernel.compute_root();
-        conv.compute_root();
-        conv.update()
-          .unroll(r.x, 3)
-          .unroll(r.y, 3);
+        if (get_target().has_feature(Target::CoreIR)) {
+          Var xi,yi, xo,yo;
+          kernel.compute_root();
+          conv.compute_root();
+          conv.update()
+            .unroll(r.x, 3)
+            .unroll(r.y, 3);
+          
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+            .accelerate({input}, xi, xo, {});
+          
+        } else {  // schedule to CPU
+          kernel.compute_root();
+          conv.compute_root();
+          conv.update()
+            .unroll(r.x, 3)
+            .unroll(r.y, 3);
+        }
         
     }
 };

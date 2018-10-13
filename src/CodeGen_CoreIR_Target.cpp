@@ -191,22 +191,29 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
-  std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
+  std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
+                                             //"div",
                                              "counter", "linebuffer",
                                              "muxn", "abs", "absd",
-                                             "reg_array", "const_array"};
+                                             "reg_array"
+                                             //, "const_array"
+  };
   for (auto gen_name : commonlib_gen_names) {
     gens[gen_name] = "commonlib." + gen_name;
+    std::cout << gen_name << " is needed\n";
     assert(context->hasGenerator(gens[gen_name]));
   }
 
 
   // add all modules from memory
   context->getNamespace("memory");
-  std::vector<string> memorylib_gen_names = {"ram", "rom2", "fifo"};
+  std::vector<string> memorylib_gen_names = {"ram",
+                                             //"rom2",
+                                             "fifo"};
 
   for (auto gen_name : memorylib_gen_names) {
     gens[gen_name] = "memory." + gen_name;
+    std::cout << gen_name << " is needed\n";
     assert(context->hasGenerator(gens[gen_name]));
   }
   
@@ -265,7 +272,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
 
     //context->runPasses({"rungenerators", "removewires"});
 		context->runPasses({"rungenerators","flatten","removewires"});
-		context->runPasses({"verifyconnectivity-onlyinputs-noclkrst"},{"global","commonlib","memory","mantle"});
+		//context->runPasses({"verifyconnectivity-onlyinputs-noclkrst"},{"global","commonlib","memory","mantle"});
 		//context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
     cout << "Validating json" << endl;
@@ -309,6 +316,11 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
     
     CoreIR::deleteContext(context);
   } else {
+    if (def == NULL) {
+      cout << "null def- \n";
+    } else if (!def->hasInstances()) {
+      cout << "no instances- \n";
+    }
     cout << "No target json outputted " << endl;
   }
 }
@@ -415,6 +427,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   stream << "void " << print_name(name) << "(\n";
   for (size_t i = 0; i < args.size(); i++) {
     string arg_name = "arg_" + std::to_string(i);
+    cout << arg_name << " is_stencil=" << args[i].is_stencil << "\n";
     if (args[i].is_stencil) {
       CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
 
@@ -485,6 +498,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   // Create CoreIR design interface with input and output types.
   //  Output a valid bit if that exists in the design.
   CoreIR::Type* design_type;
+  cout << "creating a design with " << input_types.size()
+       << " inputs from " << args.size() << " args\n";
   if (has_valid) {
     design_type = context->Record({
       {"in", context->Record(input_types)},

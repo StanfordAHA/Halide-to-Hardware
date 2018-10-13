@@ -120,6 +120,9 @@ Outputs compute_outputs(const Target &target,
     if (options.emit_schedule) {
         output_files.schedule_name = base_path + get_extension(".schedule", options);
     }
+    if (options.emit_coreir) {
+        output_files.coreir_source_name = base_path + get_extension(".json", options);
+    }
     return output_files;
 }
 
@@ -915,6 +918,8 @@ int generate_filter_main(int argc, char **argv, std::ostream &cerr) {
                 emit_options.emit_cpp_stub = true;
             } else if (opt == "schedule") {
                 emit_options.emit_schedule = true;
+            } else if (opt == "coreir") {
+                emit_options.emit_coreir = true;
             } else if (!opt.empty()) {
                 cerr << "Unrecognized emit option: " << opt
                      << " not one of [assembly, bitcode, cpp, h, html, o, static_library, stmt, cpp_stub], ignoring.\n";

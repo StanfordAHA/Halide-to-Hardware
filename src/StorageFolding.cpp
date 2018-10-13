@@ -530,11 +530,29 @@ class StorageFolding : public IRMutator {
         // Get the function associated with this realization, which
         // contains the explicit fold directives from the schedule.
         auto func_it = env.find(op->name);
-        Function func = func_it != env.end() ? func_it->second : Function();
+        bool func_found = (func_it != env.end());
+        std::cout << op->name << " with found=" << func_found << std::endl;
+
+        // if it is a realize node of a stream or a stencil, skip it
+        if (ends_with(op->name, ".stencil") ||
+            ends_with(op->name, ".stencil_update") ||
+            ends_with(op->name, ".stream")) {
+          debug(3) << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
+          std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
+          if (body.same_as(op->body)) {
+            stmt = op;
+          } else {
+            stmt = Realize::make(op->name, op->types, MemoryType::Auto, op->bounds, op->condition, body);
+          }
+          return;
+        }
+
+        Function func = func_it != env.end() ? func_it->second : Function("_func_with_no_name");
 
         // Don't attempt automatic storage folding if there is
         // more than one produce node for this func.
         bool explicit_only = count_producers(body, op->name) != 1;
+        
         AttemptStorageFoldingOfFunction folder(func, explicit_only);
         debug(3) << "Attempting to fold " << op->name << "\n";
         body = folder.mutate(body);

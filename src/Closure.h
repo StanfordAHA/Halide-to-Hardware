@@ -28,11 +28,13 @@ protected:
 
     void visit(const Let *op);
     void visit(const LetStmt *op);
+    void visit(const Call *op);
     void visit(const For *op);
     void visit(const Load *op);
     void visit(const Store *op);
     void visit(const Allocate *op);
     void visit(const Variable *op);
+    void visit(const Realize *op);
 
 public:
     /** Information about a buffer reference from a closure. */

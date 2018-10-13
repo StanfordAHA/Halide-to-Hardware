@@ -21,6 +21,9 @@ TESTNAME ?= undefined_testname
 default: all
 all: $(BIN)/process
 
+halide compiler:
+	$(MAKE) -C ../../../../
+
 $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_helper.cpp
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -30,9 +33,17 @@ generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DE
 	@-mkdir -p $(BIN)
 	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
-design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
+design $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
+
+design-cpu: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-cpu
+
+design-coreir: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir
 
 $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o
 	@-mkdir -p $(BIN)

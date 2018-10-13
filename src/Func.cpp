@@ -2454,6 +2454,8 @@ Func &Func::accelerate(vector<Func> inputs,
 
     debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
              << " " << store_var.name() << "\n";
+    std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
 
     for (size_t i = 0; i < inputs.size(); i++) {
         Function hw_in = inputs[i].function();
@@ -2469,9 +2471,15 @@ Func &Func::accelerate(vector<Func> inputs,
     // schedule the compute and store levels of the hw_out,
     // which later becomes the constraints of the accelerator pipeline.
     func.schedule().is_accelerated() = true;
-    func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var);
-    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var);
-
+    func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
+    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+    std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
+              << " varname=" << func.schedule().accelerate_compute_level().var().name()
+              << "\n";
+    std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+              << " varname=" << func.schedule().accelerate_store_level().var().name()
+              << "\n";
+    
     // hw_out is stored in kernel buffer slice, this function store in kernel buffer
     func.schedule().is_kernel_buffer_slice() = true;
     func.schedule().is_kernel_buffer() = true;
@@ -2482,9 +2490,19 @@ Func &Func::accelerate(vector<Func> inputs,
     for (const auto &f : taps)  tap_names.insert(f.name());
     mark_hw_kernels(func, func.schedule().accelerate_inputs(), tap_names);
 
+    LoopLevel store_locked = func.schedule().store_level().lock();
+    LoopLevel compute_locked = func.schedule().compute_level().lock();
+    string store_varname =
+      store_locked.is_root() ? "root" :
+      store_locked.is_inlined() ? "inlined" :
+      store_locked.var().name();
+    string compute_varname =
+      compute_locked.is_root() ? "root" :
+      compute_locked.is_inlined() ? "inlined" :
+      compute_locked.var().name();
     debug(3) << "check function " << func.name() << " " << func.schedule().is_accelerated() <<  "\n";
-    debug(3) << func.schedule().store_level().func() << " " << func.schedule().store_level().var().name() << "\n";
-    debug(3) << func.schedule().compute_level().func() << " " << func.schedule().compute_level().var().name() << "\n";
+    debug(3) << store_locked.func() << " " << store_varname << "\n";
+    debug(3) << compute_locked.func() << " " << compute_varname << "\n";
 
     return *this;
 }
