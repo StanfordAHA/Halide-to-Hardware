@@ -26,23 +26,29 @@ public:
 
         conv(x, y) = 0;
 
-        conv(x, y)  += kernel(r.x, r.y) * input(x + r.x, y + r.y);
+        Func hw_input("hw_input");
+        hw_input(x, y) = input(x, y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
-        Func hw_output;
+        Func hw_output("hw_output");
         hw_output(x, y) = cast<uint16_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          kernel.compute_root();
-          conv.compute_root();
+          
+          hw_input.compute_root();
+          hw_output.compute_root();
+          
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+            .accelerate({hw_input}, xi, xo, {});
+
           conv.update()
             .unroll(r.x, 3)
             .unroll(r.y, 3);
-          
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
-            .accelerate({input}, xi, xo, {});
+
+          conv.linebuffer();
           
         } else {  // schedule to CPU
           kernel.compute_root();

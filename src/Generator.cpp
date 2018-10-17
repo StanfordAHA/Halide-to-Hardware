@@ -121,7 +121,7 @@ Outputs compute_outputs(const Target &target,
         output_files.schedule_name = base_path + get_extension(".schedule", options);
     }
     if (options.emit_coreir) {
-        output_files.coreir_source_name = base_path + get_extension(".json", options);
+        output_files.coreir_source_name = base_path + get_extension("_coreir.cpp", options);
     }
     return output_files;
 }
@@ -979,9 +979,11 @@ int generate_filter_main(int argc, char **argv, std::ostream &cerr) {
                     gen->set_generator_param_values(sub_generator_args);
                     return gen->build_module(name);
                 };
+            std::cout << "compiling here in generator" << std::endl;
             if (targets.size() > 1 || !emit_options.substitutions.empty()) {
                 compile_multitarget(function_name, output_files, targets, module_producer, emit_options.substitutions);
             } else {
+              std::cout << "compiling only one target" << std::endl;
                 user_assert(emit_options.substitutions.empty()) << "substitutions not supported for single-target";
                 // compile_multitarget() will fail if we request anything but library and/or header,
                 // so defer directly to Module::compile if there is a single target.

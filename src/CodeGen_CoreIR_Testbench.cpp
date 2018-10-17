@@ -98,6 +98,7 @@ void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
     string target_prefix = "_hls_target.";
     if (starts_with(op->name, target_prefix)) {
       if (op->is_producer) {
+        std::cout << "found a pc for generating coreir" << std::endl;
         Stmt hw_body = op->body;
 
         debug(1) << "compute the closure for " << op->name << '\n';

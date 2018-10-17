@@ -22,7 +22,10 @@ class CodeGen_CoreIR_Testbench : public CodeGen_CoreIR_Base {
 public:
   CodeGen_CoreIR_Testbench(std::ostream &tb_stream, Target target);
     ~CodeGen_CoreIR_Testbench();
-
+    void set_output_folder(std::string folderpath) {
+      cg_target.set_output_folder(folderpath);
+    }
+    
 protected:
     using CodeGen_CoreIR_Base::visit;
 

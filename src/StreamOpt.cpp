@@ -328,7 +328,7 @@ bool need_linebuffer(const HWKernel &kernel) {
     // check if we need a line buffer
     bool ret = false;
     for (size_t i = 0; i < kernel.dims.size(); i++) {
-        if (kernel.dims[i].size != kernel.dims[i].step) {
+      if (kernel.dims.at(i).size != kernel.dims.at(i).step) {
             ret = true;
             break;
         }

@@ -430,9 +430,16 @@ void Module::compile(const Outputs &output_files_arg) const {
     }
     if (!output_files.coreir_source_name.empty()) {
       debug(1) << "Module.compile(): coreir_source_name " << output_files.coreir_source_name << "\n";
+
+      std::string coreir_output = output_files.coreir_source_name;
       std::ofstream file(output_files.coreir_source_name);
       Internal::CodeGen_CoreIR_Testbench cg(file,
                                             target());
+
+      std::string foldername = coreir_output.substr(0, coreir_output.find_last_of("/"));
+      cg.set_output_folder(foldername);
+      std::cout << "Module.compile(): coreir_source_name " << output_files.coreir_source_name
+                << " with folder=" << foldername << "\n";
       cg.compile(*this);
     }
 
@@ -677,6 +684,17 @@ void compile_multitarget(const std::string &fn_name,
     if (!output_files.static_library_name.empty()) {
         debug(1) << "compile_multitarget: static_library_name " << output_files.static_library_name << "\n";
         create_static_library(temp_dir.files(), base_target, output_files.static_library_name);
+    }
+
+    if (!output_files.coreir_source_name.empty()) {
+      std::cout << "compile_multitarget: coreir output named: " << output_files.coreir_source_name << std::endl;
+      Target coreir_target = base_target
+        .with_feature(Target::CPlusPlusMangling)
+        .with_feature(Target::CoreIR);
+      Module module(fn_name, coreir_target);
+      Outputs coreir_out = Outputs().coreir_source(output_files.coreir_source_name);
+      module.compile(coreir_out);
+
     }
 }
 

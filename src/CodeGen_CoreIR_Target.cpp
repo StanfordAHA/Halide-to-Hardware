@@ -159,9 +159,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
     CodeGen_CoreIR_Base(s, target, output_kind), has_valid(target.has_feature(Target::CoreIRValid)) {
   // set up coreir generation
   bitwidth = 16;
-  std::cout << "about to make coreir context\n";
   context = CoreIR::newContext();
-  std::cout << "made coreir context;\n";
   global_ns = context->getGlobal();
 
   // add all generators from coreirprims
@@ -200,7 +198,6 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   };
   for (auto gen_name : commonlib_gen_names) {
     gens[gen_name] = "commonlib." + gen_name;
-    std::cout << gen_name << " is needed\n";
     assert(context->hasGenerator(gens[gen_name]));
   }
 
@@ -213,7 +210,6 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   for (auto gen_name : memorylib_gen_names) {
     gens[gen_name] = "memory." + gen_name;
-    std::cout << gen_name << " is needed\n";
     assert(context->hasGenerator(gens[gen_name]));
   }
   
@@ -228,8 +224,8 @@ CodeGen_CoreIR_Target::~CodeGen_CoreIR_Target() {
   hdr_stream << "#endif\n";
 
   // write the header and the source streams into files
-  string src_name = target_name + ".cpp";
-  string hdr_name = target_name + ".h";
+  string src_name = output_base_path + "/" + target_name + "_debug_output.cpp";
+  string hdr_name = output_base_path + "/" + target_name + "_debug_output.h";
   ofstream src_file(src_name.c_str());
   ofstream hdr_file(hdr_name.c_str());
   src_file << src_stream.str() << endl;
@@ -252,7 +248,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
     //cout << "Running Passes: generators and flattening" << endl;    
     //context->runPasses({"rungenerators","flatten"});
     cout << "Saving to json" << endl;
-    if (!saveToFile(global_ns, "design_prepass.json", design)) {
+    if (!saveToFile(global_ns, output_base_path + "/design_prepass.json", design)) {
       cout << RED << "Could not save to json!!" << RESET << endl;
       context->die();
     }
@@ -260,12 +256,12 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
 
     context->runPasses({"rungenerators","removewires"});
     //context->runPasses({"rungenerators"});
-    if (!saveToFile(global_ns, "design_top.json", design)) {
+    if (!saveToFile(global_ns, output_base_path + "/design_top.json", design)) {
       cout << RED << "Could not save to json!!" << RESET << endl;
       context->die();
     }
 
-    if (!saveToDot(design, "design_top.txt")) {
+    if (!saveToDot(design, output_base_path + "/design_top.txt")) {
       cout << RED << "Could not save to dot!!" << RESET << endl;
       context->die();
     }
@@ -281,30 +277,30 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
   
     // write out the json
     cout << "Saving json and dot" << endl;
-    if (!saveToFile(global_ns, "design_flattened.json", design)) {
+    if (!saveToFile(global_ns, output_base_path + "/design_flattened.json", design)) {
       cout << RED << "Could not save to json!!" << RESET << endl;
       context->die();
     }
-//    if (!saveToDot(design, "design_top.txt")) {
+//    if (!saveToDot(design, output_base_path + "/design_top.txt")) {
 //      cout << RED << "Could not save to dot file :(" << RESET << endl;
 //      context->die();
 //    }
   
     CoreIR::Module* m = nullptr;
     cout << "Loading json" << endl;
-    if (!loadFromFile(context, "design_top.json", &m)) {
+    if (!loadFromFile(context, output_base_path + "/design_top.json", &m)) {
       cout << RED << "Could not load from json!!" << RESET << endl;
       context->die();
     }
 
     CoreIR::Module* mod2 = nullptr;
-    if (!loadFromFile(context, "design_prepass.json", &mod2)) {
+    if (!loadFromFile(context, output_base_path + "/design_prepass.json", &mod2)) {
       cout << RED << "Could not load from json!!" << RESET << endl;
       context->die();
     }
 
 		context->runPasses({"removewires"});
-//    if (!saveToDot(mod2, "design_top.txt")) {
+//    if (!saveToDot(mod2, output_base_path + "/design_top.txt")) {
 //      cout << RED << "Could not save to dot file :(" << RESET << endl;
 //      context->die();
 //    }
@@ -427,7 +423,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   stream << "void " << print_name(name) << "(\n";
   for (size_t i = 0; i < args.size(); i++) {
     string arg_name = "arg_" + std::to_string(i);
-    cout << arg_name << " is_stencil=" << args[i].is_stencil << "\n";
+
     if (args[i].is_stencil) {
       CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
 
@@ -500,6 +496,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   CoreIR::Type* design_type;
   cout << "creating a design with " << input_types.size()
        << " inputs from " << args.size() << " args\n";
+  
   if (has_valid) {
     design_type = context->Record({
       {"in", context->Record(input_types)},

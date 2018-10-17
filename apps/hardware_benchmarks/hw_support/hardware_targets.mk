@@ -14,6 +14,7 @@ SHELL = bash
 BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
+HALIDE_SRC_PATH ?= ../../../..
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
@@ -22,7 +23,7 @@ default: all
 all: $(BIN)/process
 
 halide compiler:
-	$(MAKE) -C ../../../../
+	$(MAKE) -C $(HALIDE_SRC_PATH)
 
 $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_helper.cpp
 	@-mkdir -p $(HWSUPPORT)/$(BIN)

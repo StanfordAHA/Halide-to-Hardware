@@ -104,8 +104,8 @@ public:
     std::cout << "\ncompiling CoreIR code..." << std::endl;
     clamped.compute_root();
     hw_output.compute_root();
-    conv1.linebuffer();
     hw_output.tile(x, y, xo, yo, xi, yi, 64-2,64-2).reorder(xi,yi,xo,yo);
+    conv1.linebuffer();
     //conv1.unroll(xi,2);
     //hw_output.unroll(xi,2);
 
