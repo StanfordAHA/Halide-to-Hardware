@@ -41,7 +41,7 @@ class StripIdentities : public IRMutator2 {
 class LoadsFromBuffer : public IRVisitor {
     using IRVisitor::visit;
 
-    void visit(const Load *op) {
+    void visit(const Load *op) override {
         if (op->name == buffer) {
             result = true;
         } else {
@@ -77,7 +77,7 @@ class IsNoOp : public IRVisitor {
         return a || b;
     }
 
-    void visit(const Store *op) {
+    void visit(const Store *op) override {
         if (op->value.type().is_handle() || is_zero(op->predicate)) {
             condition = const_false();
         } else {
@@ -110,8 +110,7 @@ class IsNoOp : public IRVisitor {
         }
     }
 
-
-    void visit(const Provide *op) {
+    void visit(const Provide *op) override {
       // Store op to stencil is needed op
       if (ends_with(op->name, ".stencil")) {
         // TODO align with Store rule
@@ -121,7 +120,7 @@ class IsNoOp : public IRVisitor {
       }
     }
   
-    void visit(const For *op) {
+    void visit(const For *op) override {
         if (is_zero(condition)) {
             return;
         }
@@ -137,7 +136,7 @@ class IsNoOp : public IRVisitor {
         condition = make_and(old_condition, make_or(condition, simplify(op->extent <= 0)));
     }
 
-    void visit(const IfThenElse *op) {
+    void visit(const IfThenElse *op) override {
         if (is_zero(condition)) {
             return;
         }
@@ -155,7 +154,7 @@ class IsNoOp : public IRVisitor {
         condition = total_condition;
     }
 
-    void visit(const Call *op) {
+    void visit(const Call *op) override {
         // If the loop calls an impure function, we can't remove the
         // call to it. Most notably: image_store.
         if (!op->is_pure()) {
@@ -181,11 +180,11 @@ class IsNoOp : public IRVisitor {
         }
     }
 
-    void visit(const LetStmt *op) {
+    void visit(const LetStmt *op) override {
         visit_let(op);
     }
 
-    void visit(const Let *op) {
+    void visit(const Let *op) override {
         visit_let(op);
     }
 

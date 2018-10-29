@@ -26,15 +26,15 @@ protected:
 
     using IRVisitor::visit;
 
-    void visit(const Let *op);
-    void visit(const LetStmt *op);
-    void visit(const Call *op);
-    void visit(const For *op);
-    void visit(const Load *op);
-    void visit(const Store *op);
-    void visit(const Allocate *op);
-    void visit(const Variable *op);
-    void visit(const Realize *op);
+    void visit(const Let *op) override;
+    void visit(const LetStmt *op) override;
+    void visit(const Call *op) override;
+    void visit(const For *op) override;
+    void visit(const Load *op) override;
+    void visit(const Store *op) override;
+    void visit(const Allocate *op) override;
+    void visit(const Variable *op) override;
+    void visit(const Realize *op) override;
 
 public:
     /** Information about a buffer reference from a closure. */

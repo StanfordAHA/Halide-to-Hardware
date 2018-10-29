@@ -23,16 +23,16 @@ using std::vector;
 
 namespace {
 
-class ExpandExpr : public IRMutator {
-    using IRMutator::visit;
+class ExpandExpr : public IRMutator2 {
+    using IRMutator2::visit;
     const Scope<Expr> &scope;
 
-    void visit(const Variable *var) {
+    Expr visit(const Variable *var) {
         if (scope.contains(var->name)) {
-            expr = scope.get(var->name);
-            debug(4) << "Fully expanded " << var->name << " -> " << expr << "\n";
+          debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          return scope.get(var->name);
         } else {
-            expr = var;
+          return var;
         }
     }
 
@@ -53,14 +53,14 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
 }
 
 
-class ReplaceReferencesWithStencil : public IRMutator {
+class ReplaceReferencesWithStencil : public IRMutator2 {
     const HWKernel &kernel;
     const HWKernelDAG &dag;  // FIXME not needed
     Scope<Expr> scope;
 
-    using IRMutator::visit;
+    using IRMutator2::visit;
 
-    void visit(const For *op) {
+    Stmt visit(const For *op) {
         if (!starts_with(op->name, kernel.name)) {
             // try to simplify trivial reduction loops
             // TODO add assertions to check loop type
@@ -69,10 +69,10 @@ class ReplaceReferencesWithStencil : public IRMutator {
                 scope.push(op->name, simplify(expand_expr(op->min, scope)));
                 Stmt body = mutate(op->body);
                 scope.pop(op->name);
-                stmt = LetStmt::make(op->name, op->min, body);
+                return LetStmt::make(op->name, op->min, body);
             } else {
                 Stmt body = mutate(op->body);
-                stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, body);
+                return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, body);
             }
         } else {
             // replace the loop var over the dimensions of the original function
@@ -94,8 +94,7 @@ class ReplaceReferencesWithStencil : public IRMutator {
             if (dim_idx == -1) {
                 // it is a loop over reduction domain, and we keep it
                 // TODO add an assertion
-                IRMutator::visit(op);
-                return;
+              return IRMutator2::visit(op);
             }
             Expr new_min = 0;
             Expr new_extent = kernel.dims[dim_idx].step;
@@ -110,13 +109,13 @@ class ReplaceReferencesWithStencil : public IRMutator {
             scope.pop(old_var_name);
 
             new_body = LetStmt::make(old_var_name, old_var_value, new_body);
-            stmt = For::make(new_var_name, new_min, new_extent, op->for_type, op->device_api, new_body);
+            return For::make(new_var_name, new_min, new_extent, op->for_type, op->device_api, new_body);
         }
     }
 
-    void visit(const Provide *op) {
+    Stmt visit(const Provide *op) {
         if(op->name != kernel.name) {
-            IRMutator::visit(op);
+          return IRMutator2::visit(op);
         } else {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
@@ -133,11 +132,11 @@ class ReplaceReferencesWithStencil : public IRMutator {
                 new_values[i] = mutate(op->values[i]);
             }
 
-            stmt = Provide::make(stencil_name, new_values, new_args);
+            return Provide::make(stencil_name, new_values, new_args);
         }
     }
 
-    void visit(const Call *op) {
+    Expr visit(const Call *op) {
         if(op->name == kernel.name || // call to this kernel itself (in update definition)
            std::find(kernel.input_streams.begin(), kernel.input_streams.end(),
                      op->name) != kernel.input_streams.end() // call to a input stencil
@@ -177,15 +176,16 @@ class ReplaceReferencesWithStencil : public IRMutator {
                 // inside the producer
                 new_args[i] = new_arg;
             }
-            expr = Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
+            Expr expr = Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
             debug(4) << "replacing call " << Expr(op) << " with\n"
                      << "\t" << expr << "\n";
+            return expr;
         } else {
-            IRMutator::visit(op);
+          return IRMutator2::visit(op);
         }
     }
 
-    void visit(const Realize *op) {
+    Stmt visit(const Realize *op) {
         // this must be a realize node of a inlined function
         internal_assert(dag.kernels.count(op->name));
         internal_assert(dag.kernels.find(op->name)->second.is_inlined);
@@ -211,35 +211,35 @@ class ReplaceReferencesWithStencil : public IRMutator {
         if (!bounds_changed &&
             body.same_as(op->body) &&
             condition.same_as(op->condition)) {
-            stmt = op;
+            return op;
         } else {
-          stmt = Realize::make(op->name, op->types, MemoryType::Auto, new_bounds,
+          return Realize::make(op->name, op->types, MemoryType::Auto, new_bounds,
                                  condition, body);
         }
     }
 
-    void visit(const Let *op) {
+    Expr visit(const Let *op) {
         Expr new_value = simplify(expand_expr(mutate(op->value), scope));
         scope.push(op->name, new_value);
         Expr new_body = mutate(op->body);
         if (new_value.same_as(op->value) &&
             new_body.same_as(op->body)) {
-            expr = op;
+            return op;
         } else {
-            expr = Let::make(op->name, new_value, new_body);
+            return Let::make(op->name, new_value, new_body);
         }
         scope.pop(op->name);
     }
 
-    void visit(const LetStmt *op) {
+    Stmt visit(const LetStmt *op) {
         Expr new_value = simplify(expand_expr(op->value, scope));
         scope.push(op->name, new_value);
         Stmt new_body = mutate(op->body);
         if (new_value.same_as(op->value) &&
             new_body.same_as(op->body)) {
-            stmt = op;
+            return op;
         } else {
-            stmt = LetStmt::make(op->name, new_value, new_body);
+            return LetStmt::make(op->name, new_value, new_body);
         }
         scope.pop(op->name);
     }
@@ -627,15 +627,15 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, const Scope<Expr> &scope) 
 }
 
 
-class TransformTapStencils : public IRMutator {
+class TransformTapStencils : public IRMutator2 {
     const map<string, HWTap> &taps;
 
-    using IRMutator::visit;
+    using IRMutator2::visit;
 
     // Replace calls to ImageParam with calls to Stencil
-    void visit(const Call *op) {
+    Expr visit(const Call *op) {
         if (taps.count(op->name) == 0) {
-            IRMutator::visit(op);
+          return IRMutator2::visit(op);
         } else if (op->call_type == Call::Image || op->call_type == Call::Halide) {
             debug(3) << "replacing " << op->name << '\n';
             const HWTap &tap = taps.find(op->name)->second;
@@ -651,9 +651,10 @@ class TransformTapStencils : public IRMutator {
             for (size_t i = 0; i < op->args.size(); i++) {
                  new_args[i] = op->args[i]- tap.dims[i].min_pos;
             }
-            expr = Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
+            return Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
         } else {
             internal_error << "unexpected call_type\n";
+            return IRMutator2::visit(op);
         }
     }
 
@@ -662,15 +663,16 @@ public:
 };
 
 // Perform streaming optimization for all functions
-class StreamOpt : public IRMutator {
+class StreamOpt : public IRMutator2 {
     const HWKernelDAG &dag;
     Scope<Expr> scope;
 
-    using IRMutator::visit;
+    using IRMutator2::visit;
 
-    void visit(const For *op) {
+    Stmt visit(const For *op) {
+        Stmt stmt;
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
-            IRMutator::visit(op);
+            stmt = IRMutator2::visit(op);
         } else if (dag.compute_level.match(op->name)) {
             internal_assert(dag.loop_vars.count(op->name));
 
@@ -793,17 +795,18 @@ class StreamOpt : public IRMutator {
             }
             stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, new_body);
         }
+        return stmt;
     }
 
     // Remove the realize node for intermediate functions in the hardware pipeline,
     // as we will create linebuffers in the pipeline to hold these values
-    void visit(const Realize *op) {
+    Stmt visit(const Realize *op) {
         if (dag.kernels.count(op->name) &&
             !dag.kernels.find(op->name)->second.is_inlined && // is a linebuffered function
             dag.name != op->name && // not the output
             dag.input_kernels.count(op->name) == 0 // not a input
             ) {
-            stmt = mutate(op->body);
+            return mutate(op->body);
             // check constraints
             /*
             for (size_t i = 0; i < kernel.dims.size(); i++) {
@@ -816,11 +819,12 @@ class StreamOpt : public IRMutator {
             }
             */
         } else {
-            IRMutator::visit(op);
+           return IRMutator2::visit(op);
         }
     }
 
-    void visit(const LetStmt *op) {
+    Stmt visit(const LetStmt *op) {
+        Stmt stmt;
         Expr new_value = simplify(expand_expr(op->value, scope));
         scope.push(op->name, new_value);
         Stmt new_body = mutate(op->body);
@@ -831,6 +835,7 @@ class StreamOpt : public IRMutator {
             stmt = LetStmt::make(op->name, new_value, new_body);
         }
         scope.pop(op->name);
+        return stmt;
     }
 
 public:

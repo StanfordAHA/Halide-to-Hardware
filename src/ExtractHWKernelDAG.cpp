@@ -27,16 +27,16 @@ using std::ostream;
 
 
 namespace {
-class ExpandExpr : public IRMutator {
-    using IRMutator::visit;
+class ExpandExpr : public IRMutator2 {
+    using IRMutator2::visit;
     const Scope<Expr> &scope;
 
-    void visit(const Variable *var) {
+    Expr visit(const Variable *var) {
         if (scope.contains(var->name)) {
-            expr = scope.get(var->name);
-            debug(4) << "Fully expanded " << var->name << " -> " << expr << "\n";
+          debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          return scope.get(var->name);
         } else {
-            expr = var;
+            return var;
         }
     }
 
@@ -64,11 +64,11 @@ bool is_varmulcont(Expr e) {
     return false;
 }
 
-class SubstituteInConstants : public IRMutator {
-    using IRMutator::visit;
+class SubstituteInConstants : public IRMutator2 {
+    using IRMutator2::visit;
 
     Scope<Expr> scope;
-    void visit(const LetStmt *op) {
+    Stmt visit(const LetStmt *op) {
         Expr value = simplify(mutate(op->value));
 
         Stmt body;
@@ -81,22 +81,22 @@ class SubstituteInConstants : public IRMutator {
         }
 
         if (body.same_as(op->body) && value.same_as(op->value)) {
-            stmt = op;
+            return op;
         } else {
-            stmt = LetStmt::make(op->name, value, body);
+            return LetStmt::make(op->name, value, body);
         }
     }
 
-    void visit(const Variable *op) {
+    Expr visit(const Variable *op) {
         if (scope.contains(op->name)) {
-            expr = scope.get(op->name);
+            return scope.get(op->name);
         } else {
-            expr = op;
+            return op;
         }
     }
 };
 
-class FiniteDifference : public IRMutator {
+class FiniteDifference : public IRMutator2 {
     Scope<Expr> scope;
     string var;
 
@@ -104,78 +104,78 @@ class FiniteDifference : public IRMutator {
         return substitute(var, (Variable::make(Int(32), var)) + 1, e) - e;
     }
 
-    using IRMutator::visit;
+    using IRMutator2::visit;
 
-    void visit(const IntImm *op) {
-        expr = make_zero(op->type);
+    Expr visit(const IntImm *op) {
+        return make_zero(op->type);
     }
 
-    void visit(const UIntImm *op) {
-        expr = make_zero(op->type);
+    Expr visit(const UIntImm *op) {
+        return make_zero(op->type);
     }
 
-    void visit(const FloatImm *op) {
-        expr = make_zero(op->type);
+    Expr visit(const FloatImm *op) {
+        return make_zero(op->type);
     }
 
-    void visit(const Cast *op) {
-        expr = brute_force(op);
+    Expr visit(const Cast *op) {
+        return brute_force(op);
     }
 
-    void visit(const Variable *op) {
+    Expr visit(const Variable *op) {
         if (op->name == var) {
-            expr = make_one(op->type);
+            return make_one(op->type);
         } else if (scope.contains(op->name)) {
-            expr = scope.get(op->name);
+            return scope.get(op->name);
         } else {
-            expr = make_zero(op->type);
+            return make_zero(op->type);
         }
     }
 
-    void visit(const Add *op) {
-        expr = mutate(op->a) + mutate(op->b);
+    Expr visit(const Add *op) {
+        return mutate(op->a) + mutate(op->b);
     }
 
-    void visit(const Sub *op) {
-        expr = mutate(op->a) - mutate(op->b);
+    Expr visit(const Sub *op) {
+        return mutate(op->a) - mutate(op->b);
     }
 
-    void visit(const Mul *op) {
+    Expr visit(const Mul *op) {
         Expr da = mutate(op->a), db = mutate(op->b);
-        expr = op->a * db + da * op->b + da * db;
+        return op->a * db + da * op->b + da * db;
     }
 
-    void visit(const Div *op) {
-        expr = brute_force(op);
+    Expr visit(const Div *op) {
+        return brute_force(op);
     }
 
-    void visit(const Mod *op) {
-        expr = brute_force(op);
+    Expr visit(const Mod *op) {
+        return brute_force(op);
     }
 
-    void visit(const Min *op) {
-        expr = select(op->a < op->b, mutate(op->a), mutate(op->b));
+    Expr visit(const Min *op) {
+        return select(op->a < op->b, mutate(op->a), mutate(op->b));
     }
 
-    void visit(const Max *op) {
-        expr = select(op->a > op->b, mutate(op->a), mutate(op->b));
+    Expr visit(const Max *op) {
+        return select(op->a > op->b, mutate(op->a), mutate(op->b));
     }
 
-    void visit(const Select *op) {
-        expr = select(op->condition, mutate(op->true_value), mutate(op->false_value));
+    Expr visit(const Select *op) {
+        return select(op->condition, mutate(op->true_value), mutate(op->false_value));
     }
 
-    void visit(const Load *op) {
-        expr = brute_force(op);
+    Expr visit(const Load *op) {
+        return brute_force(op);
     }
 
-    void visit(const Call *op) {
-        expr = brute_force(op);
+    Expr visit(const Call *op) {
+        return brute_force(op);
     }
 
-    void visit(const Let *op) {
+    Expr visit(const Let *op) {
         scope.push(op->name, mutate(op->value));
-        expr = mutate(op->body);
+        return mutate(op->body);
         scope.pop(op->name);
     }
 public:

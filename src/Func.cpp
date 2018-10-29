@@ -924,6 +924,10 @@ void Stage::split(const string &old, const string &outer, const string &inner, E
             dims.insert(dims.begin() + i, dims[i]);
             dims[i].var = inner_name;
             dims[i+1].var = outer_name;
+            if (dims[i].for_type == ForType::Extern) {
+                // If we split an extern loop, mark the outer loop serial.
+                dims[i+1].for_type = ForType::Serial;
+            }
         }
     }
 
@@ -1129,7 +1133,7 @@ public:
     string offending_var;
 protected:
     using IRGraphVisitor::visit;
-    void visit(const Variable *var) {
+    void visit(const Variable *var) override {
         if (!var->param.defined() && !var->image.defined()) {
             offending_var = var->name;
         }
@@ -1993,6 +1997,12 @@ Func &Func::store_in(MemoryType t) {
     return *this;
 }
 
+Func &Func::async() {
+    invalidate_cache();
+    func.schedule().async() = true;
+    return *this;
+}
+
 Stage Func::specialize(Expr c) {
     invalidate_cache();
     return Stage(func, func.definition(), 0, args()).specialize(c);
@@ -2584,7 +2594,7 @@ public:
 
     using IRGraphVisitor::visit;
 
-    void visit(const Variable *v) {
+    void visit(const Variable *v) override {
         int index = Var::implicit_index(v->name);
         if (index != -1) {
             if (index >= count) count = index + 1;

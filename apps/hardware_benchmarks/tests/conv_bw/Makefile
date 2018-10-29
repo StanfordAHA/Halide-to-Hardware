@@ -1,6 +1,8 @@
 #### Halide flags
 HALIDE_BIN_PATH := ../../../..
 HALIDE_SRC_PATH := ../../../..
+HALIDE_DISTRIB_PATH := ../../../../distrib
+
 include ../../hw_support/Makefile.inc
 
 #### HLS flags

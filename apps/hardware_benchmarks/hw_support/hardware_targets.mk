@@ -23,13 +23,13 @@ default: all
 all: $(BIN)/process
 
 halide compiler:
-	$(MAKE) -C $(HALIDE_SRC_PATH)
+	$(MAKE) -C $(HALIDE_SRC_PATH) distrib
 
 $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_helper.cpp
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-
+.PHONY: generator
 generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DEPS)
 	@-mkdir -p $(BIN)
 	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)

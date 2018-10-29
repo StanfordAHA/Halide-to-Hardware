@@ -1613,36 +1613,36 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const For *op) {
 
 }
 
-class RenameAllocation : public IRMutator {
+class RenameAllocation : public IRMutator2 {
   const string &orig_name;
   const string &new_name;
 
-  using IRMutator::visit;
+  using IRMutator2::visit;
 
-  void visit(const Load *op) {
+  Expr visit(const Load *op) override {
     if (op->name == orig_name ) {
       Expr index = mutate(op->index);
-      expr = Load::make(op->type, new_name, index, op->image, op->param, op->predicate);
+      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate);
     } else {
-      IRMutator::visit(op);
+      return IRMutator2::visit(op);
     }
   }
 
-  void visit(const Store *op) {
+  Stmt visit(const Store *op) {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
-      stmt = Store::make(new_name, value, index, op->param, op->predicate);
+      return Store::make(new_name, value, index, op->param, op->predicate);
     } else {
-      IRMutator::visit(op);
+      return IRMutator2::visit(op);
     }
   }
 
-  void visit(const Free *op) {
+  Stmt visit(const Free *op) {
     if (op->name == orig_name) {
-      stmt = Free::make(new_name);
+      return Free::make(new_name);
     } else {
-      IRMutator::visit(op);
+      return IRMutator2::visit(op);
     }
   }
 

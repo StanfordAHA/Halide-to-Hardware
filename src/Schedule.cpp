@@ -213,8 +213,9 @@ struct FuncScheduleContents {
     std::vector<Bound> bounds;
     std::vector<Bound> estimates;
     std::map<std::string, Internal::FunctionPtr> wrappers;
-    bool memoized;
     MemoryType memory_type;
+    bool memoized, async;
+
     bool is_hw_kernel;   // TODO equivalent to !accelerate_exit.empty()
     bool is_accelerated;  // TODO equivalent to !accelerate_input.empty()
     bool is_linebuffered;
@@ -229,7 +230,7 @@ struct FuncScheduleContents {
 
     FuncScheduleContents() :
         store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
-        memoized(false), memory_type(MemoryType::Auto), is_hw_kernel(false),
+        memory_type(MemoryType::Auto), memoized(false), async(false), is_hw_kernel(false),
         is_accelerated(false), is_linebuffered(false) {};
 
     // Pass an IRMutator2 through to all Exprs referenced in the FuncScheduleContents
@@ -340,8 +341,9 @@ FuncSchedule FuncSchedule::deep_copy(
     copy.contents->storage_dims = contents->storage_dims;
     copy.contents->bounds = contents->bounds;
     copy.contents->estimates = contents->estimates;
-    copy.contents->memoized = contents->memoized;
     copy.contents->memory_type = contents->memory_type;
+    copy.contents->memoized = contents->memoized;
+    copy.contents->async = contents->async;
 
     // HLS related fields
     copy.contents->is_hw_kernel = contents->is_hw_kernel;
@@ -367,6 +369,14 @@ FuncSchedule FuncSchedule::deep_copy(
     return copy;
 }
 
+MemoryType FuncSchedule::memory_type() const {
+    return contents->memory_type;
+}
+
+MemoryType &FuncSchedule::memory_type() {
+    return contents->memory_type;
+}
+
 bool &FuncSchedule::memoized() {
     return contents->memoized;
 }
@@ -375,12 +385,12 @@ bool FuncSchedule::memoized() const {
     return contents->memoized;
 }
 
-MemoryType FuncSchedule::memory_type() const {
-    return contents->memory_type;
+bool &FuncSchedule::async() {
+    return contents->async;
 }
 
-MemoryType &FuncSchedule::memory_type() {
-    return contents->memory_type;
+bool FuncSchedule::async() const {
+    return contents->async;
 }
 
 std::vector<StorageDim> &FuncSchedule::storage_dims() {
