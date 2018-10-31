@@ -2261,6 +2261,9 @@ public:
     Func &accelerate(std::vector<Func> inputs,
                             Var compute_var, Var store_var,
                             std::vector<Func> taps = {});
+    
+    Func &hw_accelerate(Var compute_var, Var store_var);
+    Func &stream_to_accelerator();
 
     /** Schedule a function to be linebuffered.
      */

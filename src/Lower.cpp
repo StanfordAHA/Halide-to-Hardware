@@ -36,6 +36,7 @@
 #include "LICM.h"
 #include "LoopCarry.h"
 #include "LowerWarpShuffles.h"
+#include "MarkHWKernels.h"
 #include "Memoization.h"
 #include "PartitionLoops.h"
 #include "PurifyIndexMath.h"
@@ -190,6 +191,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
+      s = mark_hw_accelerators(s, env);
+      
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 

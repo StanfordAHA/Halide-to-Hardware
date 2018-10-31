@@ -2473,9 +2473,9 @@ Func &Func::accelerate(vector<Func> inputs,
         func.schedule().accelerate_inputs().insert(hw_in.name());
 
         // mark the hw input as linebuffered and store in kernel buffer slice
-        hw_in.schedule().is_kernel_buffer_slice() = true;  // FIXME
+        //hw_in.schedule().is_kernel_buffer_slice() = true;  // FIXME
         // stores input in the kernel buffer
-        hw_in.schedule().is_kernel_buffer() = true;
+        //hw_in.schedule().is_kernel_buffer() = true;
     }
 
     // schedule the compute and store levels of the hw_out,
@@ -2491,8 +2491,8 @@ Func &Func::accelerate(vector<Func> inputs,
               << "\n";
     
     // hw_out is stored in kernel buffer slice, this function store in kernel buffer
-    func.schedule().is_kernel_buffer_slice() = true;
-    func.schedule().is_kernel_buffer() = true;
+    //func.schedule().is_kernel_buffer_slice() = true;
+    //func.schedule().is_kernel_buffer() = true;
 
 
     // mark all the halide functions in the pipeline to be "hw_kernel"
@@ -2517,6 +2517,75 @@ Func &Func::accelerate(vector<Func> inputs,
     return *this;
 }
 
+Func &Func::hw_accelerate(Var compute_var, Var store_var) {
+    /*
+      This method prepares enough information on related function schedules,
+      in order to draw the boundaries of the accelerator in the DAG of functinos.
+     */
+    invalidate_cache();
+
+    debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+    std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+
+    func.schedule().is_accelerator_output() = true;
+    
+    /*
+    for (size_t i = 0; i < inputs.size(); i++) {
+        Function hw_in = inputs[i].function();
+        // save the hw inputs of the accelerator pipeline in the schedule
+        func.schedule().accelerate_inputs().insert(hw_in.name());
+
+        // mark the hw input as linebuffered and store in kernel buffer slice
+        //hw_in.schedule().is_kernel_buffer_slice() = true;  // FIXME
+        // stores input in the kernel buffer
+        //hw_in.schedule().is_kernel_buffer() = true;
+    }
+    */
+    
+    // schedule the compute and store levels of the hw_out,
+    // which later becomes the constraints of the accelerator pipeline.
+    func.schedule().is_accelerated() = true;
+    func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
+    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+    std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
+              << " varname=" << func.schedule().accelerate_compute_level().var().name()
+              << "\n";
+    std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+              << " varname=" << func.schedule().accelerate_store_level().var().name()
+              << "\n";
+
+    // mark all the halide functions in the pipeline to be "hw_kernel"
+    /*
+    std::set<string> tap_names;
+    for (const auto &f : taps)  tap_names.insert(f.name());
+    mark_hw_kernels(func, func.schedule().accelerate_inputs(), tap_names);
+    */
+
+    LoopLevel store_locked = func.schedule().store_level().lock();
+    LoopLevel compute_locked = func.schedule().compute_level().lock();
+    string store_varname =
+      store_locked.is_root() ? "root" :
+      store_locked.is_inlined() ? "inlined" :
+      store_locked.var().name();
+    string compute_varname =
+      compute_locked.is_root() ? "root" :
+      compute_locked.is_inlined() ? "inlined" :
+      compute_locked.var().name();
+    debug(3) << "check function " << func.name() << " " << func.schedule().is_accelerated() <<  "\n";
+    debug(3) << store_locked.func() << " " << store_varname << "\n";
+    debug(3) << compute_locked.func() << " " << compute_varname << "\n";
+
+    return *this;
+}
+
+Func &Func::stream_to_accelerator() {
+  //func.schedule().accelerate_inputs().insert(hw_in.name());
+  func.schedule().is_accelerator_input() = true;
+  return *this;
+}
+  
 Func &Func::linebuffer() {
     invalidate_cache();
     func.schedule().is_linebuffered() = true;

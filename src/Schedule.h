@@ -470,10 +470,10 @@ public:
     bool &is_accelerated();
     // @}
 
-    bool is_kernel_buffer() const;
-    bool &is_kernel_buffer();
-    bool is_kernel_buffer_slice() const;
-    bool &is_kernel_buffer_slice();
+    bool is_accelerator_input() const;
+    bool &is_accelerator_input();
+    bool is_accelerator_output() const;
+    bool &is_accelerator_output();
 
     /** The input functions of the hardware accelerator pipeline. */
     // @{

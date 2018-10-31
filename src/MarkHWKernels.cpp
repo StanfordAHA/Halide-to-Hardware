@@ -151,9 +151,73 @@ private:
     map<string, Parameter> tap_params;
 };
 
+class FindHWBoundaries {
+public:
+    FindHWBoundaries(Function output, set<string> &inputs, set<string> &taps)
+        : output_func(output), input_names(inputs), tap_names(taps) {}
+
+    void identify() {
+      internal_assert(output_func.schedule().is_accelerator_output());
+      
+      dfs(output_func);
+
+    }
+
+    void dfs(Function func) {
+      if (func.schedule().is_accelerator_input()) {
+        // visit a input function, save path and input function
+        // then terminate
+        input_names.insert(func.name());
+        std::cout << "added " << func.name() << " as an input\n";
+        return;
+      }
+
+      GetCallees visitor;
+      func.accept(&visitor);
+      map<string, Function> callees = visitor.funcs;
+      callees.erase(func.name()); // in case the function is calling itself
+
+      // DFS
+      for (auto p : callees) {
+        Function callee = p.second;
+        dfs(callee);
+      }
+    }
+private:
+    Function output_func;
+    set<string> &input_names;
+    set<string> &tap_names;
+};
+
+void find_hw_boundaries(Function f, std::set<std::string> &inputs,
+                        std::set<std::string> &taps) {
+  FindHWBoundaries(f, inputs, taps).identify();
+}
+  
 void mark_hw_kernels(Function output, const set<string> &inputs, const set<string> &taps) {
     MarkHWKernels(output, inputs, taps).mark();
 }
 
+Stmt mark_hw_accelerators(Stmt s, const map<string, Function> &env) {
+  for (const auto &p : env) {
+    Function func = p.second;
+    
+    if (func.schedule().is_accelerator_output()) {
+      set<string> inputs;
+      set<string> taps;
+      find_hw_boundaries(func, inputs, taps);
+
+      // save the hw inputs of the accelerator pipeline in the schedule
+      for (string inputname : inputs) {
+        func.schedule().accelerate_inputs().insert(inputname);
+      }
+      
+      mark_hw_kernels(func, inputs, taps);
+    }
+    
+  }
+  return s;
+}
+  
 }
 }

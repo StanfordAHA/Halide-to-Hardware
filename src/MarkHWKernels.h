@@ -7,6 +7,7 @@
  * functions.
  */
 #include <set>
+#include <map>
 
 #include "IR.h"
 
@@ -21,6 +22,8 @@ namespace Internal {
  */
 void mark_hw_kernels(Function f, const std::set<std::string> &inputs,
                      const std::set<std::string> &taps);
+
+Stmt mark_hw_accelerators(Stmt s, const std::map<std::string, Function> &env);
 
 }
 }
