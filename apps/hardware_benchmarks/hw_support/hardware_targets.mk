@@ -40,7 +40,7 @@ design $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 
 design-cpu: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-cpu
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
 
 design-coreir: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
