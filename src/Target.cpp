@@ -308,6 +308,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"embed_bitcode", Target::EmbedBitcode},
     {"coreir", Target::CoreIR},
     {"coreir_valid", Target::CoreIRValid},
+    {"hls", Target::HLS},
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.
 };

@@ -103,6 +103,7 @@ struct Target {
         EmbedBitcode = halide_target_feature_embed_bitcode,
         CoreIR = halide_target_feature_coreir,
         CoreIRValid = halide_target_feature_coreir_valid,
+        HLS = halide_target_feature_hls,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}

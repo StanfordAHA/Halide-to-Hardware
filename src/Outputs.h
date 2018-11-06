@@ -41,6 +41,10 @@ struct Outputs {
     /** The name of the emitted CoreIR source file. Empty if no CoreIR source file
      * output is desired. */
     std::string coreir_source_name;
+
+    /** The name of the emitted Vivado HLS source file. Empty if no Vivado HLS source file
+     * output is desired. */
+    std::string vhls_source_name;
   
     /** The name of the emitted stmt file. Empty if no stmt file
      * output is desired. */
@@ -115,6 +119,14 @@ struct Outputs {
     Outputs coreir_source(const std::string &coreir_source_name) {
         Outputs updated = *this;
         updated.coreir_source_name = coreir_source_name;
+        return updated;
+    }  
+
+    /** Make a new Outputs struct that emits everything this one does
+     * and also a Vivado HLS source file with the given name. */
+    Outputs vhls_source(const std::string &vhls_source_name) {
+        Outputs updated = *this;
+        updated.vhls_source_name = vhls_source_name;
         return updated;
     }  
   

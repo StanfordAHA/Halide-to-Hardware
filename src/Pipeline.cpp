@@ -238,6 +238,14 @@ void Pipeline::compile_to_coreir(const string &filename,
   m.compile(Outputs().coreir_source(output_name(filename, m, ".cpp")));
 }
 
+void Pipeline::compile_to_vhls(const string &filename,
+                               const vector<Argument> &args,
+                               const string &fn_name,
+                               const Target &target) {
+  Module m = compile_to_module(args, fn_name, target);
+  m.compile(Outputs().vhls_source(output_name(filename, m, ".cpp")));
+}
+  
 void Pipeline::compile_to_python_extension(const string &filename,
                                            const vector<Argument> &args,
                                            const string &fn_name,

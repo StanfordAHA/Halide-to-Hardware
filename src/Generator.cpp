@@ -123,6 +123,10 @@ Outputs compute_outputs(const Target &target,
     if (options.emit_coreir) {
         output_files.coreir_source_name = base_path + get_extension("_coreir.cpp", options);
     }
+    if (options.emit_vhls) {
+        output_files.vhls_source_name = base_path + get_extension("_vhls.cpp", options);
+    }
+
     return output_files;
 }
 
@@ -917,9 +921,11 @@ int generate_filter_main(int argc, char **argv, std::ostream &cerr) {
                 emit_options.emit_schedule = true;
             } else if (opt == "coreir") {
                 emit_options.emit_coreir = true;
+            } else if (opt == "vhls") {
+                emit_options.emit_vhls = true;
             } else if (!opt.empty()) {
                 cerr << "Unrecognized emit option: " << opt
-                     << " not one of [assembly, bitcode, cpp, h, html, o, static_library, stmt, cpp_stub], ignoring.\n";
+                     << " not one of [assembly, bitcode, cpp, h, html, o, static_library, stmt, cpp_stub, coreir, vhls], ignoring.\n";
             }
         }
     }

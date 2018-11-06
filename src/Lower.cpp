@@ -188,7 +188,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    if (t.has_feature(Target::CoreIR)) {
+    if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       s = mark_hw_accelerators(s, env);
@@ -224,10 +224,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = skip_stages(s, order);
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
 
-    if (!t.has_feature(Target::CoreIR)) { // FIXME: don't omit this pass globally with CoreIR
-    debug(1) << "Forking asynchronous producers...\n";
-    s = fork_async_producers(s, env);
-    debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
+    if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+      debug(1) << "Forking asynchronous producers...\n";
+      s = fork_async_producers(s, env);
+      debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
     }
 
     debug(1) << "Destructuring tuple-valued realizations...\n";

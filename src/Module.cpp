@@ -7,6 +7,7 @@
 #include "CodeGen_C.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Testbench.h"
+#include "CodeGen_VHLS_Testbench.h"
 #include "Debug.h"
 #include "HexagonOffload.h"
 #include "IROperator.h"
@@ -442,6 +443,20 @@ void Module::compile(const Outputs &output_files_arg) const {
                 << " with folder=" << foldername << "\n";
       cg.compile(*this);
     }
+    if (!output_files.vhls_source_name.empty()) {
+      debug(1) << "Module.compile(): vhls_source_name " << output_files.vhls_source_name << "\n";
+
+      std::string vhls_output = output_files.vhls_source_name;
+      std::ofstream file(output_files.vhls_source_name);
+      Internal::CodeGen_VHLS_Testbench cg(file,
+                                          target());
+
+      std::string foldername = vhls_output.substr(0, vhls_output.find_last_of("/"));
+      //cg.set_output_folder(foldername);
+      std::cout << "Module.compile(): vhls_source_name " << output_files.vhls_source_name
+                << " with folder=" << foldername << "\n";
+      cg.compile(*this);
+    }
 
     if (!output_files.python_extension_name.empty()) {
         debug(1) << "Module.compile(): python_extension_name " << output_files.python_extension_name << "\n";
@@ -694,8 +709,18 @@ void compile_multitarget(const std::string &fn_name,
       Module module(fn_name, coreir_target);
       Outputs coreir_out = Outputs().coreir_source(output_files.coreir_source_name);
       module.compile(coreir_out);
-
     }
+
+    if (!output_files.vhls_source_name.empty()) {
+      std::cout << "compile_multitarget: vhls output named: " << output_files.vhls_source_name << std::endl;
+      Target vhls_target = base_target
+        .with_feature(Target::CPlusPlusMangling)
+        .with_feature(Target::HLS);
+      Module module(fn_name, vhls_target);
+      Outputs vhls_out = Outputs().vhls_source(output_files.vhls_source_name);
+      module.compile(vhls_out);
+    }
+
 }
 
 }  // namespace Halide
