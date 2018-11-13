@@ -707,6 +707,7 @@ class StreamOpt : public IRMutator2 {
         } else {
             internal_assert(dag.store_level.match(op->name));
             debug(3) << "find the pipeline producing " << dag.name << "\n";
+            std::cout << "find the pipeline producing " << dag.name << "\n";
 
             // walk inside of any let statements
             Stmt body = op->body;

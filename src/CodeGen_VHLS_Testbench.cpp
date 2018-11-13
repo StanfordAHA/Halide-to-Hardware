@@ -78,11 +78,14 @@ CodeGen_VHLS_Testbench::~CodeGen_VHLS_Testbench() {
 }
 
 void CodeGen_VHLS_Testbench::visit(const ProducerConsumer *op) {
-    if (starts_with(op->name, "_vhls_target.")) {
+    //std::cout << op->name << " visited, a producerconsumer\n";
+    
+    if (starts_with(op->name, "_hls_target.")) {
       if (op->is_producer) {
         Stmt hw_body = op->body;
 
         debug(1) << "compute the closure for " << op->name << '\n';
+        std::cout << "compute the closure for " << op->name << '\n';
         VHLS_Closure c(hw_body);
         vector<VHLS_Argument> args = c.arguments(stencils);
 
@@ -100,8 +103,6 @@ void CodeGen_VHLS_Testbench::visit(const ProducerConsumer *op) {
         }
         stream <<");\n";
 
-        print_stmt(op->body);
-        
       } else { // is consumer
         print_stmt(op->body);
       }

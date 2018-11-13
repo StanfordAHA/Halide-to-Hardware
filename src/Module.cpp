@@ -411,7 +411,22 @@ void Module::compile(const Outputs &output_files_arg) const {
         }
     }
     if (!output_files.c_header_name.empty()) {
-        debug(1) << "Module.compile(): c_header_name " << output_files.c_header_name << "\n";
+        std::string oldname = name();
+        if (!output_files.vhls_source_name.empty()) {
+          contents->name = oldname + "_vhls";
+
+          for (auto &f : contents->functions) {
+            if (f.name == oldname) {
+              f.name = oldname + "_vhls";
+              std::cout << "renamed loweredfunc named " << oldname << " with " << f.name << std::endl;
+            }
+          }
+
+        }
+        
+        //debug(1) << "Module.compile(): c_header_name " << output_files.c_header_name << "\n";
+        std::cout << "Module.compile(): c_header_name " << output_files.c_header_name
+                  << " called " << name() << "\n";
         std::ofstream file(output_files.c_header_name);
         Internal::CodeGen_C cg(file,
                                target(),
@@ -419,6 +434,7 @@ void Module::compile(const Outputs &output_files_arg) const {
                                Internal::CodeGen_C::CPlusPlusHeader : Internal::CodeGen_C::CHeader,
                                output_files.c_header_name);
         cg.compile(*this);
+        contents->name = oldname;
     }
     if (!output_files.c_source_name.empty()) {
         debug(1) << "Module.compile(): c_source_name " << output_files.c_source_name << "\n";
@@ -452,10 +468,15 @@ void Module::compile(const Outputs &output_files_arg) const {
                                           target());
 
       std::string foldername = vhls_output.substr(0, vhls_output.find_last_of("/"));
-      //cg.set_output_folder(foldername);
+      cg.set_output_folder(foldername);
+      std::string oldname = contents->name;
+      contents->name = oldname + "_vhls";
+      
       std::cout << "Module.compile(): vhls_source_name " << output_files.vhls_source_name
-                << " with folder=" << foldername << "\n";
+                << " with folder=" << foldername << " and name=" << name() << "\n";
       cg.compile(*this);
+
+      contents->name = oldname;
     }
 
     if (!output_files.python_extension_name.empty()) {

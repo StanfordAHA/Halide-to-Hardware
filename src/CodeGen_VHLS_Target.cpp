@@ -49,15 +49,19 @@ bool contain_for_loop(Stmt s) {
   CodeGen_VHLS_Target::CodeGen_VHLS_Target(const string &name, Target target)
     : target_name(name),
       hdrc(hdr_stream, target, CodeGen_VHLS_C::CPlusPlusHeader),
+      //hdrc(std::cout, target, CodeGen_VHLS_C::CPlusPlusHeader),
       srcc(src_stream, target, CodeGen_VHLS_C::CPlusPlusImplementation) { }
+  //srcc(std::cout, target, CodeGen_VHLS_C::CPlusPlusImplementation) { }
 
 
 CodeGen_VHLS_Target::~CodeGen_VHLS_Target() {
     hdr_stream << "#endif\n";
 
+    std::cout << "outputting vhls target named " << target_name << std::endl;
+    
     // write the header and the source streams into files
-    string src_name = target_name + ".cpp";
-    string hdr_name = target_name + ".h";
+    string src_name = output_base_path + "/" + target_name + ".cpp";
+    string hdr_name = output_base_path + "/" + target_name + ".h";
     ofstream src_file(src_name.c_str());
     ofstream hdr_file(hdr_name.c_str());
     src_file << src_stream.str() << endl;

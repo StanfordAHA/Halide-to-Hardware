@@ -31,18 +31,23 @@ public:
         Var x("x"), y("y");
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
-        Func padded16;
-        padded16(x, y) = cast<int16_t>(input(x+3, y+3));
+        Func padded16, padded;
+        padded(x, y) = input(x+3, y+3);
+        padded16(x, y) = cast<int16_t>(padded(x, y));
+                                      
 
         // sobel filter
-        Func grad_x, grad_y;
-        grad_x(x, y) = cast<int16_t>(  -padded16(x-1,y-1) +   padded16(x+1,y-1)
-                                     -2*padded16(x-1,y)   + 2*padded16(x+1,y)
-                                       -padded16(x-1,y+1) +   padded16(x+1,y+1));
-        grad_y(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
-                                      2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
-                                        padded16(x+1,y+1) -   padded16(x+1,y-1));
+        Func grad_x_unclamp, grad_y_unclamp, grad_x, grad_y;
+        grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x-1,y-1) +   padded16(x+1,y-1)
+                                             -2*padded16(x-1,y)   + 2*padded16(x+1,y)
+                                               -padded16(x-1,y+1) +   padded16(x+1,y+1));
+        grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
+                                              2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
+                                                padded16(x+1,y+1) -   padded16(x+1,y-1));
 
+        grad_x(x, y) = clamp(grad_x_unclamp(x,y), -255, 255);
+        grad_y(x, y) = clamp(grad_y_unclamp(x,y), -255, 255);
+        
         // product of gradients
         Func grad_xx, grad_yy, grad_xy;
         grad_xx(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_x(x,y));
@@ -76,31 +81,62 @@ public:
         cim(x, y) = det - (trace*trace >> shiftk);
 
         // Perform non-maximal suppression
+        Func hw_output;
         Expr is_max = cim(x, y) > cim(x-1, y-1) && cim(x, y) > cim(x, y-1) &&
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        output(x, y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
-
+        hw_output(x, y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */
-        output.tile(x, y, xo, yo, xi, yi, 64, 64);
+        if (get_target().has_feature(Target::CoreIR)) {
+
+          output.tile(x, y, xo, yo, xi, yi, 64, 64);
+          //padded16.compute_at(output, xo);
+          padded.compute_root();
+          //hw_output.compute_at(output, xo);
+          hw_output.compute_root();
         
-        grad_x.compute_at(output, xo).vectorize(x, 8);
-        grad_y.compute_at(output, xo).vectorize(x, 8);
-        grad_xx.compute_at(output, xo).vectorize(x, 4);
-        grad_yy.compute_at(output, xo).vectorize(x, 4);
-        grad_xy.compute_at(output, xo).vectorize(x, 4);
-        grad_gx.compute_at(output, xo).vectorize(x, 4);
-        grad_gy.compute_at(output, xo).vectorize(x, 4);
-        grad_gxy.compute_at(output, xo).vectorize(x, 4);
-        cim.compute_at(output, xo).vectorize(x, 4);
+          //grad_x.linebuffer();
+          //grad_y.linebuffer();
+          grad_xx.linebuffer();
+          grad_yy.linebuffer();
+          grad_xy.linebuffer();
+          // grad_gx.linebuffer();
+          // grad_gy.linebuffer();
+          // grad_gxy.linebuffer();
+          cim.linebuffer();
 
-        grad_gx.update(0).unroll(box.x).unroll(box.y);
-        grad_gy.update(0).unroll(box.x).unroll(box.y);
-        grad_gxy.update(0).unroll(box.x).unroll(box.y);
+          grad_gx.update(0).unroll(box.x).unroll(box.y);
+          grad_gy.update(0).unroll(box.x).unroll(box.y);
+          grad_gxy.update(0).unroll(box.x).unroll(box.y);
 
-        output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+          padded.stream_to_accelerator();
+          hw_output
+            .tile(x, y, xo, yo, xi, yi, 64, 64)
+            .hw_accelerate(xi, xo);
+          //padded16.stream_to_accelerator();
+          
+        } else {    // schedule to CPU
+          output.tile(x, y, xo, yo, xi, yi, 64, 64);
+        
+          grad_x.compute_at(output, xo).vectorize(x, 8);
+          grad_y.compute_at(output, xo).vectorize(x, 8);
+          grad_xx.compute_at(output, xo).vectorize(x, 4);
+          grad_yy.compute_at(output, xo).vectorize(x, 4);
+          grad_xy.compute_at(output, xo).vectorize(x, 4);
+          grad_gx.compute_at(output, xo).vectorize(x, 4);
+          grad_gy.compute_at(output, xo).vectorize(x, 4);
+          grad_gxy.compute_at(output, xo).vectorize(x, 4);
+          cim.compute_at(output, xo).vectorize(x, 4);
+
+          grad_gx.update(0).unroll(box.x).unroll(box.y);
+          grad_gy.update(0).unroll(box.x).unroll(box.y);
+          grad_gxy.update(0).unroll(box.x).unroll(box.y);
+
+          output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+        }
     }
 };
 

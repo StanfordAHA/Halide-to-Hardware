@@ -46,9 +46,14 @@ design-coreir: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir
 
-$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o
+design-hls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls
+
+HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
+$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o
+	@-mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
@@ -61,6 +66,10 @@ $(BIN)/output.png run run-cpu: $(BIN)/process
 run-coreir: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run coreir input.png
+
+run-hls: $(BIN)/process
+	@-mkdir -p $(BIN)
+	$(BIN)/process run hls input.png
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)

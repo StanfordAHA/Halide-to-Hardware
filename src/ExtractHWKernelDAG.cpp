@@ -717,6 +717,7 @@ Stmt extract_hw_kernel_dag(Stmt s, const map<string, Function> &env,
           continue;
         }
         debug(3) << "Found accelerate function " << func.name() << "\n";
+        std::cout << "Found accelerate function " << func.name() << "\n";
         debug(3) << store_locked.func() << " " << store_varname << "\n";
         BuildDAGForFunction builder(func, env, inlined_stages);
         dags.push_back(builder.build(s));

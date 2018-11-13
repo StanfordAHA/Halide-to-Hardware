@@ -84,6 +84,7 @@ using std::vector;
 Module lower(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
              const vector<Argument> &args, const LinkageType linkage_type,
              const vector<IRMutator2 *> &custom_passes) {
+
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
 
@@ -202,6 +203,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
+      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
@@ -467,7 +469,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         debug_arguments(&main_func);
     }
 
-    result_module.append(main_func);
+    if (!t.has_feature(Target::HLS)) {
+      result_module.append(main_func);
+    }
 
     // Append a wrapper for this pipeline that accepts old buffer_ts
     // and upgrades them. It will use the same name, so it will

@@ -1527,6 +1527,7 @@ void CodeGen_C::compile(const LoweredFunc &f) {
 
     std::vector<std::string> namespaces;
     std::string simple_name = extract_namespaces(f.name, namespaces);
+    std::cout << "creating file from name: " << f.name << std::endl;
     if (!is_c_plus_plus_interface()) {
         user_assert(namespaces.empty()) <<
             "Namespace qualifiers not allowed on function name if not compiling with Target::CPlusPlusNameMangling.\n";

@@ -40,20 +40,31 @@ public:
                     const std::vector<VHLS_Argument> &args);
 
     void dump();
+    void set_output_folder(std::string folderpath) {
+      output_base_path = folderpath;
+      hdrc.set_output_path(folderpath);
+      srcc.set_output_path(folderpath);
+    }
+
 
 protected:
     class CodeGen_VHLS_C : public CodeGen_VHLS_Base {
     public:
  CodeGen_VHLS_C(std::ostream &s, Target target, OutputKind output_kind) :
-  CodeGen_VHLS_Base(s, target, output_kind) {}
+  CodeGen_VHLS_Base(s, target, output_kind) { }
 
+        void set_output_path(std::string pathname) {
+          output_base_path = pathname;
+        }
+  
         void add_kernel(Stmt stmt,
                         const std::string &name,
                         const std::vector<VHLS_Argument> &args);
 
     protected:
         std::string print_stencil_pragma(const std::string &name);
-
+        std::string output_base_path;
+        
         using CodeGen_VHLS_Base::visit;
 
         void visit(const For *op);
@@ -62,7 +73,8 @@ protected:
 
     /** A name for the VHLS target */
     std::string target_name;
-
+    std::string output_base_path;
+      
     /** String streams for building header and source files. */
     // @{
     std::ostringstream hdr_stream;

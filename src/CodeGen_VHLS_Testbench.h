@@ -22,6 +22,9 @@ class CodeGen_VHLS_Testbench : public CodeGen_VHLS_Base {
 public:
   CodeGen_VHLS_Testbench(std::ostream &tb_stream, Target target);
   ~CodeGen_VHLS_Testbench();
+   void set_output_folder(std::string folderpath) {
+     cg_target.set_output_folder(folderpath);
+   }
 
 protected:
     using CodeGen_VHLS_Base::visit;

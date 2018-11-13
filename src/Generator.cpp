@@ -125,6 +125,7 @@ Outputs compute_outputs(const Target &target,
     }
     if (options.emit_vhls) {
         output_files.vhls_source_name = base_path + get_extension("_vhls.cpp", options);
+        output_files.c_header_name = base_path + get_extension("_vhls.h", options);
     }
 
     return output_files;
