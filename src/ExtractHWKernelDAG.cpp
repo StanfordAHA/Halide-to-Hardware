@@ -456,7 +456,7 @@ class BuildDAGForFunction : public IRVisitor {
                 store_bounds.push(stage_name + ".max", substitute(loop_maxes, box[i].max));
             }
 
-            vector<StencilDimSpecs> dims = extract_stencil_specs(box, scan_loops, stencil_bounds, store_bounds);
+            vector<StencilDimSpecs> dims = extract_stencil_specs(box, scan_loops, stencil_bounds, store_bounds);            
             // manually compute store_bound for the output
             // kernel because extract_stencil_specs() cannot
             // extract it correctly
@@ -528,6 +528,9 @@ class BuildDAGForFunction : public IRVisitor {
                 if (cur_func.schedule().is_hw_kernel() ) {
                     debug(3) << "func " << stage.name << " stage " << stage.stage
                              << " is a hw kernel.\n";
+                    std::cout << "func " << stage.name << " stage " << stage.stage
+                             << " is a hw kernel. ";
+
                     HWKernel cur_kernel(cur_func, stage.name);
 
                     // if cur_func is non-pure function, we may already create
@@ -542,10 +545,12 @@ class BuildDAGForFunction : public IRVisitor {
                         // it is a linebuffered kernel
                         cur_kernel.is_inlined = false;
                         debug(3) << "[buffered]\n";
+                        std::cout << "[buffered]\n";
                     } else {
                         // It is a function "inlined" into a buffered kernel
                         cur_kernel.is_inlined = true;
                         debug(3) << "[inlined]\n";
+                        std::cout << "[inlined]\n";
                     }
 
                     // merge the bounds of consumers if they are inlined into the same buffered kernel
@@ -592,6 +597,9 @@ class BuildDAGForFunction : public IRVisitor {
                         if (p.first != cur_kernel.name) {
                             vector<StencilDimSpecs> consumer_stencil;
                             consumer_stencil = extract_stencil_specs(p.second, scan_loops, stencil_bounds, store_bounds);
+                            std::cout << "the kernel dims are: " << p.first
+                                      << " " << dims[0] << " " << dims[1] << std::endl;
+
                             debug(3) << "extracted stencil: " << consumer_stencil << "\n";
                             cur_kernel.consumer_stencils[p.first] = consumer_stencil;
 
@@ -702,6 +710,10 @@ Stmt extract_hw_kernel_dag(Stmt s, const map<string, Function> &env,
     s = SubstituteInConstants().mutate(s);
     debug(4) << "IR after simplification:\n" << s << "\n";
 
+    for (auto stage : inlined_stages) {
+      std::cout << "stage includes " << stage.name << std::endl;
+    }
+    
     // for each accelerated function, build a dag of HW kernels for it
     for (const auto &p : env) {
         Function func = p.second;

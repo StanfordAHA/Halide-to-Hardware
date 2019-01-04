@@ -640,6 +640,11 @@ class PartitionLoops : public IRMutator2 {
         bool make_prologue = !equal(prologue, simpler_body);
         bool make_epilogue = !equal(epilogue, simpler_body);
 
+        if (op->name.find("__scan_dim_") != string::npos) {
+          make_prologue = false;
+          make_epilogue = false;
+        }
+
         // Recurse on the middle section.
         simpler_body = mutate(simpler_body);
 
@@ -746,6 +751,9 @@ class PartitionLoops : public IRMutator2 {
         }
 
         debug(3) << "Partition loop.\n"
+                 << "Old: " << Stmt(op) << "\n"
+                 << "New: " << stmt << "\n";
+        std::cout << "Partition loop.\n"
                  << "Old: " << Stmt(op) << "\n"
                  << "New: " << stmt << "\n";
 

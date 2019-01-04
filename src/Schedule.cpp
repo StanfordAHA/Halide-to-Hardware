@@ -229,7 +229,7 @@ struct FuncScheduleContents {
     std::map<std::string, Parameter> tap_params;
 
     FuncScheduleContents() :
-        store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
+      store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
         memory_type(MemoryType::Auto), memoized(false), async(false), is_hw_kernel(false),
         is_accelerated(false), is_accelerator_input(false), is_accelerator_output(false),
         is_linebuffered(false) {};

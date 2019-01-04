@@ -18,17 +18,20 @@ Closure::Closure(Stmt s, const string &loop_variable) {
 
 void Closure::visit(const Let *op) {
     op->value.accept(this);
+        std::cout << "let: add to ignore: " << op->name << std::endl;
     ScopedBinding<> p(ignore, op->name);
     op->body.accept(this);
 }
 
 void Closure::visit(const LetStmt *op) {
     op->value.accept(this);
+        std::cout << "letstmt: add to ignore: " << op->name << std::endl;
     ScopedBinding<> p(ignore, op->name);
     op->body.accept(this);
 }
 
 void Closure::visit(const For *op) {
+      std::cout << "for: add to ignore: " << op->name << std::endl;
     ScopedBinding<> p(ignore, op->name);
     op->min.accept(this);
     op->extent.accept(this);
@@ -37,6 +40,8 @@ void Closure::visit(const For *op) {
 
 void Closure::found_buffer_ref(const string &name, Type type,
                                bool read, bool written, Halide::Buffer<> image) {
+  std::cout << "looking at " << name << " in closure where ignore=" <<
+    ignore.contains(name) << "\n";
     if (!ignore.contains(name)) {
         debug(3) << "Adding buffer " << name << " to closure\n";
         Buffer &ref = buffers[name];
@@ -61,6 +66,7 @@ void Closure::visit(const Call *op) {
     debug(3) << "visit call " << op->name << ": ";
     if(!ignore.contains(op->name)) {
       debug(3) << "adding to closure.\n";
+      std::cout << "adding to closure through call: " << op->name << "\n";
       vars[op->name] = Type();
     } else {
       debug(3) << "not adding to closure.\n";
@@ -86,6 +92,7 @@ void Closure::visit(const Allocate *op) {
     if (op->new_expr.defined()) {
         op->new_expr.accept(this);
     }
+    std::cout << "allocate: add to ignore: " << op->name << std::endl;
     ScopedBinding<> p(ignore, op->name);
     for (size_t i = 0; i < op->extents.size(); i++) {
         op->extents[i].accept(this);
@@ -99,6 +106,7 @@ void Closure::visit(const Variable *op) {
         debug(3) << "Not adding " << op->name << " to closure\n";
     } else {
         debug(3) << "Adding " << op->name << " to closure\n";
+        std::cout << "Adding " << op->name << " to closure through variable\n";
         vars[op->name] = op->type;
     }
 }
@@ -110,6 +118,8 @@ void Closure::visit(const Realize *op) {
   }
   op->condition.accept(this);
 
+      std::cout << "realize: add to ignore: " << op->name << std::endl;
+      
   ScopedBinding<> p(ignore, op->name);
   op->body.accept(this);
 }

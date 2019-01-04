@@ -189,8 +189,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
-  std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
-                                             //"div",
+  std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", "linebuffer",
                                              "muxn", "abs", "absd",
                                              "reg_array"
@@ -457,7 +456,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         // add another input
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
-        CoreIR::Type* input_type = context->BitIn()->Arr(in_bitwidth);
+        CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
         for (uint i=0; i<indices.size(); ++i) {
           input_type = input_type->Arr(indices[i]);
         }

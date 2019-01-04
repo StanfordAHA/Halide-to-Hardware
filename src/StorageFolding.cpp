@@ -691,7 +691,8 @@ class AttemptStorageFoldingOfFunction : public IRMutator2 {
                     if (is_const(fudge) && can_prove(fudge <= sema.init)) {
                       sema.init -= fudge;
                     } else {
-                      to_acquire = select(loop_var > loop_min, likely(to_acquire), extent);
+                      //to_acquire = select(loop_var > loop_min, likely(to_acquire), extent);
+                      to_acquire = select(loop_var > loop_min, likely(extent), to_acquire);
                     }
 
                     // We may need dynamic assertions that a positive
@@ -827,6 +828,7 @@ class StorageFolding : public IRMutator2 {
             ends_with(op->name, ".stencil_update") ||
             ends_with(op->name, ".stream")) {
           debug(3) << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
+          std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
           
           if (body.same_as(op->body)) {
             return op;
@@ -843,6 +845,7 @@ class StorageFolding : public IRMutator2 {
         
         AttemptStorageFoldingOfFunction folder(func, explicit_only);
         debug(3) << "Attempting to fold " << op->name << "\n";
+        std::cout << "Attempting to fold " << op->name << "\n";
         body = folder.mutate(body);
 
         if (body.same_as(op->body)) {

@@ -1,6 +1,7 @@
 include ../../hw_support/Makefile.inc
 
 TESTNAME = conv_3_1
+USE_COREIR_VALID = 1
 
 include ../../hw_support/hardware_targets.mk
 

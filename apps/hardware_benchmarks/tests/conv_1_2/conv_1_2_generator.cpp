@@ -16,22 +16,48 @@ public:
 
         Func kernel("kernel");
         Func conv("conv");
-        RDom r(0, 2,   // 2 columns
-               0, 1);  // 1 row
+        RDom r(0, 2,
+               0, 1);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 3;      kernel(0,1) = 7;
+        kernel(0,0) = 11;        kernel(0,1) = 12;
 
         conv(x, y) = 0;
 
-        conv(x, y) += kernel(r.x, r.y) * input(x + r.x, y + r.y);
-        output(x, y) = cast<uint16_t>(conv(x, y));
+        Func hw_input("hw_input");
+        hw_input(x, y) = input(x, y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+
+        Func hw_output("hw_output");
+        hw_output(x, y) = cast<uint16_t>(conv(x, y));
+        output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
-        conv.compute_root();
-        conv.update()
-          .unroll(r.x)
-          .unroll(r.y);
+        if (get_target().has_feature(Target::CoreIR)) {
+          Var xi,yi, xo,yo;
+          
+          hw_input.compute_root();
+          hw_output.compute_root();
+          
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-1, 64)
+            .hw_accelerate(xi, xo);
+
+          conv.update()
+            .unroll(r.x, 2)
+            .unroll(r.y, 1);
+
+          conv.linebuffer();
+
+          hw_input.stream_to_accelerator();
+          
+        } else {  // schedule to CPU
+          kernel.compute_root();
+          conv.compute_root();
+          conv.update()
+            .unroll(r.x, 2)
+            .unroll(r.y, 1);
+        }
+        
     }
 };
 

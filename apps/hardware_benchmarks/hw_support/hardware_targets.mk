@@ -18,6 +18,9 @@ HALIDE_SRC_PATH ?= ../../../..
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
+USE_COREIR_VALID ?= 0
+
+HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
 
 default: all
 all: $(BIN)/process
@@ -42,15 +45,25 @@ design-cpu: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
 
-design-coreir: $(BIN)/$(TESTNAME).generator
+design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt:
+	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
+	 $(MAKE) design-coreir-valid; \
+	else \
+	 $(MAKE) design-coreir-no_valid; \
+	fi
+
+design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir
+
+design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir
 
 design-hls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls
 
-HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
 $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o
 	@-mkdir -p $(BIN)
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
@@ -108,7 +121,9 @@ check:
 	fi
 	@printf "\n"
 
-
+$(BIN)/graph.png: $(BIN)/design_top.txt
+	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
+graph graph.png: $(BIN)/graph.png
 
 clean:
 	rm -rf $(BIN)

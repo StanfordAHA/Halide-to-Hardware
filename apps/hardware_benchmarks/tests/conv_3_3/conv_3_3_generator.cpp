@@ -42,13 +42,15 @@ public:
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
-            .accelerate({hw_input}, xi, xo, {});
+            .hw_accelerate(xi, xo);
 
           conv.update()
             .unroll(r.x, 3)
             .unroll(r.y, 3);
 
           conv.linebuffer();
+
+          hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU
           kernel.compute_root();

@@ -748,6 +748,11 @@ public:
         // this is straight-forward.
         for (size_t i = 0; i < f.size(); i++) {
 
+          std::cout << f[i].name() << " inline=" << inlined[i]
+                    << " comp_inline=" << f[i].schedule().compute_level().is_inlined()
+                    << " can_inline=" << f[i].can_be_inlined()
+                    << std::endl;
+
             if (inlined[i]) continue;
 
             Stage s;
@@ -789,6 +794,9 @@ public:
                 !stages[i].func.can_be_inlined()) {
                 new_stages.push_back(stages[i]);
             }
+            std::cout << stages[i].name
+                      << " inline=" << stages[i].func.schedule().compute_level().is_inlined()
+                      << " can_inline=" << stages[i].func.can_be_inlined() << std::endl;
         }
         new_stages.swap(stages);
 

@@ -171,7 +171,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
-    s = sliding_window(s, env);
+    //s = sliding_window(s, env);
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
@@ -192,7 +192,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
-      s = mark_hw_accelerators(s, env);
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
@@ -203,7 +202,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
@@ -211,7 +210,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
-    s = storage_folding(s, env);
+    //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+      s = storage_folding(s, env);
+      //}
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
 
     debug(1) << "Injecting debug_to_file calls...\n";
@@ -225,6 +226,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Dynamically skipping stages...\n";
     s = skip_stages(s, order);
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
+    std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
 
     if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
       debug(1) << "Forking asynchronous producers...\n";
@@ -243,8 +245,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after canonicalizing GPU var names:\n" << s << '\n';
 
     debug(1) << "Performing storage flattening...\n";
+    std::cout << "Before storage flattening...\n" << s << "\n\n";
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
+    std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
 
     debug(1) << "Unpacking buffer arguments...\n";
     s = unpack_buffers(s);
@@ -287,6 +291,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = unify_duplicate_lets(s);
     s = remove_trivial_for_loops(s);
     debug(2) << "Lowering after second simplifcation:\n" << s << "\n\n";
+    std::cout << "Lowering after second simplifcation:\n" << s << "\n\n";
 
     debug(1) << "Reduce prefetch dimension...\n";
     s = reduce_prefetch_dimension(s, t);
@@ -296,6 +301,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = unroll_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after unrolling:\n" << s << "\n\n";
+    //std::cout << "Lowering after unrolling:\n" << s << "\n\n";
 
     debug(1) << "Vectorizing...\n";
     s = vectorize_loops(s, t);
@@ -315,9 +321,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after rewriting vector interleavings:\n" << s << "\n\n";
 
     debug(1) << "Partitioning loops to simplify boundary conditions...\n";
+    std::cout << "Partitioning loops to simplify boundary conditions...\n" << s << '\n';
     s = partition_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after partitioning loops:\n" << s << "\n\n";
+    std::cout << "Lowering after partitioning loops:\n" << s << "\n\n";
 
     debug(1) << "Trimming loops to the region over which they do something...\n";
     s = trim_no_ops(s);
@@ -379,6 +387,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
+    std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

@@ -10,19 +10,15 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController processor("cpu",
-                                          "conv_2_1",
-                                          [&]() {
-                                            conv_2_1(processor.input,
-                                                     processor.output);
-                                          });
+    OneInOneOut_ProcessController processor("conv_2_1",
+                                            {
+                                              {"cpu",
+                                                  [&]() { conv_3_3(processor.input, processor.output); }
+                                              }
+                                            });
 
-  int kernel_width  = 1; int kw = kernel_width;
-  int kernel_height = 3; int kh = kernel_height;
-  int image_size = 10;   int N = image_size;
-  
-  processor.input = Buffer<uint16_t>(N, N);
-  processor.output = Buffer<uint16_t>(N - kw, N - kh);
+  processor.input = Buffer<uint16_t>(64, 64);
+  processor.output = Buffer<uint16_t>(63, 64);
 
   
   processor.process_command(argc, argv);

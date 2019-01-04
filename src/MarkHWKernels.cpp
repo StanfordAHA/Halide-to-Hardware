@@ -80,6 +80,7 @@ public:
         debug(3) << "marked tap params: " << tap_params << "\n";
 
         for (auto &&p : kernel_funcs) {
+          std::cout << p.first << " is a kernel now\n";
             p.second.schedule().is_hw_kernel() = true;
             p.second.schedule().accelerate_exit() = output_func.name();
         }
@@ -94,7 +95,10 @@ public:
         if (input_names.count(func.name()) > 0) {
             // visit a input function, save path and input function
             // then terminate
-            for (const auto &f : path) kernel_funcs[f.name()] = f;
+          for (const auto &f : path) {
+            std::cout << f.name() << " added from path for " << func.name() << std::endl;
+            kernel_funcs[f.name()] = f;
+          }
             input_funcs.insert(make_pair(func.name(), func));
             return;
         }

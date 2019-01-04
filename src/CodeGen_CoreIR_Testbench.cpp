@@ -55,6 +55,7 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Bas
     internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
         debug(3) << "var: " << i.first << "\n";
+        std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
             CodeGen_CoreIR_Base::Stencil_Type stype = streams_scope.get(i.first);
@@ -100,6 +101,7 @@ void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
       if (op->is_producer) {
         std::cout << "found a pc for generating coreir" << std::endl;
         Stmt hw_body = op->body;
+        std::cout << hw_body << std::endl;
 
         debug(1) << "compute the closure for " << op->name << '\n';
 

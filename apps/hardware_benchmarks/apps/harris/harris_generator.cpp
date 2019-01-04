@@ -54,30 +54,34 @@ public:
         grad_yy(x, y) = cast<int32_t>(grad_y(x,y)) * cast<int32_t>(grad_y(x,y));
         grad_xy(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_y(x,y));
 
+        // shift gradients
+        Func lxx, lyy, lxy;
+        lxx(x, y) = grad_xx(x, y) >> 7;
+        lyy(x, y) = grad_yy(x, y) >> 7;
+        lxy(x, y) = grad_xy(x, y) >> 7;
+
         // box filter (i.e. windowed sum)
-        Func grad_gx, grad_gy, grad_gxy;
+        Func lgxx, lgyy, lgxy;
         RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
-        grad_gx(x, y)  += grad_xx(x+box.x, y+box.y);
-        grad_gy(x, y)  += grad_yy(x+box.x, y+box.y);
-        grad_gxy(x, y) += grad_xy(x+box.x, y+box.y);
+        lgxx(x, y) += lxx(x+box.x, y+box.y);
+        lgyy(x, y) += lyy(x+box.x, y+box.y);
+        lgxy(x, y) += lxy(x+box.x, y+box.y);
 
-        // calculate cornerness meausre, Cim
+        Expr lgxx8 = lgxx(x,y) >> 6;
+        Expr lgyy8 = lgyy(x,y) >> 6;
+        Expr lgxy8 = lgxy(x,y) >> 6;
+
+        // calculate Cim
+        //        int scale = (1 << (Ksize-1)) * blockSize;
+        //        Expr lgx = cast<float>(grad_gx(x, y) / scale / scale);
+        //        Expr lgy = cast<float>(grad_gy(x, y) / scale / scale);
+        //        Expr lgxy = cast<float>(grad_gxy(x, y) / scale / scale);
+
+        // scale==12, so dividing by 144
+        // approx~ 1>>7==divide by 128
         Func cim;
-        // int Ksize = 3;
-        // int scale = (1 << (Ksize-1)) * blockSize;
-        // Expr lgx = cast<float>(grad_gx(x, y) / scale / scale);
-        // Expr lgy = cast<float>(grad_gy(x, y) / scale / scale);
-        // Expr lgxy = cast<float>(grad_gxy(x, y) / scale / scale);
-
-        //     scale==12, so dividing by 144
-        //     approx~ 1>>7==divide by 128
-
-        // Using shifts instead of divide.
-        Expr lgx  = grad_gx(x, y)  >> 7;
-        Expr lgy  = grad_gy(x, y)  >> 7;
-        Expr lgxy = grad_gxy(x, y) >> 7;
-        Expr det = lgx*lgy - lgxy*lgxy;
-        Expr trace = lgx + lgy;
+        Expr det = lgxx8*lgyy8 - lgxy8*lgxy8;
+        Expr trace = lgxx8 + lgyy8;
         cim(x, y) = det - (trace*trace >> shiftk);
 
         // Perform non-maximal suppression
@@ -92,30 +96,32 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
 
-          output.tile(x, y, xo, yo, xi, yi, 64, 64);
+          //output.tile(x, y, xo, yo, xi, yi, 64, 64);
           //padded16.compute_at(output, xo);
-          padded.compute_root();
+          padded16.compute_root();
           //hw_output.compute_at(output, xo);
           hw_output.compute_root();
-        
-          //grad_x.linebuffer();
-          //grad_y.linebuffer();
-          grad_xx.linebuffer();
-          grad_yy.linebuffer();
-          grad_xy.linebuffer();
-          // grad_gx.linebuffer();
-          // grad_gy.linebuffer();
-          // grad_gxy.linebuffer();
-          cim.linebuffer();
 
-          grad_gx.update(0).unroll(box.x).unroll(box.y);
-          grad_gy.update(0).unroll(box.x).unroll(box.y);
-          grad_gxy.update(0).unroll(box.x).unroll(box.y);
-
-          padded.stream_to_accelerator();
           hw_output
             .tile(x, y, xo, yo, xi, yi, 64, 64)
-            .hw_accelerate(xi, xo);
+            .accelerate({padded16}, xi, xo);
+            //.hw_accelerate(xi, xo);
+          //padded16.stream_to_accelerator();
+        
+          grad_x.linebuffer();
+          grad_y.linebuffer();
+          lxx.linebuffer();
+          lyy.linebuffer();
+          lxy.linebuffer();
+          lgxx.linebuffer();
+          lgyy.linebuffer();
+          lgxy.linebuffer();
+          cim.linebuffer();
+
+          lgxx.update(0).unroll(box.x).unroll(box.y);
+          lgyy.update(0).unroll(box.x).unroll(box.y);
+          lgxy.update(0).unroll(box.x).unroll(box.y);
+
           //padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU
@@ -126,14 +132,18 @@ public:
           grad_xx.compute_at(output, xo).vectorize(x, 4);
           grad_yy.compute_at(output, xo).vectorize(x, 4);
           grad_xy.compute_at(output, xo).vectorize(x, 4);
-          grad_gx.compute_at(output, xo).vectorize(x, 4);
-          grad_gy.compute_at(output, xo).vectorize(x, 4);
-          grad_gxy.compute_at(output, xo).vectorize(x, 4);
+
+          //grad_xx.compute_with(grad_yy, x);
+          //grad_xy.compute_with(grad_yy, x);
+          
+          lgxx.compute_at(output, xo).vectorize(x, 4);
+          lgyy.compute_at(output, xo).vectorize(x, 4);
+          lgxy.compute_at(output, xo).vectorize(x, 4);
           cim.compute_at(output, xo).vectorize(x, 4);
 
-          grad_gx.update(0).unroll(box.x).unroll(box.y);
-          grad_gy.update(0).unroll(box.x).unroll(box.y);
-          grad_gxy.update(0).unroll(box.x).unroll(box.y);
+          lgxx.update(0).unroll(box.x).unroll(box.y);
+          lgyy.update(0).unroll(box.x).unroll(box.y);
+          lgxy.update(0).unroll(box.x).unroll(box.y);
 
           output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
         }

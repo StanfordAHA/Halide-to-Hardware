@@ -19,6 +19,7 @@
 #include "Target.h"
 #include "Var.h"
 #include "Prefetch.h"
+#include "MarkHWKernels.h"
 
 namespace Halide {
 namespace Internal {
@@ -2087,6 +2088,8 @@ Stmt schedule_functions(const vector<Function> &outputs,
     string root_var = LoopLevel::root().lock().to_string();
     Stmt s = For::make(root_var, 0, 1, ForType::Serial, DeviceAPI::Host, Evaluate::make(0));
 
+    s = mark_hw_accelerators(s, env);
+    
     any_memoized = false;
 
     validate_fused_groups_schedule(fused_groups, env);
@@ -2112,7 +2115,11 @@ Stmt schedule_functions(const vector<Function> &outputs,
               Function func_exit = env.find(f.schedule().accelerate_exit())->second;
               f.schedule().compute_level() = func_exit.schedule().accelerate_compute_level();
               f.schedule().store_level() = func_exit.schedule().accelerate_store_level();
+
+
             }
+            std::cout << name << " has hw_kernel=" << f.schedule().is_hw_kernel()
+                      << " lb=" << f.schedule().is_linebuffered() << std::endl;
 
             // The way in which the function was referred to in the
             // function DAG might not actually result in a use in the
