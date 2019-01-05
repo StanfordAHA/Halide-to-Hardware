@@ -286,12 +286,12 @@ extract_stencil_specs(Box box, const set<string> &scan_loops,
         //for (size_t j = 0; j < scan_loops.size(); j++) {
         for (const string& scan_loop : scan_loops) {
             if (expr_uses_var(min, scan_loop)) {
-                dim_specs.loop_var = scan_loop;
-                Expr step = simplify(finite_difference(min, dim_specs.loop_var));
-                const IntImm *step_int = step.as<IntImm>();
-                internal_assert(step_int) << "stencil window step is not a const.\n";
-                dim_specs.step = step_int->value;
-                break;
+              dim_specs.loop_var = scan_loop;
+              Expr step = simplify(finite_difference(min, dim_specs.loop_var));
+              const IntImm *step_int = step.as<IntImm>();
+              internal_assert(step_int) << scan_loop << " stencil window step is not a const." << "\n" << step << "\n";
+              dim_specs.step = step_int->value;
+              break;
             }
         }
         res.push_back(dim_specs);
@@ -716,17 +716,18 @@ Stmt extract_hw_kernel_dag(Stmt s, const map<string, Function> &env,
     
     // for each accelerated function, build a dag of HW kernels for it
     for (const auto &p : env) {
-        Function func = p.second;
+      Function func = p.second;
+      std::cout << "Found function " << func.name() << "\n";
         if(!func.schedule().is_accelerated())
             continue;
-
+        std::cout << "Found accelerate function " << func.name() << "\n";
         LoopLevel store_locked = func.schedule().store_level().lock();
         string store_varname =
           store_locked.is_root() ? "root" :
           store_locked.is_inlined() ? "inlined" :
           store_locked.var().name();
         if (!store_locked.defined() || !starts_with(func.name(), "hw_output")) {
-          continue;
+          //continue;
         }
         debug(3) << "Found accelerate function " << func.name() << "\n";
         std::cout << "Found accelerate function " << func.name() << "\n";

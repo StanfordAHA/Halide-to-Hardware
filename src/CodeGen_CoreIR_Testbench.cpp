@@ -129,6 +129,7 @@ void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
       }
     } else {
         CodeGen_CoreIR_Base::visit(op);
+        std::cout << "found a pc named " << op->name << std::endl;
     }
 }
 

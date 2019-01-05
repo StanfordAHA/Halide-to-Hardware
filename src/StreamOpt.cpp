@@ -868,6 +868,7 @@ class StreamOpt : public IRMutator2 {
 
     Stmt visit(const For *op) {
         Stmt stmt;
+        std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
             stmt = IRMutator2::visit(op);
         } else if (dag.compute_level.match(op->name)) {

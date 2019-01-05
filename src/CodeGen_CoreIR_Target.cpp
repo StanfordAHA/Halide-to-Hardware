@@ -1383,7 +1383,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Cast *op) {
   stream << "[cast]";
   string in_var = print_expr(op->value);
   string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
-  if (!is_const(in_var)) {
+
+  // casting from 1 to 16 bits
+  if (op->type.bits() > 1 && op->value.type().bits() == 1) {
+    Expr one_uint16 = UIntImm::make(UInt(16), 1);
+    Expr zero_uint16 = UIntImm::make(UInt(16), 0);
+    visit_ternop(op->type, op->value, one_uint16, zero_uint16, "?", ":", "mux");
+    
+  } else if (!is_const(in_var)) {
     // only add to list, don't duplicate constants
     rename_wire(out_var, in_var, op->value);
   }

@@ -33,7 +33,8 @@ float rand_float() { return rand_int(0, 1 << 30) / (float)(1 << 30); }
 // At the base case where depth is 0, we just return a randomly
 // chosen input.
 
-Type expr_types[] = { UInt(8), UInt(16), UInt(32), Int(8), Int(16), Int(32), Float(32) };
+//Type expr_types[] = { UInt(8), UInt(16), UInt(32), Int(8), Int(16), Int(32), Float(32) };
+Type expr_types[] = { UInt(16), Int(16) };
 const int expr_type_count = sizeof(expr_types)/sizeof(expr_types[0]);
 
 typedef Expr (*make_bin_op_fn)(Expr, Expr);
@@ -45,7 +46,7 @@ make_bin_op_fn make_bin_op[] = {
     (make_bin_op_fn)min,
     (make_bin_op_fn)max,
     (make_bin_op_fn)operator/,
-    (make_bin_op_fn)operator%,
+    //(make_bin_op_fn)operator%,
 };
 
 make_bin_op_fn make_bool_bin_op[] = {
@@ -98,6 +99,7 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
     // pick a random operation to combine exprs
     int op = rng() % op_count; // ops need to be defined
     switch(op) {
+      /*
     case 0:  // casting
     {
         // Get a random type
@@ -105,6 +107,7 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
         auto e1 = random_expr(inputs, depth, func_size);
         return cast(convertT, e1);
     }
+      */
     case 1: // select operation
     {
         auto c = random_condition(inputs, depth-2, func_size); // arbitrarily chose to make condition expression shorter
@@ -124,6 +127,7 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
         }
         break;
     }
+    /*
     case 3: // sin
     {
         if (func_size > func_size_thresh)
@@ -153,6 +157,7 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
         auto e1 = random_expr(inputs, depth-1, func_size);
         return fast_log(cast<float>(e1));
     }
+    */
     case 8: // condition
     {
         return random_condition(inputs, depth-1, func_size);
@@ -196,9 +201,10 @@ public:
     // The random seed to use to generate the pipeline.
     GeneratorParam<int> seed{"seed", 1};
     // The approximate max number of stages to generate in the random pipeline.
-    GeneratorParam<int> max_stages{"max_stages", 20};
+    GeneratorParam<int> max_stages{"max_stages", 30};
 
-    Input<Buffer<float>>  input{"input", 3};
+  //Input<Buffer<float>>  input{"input", 3};
+    Input<Buffer<uint16_t>>  input{"input", 3};
     Input<Buffer<uint8_t>>  uint8_weights {"uint8_weights", 4};
     Input<Buffer<uint16_t>>  uint16_weights{"uint16_weights", 4};
     Input<Buffer<uint32_t>>  uint32_weights{"uint32_weights", 4};
@@ -207,7 +213,8 @@ public:
     Input<Buffer<int32_t>>  int32_weights{"int32_weights", 4};
     Input<Buffer<float>>  float32_weights{"float32_weights", 4};
 
-    Output<Buffer<float>> output{"output", 3};
+  //Output<Buffer<float>> output{"output", 3};
+    Output<Buffer<uint16_t>> output{"output", 3};
 
     void set_upcast_types(Type input_type, Type& mult_type, Type& sum_type) {
         if (input_type.is_int() && rand_int(0,1)) {
@@ -1030,20 +1037,20 @@ public:
 
         if (stage_type == 0) {
             int dim = rand_int(0, 1);
-            int kernel_min = rand_int(-3, 0);
-            int kernel_max = rand_int(0, 3);
+            int kernel_min = -1;//rand_int(-1, -1);
+            int kernel_max = rand_int(1, 3);
             return convolve(f, dim, kernel_min, kernel_max);
         } else if (stage_type == 1) {
             int dim = rand_int(0, 1);
-            int kernel_min = rand_int(-10, 0);
+            int kernel_min = rand_int(-10, -1);
             int kernel_max = rand_int(0, 10);
             return convolve_r(f, dim, kernel_min, kernel_max);
-        } else if (stage_type == 2) {
+        } else if (stage_type == 2 && false) {
             int dim = rand_int(0, 1);
-            int kernel_min = rand_int(-10, 0);
+            int kernel_min = rand_int(-10, -1);
             int kernel_max = rand_int(0, 10);
             return convolve_w(f, dim, kernel_min, kernel_max);
-        } else if (stage_type == 3) {
+        } else if (stage_type == 3 && false) {
             int kernel_min = rand_int(-5, 0);
             int kernel_max = rand_int(0, 5);
             return convolve2D(f, kernel_min, kernel_max);
@@ -1051,9 +1058,9 @@ public:
             int kernel_min = rand_int(-5, 0);
             int kernel_max = rand_int(0, 5);
             return pool2D(f, kernel_min, kernel_max);
-        } else if (stage_type == 5) {
+        } else if (stage_type == 5 && false) {
             return activation(f);
-        } else if (stage_type == 6) {
+        } else if (stage_type == 6 && false) {
             return padding(f);
         } else if (stage_type == 7 && f.may_increase_size() && false) {
             // For now, only upsample dimensions 0 or 1.
@@ -1076,7 +1083,7 @@ public:
         } else if (stage_type == 13 && false) {
             // TODO: transpose disabled for now because f(x, y) + f(y, x) totally breaks the bounds inference done by the autoscheduler.
             return transpose(f);
-        } else if (stage_type == 14 && f.size() < 10000) {
+        } else if (stage_type == 14 && f.size() < 10000 && false) {
             return unary_op(f);
         } else if (stage_type == 15 && f.w > 32 && f.h > 32 && false) {
             return tiled_histogram(f);
@@ -1148,8 +1155,11 @@ public:
 
         Var x("x"), y("y"), c("c");
 
+        Func hw_input;
+        hw_input(x,y,c) = input(x, y, c);
         Func first;
-        first(x, y, c) = input(x, y, c);
+        first(x, y, c) = hw_input(x, y, c);
+        
 
         vector<Stage> stages;
         // Assume input starts at ~2000x2000
@@ -1162,7 +1172,7 @@ public:
             Stage next = random_stage(stages, CDF, curr_stage_id);
             stages.push_back(next);
             if (!auto_schedule) {
-                stages.back().func.compute_root().reorder(x, c, y).vectorize(x, 8).parallel(y, 8);
+              //stages.back().func.compute_root().reorder(x, c, y).vectorize(x, 8).parallel(y, 8);
             }
         }
 
@@ -1171,13 +1181,28 @@ public:
         // Resample back to the correct resolution
         tail = resample_to(tail, 2000, 2000, 3);
         Stage casted = cast_stage(output.type(), tail);
-        output = casted.func;
+        Func hw_output;
+        hw_output = casted.func;
+        
+        output(x,y,c) = hw_output(x,y,c);
 
-        if (!auto_schedule) {
-            output.compute_root().reorder(x, c, y).vectorize(x, 8).parallel(y);
-        }
+        /* THE SCHEDULE */
+        if (get_target().has_feature(Target::CoreIR)) {
+          Var xi,yi, xo,yo;
+          
+          hw_input.compute_root();
+          hw_output.compute_root();
+          
+          casted.func.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+            .hw_accelerate(xi, xo);
 
-        if (auto_schedule) {
+          hw_input.stream_to_accelerator();
+        
+        } else if (!auto_schedule) {
+          // schedule to CPU
+          //output.compute_root().reorder(x, c, y).vectorize(x, 8).parallel(y);
+          
+        } else if (auto_schedule) {
             input.dim(0).set_bounds_estimate(0, 2000)
                 .dim(1).set_bounds_estimate(0, 2000)
                 .dim(2).set_bounds_estimate(0, 3);
