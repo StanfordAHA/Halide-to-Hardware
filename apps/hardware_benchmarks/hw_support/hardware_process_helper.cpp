@@ -11,7 +11,8 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-int ProcessController::process_command(int argc, char **argv) {
+template <class T>
+int ProcessController<T>::process_command(int argc, char **argv) {
   if (argc < 2) {
     print_usage();
     return 1;
@@ -42,32 +43,38 @@ int ProcessController::process_command(int argc, char **argv) {
   }
 }
 
-int ProcessController::make_image_def(std::vector<std::string> args) {
+template <class T>
+int ProcessController<T>::make_image_def(std::vector<std::string> args) {
   std::cout << "make image not defined\n";
   return 1;
 }
 
-int ProcessController::make_run_def(std::vector<std::string> args) {
+template <class T>
+int ProcessController<T>::make_run_def(std::vector<std::string> args) {
   std::cout << "make run not defined\n";
   return 1;
 }
 
-int ProcessController::make_compare_def(std::vector<std::string> args) {
+template <class T>
+int ProcessController<T>::make_compare_def(std::vector<std::string> args) {
   std::cout << "make compare not defined\n";
   return 1;
 }
 
-int ProcessController::make_test_def(std::vector<std::string> args) {
+template <class T>
+int ProcessController<T>::make_test_def(std::vector<std::string> args) {
   std::cout << "make test not defined\n";
   return 1;
 }
 
-int ProcessController::make_eval_def(std::vector<std::string> args) {
+template <class T>
+int ProcessController<T>::make_eval_def(std::vector<std::string> args) {
   std::cout << "make eval not defined\n";
   return 1;
 }
 
-void ProcessController::print_usage() {
+template <class T>
+void ProcessController<T>::print_usage() {
   std::cout << "Usage:\n"
             << "  make image\n"
             << "  make run\n"
@@ -93,7 +100,8 @@ bool function_defined(std::string key, std::map<std::string, std::function<void(
   return map.count(key) > 0;
 }
 
-int OneInOneOut_ProcessController::make_image_def(std::vector<std::string> args) {
+template <class T>
+int OneInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> args) {
   if (args.size() != 0) {
     std::cout << "Usage:\n"
               << "  ./process image\n";
@@ -107,7 +115,8 @@ int OneInOneOut_ProcessController::make_image_def(std::vector<std::string> args)
   return 0;
 }
 
-int OneInOneOut_ProcessController::make_run_def(std::vector<std::string> args) {
+template <class T>
+int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args) {
   // Check hardware name used exists in run_calls
   bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
   
@@ -128,15 +137,17 @@ int OneInOneOut_ProcessController::make_run_def(std::vector<std::string> args) {
   std::string hardware_name = args[0];
   std::function<void()> run_call = run_calls.at(hardware_name);
   run_call();
-  convert_and_save_image(output, "bin/output.png");
+  std::string output_filename = "bin/output_" + hardware_name + ".png";
+  convert_and_save_image(output, output_filename);
     
-  std::cout << "Ran " << design_name << "\n";
+  std::cout << "Ran " << design_name << " on " << hardware_name << "\n";
   return 0;
 
 }
 
-int OneInOneOut_ProcessController::make_compare_def(std::vector<std::string> args) {
-  Buffer<uint16_t> output_comparison(output);
+template <class T>
+int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> args) {
+  Buffer<T> output_comparison(output);
     
   // Input image: create or load images
   if (args.size() == 2) {
@@ -149,7 +160,7 @@ int OneInOneOut_ProcessController::make_compare_def(std::vector<std::string> arg
   }
 
   // compare images
-  bool equal_images = compare_images(output, output_comparison);
+  bool equal_images = compare_images<T>(output, output_comparison);
 
   if (equal_images) {
     printf("Images are equivalent!\n");
@@ -161,12 +172,14 @@ int OneInOneOut_ProcessController::make_compare_def(std::vector<std::string> arg
 
 }
 
-int OneInOneOut_ProcessController::make_test_def(std::vector<std::string> args) {
+template <class T>
+int OneInOneOut_ProcessController<T>::make_test_def(std::vector<std::string> args) {
   std::cout << "make test: Not yet defined" << std::endl;
   return 1;
 }
 
-int OneInOneOut_ProcessController::make_eval_def(std::vector<std::string> args) {
+template <class T>
+int OneInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> args) {
   // Check hardware name used exists in run_calls
   bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
     
@@ -194,3 +207,43 @@ int OneInOneOut_ProcessController::make_eval_def(std::vector<std::string> args) 
   return 0;
 }
 
+
+
+template int ProcessController<uint16_t>::process_command(int argc, char **argv);
+template int ProcessController<uint16_t>::make_image_def(std::vector<std::string> args);
+template int ProcessController<uint16_t>::make_run_def(std::vector<std::string> args);
+template int ProcessController<uint16_t>::make_compare_def(std::vector<std::string> args);
+template int ProcessController<uint16_t>::make_test_def(std::vector<std::string> args);
+template int ProcessController<uint16_t>::make_eval_def(std::vector<std::string> args);
+template void ProcessController<uint16_t>::print_usage();
+template int OneInOneOut_ProcessController<uint16_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t>::make_eval_def(std::vector<std::string> args);
+
+template int ProcessController<int16_t>::process_command(int argc, char **argv);
+template int ProcessController<int16_t>::make_image_def(std::vector<std::string> args);
+template int ProcessController<int16_t>::make_run_def(std::vector<std::string> args);
+template int ProcessController<int16_t>::make_compare_def(std::vector<std::string> args);
+template int ProcessController<int16_t>::make_test_def(std::vector<std::string> args);
+template int ProcessController<int16_t>::make_eval_def(std::vector<std::string> args);
+template void ProcessController<int16_t>::print_usage();
+template int OneInOneOut_ProcessController<int16_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int16_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int16_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int16_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int16_t>::make_eval_def(std::vector<std::string> args);
+
+template int ProcessController<bool>::process_command(int argc, char **argv);
+template int ProcessController<bool>::make_image_def(std::vector<std::string> args);
+template int ProcessController<bool>::make_run_def(std::vector<std::string> args);
+template int ProcessController<bool>::make_compare_def(std::vector<std::string> args);
+template int ProcessController<bool>::make_test_def(std::vector<std::string> args);
+template int ProcessController<bool>::make_eval_def(std::vector<std::string> args);
+template void ProcessController<bool>::print_usage();
+template int OneInOneOut_ProcessController<bool>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<bool>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<bool>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<bool>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<bool>::make_eval_def(std::vector<std::string> args);

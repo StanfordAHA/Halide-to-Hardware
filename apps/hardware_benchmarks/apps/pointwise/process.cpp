@@ -3,6 +3,7 @@
 #include "pointwise.h"
 
 #include "hardware_process_helper.h"
+#include "coreir_interpret.h"
 #include "halide_image_io.h"
 
 using namespace Halide::Tools;
@@ -10,20 +11,20 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController processor("cpu",
-                                          "pointwise",
-                                          [&]() {
-                                            pointwise(processor.input,
-                                                      processor.output);
-                                          });
+  OneInOneOut_ProcessController<uint16_t> processor("pointwise",
+                                            {
+                                              {"cpu",
+                                                  [&]() { pointwise(processor.input, processor.output); }
+                                              },
+                                              {"coreir",
+                                                  [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
+                                                                                      "self.in_arg_0_0_0", "self.out_0_0"); }
+                                              }
 
-  int kernel_width  = 1; int kw = kernel_width;
-  int kernel_height = 3; int kh = kernel_height;
-  int image_size = 10;   int N = image_size;
-  
-  processor.input = Buffer<uint16_t>(N, N);
-  processor.output = Buffer<uint16_t>(N - kw, N - kh);
+                                            });
 
+  processor.input = Buffer<uint16_t>(64, 64);
+  processor.output = Buffer<uint16_t>(64, 64);
   
   processor.process_command(argc, argv);
   

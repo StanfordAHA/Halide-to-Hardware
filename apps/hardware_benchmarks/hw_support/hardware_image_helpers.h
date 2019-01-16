@@ -3,11 +3,13 @@
 
 enum ImageType {RANDOM, ASCENDING, UNIFORM};
 
-void create_image(Halide::Runtime::Buffer<uint16_t>* input,
+template <typename T>
+void create_image(Halide::Runtime::Buffer<T>* input,
                   ImageType type = RANDOM,
                   int bias = 0);
 
-void create_image(Halide::Runtime::Buffer<uint16_t>* input,
+template <typename T>
+void create_image(Halide::Runtime::Buffer<T>* input,
                   ImageType type,
                   int bias) {
   switch (type) {
@@ -43,9 +45,18 @@ void create_image(Halide::Runtime::Buffer<uint16_t>* input,
   }
 }
 
-bool compare_images(const Halide::Runtime::Buffer<uint16_t>& image0,
-                    const Halide::Runtime::Buffer<uint16_t>& image1) {
+template <typename T>
+bool compare_images(const Halide::Runtime::Buffer<T>& image0,
+                    const Halide::Runtime::Buffer<T>& image1) {
   bool equal_images = true;
+
+  if (image0.height() != image1.height() ||
+      image0.width() != image1.width()) {
+    std::cout << "Image sizes are not equal: "
+              << "(" << image0.width() << "," << image0.height() << ") vs "
+              << "(" << image1.width() << "," << image1.height() << ")\n";
+    return 0;
+  }
   
   for (int y=0; y<image0.height(); y++) {
     for (int x=0; x<image0.height(); x++) {

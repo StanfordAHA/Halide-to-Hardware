@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "conv_2_1.h"
+#include "boolean_ops.h"
 
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
@@ -11,10 +11,10 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<uint16_t> processor("conv_2_1",
+  OneInOneOut_ProcessController<int16_t> processor("boolean_ops",
                                           {
                                             {"cpu",
-                                                [&]() { conv_2_1(processor.input, processor.output); }
+                                                [&]() { boolean_ops(processor.input, processor.output); }
                                             },
                                             {"coreir",
                                                 [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
@@ -22,9 +22,9 @@ int main(int argc, char **argv) {
                                             }
                                           });
 
-  processor.input = Buffer<uint16_t>(64, 64);
-  processor.output = Buffer<uint16_t>(64, 63);
+  processor.input = Buffer<int16_t>(64, 64);
+  processor.output = Buffer<int16_t>(64, 64);
   
   processor.process_command(argc, argv);
-
+  
 }

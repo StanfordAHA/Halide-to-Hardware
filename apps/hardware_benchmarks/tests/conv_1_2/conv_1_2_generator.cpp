@@ -20,7 +20,7 @@ public:
                0, 1);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 11;        kernel(0,1) = 12;
+        kernel(0,0) = 1;        kernel(1,0) = 3;
 
         conv(x, y) = 0;
 

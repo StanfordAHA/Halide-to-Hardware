@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestUcomp : public Halide::Generator<UnitTestUcomp> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint16_t>>  input{"input", 2};
+    Output<Buffer<uint16_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */

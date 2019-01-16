@@ -41,11 +41,7 @@ generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DE
 	@-mkdir -p $(BIN)
 	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
-design $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
-	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
-
-design-cpu: $(BIN)/$(TESTNAME).generator
+design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
 
@@ -76,17 +72,20 @@ image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process image
 
-$(BIN)/output.png run run-cpu: $(BIN)/process
+run run-cpu $(BIN)/output_cpu.png: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run cpu input.png
 
-run-coreir: $(BIN)/process
+run-coreir $(BIN)/output_coreir.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(BIN)/process run coreir input.png
 
-run-hls: $(BIN)/process
+run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process run hls input.png
+	$(BIN)/process run vhls input.png
+
+compare compare-cpu-coreir compare-coreir-cpu: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
+	$(BIN)/process compare $(BIN)/output_coreir.png $(BIN)/output_cpu.png
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
@@ -96,9 +95,9 @@ eval-coreir: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process eval coreir input.png
 
-update_golden updategolden golden: $(BIN)/output.png
+update_golden updategolden golden: $(BIN)/output_cpu.png
 	@-mkdir -p $(GOLDEN)
-	cp $(BIN)/output.png $(GOLDEN)/golden_output.png
+	cp $(BIN)/output_cpu.png $(GOLDEN)/golden_output.png
 
 check:
 	@printf "%-15s" $(TESTNAME);

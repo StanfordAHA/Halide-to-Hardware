@@ -3,6 +3,7 @@
 
 #include "HalideBuffer.h"
 
+template <class T>
 class ProcessController {
  public:
   ProcessController(std::string app_name) :
@@ -25,10 +26,11 @@ class ProcessController {
   
 };
 
-class OneInOneOut_ProcessController : public ProcessController {
+template <class T>
+class OneInOneOut_ProcessController : public ProcessController<T> {
  public:
  OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
-  ProcessController(app_name), run_calls(ops) { }
+  ProcessController<T>(app_name), run_calls(ops), design_name(app_name) { }
 
   // overridden methods
   virtual int make_image_def(std::vector<std::string> args);
@@ -38,7 +40,11 @@ class OneInOneOut_ProcessController : public ProcessController {
   virtual int make_eval_def(std::vector<std::string> args);
 
   // buffers
-  Halide::Runtime::Buffer<uint16_t> input;
-  Halide::Runtime::Buffer<uint16_t> output;
+  Halide::Runtime::Buffer<T> input;
+  Halide::Runtime::Buffer<T> output;
   std::map<std::string, std::function<void()>> run_calls;
+
+  // names
+  std::string design_name;
+
 };

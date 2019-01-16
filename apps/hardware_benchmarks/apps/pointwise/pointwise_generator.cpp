@@ -14,12 +14,28 @@ public:
 
         Var x("x"), y("y");
 
+        Func hw_input, hw_output;
         Func mult("mult");
-        mult(x, y) = input(x,y) * 2;
-        output(x, y) = cast<uint16_t>(mult(x, y));
+        hw_input(x, y) = input(x, y);
+        mult(x, y) = hw_input(x,y) * 2;
+        hw_output(x, y) = cast<uint16_t>(mult(x, y));
+        output(x, y) = hw_output(x, y);
 
         /* THE SCHEDULE */
-        mult.compute_root();
+        if (get_target().has_feature(Target::CoreIR)) {
+          Var xi,yi, xo,yo;
+          
+          hw_input.compute_root();
+          hw_output.compute_root();
+          
+          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
+            .hw_accelerate(xi, xo);
+
+          hw_input.stream_to_accelerator();
+
+        } else {
+          mult.compute_root();
+        }
     }
 };
 

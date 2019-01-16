@@ -52,4 +52,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(UnitTestBoolean, boolean)
+HALIDE_REGISTER_GENERATOR(UnitTestBoolean, boolean_ops)

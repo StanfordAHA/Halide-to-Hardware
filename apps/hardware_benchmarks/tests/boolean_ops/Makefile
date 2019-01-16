@@ -1,6 +1,6 @@
 include ../../hw_support/Makefile.inc
 
-TESTNAME = boolean
+TESTNAME = boolean_ops
 
 include ../../hw_support/hardware_targets.mk
 
