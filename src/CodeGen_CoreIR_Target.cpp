@@ -177,16 +177,6 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
     assert(context->hasGenerator(gens[gen_name]));
   }
 
-  // add all modules from corebit
-  context->getNamespace("corebit");
-  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
-                                              "bitmux", "bitconst"};
-  for (auto mod_name : corebitlib_mod_names) {
-    // these were renamed to using the corebit library
-    gens[mod_name] = "corebit." + mod_name.substr(3);
-    assert(context->hasModule(gens[mod_name]));
-  }
-
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
@@ -198,6 +188,30 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   for (auto gen_name : commonlib_gen_names) {
     gens[gen_name] = "commonlib." + gen_name;
     assert(context->hasGenerator(gens[gen_name]));
+  }
+
+  // add all generators from fplib which include floating point operators
+  //context->getNamespace("fplib");
+  std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", 
+                                         "feq", "fneq",
+                                         "flt", "fgt", "fle", "fge",
+                                         "fmux", "fconst"};
+
+  for (auto gen_name : fplib_gen_names) {
+    //gens[gen_name] = "fplib." + gen_name;
+    gens[gen_name] = "commonlib." + gen_name;
+    std::cout << "finding gen " << gen_name << std::endl;
+    assert(context->hasGenerator(gens[gen_name]));
+  }
+  
+  // add all modules from corebit
+  context->getNamespace("corebit");
+  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
+                                              "bitmux", "bitconst"};
+  for (auto mod_name : corebitlib_mod_names) {
+    // these were renamed to using the corebit library
+    gens[mod_name] = "corebit." + mod_name.substr(3);
+    assert(context->hasModule(gens[mod_name]));
   }
 
 
@@ -662,6 +676,16 @@ int CodeGen_CoreIR_Target::CodeGen_CoreIR_C::id_const_value(const Expr e) {
   }
 }
 
+float id_fconst_value(const Expr e) {
+  if (const FloatImm* e_float = e.as<FloatImm>()) {
+    return e_float->value;
+
+  } else {
+    //internal_error << "invalid constant expr\n";
+    return -1;
+  }
+}
+
 int get_const_bitwidth(const Expr e) {
   if (const IntImm* e_int = e.as<IntImm>()) {
     return e_int->type.bits();
@@ -669,6 +693,9 @@ int get_const_bitwidth(const Expr e) {
   } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
     return e_uint->type.bits();
 
+  } else if (const FloatImm* e_float = e.as<FloatImm>()) {
+    return e_float->type.bits();
+    
   } else {
     internal_error << "invalid constant expr\n";
     return -1;
@@ -677,6 +704,14 @@ int get_const_bitwidth(const Expr e) {
 
 bool CodeGen_CoreIR_Target::CodeGen_CoreIR_C::is_const(const Expr e) {
   if (e.as<IntImm>() || e.as<UIntImm>()) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool is_fconst(const Expr e) {
+  if (e.as<FloatImm>()) {
     return true;
   } else {
     return false;
@@ -756,6 +791,19 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
     }
 
     stream << "// created const: " << const_name << " with name " << name << "\n";
+    return const_inst->sel("out");
+    
+  } else if (is_fconst(e)) {
+    float fconst_value = id_fconst_value(e);
+    string const_name = unique_name("fconst" + std::to_string((int)fconst_value) + "_" + name);
+    CoreIR::Wireable* const_inst;
+
+    uint const_bitwidth = get_const_bitwidth(e);
+    int bw = inst_bitwidth(const_bitwidth);
+    const_inst = def->addInstance(const_name, gens["fconst"], {{"width", CoreIR::Const::make(context,bw)}},
+                                  {{"value",CoreIR::Const::make(context,BitVector(bw,(int)fconst_value))}});
+
+    stream << "// created fconst: " << const_name << " with name " << name << "\n";
     return const_inst->sel("out");
 
   } else if (is_input(name)) {
@@ -949,6 +997,23 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::rename_wire(string new_name, strin
     stream << "// defined const: " << const_name << " with name " << new_name << "\n";
     //cout << "// defined const: " << const_name << " with name " << new_name << "\n";
     return;
+    
+  } else if (is_fconst(in_expr)) {
+    assert(indices.empty());
+    float fconst_value = id_fconst_value(in_expr);
+    string const_name = unique_name("fconst" + std::to_string((int)fconst_value) + "_" + in_name);
+
+    uint const_bitwidth = get_const_bitwidth(in_expr);
+    int bw = inst_bitwidth(const_bitwidth);
+    CoreIR::Values args = {{"width", CoreIR::Const::make(context,bw)}};
+    CoreIR::Values genargs = {{"value",CoreIR::Const::make(context,BitVector(bw,(int)fconst_value))}};
+
+    CoreIR_Inst_Args const_args(const_name, in_name, "out", gens["fconst"], args, genargs);
+    hw_def_set[new_name] = std::make_shared<CoreIR_Inst_Args>(const_args);
+
+    stream << "// defined fconst: " << const_name << " with name " << new_name << "\n";
+    return;
+    
   } else if (is_storage(in_name)) {
     // if this is simply another reference (no indexing), just add a new name
     if (indices.empty()) {
@@ -1230,10 +1295,20 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_ternop(Type t, Expr a, Expr 
 }  
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Mul *op) {
-  visit_binop(op->type, op->a, op->b, "*", "mul");
+  internal_assert(op->a.type() == op->b.type());
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f*", "fmul");
+  } else {
+    visit_binop(op->type, op->a, op->b, "*", "mul");
+  }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Add *op) {
-  visit_binop(op->type, op->a, op->b, "+", "add");
+  internal_assert(op->a.type() == op->b.type());
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f+", "fadd");
+  } else {
+    visit_binop(op->type, op->a, op->b, "+", "add");
+  }
   // check if we can instantiate a MAD instead
   /*
     if (const Mul* mul = op->a.as<Mul>()) {

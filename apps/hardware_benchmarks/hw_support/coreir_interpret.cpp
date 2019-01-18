@@ -87,6 +87,7 @@ void run_coreir_on_interpreter(string coreir_design,
     cout << "Could not save to json!!" << endl;
     c->die();
   }
+  cout << "generated simulated coreir design" << endl;
 
   // This sets each input for the coreir simulator before testing.
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
@@ -116,20 +117,31 @@ void run_coreir_on_interpreter(string coreir_design,
       reset_connections.insert(port_name);
       
     } else if (port_type->isOutput()) {
-      auto port_output = static_cast<BitType*>(port_type);
-      uint type_bitwidth = port_output->getSize();
-      state.setValue(port_name, BitVector(type_bitwidth));
+      if (port_name.find("[")) {
+        string port_name_wo_index = port_name.substr(0, port_name.find("["));
+        state.setValue(port_name_wo_index, BitVector(1));
+
+        cout << "reset indexed port " << port_name_wo_index << " with size 1" << endl;
+        reset_connections.insert(port_name_wo_index);
+        
+      } else {
+        auto port_output = static_cast<BitType*>(port_type);
+        uint type_bitwidth = port_output->getSize();
+        state.setValue(port_name, BitVector(type_bitwidth));
       
-      cout << "reset " << port_name << " with size " << type_bitwidth << endl;
-      reset_connections.insert(port_name);
+        cout << "reset " << port_name << " with size " << type_bitwidth << endl;
+        reset_connections.insert(port_name);
+      }
     }
   }
+
 
 //  state.setValue(input_name, BitVector(16));
 //  state.setValue("self.reset", BitVector(1));
 //  state.setClock("self.clk", 0, 1);
-  
+  cout << "starting coreir simulation" << endl;  
   state.resetCircuit();
+
   //state.setClock("self.clk", 0, 1);
 
   ImageWriter<T> coreir_img_writer(output);
