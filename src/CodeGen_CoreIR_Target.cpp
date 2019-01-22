@@ -101,40 +101,55 @@ class AllocationUsage : public IRVisitor {
   using IRVisitor::visit;
   void visit(const Load *op) {
     if (op->name == alloc_name) {
+      num_loads++;
+      load_index_exprs.emplace_back(op->index);
+      
       if (!is_const(op->index)) {
-        uses_variable_load = true;
+        uses_variable_load_index = true;
       }
     }
   }
 
   void visit(const Store *op) {
     if (op->name == alloc_name) {
+      num_stores++;
+      store_index_exprs.emplace_back(op->index);
+      
       if (!is_const(op->index)) {
         uses_variable_store_index = true;
       }
       if (!is_const(op->value)) {
         uses_variable_store_value = true;
       }
+      
     }
   }
 
 
  public:
-  bool uses_variable_load;
+  bool uses_variable_load_index;
   bool uses_variable_store_index;
   bool uses_variable_store_value;
+  bool load_index_equals_store_index;
+  uint num_loads;
+  uint num_stores;
+  vector<Expr> store_index_exprs;
+  vector<Expr> load_index_exprs;
   string alloc_name;
   
-  AllocationUsage(string allocname) : uses_variable_load(false),
+  AllocationUsage(string allocname) : uses_variable_load_index(false),
                                       uses_variable_store_index(false),
                                       uses_variable_store_value(false),
+                                      load_index_equals_store_index(false),
+                                      num_loads(0),
+                                      num_stores(0),
                                       alloc_name(allocname) {}
 };
 
 bool variable_index_load(Stmt s, string allocname) {
   AllocationUsage au(allocname);
   s.accept(&au);
-  return au.uses_variable_load;
+  return au.uses_variable_load_index;
 }
 
 bool can_use_rom(Stmt s, string allocname) {
@@ -1461,9 +1476,16 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Cast *op) {
 
   // casting from 1 to 16 bits
   if (op->type.bits() > 1 && op->value.type().bits() == 1) {
+    stream << "// casting from 1 to 16 bits" << endl;
     Expr one_uint16 = UIntImm::make(UInt(16), 1);
     Expr zero_uint16 = UIntImm::make(UInt(16), 0);
     visit_ternop(op->type, op->value, one_uint16, zero_uint16, "?", ":", "mux");
+
+  // casting from 16 to 1 bit
+  } else if (op->type.bits() == 1 && op->value.type().bits() > 1) {
+    stream << "// casting from 16 to 1 bit" << endl;
+    Expr zero_uint16 = UIntImm::make(UInt(op->value.type().bits()), 0);
+    visit_binop(op->type, op->value, zero_uint16, "!=", "neq");
     
   } else if (!is_const(in_var)) {
     // only add to list, don't duplicate constants

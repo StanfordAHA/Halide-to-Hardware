@@ -91,7 +91,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
   // This sets each input for the coreir simulator before testing.
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
-  set<string> reset_connections;
+  set<string> visited_connections;
   bool uses_valid = false;
   
   for (auto wireable_pair : self_conxs) {
@@ -101,20 +101,22 @@ void run_coreir_on_interpreter(string coreir_design,
     string port_name = wireable_pair.first->toString();
     Type* port_type = wireable_pair.first->getType();
 
+    // only process each connection once
+    if (visited_connections.count(port_name) > 0) {
+      continue;
+    }
+    visited_connections.insert(port_name);
+
+    // identify the valid signal
     if (port_name == "self.valid") {
       cout << "image is using output valid" << endl;
       uses_valid = true;
-    }
-
-    if (reset_connections.count(port_name) > 0) {
-      continue;
     }
 
     if ("self.clk" == port_name) {
       state.setClock(port_name, 0, 1);
       
       cout << "reset clock " << port_name << endl;
-      reset_connections.insert(port_name);
       
     } else if (port_type->isOutput()) {
       if (port_name.find("[")) {
@@ -122,7 +124,6 @@ void run_coreir_on_interpreter(string coreir_design,
         state.setValue(port_name_wo_index, BitVector(1));
 
         cout << "reset indexed port " << port_name_wo_index << " with size 1" << endl;
-        reset_connections.insert(port_name_wo_index);
         
       } else {
         auto port_output = static_cast<BitType*>(port_type);
@@ -130,7 +131,7 @@ void run_coreir_on_interpreter(string coreir_design,
         state.setValue(port_name, BitVector(type_bitwidth));
       
         cout << "reset " << port_name << " with size " << type_bitwidth << endl;
-        reset_connections.insert(port_name);
+
       }
     }
   }
