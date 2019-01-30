@@ -65,8 +65,6 @@ string CodeGen_Metal_Dev::CodeGen_Metal_C::print_type_maybe_storage(Type type, b
         case 2:
         case 3:
         case 4:
-        case 8:
-        case 16:
             oss << type.lanes();
             break;
         default:
@@ -236,6 +234,7 @@ string CodeGen_Metal_Dev::CodeGen_Metal_C::get_memory_space(const string &buf) {
 
 void CodeGen_Metal_Dev::CodeGen_Metal_C::visit(const Load *op) {
     user_assert(is_one(op->predicate)) << "Predicated load is not supported inside Metal kernel.\n";
+    user_assert(op->type.lanes() <= 4) << "Vectorization by widths greater than 4 is not supported by Metal -- type is " << op->type << ".\n";
 
     // If we're loading a contiguous ramp, load from a vector type pointer.
     Expr ramp_base = is_ramp_one(op->index);
@@ -278,9 +277,9 @@ void CodeGen_Metal_Dev::CodeGen_Metal_C::visit(const Load *op) {
         // If index is a vector, gather vector elements.
         internal_assert(op->type.is_vector());
 
-        // This has to be underscore as print_name prepends and
-        // underscore to names without one and that results in a name
-        // mismatch of a Load appears as the value of a Let.
+        // This has to be underscore as print_name prepends an underscore to
+        // names without one and that results in a name mismatch if a Load
+        // appears as the value of a Let
         id = unique_name('_');
         cache[rhs.str()] = id;
 
@@ -304,6 +303,7 @@ void CodeGen_Metal_Dev::CodeGen_Metal_C::visit(const Load *op) {
 
 void CodeGen_Metal_Dev::CodeGen_Metal_C::visit(const Store *op) {
     user_assert(is_one(op->predicate)) << "Predicated store is not supported inside Metal kernel.\n";
+    user_assert(op->value.type().lanes() <= 4) << "Vectorization by widths greater than 4 is not supported by Metal -- type is " << op->value.type() << ".\n";
 
     string id_value = print_expr(op->value);
     Type t = op->value.type();

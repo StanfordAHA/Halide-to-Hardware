@@ -8,6 +8,7 @@
 #include "AddImageChecks.h"
 #include "AddParameterChecks.h"
 #include "AllocationBoundsInference.h"
+#include "AsyncProducers.h"
 #include "BoundSmallAllocations.h"
 #include "Bounds.h"
 #include "BoundsInference.h"
@@ -18,6 +19,7 @@
 #include "DebugToFile.h"
 #include "Deinterleave.h"
 #include "EarlyFree.h"
+#include "ExtractHWKernelDAG.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "Function.h"
@@ -34,13 +36,16 @@
 #include "LICM.h"
 #include "LoopCarry.h"
 #include "LowerWarpShuffles.h"
+#include "MarkHWKernels.h"
 #include "Memoization.h"
 #include "PartitionLoops.h"
+#include "PurifyIndexMath.h"
 #include "Prefetch.h"
 #include "Profiling.h"
 #include "Qualify.h"
 #include "RealizationOrder.h"
 #include "RemoveDeadAllocations.h"
+#include "RemoveExternLoops.h"
 #include "RemoveTrivialForLoops.h"
 #include "RemoveUndef.h"
 #include "ScheduleFunctions.h"
@@ -52,6 +57,7 @@
 #include "SplitTuples.h"
 #include "StorageFlattening.h"
 #include "StorageFolding.h"
+#include "StreamOpt.h"
 #include "StrictifyFloat.h"
 #include "Substitute.h"
 #include "Tracing.h"
@@ -59,6 +65,7 @@
 #include "UnifyDuplicateLets.h"
 #include "UniquifyVariableNames.h"
 #include "UnpackBuffers.h"
+#include "UnsafePromises.h"
 #include "UnrollLoops.h"
 #include "VaryingAttributes.h"
 #include "VectorizeLoops.h"
@@ -77,6 +84,7 @@ using std::vector;
 Module lower(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
              const vector<Argument> &args, const LinkageType linkage_type,
              const vector<IRMutator2 *> &custom_passes) {
+
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
 
@@ -123,10 +131,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     Stmt s = schedule_functions(outputs, fused_groups, env, t, any_memoized);
     debug(2) << "Lowering after creating initial loop nests:\n" << s << '\n';
 
-    debug(1) << "Canonicalizing GPU var names...\n";
-    s = canonicalize_gpu_vars(s);
-    debug(2) << "Lowering after canonicalizing GPU var names:\n" << s << '\n';
-
     if (any_memoized) {
         debug(1) << "Injecting memoization...\n";
         s = inject_memoization(s, env, pipeline_name, outputs);
@@ -157,12 +161,17 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     // This pass injects nested definitions of variable names, so we
     // can't simplify statements from here until we fix them up. (We
     // can still simplify Exprs).
+    vector<BoundsInference_Stage> inlined_stages;
     debug(1) << "Performing computation bounds inference...\n";
-    s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, t);
+    s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, inlined_stages, t);
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
 
+    debug(1) << "Removing extern loops...\n";
+    s = remove_extern_loops(s);
+    debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
+
     debug(1) << "Performing sliding window optimization...\n";
-    s = sliding_window(s, env);
+    //s = sliding_window(s, env);
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
@@ -180,12 +189,31 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
+    if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
+      // passes specific to HLS backend
+      debug(1) << "Performing HLS target optimization..\n";
+      std::cout << "Performing HLS target optimization..\n";
+      
+      vector<HWKernelDAG> dags;
+      s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+
+      for(const HWKernelDAG &dag : dags) {
+        s = stream_opt(s, dag);
+        //s = replace_image_param(s, dag);
+      }
+
+      debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
+      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+    }
+    
     debug(1) << "Simplifying...\n";
-    s = simplify(s, false); // Keep dead lets. Storage flattening needs them.
+    s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
-    s = storage_folding(s, env);
+    //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+      s = storage_folding(s, env);
+      //}
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
 
     debug(1) << "Injecting debug_to_file calls...\n";
@@ -199,14 +227,29 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Dynamically skipping stages...\n";
     s = skip_stages(s, order);
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
+    //std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
+
+    if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+      debug(1) << "Forking asynchronous producers...\n";
+      s = fork_async_producers(s, env);
+      debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
+    }
 
     debug(1) << "Destructuring tuple-valued realizations...\n";
     s = split_tuples(s, env);
     debug(2) << "Lowering after destructuring tuple-valued realizations:\n" << s << "\n\n";
 
+    // OpenGL relies on GPU var canonicalization occurring before
+    // storage flattening
+    debug(1) << "Canonicalizing GPU var names...\n";
+    s = canonicalize_gpu_vars(s);
+    debug(2) << "Lowering after canonicalizing GPU var names:\n" << s << '\n';
+
     debug(1) << "Performing storage flattening...\n";
+    //std::cout << "Before storage flattening...\n" << s << "\n\n";
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
+    //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
 
     debug(1) << "Unpacking buffer arguments...\n";
     s = unpack_buffers(s);
@@ -223,6 +266,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_gpu_feature() ||
         t.has_feature(Target::OpenGLCompute) ||
         t.has_feature(Target::OpenGL) ||
+        t.has_feature(Target::HexagonDma) ||
         (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128})))) {
         debug(1) << "Selecting a GPU API for GPU loops...\n";
         s = select_gpu_api(s, t);
@@ -243,18 +287,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         debug(2) << "Lowering after OpenGL intrinsics:\n" << s << "\n\n";
     }
 
-    if (t.has_gpu_feature() ||
-        t.has_feature(Target::OpenGLCompute)) {
-        debug(1) << "Injecting per-block gpu synchronization...\n";
-        s = fuse_gpu_thread_loops(s);
-        debug(2) << "Lowering after injecting per-block gpu synchronization:\n" << s << "\n\n";
-    }
-
     debug(1) << "Simplifying...\n";
     s = simplify(s);
     s = unify_duplicate_lets(s);
     s = remove_trivial_for_loops(s);
     debug(2) << "Lowering after second simplifcation:\n" << s << "\n\n";
+    //std::cout << "Lowering after second simplifcation:\n" << s << "\n\n";
 
     debug(1) << "Reduce prefetch dimension...\n";
     s = reduce_prefetch_dimension(s, t);
@@ -264,11 +302,19 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = unroll_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after unrolling:\n" << s << "\n\n";
+    //std::cout << "Lowering after unrolling:\n" << s << "\n\n";
 
     debug(1) << "Vectorizing...\n";
     s = vectorize_loops(s, t);
     s = simplify(s);
     debug(2) << "Lowering after vectorizing:\n" << s << "\n\n";
+
+    if (t.has_gpu_feature() ||
+        t.has_feature(Target::OpenGLCompute)) {
+        debug(1) << "Injecting per-block gpu synchronization...\n";
+        s = fuse_gpu_thread_loops(s);
+        debug(2) << "Lowering after injecting per-block gpu synchronization:\n" << s << "\n\n";
+    }
 
     debug(1) << "Detecting vector interleavings...\n";
     s = rewrite_interleavings(s);
@@ -276,9 +322,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after rewriting vector interleavings:\n" << s << "\n\n";
 
     debug(1) << "Partitioning loops to simplify boundary conditions...\n";
+    //std::cout << "Partitioning loops to simplify boundary conditions...\n" << s << '\n';
     s = partition_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after partitioning loops:\n" << s << "\n\n";
+    //std::cout << "Lowering after partitioning loops:\n" << s << "\n\n";
 
     debug(1) << "Trimming loops to the region over which they do something...\n";
     s = trim_no_ops(s);
@@ -323,6 +371,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         debug(2) << "Lowering after removing varying attributes:\n" << s << "\n\n";
     }
 
+    debug(1) << "Lowering unsafe promises...\n";
+    s = lower_unsafe_promises(s, t);
+    debug(2) << "Lowering after lowering unsafe promises:\n" << s << "\n\n";
+
     s = remove_dead_allocations(s);
     s = remove_trivial_for_loops(s);
     s = simplify(s);
@@ -336,6 +388,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
+    std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {
@@ -426,7 +479,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         debug_arguments(&main_func);
     }
 
-    result_module.append(main_func);
+    if (!t.has_feature(Target::HLS)) {
+      result_module.append(main_func);
+    }
 
     // Append a wrapper for this pipeline that accepts old buffer_ts
     // and upgrades them. It will use the same name, so it will

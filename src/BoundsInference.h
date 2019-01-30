@@ -8,6 +8,7 @@
 #include <map>
 
 #include "Bounds.h"
+#include "ExtractHWKernelDAG.h"
 #include "IR.h"
 #include "Target.h"
 
@@ -24,6 +25,7 @@ Stmt bounds_inference(Stmt,
                       const std::vector<std::vector<std::string>> &fused_groups,
                       const std::map<std::string, Function> &environment,
                       const std::map<std::pair<std::string, int>, Interval> &func_bounds,
+                      std::vector<BoundsInference_Stage> &inlined_stages,                      
                       const Target &target);
 
 }  // namespace Internal

@@ -31,7 +31,6 @@ public:
             outputs.insert(f.name());
         }
     }
-    Scope<> scope;
 private:
     const map<string, pair<Function, int>> &env;
     set<string> outputs;
@@ -43,9 +42,6 @@ private:
                         const Buffer<> &buf, const Parameter &param) {
         ReductionDomain rdom;
         name = name + "." + field + "." + std::to_string(dim);
-        if (scope.contains(name + ".constrained")) {
-            name = name + ".constrained";
-        }
         return Variable::make(Int(32), name, buf, param, rdom);
     }
 
@@ -107,6 +103,26 @@ private:
     using IRMutator2::visit;
 
     Stmt visit(const Realize *op) override {
+        // if it is a realize node of a stream or a stencil, skip it
+        const Realize *realize = op;
+        if (ends_with(realize->name, ".stencil") ||
+            ends_with(realize->name, ".stencil_update") ||
+            ends_with(realize->name, ".stream")) {
+          Stmt body = mutate(realize->body);
+          Stmt stmt;
+        
+          debug(3) << "Not attempting to flatten " << realize->name << " because it is a stream or a stencil.\n";
+          std::cout << "Not attempting to flatten " << realize->name << " because it is a stream or a stencil.\n";
+          if (body.same_as(realize->body)) {
+            stmt = realize;
+          } else {
+            stmt = Realize::make(realize->name, realize->types, MemoryType::Auto, realize->bounds,
+                                 realize->condition, body);
+          }
+          return stmt;
+        }
+        std::cout << "Flattening " << realize->name << " because it is not a stream nor a stencil.\n";
+      
         realizations.push(op->name);
 
         if (in_shader) {
@@ -217,6 +233,18 @@ private:
 
     Stmt visit(const Provide *op) override {
         internal_assert(op->values.size() == 1);
+
+        // don't flatten stencil type
+        if (ends_with(op->name, ".stencil") ||
+            ends_with(op->name, ".stencil_update")) {
+          vector<Expr> new_values(op->values.size());
+          for (size_t i = 0; i < op->values.size(); i++) {
+            Expr old_value = op->values[i];
+            Expr new_value = mutate(old_value);
+            new_values[i] = new_value;
+          }
+          return Provide::make(op->name, new_values, op->args);
+        }
 
         Parameter output_buf;
         auto it = env.find(op->name);
@@ -359,22 +387,6 @@ private:
         }
         Stmt body = mutate(op->body);
         return Block::make(prefetch_call, body);
-    }
-
-    Stmt visit(const LetStmt *op) override {
-        // Discover constrained versions of things.
-        bool constrained_version_exists = ends_with(op->name, ".constrained");
-        if (constrained_version_exists) {
-            scope.push(op->name);
-        }
-
-        Stmt stmt = IRMutator2::visit(op);
-
-        if (constrained_version_exists) {
-            scope.pop(op->name);
-        }
-
-        return stmt;
     }
 
     Stmt visit(const For *op) override {

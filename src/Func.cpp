@@ -23,6 +23,7 @@
 #include "LLVM_Headers.h"
 #include "LLVM_Output.h"
 #include "Lower.h"
+#include "MarkHWKernels.h"
 #include "Outputs.h"
 #include "Param.h"
 #include "PrintLoopNest.h"
@@ -923,6 +924,10 @@ void Stage::split(const string &old, const string &outer, const string &inner, E
             dims.insert(dims.begin() + i, dims[i]);
             dims[i].var = inner_name;
             dims[i+1].var = outer_name;
+            if (dims[i].for_type == ForType::Extern) {
+                // If we split an extern loop, mark the outer loop serial.
+                dims[i+1].for_type = ForType::Serial;
+            }
         }
     }
 
@@ -1128,7 +1133,7 @@ public:
     string offending_var;
 protected:
     using IRGraphVisitor::visit;
-    void visit(const Variable *var) {
+    void visit(const Variable *var) override {
         if (!var->param.defined() && !var->image.defined()) {
             offending_var = var->name;
         }
@@ -1485,14 +1490,16 @@ Stage &Stage::tile(VarOrRVar x, VarOrRVar y,
     return *this;
 }
 
-namespace {
-// An helper function for reordering vars in a schedule.
-void reorder_vars(vector<Dim> &dims_old, const VarOrRVar *vars, size_t size, const Stage &stage) {
+Stage &Stage::reorder(const std::vector<VarOrRVar>& vars) {
+    const string &func_name = function.name();
+    vector<Expr> &args = definition.args();
+    vector<Expr> &values = definition.values();
+    vector<Dim> &dims_old = definition.schedule().dims();
     vector<Dim> dims = dims_old;
 
     // Tag all the vars with their locations in the dims list.
-    vector<size_t> idx(size);
-    for (size_t i = 0; i < size; i++) {
+    vector<size_t> idx(vars.size());
+    for (size_t i = 0; i < vars.size(); i++) {
         bool found = false;
         for (size_t j = 0; j < dims.size(); j++) {
             if (var_name_match(dims[j].var, vars[i].name())) {
@@ -1501,24 +1508,33 @@ void reorder_vars(vector<Dim> &dims_old, const VarOrRVar *vars, size_t size, con
             }
         }
         user_assert(found)
-            << "In schedule for " << stage.name()
+            << "In schedule for " << name()
             << ", could not find var " << vars[i].name()
             << " to reorder in the argument list.\n"
-            << stage.dump_argument_list();
+            << dump_argument_list();
     }
 
-    // Look for illegal reorderings
-    for (size_t i = 0; i < idx.size(); i++) {
-        if (dims[idx[i]].is_pure()) continue;
-        for (size_t j = i+1; j < idx.size(); j++) {
-            if (dims[idx[j]].is_pure()) continue;
-
-            if (idx[i] > idx[j]) {
-                user_error
-                    << "In schedule for " << stage.name()
-                    << ", can't reorder RVars " << vars[i].name()
-                    << " and " << vars[j].name()
-                    << " because it may change the meaning of the algorithm.\n";
+    // It is illegal to reorder RVars if the stage is not associative
+    // or not commutative. Look for RVar reorderings and try to do the
+    // necessary proof if any are found.
+    bool associativity_proven = false;
+    for (size_t i = 0; !associativity_proven && i < idx.size(); i++) {
+        if (!dims[idx[i]].is_pure()) {
+            for (size_t j = i+1; !associativity_proven && j < idx.size(); j++) {
+                if (!dims[idx[j]].is_pure() && (idx[i] > idx[j])) {
+                    // Generate an error if the operator is not both associative and commutative.
+                    const auto &prover_result = prove_associativity(func_name, args, values);
+                    associativity_proven = prover_result.associative() &&
+                                           prover_result.commutative();
+                    if (!associativity_proven) {
+                        user_error
+                            << "In schedule for " << name()
+                            << ", can't reorder RVars " << vars[i].name()
+                            << " and " << vars[j].name()
+                            << " because it may change the meaning of the "
+                            << "algorithm.\n";
+                    }
+                }
             }
         }
     }
@@ -1527,16 +1543,12 @@ void reorder_vars(vector<Dim> &dims_old, const VarOrRVar *vars, size_t size, con
     vector<size_t> sorted = idx;
     std::sort(sorted.begin(), sorted.end());
 
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < vars.size(); i++) {
         dims[sorted[i]] = dims_old[idx[i]];
     }
 
     dims_old.swap(dims);
-}
-}
 
-Stage &Stage::reorder(const std::vector<VarOrRVar>& vars) {
-    reorder_vars(definition.schedule().dims(), &vars[0], vars.size(), *this);
     return *this;
 }
 
@@ -1982,6 +1994,12 @@ Func &Func::memoize() {
 Func &Func::store_in(MemoryType t) {
     invalidate_cache();
     func.schedule().memory_type() = t;
+    return *this;
+}
+
+Func &Func::async() {
+    invalidate_cache();
+    func.schedule().async() = true;
     return *this;
 }
 
@@ -2435,6 +2453,156 @@ Func &Func::store_root() {
     return store_at(LoopLevel::root());
 }
 
+Func &Func::accelerate(vector<Func> inputs,
+                       Var compute_var, Var store_var,
+                       vector<Func> taps) {
+    /*
+      This method prepares enough information on related function schedules,
+      in order to draw the boundaries of the accelerator in the DAG of functinos.
+     */
+    invalidate_cache();
+
+    debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+    std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+
+    for (size_t i = 0; i < inputs.size(); i++) {
+        Function hw_in = inputs[i].function();
+        // save the hw inputs of the accelerator pipeline in the schedule
+        func.schedule().accelerate_inputs().insert(hw_in.name());
+
+        // mark the hw input as linebuffered and store in kernel buffer slice
+        //hw_in.schedule().is_kernel_buffer_slice() = true;  // FIXME
+        // stores input in the kernel buffer
+        //hw_in.schedule().is_kernel_buffer() = true;
+    }
+
+    // schedule the compute and store levels of the hw_out,
+    // which later becomes the constraints of the accelerator pipeline.
+    func.schedule().is_accelerated() = true;
+    func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
+    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+    std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
+              << " varname=" << func.schedule().accelerate_compute_level().var().name()
+              << "\n";
+    std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+              << " varname=" << func.schedule().accelerate_store_level().var().name()
+              << "\n";
+    
+    // hw_out is stored in kernel buffer slice, this function store in kernel buffer
+    //func.schedule().is_kernel_buffer_slice() = true;
+    //func.schedule().is_kernel_buffer() = true;
+
+
+    // mark all the halide functions in the pipeline to be "hw_kernel"
+    std::set<string> tap_names;
+    for (const auto &f : taps)  tap_names.insert(f.name());
+    mark_hw_kernels(func, func.schedule().accelerate_inputs(), tap_names);
+
+    LoopLevel store_locked = func.schedule().store_level().lock();
+    LoopLevel compute_locked = func.schedule().compute_level().lock();
+    string store_varname =
+      store_locked.is_root() ? "root" :
+      store_locked.is_inlined() ? "inlined" :
+      store_locked.var().name();
+    string compute_varname =
+      compute_locked.is_root() ? "root" :
+      compute_locked.is_inlined() ? "inlined" :
+      compute_locked.var().name();
+    debug(3) << "check function " << func.name() << " " << func.schedule().is_accelerated() <<  "\n";
+    debug(3) << store_locked.func() << " " << store_varname << "\n";
+    debug(3) << compute_locked.func() << " " << compute_varname << "\n";
+
+    return *this;
+}
+
+Func &Func::hw_accelerate(Var compute_var, Var store_var) {
+    /*
+      This method prepares enough information on related function schedules,
+      in order to draw the boundaries of the accelerator in the DAG of functinos.
+     */
+    invalidate_cache();
+
+    debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+    std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+             << " " << store_var.name() << "\n";
+
+    func.schedule().is_accelerator_output() = true;
+    
+    /*
+    for (size_t i = 0; i < inputs.size(); i++) {
+        Function hw_in = inputs[i].function();
+        // save the hw inputs of the accelerator pipeline in the schedule
+        func.schedule().accelerate_inputs().insert(hw_in.name());
+
+        // mark the hw input as linebuffered and store in kernel buffer slice
+        //hw_in.schedule().is_kernel_buffer_slice() = true;  // FIXME
+        // stores input in the kernel buffer
+        //hw_in.schedule().is_kernel_buffer() = true;
+    }
+    */
+    
+    // schedule the compute and store levels of the hw_out,
+    // which later becomes the constraints of the accelerator pipeline.
+    func.schedule().is_accelerated() = true;
+    func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
+    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+    std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
+              << " varname=" << func.schedule().accelerate_compute_level().var().name()
+              << "\n";
+    std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+              << " varname=" << func.schedule().accelerate_store_level().var().name()
+              << "\n";
+
+    // mark all the halide functions in the pipeline to be "hw_kernel"
+    /*
+    std::set<string> tap_names;
+    for (const auto &f : taps)  tap_names.insert(f.name());
+    mark_hw_kernels(func, func.schedule().accelerate_inputs(), tap_names);
+    */
+
+    LoopLevel store_locked = func.schedule().store_level().lock();
+    LoopLevel compute_locked = func.schedule().compute_level().lock();
+    string store_varname =
+      store_locked.is_root() ? "root" :
+      store_locked.is_inlined() ? "inlined" :
+      store_locked.var().name();
+    string compute_varname =
+      compute_locked.is_root() ? "root" :
+      compute_locked.is_inlined() ? "inlined" :
+      compute_locked.var().name();
+    debug(3) << "check function " << func.name() << " " << func.schedule().is_accelerated() <<  "\n";
+    debug(3) << store_locked.func() << " " << store_varname << "\n";
+    debug(3) << compute_locked.func() << " " << compute_varname << "\n";
+
+    return *this;
+}
+
+Func &Func::stream_to_accelerator() {
+  //func.schedule().accelerate_inputs().insert(hw_in.name());
+  func.schedule().is_accelerator_input() = true;
+  return *this;
+}
+  
+Func &Func::linebuffer() {
+    invalidate_cache();
+    func.schedule().is_linebuffered() = true;
+    return *this;
+}
+
+Func &Func::fifo_depth(Func consumer, int depth) {
+    invalidate_cache();
+    user_assert(depth > 0) << "Fifo depth must be greater than zero.\n";
+
+    // TODO check if consumer is a linebuffered function downstreaming
+    // from this function.
+    // Also check if the this function is scheduled to be linebuffered
+    func.schedule().fifo_depths()[consumer.name()] = depth;
+    return *this;
+}
+
 Func &Func::compute_inline() {
     return compute_at(LoopLevel::inlined());
 }
@@ -2495,7 +2663,7 @@ public:
 
     using IRGraphVisitor::visit;
 
-    void visit(const Variable *v) {
+    void visit(const Variable *v) override {
         int index = Var::implicit_index(v->name);
         if (index != -1) {
             if (index >= count) count = index + 1;
@@ -2972,6 +3140,17 @@ void Func::compile_to_c(const string &filename, const vector<Argument> &args,
                         const string &fn_name, const Target &target) {
     pipeline().compile_to_c(filename, args, fn_name, target);
 }
+
+void Func::compile_to_coreir(const string &filename, const vector<Argument> &args,
+                               const string &fn_name, const Target &target) {
+  pipeline().compile_to_coreir(filename, args, fn_name, target);
+}
+
+void Func::compile_to_vhls(const string &filename, const vector<Argument> &args,
+                               const string &fn_name, const Target &target) {
+  pipeline().compile_to_vhls(filename, args, fn_name, target);
+}
+
 
 void Func::compile_to_lowered_stmt(const string &filename,
                                    const vector<Argument> &args,

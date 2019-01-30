@@ -120,13 +120,21 @@ Outputs compute_outputs(const Target &target,
     if (options.emit_schedule) {
         output_files.schedule_name = base_path + get_extension(".schedule", options);
     }
+    if (options.emit_coreir) {
+        output_files.coreir_source_name = base_path + get_extension("_coreir.cpp", options);
+    }
+    if (options.emit_vhls) {
+        output_files.vhls_source_name = base_path + get_extension("_vhls.cpp", options);
+        output_files.c_header_name = base_path + get_extension("_vhls.h", options);
+    }
+
     return output_files;
 }
 
-Argument to_argument(const Internal::Parameter &param) {
+Argument to_argument(const Internal::Parameter &param, const Expr &default_value) {
     Expr def, min, max;
     if (!param.is_buffer()) {
-        def = param.scalar_expr();
+        def = default_value; // *not* param.scalar_expr();
         min = param.min_value();
         max = param.max_value();
     }
@@ -733,9 +741,6 @@ GeneratorStub::Names GeneratorStub::get_names() const {
     for (auto o : pi.generator_params) {
         names.generator_params.push_back(o->name);
     }
-    for (auto o : pi.filter_params) {
-        names.filter_params.push_back(o->name());
-    }
     for (auto o : pi.filter_inputs) {
         names.inputs.push_back(o->name());
     }
@@ -915,9 +920,13 @@ int generate_filter_main(int argc, char **argv, std::ostream &cerr) {
                 emit_options.emit_cpp_stub = true;
             } else if (opt == "schedule") {
                 emit_options.emit_schedule = true;
+            } else if (opt == "coreir") {
+                emit_options.emit_coreir = true;
+            } else if (opt == "vhls") {
+                emit_options.emit_vhls = true;
             } else if (!opt.empty()) {
                 cerr << "Unrecognized emit option: " << opt
-                     << " not one of [assembly, bitcode, cpp, h, html, o, static_library, stmt, cpp_stub], ignoring.\n";
+                     << " not one of [assembly, bitcode, cpp, h, html, o, static_library, stmt, cpp_stub, coreir, vhls], ignoring.\n";
             }
         }
     }
@@ -1083,15 +1092,7 @@ GeneratorBase::ParamInfo::ParamInfo(GeneratorBase *generator, const size_t size)
     std::set<std::string> names;
     std::vector<void *> vf = ObjectInstanceRegistry::instances_in_range(
         generator, size, ObjectInstanceRegistry::FilterParam);
-    for (auto v : vf) {
-        auto rp = static_cast<RegisteredParameter *>(v);
-        internal_assert(rp != nullptr && rp->defined());
-        user_assert(rp->is_explicit_name()) << "Params in Generators must have explicit names: " << rp->name();
-        user_assert(is_valid_name(rp->name())) << "Invalid Param name: " << rp->name();
-        user_assert(!names.count(rp->name())) << "Duplicate Param name: " << rp->name();
-        names.insert(rp->name());
-        filter_params.push_back(rp);
-    }
+    user_assert(vf.empty()) << "ImageParam and Param<> are no longer allowed in Generators; use Input<> instead.";
 
     const auto add_synthetic_params = [this, generator](GIOBase *gio) {
         const std::string &n = gio->name();
@@ -1136,14 +1137,6 @@ GeneratorBase::ParamInfo::ParamInfo(GeneratorBase *generator, const size_t size)
         output->generator = generator;
         filter_outputs.push_back(output);
         add_synthetic_params(output);
-    }
-
-    if (filter_params.size() > 0 && filter_inputs.size() > 0) {
-        user_error << "Input<> may not be used with Param<> or ImageParam in Generators.\n";
-    }
-
-    if (filter_params.size() > 0 && filter_outputs.size() > 0) {
-        user_error << "Output<> may not be used with Param<> or ImageParam in Generators.\n";
     }
 
     std::vector<void *> vg = ObjectInstanceRegistry::instances_in_range(
@@ -1249,8 +1242,6 @@ void GeneratorBase::set_inputs_vector(const std::vector<std::vector<StubInput>> 
     advance_phase(InputsSet);
     internal_assert(!inputs_set) << "set_inputs_vector() must be called at most once per Generator instance.\n";
     ParamInfo &pi = param_info();
-    user_assert(pi.filter_params.empty())
-        << "The set_inputs_vector() method cannot be used for Generators that use Param<> or ImageParam.";
     user_assert(inputs.size() == pi.filter_inputs.size())
             << "Expected exactly " << pi.filter_inputs.size()
             << " inputs but got " << inputs.size() << "\n";
@@ -1320,7 +1311,6 @@ void GeneratorBase::advance_phase(Phase new_phase) {
 void GeneratorBase::pre_generate() {
     advance_phase(GenerateCalled);
     ParamInfo &pi = param_info();
-    user_assert(pi.filter_params.empty()) << "May not use generate() method with Param<> or ImageParam.";
     user_assert(pi.filter_outputs.size() > 0) << "Must use Output<> with generate() method.";
     user_assert(get_target() != Target()) << "The Generator target has not been set.";
 
@@ -1409,23 +1399,11 @@ Module GeneratorBase::build_module(const std::string &function_name,
         auto_schedule_result = pipeline.auto_schedule(get_target(), get_machine_params());
     }
 
-    // Special-case here: for certain legacy Generators, building the pipeline
-    // can mutate the Params/ImageParams (mainly, to customize the type/dim
-    // of an ImageParam based on a GeneratorParam); to handle these, we discard (and rebuild)
-    // the ParamInfo for all "old-style" Generators. This isn't really desirable
-    // and hopefully can be eliminated someday.
-    if (param_info().filter_params.size() > 0) {
-        param_info_ptr.reset();
-    }
-
     ParamInfo &pi = param_info();
     std::vector<Argument> filter_arguments;
-    for (auto rp : pi.filter_params) {
-        filter_arguments.push_back(to_argument(*rp));
-    }
     for (auto input : pi.filter_inputs) {
         for (const auto &p : input->parameters_) {
-            filter_arguments.push_back(to_argument(p));
+            filter_arguments.push_back(to_argument(p, p.is_buffer() ? Expr() : input->get_def_expr()));
         }
     }
 
@@ -1674,6 +1652,10 @@ void GeneratorInputBase::set_def_min_max() {
     // nothing
 }
 
+Expr GeneratorInputBase::get_def_expr() const {
+    return Expr();
+}
+
 Parameter GeneratorInputBase::parameter() const {
     user_assert(!this->is_array()) << "Cannot call the parameter() method on Input<[]> " << name() << "; use an explicit subscript operator instead.";
     return parameters_.at(0);
@@ -1698,7 +1680,7 @@ void GeneratorInputBase::init_internals() {
     funcs_.clear();
     for (size_t i = 0; i < array_size(); ++i) {
         auto name = array_name(i);
-        parameters_.emplace_back(type(), kind() != IOKind::Scalar, dims(), name, true);
+        parameters_.emplace_back(type(), kind() != IOKind::Scalar, dims(), name);
         auto &p = parameters_[i];
         if (kind() != IOKind::Scalar) {
             internal_assert(dims() == p.dimensions());
@@ -1727,7 +1709,7 @@ void GeneratorInputBase::set_inputs(const std::vector<StubInput> &inputs) {
             check_matching_types(f.output_types());
             check_matching_dims(f.dimensions());
             funcs_.push_back(f);
-            parameters_.emplace_back(f.output_types().at(0), true, f.dimensions(), array_name(i), true);
+            parameters_.emplace_back(f.output_types().at(0), true, f.dimensions(), array_name(i));
         } else if (kind() == IOKind::Buffer) {
             auto p = in.parameter();
             check_matching_types({p.type()});
@@ -1739,7 +1721,7 @@ void GeneratorInputBase::set_inputs(const std::vector<StubInput> &inputs) {
             check_matching_types({e.type()});
             check_matching_dims(0);
             exprs_.push_back(e);
-            parameters_.emplace_back(e.type(), false, 0, array_name(i), true);
+            parameters_.emplace_back(e.type(), false, 0, array_name(i));
         }
     }
 

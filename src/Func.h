@@ -79,6 +79,7 @@ public:
     Stage(Internal::Function f, Internal::Definition d, size_t stage_index,
           const std::vector<Var> &args)
             : function(f), definition(d), stage_index(stage_index), dim_vars(args) {
+        internal_assert(definition.defined());
         internal_assert(definition.args().size() == dim_vars.size());
         definition.schedule().touched() = true;
     }
@@ -86,6 +87,7 @@ public:
     Stage(Internal::Function f, Internal::Definition d, size_t stage_index,
           const std::vector<std::string> &args)
             : function(f), definition(d), stage_index(stage_index) {
+        internal_assert(definition.defined());
         definition.schedule().touched() = true;
 
         std::vector<Var> dim_vars(args.size());
@@ -190,6 +192,27 @@ public:
      * exact schedule from the outermost to the innermost fused dimension, and
      * the stage we are calling compute_with on should not have specializations,
      * e.g. f2.compute_with(f1, x) is allowed only if f2 has no specializations.
+     *
+     * Also, if a producer is desired to be computed at the fused loop level,
+     * the function passed to the compute_at() needs to be the "parent". Consider
+     * the following code:
+     \code
+     input(x, y) = x + y;
+     f(x, y) = input(x, y);
+     f(x, y) += 5;
+     g(x, y) = x - y;
+     g(x, y) += 10;
+     f.compute_with(g, y);
+     f.update().compute_with(g.update(), y);
+     \endcode
+     *
+     * To compute 'input' at the fused loop level at dimension y, we specify
+     * input.compute_at(g, y) instead of input.compute_at(f, y) since 'g' is
+     * the "parent" for this fused loop (i.e. 'g' is computed first before 'f'
+     * is computed). On the other hand, to compute 'input' at the innermost
+     * dimension of 'f', we specify input.compute_at(f, x) instead of
+     * input.compute_at(g, x) since the x dimension of 'f' is not fused
+     * (only the y dimension is).
      *
      * Given the constraints, this has a variety of uses. Consider the
      * following code:
@@ -853,6 +876,24 @@ public:
                       const std::string &fn_name = "",
                       const Target &target = get_target_from_environment());
 
+    /** Statically compile a pipeline to CoreIR source code.
+     * Both hardware accelerator design and testbench wrapper will generated.
+     * Vectorization will fail, and parallelization will
+     * produce serial code. */
+    void compile_to_coreir(const std::string &filename,
+                           const std::vector<Argument> &,
+                           const std::string &fn_name = "",
+                           const Target &target = get_target_from_environment());
+
+    /** Statically compile a pipeline to Vivado HLS source code.
+     * Both hardware accelerator design and testbench wrapper will generated.
+     * Vectorization will fail, and parallelization will
+     * produce serial code. */
+    void compile_to_vhls(const std::string &filename,
+                         const std::vector<Argument> &,
+                         const std::string &fn_name = "",
+                         const Target &target = get_target_from_environment());
+    
     /** Write out an internal representation of lowered code. Useful
      * for analyzing and debugging scheduling. Can emit html or plain
      * text. */
@@ -2092,6 +2133,24 @@ public:
      */
     Func &memoize();
 
+    /** Produce this Func asynchronously in a separate
+     * thread. Consumers will be run by the task system when the
+     * production is complete. If this Func's store level is different
+     * to its compute level, consumers will be run concurrently,
+     * blocking as necessary to prevent reading ahead of what the
+     * producer has computed. If storage is folded, then the producer
+     * will additionally not be permitted to run too far ahead of the
+     * consumer, to avoid clobbering data that has not yet been
+     * used.
+     *
+     * Take special care when combining this with custom thread pool
+     * implementations, as avoiding deadlock with producer-consumer
+     * parallelism requires a much more sophisticated parallel runtime
+     * than with data parallelism alone. It is strongly recommended
+     * you just use Halide's default thread pool, which guarantees no
+     * deadlock and a bound on the number of threads launched.
+     */
+    Func &async();
 
     /** Allocate storage for this function within f's loop over
      * var. Scheduling storage is optional, and can be used to
@@ -2201,6 +2260,27 @@ public:
     /** Equivalent to \ref Func::store_at, but schedules storage
      * outside the outermost loop. */
     Func &store_root();
+
+    /** Schedule a function onto the hardware accelerator.
+     * Extract the pipeline from inputs to this function.
+     * In addition, compute_var and store_var, specify
+     * the compute and store levels of all linebuffered
+     * functions in the pipeline w.r.t this function.
+     */
+    Func &accelerate(std::vector<Func> inputs,
+                            Var compute_var, Var store_var,
+                            std::vector<Func> taps = {});
+    
+    Func &hw_accelerate(Var compute_var, Var store_var);
+    Func &stream_to_accelerator();
+
+    /** Schedule a function to be linebuffered.
+     */
+    Func &linebuffer();
+
+    /** Set the depth of the fifo from this function to consumer
+     */
+    Func &fifo_depth(Func consumer, int depth);
 
     /** Aggressively inline all uses of this function. This is the
      * default schedule, so you're unlikely to need to call this. For

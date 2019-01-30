@@ -31,14 +31,14 @@ bool var_name_match(string candidate, string var) {
 class DependsOnBoundsInference : public IRVisitor {
     using IRVisitor::visit;
 
-    void visit(const Variable *var) {
+    void visit(const Variable *var) override {
         if (ends_with(var->name, ".max") ||
             ends_with(var->name, ".min")) {
             result = true;
         }
     }
 
-    void visit(const Call *op) {
+    void visit(const Call *op) override {
         if (op->name == Call::buffer_get_min ||
             op->name == Call::buffer_get_max) {
             result = true;
@@ -80,7 +80,7 @@ private:
 
     using IRVisitor::visit;
 
-    void visit(const LetStmt *op) {
+    void visit(const LetStmt *op) override {
         Interval in = bounds_of_expr_in_scope(op->value, scope);
         if (op->name == var) {
             result = in;
@@ -90,7 +90,7 @@ private:
         }
     }
 
-    void visit(const For *op) {
+    void visit(const For *op) override {
         // At this stage of lowering, loop_min and loop_max
         // conveniently exist in scope.
         Interval in(Variable::make(Int(32), op->name + ".loop_min"),
@@ -748,6 +748,11 @@ public:
         // this is straight-forward.
         for (size_t i = 0; i < f.size(); i++) {
 
+          std::cout << f[i].name() << " inline=" << inlined[i]
+                    << " comp_inline=" << f[i].schedule().compute_level().is_inlined()
+                    << " can_inline=" << f[i].can_be_inlined()
+                    << std::endl;
+
             if (inlined[i]) continue;
 
             Stage s;
@@ -789,6 +794,9 @@ public:
                 !stages[i].func.can_be_inlined()) {
                 new_stages.push_back(stages[i]);
             }
+            std::cout << stages[i].name
+                      << " inline=" << stages[i].func.schedule().compute_level().is_inlined()
+                      << " can_inline=" << stages[i].func.can_be_inlined() << std::endl;
         }
         new_stages.swap(stages);
 
@@ -929,6 +937,12 @@ public:
     using IRMutator2::visit;
 
     Stmt visit(const For *op) override {
+        // Don't recurse inside loops marked 'Extern', they will be
+        // removed later.
+        if (op->for_type == ForType::Extern) {
+            return op;
+        }
+
         set<string> old_inner_productions;
         inner_productions.swap(old_inner_productions);
 
@@ -947,8 +961,12 @@ public:
             lets.push_back({ let->name, let->value });
         }
 
-        // If there are no pipelines at this loop level, we can skip most of the work.
-        bool no_pipelines = body.as<For>() != nullptr;
+        // If there are no pipelines at this loop level, we can skip
+        // most of the work.  Consider 'extern' for loops as pipelines
+        // (we aren't recursing into these loops above).
+        bool no_pipelines =
+            body.as<For>() != nullptr &&
+            body.as<For>()->for_type != ForType::Extern;
 
         // Figure out which stage of which function we're producing
         int producing = -1;
@@ -967,7 +985,7 @@ public:
 
         // Figure out how much of it we're producing
         Box box;
-        if (!no_pipelines && producing >= 0) {
+        if (!no_pipelines && producing >= 0 && !f.has_extern_definition()) {
             Scope<Interval> empty_scope;
             box = box_provided(body, stages[producing].name, empty_scope, func_bounds);
             internal_assert((int)box.size() == f.dimensions());
@@ -1009,36 +1027,31 @@ public:
                     internal_assert(box[i].is_bounded());
                     string var = stage_name + "." + f_args[i];
 
-                    if (box[i].is_single_point()){
+                    if (box[i].is_single_point()) {
                         body = LetStmt::make(var + ".max", Variable::make(Int(32), var + ".min"), body);
                     } else {
                         body = LetStmt::make(var + ".max", box[i].max, body);
                     }
 
                     body = LetStmt::make(var + ".min", box[i].min, body);
-
-                    // The following is also valid, but seems to not simplify as well
-                    /*
-                      string var = stage_name + "." + f_args[i];
-                      Interval in = bounds_of_inner_var(var, body);
-                      if (!in.min.defined() || !in.max.defined()) continue;
-
-                      if (in.max.same_as(in.min)) {
-                          body = LetStmt::make(var + ".max", Variable::make(Int(32), var + ".min"), body);
-                      } else {
-                          body = LetStmt::make(var + ".max", in.max, body);
-                      }
-
-                      body = LetStmt::make(var + ".min", in.min, body);
-                    */
                 }
             }
 
-            // And the current bounds on its reduction variables.
-            if (producing >= 0 && stages[producing].stage > 0) {
+            // And the current bounds on its reduction variables, and
+            // variables from extern for loops.
+            if (producing >= 0) {
                 const Stage &s = stages[producing];
-                for (const ReductionVariable &rv : s.rvars) {
-                    string var = s.stage_prefix + rv.var;
+                vector<string> vars;
+                if (s.func.has_extern_definition()) {
+                    vars = s.func.args();
+                }
+                if (stages[producing].stage > 0) {
+                    for (const ReductionVariable &rv : s.rvars) {
+                        vars.push_back(rv.var);
+                    }
+                }
+                for (const string& i : vars) {
+                    string var = s.stage_prefix + i;
                     Interval in = bounds_of_inner_var(var, body);
                     if (in.is_bounded()) {
                         body = LetStmt::make(var + ".min", in.min, body);
@@ -1076,7 +1089,13 @@ public:
 
 };
 
-
+void copy_stages(const vector<BoundsInference::Stage> &src,
+                 vector<BoundsInference_Stage> &des) {
+    for (size_t i = 0; i < src.size(); i++) {
+        const BoundsInference::Stage &stage = src[i];
+        des.push_back({stage.name, stage.stage, stage.consumers, stage.bounds});
+    }
+}
 
 Stmt bounds_inference(Stmt s,
                       const vector<Function> &outputs,
@@ -1084,6 +1103,7 @@ Stmt bounds_inference(Stmt s,
                       const vector<vector<string>> &fused_groups,
                       const map<string, Function> &env,
                       const FuncValueBounds &func_bounds,
+                      vector<BoundsInference_Stage> &inlined_stages,
                       const Target &target) {
 
     vector<Function> funcs(order.size());
@@ -1125,8 +1145,11 @@ Stmt bounds_inference(Stmt s,
 
     // Add an outermost bounds inference marker
     s = For::make("<outermost>", 0, 1, ForType::Serial, DeviceAPI::None, s);
-    s = BoundsInference(funcs, fused_func_groups, fused_pairs_in_groups,
-                        outputs, func_bounds, target).mutate(s);
+    BoundsInference bounds_inference(funcs, fused_func_groups, fused_pairs_in_groups,
+                                     outputs, func_bounds, target);
+    s = bounds_inference.mutate(s);
+    copy_stages(bounds_inference.stages, inlined_stages);
+    
     return s.as<For>()->body;
 }
 

@@ -93,8 +93,7 @@ struct PipelineContents {
     PipelineContents() :
         module("", Target()) {
         user_context_arg.arg = Argument("__user_context", Argument::InputScalar, type_of<const void*>(), 0);
-        user_context_arg.param = Parameter(Handle(), false, 0, "__user_context",
-                                           /*is_explicit_name*/ true);
+        user_context_arg.param = Parameter(Handle(), false, 0, "__user_context");
     }
 
     ~PipelineContents() {
@@ -223,7 +222,6 @@ void Pipeline::compile_to_assembly(const string &filename,
     m.compile(Outputs().assembly(output_name(filename, m, ".s")));
 }
 
-
 void Pipeline::compile_to_c(const string &filename,
                             const vector<Argument> &args,
                             const string &fn_name,
@@ -232,6 +230,22 @@ void Pipeline::compile_to_c(const string &filename,
     m.compile(Outputs().c_source(output_name(filename, m, ".c")));
 }
 
+void Pipeline::compile_to_coreir(const string &filename,
+                                 const vector<Argument> &args,
+                                 const string &fn_name,
+                                 const Target &target) {
+  Module m = compile_to_module(args, fn_name, target);
+  m.compile(Outputs().coreir_source(output_name(filename, m, ".cpp")));
+}
+
+void Pipeline::compile_to_vhls(const string &filename,
+                               const vector<Argument> &args,
+                               const string &fn_name,
+                               const Target &target) {
+  Module m = compile_to_module(args, fn_name, target);
+  m.compile(Outputs().vhls_source(output_name(filename, m, ".cpp")));
+}
+  
 void Pipeline::compile_to_python_extension(const string &filename,
                                            const vector<Argument> &args,
                                            const string &fn_name,

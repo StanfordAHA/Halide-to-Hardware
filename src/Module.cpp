@@ -6,6 +6,8 @@
 
 #include "CodeGen_C.h"
 #include "CodeGen_Internal.h"
+#include "CodeGen_CoreIR_Testbench.h"
+#include "CodeGen_VHLS_Testbench.h"
 #include "Debug.h"
 #include "HexagonOffload.h"
 #include "IROperator.h"
@@ -106,17 +108,6 @@ Outputs add_suffixes(const Outputs &in, const std::string &suffix) {
     if (!in.stmt_html_name.empty()) out.stmt_html_name = add_suffix(in.stmt_html_name, suffix);
     if (!in.schedule_name.empty()) out.schedule_name = add_suffix(in.schedule_name, suffix);
     return out;
-}
-
-uint64_t target_feature_mask(const Target &target) {
-    static_assert(sizeof(uint64_t)*8 >= Target::FeatureEnd, "Features will not fit in uint64_t");
-    uint64_t feature_mask = 0;
-    for (int i = 0; i < Target::FeatureEnd; ++i) {
-        if (target.has_feature((Target::Feature) i)) {
-            feature_mask |= ((uint64_t) 1) << i;
-        }
-    }
-    return feature_mask;
 }
 
 }  // namespace
@@ -420,7 +411,22 @@ void Module::compile(const Outputs &output_files_arg) const {
         }
     }
     if (!output_files.c_header_name.empty()) {
-        debug(1) << "Module.compile(): c_header_name " << output_files.c_header_name << "\n";
+        std::string oldname = name();
+        if (!output_files.vhls_source_name.empty()) {
+          contents->name = oldname + "_vhls";
+
+          for (auto &f : contents->functions) {
+            if (f.name == oldname) {
+              f.name = oldname + "_vhls";
+              std::cout << "renamed loweredfunc named " << oldname << " with " << f.name << std::endl;
+            }
+          }
+
+        }
+        
+        //debug(1) << "Module.compile(): c_header_name " << output_files.c_header_name << "\n";
+        std::cout << "Module.compile(): c_header_name " << output_files.c_header_name
+                  << " called " << name() << "\n";
         std::ofstream file(output_files.c_header_name);
         Internal::CodeGen_C cg(file,
                                target(),
@@ -428,6 +434,7 @@ void Module::compile(const Outputs &output_files_arg) const {
                                Internal::CodeGen_C::CPlusPlusHeader : Internal::CodeGen_C::CHeader,
                                output_files.c_header_name);
         cg.compile(*this);
+        contents->name = oldname;
     }
     if (!output_files.c_source_name.empty()) {
         debug(1) << "Module.compile(): c_source_name " << output_files.c_source_name << "\n";
@@ -438,6 +445,40 @@ void Module::compile(const Outputs &output_files_arg) const {
                                Internal::CodeGen_C::CPlusPlusImplementation : Internal::CodeGen_C::CImplementation);
         cg.compile(*this);
     }
+    if (!output_files.coreir_source_name.empty()) {
+      debug(1) << "Module.compile(): coreir_source_name " << output_files.coreir_source_name << "\n";
+
+      std::string coreir_output = output_files.coreir_source_name;
+      std::ofstream file(output_files.coreir_source_name);
+      Internal::CodeGen_CoreIR_Testbench cg(file,
+                                            target());
+
+      std::string foldername = coreir_output.substr(0, coreir_output.find_last_of("/"));
+      cg.set_output_folder(foldername);
+      std::cout << "Module.compile(): coreir_source_name " << output_files.coreir_source_name
+                << " with folder=" << foldername << "\n";
+      cg.compile(*this);
+    }
+    if (!output_files.vhls_source_name.empty()) {
+      debug(1) << "Module.compile(): vhls_source_name " << output_files.vhls_source_name << "\n";
+
+      std::string vhls_output = output_files.vhls_source_name;
+      std::ofstream file(output_files.vhls_source_name);
+      Internal::CodeGen_VHLS_Testbench cg(file,
+                                          target());
+
+      std::string foldername = vhls_output.substr(0, vhls_output.find_last_of("/"));
+      cg.set_output_folder(foldername);
+      std::string oldname = contents->name;
+      contents->name = oldname + "_vhls";
+      
+      std::cout << "Module.compile(): vhls_source_name " << output_files.vhls_source_name
+                << " with folder=" << foldername << " and name=" << name() << "\n";
+      cg.compile(*this);
+
+      contents->name = oldname;
+    }
+
     if (!output_files.python_extension_name.empty()) {
         debug(1) << "Module.compile(): python_extension_name " << output_files.python_extension_name << "\n";
         std::string c_header_name = output_files.c_header_name;
@@ -514,7 +555,12 @@ void compile_multitarget(const std::string &fn_name,
     // (since x86-64-linux would be selected first due to ordering), but could
     // crash on non-sse41 machines (if we generated a runtime with sse41 instructions
     // included). So we'll keep track of the common features as we walk thru the targets.
-    uint64_t runtime_features_mask = (uint64_t)-1LL;
+
+    // Using something like std::bitset would be arguably cleaner here, but we need an
+    // array-of-uint64 for calls to halide_can_use_target_features() anyway,
+    // so we'll just build and maintain in that form to avoid extra conversion.
+    constexpr int kFeaturesWordCount = (Target::FeatureEnd + 63) / (sizeof(uint64_t) * 8);
+    uint64_t runtime_features[kFeaturesWordCount] = {(uint64_t)-1LL};
 
     TemporaryObjectFileDir temp_dir;
     std::vector<Expr> wrapper_args;
@@ -572,14 +618,29 @@ void compile_multitarget(const std::string &fn_name,
         debug(1) << "compile_multitarget: compile_sub_target " << sub_out.object_name << "\n";
         sub_module.compile(sub_out);
 
-        const uint64_t cur_target_mask = target_feature_mask(target);
-        Expr can_use = (target == base_target) ?
-                        IntImm::make(Int(32), 1) :
-                        Call::make(Int(32), "halide_can_use_target_features",
-                                   {UIntImm::make(UInt(64), cur_target_mask)},
-                                   Call::Extern);
+        uint64_t cur_target_features[kFeaturesWordCount] = {0};
+        for (int i = 0; i < Target::FeatureEnd; ++i) {
+            if (target.has_feature((Target::Feature) i)) {
+                cur_target_features[i >> 6] |= ((uint64_t) 1) << (i & 63);
+            }
+        }
 
-        runtime_features_mask &= cur_target_mask;
+        Expr can_use;
+        if (target != base_target) {
+            std::vector<Expr> features_struct_args;
+            for (int i = 0; i < kFeaturesWordCount; ++i) {
+                features_struct_args.push_back(UIntImm::make(UInt(64), cur_target_features[i]));
+            }
+            can_use = Call::make(Int(32), "halide_can_use_target_features",
+                                   {kFeaturesWordCount, Call::make(type_of<uint64_t *>(), Call::make_struct, features_struct_args, Call::Intrinsic)},
+                                   Call::Extern);
+        } else {
+            can_use = IntImm::make(Int(32), 1);
+        }
+
+        for (int i = 0; i < kFeaturesWordCount; ++i) {
+            runtime_features[i] &= cur_target_features[i];
+        }
 
         wrapper_args.push_back(can_use != 0);
         wrapper_args.push_back(sub_fn_name);
@@ -590,13 +651,15 @@ void compile_multitarget(const std::string &fn_name,
     if (!base_target.has_feature(Target::NoRuntime)) {
         // Start with a bare Target, set only the features we know are common to all.
         Target runtime_target(base_target.os, base_target.arch, base_target.bits);
-        // We never want NoRuntime set here.
-        runtime_features_mask &= ~(((uint64_t)(1)) << Target::NoRuntime);
-        if (runtime_features_mask) {
-            for (int i = 0; i < Target::FeatureEnd; ++i) {
-                if (runtime_features_mask & (((uint64_t) 1) << i)) {
-                    runtime_target.set_feature((Target::Feature) i);
-                }
+        for (int i = 0; i < Target::FeatureEnd; ++i) {
+            // We never want NoRuntime set here.
+            if (i == Target::NoRuntime) {
+                continue;
+            }
+            const int word = i >> 6;
+            const int bit = i & 63;
+            if (runtime_features[word] & (((uint64_t) 1) << bit)) {
+                runtime_target.set_feature((Target::Feature) i);
             }
         }
         Outputs runtime_out = Outputs().object(
@@ -658,6 +721,27 @@ void compile_multitarget(const std::string &fn_name,
         debug(1) << "compile_multitarget: static_library_name " << output_files.static_library_name << "\n";
         create_static_library(temp_dir.files(), base_target, output_files.static_library_name);
     }
+
+    if (!output_files.coreir_source_name.empty()) {
+      std::cout << "compile_multitarget: coreir output named: " << output_files.coreir_source_name << std::endl;
+      Target coreir_target = base_target
+        .with_feature(Target::CPlusPlusMangling)
+        .with_feature(Target::CoreIR);
+      Module module(fn_name, coreir_target);
+      Outputs coreir_out = Outputs().coreir_source(output_files.coreir_source_name);
+      module.compile(coreir_out);
+    }
+
+    if (!output_files.vhls_source_name.empty()) {
+      std::cout << "compile_multitarget: vhls output named: " << output_files.vhls_source_name << std::endl;
+      Target vhls_target = base_target
+        .with_feature(Target::CPlusPlusMangling)
+        .with_feature(Target::HLS);
+      Module module(fn_name, vhls_target);
+      Outputs vhls_out = Outputs().vhls_source(output_files.vhls_source_name);
+      module.compile(vhls_out);
+    }
+
 }
 
 }  // namespace Halide

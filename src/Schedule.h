@@ -9,6 +9,7 @@
 #include "FunctionPtr.h"
 #include "Parameter.h"
 
+#include <set>
 #include <map>
 
 namespace Halide {
@@ -393,6 +394,10 @@ public:
     bool memoized() const;
     // @}
 
+    /** Is the production of this Function done asynchronously */
+    bool &async();
+    bool async() const;
+
     /** The list and order of dimensions used to store this
      * function. The first dimension in the vector corresponds to the
      * innermost dimension for storage (i.e. which dimension is
@@ -445,6 +450,64 @@ public:
     const LoopLevel &compute_level() const;
     LoopLevel &store_level();
     LoopLevel &compute_level();
+    // @}
+
+    /** Function is a hw kernel? */
+    // @{
+    bool is_hw_kernel() const;
+    bool &is_hw_kernel();
+    // @}
+
+    /** Function is a linebuffered hw kernel? */
+    // @{
+    bool is_linebuffered() const;
+    bool &is_linebuffered();
+    // @}
+
+    /** Is accelerated using hardware? */
+    // @{
+    bool is_accelerated() const;
+    bool &is_accelerated();
+    // @}
+
+    bool is_accelerator_input() const;
+    bool &is_accelerator_input();
+    bool is_accelerator_output() const;
+    bool &is_accelerator_output();
+
+    /** The input functions of the hardware accelerator pipeline. */
+    // @{
+    const std::set<std::string> &accelerate_inputs() const;
+    std::set<std::string> &accelerate_inputs();
+    // @}
+
+    /** The tap functions and parameters of the hardware accelerator pipeline. */
+    // @{
+
+    const std::map<std::string, Function> &tap_funcs() const;
+    std::map<std::string, Function> &tap_funcs();
+    const std::map<std::string, Parameter> &tap_params() const;
+    std::map<std::string, Parameter> &tap_params();
+    // @}
+
+    /** The fifo depths downstreaming from the function. */
+    // @{
+    const std::map<std::string, int> &fifo_depths() const;
+    std::map<std::string, int> &fifo_depths();
+    // @}
+
+    /** The output functions of the hardware accelerator pipeline. */
+    // @{
+    const std::string &accelerate_exit() const;
+    std::string &accelerate_exit();
+    // @}
+    
+    /** The compute and store levels of the accelerated pipeline. */
+    // @{
+    LoopLevel &accelerate_compute_level();
+    const LoopLevel &accelerate_compute_level() const;
+    LoopLevel &accelerate_store_level();
+    const LoopLevel &accelerate_store_level() const;
     // @}
 
     /** Pass an IRVisitor through to all Exprs referenced in the

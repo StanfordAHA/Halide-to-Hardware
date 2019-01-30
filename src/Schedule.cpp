@@ -133,7 +133,8 @@ int LoopLevel::stage_index() const {
 
 VarOrRVar LoopLevel::var() const {
     check_defined_and_locked();
-    internal_assert(!is_inlined() && !is_root());
+    internal_assert(!is_inlined());
+    internal_assert(!is_root());
     return VarOrRVar(contents->var_name, contents->is_rvar);
 }
 
@@ -212,12 +213,26 @@ struct FuncScheduleContents {
     std::vector<Bound> bounds;
     std::vector<Bound> estimates;
     std::map<std::string, Internal::FunctionPtr> wrappers;
-    bool memoized;
     MemoryType memory_type;
+    bool memoized, async;
+
+    bool is_hw_kernel;   // TODO equivalent to !accelerate_exit.empty()
+    bool is_accelerated;  // TODO equivalent to !accelerate_input.empty()
+    bool is_accelerator_input;
+    bool is_accelerator_output;
+    bool is_linebuffered;
+    std::set<std::string> accelerate_inputs;
+    std::string accelerate_exit;
+    LoopLevel accelerate_compute_level, accelerate_store_level;
+    std::map<std::string, int> fifo_depths;   // key is the name of the consumer
+    std::map<std::string, Function> tap_funcs;
+    std::map<std::string, Parameter> tap_params;
 
     FuncScheduleContents() :
-        store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
-        memoized(false), memory_type(MemoryType::Auto) {};
+      store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
+        memory_type(MemoryType::Auto), memoized(false), async(false), is_hw_kernel(false),
+        is_accelerated(false), is_accelerator_input(false), is_accelerator_output(false),
+        is_linebuffered(false) {};
 
     // Pass an IRMutator2 through to all Exprs referenced in the FuncScheduleContents
     void mutate(IRMutator2 *mutator) {
@@ -320,14 +335,32 @@ FuncSchedule FuncSchedule::deep_copy(
         std::map<FunctionPtr, FunctionPtr> &copied_map) const {
 
     internal_assert(contents.defined()) << "Cannot deep-copy undefined FuncSchedule\n";
+      
     FuncSchedule copy;
     copy.contents->store_level = contents->store_level;
     copy.contents->compute_level = contents->compute_level;
     copy.contents->storage_dims = contents->storage_dims;
     copy.contents->bounds = contents->bounds;
     copy.contents->estimates = contents->estimates;
-    copy.contents->memoized = contents->memoized;
     copy.contents->memory_type = contents->memory_type;
+    copy.contents->memoized = contents->memoized;
+    copy.contents->async = contents->async;
+
+    // HLS related fields
+    copy.contents->is_hw_kernel = contents->is_hw_kernel;
+    copy.contents->is_accelerated = contents->is_accelerated;
+    copy.contents->is_linebuffered = contents->is_linebuffered;
+    copy.contents->accelerate_inputs = contents->accelerate_inputs;
+    copy.contents->accelerate_exit = contents->accelerate_exit;
+    copy.contents->accelerate_compute_level = contents->accelerate_compute_level;
+    copy.contents->accelerate_store_level = contents->accelerate_store_level;
+    copy.contents->fifo_depths = contents->fifo_depths;
+    //copy.contents->is_kernel_buffer = contents->is_kernel_buffer;
+    //copy.contents->is_kernel_buffer_slice = contents->is_kernel_buffer_slice;
+    copy.contents->is_accelerator_input = contents->is_accelerator_input;
+    copy.contents->is_accelerator_output = contents->is_accelerator_output;
+    copy.contents->tap_funcs = contents->tap_funcs;
+    copy.contents->tap_params = contents->tap_params;
 
     // Deep-copy wrapper functions.
     for (const auto &iter : contents->wrappers) {
@@ -339,6 +372,14 @@ FuncSchedule FuncSchedule::deep_copy(
     return copy;
 }
 
+MemoryType FuncSchedule::memory_type() const {
+    return contents->memory_type;
+}
+
+MemoryType &FuncSchedule::memory_type() {
+    return contents->memory_type;
+}
+
 bool &FuncSchedule::memoized() {
     return contents->memoized;
 }
@@ -347,12 +388,12 @@ bool FuncSchedule::memoized() const {
     return contents->memoized;
 }
 
-MemoryType FuncSchedule::memory_type() const {
-    return contents->memory_type;
+bool &FuncSchedule::async() {
+    return contents->async;
 }
 
-MemoryType &FuncSchedule::memory_type() {
-    return contents->memory_type;
+bool FuncSchedule::async() const {
+    return contents->async;
 }
 
 std::vector<StorageDim> &FuncSchedule::storage_dims() {
@@ -414,6 +455,106 @@ const LoopLevel &FuncSchedule::store_level() const {
 
 const LoopLevel &FuncSchedule::compute_level() const {
     return contents->compute_level;
+}
+
+bool &FuncSchedule::is_hw_kernel() {
+    return contents->is_hw_kernel;
+}
+
+bool FuncSchedule::is_hw_kernel() const {
+    return contents->is_hw_kernel;
+}
+
+bool FuncSchedule::is_accelerated() const {
+    return contents->is_accelerated;
+}
+
+bool &FuncSchedule::is_accelerated() {
+    return contents->is_accelerated;
+}
+
+bool FuncSchedule::is_linebuffered() const {
+    return contents->is_linebuffered;
+}
+
+bool &FuncSchedule::is_linebuffered() {
+    return contents->is_linebuffered;
+}
+
+bool FuncSchedule::is_accelerator_input() const{
+    return contents->is_accelerator_input;
+}
+
+bool &FuncSchedule::is_accelerator_input() {
+    return contents->is_accelerator_input;
+}
+
+bool FuncSchedule::is_accelerator_output() const{
+    return contents->is_accelerator_output;
+}
+
+bool &FuncSchedule::is_accelerator_output() {
+    return contents->is_accelerator_output;
+}
+
+const std::set<std::string> &FuncSchedule::accelerate_inputs() const{
+  return contents->accelerate_inputs;
+}
+
+std::set<std::string> &FuncSchedule::accelerate_inputs() {
+  return contents->accelerate_inputs;
+}
+  
+const std::map<std::string, Function> &FuncSchedule::tap_funcs() const {
+    return contents->tap_funcs;
+}
+
+std::map<std::string, Function> &FuncSchedule::tap_funcs() {
+    return contents->tap_funcs;
+}
+
+const std::map<std::string, Parameter> &FuncSchedule::tap_params() const {
+    return contents->tap_params;
+}
+
+std::map<std::string, Parameter> &FuncSchedule::tap_params() {
+    return contents->tap_params;
+}
+
+const std::map<std::string, int> &FuncSchedule::fifo_depths() const {
+    return contents->fifo_depths;
+}
+
+std::map<std::string, int> &FuncSchedule::fifo_depths() {
+    return contents->fifo_depths;
+}
+
+const std::string &FuncSchedule::accelerate_exit() const{
+    return contents->accelerate_exit;
+}
+
+std::string &FuncSchedule::accelerate_exit() {
+    return contents->accelerate_exit;
+}
+
+LoopLevel &FuncSchedule::accelerate_compute_level() {
+    internal_assert(is_accelerated());
+    return contents->accelerate_compute_level;
+}
+
+const LoopLevel &FuncSchedule::accelerate_compute_level() const {
+    internal_assert(is_accelerated());
+    return contents->accelerate_compute_level;
+}
+
+LoopLevel &FuncSchedule::accelerate_store_level() {
+    internal_assert(is_accelerated());
+    return contents->accelerate_store_level;
+}
+
+const LoopLevel &FuncSchedule::accelerate_store_level() const {
+    internal_assert(is_accelerated());
+    return contents->accelerate_store_level;
 }
 
 void FuncSchedule::accept(IRVisitor *visitor) const {
