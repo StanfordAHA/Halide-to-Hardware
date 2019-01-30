@@ -227,7 +227,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Dynamically skipping stages...\n";
     s = skip_stages(s, order);
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
-    std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
+    //std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
 
     if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
       debug(1) << "Forking asynchronous producers...\n";
@@ -246,10 +246,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after canonicalizing GPU var names:\n" << s << '\n';
 
     debug(1) << "Performing storage flattening...\n";
-    std::cout << "Before storage flattening...\n" << s << "\n\n";
+    //std::cout << "Before storage flattening...\n" << s << "\n\n";
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
-    std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
+    //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
 
     debug(1) << "Unpacking buffer arguments...\n";
     s = unpack_buffers(s);
@@ -292,7 +292,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = unify_duplicate_lets(s);
     s = remove_trivial_for_loops(s);
     debug(2) << "Lowering after second simplifcation:\n" << s << "\n\n";
-    std::cout << "Lowering after second simplifcation:\n" << s << "\n\n";
+    //std::cout << "Lowering after second simplifcation:\n" << s << "\n\n";
 
     debug(1) << "Reduce prefetch dimension...\n";
     s = reduce_prefetch_dimension(s, t);
@@ -322,11 +322,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after rewriting vector interleavings:\n" << s << "\n\n";
 
     debug(1) << "Partitioning loops to simplify boundary conditions...\n";
-    std::cout << "Partitioning loops to simplify boundary conditions...\n" << s << '\n';
+    //std::cout << "Partitioning loops to simplify boundary conditions...\n" << s << '\n';
     s = partition_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after partitioning loops:\n" << s << "\n\n";
-    std::cout << "Lowering after partitioning loops:\n" << s << "\n\n";
+    //std::cout << "Lowering after partitioning loops:\n" << s << "\n\n";
 
     debug(1) << "Trimming loops to the region over which they do something...\n";
     s = trim_no_ops(s);

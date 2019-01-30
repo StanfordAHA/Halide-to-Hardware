@@ -121,7 +121,7 @@ class AllocationUsage : public IRVisitor {
       if (!is_const(op->value)) {
         uses_variable_store_value = true;
       }
-      
+
     }
   }
 
@@ -146,6 +146,49 @@ class AllocationUsage : public IRVisitor {
                                       alloc_name(allocname) {}
 };
 
+enum AllocationType {
+  NO_ALLOCATION,
+  INOUT_ALLOCATION,
+  ROM_ALLOCATION,
+  REGS_ALLOCATION,
+  SRAM_ALLOCATION,
+  RMW_ALLOCATION,
+  UNKNOWN_ALLOCATION
+};
+
+AllocationType identify_allocation(Stmt s, string allocname) {
+  AllocationUsage au(allocname);
+  s.accept(&au);
+
+  if (au.num_stores == 0 || au.num_loads == 0) {
+    return INOUT_ALLOCATION;
+    
+  } else if (!au.uses_variable_load_index &&
+             !au.uses_variable_store_index &&
+             !au.uses_variable_store_value) {
+    return NO_ALLOCATION;
+
+  } else if (au.uses_variable_load_index &&
+             !au.uses_variable_store_index &&
+             !au.uses_variable_store_value) {
+    return ROM_ALLOCATION;
+
+  } else if (au.uses_variable_load_index &&
+             au.uses_variable_store_index &&
+             au.load_index_equals_store_index) {
+    return RMW_ALLOCATION;
+
+  } else if (au.uses_variable_load_index &&
+             au.uses_variable_store_index &&
+             !au.load_index_equals_store_index) {
+    return SRAM_ALLOCATION;
+    
+  } else {
+    return UNKNOWN_ALLOCATION;
+  }
+      
+}
+  
 bool variable_index_load(Stmt s, string allocname) {
   AllocationUsage au(allocname);
   s.accept(&au);
@@ -232,8 +275,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all modules from memory
   context->getNamespace("memory");
-  std::vector<string> memorylib_gen_names = {"ram",
-                                             //"rom2",
+  std::vector<string> memorylib_gen_names = {"ram2",
+                                             "rom2",
                                              "fifo"};
 
   for (auto gen_name : memorylib_gen_names) {
@@ -883,10 +926,22 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
     assert(inst_args);
     stream << "// creating element called: " << name << endl;
     //cout << "named " << inst_args->gen <<endl;
-		string inst_name = unique_name(inst_args->name);
+    string inst_name = unique_name(inst_args->name);
     CoreIR::Wireable* inst = def->addInstance(inst_name, inst_args->gen, inst_args->args, inst_args->genargs);
     add_wire(name, inst->sel(inst_args->selname));
+    
+    if (inst_args->gen == gens["ram2"]) {
+      add_wire(name + "_waddr", inst->sel("waddr"));
+      add_wire(name + "_wdata", inst->sel("wdata"));
+      add_wire(name + "_raddr", inst->sel("raddr"));
 
+      //attach a read enable
+      CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
+      def->connect(rom_ren->sel("out"), inst->sel("ren"));
+
+    }
+
+    
     auto ref_name = inst_args->ref_name;
 
     return inst->sel(inst_args->selname);
@@ -1769,6 +1824,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
   if (constant_size > 0) {
 
   } else {
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      std::cout << "alloc_dim" << i << " " << op->extents[i] << "\n";
+    }
+    
     internal_error << "Size for allocation " << op->name
                    << " is not a constant.\n";
   }
@@ -1791,11 +1850,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
          << print_name(alloc_name)
          << "[" << constant_size << "]; [alloc]\n";
 
+  auto alloc_type = identify_allocation(new_body, alloc_name);
+  
   // define a rom that can be created and used later
   // FIXME: better way to decide to use rom
   // FIXME: use an array of constants to load the rom
-  if (variable_index_load(new_body, alloc_name) &&
-      can_use_rom(new_body, alloc_name) &&
+  if (alloc_type == AllocationType::ROM_ALLOCATION &&
       constant_size > 100) {
     CoreIR_Inst_Args rom_args;
     rom_args.ref_name = alloc_name;
@@ -1814,8 +1874,48 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
     hw_def_set[alloc_name] = std::make_shared<CoreIR_Inst_Args>(rom_args);
     stream << "// created a rom called " << rom_args.name << "\n";
                     
-  }
+  } else if (alloc_type == AllocationType::RMW_ALLOCATION) {
+    CoreIR_Inst_Args rmw_args;
+    rmw_args.ref_name = alloc_name;
+    rmw_args.name = "rmw_" + alloc_name;
+    rmw_args.gen = gens["rmw"];
+    rmw_args.args = {{"width",CoreIR::Const::make(context,bitwidth)},
+                     {"depth",CoreIR::Const::make(context,constant_size)}};
 
+    // set initial values for rom
+    nlohmann::json jdata;
+    jdata["init"][0] = 0;
+    CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
+    rmw_args.genargs = modparams;
+    rmw_args.selname = "rdata";
+
+    hw_def_set[alloc_name] = std::make_shared<CoreIR_Inst_Args>(rmw_args);
+
+    stream << "// created a rmw histogram called " << alloc_name << "\n";
+    cout << "// created a rmw histogram called " << alloc_name << "\n";
+
+  } else if (alloc_type == AllocationType::SRAM_ALLOCATION) {
+    CoreIR_Inst_Args sram_args;
+    sram_args.ref_name = alloc_name;
+    sram_args.name = "sram_" + alloc_name;
+    sram_args.gen = gens["ram2"];
+    sram_args.args = {{"width",CoreIR::Const::make(context,bitwidth)},
+                     {"depth",CoreIR::Const::make(context,constant_size)}};
+
+    // set initial values for sram
+    nlohmann::json jdata;
+    jdata["init"][0] = 0;
+    CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
+    //sram_args.genargs = modparams;
+    sram_args.selname = "rdata";
+
+    hw_def_set[alloc_name] = std::make_shared<CoreIR_Inst_Args>(sram_args);
+
+    stream << "// created an sram allocation called " << alloc_name << "\n";
+    cout << "// created an sram allocation called " << alloc_name << "\n";
+
+  }
+  
   //  CoreIR::Type* type_input = context->Bit()->Arr(bitwidth)->Arr(constant_size);
   //  CoreIR::Wireable* wire_array = def->addInstance("array", gens["passthrough"], {{"type", CoreIR::Const::make(context,type_input)}});
   //  hw_wire_set[print_name(alloc_name)] = wire_array;
@@ -2618,9 +2718,20 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Store *op) {
          << ";  [store]\n";
 
   // generate coreir
-  string out_var = name + "_" + id_index;
+
   //rename_wire(out_var, id_value, op->value, {index_unsigned});
-  rename_wire(out_var, id_value, op->value);
+
+  if (is_const(op->index)) {
+    string out_var = name + "_" + id_index;
+    rename_wire(out_var, id_value, op->value);
+  } else if (is_defined(name) && hw_def_set[name]->gen==gens["ram2"]) {
+    stream << "// " << name << " connected by ram\n";
+    get_wire(name, op->name); // creates the sram
+    def->disconnect(get_wire(name + "_wdata", Expr()));
+    def->disconnect(get_wire(name + "_waddr", Expr()));
+    def->connect(get_wire(name + "_wdata", Expr()), get_wire(id_value, op->value));
+    def->connect(get_wire(name + "_waddr", Expr()), get_wire(id_index, op->index));
+  }
 
 }
 
@@ -2655,11 +2766,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Load *op) {
     string in_var = name + "_" + id_index;
     rename_wire(out_var, in_var, Expr());      
 
-  } else if (is_defined(name)) {
-    stream << "loading from rom " << name << std::endl;
+  } else if (is_defined(name) && hw_def_set[name]->gen==gens["rom2"]) {
+    stream << "loading from rom " << name << " with gen " << hw_def_set[name]->gen << std::endl;
 
     std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[name];
-		string inst_name = unique_name(inst_args->name);
+    string inst_name = unique_name(inst_args->name);
     CoreIR::Wireable* inst = def->addInstance(inst_name, inst_args->gen, inst_args->args, inst_args->genargs);
     add_wire(out_var, inst->sel(inst_args->selname));
 
@@ -2669,6 +2780,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Load *op) {
     //attach a read enable
     CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
     def->connect(rom_ren->sel("out"), inst->sel("ren"));
+
+  } else if (is_defined(name) && hw_def_set[name]->gen==gens["ram2"]) {
+    stream << "loading from sram " << name << std::endl;
+
+    add_wire(out_var, get_wire(name, Expr()));
+
+    // attach the read address
+    CoreIR::Wireable* raddr_wire = get_wire(id_index, op->index);
+    auto ram_raddr = get_wire(name+"_raddr", Expr());
+    def->disconnect(ram_raddr);
+    def->connect(raddr_wire, ram_raddr);
+
     
   } else { // variable load: use a mux for where data originates
     std::vector<const Variable*> dep_vars = find_dep_vars(op->index);

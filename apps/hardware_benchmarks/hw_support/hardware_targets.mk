@@ -39,7 +39,7 @@ $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp
 .PHONY: generator
 generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DEPS)
 	@-mkdir -p $(BIN)
-	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+	env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
 design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
