@@ -18,6 +18,8 @@ testall test_all: runall
 #   fi \
 # done
 
+testtravis test_travis: conv_3_3
+
 runall run_all:
 	@for app in $(ALL_APPS); do \
 	  echo -n "$$app: "; \

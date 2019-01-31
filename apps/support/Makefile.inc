@@ -113,4 +113,4 @@ HL_VIDEOPLAYER ?= mplayer
 
 # For CoreIR generation
 LDFLAGS += -lcurses
-LDFLAGS += -lcoreir-commonlib -lcoreir
+LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim

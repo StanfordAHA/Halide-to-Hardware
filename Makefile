@@ -163,7 +163,7 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 # Compiling for CoreIR requires some extra links
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
-COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir
+COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim
 #COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
@@ -1677,6 +1677,18 @@ test_apps: distrib
 			BIN=$(ROOT_DIR)/apps/$${APP}/bin \
 			|| exit 1 ; \
 	done
+
+test_coreir:  $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
+	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
+	$(MAKE) -C apps/hardware_benchmarks/apps  cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
+
+# Test that does not build libHalide from scratch
+test_coreir_prebuilt:
+	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
+
+fulltest_coreir:
+	$(MAKE) test_coreir test_correctness test_generators
+
 
 # Bazel depends on the distrib archive being built
 .PHONY: test_bazel
