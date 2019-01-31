@@ -1,7 +1,7 @@
 HALIDE_BIN_PATH ?= ../..
 HALIDE_SRC_PATH ?= ../..
 
-HALIDE_DISTRIB_PATH ?= ../../distrib
+HALIDE_DISTRIB_PATH ?= $(HALIDE_SRC_PATH)/distrib
 LDFLAGS ?=
 BIN ?= ./bin
 IMAGES ?= ../images

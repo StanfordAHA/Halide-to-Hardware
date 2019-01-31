@@ -59,13 +59,13 @@ elif [ ${BUILD_SYSTEM} = 'MAKE' ]; then
   ${LLVM_CONFIG} --cxxflags --libdir --bindir
 
   # Test that prebuilt version works
-  make test_coreir_prebuilt
-  rm lib/libHalide.a
-  rm include/Halide.h
-  rm include/HalideRuntime.h
+  # make test_coreir_prebuilt
+  # rm lib/libHalide.a
+  # rm include/Halide.h
+  # rm include/HalideRuntime.h
 
   # Build and run internal tests
-  make
+  # make
 
   # Run the tests
   make test_coreir
