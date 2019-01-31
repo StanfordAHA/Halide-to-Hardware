@@ -73,11 +73,6 @@ elif [ ${BUILD_SYSTEM} = 'MAKE' ]; then
   if [ ${TEST_HALIDE_CORRECTNES} ]; then
       make test_correctness
   fi
-  if [ ${TEST_HALIDE_GEN} ]; then
-      make test_generators
-  fi  
-
-  
 
 else
   echo "Unexpected BUILD_SYSTEM: \"${BUILD_SYSTEM}\""

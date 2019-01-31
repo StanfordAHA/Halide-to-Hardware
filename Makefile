@@ -1687,7 +1687,7 @@ test_coreir_prebuilt:
 	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
 
 fulltest_coreir:
-	$(MAKE) test_coreir test_correctness test_generators
+	$(MAKE) test_coreir test_correctness test_generator
 
 
 # Bazel depends on the distrib archive being built
