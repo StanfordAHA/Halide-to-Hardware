@@ -48,4 +48,5 @@ install:
   - make -C coreir all
 
 script:
+  - pwd
   - test/scripts/build_travis.sh
