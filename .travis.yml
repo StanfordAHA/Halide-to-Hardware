@@ -53,7 +53,7 @@ before_deploy:
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
   - tar -zcvf lib/libHalide.tgz lib/libHalide.a
-  - echo $TRAVIS_DEPLOY_KEY travis_key_file
+  - echo $TRAVIS_DEPLOY_KEY > travis_key_file
   - RAW_TRAVIS_DEPLOY_KEY=`base64 --decode travis_key_file`
 
 deploy:
