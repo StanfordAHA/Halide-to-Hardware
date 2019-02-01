@@ -60,7 +60,7 @@ before_deploy:
 
 deploy:
   provider: releases
-  api_key: $RAW_TRAVIS_DEPLOY_KEY
+  api_key: $GITHUB_TOKEN
   file: lib/libHalie.tgz
   skip_cleanup: true
   on:
