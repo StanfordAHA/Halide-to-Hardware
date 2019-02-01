@@ -53,10 +53,11 @@ before_deploy:
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
   - tar -zcvf lib/libHalide.tgz lib/libHalide.a
+  - RAW_TRAVIS_DEPLOY_KEY=`base64 -D $TRAVIS_DEPLOY_KEY`
 
 deploy:
   provider: releases
-  api_key: $TRAVIS_DEPLOY_KEY
+  api_key: $RAW_TRAVIS_DEPLOY_KEY
   file: lib/libHalie.tgz
   skip_cleanup: true
   on:
