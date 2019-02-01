@@ -60,8 +60,8 @@ before_deploy:
 
 deploy:
   provider: releases
-  user: $GITHUB_USERNAME
-  password: $GITHUB_PASSWORD
+  user: jeffsetter
+  password: bb
   file: lib/libHalie.tgz
   skip_cleanup: true
   on:
