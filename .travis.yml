@@ -52,7 +52,7 @@ before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - tar -zcvf lib/libHalide.a lib/libHalide.tgz
+  - tar -zcvf lib/libHalide.tgz lib/libHalide.a
 
 deploy:
   provider: releases
