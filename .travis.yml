@@ -62,6 +62,6 @@ deploy:
   file: lib/libHalie.tgz
   skip_cleanup: true
   on:
-    tags: false
+    tags: true
     
     
