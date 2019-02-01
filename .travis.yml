@@ -40,7 +40,25 @@ install:
   - test/scripts/install_travis.sh  
   # compile coreir
   - git clone -b dev https://github.com/rdaly525/coreir.git
-  - make -C coreir all
+  # - make -C coreir all
 
 script:
-  - test/scripts/build_travis.sh
+  # - test/scripts/build_travis.sh
+  - mkdir lib
+  - touch lib/libHalide.a
+  - echo "hi" > lib/libHalide.a
+
+before_deploy:
+  - git config --local user.name "jeffsetter"
+  - git config --local user.email "setter@stanford.edu"
+  - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
+  - tar -zcvf lib/libHalide.a lib/libHalide.tgz
+
+deploy:
+  provider: releases
+  api_key: $TRAVIS_DEPLOY_KEY
+  file: lib/libHalie.tgz
+  skip_cleanup: true
+  on:
+    tags: true
+    
