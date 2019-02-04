@@ -95,8 +95,7 @@ void run_coreir_on_interpreter(string coreir_design,
   bool uses_valid = false;
   
   for (auto wireable_pair : self_conxs) {
-        cout << wireable_pair.first->toString() << " is connected to "
-       << wireable_pair.second->toString() << endl;
+    //cout << wireable_pair.first->toString() << " is connected to " << wireable_pair.second->toString() << endl;
 
     string port_name = wireable_pair.first->toString();
     Type* port_type = wireable_pair.first->getType();

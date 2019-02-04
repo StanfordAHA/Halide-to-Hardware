@@ -162,11 +162,14 @@ int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> 
   // compare images
   bool equal_images = compare_images<T>(output, output_comparison);
 
+  std::string GREEN = "\033[32m";
+  std::string RED = "\033[31m";
+  std::string RESET = "\033[0m";
   if (equal_images) {
-    printf("Images are equivalent!\n");
+    std::cout << GREEN << "Images are equivalent!" << RESET << std::endl;
     return 0;
   } else {
-    printf("Images are different...\n");
+    std::cout << RED << "Images are different..." << RESET << std::endl;
     return 1;
   }
 

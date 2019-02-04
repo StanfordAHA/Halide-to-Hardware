@@ -2073,6 +2073,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
     stream << " output=";
     uint output_dims [num_dims];
     for (uint i=0; i<num_dims; ++i) {
+    //for (int i=num_dims-1; i>=0; --i) {
       output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
       output_type = output_type->Arr(output_dims[i]);
       stream << output_dims[i] << " ";
