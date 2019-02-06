@@ -2118,8 +2118,7 @@ Stmt schedule_functions(const vector<Function> &outputs,
 
 
             }
-            std::cout << name << " has hw_kernel=" << f.schedule().is_hw_kernel()
-                      << " lb=" << f.schedule().is_linebuffered() << std::endl;
+            //std::cout << name << " has hw_kernel=" << f.schedule().is_hw_kernel() << " lb=" << f.schedule().is_linebuffered() << std::endl;
 
             // The way in which the function was referred to in the
             // function DAG might not actually result in a use in the

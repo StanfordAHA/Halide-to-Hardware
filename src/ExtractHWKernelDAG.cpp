@@ -711,13 +711,13 @@ Stmt extract_hw_kernel_dag(Stmt s, const map<string, Function> &env,
     debug(4) << "IR after simplification:\n" << s << "\n";
 
     for (auto stage : inlined_stages) {
-      std::cout << "stage includes " << stage.name << std::endl;
+      //std::cout << "stage includes " << stage.name << std::endl;
     }
     
     // for each accelerated function, build a dag of HW kernels for it
     for (const auto &p : env) {
       Function func = p.second;
-      std::cout << "Found function " << func.name() << "\n";
+      //std::cout << "Found function " << func.name() << "\n";
         if(!func.schedule().is_accelerated())
             continue;
         std::cout << "Found accelerate function " << func.name() << "\n";

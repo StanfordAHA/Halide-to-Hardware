@@ -132,8 +132,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            std::cout << "old provide replaced " << Stmt(op)
-                      << " with " << new_op << std::endl;
+            //std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
         }
@@ -178,14 +177,12 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
                 // TODO check if the new_arg only depends on the loop vars
                 // inside the producer
                 new_args[i] = new_arg;
-                std::cout << "offset=" << offset << " since stencil_name="
-                          << stencil_kernel.name << " kernel_name=" <<  kernel.name << "\n";
+                //std::cout << "offset=" << offset << " since stencil_name=" << stencil_kernel.name << " kernel_name=" <<  kernel.name << "\n";
             }
             Expr expr = Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
             debug(4) << "replacing call "  << Expr(op) << " with\n"
                      << "\t" << expr << "\n";
-            std::cout << "replacing call " << Expr(op) << " with\n"
-                     << "\t" << expr << "\n";
+            //std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
             return expr;
         } else {
           return IRMutator2::visit(op);
@@ -335,7 +332,7 @@ bool need_linebuffer(const HWKernel &kernel) {
     // check if we need a line buffer
     bool ret = false;
     for (size_t i = 0; i < kernel.dims.size(); i++) {
-      std::cout << "kernel " << kernel.name << " has size=" << kernel.dims[i].size << " step=" << kernel.dims[i].step << std::endl;
+      //std::cout << "kernel " << kernel.name << " has size=" << kernel.dims[i].size << " step=" << kernel.dims[i].step << std::endl;
       if (kernel.dims.at(i).size != kernel.dims.at(i).step) {
             ret = true;
             break;
@@ -411,14 +408,15 @@ Stmt add_linebuffer(Stmt s, const HWKernel &kernel) {
     while (const Block *block = stmt.as<Block>()) {
       if (const ProducerConsumer *pc = block->first.as<ProducerConsumer>()) {
         Stmt block_stmt = block;
-        std::cout << "found a pc block from " << pc << std::endl;
+        (void)(pc);
+        //std::cout << "found a pc block from " << pc << std::endl;
         return block_stmt;
       } else if (const Block *b = block->first.as<Block>()) {
-        std::cout << "first statement is a block\n";
+        //std::cout << "first statement is a block\n";
         Stmt stmt = b;
         continue;
       } else if (const Block *b = block->rest.as<Block>()) {
-        std::cout << "second statement is a block\n";
+        //std::cout << "second statement is a block\n";
         Stmt pc_stmt = b;
         continue;
       } else {
@@ -444,18 +442,18 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
     Stmt ret;
 
     if (s.as<Block>()) {
-      std::cout << "saw a block\n";
+      //std::cout << "saw a block\n";
     } else if (s.as<ProducerConsumer>()) {
-      std::cout << "saw a pc\n";
+      //std::cout << "saw a pc\n";
     }
-    std::cout << "doing a transform\n";
+    //std::cout << "doing a transform\n";
     //std::cout << "doing a transform " << s << "\n";
 
     if (const Block *op = s.as<Block>()) {
       //Stmt pc_block_stmt = find_pcblock(s);
       //const Block *pc_block = pc_block_stmt.as<Block>();
       Stmt block_first = op->first;
-      std::cout << "first block is: \n" << block_first << "\n";
+      //std::cout << "first block is: \n" << block_first << "\n";
       //Stmt first_pc = find_produce(block_first);
 
       Stmt body = block_first;
@@ -472,13 +470,13 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         const ProducerConsumer *produce_node = body.as<ProducerConsumer>();
         const ProducerConsumer *consume_node = op->rest.as<ProducerConsumer>();
         if (!(consume_node && produce_node)) {
-          std::cout << "didn't find pc: produce=" << produce_node
-                    << " first_let=" << op->first.as<Let>()
-                    << " first_letstmt=" << op->first.as<LetStmt>()
-                    << " consume=" << consume_node << std::endl;
-          Stmt first = op->first;
-          std::cout << "first: " << first << std::endl;
-          std::cout << "rest_body: " << consume_node->body << std::endl;
+          //std::cout << "didn't find pc: produce=" << produce_node
+          //          << " first_let=" << op->first.as<Let>()
+          //          << " first_letstmt=" << op->first.as<LetStmt>()
+          //          << " consume=" << consume_node << std::endl;
+          //Stmt first = op->first;
+          //std::cout << "first: " << first << std::endl;
+          //std::cout << "rest_body: " << consume_node->body << std::endl;
           return s;
         }
 
@@ -561,7 +559,7 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         // insert scan loops
         Stmt scan_loops = stencil_realize;
         int scan_dim = 0;
-        std::cout << "writing kernel named " << stencil_name << " with bounds ";
+        //std::cout << "writing kernel named " << stencil_name << " with bounds ";
         for(size_t i = 0; i < kernel.dims.size(); i++) {
             if (kernel.dims[i].loop_var == "undef" )
                 continue;
@@ -571,7 +569,7 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
 
             Expr store_extent = simplify(kernel.dims[i].store_bound.max -
                                          kernel.dims[i].store_bound.min + 1);
-            std::cout << store_extent << " ";
+            //std::cout << store_extent << " ";
             debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent << '\n';
 
             // check the condition for the new loop for sliding the update stencil
@@ -590,15 +588,15 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
             scan_loops = LetStmt::make(kernel.dims[i].loop_var, Variable::make(Int(32), loop_var_name), scan_loops);
             scan_loops = For::make(loop_var_name, 0, loop_extent, ForType::Serial, DeviceAPI::Host, scan_loops);
         }
-        std::cout << "\n";
+        //std::cout << "\n";
 
         // Recurse
-        std::cout << consume_node->name << " before recursion\n";
+        //std::cout << consume_node->name << " before recursion\n";
         
         Stmt stream_consume = transform_kernel(consume_node->body, dag, scope);
         //Stmt stream_consume = transform_kernel(consume_stmt, dag, scope);
 
-        std::cout << consume_node->name << " after recursion\n";
+        //std::cout << consume_node->name << " after recursion\n";
         
         // Add line buffer and dispatcher
         Stmt stream_realize = add_linebuffer(stream_consume, kernel);
@@ -868,7 +866,7 @@ class StreamOpt : public IRMutator2 {
 
     Stmt visit(const For *op) {
         Stmt stmt;
-        std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
+        //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
             stmt = IRMutator2::visit(op);
         } else if (dag.compute_level.match(op->name)) {
@@ -877,7 +875,7 @@ class StreamOpt : public IRMutator2 {
             // walk inside of any let statements
             Stmt body = op->body;
 
-            std::cout << "visited for loop: " << body;
+            //std::cout << "visited for loop: " << body;
 
             vector<pair<string, Expr>> lets;
             /*
@@ -924,7 +922,7 @@ class StreamOpt : public IRMutator2 {
         } else {
             internal_assert(dag.store_level.match(op->name));
             debug(3) << "find the pipeline producing " << dag.name << "\n";
-            std::cout << "find the pipeline producing " << dag.name << "\n";
+            //std::cout << "find the pipeline producing " << dag.name << "\n";
 
             // walk inside of any let statements
             Stmt body = op->body;

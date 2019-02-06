@@ -258,7 +258,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   for (auto gen_name : fplib_gen_names) {
     //gens[gen_name] = "fplib." + gen_name;
     gens[gen_name] = "commonlib." + gen_name;
-    std::cout << "finding gen " << gen_name << std::endl;
+    //std::cout << "finding gen " << gen_name << std::endl;
     assert(context->hasGenerator(gens[gen_name]));
   }
   

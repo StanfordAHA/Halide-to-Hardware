@@ -150,7 +150,8 @@ void run_coreir_on_interpreter(string coreir_design,
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
         // set input value
-        state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
+        //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
+        state.setValue(input_name, BitVector(16, input(x,y,c)));
 
         // propogate to all wires
         state.exeCombinational();
