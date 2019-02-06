@@ -150,7 +150,7 @@ void run_coreir_on_interpreter(string coreir_design,
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
         // set input value
-        state.setValue(input_name, BitVector(16, input(x,y,c)));
+        state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
 
         // propogate to all wires
         state.exeCombinational();
@@ -160,10 +160,14 @@ void run_coreir_on_interpreter(string coreir_design,
           bool valid_value = state.getBitVec("self.valid").to_type<bool>();
 
           if (valid_value) {
-            coreir_img_writer.write(state.getBitVec(output_name).to_type<T>());
+            T output_value = state.getBitVec(output_name).to_type<T>();
+            coreir_img_writer.write(output_value);
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
           }
         } else {
+          T output_value = state.getBitVec(output_name).to_type<T>();
           output(x,y,c) = state.getBitVec(output_name).to_type<T>();
+          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
         
         // give another rising edge (execute seq)
