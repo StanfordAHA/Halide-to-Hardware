@@ -1452,16 +1452,32 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Or *op) {
 }
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const EQ *op) {
-  visit_binop(op->type, op->a, op->b, "==", "eq");
+  internal_assert(op->a.type().bits() == op->b.type().bits());
+  if (op->a.type().bits() == 1) {
+    visit_binop(op->type, op->a, op->b, "~^", "bitxnor");
+  } else {
+    visit_binop(op->type, op->a, op->b, "==", "eq");
+  }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const NE *op) {
-  visit_binop(op->type, op->a, op->b, "!=", "neq");
+  internal_assert(op->a.type().bits() == op->b.type().bits());
+  if (op->a.type().bits() == 1) {
+    visit_binop(op->type, op->a, op->b, "^", "bitxor");
+  } else {
+    visit_binop(op->type, op->a, op->b, "!=", "neq");
+  }
 }
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
   if (op->a.type().is_uint()) {
     internal_assert(op->b.type().is_uint());
-    visit_binop(op->type, op->a, op->b, "<",  "ult");
+    internal_assert(op->a.type().bits() == op->b.type().bits());
+    if (op->a.type().bits() == 1) {
+      visit_binop(op->type, op->a, op->b, "<", "bitult");
+    } else {
+      visit_binop(op->type, op->a, op->b, "<", "ult");
+    }
+
   } else {
     internal_assert(!op->b.type().is_uint());
     visit_binop(op->type, op->a, op->b, "s<", "slt");
@@ -1470,7 +1486,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
   if (op->a.type().is_uint()) {
     internal_assert(op->b.type().is_uint());
-    visit_binop(op->type, op->a, op->b, "<=",  "ule");
+    internal_assert(op->a.type().bits() == op->b.type().bits());
+    if (op->a.type().bits() == 1) {
+      visit_binop(op->type, op->a, op->b, "<=", "bitule");
+    } else {
+      visit_binop(op->type, op->a, op->b, "<=", "ule");
+    }
   } else {
     internal_assert(!op->b.type().is_uint());
     visit_binop(op->type, op->a, op->b, "s<=", "sle");
@@ -1479,7 +1500,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
   if (op->a.type().is_uint()) {
     internal_assert(op->b.type().is_uint());
-    visit_binop(op->type, op->a, op->b, ">",  "ugt");
+    internal_assert(op->a.type().bits() == op->b.type().bits());
+    if (op->a.type().bits() == 1) {
+      visit_binop(op->type, op->a, op->b, ">", "bitugt");
+    } else {
+      visit_binop(op->type, op->a, op->b, ">", "ugt");
+    }
   } else {
     internal_assert(!op->b.type().is_uint());
     visit_binop(op->type, op->a, op->b, "s>", "sgt");
@@ -1488,7 +1514,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GE *op) {
   if (op->a.type().is_uint()) {
     internal_assert(op->b.type().is_uint());
-    visit_binop(op->type, op->a, op->b, ">=",  "uge");
+    internal_assert(op->a.type().bits() == op->b.type().bits());
+    if (op->a.type().bits() == 1) {
+      visit_binop(op->type, op->a, op->b, ">=", "bituge");
+    } else {
+      visit_binop(op->type, op->a, op->b, ">=", "uge");
+    }
   } else {
     internal_assert(!op->b.type().is_uint());
     visit_binop(op->type, op->a, op->b, "s>=", "sge");

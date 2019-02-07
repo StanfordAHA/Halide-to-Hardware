@@ -96,7 +96,7 @@ public:
             // visit a input function, save path and input function
             // then terminate
           for (const auto &f : path) {
-            std::cout << f.name() << " added from path for " << func.name() << std::endl;
+            //std::cout << f.name() << " added from path for " << func.name() << std::endl;
             kernel_funcs[f.name()] = f;
           }
             input_funcs.insert(make_pair(func.name(), func));
@@ -172,7 +172,7 @@ public:
         // visit a input function, save path and input function
         // then terminate
         input_names.insert(func.name());
-        std::cout << "added " << func.name() << " as an input\n";
+        //std::cout << "added " << func.name() << " as an input\n";
         return;
       }
 

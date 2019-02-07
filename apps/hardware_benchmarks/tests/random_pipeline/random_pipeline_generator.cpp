@@ -39,15 +39,16 @@ const int expr_type_count = sizeof(expr_types)/sizeof(expr_types[0]);
 
 typedef Expr (*make_bin_op_fn)(Expr, Expr);
 
-make_bin_op_fn make_bin_op[] = {
+vector<make_bin_op_fn> make_bin_op = {
     (make_bin_op_fn)operator+,
     (make_bin_op_fn)operator-,
     (make_bin_op_fn)operator*,
     (make_bin_op_fn)min,
     (make_bin_op_fn)max,
-    (make_bin_op_fn)operator/,
-    //(make_bin_op_fn)operator%,
 };
+
+make_bin_op_fn make_div_op = (make_bin_op_fn)operator/;
+make_bin_op_fn make_mod_op = (make_bin_op_fn)operator%;
 
 make_bin_op_fn make_bool_bin_op[] = {
     (make_bin_op_fn)operator&&,
@@ -63,7 +64,7 @@ make_bin_op_fn make_comp_bin_op[] = {
     (make_bin_op_fn)operator>=
 };
 
-const int bin_op_count = sizeof(make_bin_op) / sizeof(make_bin_op[0]);
+int bin_op_count = make_bin_op.size();
 const int bool_bin_op_count = sizeof(make_bool_bin_op) / sizeof(make_bool_bin_op[0]);
 const int comp_bin_op_count = sizeof(make_comp_bin_op) / sizeof(make_comp_bin_op[0]);
 
@@ -74,18 +75,105 @@ Type random_type() {
 
 Expr random_expr(vector<Expr> inputs, int depth, int func_size);
 
+// takes a vector of inputs (points in functions) and an expected Type
+// if the chosen input is not of the given type, cast it to conform
+Expr make_leaf(vector<Expr> inputs) {
+  //if (rand_bool()) {
+  if (true) {
+    auto chosen_input = inputs[rand_int(0, inputs.size()-1)];
+    return chosen_input;
+  } else {
+    uint bitwidth = inputs.at(0).type().bits();
+    if (bitwidth == 1) {
+      Expr constant_bool = UIntImm::make(UInt(1), rand_int(0,1));
+    } else {
+      Expr constant_number = IntImm::make(Int(bitwidth), rand_int(1, 100));
+      return constant_number;
+    }
+  }
+}
+
+std::string to_string(Halide::Internal::IRNodeType t) {
+  switch (t) {
+  case IRNodeType::IntImm: return "intimm";
+  case IRNodeType::UIntImm: return "uintimm";
+  case IRNodeType::FloatImm: return "floatimm";
+  case IRNodeType::StringImm: return "stringimm";
+  case IRNodeType::Broadcast: return "broadcast";
+  case IRNodeType::Cast: return "cast";
+  case IRNodeType::Variable: return "variable";
+  case IRNodeType::Add: return "add";
+  case IRNodeType::Sub: return "sub";
+  case IRNodeType::Mod: return "mod";
+  case IRNodeType::Mul: return "mul";
+  case IRNodeType::Div: return "div";
+  case IRNodeType::Min: return "min";
+  case IRNodeType::Max: return "max";
+  case IRNodeType::EQ: return "eq";
+  case IRNodeType::NE: return "ne";
+  case IRNodeType::LT: return "lt";
+  case IRNodeType::LE: return "le";
+  case IRNodeType::GT: return "gt";
+  case IRNodeType::GE: return "ge";
+  case IRNodeType::And: return "and";
+  case IRNodeType::Or: return "or";
+  case IRNodeType::Not: return "not";
+  case IRNodeType::Select: return "select";
+  case IRNodeType::Load: return "load";
+  case IRNodeType::Ramp: return "ramp";
+  default: return "unknown";
+  }
+}
+
+// Generator to produce a random pipeline. The generated pipeline will
+// be solely a function of the seed and the number of stages.
+class RandomPipeline : public Halide::Generator<RandomPipeline> {
+public:
+    int num_stage_types = 18;
+    // The random seed to use to generate the pipeline.
+    GeneratorParam<int> seed{"seed", 1};
+    // The approximate max number of stages to generate in the random pipeline.
+    GeneratorParam<int> max_stages{"max_stages", 30};
+
+    // This set of params enable/disable operators being used
+    GeneratorParam<bool> gen_conv1d{        "gen_conv1d", true};
+    GeneratorParam<bool> gen_conv2d{        "gen_conv2d", false};
+    GeneratorParam<bool> gen_pool{            "gen_pool", false};
+    GeneratorParam<bool> gen_activate{    "gen_activate", false};
+    GeneratorParam<bool> gen_padding{      "gen_padding", false};
+    GeneratorParam<bool> gen_upsample{    "gen_upsample", false};
+    GeneratorParam<bool> gen_downsample{"gen_downsample", false};
+    GeneratorParam<bool> gen_all2all{      "gen_all2all", false};
+    GeneratorParam<bool> gen_scan{            "gen_scan", false};
+    GeneratorParam<bool> gen_histogram{  "gen_histogram", false};
+    GeneratorParam<bool> gen_sin{              "gen_sin", false};
+    GeneratorParam<bool> gen_tanh{            "gen_tanh", false};
+    GeneratorParam<bool> gen_exp{              "gen_exp", false};
+    GeneratorParam<bool> gen_sqrt{            "gen_sqrt", false};
+    GeneratorParam<bool> gen_log{              "gen_log", false};
+    GeneratorParam<bool> gen_div{              "gen_div", true};
+    GeneratorParam<bool> gen_mod{              "gen_mod", false};
+    GeneratorParam<bool> gen_bool{            "gen_bool", true};
+    GeneratorParam<bool> gen_cond{            "gen_cond", true};
+
+  //Input<Buffer<float>>  input{"input", 3};
+    Input<Buffer<uint16_t>>  input{"input", 3};
+    Input<Buffer<uint8_t>>  uint8_weights {"uint8_weights", 4};
+    Input<Buffer<uint16_t>>  uint16_weights{"uint16_weights", 4};
+    Input<Buffer<uint32_t>>  uint32_weights{"uint32_weights", 4};
+    Input<Buffer<int8_t>>  int8_weights {"int8_weights", 4};
+    Input<Buffer<int16_t>>  int16_weights{"int16_weights", 4};
+    Input<Buffer<int32_t>>  int32_weights{"int32_weights", 4};
+    Input<Buffer<float>>  float32_weights{"float32_weights", 4};
+
+  //Output<Buffer<float>> output{"output", 3};
+    Output<Buffer<uint16_t>> output{"output", 3};
+
 Expr random_condition(vector<Expr> inputs, int depth, int func_size) {
     Expr a = random_expr(inputs, depth, func_size);
     Expr b = random_expr(inputs, depth, func_size);
     int op = rng() % comp_bin_op_count;
     return make_comp_bin_op[op](a, b);
-}
-
-// takes a vector of inputs (points in functions) and an expected Type
-// if the chosen input is not of the given type, cast it to conform
-Expr make_leaf(vector<Expr> inputs) {
-    auto chosen_input = inputs[rand_int(0, inputs.size()-1)];
-    return chosen_input;
 }
 
 Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
@@ -110,6 +198,7 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
       */
     case 1: // select operation
     {
+        if (!gen_cond) break;
         auto c = random_condition(inputs, depth-2, func_size); // arbitrarily chose to make condition expression shorter
         auto e1 = random_expr(inputs, depth-1, func_size);
         auto e2 = random_expr(inputs, depth-2, func_size);
@@ -121,15 +210,16 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
     }
     case 2: // unary boolean op
     {
+        if (!gen_bool) break;
         auto e1 = random_expr(inputs, depth-1, func_size);
         if (e1.type().is_bool()) {
             return !e1;
         }
         break;
     }
-    /*
     case 3: // sin
     {
+        if (!gen_sin) break;
         if (func_size > func_size_thresh)
             break;
         auto e1 = random_expr(inputs, depth-1, func_size);
@@ -137,6 +227,7 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
     }
     case 4: // tanh
     {
+        if (!gen_tanh) break;
         if (func_size > func_size_thresh)
             break;
         auto e1 = random_expr(inputs, depth-1, func_size);
@@ -144,22 +235,25 @@ Expr random_expr(vector<Expr> inputs, int depth, int func_size) {
     }
     case 5: // exp
     {
+        if (!gen_exp) break;
         auto e1 = random_expr(inputs, depth-1, func_size);
         return fast_exp(cast<float>(e1));
     }
     case 6: // sqrt
     {
+        if (!gen_sqrt) break;
         auto e1 = random_expr(inputs, depth-1, func_size);
         return sqrt(cast<float>(e1));
     }
     case 7: // log
     {
+        if (!gen_log) break;
         auto e1 = random_expr(inputs, depth-1, func_size);
         return fast_log(cast<float>(e1));
     }
-    */
     case 8: // condition
     {
+        if (!gen_cond) break;
         return random_condition(inputs, depth-1, func_size);
     }
     default: // binary op
@@ -193,50 +287,7 @@ Expr rand_value(Type t) {
     }
 }
 
-// Generator to produce a random pipeline. The generated pipeline will
-// be solely a function of the seed and the number of stages.
-class RandomPipeline : public Halide::Generator<RandomPipeline> {
-public:
-    int num_stage_types = 18;
-    // The random seed to use to generate the pipeline.
-    GeneratorParam<int> seed{"seed", 2};
-    // The approximate max number of stages to generate in the random pipeline.
-    GeneratorParam<int> max_stages{"max_stages", 30};
-
-    // This set of params enable/disable operators being used
-    GeneratorParam<bool> gen_conv1d{        "gen_conv1d", true};
-    GeneratorParam<bool> gen_conv2d{        "gen_conv2d", true};
-    GeneratorParam<bool> gen_pool{            "gen_pool", false};
-    GeneratorParam<bool> gen_activate{    "gen_activate", true};
-    GeneratorParam<bool> gen_padding{      "gen_padding", true};
-    GeneratorParam<bool> gen_upsample{    "gen_upsample", false};
-    GeneratorParam<bool> gen_downsample{"gen_downsample", false};
-    GeneratorParam<bool> gen_all2all{      "gen_all2all", false};
-    GeneratorParam<bool> gen_scan{            "gen_scan", false};
-    GeneratorParam<bool> gen_sin{              "gen_sin", false};
-    GeneratorParam<bool> gen_tanh{            "gen_tanh", false};
-    GeneratorParam<bool> gen_exp{              "gen_exp", false};
-    GeneratorParam<bool> gen_sqrt{            "gen_sqrt", false};
-    GeneratorParam<bool> gen_log{              "gen_log", false};
-    GeneratorParam<bool> gen_div{              "gen_div", true};
-    GeneratorParam<bool> gen_mod{              "gen_mod", false};
-    GeneratorParam<bool> gen_arith{          "gen_arith", true};
-    GeneratorParam<bool> gen_bool{            "gen_bool", true};
-    GeneratorParam<bool> gen_cond{            "gen_cond", true};
-
-  //Input<Buffer<float>>  input{"input", 3};
-    Input<Buffer<uint16_t>>  input{"input", 3};
-    Input<Buffer<uint8_t>>  uint8_weights {"uint8_weights", 4};
-    Input<Buffer<uint16_t>>  uint16_weights{"uint16_weights", 4};
-    Input<Buffer<uint32_t>>  uint32_weights{"uint32_weights", 4};
-    Input<Buffer<int8_t>>  int8_weights {"int8_weights", 4};
-    Input<Buffer<int16_t>>  int16_weights{"int16_weights", 4};
-    Input<Buffer<int32_t>>  int32_weights{"int32_weights", 4};
-    Input<Buffer<float>>  float32_weights{"float32_weights", 4};
-
-  //Output<Buffer<float>> output{"output", 3};
-    Output<Buffer<uint16_t>> output{"output", 3};
-
+  
     void set_upcast_types(Type input_type, Type& mult_type, Type& sum_type) {
         if (input_type.is_int() && rand_int(0,1)) {
             int input_bits = input_type.bits();
@@ -737,9 +788,9 @@ public:
         }
         return s;
     }
-
+  
     Stage binary_op(Stage f, Stage g) {
-        std::cout << "Binary op\n";
+        std::cout << "Binary op: ";
         if (f.w != g.w || f.h != g.h || f.c != g.c) {
             if (f.size() < g.size()) {
                 f = resample_to(f, g.w, g.h, g.c);
@@ -748,14 +799,16 @@ public:
             }
         }
 
-        Func binary("binary_op");
-
         vector<Expr> inputs = {f.func(f.func.args()), g.func(f.func.args())};
         int min_depth = 1;
         int max_depth = 3;
         int func_size = f.w * f.h * std::min(f.c, g.c);
         Expr def = random_expr(inputs, rand_int(min_depth, max_depth), func_size);
-        std::cerr << def << "\n";
+        std::string node_str = to_string(def.node_type());
+        std::cout << node_str << "\n";
+        std::cerr << "\t" << def << "\n";
+
+        Func binary("binary_op_" + node_str);
         binary(f.func.args()) = def;
         return {binary, f.w, f.h, std::min(f.c, g.c)};
     }
@@ -779,6 +832,18 @@ public:
         return {unary, f.w, f.h, f.c};
     }
 
+    Stage leaf_op(Stage f) {
+        std::cout << "Leaf op\n";
+        Func leaf("leaf_op");
+        vector<Expr> coords = make_arguments(f.func.args());
+        vector<Expr> inputs = {f.func(f.func.args())};
+        Expr def = make_leaf(inputs);
+        std::cerr << "\t" << def << "\n";
+        leaf(f.func.args()) = def;
+
+        return {leaf, f.w, f.h, f.c};
+    }
+  
     // Generate an all-to-all communication in dimension dim, statically unrolled.
     Stage all_to_all(Stage f, int dim) {
         std::cout << "All to all on dimension " << dim << '\n';
@@ -1056,62 +1121,65 @@ public:
         curr_stage_id = stage_type;
 
 
-        if (stage_type == 0) {
+        if (stage_type == 0 && gen_conv1d) {
             int dim = rand_int(0, 1);
             int kernel_min = -1;//rand_int(-1, -1);
             int kernel_max = rand_int(1, 3);
             return convolve(f, dim, kernel_min, kernel_max);
-        } else if (stage_type == 1) {
+        } else if (stage_type == 1 && gen_conv1d && false) {
             int dim = rand_int(0, 1);
             int kernel_min = rand_int(-10, -1);
             int kernel_max = rand_int(0, 10);
             return convolve_r(f, dim, kernel_min, kernel_max);
-        } else if (stage_type == 2 && false) {
+        } else if (stage_type == 2 && gen_conv1d && false) {
             int dim = rand_int(0, 1);
             int kernel_min = rand_int(-10, -1);
             int kernel_max = rand_int(0, 10);
             return convolve_w(f, dim, kernel_min, kernel_max);
-        } else if (stage_type == 3 && false) {
+        } else if (stage_type == 3 && gen_conv2d) {
             int kernel_min = rand_int(-5, 0);
             int kernel_max = rand_int(0, 5);
             return convolve2D(f, kernel_min, kernel_max);
-        } else if (stage_type == 4 && f.may_reduce_size() && f.w >= 32 && f.h >= 32 && false) {
+        } else if (stage_type == 4 && f.may_reduce_size() && f.w >= 32 && f.h >= 32 && gen_pool) {
             int kernel_min = rand_int(-5, 0);
             int kernel_max = rand_int(0, 5);
             return pool2D(f, kernel_min, kernel_max);
-        } else if (stage_type == 5 && false) {
+        } else if (stage_type == 5 && gen_activate) {
             return activation(f);
-        } else if (stage_type == 6 && false) {
+        } else if (stage_type == 6 && gen_padding) {
             return padding(f);
-        } else if (stage_type == 7 && f.may_increase_size() && false) {
+        } else if (stage_type == 7 && f.may_increase_size() && gen_upsample) {
             // For now, only upsample dimensions 0 or 1.
             return upsample(f, rand_int(0, 1));
-        } else if (stage_type == 8 && f.may_reduce_size() && false) {
+        } else if (stage_type == 8 && f.may_reduce_size() && gen_downsample) {
             // For now, only downsample dimensions 0 or 1.
             return downsample(f, rand_int(0, 1));
-        } else if (stage_type == 9 && false) {
+        } else if (stage_type == 9 && gen_all2all) {
             int dim = 2;
             return all_to_all(f, dim);
-        } else if (stage_type == 10 && false) {
+        } else if (stage_type == 10 && gen_all2all) {
             int dim = 2;
             return all_to_all_r(f, dim);
-        } else if (stage_type == 11 && false) {
+        } else if (stage_type == 11 && gen_all2all) {
             int dim = 2;
             return all_to_all_w(f, dim);
-        } else if (stage_type == 12 && false) {
+        } else if (stage_type == 12 && gen_scan) {
             int dim = rand_int(0, 2);
             return scan(f, dim);
         } else if (stage_type == 13 && false) {
             // TODO: transpose disabled for now because f(x, y) + f(y, x) totally breaks the bounds inference done by the autoscheduler.
             return transpose(f);
-        } else if (stage_type == 14 && f.size() < 10000 && false) {
+        } else if (stage_type == 14 && f.size() < 10000 &&
+                   gen_exp && gen_sqrt && gen_exp) {
             return unary_op(f);
-        } else if (stage_type == 15 && f.w > 32 && f.h > 32 && false) {
+        } else if (stage_type == 15 && f.w > 32 && f.h > 32 && gen_histogram) {
             return tiled_histogram(f);
         } else if (stage_type == 16 && false) {
             return slice(f, g);
         } else if (i1 != i2) {
             return binary_op(f, g);
+        } else if (i1 == i2) {
+            return binary_op(f, leaf_op(f));
         } else {
             return random_stage(s, CDF, curr_stage_id);
         }
@@ -1166,6 +1234,15 @@ public:
     void generate() {
         rng.seed((int)seed);
 
+        // add div or mod based on gen_param
+        if (gen_div) {
+          make_bin_op.emplace_back(make_div_op);
+        }
+        if (gen_mod) {
+          make_bin_op.emplace_back(make_mod_op);
+        }
+        bin_op_count = make_bin_op.size();
+
         // create transition matrix between stages
         TransitionMatrix P;
         P.initialize(num_stage_types);
@@ -1189,7 +1266,7 @@ public:
         int curr_stage_id = rand_int(0, num_stage_types-1);
 
         for (int i = 0; i < max_stages - 2; i++) {
-            std::cout << "Approx size: " << stages.back().w << ", " << stages.back().h << ", " << stages.back().c << "\n";
+            std::cout << "\tApprox size: " << stages.back().w << ", " << stages.back().h << ", " << stages.back().c << "\n";
             Stage next = random_stage(stages, CDF, curr_stage_id);
             stages.push_back(next);
             if (!auto_schedule) {

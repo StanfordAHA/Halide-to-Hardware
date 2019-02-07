@@ -1,5 +1,6 @@
 HALIDE_BIN_PATH ?= ../..
 HALIDE_SRC_PATH ?= ../..
+COREIR_DIR ?= ../../../coreir
 
 HALIDE_DISTRIB_PATH ?= $(HALIDE_SRC_PATH)/distrib
 LDFLAGS ?=
