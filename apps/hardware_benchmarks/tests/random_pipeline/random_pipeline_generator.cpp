@@ -199,9 +199,30 @@ class RandomPipeline : public Halide::Generator<RandomPipeline> {
 public:
     int num_stage_types = 18;
     // The random seed to use to generate the pipeline.
-    GeneratorParam<int> seed{"seed", 1};
+    GeneratorParam<int> seed{"seed", 2};
     // The approximate max number of stages to generate in the random pipeline.
     GeneratorParam<int> max_stages{"max_stages", 30};
+
+    // This set of params enable/disable operators being used
+    GeneratorParam<bool> gen_conv1d{        "gen_conv1d", true};
+    GeneratorParam<bool> gen_conv2d{        "gen_conv2d", true};
+    GeneratorParam<bool> gen_pool{            "gen_pool", false};
+    GeneratorParam<bool> gen_activate{    "gen_activate", true};
+    GeneratorParam<bool> gen_padding{      "gen_padding", true};
+    GeneratorParam<bool> gen_upsample{    "gen_upsample", false};
+    GeneratorParam<bool> gen_downsample{"gen_downsample", false};
+    GeneratorParam<bool> gen_all2all{      "gen_all2all", false};
+    GeneratorParam<bool> gen_scan{            "gen_scan", false};
+    GeneratorParam<bool> gen_sin{              "gen_sin", false};
+    GeneratorParam<bool> gen_tanh{            "gen_tanh", false};
+    GeneratorParam<bool> gen_exp{              "gen_exp", false};
+    GeneratorParam<bool> gen_sqrt{            "gen_sqrt", false};
+    GeneratorParam<bool> gen_log{              "gen_log", false};
+    GeneratorParam<bool> gen_div{              "gen_div", true};
+    GeneratorParam<bool> gen_mod{              "gen_mod", false};
+    GeneratorParam<bool> gen_arith{          "gen_arith", true};
+    GeneratorParam<bool> gen_bool{            "gen_bool", true};
+    GeneratorParam<bool> gen_cond{            "gen_cond", true};
 
   //Input<Buffer<float>>  input{"input", 3};
     Input<Buffer<uint16_t>>  input{"input", 3};

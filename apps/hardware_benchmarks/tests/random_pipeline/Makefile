@@ -2,6 +2,7 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = random_pipeline
 USE_COREIR_VALID = 1
+SEED ?= 1
 
 include ../../hw_support/hardware_targets.mk
 
@@ -15,3 +16,7 @@ include ../../hw_support/hardware_targets.mk
 #       test:      run and compare to cpu output
 #       eval:      evaluate runtime
 #       clean:     remove bin directory
+
+design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED)
