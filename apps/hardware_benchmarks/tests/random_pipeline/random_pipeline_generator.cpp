@@ -295,6 +295,9 @@ Expr rand_value(Type t) {
             int sum_bits = std::min(32, 2*mult_bits);
             mult_type = Int(mult_bits);
             sum_type = Int(sum_bits);
+        } else if (input_type == UInt(1)) {
+            mult_type = UInt(8);
+            sum_type = UInt(8);
         } else {
             mult_type = input_type;
             sum_type = input_type;
@@ -321,8 +324,12 @@ Expr rand_value(Type t) {
         else if (t == Int(8)) return int8_weights;
         else if (t == Int(16)) return int16_weights;
         else if (t == Int(32)) return int32_weights;
+        else if (t == UInt(1)) return uint8_weights;
         else {
-            assert(t == Float(32));
+          std::cerr << "type is " << t << std::endl;
+          assert(t == Float(32));
+
+            
             return float32_weights;
         }
     }
@@ -790,7 +797,6 @@ Expr rand_value(Type t) {
     }
   
     Stage binary_op(Stage f, Stage g) {
-        std::cout << "Binary op: ";
         if (f.w != g.w || f.h != g.h || f.c != g.c) {
             if (f.size() < g.size()) {
                 f = resample_to(f, g.w, g.h, g.c);
@@ -804,6 +810,7 @@ Expr rand_value(Type t) {
         int max_depth = 3;
         int func_size = f.w * f.h * std::min(f.c, g.c);
         Expr def = random_expr(inputs, rand_int(min_depth, max_depth), func_size);
+        std::cout << "Binary op: ";
         std::string node_str = to_string(def.node_type());
         std::cout << node_str << "\n";
         std::cerr << "\t" << def << "\n";

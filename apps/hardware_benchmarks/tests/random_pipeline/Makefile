@@ -98,3 +98,33 @@ design-cpu-int-total: $(BIN)/$(TESTNAME).generator
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
 	$(FLAGS_INT_TOTAL)
 
+design-cpu-float-pointwise: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
+	$(FLAGS_FLOAT_POINTWISE)
+
+design-cpu-float-conv: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
+	$(FLAGS_FLOAT_CONV)
+
+design-cpu-float-up: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
+	$(FLAGS_FLOAT_UP)
+
+design-cpu-float-down: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
+	$(FLAGS_FLOAT_DOWN)
+
+design-cpu-float-hist: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
+	$(FLAGS_FLOAT_HIST)
+
+design-cpu-float-total: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \
+	$(FLAGS_FLOAT_TOTAL)
+
