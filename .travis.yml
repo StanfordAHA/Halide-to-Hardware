@@ -48,7 +48,7 @@ before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - make -C distrib
+  - make distrib
   - rm distrib/halide.tgz
   - rm distrib/bin/libHalide.so
   - tar -czvf halide_distrib.tgz distrib
