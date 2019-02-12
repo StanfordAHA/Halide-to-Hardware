@@ -12,6 +12,7 @@
 #include "Var.h"
 #include "Lerp.h"
 #include "Simplify.h"
+#include "Debug.h"
 
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
@@ -1743,9 +1744,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const For *op) {
     string wirename = print_name(op->name);
     stream << "// creating counter for " << wirename << "\n";
     
-    internal_assert(is_const(op->min));
+    //internal_assert(is_const(op->min));
     internal_assert(is_const(op->extent));
-    int min_value = id_const_value(op->min);
+    int min_value = is_const(op->min) ? id_const_value(op->min) : 0;
     int max_value = min_value + id_const_value(op->extent) - 1;
     int inc_value = 1;
     string counter_name = "count_" + wirename;

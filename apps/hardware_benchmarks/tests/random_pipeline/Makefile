@@ -33,10 +33,10 @@ FLAGS_FLOAT_DOWN=$(FLAGS_FLOAT_UP) gen_downsample=true
 FLAGS_FLOAT_HIST=$(FLAGS_FLOAT_DOWN) gen_histogram=true
 FLAGS_FLOAT_TOTAL=$(FLAGS_FLOAT_HIST) gen_pool=true gen_activate=true gen_padding=true gen_all2all=true gen_scan=true
 
-design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
-	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
-	$(FLAGS_INT_POINTWISE)
+# design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
+# 	@-mkdir -p $(BIN)
+# 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+# 	$(FLAGS_INT_POINTWISE)
 
 design-coreir-int-pointwise: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
