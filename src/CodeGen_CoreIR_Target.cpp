@@ -260,7 +260,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
     //gens[gen_name] = "fplib." + gen_name;
     gens[gen_name] = "commonlib." + gen_name;
     //std::cout << "finding gen " << gen_name << std::endl;
-    assert(context->hasGenerator(gens[gen_name]));
+    //assert(context->hasGenerator(gens[gen_name]));
   }
   
   // add all modules from corebit
