@@ -165,8 +165,8 @@ AllocationType identify_allocation(Stmt s, string allocname) {
     return INOUT_ALLOCATION;
     
   } else if (!au.uses_variable_load_index &&
-             !au.uses_variable_store_index &&
              !au.uses_variable_store_value) {
+    //&& !au.uses_variable_store_value) {
     return NO_ALLOCATION;
 
   } else if (au.uses_variable_load_index &&
