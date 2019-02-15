@@ -168,10 +168,17 @@ namespace Halide {
         void visit(const Call *op);              // bitwise, streams, etc
         void visit(const Allocate *op);          // allocate an array (unused so far)
         void visit(const Provide *op);           // stencil store including init values
-        void visit(const IfThenElse *op);        // wire up enable,reset for conditional
+        void visit(const IfThenElse *op);        // wire up enable, reset for conditional
         void visit(const Store *op);             // load a single index from an array
         void visit(const Load *op);              // load from array; variable load -> mux
-        void visit(const ProducerConsumer *op);  
+        void visit(const ProducerConsumer *op);  // store linebuffer wires for counters
+
+        void visit_linebuffer(const Call *op);
+        void visit_write_stream(const Call *op);
+        void visit_read_stream(const Call *op);
+        void visit_dispatch_stream(const Call *op);
+        void visit_stencil(const Call *op);
+        
 
         // analysis functions of Halide IR
         std::vector<const Variable*> find_dep_vars(Expr e);
