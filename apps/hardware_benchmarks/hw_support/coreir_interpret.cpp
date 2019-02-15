@@ -163,12 +163,12 @@ void run_coreir_on_interpreter(string coreir_design,
           if (valid_value) {
             T output_value = state.getBitVec(output_name).to_type<T>();
             coreir_img_writer.write(output_value);
-            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
           }
         } else {
           T output_value = state.getBitVec(output_name).to_type<T>();
           output(x,y,c) = state.getBitVec(output_name).to_type<T>();
-          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
         
         // give another rising edge (execute seq)

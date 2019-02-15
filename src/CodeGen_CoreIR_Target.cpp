@@ -316,18 +316,16 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
     std::string GREEN = "\033[0;32m";
     std::string RED = "\033[0;31m";
     std::string RESET = "\033[0m";
-    
-    //cout << "Running Passes: generators and flattening" << endl;    
-    //context->runPasses({"rungenerators","flatten"});
+
+    // Save a version without any passes run
     cout << "Saving to json" << endl;
     if (!saveToFile(global_ns, output_base_path + "/design_prepass.json", design)) {
       cout << RED << "Could not save to json!!" << RESET << endl;
       context->die();
     }
 
-
+    // Run generators and remove extra passthroughs for mapper.
     context->runPasses({"rungenerators","removewires"});
-    //context->runPasses({"rungenerators"});
     if (!saveToFile(global_ns, output_base_path + "/design_top.json", design)) {
       cout << RED << "Could not save to json!!" << RESET << endl;
       context->die();
@@ -339,9 +337,9 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
     }
 
     //context->runPasses({"rungenerators", "removewires"});
-		context->runPasses({"rungenerators","flatten","removewires"});
-		//context->runPasses({"verifyconnectivity-onlyinputs-noclkrst"},{"global","commonlib","memory","mantle"});
-		//context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
+    context->runPasses({"rungenerators","flatten","removewires"});
+    //context->runPasses({"verifyconnectivity-onlyinputs-noclkrst"},{"global","commonlib","memory","mantle"});
+    //context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
     cout << "Validating json" << endl;
     design->getDef()->validate();
@@ -371,11 +369,11 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
       context->die();
     }
 
-		context->runPasses({"removewires"});
-//    if (!saveToDot(mod2, output_base_path + "/design_top.txt")) {
-//      cout << RED << "Could not save to dot file :(" << RESET << endl;
-//      context->die();
-//    }
+    context->runPasses({"removewires"});
+    //    if (!saveToDot(mod2, output_base_path + "/design_top.txt")) {
+    //      cout << RED << "Could not save to dot file :(" << RESET << endl;
+    //      context->die();
+    //    }
 
     ASSERT(m, "Could not load top: design");
     //m->print();
@@ -478,13 +476,13 @@ uint num_bits(uint N) {
   return num_shifts;
 }
 
-
+// add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
 
   // Emit the function prototype
-  // keep track of number of inputs/outputs to determine if file needed
+  // keep track of number of inputs/outputs to determine if file is needed
   uint num_inouts = 0;
 
   // Keep track of the inputs, output, and taps for this module
@@ -509,13 +507,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       allocations.push(args[i].name, {args[i].stencil_type.elemType});
       stencils.push(args[i].name, args[i].stencil_type);
 
-	    //if (args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+      // create an array of size in each dimension
       vector<uint> indices;
       for(const auto &range : stype.bounds) {
         assert(is_const(range.extent));
         indices.push_back(id_const_value(range.extent));
       }
-
 
       if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         // add as the output
@@ -524,8 +521,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         for (uint i=0; i<indices.size(); ++i) {
           output_type = output_type->Arr(indices[i]);
         }
-
         hw_output_set.insert(arg_name);
+        
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         // add another input
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
@@ -694,13 +691,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     }
     stream << "\n";
     stream << "\n// hw_output_set contains: ";
-    //cout << "\n// hw_output_set contains: ";
     for (const std::string& x : hw_output_set) {
       stream << " " << x;
-      //cout << " " << x;
     }
     stream << "\n";
-    //cout << "\n";
 
     // print body
     print(stmt);
@@ -819,16 +813,15 @@ std::string strip_stream(std::string input) {
 //////////////////////////////////////////////
 // Functions to wire coreir things together //
 //////////////////////////////////////////////
-
 CoreIR::Wireable* index_wire(CoreIR::Wireable* in_wire, std::vector<uint> indices) {
 
-	CoreIR::Wireable* current_wire = in_wire;
+  CoreIR::Wireable* current_wire = in_wire;
 
-	for (int i=indices.size()-1; i >= 0; --i) {
-		current_wire = current_wire->sel(indices[i]);
-	}
+  for (int i=indices.size()-1; i >= 0; --i) {
+    current_wire = current_wire->sel(indices[i]);
+  }
 
-	return current_wire;
+  return current_wire;
 }
 
 
@@ -868,24 +861,25 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
   } else if (is_input(name)) {
     //cout << "trying to get input " << name << " from " << self->sel("in")->getType()->toString() << endl;
     CoreIR::Wireable* input_wire = hw_input_set[name];
-    internal_assert(input_wire);
+
     stream << "// " << name << " added as input " << name << endl;
-    //cout << "// " << name << " added as input " << name << endl;
-    for (int i=indices.size()-1; i >= 0; --i) {
-      input_wire = input_wire->sel(indices[i]);
-    }
-    
-    CoreIR::Wireable* current_wire = input_wire;
-    for (int i=indices.size()-1; i >= 0; --i) {
-      //cout << "selecting storage in get_wire" << endl;
-      current_wire = current_wire->sel(indices[i]);
-    }
+    auto current_wire = index_wire(input_wire, indices);
+    // for (int i=indices.size()-1; i >= 0; --i) {
+    //   input_wire = input_wire->sel(indices[i]);
+    // }
+    // 
+    // CoreIR::Wireable* current_wire = input_wire;
+    // for (int i=indices.size()-1; i >= 0; --i) {
+    //   //cout << "selecting storage in get_wire" << endl;
+    //   current_wire = current_wire->sel(indices[i]);
+    // }
 
     return current_wire;
 
   } else if (is_storage(name)) {
     auto pt_struct = hw_store_set[name];
     CoreIR::Wireable* current_wire;
+
     if (!pt_struct->was_written) {
       internal_assert(pt_struct->is_reg());
       current_wire = pt_struct->reg->sel("out");
@@ -893,12 +887,9 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
       current_wire = pt_struct->wire->sel("out");
     }
 
-    for (int i=indices.size()-1; i >= 0; --i) {
-      //cout << "selecting storage in get_wire" << endl;
-      current_wire = current_wire->sel(indices[i]);
-    }
+    current_wire = index_wire(current_wire, indices);
     pt_struct->was_read = true;
-    //cout << "finished with get_wire" << endl;
+
     return current_wire;
 
   } else if (is_wire(name)) {
@@ -911,13 +902,7 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
       stream       << "// wire was not defined: " << name << endl;
       return self->sel("in"); 
     }
-    CoreIR::Wireable* current_wire = wire;
-    for (int i=indices.size()-1; i >= 0; --i) {
-      //cout << i << endl;
-      //cout << "selecting wire index " << indices[i] << " for wire " << name << " in get_wire" << endl;
-      current_wire = current_wire->sel(indices[i]);
-    }
-    //cout << "finished with get_wire" << endl;
+    CoreIR::Wireable* current_wire = index_wire(wire, indices);
 
     return current_wire;
 
@@ -942,7 +927,6 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
 
     }
 
-    
     auto ref_name = inst_args->ref_name;
 
     return inst->sel(inst_args->selname);
@@ -960,6 +944,7 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
   }
 }
 
+// This adds another usable wire, generally the output of a new module.
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_wire(string out_name, CoreIR::Wireable* in_wire, vector<uint> out_indices) {
   //cout << "add wire to " << out_name << "\n";
   if (is_storage(out_name)) {
@@ -1026,6 +1011,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_wire(string out_name, CoreIR::
   }
 }
 
+// This renames a wire with a new name without creating a new module.  
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::rename_wire(string new_name, string in_name, Expr in_expr, vector<uint> indices) {
   //cout << "rename wire for " << in_name << " to " << new_name << "\n";
   // if this is a definition, then just copy the pointer
