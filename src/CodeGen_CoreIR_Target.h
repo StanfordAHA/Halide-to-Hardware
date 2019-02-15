@@ -108,6 +108,10 @@ namespace Halide {
         CoreIR::Wireable* self = NULL;
         const IfThenElse* predicate  = NULL;
 
+        // commonly used coreir functions
+        void saveCoreIRJson(std::string filename);
+        void saveCoreIRDot(std::string filename);
+
         // keep track of coreir dag
         std::map<std::string,CoreIR::Wireable*> hw_wire_set;
         std::map<std::string,std::shared_ptr<Storage_Def>> hw_store_set;
