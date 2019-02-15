@@ -50,21 +50,19 @@ design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
 
-design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt:
+design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
-	 $(MAKE) design-coreir-valid; \
+	 make design-coreir-valid; \
 	else \
-	 $(MAKE) design-coreir-no_valid; \
+	 make design-coreir-no_valid; \
 	fi
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir
 
 design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
@@ -111,7 +109,7 @@ run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run vhls input.png
 
-compare compare-cpu-coreir compare-coreir-cpu: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
+compare compare-cpu-coreir compare-coreir-cpu: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
 	$(BIN)/process compare $(BIN)/output_coreir.png $(BIN)/output_cpu.png
 
 eval eval-cpu: $(BIN)/process

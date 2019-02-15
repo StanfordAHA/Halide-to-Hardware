@@ -118,11 +118,12 @@ void run_coreir_on_interpreter(string coreir_design,
       cout << "reset clock " << port_name << endl;
       
     } else if (port_type->isOutput()) {
-      if (port_name.find("[")) {
+      if (port_name.find("[") != string::npos) {
         string port_name_wo_index = port_name.substr(0, port_name.find("["));
         state.setValue(port_name_wo_index, BitVector(1));
 
-        cout << "reset indexed port " << port_name_wo_index << " with size 1" << endl;
+        cout << "reset " << port_name << " as indexed port "
+             << port_name_wo_index << " with size 1" << endl;
         
       } else {
         auto port_output = static_cast<BitType*>(port_type);
