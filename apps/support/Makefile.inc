@@ -115,4 +115,4 @@ HL_VIDEOPLAYER ?= mplayer
 # For CoreIR generation
 LDFLAGS += -lcurses
 LDFLAGS += -L$(COREIR_DIR)/lib
-LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim
+LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float

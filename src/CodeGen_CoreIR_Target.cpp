@@ -16,6 +16,7 @@
 
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
+#include "coreir/libs/float.h"
 
 namespace Halide {
 namespace Internal {
@@ -250,17 +251,18 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   }
 
   // add all generators from fplib which include floating point operators
-  //context->getNamespace("fplib");
-  std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", 
-                                         "feq", "fneq",
+  CoreIRLoadLibrary_float(context);
+  std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv", 
+                                         "feq", //"fneq",
                                          "flt", "fgt", "fle", "fge",
+                                         "fmin", "fmax",
                                          "fmux", "fconst"};
 
   for (auto gen_name : fplib_gen_names) {
-    //gens[gen_name] = "fplib." + gen_name;
-    gens[gen_name] = "commonlib." + gen_name;
-    //std::cout << "finding gen " << gen_name << std::endl;
-    //assert(context->hasGenerator(gens[gen_name]));
+    // floating point library does not start with "f"
+    gens[gen_name] = "float." + gen_name.substr(1);
+    internal_assert(context->hasGenerator(gens[gen_name]))
+      << "could not find " << gen_name << "\n";
   }
   
   // add all modules from corebit

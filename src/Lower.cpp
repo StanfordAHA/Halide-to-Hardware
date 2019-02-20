@@ -193,6 +193,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       std::cout << "Performing HLS target optimization..\n";
+      std::cout << s;
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
