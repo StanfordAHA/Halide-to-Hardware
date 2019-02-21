@@ -234,7 +234,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   for (auto gen_name : corelib_gen_names) {
     gens[gen_name] = "coreir." + gen_name;
-    assert(context->hasGenerator(gens[gen_name]));
+    internal_assert(context->hasGenerator(gens[gen_name]))
+      << "could not find " << gen_name << "\n";
   }
 
   // add all generators from commonlib
@@ -247,7 +248,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   };
   for (auto gen_name : commonlib_gen_names) {
     gens[gen_name] = "commonlib." + gen_name;
-    assert(context->hasGenerator(gens[gen_name]));
+    internal_assert(context->hasGenerator(gens[gen_name]))
+      << "could not find " << gen_name << "\n";
   }
 
   // add all generators from fplib which include floating point operators
@@ -255,8 +257,9 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv", 
                                          "feq", //"fneq",
                                          "flt", "fgt", "fle", "fge",
-                                         "fmin", "fmax",
-                                         "fmux", "fconst"};
+  };
+                                         //"fmin", "fmax",
+                                         //"fmux", "fconst"};
 
   for (auto gen_name : fplib_gen_names) {
     // floating point library does not start with "f"
@@ -272,7 +275,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   for (auto mod_name : corebitlib_mod_names) {
     // these were renamed to using the corebit library
     gens[mod_name] = "corebit." + mod_name.substr(3);
-    assert(context->hasModule(gens[mod_name]));
+    internal_assert(context->hasModule(gens[mod_name]))
+      << "could not find " << mod_name << "\n";
   }
 
 
@@ -284,7 +288,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   for (auto gen_name : memorylib_gen_names) {
     gens[gen_name] = "memory." + gen_name;
-    assert(context->hasGenerator(gens[gen_name]));
+    internal_assert(context->hasGenerator(gens[gen_name]))
+      << "could not find " << gen_name << "\n";
   }
   
   // passthrough is now just a mantle wire
@@ -1351,7 +1356,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Add *op) {
 
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Sub *op) {
-  visit_binop(op->type, op->a, op->b, "-", "sub");
+  internal_assert(op->a.type() == op->b.type());
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f-", "fsub");
+  } else {
+    visit_binop(op->type, op->a, op->b, "-", "sub");
+  }
 }
   
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Div *op) {
@@ -1411,24 +1421,38 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Or *op) {
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const EQ *op) {
   internal_assert(op->a.type().bits() == op->b.type().bits());
-  if (op->a.type().bits() == 1) {
-    visit_binop(op->type, op->a, op->b, "~^", "bitxnor");
+  internal_assert(op->a.type() == op->b.type());
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f==", "feq");
   } else {
-    visit_binop(op->type, op->a, op->b, "==", "eq");
+    if (op->a.type().bits() == 1) {
+      visit_binop(op->type, op->a, op->b, "~^", "bitxnor");
+    } else {
+      visit_binop(op->type, op->a, op->b, "==", "eq");
+    }
   }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const NE *op) {
   internal_assert(op->a.type().bits() == op->b.type().bits());
-  if (op->a.type().bits() == 1) {
-    visit_binop(op->type, op->a, op->b, "^", "bitxor");
+  internal_assert(op->a.type() == op->b.type());
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f!=", "fneq");
   } else {
-    visit_binop(op->type, op->a, op->b, "!=", "neq");
+    if (op->a.type().bits() == 1) {
+      visit_binop(op->type, op->a, op->b, "^", "bitxor");
+    } else {
+      visit_binop(op->type, op->a, op->b, "!=", "neq");
+    }
   }
 }
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
-  if (op->a.type().is_uint()) {
-    internal_assert(op->b.type().is_uint());
+  internal_assert(op->a.type() == op->b.type());
+  
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f<", "flt");
+    
+  } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
       visit_binop(op->type, op->a, op->b, "<", "bitult");
@@ -1443,8 +1467,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
   }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
-  if (op->a.type().is_uint()) {
-    internal_assert(op->b.type().is_uint());
+  internal_assert(op->a.type() == op->b.type());
+  
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f<=", "fle");
+
+  } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
       visit_binop(op->type, op->a, op->b, "<=", "bitule");
@@ -1458,8 +1486,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
   }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
-  if (op->a.type().is_uint()) {
-    internal_assert(op->b.type().is_uint());
+  internal_assert(op->a.type() == op->b.type());
+  
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f>", "fgt");
+    
+  } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
       visit_binop(op->type, op->a, op->b, ">", "bitugt");
@@ -1473,8 +1505,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
   }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GE *op) {
-  if (op->a.type().is_uint()) {
-    internal_assert(op->b.type().is_uint());
+  internal_assert(op->a.type() == op->b.type());
+  
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f>=", "fge");
+    
+  } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
       visit_binop(op->type, op->a, op->b, ">=", "bituge");
@@ -1489,14 +1525,22 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GE *op) {
 }
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Max *op) {
-  if (op->type.is_uint()) {
+  internal_assert(op->a.type() == op->b.type());
+  
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "<fmax>",  "fmax");
+  } else if (op->type.is_uint()) {
     visit_binop(op->type, op->a, op->b, "<max>",  "umax");
   } else {
     visit_binop(op->type, op->a, op->b, "<smax>", "smax");
   }
 }
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Min *op) {
-  if (op->type.is_uint()) {
+  internal_assert(op->a.type() == op->b.type());
+  
+  if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "<fmin>",  "fmin");
+  } else if (op->type.is_uint()) {
     visit_binop(op->type, op->a, op->b, "<min>",  "umin");
   } else {
     visit_binop(op->type, op->a, op->b, "<smin>", "smin");
@@ -1509,7 +1553,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Not *op) {
 }
 
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Select *op) {
-  if (op->type.bits() == 1) {
+  internal_assert(op->true_value.type() == op->false_value.type());
+  
+  if (op->true_value.type().is_float()) {
+    visit_ternop(op->type, op->condition, op->true_value, op->false_value, "f?",":", "fmux");
+  } else if (op->type.bits() == 1) {
     // use a special op for bitwidth 1
     visit_ternop(op->type, op->condition, op->true_value, op->false_value, "?",":", "bitmux");
   } else {
