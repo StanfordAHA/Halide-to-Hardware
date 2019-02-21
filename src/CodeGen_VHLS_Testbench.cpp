@@ -79,8 +79,6 @@ CodeGen_VHLS_Testbench::~CodeGen_VHLS_Testbench() {
 }
 
 void CodeGen_VHLS_Testbench::visit(const ProducerConsumer *op) {
-  std::cout << op->name << " visited, a producerconsumer\n";
-    
     if (starts_with(op->name, "_hls_target.")) {
       if (op->is_producer) {
         Stmt hw_body = op->body;
@@ -113,7 +111,6 @@ void CodeGen_VHLS_Testbench::visit(const ProducerConsumer *op) {
 }
 
 void CodeGen_VHLS_Testbench::visit(const Call *op) {
-    std::cout << op->name << " visited, a call\n";
     if (op->name == "stream_subimage") {
         std::ostringstream rhs;
         // add intrinsic functions to convert memory buffers to streams
@@ -156,7 +153,6 @@ void CodeGen_VHLS_Testbench::visit(const Call *op) {
 }
 
 void CodeGen_VHLS_Testbench::visit(const Realize *op) {
-  std::cout << op->name << " visited, a realize\n";
     if (ends_with(op->name, ".stream")) {
         // create a AXI stream type
         internal_assert(op->types.size() == 1);
@@ -182,7 +178,6 @@ void CodeGen_VHLS_Testbench::visit(const Realize *op) {
 }
 
 void CodeGen_VHLS_Testbench::visit(const Block *op) {
-    std::cout << " visited, a block\n";
     // emit stream_to_buffer call after the bulk of IR containing hardware pipeline
     // This is ugly right now, as the HLS simulation model and DMA programming model
     // are different on the order of pipeline IR and stream_to_buffer call..

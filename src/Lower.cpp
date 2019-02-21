@@ -193,7 +193,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       std::cout << "Performing HLS target optimization..\n";
-      std::cout << s;
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
@@ -204,7 +203,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
@@ -381,7 +380,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
-    std::cout << "Lowering after final simplification:\n" << s << "\n\n";
+    //std::cout << "Lowering after final simplification:\n" << s << "\n\n";
 
     if (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))) {
         debug(1) << "Splitting off Hexagon offload...\n";
