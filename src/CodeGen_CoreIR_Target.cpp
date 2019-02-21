@@ -267,6 +267,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
     internal_assert(context->hasGenerator(gens[gen_name]))
       << "could not find " << gen_name << "\n";
   }
+  gens["fconst"] = "coreir.const";
   
   // add all modules from corebit
   context->getNamespace("corebit");
@@ -1206,7 +1207,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_unaryop(Type t, Expr a, cons
     internal_assert(gens.count(op_name) > 0) << op_name << " is not one of the names Halide recognizes\n";
 
     // check if it is a generator or module
-    if (context->hasGenerator(gens[op_name])) {
+    if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
+      coreir_inst = def->addInstance(unaryop_name, gens[op_name],
+                                     {{"exp_bits", CoreIR::Const::make(context,8)},
+                                         {"frac_bits", CoreIR::Const::make(context,7)}});
+
+    } else if (context->hasGenerator(gens[op_name])) {
       internal_assert(context->getGenerator(gens[op_name]));    
       uint bw = inst_bitwidth(a.type().bits());
       coreir_inst = def->addInstance(unaryop_name, gens[op_name], {{"width", CoreIR::Const::make(context,bw)}});
@@ -1253,7 +1259,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_binop(Type t, Expr a, Expr b
 
     // properly cast to generator or module
     internal_assert(gens.count(op_name) > 0) << op_name << " is not one of the names Halide recognizes\n";
-    if (context->hasGenerator(gens[op_name])) {
+    if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
+      coreir_inst = def->addInstance(binop_name, gens[op_name],
+                                     {{"exp_bits", CoreIR::Const::make(context,8)},
+                                         {"frac_bits", CoreIR::Const::make(context,7)}});
+    } else if (context->hasGenerator(gens[op_name])) {
       coreir_inst = def->addInstance(binop_name, gens[op_name], {{"width", CoreIR::Const::make(context,bw)}});
     } else {
       coreir_inst = def->addInstance(binop_name, gens[op_name]);
@@ -1294,8 +1304,13 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_ternop(Type t, Expr a, Expr 
     CoreIR::Wireable* coreir_inst;
 
     // properly cast to generator or module
+    
     internal_assert(gens.count(op_name) > 0) << op_name << " is not one of the names Halide recognizes\n";
-    if (context->hasGenerator(gens[op_name])) {
+    if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
+      coreir_inst = def->addInstance(ternop_name, gens[op_name],
+                                     {{"exp_bits", CoreIR::Const::make(context,8)},
+                                         {"frac_bits", CoreIR::Const::make(context,7)}});
+    } else if (context->hasGenerator(gens[op_name])) {
       coreir_inst = def->addInstance(ternop_name, gens[op_name], {{"width", CoreIR::Const::make(context,inst_bw)}});
     } else {
       coreir_inst = def->addInstance(ternop_name, gens[op_name]);

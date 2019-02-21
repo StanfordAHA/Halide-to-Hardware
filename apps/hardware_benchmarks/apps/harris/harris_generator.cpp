@@ -94,7 +94,7 @@ public:
         output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
 
           //output.tile(x, y, xo, yo, xi, yi, 64, 64);
           //padded16.compute_at(output, xo);

@@ -204,7 +204,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
@@ -381,6 +381,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
+    std::cout << "Lowering after final simplification:\n" << s << "\n\n";
 
     if (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))) {
         debug(1) << "Splitting off Hexagon offload...\n";
@@ -480,9 +481,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         debug_arguments(&main_func);
     }
 
-    if (!t.has_feature(Target::HLS)) {
-      result_module.append(main_func);
-    }
+    //if (!t.has_feature(Target::HLS)) {
+    result_module.append(main_func);
+    //}
 
     // Append a wrapper for this pipeline that accepts old buffer_ts
     // and upgrades them. It will use the same name, so it will
