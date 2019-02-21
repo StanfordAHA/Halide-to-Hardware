@@ -2,6 +2,8 @@
 set -e
 set -o pipefail
 
+export HALIDE_SHARED_LIBRARY=halide.a
+
 # Note this script assumes that the current working directory
 # is the root of the repository
 if [ ! -f ./.travis.yml ]; then
