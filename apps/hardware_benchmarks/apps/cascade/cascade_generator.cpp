@@ -6,8 +6,8 @@ using namespace Halide;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
-    Input<Buffer<uint16_t>>  input{"input", 2};
-    Output<Buffer<uint16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -27,13 +27,13 @@ public:
         conv1(x, y) = 0;
 
         Func hw_input("hw_input");
-        hw_input(x, y) = input(x, y);
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
         conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
         
         conv2(x, y)  += kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint16_t>(conv2(x, y));
+        hw_output(x, y) = cast<uint8_t>(conv2(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */

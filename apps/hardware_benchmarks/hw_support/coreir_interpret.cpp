@@ -198,8 +198,21 @@ template void run_coreir_on_interpreter<int16_t>(std::string coreir_design,
                                                  std::string input_name,
                                                  std::string output_name);
 
+template void run_coreir_on_interpreter<uint8_t>(std::string coreir_design,
+                                                 Halide::Runtime::Buffer<uint8_t> input,
+                                                 Halide::Runtime::Buffer<uint8_t> output,
+                                                 std::string input_name,
+                                                 std::string output_name);
+
+template void run_coreir_on_interpreter<int8_t>(std::string coreir_design,
+                                                Halide::Runtime::Buffer<int8_t> input,
+                                                Halide::Runtime::Buffer<int8_t> output,
+                                                std::string input_name,
+                                                std::string output_name);
+
 template void run_coreir_on_interpreter<bool>(std::string coreir_design,
                                               Halide::Runtime::Buffer<bool> input,
                                               Halide::Runtime::Buffer<bool> output,
                                               std::string input_name,
                                               std::string output_name);
+

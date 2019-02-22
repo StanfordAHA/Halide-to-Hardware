@@ -22,8 +22,8 @@ int threshold = 100;
 
 class HarrisCornerDetector : public Halide::Generator<HarrisCornerDetector> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<int8_t>>  input{"input", 2};
+    Output<Buffer<int8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -90,7 +90,7 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        hw_output(x, y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cast<int8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
         output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */

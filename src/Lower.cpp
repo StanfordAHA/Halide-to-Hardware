@@ -171,7 +171,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
-    //s = sliding_window(s, env);
+    if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
+      s = sliding_window(s, env);
+    }
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
@@ -192,7 +194,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
-      std::cout << "Performing HLS target optimization..\n";
+      std::cout << "Performing HLS target optimization..." << s << '\n';
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
