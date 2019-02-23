@@ -103,7 +103,7 @@ public:
           hw_output.compute_root();
 
           hw_output
-            .tile(x, y, xo, yo, xi, yi, 64, 64)
+            .tile(x, y, xo, yo, xi, yi, 58, 58)
             .accelerate({padded16}, xi, xo);
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
@@ -125,7 +125,7 @@ public:
           //padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU
-          output.tile(x, y, xo, yo, xi, yi, 64, 64);
+          output.tile(x, y, xo, yo, xi, yi, 58, 58);
         
           grad_x.compute_at(output, xo).vectorize(x, 8);
           grad_y.compute_at(output, xo).vectorize(x, 8);
