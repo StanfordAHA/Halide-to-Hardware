@@ -31,3 +31,4 @@ int main(int argc, char **argv) {
   processor.output = Buffer<uint8_t>(64, 63);
   
   processor.process_command(argc, argv);
+}
