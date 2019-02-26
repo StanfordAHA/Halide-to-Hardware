@@ -99,6 +99,55 @@ bool variable_used(Stmt s, string varname) {
   return uv.used;
 }
 
+class ROMInit : public IRVisitor {
+  using IRVisitor::visit;
+
+  bool is_const(const Expr e) {
+    if (e.as<IntImm>() || e.as<UIntImm>()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  int id_const_value(const Expr e) {
+    if (const IntImm* e_int = e.as<IntImm>()) {
+      return e_int->value;
+
+    } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+      return e_uint->value;
+
+    } else {
+      return -1;
+    }
+  }
+  
+  void visit(const Store *op) {
+    if (op->name == allocname) {
+      auto value_expr = op->value;
+      auto index_expr = op->index;
+      internal_assert(is_const(value_expr) && is_const(index_expr));
+
+      int index = id_const_value(index_expr);
+      int value = id_const_value(value_expr);
+      init_values["init"][index] = value;
+    }
+  }
+
+public:
+  nlohmann::json init_values;
+  string allocname;
+  ROMInit(string allocname) : allocname(allocname) {}
+};
+
+// returns a map with all the initialization values for a rom
+nlohmann::json rom_init(Stmt s, string allocname) {
+  ROMInit rom_init(allocname);
+  s.accept(&rom_init);
+  return rom_init.init_values;
+}
+
+  
 class AllocationUsage : public IRVisitor {
   using IRVisitor::visit;
   void visit(const Load *op) {
@@ -1922,8 +1971,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
                      {"depth",CoreIR::Const::make(context,constant_size)}};
 
     // set initial values for rom
-    nlohmann::json jdata;
-    jdata["init"][0] = 0;
+    nlohmann::json jdata = rom_init(new_body, alloc_name);
+    //jdata["init"][0] = 0;
     CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
     rom_args.genargs = modparams;
     rom_args.selname = "rdata";
