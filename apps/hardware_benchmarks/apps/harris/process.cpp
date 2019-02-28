@@ -87,14 +87,14 @@ void run_harris_on_interpreter(string coreir_design,
 }
 
 void run_harris_on_interpreter(string coreir_design,
-                               Halide::Runtime::Buffer<int8_t> input,
-                               Halide::Runtime::Buffer<int8_t> output,
+                               Halide::Runtime::Buffer<uint8_t> input,
+                               Halide::Runtime::Buffer<uint8_t> output,
                                string input_name,
                                string output_name);
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<int8_t> processor("harris",
+  OneInOneOut_ProcessController<uint8_t> processor("harris",
                                             {
                                               {"cpu",
                                                   [&]() { harris(processor.input, processor.output); }
@@ -106,8 +106,8 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<int8_t>(64, 64);
-  processor.output = Buffer<int8_t>(58, 58);
+  processor.input = Buffer<uint8_t>(64, 64);
+  processor.output = Buffer<uint8_t>(58, 58);
   
   processor.process_command(argc, argv);
   
