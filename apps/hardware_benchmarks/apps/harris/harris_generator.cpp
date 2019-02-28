@@ -18,7 +18,7 @@ int blockSize = 3;
 int shiftk = 4; // equiv to k = 0.0625
 
 // Threshold for cornerness measure.
-int threshold = 10;
+int threshold = 1;
 
 class HarrisCornerDetector : public Halide::Generator<HarrisCornerDetector> {
 public:
@@ -90,7 +90,9 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), cim(x,y), 0));
+        hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold),
+                                                255,
+                                                0));
         output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */
