@@ -10,8 +10,6 @@ using namespace Halide::Tools;
 using namespace Halide::Runtime;
 using namespace std;
 
-
-#include "coreir_interpret.cpp"
 using namespace CoreIR;
 
 int main(int argc, char **argv) {
