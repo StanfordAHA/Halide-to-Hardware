@@ -461,7 +461,7 @@ Expr rand_value(Type t) {
     }
 
     Stage convolve2D(Stage f, int kernel_min, int kernel_max) {
-        int conv_type = rand_int(0,2);
+      int conv_type = 0;//rand_int(0,2);
         if (conv_type == 0) return convolve2D_unrolled(f, kernel_min, kernel_max);
         if (conv_type == 1) return convolve2D_w(f, kernel_min, kernel_max);
         else return convolve2D_r(f, kernel_min, kernel_max);
@@ -629,7 +629,7 @@ Expr rand_value(Type t) {
                     vector<Expr> coords = make_arguments(f.func.args());
                     coords[0] += i;
                     coords[1] += j;
-                    coords[2] = c;
+                    //coords[2] = c;
                     inputs.push_back(f.func(coords));
                 }
             }
@@ -804,7 +804,7 @@ Expr rand_value(Type t) {
     }
   
     Stage binary_op(Stage f, Stage g) {
-        if (f.w != g.w || f.h != g.h || f.c != g.c) {
+        if ((f.w != g.w || f.h != g.h || f.c != g.c) && gen_upsample) {
             if (f.size() < g.size()) {
                 f = resample_to(f, g.w, g.h, g.c);
             } else {
@@ -1292,6 +1292,8 @@ Expr rand_value(Type t) {
             std::cout << "\tApprox size: " << stages.back().w << ", " << stages.back().h << ", " << stages.back().c << "\n";
             Stage next = random_stage(stages, CDF, curr_stage_id);
             stages.push_back(next);
+
+            //stages.back().func.bound(c, 0, 1);
             if (!auto_schedule) {
               //stages.back().func.compute_root().reorder(x, c, y).vectorize(x, 8).parallel(y, 8);
             }
@@ -1300,21 +1302,26 @@ Expr rand_value(Type t) {
         Stage tail = stages.back();
 
         // Resample back to the correct resolution
-        tail = resample_to(tail, 2000, 2000, 3);
+        if (gen_upsample) {
+          tail = resample_to(tail, 2000, 2000, 3);
+        }
+        
         Stage casted = cast_stage(output.type(), tail);
         Func hw_output;
         hw_output = casted.func;
         
         output(x,y,c) = hw_output(x,y,c);
 
+        //input.dim(2).set_bounds(0, 3);
+        
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
           
           hw_input.compute_root();
           hw_output.compute_root();
-          
-          casted.func.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();

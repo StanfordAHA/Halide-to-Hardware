@@ -205,7 +205,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";

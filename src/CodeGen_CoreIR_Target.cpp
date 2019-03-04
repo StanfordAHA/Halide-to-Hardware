@@ -320,8 +320,9 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   
   // add all modules from corebit
   context->getNamespace("corebit");
-  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
-                                              "bitmux", "bitconst"};
+  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitxnor", "bitnot",
+                                              "bitmux", "bitconst",
+                                              "bitlt", "bitle", "bitgt", "bitge"};
   for (auto mod_name : corebitlib_mod_names) {
     // these were renamed to using the corebit library
     gens[mod_name] = "corebit." + mod_name.substr(3);
@@ -1519,7 +1520,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, "<", "bitult");
+      visit_binop(op->type, op->a, op->b, "<", "bitlt");
     } else {
       visit_binop(op->type, op->a, op->b, "<", "ult");
     }
@@ -1539,7 +1540,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, "<=", "bitule");
+      visit_binop(op->type, op->a, op->b, "<=", "bitle");
     } else {
       visit_binop(op->type, op->a, op->b, "<=", "ule");
     }
@@ -1558,7 +1559,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, ">", "bitugt");
+      visit_binop(op->type, op->a, op->b, ">", "bitgt");
     } else {
       visit_binop(op->type, op->a, op->b, ">", "ugt");
     }
@@ -1577,7 +1578,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GE *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, ">=", "bituge");
+      visit_binop(op->type, op->a, op->b, ">=", "bitge");
     } else {
       visit_binop(op->type, op->a, op->b, ">=", "uge");
     }
