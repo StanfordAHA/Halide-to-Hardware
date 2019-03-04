@@ -29,7 +29,7 @@ default: all
 all: $(BIN)/process
 
 halide compiler:
-	$(MAKE) -C $(HALIDE_SRC_PATH) distrib
+	$(MAKE) -C $(HALIDE_SRC_PATH) quick_distrib
 
 $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_helper.cpp
 	@-mkdir -p $(HWSUPPORT)/$(BIN)

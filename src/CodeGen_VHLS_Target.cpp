@@ -60,8 +60,8 @@ CodeGen_VHLS_Target::~CodeGen_VHLS_Target() {
     std::cout << "outputting vhls target named " << target_name << std::endl;
     
     // write the header and the source streams into files
-    string src_name = output_base_path + "/" + target_name + ".cpp";
-    string hdr_name = output_base_path + "/" + target_name + ".h";
+    string src_name = output_base_path + target_name + ".cpp";
+    string hdr_name = output_base_path + target_name + ".h";
     ofstream src_file(src_name.c_str());
     ofstream hdr_file(hdr_name.c_str());
     src_file << src_stream.str() << endl;

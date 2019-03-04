@@ -354,8 +354,8 @@ CodeGen_CoreIR_Target::~CodeGen_CoreIR_Target() {
   hdr_stream << "#endif\n";
 
   // write the header and the source streams into files
-  string src_name = output_base_path + "/" + target_name + "_debug_output.cpp";
-  string hdr_name = output_base_path + "/" + target_name + "_debug_output.h";
+  string src_name = output_base_path + target_name + "_debug_output.cpp";
+  string hdr_name = output_base_path + target_name + "_debug_output.h";
   ofstream src_file(src_name.c_str());
   ofstream hdr_file(hdr_name.c_str());
   src_file << src_stream.str() << endl;
@@ -396,12 +396,12 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
 
     // Save a version without any passes run
     cout << "Saving to json" << endl;
-    saveCoreIRJson(output_base_path + "/design_prepass.json");
+    saveCoreIRJson(output_base_path + "design_prepass.json");
 
     // Run generators and remove extra passthroughs for mapper.
     context->runPasses({"rungenerators","removewires"});
-    saveCoreIRJson(output_base_path + "/design_top.json");
-    saveCoreIRDot(output_base_path + "/design_top.txt");
+    saveCoreIRJson(output_base_path + "design_top.json");
+    saveCoreIRDot(output_base_path + "design_top.txt");
 
     //context->runPasses({"rungenerators", "removewires"});
     context->runPasses({"rungenerators","flatten","removewires"});
@@ -414,18 +414,18 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
   
     // write out the json
     cout << "Saving json" << endl;
-    saveCoreIRJson(output_base_path + "/design_flattened.json");
+    saveCoreIRJson(output_base_path + "design_flattened.json");
 
     // test that these files can be read
     CoreIR::Module* m = nullptr;
     cout << "Loading json" << endl;
-    if (!loadFromFile(context, output_base_path + "/design_top.json", &m)) {
+    if (!loadFromFile(context, output_base_path + "design_top.json", &m)) {
       cout << RED << "Could not load from json!!" << RESET << endl;
       context->die();
     }
 
     CoreIR::Module* mod2 = nullptr;
-    if (!loadFromFile(context, output_base_path + "/design_prepass.json", &mod2)) {
+    if (!loadFromFile(context, output_base_path + "design_prepass.json", &mod2)) {
       cout << RED << "Could not load from json!!" << RESET << endl;
       context->die();
     }

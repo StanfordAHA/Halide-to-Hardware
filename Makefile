@@ -1951,6 +1951,12 @@ $(DISTRIB_DIR)/halide.tgz: $(LIB_DIR)/libHalide.a \
 .PHONY: distrib
 distrib: $(DISTRIB_DIR)/halide.tgz
 
+quick_distrib: $(BUILD_DIR)/halide_config.make $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(ROOT_DIR)/tools/GenGen.cpp
+	cp $(BUILD_DIR)/halide_config.make $(DISTRIB_DIR)
+	cp $(LIB_DIR)/libHalide.a $(DISTRIB_DIR)/lib
+	cp $(INCLUDE_DIR)/Halide.h $(DISTRIB_DIR)/include
+	cp $(ROOT_DIR)/tools/GenGen.cpp $(DISTRIB_DIR)/tools
+
 $(BIN_DIR)/HalideTraceViz: $(ROOT_DIR)/util/HalideTraceViz.cpp $(INCLUDE_DIR)/HalideRuntime.h $(ROOT_DIR)/tools/halide_image_io.h $(ROOT_DIR)/tools/halide_trace_config.h
 	$(CXX) $(OPTIMIZE) -std=c++11 $(filter %.cpp,$^) -I$(INCLUDE_DIR) -I$(ROOT_DIR)/tools -L$(BIN_DIR) -o $@
 
