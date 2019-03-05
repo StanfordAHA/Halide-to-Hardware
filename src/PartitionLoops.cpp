@@ -753,9 +753,6 @@ class PartitionLoops : public IRMutator2 {
         debug(3) << "Partition loop.\n"
                  << "Old: " << Stmt(op) << "\n"
                  << "New: " << stmt << "\n";
-        std::cout << "Partition loop.\n"
-                 << "Old: " << Stmt(op) << "\n"
-                 << "New: " << stmt << "\n";
 
         return stmt;
     }

@@ -194,7 +194,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
-      std::cout << "Performing HLS target optimization..." << s << '\n';
+      //std::cout << "Performing HLS target optimization..." << s << '\n';
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
@@ -205,7 +205,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
