@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestBoolean : public Halide::Generator<UnitTestBoolean> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -28,7 +28,7 @@ public:
         bool_xor(x,y) = bool_or(x,y) ^ bool_not(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int16_t>(select(bool_xor(x, y), 200, 0));
+        hw_output(x, y) = cast<uint8_t>(select(bool_xor(x, y), 200, 0));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
