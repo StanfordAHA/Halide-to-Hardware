@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestUminmax : public Halide::Generator<UnitTestUminmax> {
 public:
-    Input<Buffer<uint16_t>>  input{"input", 2};
-    Output<Buffer<uint16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -23,7 +23,7 @@ public:
         uclamp(x,y) = clamp( hw_input(x,y), 1, 150 );
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint16_t>(umin(x,y) + umax(x,y) - uclamp(x,y));
+        hw_output(x, y) = cast<uint8_t>(umin(x,y) + umax(x,y) - uclamp(x,y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */

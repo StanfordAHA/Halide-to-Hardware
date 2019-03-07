@@ -68,6 +68,36 @@ design-coreir-int-total: $(BIN)/$(TESTNAME).generator
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
 	$(FLAGS_INT_TOTAL)
 
+design-coreir-float-pointwise: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+	$(FLAGS_FLOAT_POINTWISE)
+
+design-coreir-float-conv: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+	$(FLAGS_FLOAT_CONV)
+
+design-coreir-float-up: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+	$(FLAGS_FLOAT_UP)
+
+design-coreir-float-down: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+	$(FLAGS_FLOAT_DOWN)
+
+design-coreir-float-hist: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+	$(FLAGS_FLOAT_HIST)
+
+design-coreir-float-total: $(BIN)/$(TESTNAME).generator
+	@-mkdir -p $(BIN)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir seed=$(SEED) \
+	$(FLAGS_FLOAT_TOTAL)
+
 design-cpu-int-pointwise: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) seed=$(SEED) \

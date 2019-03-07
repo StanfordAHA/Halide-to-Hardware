@@ -238,6 +238,32 @@ template int OneInOneOut_ProcessController<int16_t>::make_compare_def(std::vecto
 template int OneInOneOut_ProcessController<int16_t>::make_test_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<int16_t>::make_eval_def(std::vector<std::string> args);
 
+template int ProcessController<uint8_t>::process_command(int argc, char **argv);
+template int ProcessController<uint8_t>::make_image_def(std::vector<std::string> args);
+template int ProcessController<uint8_t>::make_run_def(std::vector<std::string> args);
+template int ProcessController<uint8_t>::make_compare_def(std::vector<std::string> args);
+template int ProcessController<uint8_t>::make_test_def(std::vector<std::string> args);
+template int ProcessController<uint8_t>::make_eval_def(std::vector<std::string> args);
+template void ProcessController<uint8_t>::print_usage();
+template int OneInOneOut_ProcessController<uint8_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint8_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint8_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint8_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint8_t>::make_eval_def(std::vector<std::string> args);
+
+template int ProcessController<int8_t>::process_command(int argc, char **argv);
+template int ProcessController<int8_t>::make_image_def(std::vector<std::string> args);
+template int ProcessController<int8_t>::make_run_def(std::vector<std::string> args);
+template int ProcessController<int8_t>::make_compare_def(std::vector<std::string> args);
+template int ProcessController<int8_t>::make_test_def(std::vector<std::string> args);
+template int ProcessController<int8_t>::make_eval_def(std::vector<std::string> args);
+template void ProcessController<int8_t>::print_usage();
+template int OneInOneOut_ProcessController<int8_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int8_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int8_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int8_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<int8_t>::make_eval_def(std::vector<std::string> args);
+
 template int ProcessController<bool>::process_command(int argc, char **argv);
 template int ProcessController<bool>::make_image_def(std::vector<std::string> args);
 template int ProcessController<bool>::make_run_def(std::vector<std::string> args);

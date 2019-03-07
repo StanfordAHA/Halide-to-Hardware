@@ -1,5 +1,31 @@
 #include "HalideBuffer.h"
 
+#include "coreir.h"
+#include "coreir/simulator/interpreter.h"
+#include "coreir/libs/commonlib.h"
+
+template <typename elem_t>
+class ImageWriter {
+public:
+  ImageWriter(Halide::Runtime::Buffer<elem_t> &output) :
+    width(output.width()), height(output.height()), channels(output.channels()),
+    image(output),
+    current_x(0), current_y(0), current_z(0) { }
+
+  void write(elem_t data);
+  elem_t read(uint x, uint y, uint z);
+  void save_image(std::string image_name);
+  void print_coords();
+
+private:
+  const uint width, height, channels;
+  Halide::Runtime::Buffer<elem_t> image;
+  uint current_x, current_y, current_z;
+};
+
+
+bool reset_coreir_circuit(CoreIR::SimulatorState &state, CoreIR::Module *m);
+
 template<typename T>
 void run_coreir_on_interpreter(std::string coreir_design,
                                Halide::Runtime::Buffer<T> input,

@@ -164,7 +164,7 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 # Compiling for CoreIR requires some extra links
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
-COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim
+COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
 #COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
@@ -1950,6 +1950,12 @@ $(DISTRIB_DIR)/halide.tgz: $(LIB_DIR)/libHalide.a \
 
 .PHONY: distrib
 distrib: $(DISTRIB_DIR)/halide.tgz
+
+quick_distrib: $(BUILD_DIR)/halide_config.make $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(ROOT_DIR)/tools/GenGen.cpp
+	cp $(BUILD_DIR)/halide_config.make $(DISTRIB_DIR)
+	cp $(LIB_DIR)/libHalide.a $(DISTRIB_DIR)/lib
+	cp $(INCLUDE_DIR)/Halide.h $(DISTRIB_DIR)/include
+	cp $(ROOT_DIR)/tools/GenGen.cpp $(DISTRIB_DIR)/tools
 
 $(BIN_DIR)/HalideTraceViz: $(ROOT_DIR)/util/HalideTraceViz.cpp $(INCLUDE_DIR)/HalideRuntime.h $(ROOT_DIR)/tools/halide_image_io.h $(ROOT_DIR)/tools/halide_trace_config.h
 	$(CXX) $(OPTIMIZE) -std=c++11 $(filter %.cpp,$^) -I$(INCLUDE_DIR) -I$(ROOT_DIR)/tools -L$(BIN_DIR) -o $@

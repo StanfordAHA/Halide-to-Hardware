@@ -171,7 +171,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
-    //s = sliding_window(s, env);
+    if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
+      s = sliding_window(s, env);
+    }
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
@@ -192,7 +194,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
-      std::cout << "Performing HLS target optimization..\n";
+      //std::cout << "Performing HLS target optimization..." << s << '\n';
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
@@ -380,6 +382,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
+    //std::cout << "Lowering after final simplification:\n" << s << "\n\n";
 
     if (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))) {
         debug(1) << "Splitting off Hexagon offload...\n";
@@ -479,9 +482,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         debug_arguments(&main_func);
     }
 
-    if (!t.has_feature(Target::HLS)) {
-      result_module.append(main_func);
-    }
+    //if (!t.has_feature(Target::HLS)) {
+    result_module.append(main_func);
+    //}
 
     // Append a wrapper for this pipeline that accepts old buffer_ts
     // and upgrades them. It will use the same name, so it will

@@ -158,13 +158,14 @@ public:
 
   //Input<Buffer<float>>  input{"input", 3};
     Input<Buffer<uint16_t>>  input{"input", 3};
-    Input<Buffer<uint8_t>>  uint8_weights {"uint8_weights", 4};
-    Input<Buffer<uint16_t>>  uint16_weights{"uint16_weights", 4};
-    Input<Buffer<uint32_t>>  uint32_weights{"uint32_weights", 4};
-    Input<Buffer<int8_t>>  int8_weights {"int8_weights", 4};
-    Input<Buffer<int16_t>>  int16_weights{"int16_weights", 4};
-    Input<Buffer<int32_t>>  int32_weights{"int32_weights", 4};
-    Input<Buffer<float>>  float32_weights{"float32_weights", 4};
+  
+  // Input<Buffer<uint8_t>>  uint8_weights {"uint8_weights", 4};
+  // Input<Buffer<uint16_t>>  uint16_weights{"uint16_weights", 4};
+  // Input<Buffer<uint32_t>>  uint32_weights{"uint32_weights", 4};
+  // Input<Buffer<int8_t>>  int8_weights {"int8_weights", 4};
+  // Input<Buffer<int16_t>>  int16_weights{"int16_weights", 4};
+  // Input<Buffer<int32_t>>  int32_weights{"int32_weights", 4};
+  // Input<Buffer<float>>  float32_weights{"float32_weights", 4};
 
   //Output<Buffer<float>> output{"output", 3};
     Output<Buffer<uint16_t>> output{"output", 3};
@@ -317,21 +318,27 @@ Expr rand_value(Type t) {
         return;
     }
 
-    Func get_conv_weights(Type t) {
-        if (t == UInt(8)) return uint8_weights;
-        else if (t == UInt(16)) return uint16_weights;
-        else if (t == UInt(32)) return uint32_weights;
-        else if (t == Int(8)) return int8_weights;
-        else if (t == Int(16)) return int16_weights;
-        else if (t == Int(32)) return int32_weights;
-        else if (t == UInt(1)) return uint8_weights;
-        else {
-          std::cerr << "type is " << t << std::endl;
-          assert(t == Float(32));
-
-            
-            return float32_weights;
-        }
+  Func get_conv_weights(Type t, vector<Var> vars) {
+        //if (t == UInt(8)) return uint8_weights;
+        //else if (t == UInt(16)) return uint16_weights;
+        //else if (t == UInt(32)) return uint32_weights;
+        //else if (t == Int(8)) return int8_weights;
+        //else if (t == Int(16)) return int16_weights;
+        //else if (t == Int(32)) return int32_weights;
+        //else if (t == UInt(1)) return uint8_weights;
+        //else {
+        //  std::cerr << "type is " << t << std::endl;
+        //  assert(t == Float(32));
+        //
+        //    
+        //    return float32_weights;
+        //}
+    Func weights;
+    Var p;
+    vars.emplace_back(p);
+      weights(vars) = 2;
+      return weights;
+      
     }
 
     struct Stage {
@@ -454,7 +461,7 @@ Expr rand_value(Type t) {
     }
 
     Stage convolve2D(Stage f, int kernel_min, int kernel_max) {
-        int conv_type = rand_int(0,2);
+      int conv_type = 0;//rand_int(0,2);
         if (conv_type == 0) return convolve2D_unrolled(f, kernel_min, kernel_max);
         if (conv_type == 1) return convolve2D_w(f, kernel_min, kernel_max);
         else return convolve2D_r(f, kernel_min, kernel_max);
@@ -622,7 +629,7 @@ Expr rand_value(Type t) {
                     vector<Expr> coords = make_arguments(f.func.args());
                     coords[0] += i;
                     coords[1] += j;
-                    coords[2] = c;
+                    //coords[2] = c;
                     inputs.push_back(f.func(coords));
                 }
             }
@@ -655,7 +662,7 @@ Expr rand_value(Type t) {
         // if input type is int, upcast with 50% chance
         Type mult_type, sum_type;
         Type input_type = f.func.value().type();
-        Func weights = get_conv_weights(input_type);
+        Func weights = get_conv_weights(input_type, args);
         set_upcast_types(input_type, mult_type, sum_type);
 
         int stride = f.random_size_reduce_factor();
@@ -692,7 +699,7 @@ Expr rand_value(Type t) {
         // if input type is int, upcast with 50% chance
         Type mult_type, sum_type;
         Type input_type = f.func.value().type();
-        Func weights = get_conv_weights(input_type);
+        Func weights = get_conv_weights(input_type, args);
         set_upcast_types(input_type, mult_type, sum_type);
 
         int stride = f.random_size_reduce_factor();
@@ -797,7 +804,7 @@ Expr rand_value(Type t) {
     }
   
     Stage binary_op(Stage f, Stage g) {
-        if (f.w != g.w || f.h != g.h || f.c != g.c) {
+        if ((f.w != g.w || f.h != g.h || f.c != g.c) && gen_upsample) {
             if (f.size() < g.size()) {
                 f = resample_to(f, g.w, g.h, g.c);
             } else {
@@ -1260,6 +1267,15 @@ Expr rand_value(Type t) {
 
         Var x("x"), y("y"), c("c");
 
+        Func uint8_weights;   uint8_weights(x, y) = 2;
+        Func uint16_weights;  uint16_weights(x, y) = 2;
+        Func uint32_weights;  uint32_weights(x, y) = 2;
+        Func int8_weights;    int8_weights(x, y) = 2;
+        Func int16_weights;   int16_weights(x, y) = 2;
+        Func int32_weights;   int32_weights(x, y) = 2;
+        Func float32_weights; float32_weights(x, y) = 2;
+
+
         Func hw_input;
         hw_input(x,y,c) = input(x, y, c);
         Func first;
@@ -1276,6 +1292,8 @@ Expr rand_value(Type t) {
             std::cout << "\tApprox size: " << stages.back().w << ", " << stages.back().h << ", " << stages.back().c << "\n";
             Stage next = random_stage(stages, CDF, curr_stage_id);
             stages.push_back(next);
+
+            //stages.back().func.bound(c, 0, 1);
             if (!auto_schedule) {
               //stages.back().func.compute_root().reorder(x, c, y).vectorize(x, 8).parallel(y, 8);
             }
@@ -1284,21 +1302,26 @@ Expr rand_value(Type t) {
         Stage tail = stages.back();
 
         // Resample back to the correct resolution
-        tail = resample_to(tail, 2000, 2000, 3);
+        if (gen_upsample) {
+          tail = resample_to(tail, 2000, 2000, 3);
+        }
+        
         Stage casted = cast_stage(output.type(), tail);
         Func hw_output;
         hw_output = casted.func;
         
         output(x,y,c) = hw_output(x,y,c);
 
+        //input.dim(2).set_bounds(0, 3);
+        
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
           
           hw_input.compute_root();
           hw_output.compute_root();
-          
-          casted.func.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();
@@ -1311,34 +1334,34 @@ Expr rand_value(Type t) {
             input.dim(0).set_bounds_estimate(0, 2000)
                 .dim(1).set_bounds_estimate(0, 2000)
                 .dim(2).set_bounds_estimate(0, 3);
-            uint8_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
-            uint16_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
-            uint32_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
-            int8_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
-            int16_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
-            int32_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
-            float32_weights.dim(0).set_bounds_estimate(0, 512)
-                .dim(1).set_bounds_estimate(-5, 5)
-                .dim(2).set_bounds_estimate(-5, 5)
-                .dim(3).set_bounds_estimate(0, 512);
+//            uint8_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
+//            uint16_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
+//            uint32_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
+//            int8_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
+//            int16_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
+//            int32_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
+//            float32_weights.dim(0).set_bounds_estimate(0, 512)
+//                .dim(1).set_bounds_estimate(-5, 5)
+//                .dim(2).set_bounds_estimate(-5, 5)
+//                .dim(3).set_bounds_estimate(0, 512);
 
             output.estimate(output.args()[0], 0, 2000);
             output.estimate(output.args()[0], 0, 2000);

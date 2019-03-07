@@ -18,12 +18,12 @@ int blockSize = 3;
 int shiftk = 4; // equiv to k = 0.0625
 
 // Threshold for cornerness measure.
-int threshold = 100;
+int threshold = 1;
 
 class HarrisCornerDetector : public Halide::Generator<HarrisCornerDetector> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -90,11 +90,13 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        hw_output(x, y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold),
+                                                255,
+                                                0));
         output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
 
           //output.tile(x, y, xo, yo, xi, yi, 64, 64);
           //padded16.compute_at(output, xo);
@@ -103,7 +105,7 @@ public:
           hw_output.compute_root();
 
           hw_output
-            .tile(x, y, xo, yo, xi, yi, 64, 64)
+            .tile(x, y, xo, yo, xi, yi, 58, 58)
             .accelerate({padded16}, xi, xo);
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
@@ -125,7 +127,7 @@ public:
           //padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU
-          output.tile(x, y, xo, yo, xi, yi, 64, 64);
+          output.tile(x, y, xo, yo, xi, yi, 58, 58);
         
           grad_x.compute_at(output, xo).vectorize(x, 8);
           grad_y.compute_at(output, xo).vectorize(x, 8);

@@ -453,7 +453,10 @@ void Module::compile(const Outputs &output_files_arg) const {
       Internal::CodeGen_CoreIR_Testbench cg(file,
                                             target());
 
-      std::string foldername = coreir_output.substr(0, coreir_output.find_last_of("/"));
+      bool uses_folder = (coreir_output.find("/") != std::string::npos);
+      std::string foldername = uses_folder ?
+        coreir_output.substr(0, coreir_output.find_last_of("/")+1) :
+        "";
       cg.set_output_folder(foldername);
       std::cout << "Module.compile(): coreir_source_name " << output_files.coreir_source_name
                 << " with folder=" << foldername << "\n";
@@ -467,7 +470,10 @@ void Module::compile(const Outputs &output_files_arg) const {
       Internal::CodeGen_VHLS_Testbench cg(file,
                                           target());
 
-      std::string foldername = vhls_output.substr(0, vhls_output.find_last_of("/"));
+      bool uses_folder = (vhls_output.find("/") != std::string::npos);
+      std::string foldername = uses_folder ?
+        vhls_output.substr(0, vhls_output.find_last_of("/")+1) :
+        "";
       cg.set_output_folder(foldername);
       std::string oldname = contents->name;
       contents->name = oldname + "_vhls";

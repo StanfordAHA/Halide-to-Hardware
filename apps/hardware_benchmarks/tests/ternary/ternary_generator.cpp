@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestTernary : public Halide::Generator<UnitTestTernary> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -22,7 +22,7 @@ public:
         sel(x,y) = select( mad(x,y) > 52, 39, 7);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int16_t>(sel(x, y));
+        hw_output(x, y) = cast<uint8_t>(sel(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */

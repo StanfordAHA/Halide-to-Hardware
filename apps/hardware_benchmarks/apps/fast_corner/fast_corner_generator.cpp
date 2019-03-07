@@ -21,8 +21,8 @@ using namespace Halide;
   
 class FastCornerDetector : public Halide::Generator<FastCornerDetector> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -30,7 +30,7 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         Func hw_in;
-        hw_in(x, y) = input(x+3, y+3);
+        hw_in(x, y) = cast<uint16_t>(input(x+3, y+3));
                                       
         // Map stencil indices to contiguous segment.
         Func segment;
@@ -87,8 +87,8 @@ public:
 
         // use select to convert a 1bit to 16bit
         Func contiguous_lighter16, contiguous_darker16;
-        contiguous_lighter16(x,y,l) = cast<int16_t>(select(contiguous_lighter[min_seg_len-1](x,y,l), 1, 0));
-        contiguous_darker16( x,y,l) = cast<int16_t>(select(contiguous_darker[min_seg_len-1]( x,y,l), 1, 0));
+        contiguous_lighter16(x,y,l) = cast<uint16_t>(select(contiguous_lighter[min_seg_len-1](x,y,l), 1, 0));
+        contiguous_darker16( x,y,l) = cast<uint16_t>(select(contiguous_darker[min_seg_len-1]( x,y,l), 1, 0));
 
         // calculate the largest contiguous segment (how many overlapping of min length).
         Func largest_seg_light, largest_seg_dark;
@@ -101,11 +101,11 @@ public:
         largest_seg(x,y) = max(largest_seg_dark(x,y,0), largest_seg_light(x,y,0));
 
         // Output largest segment size if window contains all light or dark pixels.
-        // Note that windoew is equal to the minimum segment length.
+        // Note that window is equal to the minimum segment length.
         Func hw_output;
-        hw_output(x,y) = cast<int16_t>(select(largest_seg(x,y) > 0,
-                                              largest_seg(x,y) + min_seg_len-1,
-                                              0));
+        hw_output(x,y) = cast<uint8_t>(13 * select(largest_seg(x,y) > 0,
+                                                   largest_seg(x,y) + min_seg_len-1,
+                                                   0));
         output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */
@@ -130,7 +130,7 @@ public:
 
           
         } else {    // schedule to CPU
-          output.tile(x, y, xo, yo, xi, yi, 64, 64)
+          output.tile(x, y, xo, yo, xi, yi, 64-6, 64-6)
             .compute_root();
 
           output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);

@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestArith : public Halide::Generator<UnitTestArith> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -25,7 +25,7 @@ public:
 	sub(x,y) = mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int16_t>(sub(x, y));
+        hw_output(x, y) = cast<uint8_t>(sub(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */

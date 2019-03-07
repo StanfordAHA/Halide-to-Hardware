@@ -1,7 +1,4 @@
-#include "coreir.h"
 #include "coreir/passes/transform/rungenerators.h"
-#include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
 
 #include "coreir_interpret.h"
 
@@ -9,17 +6,10 @@ using namespace std;
 using namespace CoreIR;
 
 template <typename elem_t>
-class ImageWriter {
-public:
-  ImageWriter(Halide::Runtime::Buffer<elem_t> &output) :
-    width(output.width()), height(output.height()), channels(output.channels()),
-    image(output),
-    current_x(0), current_y(0), current_z(0) { }
-
-  void write(elem_t data) {
-    if (current_x < width &&
-        current_y < height &&
-        current_z < channels) {
+void ImageWriter<elem_t>::write(elem_t data) {
+  if (current_x < width &&
+      current_y < height &&
+      current_z < channels) {
 
     assert(current_x < width &&
            current_y < height &&
@@ -36,29 +26,93 @@ public:
       current_z++;
       current_y = 0;
     }
+  }
+}
+
+template <typename elem_t>
+elem_t ImageWriter<elem_t>::read(uint x, uint y, uint z) {
+  return image(x,y,z);
+}
+
+template <typename elem_t>
+void ImageWriter<elem_t>::save_image(std::string image_name) {
+  convert_and_save_image(image, image_name);
+}
+
+template <typename elem_t>
+void ImageWriter<elem_t>::print_coords() {
+  std::cout << "x=" << current_x
+            << ",y=" << current_y
+            << ",z=" << current_z << std::endl;
+}
+
+// This sets each input for the coreir simulator before testing.
+// Returns if a wire for output valid is found.
+bool reset_coreir_circuit(SimulatorState &state, Module *m) {
+
+  auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
+  set<string> visited_connections;
+  bool uses_valid = false;
+  
+  for (auto wireable_pair : self_conxs) {
+    //cout << wireable_pair.first->toString() << " is connected to " << wireable_pair.second->toString() << endl;
+
+    string port_name = wireable_pair.first->toString();
+    Type* port_type = wireable_pair.first->getType();
+
+    // only process each connection once
+    if (visited_connections.count(port_name) > 0) {
+      continue;
+    }
+    visited_connections.insert(port_name);
+
+    // identify the valid signal
+    if (port_name == "self.valid") {
+      cout << "image is using output valid" << endl;
+      uses_valid = true;
+    }
+
+    if ("self.clk" == port_name) {
+      state.setClock(port_name, 0, 1);
+      
+      cout << "reset clock " << port_name << endl;
+      
+    } else if (port_type->isOutput()) {
+      if (port_name.find("[") != string::npos) {
+        string port_name_wo_index = port_name.substr(0, port_name.find("["));
+        state.setValue(port_name_wo_index, BitVector(1));
+
+        cout << "reset " << port_name << " as indexed port "
+             << port_name_wo_index << " with size 1" << endl;
+        
+      } else {
+        auto port_output = static_cast<BitType*>(port_type);
+        uint type_bitwidth = port_output->getSize();
+        state.setValue(port_name, BitVector(type_bitwidth));
+      
+        cout << "reset " << port_name << " with size " << type_bitwidth << endl;
+
+      }
+    }
+  }
+  return uses_valid;
+
+}
+
+bool circuit_uses_valid(Module *m) {
+  bool uses_valid = false;
+  auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
+  for (auto wireable_pair : self_conxs) {
+    string port_name = wireable_pair.first->toString();
+    if (port_name == "self.valid") {
+      uses_valid = true;
+      return uses_valid;
     }
   }
 
-  elem_t read(uint x, uint y, uint z) {
-    return image(x,y,z);
-  }
-
-  void save_image(std::string image_name) {
-    convert_and_save_image(image, image_name);
-  }
-
-  void print_coords() {
-    std::cout << "x=" << current_x
-              << ",y=" << current_y
-              << ",z=" << current_z << std::endl;
-  }
-
-private:
-  const uint width, height, channels;
-  Halide::Runtime::Buffer<elem_t> image;
-  uint current_x, current_y, current_z;
-};
-
+  // no valid found
+  return uses_valid;
+}
 
 template<typename T>
 void run_coreir_on_interpreter(string coreir_design,
@@ -89,60 +143,11 @@ void run_coreir_on_interpreter(string coreir_design,
   }
   cout << "generated simulated coreir design" << endl;
 
-  // This sets each input for the coreir simulator before testing.
-  auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
-  set<string> visited_connections;
-  bool uses_valid = false;
-  
-  for (auto wireable_pair : self_conxs) {
-    //cout << wireable_pair.first->toString() << " is connected to " << wireable_pair.second->toString() << endl;
+  // sets initial values for all inputs/outputs/clock
+  bool uses_valid = reset_coreir_circuit(state, m);
 
-    string port_name = wireable_pair.first->toString();
-    Type* port_type = wireable_pair.first->getType();
-
-    // only process each connection once
-    if (visited_connections.count(port_name) > 0) {
-      continue;
-    }
-    visited_connections.insert(port_name);
-
-    // identify the valid signal
-    if (port_name == "self.valid") {
-      cout << "image is using output valid" << endl;
-      uses_valid = true;
-    }
-
-    if ("self.clk" == port_name) {
-      state.setClock(port_name, 0, 1);
-      
-      cout << "reset clock " << port_name << endl;
-      
-    } else if (port_type->isOutput()) {
-      if (port_name.find("[")) {
-        string port_name_wo_index = port_name.substr(0, port_name.find("["));
-        state.setValue(port_name_wo_index, BitVector(1));
-
-        cout << "reset indexed port " << port_name_wo_index << " with size 1" << endl;
-        
-      } else {
-        auto port_output = static_cast<BitType*>(port_type);
-        uint type_bitwidth = port_output->getSize();
-        state.setValue(port_name, BitVector(type_bitwidth));
-      
-        cout << "reset " << port_name << " with size " << type_bitwidth << endl;
-
-      }
-    }
-  }
-
-
-//  state.setValue(input_name, BitVector(16));
-//  state.setValue("self.reset", BitVector(1));
-//  state.setClock("self.clk", 0, 1);
   cout << "starting coreir simulation" << endl;  
   state.resetCircuit();
-
-  //state.setClock("self.clk", 0, 1);
 
   ImageWriter<T> coreir_img_writer(output);
 
@@ -163,12 +168,12 @@ void run_coreir_on_interpreter(string coreir_design,
           if (valid_value) {
             T output_value = state.getBitVec(output_name).to_type<T>();
             coreir_img_writer.write(output_value);
-            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
           }
         } else {
           T output_value = state.getBitVec(output_name).to_type<T>();
-          output(x,y,c) = state.getBitVec(output_name).to_type<T>();
-          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+          output(x,y,c) = output_value;
+          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
         
         // give another rising edge (execute seq)
@@ -197,8 +202,21 @@ template void run_coreir_on_interpreter<int16_t>(std::string coreir_design,
                                                  std::string input_name,
                                                  std::string output_name);
 
+template void run_coreir_on_interpreter<uint8_t>(std::string coreir_design,
+                                                 Halide::Runtime::Buffer<uint8_t> input,
+                                                 Halide::Runtime::Buffer<uint8_t> output,
+                                                 std::string input_name,
+                                                 std::string output_name);
+
+template void run_coreir_on_interpreter<int8_t>(std::string coreir_design,
+                                                Halide::Runtime::Buffer<int8_t> input,
+                                                Halide::Runtime::Buffer<int8_t> output,
+                                                std::string input_name,
+                                                std::string output_name);
+
 template void run_coreir_on_interpreter<bool>(std::string coreir_design,
                                               Halide::Runtime::Buffer<bool> input,
                                               Halide::Runtime::Buffer<bool> output,
                                               std::string input_name,
                                               std::string output_name);
+

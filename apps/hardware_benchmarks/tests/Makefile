@@ -6,7 +6,13 @@ all: testall
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(MAKE) -sC $@ test
+	@$(MAKE) -sC $@ compare &>/dev/null; \
+	EXIT_CODE=$$?; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+	  printf "%-20s \033[0;32m%s\033[0m\n" $@ "PASSED"; \
+	else \
+	  printf "%-20s \033[0;31m%s\033[0m\n" $@ "FAILED"; \
+	fi
 
 testall test_all: runall
 # @echo ""
@@ -20,11 +26,7 @@ testall test_all: runall
 
 testtravis test_travis: conv_3_3
 
-runall run_all:
-	@for app in $(ALL_APPS); do \
-	  echo -n "$$app: "; \
-	  $(MAKE) -sC $$app run; \
-	done
+runall run_all: $(ALL_APPS)
 
 evalall eval_all:
 	@for app in $(ALL_APPS); do \
