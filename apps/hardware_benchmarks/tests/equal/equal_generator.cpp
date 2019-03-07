@@ -22,7 +22,7 @@ public:
         ne(x,y) = hw_input(x,y) != 64;
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(select(eq(x,y) && ne(x,y), 200, 0));
+        hw_output(x, y) = cast<uint8_t>(select(eq(x,y) ^ ne(x,y), 200, 0));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
