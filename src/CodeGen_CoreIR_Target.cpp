@@ -320,9 +320,9 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   
   // add all modules from corebit
   context->getNamespace("corebit");
-  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitxnor", "bitnot",
-                                              "bitmux", "bitconst",
-                                              "bitlt", "bitle", "bitgt", "bitge"};
+  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
+                                              "bitmux", "bitconst"};
+  //                                              "bitlt", "bitle", "bitgt", "bitge","bitxnor"};
   for (auto mod_name : corebitlib_mod_names) {
     // these were renamed to using the corebit library
     gens[mod_name] = "corebit." + mod_name.substr(3);
