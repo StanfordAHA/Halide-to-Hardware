@@ -1887,7 +1887,7 @@ class RenameAllocation : public IRMutator {
   Expr visit(const Load *op) override {
     if (op->name == orig_name ) {
       Expr index = mutate(op->index);
-      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate);
+      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, ModulusRemainder());
     } else {
       return IRMutator::visit(op);
     }
@@ -1897,7 +1897,7 @@ class RenameAllocation : public IRMutator {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
-      return Store::make(new_name, value, index, op->param, op->predicate);
+      return Store::make(new_name, value, index, op->param, op->predicate, ModulusRemainder());
     } else {
       return IRMutator::visit(op);
     }
