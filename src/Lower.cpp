@@ -84,7 +84,7 @@ using std::vector;
 
 Module lower(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
              const vector<Argument> &args, const LinkageType linkage_type,
-             const vector<IRMutator2 *> &custom_passes) {
+             const vector<IRMutator *> &custom_passes) {
 
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
