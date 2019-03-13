@@ -72,6 +72,71 @@ class WidenMath : public IRMutator {
     }
 };
 
+class BFloatMath : public IRMutator {
+    using IRMutator::visit;
+
+    bool needs_widening(Type t) {
+      return !t.is_bfloat() && t.is_float();
+    }
+
+    Expr widen(Expr e) {
+      if (needs_widening(e.type())) {
+          Expr f = cast(BFloat(16, e.type().lanes()), e);
+          return f;
+        } else {
+            return e;
+        }
+    }
+
+    template<typename Op>
+    Expr visit_bin_op(const Op *op) {
+        Expr a = widen(mutate(op->a));
+        Expr b = widen(mutate(op->b));
+        return cast(op->type, Op::make(std::move(a), std::move(b)));
+    }
+
+    Expr visit(const Add *op) override { return visit_bin_op(op); }
+    Expr visit(const Sub *op) override { return visit_bin_op(op); }
+    Expr visit(const Mod *op) override { return visit_bin_op(op); }
+    Expr visit(const Mul *op) override { return visit_bin_op(op); }
+    Expr visit(const Div *op) override { return visit_bin_op(op); }
+    Expr visit(const LE *op) override { return visit_bin_op(op); }
+    Expr visit(const LT *op) override { return visit_bin_op(op); }
+    Expr visit(const GE *op) override { return visit_bin_op(op); }
+    Expr visit(const GT *op) override { return visit_bin_op(op); }
+    Expr visit(const Min *op) override { return visit_bin_op(op); }
+    Expr visit(const Max *op) override { return visit_bin_op(op); }
+
+    Expr visit(const Call *op) override {
+        if (op->call_type == Call::PureIntrinsic) {
+            std::vector<Expr> new_args(op->args.size());
+
+            // Mutate the args
+            for (size_t i = 0; i < op->args.size(); i++) {
+                new_args[i] = widen(mutate(op->args[i]));
+            }
+
+            Type t = op->type;
+            if (needs_widening(t)) {
+              t = BFloat(16, op->type.lanes());
+            }
+            Expr ret = Call::make(t, op->name, new_args, op->call_type,
+                                  op->func, op->value_index, op->image, op->param);
+            return cast(op->type, ret);
+        } else {
+            return IRMutator::visit(op);
+        }
+    }
+
+    Stmt visit(const For *op) override {
+        // Check the device_api and only enter body if the device does
+        // not support native (b)float16 math. Currently no devices
+        // support (b)float16 math, so we always enter the body.
+        return IRMutator::visit(op);
+    }
+};
+
+  
 class LowerBFloatConversions : public IRMutator {
     using IRMutator::visit;
 
@@ -278,12 +343,23 @@ class LowerFloat16Conversions : public IRMutator {
 
 Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     Stmt s = stmt;
-    s = WidenMath().mutate(s);
-    s = LowerBFloatConversions().mutate(s);
+    std::cout << "before widen is: " << s << std::endl;
+    if (t.has_feature(Target::CoreIR)) {
+      s = BFloatMath().mutate(s);
+    } else {
+      s = WidenMath().mutate(s);
+    }
+    std::cout << "after widen is: " << s << std::endl;
+    
+    bool has_bfloat_hardware = t.has_feature(Target::CoreIR);
     // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
     //if (!t.has_feature(Target::F16C)) {
-    s = LowerFloat16Conversions().mutate(s);
+    if (!has_bfloat_hardware) {
+      s = LowerBFloatConversions().mutate(s);
+      s = LowerFloat16Conversions().mutate(s);
+    }
     //}
+    std::cout << "final ir: " << s << std::endl;
     return s;
 }
 

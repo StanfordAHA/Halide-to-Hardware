@@ -13,6 +13,7 @@
 #include "Lerp.h"
 #include "Simplify.h"
 #include "Debug.h"
+#include "Float16.h"
 
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
@@ -909,7 +910,7 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
     uint const_bitwidth = get_const_bitwidth(e);
     int bw = inst_bitwidth(const_bitwidth);
     const_inst = def->addInstance(const_name, gens["fconst"], {{"width", CoreIR::Const::make(context,bw)}},
-                                  {{"value",CoreIR::Const::make(context,BitVector(bw,(int)fconst_value))}});
+                                  {{"value",CoreIR::Const::make(context,BitVector(bw,bfloat16_t(fconst_value).to_bits()))}});
 
     stream << "// created fconst: " << const_name << " with name " << name << "\n";
     return const_inst->sel("out");
@@ -1108,7 +1109,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::rename_wire(string new_name, strin
     uint const_bitwidth = get_const_bitwidth(in_expr);
     int bw = inst_bitwidth(const_bitwidth);
     CoreIR::Values args = {{"width", CoreIR::Const::make(context,bw)}};
-    CoreIR::Values genargs = {{"value",CoreIR::Const::make(context,BitVector(bw,(int)fconst_value))}};
+    CoreIR::Values genargs = {{"value",CoreIR::Const::make(context,BitVector(bw,bfloat16_t(fconst_value).to_bits()))}};
 
     CoreIR_Inst_Args const_args(const_name, in_name, "out", gens["fconst"], args, genargs);
     hw_def_set[new_name] = std::make_shared<CoreIR_Inst_Args>(const_args);
