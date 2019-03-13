@@ -101,6 +101,8 @@ struct Target {
         ASAN = halide_target_feature_asan,
         CheckUnsafePromises = halide_target_feature_check_unsafe_promises,
         EmbedBitcode = halide_target_feature_embed_bitcode,
+        DisableLLVMLoopVectorize = halide_target_feature_disable_llvm_loop_vectorize,
+        DisableLLVMLoopUnroll = halide_target_feature_disable_llvm_loop_unroll,
         CoreIR = halide_target_feature_coreir,
         CoreIRValid = halide_target_feature_coreir_valid,
         HLS = halide_target_feature_hls,
