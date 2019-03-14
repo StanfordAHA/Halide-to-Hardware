@@ -75,12 +75,12 @@ class WidenMath : public IRMutator {
 class BFloatMath : public IRMutator {
     using IRMutator::visit;
 
-    bool needs_widening(Type t) {
+    bool needs_converting(Type t) {
       return !t.is_bfloat() && t.is_float();
     }
 
-    Expr widen(Expr e) {
-      if (needs_widening(e.type())) {
+    Expr convert(Expr e) {
+      if (needs_converting(e.type())) {
           Expr f = cast(BFloat(16, e.type().lanes()), e);
           return f;
         } else {
@@ -90,8 +90,8 @@ class BFloatMath : public IRMutator {
 
     template<typename Op>
     Expr visit_bin_op(const Op *op) {
-        Expr a = widen(mutate(op->a));
-        Expr b = widen(mutate(op->b));
+        Expr a = convert(mutate(op->a));
+        Expr b = convert(mutate(op->b));
         return cast(op->type, Op::make(std::move(a), std::move(b)));
     }
 
@@ -113,11 +113,11 @@ class BFloatMath : public IRMutator {
 
             // Mutate the args
             for (size_t i = 0; i < op->args.size(); i++) {
-                new_args[i] = widen(mutate(op->args[i]));
+                new_args[i] = convert(mutate(op->args[i]));
             }
 
             Type t = op->type;
-            if (needs_widening(t)) {
+            if (needs_converting(t)) {
               t = BFloat(16, op->type.lanes());
             }
             Expr ret = Call::make(t, op->name, new_args, op->call_type,
@@ -344,21 +344,19 @@ class LowerFloat16Conversions : public IRMutator {
 Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     Stmt s = stmt;
     std::cout << "before widen is: " << s << std::endl;
-    if (t.has_feature(Target::CoreIR)) {
+    bool has_bfloat_hardware = t.has_feature(Target::CoreIR);
+    if (has_bfloat_hardware) {
       s = BFloatMath().mutate(s);
     } else {
       s = WidenMath().mutate(s);
-    }
-    std::cout << "after widen is: " << s << std::endl;
-    
-    bool has_bfloat_hardware = t.has_feature(Target::CoreIR);
-    // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
-    //if (!t.has_feature(Target::F16C)) {
-    if (!has_bfloat_hardware) {
+      std::cout << "after widen is: " << s << std::endl;
       s = LowerBFloatConversions().mutate(s);
+      // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
+      //if (!t.has_feature(Target::F16C)) {
       s = LowerFloat16Conversions().mutate(s);
     }
-    //}
+
+
     std::cout << "final ir: " << s << std::endl;
     return s;
 }

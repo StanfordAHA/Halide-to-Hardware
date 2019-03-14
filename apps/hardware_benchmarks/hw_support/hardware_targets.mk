@@ -83,6 +83,10 @@ image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process image
 
+$(BIN)/input.png: input.png
+	@-mkdir -p $(BIN)
+	cp input.png $(BIN)/input.png
+
 $(BIN)/input.raw: input.png
 	@-mkdir -p $(BIN)
 	$(HWSUPPORT)/steveconvert.csh input.png $(BIN)/input.raw

@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   old_input = load_and_convert_image("input.png");
   for (int i = 0; i < processor.input.width(); ++i) {
     for (int j = 0; j < processor.input.height(); ++j) {
-      new_input(i, j) = old_input(i, j);
+      new_input(i, j) = i+j;
     }
   }
   convert_and_save_image(new_input, "new_input.png");
