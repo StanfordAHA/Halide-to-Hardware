@@ -1520,7 +1520,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, "<", "bitlt");
+      Expr not_a = Not::make(op->a);
+      visit_binop(op->type, not_a, op->b, "&&", "bitand");
+      stream << "// created ~a * b for bitlt" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, "<", "ult");
     }
@@ -1540,7 +1542,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, "<=", "bitle");
+      Expr not_a = Not::make(op->a);
+      visit_binop(op->type, op->a, op->b, "||", "bitor");
+      stream << "// created ~a + b for bitle" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, "<=", "ule");
     }
@@ -1559,7 +1563,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, ">", "bitgt");
+      Expr not_b = Not::make(op->b);
+      visit_binop(op->type, op->a, not_b, "&&", "bitand");
+      stream << "// created a * ~b for bitgt" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, ">", "ugt");
     }
@@ -1578,7 +1584,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GE *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, ">=", "bitge");
+      Expr not_b = Not::make(op->b);
+      visit_binop(op->type, op->a, not_b, "||", "bitor");
+      stream << "// created a + ~b for bitge" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, ">=", "uge");
     }
