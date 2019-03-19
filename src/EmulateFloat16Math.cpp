@@ -129,9 +129,6 @@ class BFloatMath : public IRMutator {
     }
 
     Stmt visit(const For *op) override {
-        // Check the device_api and only enter body if the device does
-        // not support native (b)float16 math. Currently no devices
-        // support (b)float16 math, so we always enter the body.
         return IRMutator::visit(op);
     }
 };
@@ -188,7 +185,54 @@ class LowerBFloatConversions : public IRMutator {
         }
     }
 };
+  
+class ConvertToBFloat : public IRMutator {
+    using IRMutator::visit;
 
+    Expr bfloat_to_float(Expr e) {
+        if (e.type().is_bfloat()) {
+            e = reinterpret(e.type().with_code(Type::UInt), e);
+        }
+        e = cast(UInt(32, e.type().lanes()), e);
+        e = e << 16;
+        e = reinterpret(Float(32, e.type().lanes()), e);
+        return e;
+    }
+
+    Expr float_to_bfloat(Expr e) {
+        e = reinterpret(UInt(32, e.type().lanes()), e);
+        e = e >> 16;
+        e = cast(UInt(16, e.type().lanes()), e);
+        return e;
+    }
+
+    Expr visit(const Cast *op) override {
+      if (op->type.is_bfloat() && op->value.type().is_bfloat()) {
+        return op->value;
+      } else if (op->type.is_bfloat()) {
+        // (float to bfloat)
+        return float_to_bfloat(cast(Float(32, op->type.lanes()), op->value));
+      } else if (op->value.type().is_bfloat()) {
+        // (bfloat to float)
+        return cast(op->type, bfloat_to_float(mutate(op->value)));
+      } else {
+        return IRMutator::visit(op);
+      }
+    }
+
+    Expr visit(const Call *op) override {
+      if (op->is_intrinsic(Call::reinterpret)) {
+        Expr in_expr = op->args[0];
+        if (in_expr.type().is_bfloat() && op->type.bits() > 16) {
+          Expr e = cast(Float(op->type.bits(), in_expr.type().lanes()), in_expr);
+          return reinterpret(op->type, e);
+        }
+      }
+      return IRMutator::visit(op);
+    }
+
+};
+  
 class LowerFloat16Conversions : public IRMutator {
     using IRMutator::visit;
 
@@ -347,6 +391,7 @@ Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     bool has_bfloat_hardware = t.has_feature(Target::CoreIR);
     if (has_bfloat_hardware) {
       s = BFloatMath().mutate(s);
+      s = ConvertToBFloat().mutate(s);
     } else {
       s = WidenMath().mutate(s);
       std::cout << "after widen is: " << s << std::endl;

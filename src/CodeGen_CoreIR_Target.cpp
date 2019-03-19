@@ -305,12 +305,14 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   // add all generators from fplib which include floating point operators
   CoreIRLoadLibrary_float(context);
   std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv", 
-                                         "feq", //"fneq",
+                                         "feq", "fneq",
+                                         "fmin", "fmax",
                                          "flt", "fgt", "fle", "fge",
+                                         "fsqr", "fflr",
+                                         "fmux"
+                                         //, "fconst"};
   };
-                                         //"fmin", "fmax",
-                                         //"fmux", "fconst"};
-
+  
   for (auto gen_name : fplib_gen_names) {
     // floating point library does not start with "f"
     gens[gen_name] = "float." + gen_name.substr(1);
@@ -321,9 +323,9 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   
   // add all modules from corebit
   context->getNamespace("corebit");
-  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
+  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitxnor", "bitnot",
                                               "bitmux", "bitconst"};
-  //                                              "bitlt", "bitle", "bitgt", "bitge","bitxnor"};
+  //                                              "bitlt", "bitle", "bitgt", "bitge"};
   for (auto mod_name : corebitlib_mod_names) {
     // these were renamed to using the corebit library
     gens[mod_name] = "corebit." + mod_name.substr(3);
@@ -1368,7 +1370,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_ternop(Type t, Expr a, Expr 
     }
 
     // wiring names are different for each operator
-    if (op_name.compare("bitmux")==0 || op_name.compare("mux")==0) {
+    if (op_name == "bitmux" || op_name == "mux" || op_name == "fmux") {
       def->connect(a_wire, coreir_inst->sel("sel"));
       def->connect(b_wire, coreir_inst->sel("in1"));
       def->connect(c_wire, coreir_inst->sel("in0"));
@@ -1521,7 +1523,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LT *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, "<", "bitlt");
+      Expr not_a = Not::make(op->a);
+      visit_binop(op->type, not_a, op->b, "&&", "bitand");
+      stream << "// created ~a * b for bitlt" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, "<", "ult");
     }
@@ -1541,7 +1545,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const LE *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, "<=", "bitle");
+      Expr not_a = Not::make(op->a);
+      visit_binop(op->type, op->a, op->b, "||", "bitor");
+      stream << "// created ~a + b for bitle" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, "<=", "ule");
     }
@@ -1560,7 +1566,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GT *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, ">", "bitgt");
+      Expr not_b = Not::make(op->b);
+      visit_binop(op->type, op->a, not_b, "&&", "bitand");
+      stream << "// created a * ~b for bitgt" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, ">", "ugt");
     }
@@ -1579,7 +1587,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const GE *op) {
   } else if (op->a.type().is_uint()) {
     internal_assert(op->a.type().bits() == op->b.type().bits());
     if (op->a.type().bits() == 1) {
-      visit_binop(op->type, op->a, op->b, ">=", "bitge");
+      Expr not_b = Not::make(op->b);
+      visit_binop(op->type, op->a, not_b, "||", "bitor");
+      stream << "// created a + ~b for bitge" << std::endl;
     } else {
       visit_binop(op->type, op->a, op->b, ">=", "uge");
     }
@@ -2115,6 +2125,17 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
     stream << "[absd] ";
     visit_binop(op->type, a, b, "|-|", "absd");
 
+  } else if (op->name == "sqrt_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[sqrt_f32] ";
+    visit_unaryop(op->type, a, "sqrt", "fsqr");
+  } else if (op->name == "floor_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[floor_f32] ";
+    visit_unaryop(op->type, a, "floor", "fflr");
+    
   } else if (op->is_intrinsic(Call::reinterpret)) {
     string in_var = print_expr(op->args[0]);
     print_reinterpret(op->type, op->args[0]);
