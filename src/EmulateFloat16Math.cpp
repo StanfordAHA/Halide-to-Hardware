@@ -203,6 +203,7 @@ class ConvertToBFloat : public IRMutator {
         e = reinterpret(UInt(32, e.type().lanes()), e);
         e = e >> 16;
         e = cast(UInt(16, e.type().lanes()), e);
+        e = reinterpret(BFloat(16, e.type().lanes()), e);
         return e;
     }
 
