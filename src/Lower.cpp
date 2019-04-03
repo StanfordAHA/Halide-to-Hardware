@@ -171,10 +171,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
+    std::cout << "Performing sliding window optimization...\n" << s << '\n';
     if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
       s = sliding_window(s, env);
     }
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
+    std::cout << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
     s = allocation_bounds_inference(s, env, func_bounds);
@@ -213,10 +215,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
+    std::cout << "Performing storage folding optimization...\n" << s << '\n';
     //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
-      s = storage_folding(s, env);
-      //}
+    s = storage_folding(s, env);
+    //}
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
+    std::cout << "Lowering after storage folding:\n" << s << '\n';
 
     debug(1) << "Injecting debug_to_file calls...\n";
     s = debug_to_file(s, outputs, env);

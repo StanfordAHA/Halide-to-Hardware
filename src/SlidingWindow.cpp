@@ -16,7 +16,131 @@ using std::map;
 using std::string;
 
 namespace {
+  int id_const_value(const Expr e) {
+    if (const IntImm* e_int = e.as<IntImm>()) {
+      return e_int->value;
 
+    } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+      return e_uint->value;
+
+    } else {
+      return -1;
+    }
+  }
+
+class ExpandExpr : public IRMutator2 {
+    using IRMutator2::visit;
+    const Scope<Expr> &scope;
+  
+    Expr visit(const Variable *var) override {
+        if (scope.contains(var->name)) {
+            Expr expr = scope.get(var->name);
+            debug(3) << "Fully expanded " << var->name << " -> " << expr << "\n";
+            return expr;
+        } else {
+            return var;
+        }
+    }
+
+public:
+    ExpandExpr(const Scope<Expr> &s) : scope(s) {}
+
+};
+
+// Perform all the substitutions in a scope
+Expr expand_expr(Expr e, const Scope<Expr> &scope) {
+    ExpandExpr ee(scope);
+    Expr result = ee.mutate(e);
+    debug(3) << "Expanded " << e << " into " << result << "\n";
+    return result;
+}
+
+  
+  class CountBufferUsers : public IRVisitor {
+    using IRVisitor::visit;
+    bool count_readers;
+    bool count_writers;
+    int mult_factor;
+    string var;
+    Scope<Expr> scope;
+
+    void visit(const LetStmt *op) override {
+        ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
+        IRVisitor::visit(op);
+    }
+
+
+    void visit(const For *op) override {
+      int factor = 1;
+      if (op->for_type == ForType::Parallel ||
+          op->for_type == ForType::Unrolled ||
+          op->for_type == ForType::Vectorized) {
+        auto expanded_extent = expand_expr(op->extent, scope);
+        std::cout << "found a for loop " << expanded_extent << "\n";
+        if (is_const(expanded_extent)) {
+          factor = id_const_value(expanded_extent);
+        }
+      }
+
+      mult_factor *= factor;
+      IRVisitor::visit(op);
+      mult_factor /= factor;
+      
+    }
+
+    void visit(const Store *op) override {
+      count_writers = true;
+      
+      if (count_writers && op->name == var) {
+        num_writers += mult_factor; 
+      }
+      IRVisitor::visit(op);
+    }
+
+    void visit(const Load *op) override {
+      count_readers = true;
+      
+      if (count_readers && op->name == var) {
+        num_readers += mult_factor;
+      }
+      IRVisitor::visit(op);
+    }
+
+    void visit(const Provide *op) override {
+      if (op->name == var) {
+        num_writers += mult_factor; 
+      }
+      IRVisitor::visit(op);
+    }
+
+    void visit(const Call *op) override {
+      if (op->name == var) {
+        num_readers += mult_factor; 
+      }
+      IRVisitor::visit(op);
+    }
+    
+  public:
+    int num_readers;
+    int num_writers;
+    CountBufferUsers(string v) : count_readers(false), count_writers(false),
+                                 mult_factor(1), var(v),
+                                 num_readers(0), num_writers(0) {}
+  };
+
+  int count_buffer_readers(Stmt e, string v) {
+    CountBufferUsers counter(v);
+    e.accept(&counter);
+    return counter.num_readers;
+  }
+
+  int count_buffer_writers(Stmt e, string v) {
+    CountBufferUsers counter(v);
+    e.accept(&counter);
+    return counter.num_writers;
+  }
+
+  
 // Does an expression depend on a particular variable?
 class ExprDependsOnVar : public IRVisitor {
     using IRVisitor::visit;
@@ -46,36 +170,7 @@ bool expr_depends_on_var(Expr e, string v) {
     ExprDependsOnVar depends(v);
     e.accept(&depends);
     return depends.result;
-}
-
-
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
-    const Scope<Expr> &scope;
-
-    Expr visit(const Variable *var) override {
-        if (scope.contains(var->name)) {
-            Expr expr = scope.get(var->name);
-            debug(3) << "Fully expanded " << var->name << " -> " << expr << "\n";
-            return expr;
-        } else {
-            return var;
-        }
-    }
-
-public:
-    ExpandExpr(const Scope<Expr> &s) : scope(s) {}
-
-};
-
-// Perform all the substitutions in a scope
-Expr expand_expr(Expr e, const Scope<Expr> &scope) {
-    ExpandExpr ee(scope);
-    Expr result = ee.mutate(e);
-    debug(3) << "Expanded " << e << " into " << result << "\n";
-    return result;
-}
-
+}  
 }
 
 // Perform sliding window optimization for a function over a
@@ -123,6 +218,9 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             debug(3) << "Considering sliding " << func.name()
                      << " along loop variable " << loop_var << "\n"
                      << "Region provided:\n";
+            std::cout << "Considering sliding " << func.name()
+                     << " along loop variable " << loop_var << "\n"
+                     << "Region provided:\n";
 
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
@@ -135,7 +233,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                 min_req = expand_expr(min_req, scope);
                 max_req = expand_expr(max_req, scope);
 
-                debug(3) << func_args[i] << ":" << min_req << ", " << max_req  << "\n";
+                std::cout << func_args[i] << "=" << var
+                          << ":" << min_req << ", " << max_req  << "\n";
                 if (expr_depends_on_var(min_req, loop_var) ||
                     expr_depends_on_var(max_req, loop_var)) {
                     if (!dim.empty()) {
@@ -162,7 +261,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             }
 
             if (!min_required.defined()) {
-                debug(3) << "Could not perform sliding window optimization of "
+                std::cout << "Could not perform sliding window optimization of "
                          << func.name() << " over " << loop_var << " because multiple "
                          << "dimensions of the function dependended on the loop var\n";
                 return stmt;
@@ -178,7 +277,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                 }
             }
             if (!pure) {
-                debug(3) << "Could not performance sliding window optimization of "
+                std::cout << "Could not performance sliding window optimization of "
                          << func.name() << " over " << loop_var << " because the function "
                          << "scatters along the related axis.\n";
                 return stmt;
@@ -201,7 +300,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             }
 
             if (!can_slide_up && !can_slide_down) {
-                debug(3) << "Not sliding " << func.name()
+                std::cout << "Not sliding " << func.name()
                          << " over dimension " << dim
                          << " along loop variable " << loop_var
                          << " because I couldn't prove it moved monotonically along that dimension\n"
@@ -212,7 +311,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
 
             // Ok, we've isolated a function, a dimension to slide
             // along, and loop variable to slide over.
-            debug(3) << "Sliding " << func.name()
+            std::cout << "Sliding " << func.name()
                      << " over dimension " << dim
                      << " along loop variable " << loop_var << "\n";
 
@@ -221,10 +320,22 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr prev_max_plus_one = substitute(loop_var, loop_var_expr - 1, max_required) + 1;
             Expr prev_min_minus_one = substitute(loop_var, loop_var_expr - 1, min_required) - 1;
 
+            Expr prev_min_plus_one = substitute(loop_var, loop_var_expr - 1, min_required) + 1;
+            
+            Expr stencil_extent = simplify(max_required - min_required + 1);
+            Expr chunk_extent_from_max = simplify(prev_max_plus_one - max_required + 1);
+            Expr chunk_extent_from_min = simplify(prev_min_plus_one - min_required + 1);
+            std::cout << "HWBuffer Parameters: stencil extent in dim " << dim << ": " << stencil_extent
+                      << " chunk (from max): " << chunk_extent_from_max
+                      << " chunk (from min): " << chunk_extent_from_min
+                      << std::endl;
+
+            std::cout << "body is " << op->body << "\n";
+
             // If there's no overlap between adjacent iterations, we shouldn't slide.
             if (can_prove(min_required >= prev_max_plus_one) ||
                 can_prove(max_required <= prev_min_minus_one)) {
-                debug(3) << "Not sliding " << func.name()
+                std::cout << "Not sliding " << func.name()
                          << " over dimension " << dim
                          << " along loop variable " << loop_var
                          << " there's no overlap in the region computed across iterations\n"
@@ -246,6 +357,10 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr early_stages_max_required = new_max;
 
             debug(3) << "Sliding " << func.name() << ", " << dim << "\n"
+                     << "Pushing min up from " << min_required << " to " << new_min << "\n"
+                     << "Shrinking max from " << max_required << " to " << new_max << "\n";
+
+            std::cout << "Sliding " << func.name() << ", " << dim << "\n"
                      << "Pushing min up from " << min_required << " to " << new_min << "\n"
                      << "Shrinking max from " << max_required << " to " << new_max << "\n";
 
@@ -299,7 +414,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, l->body);
         } else if (is_monotonic(min, loop_var) != Monotonic::Constant ||
                    is_monotonic(extent, loop_var) != Monotonic::Constant) {
-            debug(3) << "Not entering loop over " << op->name
+            std::cout << "Not entering loop over " << op->name
                      << " because the bounds depend on the var we're sliding over: "
                      << min << ", " << extent << "\n";
             return op;
@@ -338,7 +453,7 @@ class SlidingWindowOnFunction : public IRMutator2 {
     using IRMutator2::visit;
 
     Stmt visit(const For *op) override {
-        debug(3) << " Doing sliding window analysis over loop: " << op->name << "\n";
+        std::cout << " Doing sliding window analysis over loop: " << op->name << "\n";
 
         Stmt new_body = op->body;
 
@@ -363,7 +478,7 @@ public:
 // Perform sliding window optimization for all functions
 class SlidingWindow : public IRMutator2 {
     const map<string, Function> &env;
-
+  
     using IRMutator2::visit;
 
     Stmt visit(const Realize *op) override {
@@ -385,19 +500,30 @@ class SlidingWindow : public IRMutator2 {
 
         Stmt new_body = op->body;
 
-        debug(3) << "Doing sliding window analysis on realization of " << op->name << "\n";
+        std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
 
         new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
 
         new_body = mutate(new_body);
 
         if (new_body.same_as(op->body)) {
+          std::cout << "no sliding done\n";
             return op;
+            
         } else {
+          int num_readers = count_buffer_readers(new_body, op->name);
+          int num_writers = count_buffer_writers(new_body, op->name);
+          std::cout << "HWBuffer Parameter: " << op->name << " has readers=" << num_readers
+                    << " writers=" << num_writers << std::endl;
+          std::cout << "new body with sliding for " << op->name << "\n"
+                    << "old body: \n" << op->body
+                    << "new body: \n" << new_body << '\n';
+          
             return Realize::make(op->name, op->types, op->memory_type,
                                  op->bounds, op->condition, new_body);
         }
     }
+  
 public:
     SlidingWindow(const map<string, Function> &e) : env(e) {}
 

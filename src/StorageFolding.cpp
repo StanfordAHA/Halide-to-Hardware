@@ -24,7 +24,7 @@ int64_t next_power_of_two(int64_t x) {
 using std::map;
 using std::string;
 using std::vector;
-
+  
 // Count the number of producers of a particular func.
 class CountProducers : public IRVisitor {
     const std::string &name;
@@ -418,6 +418,7 @@ class AttemptStorageFoldingOfFunction : public IRMutator2 {
     }
 
     Stmt visit(const For *op) override {
+      std::cout << op->name << " is being looked at\n";
         if (op->for_type != ForType::Serial && op->for_type != ForType::Unrolled) {
             // We can't proceed into a parallel for loop.
 
@@ -501,6 +502,11 @@ class AttemptStorageFoldingOfFunction : public IRMutator2 {
             }
 
             debug(3) << "\nConsidering folding " << func.name() << " over for loop over " << op->name << " dimension " << i - 1 << '\n'
+                     << "Min: " << min << '\n'
+                     << "Max: " << max << '\n'
+                     << "Extent: " << extent << '\n'
+                     << "explicit_factor: " << explicit_factor << '\n';
+            std::cout << "\nConsidering folding " << func.name() << " over for loop over " << op->name << " dimension " << i - 1 << '\n'
                      << "Min: " << min << '\n'
                      << "Max: " << max << '\n'
                      << "Extent: " << extent << '\n'
@@ -638,6 +644,7 @@ class AttemptStorageFoldingOfFunction : public IRMutator2 {
             internal_assert(factor.defined());
 
             debug(3) << "Proceeding with factor " << factor << "\n";
+            std::cout << "   Proceeding with factor " << factor << "\n";
 
             Fold fold = {(int)i - 1, factor};
             dims_folded.push_back(fold);
@@ -845,14 +852,21 @@ class StorageFolding : public IRMutator2 {
         
         AttemptStorageFoldingOfFunction folder(func, explicit_only);
         debug(3) << "Attempting to fold " << op->name << "\n";
-        std::cout << "Attempting to fold " << op->name << "\n";
+        std::cout << "Attempting to fold " << op->name << "\n" << body << '\n';
         body = folder.mutate(body);
 
         if (body.same_as(op->body)) {
+          std::cout << "  did not fold " << op->name << "\n";
             return op;
         } else if (folder.dims_folded.empty()) {
+          std::cout << "  did not fold " << op->name << " bc no folded dims\n";
             return Realize::make(op->name, op->types, op->memory_type, op->bounds, op->condition, body);
         } else {
+          std::cout << "  folding " << op->name << " with bounds \n";
+
+          for (Range r : op->bounds) {
+            std::cout << "  " << r.min << " : " << r.extent << "\n";
+          }
             Region bounds = op->bounds;
 
             // Collapse down the extent in the folded dimension
@@ -862,6 +876,7 @@ class StorageFolding : public IRMutator2 {
                 internal_assert(d >= 0 &&
                                 d < (int)bounds.size());
                 bounds[d] = Range(0, f);
+                std::cout << "folding dim " << d << " to " << f << "\n";
             }
 
             Stmt stmt = Realize::make(op->name, op->types, op->memory_type, bounds, op->condition, body);
