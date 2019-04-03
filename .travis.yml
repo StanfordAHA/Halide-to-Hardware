@@ -44,9 +44,6 @@ install:
   - make -j2
   - cd ../..
 
-script:
-  - test/scripts/build_travis.sh
-
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
@@ -65,7 +62,8 @@ deploy:
   on:
     tags: true
 
-script: |
+script: 
+  - test/scripts/build_travis.sh
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
   echo "TRAVIS_BRANCH=$TRAVIS_BRANCH TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST"
   if [[ ($TRAVIS_BRANCH == master) &&
