@@ -39,7 +39,10 @@ install:
   - test/scripts/install_travis.sh  
   # compile coreir
   - git clone -b dev https://github.com/rdaly525/coreir.git
-  - make -j2 -C coreir all
+  - cd coreir/build;
+  - cmake ..
+  - make -j2
+  - cd ../..
 
 script:
   - test/scripts/build_travis.sh
