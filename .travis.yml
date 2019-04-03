@@ -37,6 +37,7 @@ before_install:
 install:
   # install framework specific to halide
   - test/scripts/install_travis.sh  
+  
   # compile coreir
   - git clone -b dev https://github.com/rdaly525/coreir.git
   - cd coreir/build;
