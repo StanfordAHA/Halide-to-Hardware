@@ -91,6 +91,26 @@ class ExpandExpr : public IRMutator2 {
         }
     }
 
+    Stmt visit(const For *old_op) override {
+      Stmt s = IRMutator2::visit(old_op);
+      const For *op = s.as<For>();
+      if (op) {
+        std::cout << "new op is " << s << std::endl;
+      } else {
+        std::cout << "this isn't a for loop anymore?\n";
+      }
+      
+      if (is_one(op->extent)) {
+        std::cout << "for loop with name " << op->name << " has min " << op->min << std::endl;
+        Stmt new_body = substitute(op->name, op->min, op->body);
+        std::cout << "replaced with:\n" << new_body << std::endl;
+        return new_body;
+        
+      } else {
+        return op;
+      }
+    }
+
 public:
     ExpandExpr(const Scope<Expr> &s) : scope(s) {}
 
@@ -103,6 +123,14 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     debug(3) << "Expanded " << e << " into " << result << "\n";
     return result;
 }
+
+Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
+    ExpandExpr ee(scope);
+    Stmt result = ee.mutate(e);
+    debug(3) << "Expanded " << e << " into " << result << "\n";
+    return result;
+}
+
   
   class CountBufferUsers : public IRVisitor {
     using IRVisitor::visit;
@@ -149,7 +177,7 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
         std::cout << "writers inside loop " << op->name << std::endl;
         std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
         std::cout << "HWBuffer Parameter: writer ports - "
-                  << "  box extent=[";
+                  << "box extent=[";
         auto interval = box_write;
         for (size_t dim=0; dim<interval.size(); ++dim) {
           std::cout << find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower) << "-";
@@ -180,7 +208,7 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
         std::cout << "readers inside loop " << op->name << std::endl;
         std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
         std::cout << "HWBuffer Parameter: reader ports - "
-                  << "  box extent=[";
+                  << "box extent=[";
         auto interval = box_read;
 
         std::vector<Stmt> stmts;
@@ -194,7 +222,7 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
 
         const std::vector<Stmt> &const_stmts = stmts;
         current_for->body = Block::make(const_stmts);
-        std::cout << "HWBuffer Parameter - " << "nested reader loop:\n" << full_stmt << std::endl;
+        std::cout << "HWBuffer Parameter - " << "nested reader loop:\n" << simplify(expand_expr(full_stmt, scope)) << std::endl;
 
       }
 
@@ -628,9 +656,12 @@ class SlidingWindow : public IRMutator2 {
             return op;
             
         } else {
-          int num_readers = count_buffer_readers(new_body, op->name);
+          CountBufferUsers counter(op->name);
+          new_body.accept(&counter);
+          int num_readers = counter.num_readers;
+          int num_writers = counter.num_writers;
+          //int num_readers = count_buffer_readers(new_body, op->name);
           //int num_writers = count_buffer_writers(new_body, op->name);
-          int num_writers = -1;
           auto boxes_write = boxes_provided(new_body);
           for (auto box_entry : boxes_write) {
             std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
