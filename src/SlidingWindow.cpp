@@ -28,6 +28,55 @@ namespace {
     }
   }
 
+  bool is_parallelized(const For *op) {
+    return op->for_type == ForType::Parallel ||
+      op->for_type == ForType::Unrolled ||
+      op->for_type == ForType::Vectorized;
+  }
+  
+class ContainsAtLevel : public IRVisitor {
+  using IRVisitor::visit;
+  
+  void visit(const For *op) {
+    // don't recurse if not parallelized
+    if (is_parallelized(op)) {
+      IRVisitor::visit(op);
+    }
+  }
+
+  void visit(const Provide *op) {
+    if (var == "" || op->name == var) {
+      found_provide = true;
+    }
+    IRVisitor::visit(op);
+  }
+
+  void visit(const Call *op) {
+    if (var == "" || op->name == var) {
+      found_call = true;
+    }
+    IRVisitor::visit(op);
+  }
+
+public:
+  bool found_provide;
+  bool found_call;
+  string var;
+  ContainsAtLevel(string var) : found_provide(false), found_call(false), var(var) {}
+};
+
+bool provide_at_level(Stmt s, string var = "") {
+  ContainsAtLevel cal(var);
+  s.accept(&cal);
+  return cal.found_provide;
+}
+
+bool call_at_level(Stmt s, string var = "") {
+  ContainsAtLevel cal(var);
+  s.accept(&cal);
+  return cal.found_call;
+}
+  
 class ExpandExpr : public IRMutator2 {
     using IRMutator2::visit;
     const Scope<Expr> &scope;
@@ -54,7 +103,6 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     debug(3) << "Expanded " << e << " into " << result << "\n";
     return result;
 }
-
   
   class CountBufferUsers : public IRVisitor {
     using IRVisitor::visit;
@@ -63,18 +111,17 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     int mult_factor;
     string var;
     Scope<Expr> scope;
+    For *current_for;
+    Stmt full_stmt;
 
     void visit(const LetStmt *op) override {
         ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
         IRVisitor::visit(op);
     }
 
-
     void visit(const For *op) override {
       int factor = 1;
-      if (op->for_type == ForType::Parallel ||
-          op->for_type == ForType::Unrolled ||
-          op->for_type == ForType::Vectorized) {
+      if (is_parallelized(op)) {
         auto expanded_extent = expand_expr(op->extent, scope);
         std::cout << "found a for loop " << expanded_extent << "\n";
         if (is_const(expanded_extent)) {
@@ -82,9 +129,79 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
         }
       }
 
+      For *previous_for = current_for;
+      Stmt for_stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, op->body);
+      bool first_for = false;
+      if (current_for == nullptr) {
+        first_for = true;
+        full_stmt = for_stmt;
+      } else {
+        current_for->body = for_stmt;
+      }
+      current_for = const_cast<For *>(for_stmt.as<For>());
+      
       mult_factor *= factor;
       IRVisitor::visit(op);
       mult_factor /= factor;
+      
+      if (provide_at_level(op->body, var) && !is_parallelized(op)) {
+        auto box_write = box_provided(op->body, var);
+        std::cout << "writers inside loop " << op->name << std::endl;
+        std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
+        std::cout << "HWBuffer Parameter: writer ports - "
+                  << "  box extent=[";
+        auto interval = box_write;
+        for (size_t dim=0; dim<interval.size(); ++dim) {
+          std::cout << find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower) << "-";
+          std::cout << find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper) << " ";
+        }
+        std::cout << "]\n";
+
+      }
+                
+        /*
+        for (auto box_entry : boxes_write) {
+          if (box_entry.first == var) {
+            std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+        
+            std::cout << "box extent=[";
+            auto interval = box_entry.second;
+            for (size_t dim=0; dim<interval.size(); ++dim) {
+              std::cout << find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower) << "-";
+              std::cout << find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper) << " ";
+            }
+            std::cout << "]\n";
+          }
+        }
+        */
+
+      if (call_at_level(op->body, var) && !is_parallelized(op)) {
+        auto box_read = box_required(op->body, var);
+        std::cout << "readers inside loop " << op->name << std::endl;
+        std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
+        std::cout << "HWBuffer Parameter: reader ports - "
+                  << "  box extent=[";
+        auto interval = box_read;
+
+        std::vector<Stmt> stmts;
+        for (size_t dim=0; dim<interval.size(); ++dim) {
+          Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
+          Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
+          stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
+          std::cout << lower_expr << "-" << upper_expr << " ";
+        }
+        std::cout << "]\n";
+
+        const std::vector<Stmt> &const_stmts = stmts;
+        current_for->body = Block::make(const_stmts);
+        std::cout << "HWBuffer Parameter - " << "nested reader loop:\n" << full_stmt << std::endl;
+
+      }
+
+      current_for = previous_for;
+      if (!first_for) {
+        current_for->body = AssertStmt::make(var, Expr(0));
+      }
       
     }
 
@@ -512,7 +629,24 @@ class SlidingWindow : public IRMutator2 {
             
         } else {
           int num_readers = count_buffer_readers(new_body, op->name);
-          int num_writers = count_buffer_writers(new_body, op->name);
+          //int num_writers = count_buffer_writers(new_body, op->name);
+          int num_writers = -1;
+          auto boxes_write = boxes_provided(new_body);
+          for (auto box_entry : boxes_write) {
+            std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+          }
+          auto boxes_read = boxes_required(new_body);
+          for (auto box_entry : boxes_read) {
+            std::cout << "Box reader found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+          }
+
+          std::cout << "HWBuffer Parameter: Total box is of size [";
+          for (size_t i=0; i<boxes_read[op->name].size(); ++i) {
+            Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
+            std::cout << extent << " ";
+          }
+          std::cout << "]\n";
+          
           std::cout << "HWBuffer Parameter: " << op->name << " has readers=" << num_readers
                     << " writers=" << num_writers << std::endl;
           std::cout << "new body with sliding for " << op->name << "\n"

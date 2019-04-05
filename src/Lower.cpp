@@ -166,6 +166,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, inlined_stages, t);
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
 
+    for (auto stage : inlined_stages) {
+      std::cout << "found stage: " << stage.name << std::endl;
+      for (auto map_entry : stage.bounds) {
+        std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
+      }
+    }
+    
     debug(1) << "Removing extern loops...\n";
     s = remove_extern_loops(s);
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
@@ -386,7 +393,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
-    //std::cout << "Lowering after final simplification:\n" << s << "\n\n";
+    std::cout << "Lowering after final simplification:\n" << s << "\n\n";
 
     if (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))) {
         debug(1) << "Splitting off Hexagon offload...\n";

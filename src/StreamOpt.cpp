@@ -369,6 +369,7 @@ Stmt add_linebuffer(Stmt s, const HWKernel &kernel) {
             Expr store_extent = simplify(kernel.dims[i].store_bound.max -
                                          kernel.dims[i].store_bound.min + 1);
             linebuffer_args.push_back(store_extent);
+            std::cout << "store extent in this linebuffer: " << store_extent << std::endl;
         }
         Stmt linebuffer_call = Evaluate::make(Call::make(Handle(), "linebuffer", linebuffer_args, Call::Intrinsic));
         Stmt dispatch_call = create_dispatch_call(kernel);
