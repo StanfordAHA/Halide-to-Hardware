@@ -94,11 +94,11 @@ class ExpandExpr : public IRMutator2 {
     Stmt visit(const For *old_op) override {
       Stmt s = IRMutator2::visit(old_op);
       const For *op = s.as<For>();
-      if (op) {
-        std::cout << "new op is " << s << std::endl;
-      } else {
-        std::cout << "this isn't a for loop anymore?\n";
-      }
+      // if (op) {
+      //   std::cout << "new op is " << s << std::endl;
+      // } else {
+      //   std::cout << "this isn't a for loop anymore?\n";
+      // }
       
       if (is_one(op->extent)) {
         std::cout << "for loop with name " << op->name << " has min " << op->min << std::endl;
@@ -163,8 +163,10 @@ Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
       if (current_for == nullptr) {
         first_for = true;
         full_stmt = for_stmt;
+        std::cout << "added first for loop: " << op->name << std::endl;
       } else {
         current_for->body = for_stmt;
+        std::cout << "added for loop: " << op->name << std::endl;
       }
       current_for = const_cast<For *>(for_stmt.as<For>());
       
@@ -213,10 +215,11 @@ Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
 
         std::vector<Stmt> stmts;
         for (size_t dim=0; dim<interval.size(); ++dim) {
-          Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
-          Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
+          Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+          Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
+          Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
           stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
-          std::cout << lower_expr << "-" << upper_expr << " ";
+          std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
         }
         std::cout << "]\n";
 
@@ -269,7 +272,7 @@ Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
     int num_readers;
     int num_writers;
     CountBufferUsers(string v) : count_readers(false), count_writers(false),
-                                 mult_factor(1), var(v),
+                                 mult_factor(1), var(v), current_for(nullptr),
                                  num_readers(0), num_writers(0) {}
   };
 
@@ -639,7 +642,45 @@ class SlidingWindow : public IRMutator2 {
         // If the Function in question has the same compute_at level
         // as its store_at level, skip it.
         const FuncSchedule &sched = iter->second.schedule();
-        if (sched.compute_level() == sched.store_level()) {
+        if (sched.compute_level() == sched.store_level() && false) {
+
+
+
+
+
+
+          Stmt new_body = op->body;
+          CountBufferUsers counter(op->name);
+          new_body.accept(&counter);
+          int num_readers = counter.num_readers;
+          int num_writers = counter.num_writers;
+          //int num_readers = count_buffer_readers(new_body, op->name);
+          //int num_writers = count_buffer_writers(new_body, op->name);
+          auto boxes_write = boxes_provided(new_body);
+          for (auto box_entry : boxes_write) {
+            std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+          }
+          auto boxes_read = boxes_required(new_body);
+          for (auto box_entry : boxes_read) {
+            std::cout << "Box reader found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+          }
+
+          std::cout << "HWBuffer Parameter: Total box is of size [";
+          for (size_t i=0; i<boxes_read[op->name].size(); ++i) {
+            Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
+            std::cout << extent << " ";
+          }
+          std::cout << "]\n";
+          
+          std::cout << "HWBuffer Parameter: " << op->name << " has readers=" << num_readers
+                    << " writers=" << num_writers << std::endl;
+          std::cout << "new body with sliding for " << op->name << "\n"
+                    << "old body: \n" << op->body
+                    << "new body: \n" << new_body << '\n';
+
+
+
+          
             return IRMutator2::visit(op);
         }
 
