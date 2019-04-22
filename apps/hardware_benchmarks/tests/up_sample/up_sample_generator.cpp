@@ -35,14 +35,11 @@ public:
             hw_output.tile(x, y, xo, yo, xi, yi, 128, 128)
                 .hw_accelerate(xi, xo);
 
-            nearest_neighbor.update();
-
             nearest_neighbor.linebuffer();
 
             hw_input.stream_to_accelerator();
         } else { // schedule to CPU
             nearest_neighbor.compute_root();
-            nearest_neighbor.update();
         }
     }
 };

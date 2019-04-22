@@ -11,7 +11,7 @@ public:
 
     void generate() {
         /* THE ALGORITHM */
-        int stride = 2;
+        int stride = 1;
 
         Var x("x"), y("y");
 
@@ -37,18 +37,16 @@ public:
             hw_output.tile(x, y, xo, yo, xi, yi, 32, 32)
                 .hw_accelerate(xi, xo);
 
-            max_pool.update()
-                .unroll(r.x, stride)
-                .unroll(r.y, stride);
+            max_pool.unroll(x, stride)
+                    .unroll(y, stride);
 
             max_pool.linebuffer();
 
             hw_input.stream_to_accelerator();
         } else { // schedule to CPU
             max_pool.compute_root();
-            max_pool.update()
-                .unroll(r.x, stride)
-                .unroll(r.y, stride);
+            max_pool.unroll(x, stride)
+                    .unroll(y, stride);
         }
     }
 };
