@@ -3,6 +3,7 @@ ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
 
 OUTPUT_LOGGING ?= &>/dev/null
+SHELL = /bin/bash
 
 all: testall
 

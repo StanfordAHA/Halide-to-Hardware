@@ -40,10 +40,7 @@ install:
   
   # compile coreir
   - git clone -b more_floatops https://github.com/rdaly525/coreir.git
-  - cd coreir/build;
-  - cmake ..
-  - make -j2
-  - cd ../..
+  - cd coreir/build && cmake .. && make -j2 && cd ../..
 
 before_deploy:
   - git config --local user.name "jeffsetter"
@@ -63,8 +60,12 @@ deploy:
   on:
     tags: true
 
-script:
+before_script:
+  # create Halide compiler
   - make -j2 distrib
+  
+script:
+  # run test cases for hardware codegens
   - export OUTPUT_LOGGING=""
   - bash test/scripts/build_travis.sh
 
