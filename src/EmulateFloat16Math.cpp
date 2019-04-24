@@ -388,14 +388,14 @@ class LowerFloat16Conversions : public IRMutator {
 
 Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     Stmt s = stmt;
-    std::cout << "before widen is: " << s << std::endl;
+    //std::cout << "before widen is: " << s << std::endl;
     bool has_bfloat_hardware = t.has_feature(Target::CoreIR);
     if (has_bfloat_hardware) {
       s = BFloatMath().mutate(s);
       s = ConvertToBFloat().mutate(s);
     } else {
       s = WidenMath().mutate(s);
-      std::cout << "after widen is: " << s << std::endl;
+      //std::cout << "after widen is: " << s << std::endl;
       s = LowerBFloatConversions().mutate(s);
       // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
       //if (!t.has_feature(Target::F16C)) {
@@ -403,7 +403,7 @@ Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     }
 
 
-    std::cout << "final ir: " << s << std::endl;
+    //std::cout << "final ir: " << s << std::endl;
     return s;
 }
 

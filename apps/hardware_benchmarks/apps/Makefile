@@ -2,11 +2,21 @@
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
 
+OUTPUT_LOGGING ?= &>/dev/null
+
 all: testall
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(MAKE) -sC $@ test
+	@$(MAKE) -sC $@ compare $(OUTPUT_LOGGING); \
+	EXIT_CODE=$$?; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+	  printf "%-20s \033[0;32m%s\033[0m\n" $@ "PASSED"; \
+    (exit $$EXIT_CODE); \
+	else \
+	  printf "%-20s \033[0;31m%s\033[0m\n" $@ "FAILED"; \
+    (exit $$EXIT_CODE); \
+	fi
 
 testall test_all: runall
 # @echo ""

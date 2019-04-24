@@ -1903,6 +1903,8 @@ else
 $(BUILD_DIR)/llvm_ok:
 	@echo "Can't find llvm or version of llvm too old (we need 6.0 or greater):"
 	@echo "You can override this check by setting LLVM_OK=y"
+	@echo $(LLVM_VERSION_TIMES_10)
+	@echo $(LLVM_CONFIG)
 	$(LLVM_CONFIG) --version
 	@exit 1
 endif
