@@ -64,6 +64,7 @@ deploy:
     tags: true
 
 script: |
+  make -j2 distrib
   bash test/scripts/build_travis.sh
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
   echo "TRAVIS_BRANCH=$TRAVIS_BRANCH TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST"
