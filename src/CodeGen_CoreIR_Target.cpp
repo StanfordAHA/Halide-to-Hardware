@@ -13,6 +13,7 @@
 #include "Lerp.h"
 #include "Simplify.h"
 #include "Debug.h"
+#include "Float16.h"
 
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
@@ -259,8 +260,8 @@ bool can_use_rom(Stmt s, string allocname) {
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
-    srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-  //srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,
@@ -304,12 +305,14 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   // add all generators from fplib which include floating point operators
   CoreIRLoadLibrary_float(context);
   std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv", 
-                                         "feq", //"fneq",
+                                         "feq", "fneq",
+                                         "fmin", "fmax",
                                          "flt", "fgt", "fle", "fge",
+                                         "fsqr", "fflr",
+                                         "fmux"
+                                         //, "fconst"};
   };
-                                         //"fmin", "fmax",
-                                         //"fmux", "fconst"};
-
+  
   for (auto gen_name : fplib_gen_names) {
     // floating point library does not start with "f"
     gens[gen_name] = "float." + gen_name.substr(1);
@@ -320,9 +323,9 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   
   // add all modules from corebit
   context->getNamespace("corebit");
-  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
+  std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitxnor", "bitnot",
                                               "bitmux", "bitconst"};
-  //                                              "bitlt", "bitle", "bitgt", "bitge","bitxnor"};
+  //                                              "bitlt", "bitle", "bitgt", "bitge"};
   for (auto mod_name : corebitlib_mod_names) {
     // these were renamed to using the corebit library
     gens[mod_name] = "corebit." + mod_name.substr(3);
@@ -909,7 +912,7 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
     uint const_bitwidth = get_const_bitwidth(e);
     int bw = inst_bitwidth(const_bitwidth);
     const_inst = def->addInstance(const_name, gens["fconst"], {{"width", CoreIR::Const::make(context,bw)}},
-                                  {{"value",CoreIR::Const::make(context,BitVector(bw,(int)fconst_value))}});
+                                  {{"value",CoreIR::Const::make(context,BitVector(bw,bfloat16_t(fconst_value).to_bits()))}});
 
     stream << "// created fconst: " << const_name << " with name " << name << "\n";
     return const_inst->sel("out");
@@ -1108,7 +1111,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::rename_wire(string new_name, strin
     uint const_bitwidth = get_const_bitwidth(in_expr);
     int bw = inst_bitwidth(const_bitwidth);
     CoreIR::Values args = {{"width", CoreIR::Const::make(context,bw)}};
-    CoreIR::Values genargs = {{"value",CoreIR::Const::make(context,BitVector(bw,(int)fconst_value))}};
+    CoreIR::Values genargs = {{"value",CoreIR::Const::make(context,BitVector(bw,bfloat16_t(fconst_value).to_bits()))}};
 
     CoreIR_Inst_Args const_args(const_name, in_name, "out", gens["fconst"], args, genargs);
     hw_def_set[new_name] = std::make_shared<CoreIR_Inst_Args>(const_args);
@@ -1367,7 +1370,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_ternop(Type t, Expr a, Expr 
     }
 
     // wiring names are different for each operator
-    if (op_name.compare("bitmux")==0 || op_name.compare("mux")==0) {
+    if (op_name == "bitmux" || op_name == "mux" || op_name == "fmux") {
       def->connect(a_wire, coreir_inst->sel("sel"));
       def->connect(b_wire, coreir_inst->sel("in1"));
       def->connect(c_wire, coreir_inst->sel("in0"));
@@ -1886,18 +1889,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const For *op) {
 
 }
 
-class RenameAllocation : public IRMutator2 {
+class RenameAllocation : public IRMutator {
   const string &orig_name;
   const string &new_name;
 
-  using IRMutator2::visit;
+  using IRMutator::visit;
 
   Expr visit(const Load *op) override {
     if (op->name == orig_name ) {
       Expr index = mutate(op->index);
-      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate);
+      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, ModulusRemainder());
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
   }
 
@@ -1905,9 +1908,9 @@ class RenameAllocation : public IRMutator2 {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
-      return Store::make(new_name, value, index, op->param, op->predicate);
+      return Store::make(new_name, value, index, op->param, op->predicate, ModulusRemainder());
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
   }
 
@@ -1915,7 +1918,7 @@ class RenameAllocation : public IRMutator2 {
     if (op->name == orig_name) {
       return Free::make(new_name);
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
   }
 
@@ -2122,6 +2125,17 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
     stream << "[absd] ";
     visit_binop(op->type, a, b, "|-|", "absd");
 
+  } else if (op->name == "sqrt_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[sqrt_f32] ";
+    visit_unaryop(op->type, a, "sqrt", "fsqr");
+  } else if (op->name == "floor_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[floor_f32] ";
+    visit_unaryop(op->type, a, "floor", "fflr");
+    
   } else if (op->is_intrinsic(Call::reinterpret)) {
     string in_var = print_expr(op->args[0]);
     print_reinterpret(op->type, op->args[0]);

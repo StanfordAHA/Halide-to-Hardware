@@ -19,16 +19,16 @@ public:
         RDom r(0, 3,
                0, 3);
 
-        kernel(x,y) = 0.f;
-        kernel(0,0) = 11.f;      kernel(0,1) = 12.f;      kernel(0,2) = 13.f;
-        kernel(1,0) = 14.f;      kernel(1,1) = 0.f;       kernel(1,2) = 16.f;
-        kernel(2,0) = 17.f;      kernel(2,1) = 18.f;      kernel(2,2) = 19.f;
+        kernel(x,y) = bfloat16_t(0);
+        kernel(0,0) = bfloat16_t(1.1);      kernel(0,1) = bfloat16_t(1.2);     kernel(0,2) = bfloat16_t(1.3);
+        kernel(1,0) = bfloat16_t(2.4);      kernel(1,1) = bfloat16_t(0);       kernel(1,2) = bfloat16_t(2.6);
+        kernel(2,0) = bfloat16_t(3.7);      kernel(2,1) = bfloat16_t(3.8);     kernel(2,2) = bfloat16_t(3.9);
         fp_kernel(x, y) = kernel(x, y);
 
-        conv(x, y) = cast<float>(0);
+        conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<float>(input(x, y));
+        hw_input(x, y) = cast<bfloat16_t>(input(x, y));
         conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
@@ -50,6 +50,8 @@ public:
             .unroll(r.y, 3);
 
           conv.linebuffer();
+
+          kernel.compute_at(hw_output, xo);
 
           hw_input.stream_to_accelerator();
           

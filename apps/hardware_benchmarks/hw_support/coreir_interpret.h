@@ -2,7 +2,6 @@
 
 #include "coreir.h"
 #include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
 
 template <typename elem_t>
 class ImageWriter {

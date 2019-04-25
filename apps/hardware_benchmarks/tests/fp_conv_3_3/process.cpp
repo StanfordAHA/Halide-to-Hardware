@@ -27,5 +27,17 @@ int main(int argc, char **argv) {
   processor.output = Buffer<uint16_t>(62, 62);
   
   processor.process_command(argc, argv);
+
+
+  // Buffer<uint8_t> old_input;
+  // Buffer<uint8_t> new_input(64, 64);
+  // 
+  // old_input = load_and_convert_image("input.png");
+  // for (int i = 0; i < processor.input.width(); ++i) {
+  //   for (int j = 0; j < processor.input.height(); ++j) {
+  //     new_input(i, j) = i+j;
+  //   }
+  // }
+  // convert_and_save_image(new_input, "new_input.png");
   
 }

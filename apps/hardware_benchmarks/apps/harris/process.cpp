@@ -1,7 +1,7 @@
 #include <cstdio>
 
 #include "harris.h"
-
+#include "coreir/libs/commonlib.h"
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
 #include "halide_image_io.h"

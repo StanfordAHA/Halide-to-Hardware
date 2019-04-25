@@ -27,8 +27,8 @@ using std::ostream;
 
 
 namespace {
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
     const Scope<Expr> &scope;
 
     Expr visit(const Variable *var) {
@@ -64,8 +64,8 @@ bool is_varmulcont(Expr e) {
     return false;
 }
 
-class SubstituteInConstants : public IRMutator2 {
-    using IRMutator2::visit;
+class SubstituteInConstants : public IRMutator {
+    using IRMutator::visit;
 
     Scope<Expr> scope;
     Stmt visit(const LetStmt *op) {
@@ -96,7 +96,7 @@ class SubstituteInConstants : public IRMutator2 {
     }
 };
 
-class FiniteDifference : public IRMutator2 {
+class FiniteDifference : public IRMutator {
     Scope<Expr> scope;
     string var;
 
@@ -104,7 +104,7 @@ class FiniteDifference : public IRMutator2 {
         return substitute(var, (Variable::make(Int(32), var)) + 1, e) - e;
     }
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Expr visit(const IntImm *op) {
         return make_zero(op->type);

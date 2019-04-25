@@ -1,3 +1,5 @@
+#include "coreir/libs/commonlib.h"
+#include "coreir/libs/float.h"
 #include "coreir/passes/transform/rungenerators.h"
 
 #include "coreir_interpret.h"
@@ -125,6 +127,7 @@ void run_coreir_on_interpreter(string coreir_design,
   Namespace* g = c->getGlobal();
 
   CoreIRLoadLibrary_commonlib(c);
+  CoreIRLoadLibrary_float(c);
   if (!loadFromFile(c, coreir_design)) {
     cout << "Could not load " << coreir_design
          << " from json!!" << endl;

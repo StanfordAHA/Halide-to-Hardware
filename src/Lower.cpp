@@ -20,6 +20,7 @@
 #include "Deinterleave.h"
 #include "EarlyFree.h"
 #include "ExtractHWKernelDAG.h"
+#include "EmulateFloat16Math.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "Function.h"
@@ -83,7 +84,7 @@ using std::vector;
 
 Module lower(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
              const vector<Argument> &args, const LinkageType linkage_type,
-             const vector<IRMutator2 *> &custom_passes) {
+             const vector<IRMutator *> &custom_passes) {
 
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
@@ -242,10 +243,15 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after destructuring tuple-valued realizations:\n" << s << "\n\n";
 
     // OpenGL relies on GPU var canonicalization occurring before
-    // storage flattening
-    debug(1) << "Canonicalizing GPU var names...\n";
-    s = canonicalize_gpu_vars(s);
-    debug(2) << "Lowering after canonicalizing GPU var names:\n" << s << '\n';
+    // storage flattening.
+    if (t.has_gpu_feature() ||
+        t.has_feature(Target::OpenGLCompute) ||
+        t.has_feature(Target::OpenGL)) {
+        debug(1) << "Canonicalizing GPU var names...\n";
+        s = canonicalize_gpu_vars(s);
+        debug(2) << "Lowering after canonicalizing GPU var names:\n"
+                 << s << '\n';
+    }
 
     debug(1) << "Performing storage flattening...\n";
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
@@ -377,6 +383,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = lower_unsafe_promises(s, t);
     debug(2) << "Lowering after lowering unsafe promises:\n" << s << "\n\n";
 
+    debug(1) << "Emulating float16 math...\n";
+    s = emulate_float16_math(s, t);
+    debug(2) << "Lowering after emulating float16 math:\n" << s << "\n\n";
+
     s = remove_dead_allocations(s);
     s = remove_trivial_for_loops(s);
     s = simplify(s);
@@ -406,7 +416,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         for (Parameter buf : out.output_buffers()) {
             public_args.push_back(Argument(buf.name(),
                                            Argument::OutputBuffer,
-                                           buf.type(), buf.dimensions()));
+                                           buf.type(), buf.dimensions(), buf.get_argument_estimates()));
         }
     }
 
@@ -457,10 +467,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     // We're about to drop the environment and outputs vector, which
     // contain the only strong refs to Functions that may still be
     // pointed to by the IR. So make those refs strong.
-    class StrengthenRefs : public IRMutator2 {
-        using IRMutator2::visit;
+    class StrengthenRefs : public IRMutator {
+        using IRMutator::visit;
         Expr visit(const Call *c) override {
-            Expr expr = IRMutator2::visit(c);
+            Expr expr = IRMutator::visit(c);
             c = expr.as<Call>();
             internal_assert(c);
             if (c->func.defined()) {
@@ -493,14 +503,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         add_legacy_wrapper(result_module, main_func);
     }
 
-    // Also append any wrappers for extern stages that expect the old buffer_t
-    wrap_legacy_extern_stages(result_module);
-
     return result_module;
 }
 
 Stmt lower_main_stmt(const std::vector<Function> &output_funcs, const std::string &pipeline_name,
-                     const Target &t, const std::vector<IRMutator2 *> &custom_passes) {
+                     const Target &t, const std::vector<IRMutator *> &custom_passes) {
     // We really ought to start applying for appellation d'origine contrôlée
     // status on types representing arguments in the Halide compiler.
     vector<InferredArgument> inferred_args = infer_arguments(Stmt(), output_funcs);

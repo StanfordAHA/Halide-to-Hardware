@@ -260,18 +260,18 @@ void CodeGen_VHLS_Target::CodeGen_VHLS_C::visit(const For *op) {
     close_scope("for " + print_name(op->name));
 }
 
-class RenameAllocation : public IRMutator2 {
+class RenameAllocation : public IRMutator {
     const string &orig_name;
     const string &new_name;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Expr visit(const Load *op) {
         if (op->name == orig_name ) {
             Expr index = mutate(op->index);
-            return Load::make(op->type, new_name, index, op->image, op->param, op->predicate);
+            return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, ModulusRemainder());
         } else {
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
     }
 
@@ -279,9 +279,9 @@ class RenameAllocation : public IRMutator2 {
         if (op->name == orig_name ) {
             Expr value = mutate(op->value);
             Expr index = mutate(op->index);
-            return Store::make(new_name, value, index, op->param, op->predicate);
+            return Store::make(new_name, value, index, op->param, op->predicate, ModulusRemainder());
         } else {
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
     }
 
@@ -289,7 +289,7 @@ class RenameAllocation : public IRMutator2 {
         if (op->name == orig_name) {
             return Free::make(new_name);
         } else {
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
     }
 
