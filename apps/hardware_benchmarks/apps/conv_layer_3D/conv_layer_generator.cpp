@@ -72,7 +72,7 @@ public:
         //weight buffer
         filter.in().compute_at(f_conv, z_o);
 
-        //output.accelerate({input}, xi, xo);
+        output.accelerate({input}, xi, xo);
         output.compile_to_lowered_stmt("conv.html",
                output.infer_arguments(),
                Halide::HTML);

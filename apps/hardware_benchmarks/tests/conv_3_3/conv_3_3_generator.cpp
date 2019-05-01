@@ -68,14 +68,16 @@ public:
 //            .unroll(r.x, 3)
 //            .unroll(r.y, 3);
           Var xi,yi, xo,yo;
-          //output.tile(x, y, xo,yo, xi,yi, 64,64);
-          //hw_input.in().store_at(output, xo).compute_at(output, xi);
+          output.tile(x, y, xo,yo, xi,yi, 64,64);
+          hw_input.in().store_at(output, xo).compute_at(output, xi);
           
-          hw_input.in().store_root().compute_at(output, x).unroll(x, 2);
+          //hw_input.in().store_root().compute_at(output, x);
           conv.update()
             .unroll(r.x)
             .unroll(r.y);
           //output.compute_root();
+          
+          kernel.compute_at(output, xo);
         }
         
     }

@@ -411,6 +411,7 @@ SOURCE_FILES = \
   Elf.cpp \
   EliminateBoolVectors.cpp \
   Error.cpp \
+  ExtractHWBuffers.cpp \
   ExtractHWKernelDAG.cpp \
   FastIntegerDivide.cpp \
   FindCalls.cpp \
