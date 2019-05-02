@@ -23,8 +23,8 @@ Stmt sliding_window(Stmt s, const std::map<std::string, Function> &env);
 
 
 struct SlidingStencils {
-  std::vector<Expr> output_stencil_extents;
-  std::vector<Expr> input_chunk_extents;
+  std::vector<Expr> output_stencil_box;
+  std::vector<Expr> input_chunk_box;
 };
 
 std::map<std::string, SlidingStencils> extract_sliding_stencils(Stmt s, Function f);

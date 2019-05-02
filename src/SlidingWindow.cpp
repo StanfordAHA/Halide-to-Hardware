@@ -123,8 +123,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                      << "Region provided:\n";
 
             // initialize vectors
-            output_stencil_extents = std::vector<Expr>(func.dimensions());
-            input_chunk_extents = std::vector<Expr>(func.dimensions());
+            output_stencil_box = std::vector<Expr>(func.dimensions());
+            input_chunk_box = std::vector<Expr>(func.dimensions());
 
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
@@ -227,11 +227,11 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             // compute sizes
             Expr output_stencil_size = simplify(max_required - min_required + 1);
             std::cout << "output stencil: " << output_stencil_size << std::endl;
-            output_stencil_extents[dim_idx] = output_stencil_size;
+            output_stencil_box[dim_idx] = output_stencil_size;
             
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
             std::cout << "input stencil: " << input_chunk_size << std::endl;
-            input_chunk_extents[dim_idx] = input_chunk_size;
+            input_chunk_box[dim_idx] = input_chunk_size;
 
             // If there's no overlap between adjacent iterations, we shouldn't slide.
             if (can_prove(min_required >= prev_max_plus_one) ||
@@ -340,15 +340,15 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
     }
 
 public:
-    std::vector<Expr> output_stencil_extents;
-    std::vector<Expr> input_chunk_extents;
+    std::vector<Expr> output_stencil_box;
+    std::vector<Expr> input_chunk_box;
     SlidingWindowOnFunctionAndLoop(Function f, string v, Expr v_min) :
       func(f), loop_var(v), loop_min(v_min) {}
 
     // define the copy constructor without Scope (whose copy constructor is private)
     SlidingWindowOnFunctionAndLoop(const SlidingWindowOnFunctionAndLoop &obj) {
-      output_stencil_extents = obj.output_stencil_extents;
-      input_chunk_extents = obj.input_chunk_extents;
+      output_stencil_box = obj.output_stencil_box;
+      input_chunk_box = obj.input_chunk_box;
     }
 };
 
@@ -400,8 +400,8 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
             SlidingWindowOnFunctionAndLoop sliding_window_mutator = SlidingWindowOnFunctionAndLoop(func, op->name, op->min);
             sliding_window_mutator.mutate(op->body);
             SlidingStencils ss;
-            ss.output_stencil_extents = sliding_window_mutator.output_stencil_extents;
-            ss.input_chunk_extents = sliding_window_mutator.input_chunk_extents;
+            ss.output_stencil_box = sliding_window_mutator.output_stencil_box;
+            ss.input_chunk_box = sliding_window_mutator.input_chunk_box;
             buffer_sliding_stencils[op->name] = ss;
         }
     }

@@ -20,16 +20,18 @@ namespace Internal {
 
 
 struct HWBuffer {
+  std::string name;
+  
   // Parameters for the HWBuffer
-  std::vector<Expr> buffer_capacity;
+  std::vector<Expr> total_buffer_box;
   
-  std::vector<Expr> input_chunk_size;
-  std::vector<Expr> input_block_size;
-  Expr input_access_pattern;
+  std::vector<Expr> input_chunk_box;
+  std::vector<Expr> input_block_box;
+  Stmt input_access_pattern;
   
-  std::vector<Expr> output_stencil_size;
-  std::vector<Expr> output_block_size;
-  Expr output_access_pattern;
+  std::vector<Expr> output_stencil_box;
+  std::vector<Expr> output_block_box;
+  Stmt output_access_pattern;
 
 };
 

@@ -14,6 +14,7 @@ namespace Halide {
 namespace Internal {
 
 using std::map;
+using std::vector;
 using std::string;
 
 namespace {
@@ -175,12 +176,12 @@ class CountBufferUsers : public IRVisitor {
       std::cout << "HWBuffer Parameter: writer ports - "
                 << "box extent=[";
       auto interval = box_write;
-      input_block_extents = std::vector<Expr>(interval.size());
+      input_block_box = vector<Expr>(interval.size());
       for (size_t dim=0; dim<interval.size(); ++dim) {
         Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
         Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
         std::cout << lower_expr << "-" << upper_expr << " ";
-        input_block_extents[dim] = lower_expr;
+        input_block_box[dim] = lower_expr;
       }
       std::cout << "]\n";
 
@@ -195,19 +196,19 @@ class CountBufferUsers : public IRVisitor {
                 << "box extent=[";
       auto interval = box_read;
 
-      std::vector<Stmt> stmts;
-      output_block_extents = std::vector<Expr>(interval.size());
+      vector<Stmt> stmts;
+      output_block_box = vector<Expr>(interval.size());
       for (size_t dim=0; dim<interval.size(); ++dim) {
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        output_block_extents[dim] = lower_expr;
+        output_block_box[dim] = lower_expr;
         stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
         std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
       }
       std::cout << "]\n";
 
-      const std::vector<Stmt> &const_stmts = stmts;
+      const vector<Stmt> &const_stmts = stmts;
       current_for->body = Block::make(const_stmts);
       reader_loopnest = simplify(expand_expr(full_stmt, scope));
       std::cout << "HWBuffer Parameter - " << "nested reader loop:\n" << reader_loopnest << std::endl;
@@ -223,8 +224,8 @@ class CountBufferUsers : public IRVisitor {
   }
   
 public:
-  std::vector<Expr> output_block_extents;
-  std::vector<Expr> input_block_extents;
+  vector<Expr> output_block_box;
+  vector<Expr> input_block_box;
   Stmt reader_loopnest;
   CountBufferUsers(string v) : var(v), current_for(nullptr) {}
 };
@@ -272,34 +273,34 @@ class HWBuffers : public IRMutator2 {
           }
 
           // extent is the same for total buffer box, input chunk, and output stencil for double buffer
-          std::vector<Expr> extents(boxes_read[op->name].size());
+          vector<Expr> box(boxes_read[op->name].size());
           for (size_t i=0; i<boxes_read[op->name].size(); ++i) {
             Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
-            extents[i] = extent;
+            box[i] = extent;
           }
 
           std::cout << "HWBuffer Parameter: Total buffer box is of size [";          
-          for (size_t i=0; i<extents.size(); ++i) {
-            std::cout << extents[i];
-            if (i < extents.size() - 1) {
+          for (size_t i=0; i<box.size(); ++i) {
+            std::cout << box[i];
+            if (i < box.size() - 1) {
               std::cout << " ";
             }
           }
           std::cout << "]\n";
 
           std::cout << "HWBuffer Parameter: Input Chunk box is of size [";
-          for (size_t i=0; i<extents.size(); ++i) {
-            std::cout << extents[i];
-            if (i < extents.size() - 1) {
+          for (size_t i=0; i<box.size(); ++i) {
+            std::cout << box[i];
+            if (i < box.size() - 1) {
               std::cout << " ";
             }
           }
           std::cout << "]\n";
           
           std::cout << "HWBuffer Parameter: Output Stencil box is of size [";
-          for (size_t i=0; i<extents.size(); ++i) {
-            std::cout << extents[i];
-            if (i < extents.size() - 1) {
+          for (size_t i=0; i<box.size(); ++i) {
+            std::cout << box[i];
+            if (i < box.size() - 1) {
               std::cout << " ";
             }
           }
@@ -318,14 +319,16 @@ class HWBuffers : public IRMutator2 {
           Stmt new_body = op->body;
 
           std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
+          // Parameters 1 and 2
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
           //new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
           new_body = mutate(new_body);
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
-          auto output_block_extents = counter.output_block_extents;
-          auto input_block_extents = counter.output_block_extents;
+          // Parameters 3, 4, 5
+          auto output_block_box = counter.output_block_box;
+          auto input_block_box = counter.output_block_box;
           auto reader_loopnest = counter.reader_loopnest;
 
           //auto boxes_write = boxes_provided(new_body);
@@ -339,21 +342,33 @@ class HWBuffers : public IRMutator2 {
 
           std::cout << "HWBuffer Parameter: " << op->name << " has Total box of size [";
           size_t i_max = boxes_read[op->name].size();
+          // Parameter 6
+          auto total_buffer_box = vector<Expr>(i_max);
           for (size_t i=0; i<i_max; ++i) {
             Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
+            total_buffer_box.at(i) = extent;
 
             if (i < i_max - 1) {
               std::cout << extent << " ";
             }
           }
           std::cout << "]\n";
+
+          HWBuffer hwbuffer;
+          hwbuffer.name = op->name;
+          hwbuffer.total_buffer_box = total_buffer_box;
+          hwbuffer.input_chunk_box = sliding_stencil_map[hwbuffer.name].input_chunk_box;
+          hwbuffer.input_block_box = input_block_box;
+          hwbuffer.output_stencil_box = sliding_stencil_map[hwbuffer.name].output_stencil_box;
+          hwbuffer.output_block_box = output_block_box;
+          hwbuffer.output_access_pattern = reader_loopnest;
           
           //std::cout << "new body with sliding for " << op->name << "\n"
           //          << "old body: \n" << op->body
           //          << "new body: \n" << new_body << '\n';
           
-            return Realize::make(op->name, op->types, op->memory_type,
-                                 op->bounds, op->condition, new_body);
+          return Realize::make(op->name, op->types, op->memory_type,
+                               op->bounds, op->condition, new_body);
         }
     }
   
