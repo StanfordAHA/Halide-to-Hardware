@@ -148,7 +148,6 @@ class CountBufferUsers : public IRVisitor {
   void visit(const For *op) override {
     if (is_parallelized(op)) {
       auto expanded_extent = expand_expr(op->extent, scope);
-      std::cout << "found a for loop " << expanded_extent << "\n";
     }
 
     // add this for loop to read address loop
@@ -172,10 +171,11 @@ class CountBufferUsers : public IRVisitor {
       auto box_write = box_provided(op->body, var);
       std::cout << "writers inside loop " << op->name << std::endl;
       std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
+
       std::cout << "HWBuffer Parameter: writer ports - "
                 << "box extent=[";
       auto interval = box_write;
-      
+      input_block_extents = std::vector<Expr>(interval.size());
       for (size_t dim=0; dim<interval.size(); ++dim) {
         Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
         Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
@@ -196,6 +196,7 @@ class CountBufferUsers : public IRVisitor {
       auto interval = box_read;
 
       std::vector<Stmt> stmts;
+      output_block_extents = std::vector<Expr>(interval.size());
       for (size_t dim=0; dim<interval.size(); ++dim) {
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
@@ -238,6 +239,7 @@ class HWBuffers : public IRMutator2 {
     using IRMutator2::visit;
 
     Stmt visit(const Realize *op) override {
+      std::cout << "checking hwbuffers in realize " << op->name << std::endl;
         // Find the args for this function
         map<string, Function>::const_iterator iter = env.find(op->name);
 
@@ -262,15 +264,15 @@ class HWBuffers : public IRMutator2 {
 
           auto boxes_write = boxes_provided(new_body);
           for (auto box_entry : boxes_write) {
-            //std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+            std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
           }
           auto boxes_read = boxes_required(new_body);
           for (auto box_entry : boxes_read) {
-            //std::cout << "Box reader found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+            std::cout << "Box reader found for " << box_entry.first << " with box " << box_entry.second << std::endl;
           }
 
           // extent is the same for total buffer box, input chunk, and output stencil for double buffer
-          std::vector<Expr> extents;
+          std::vector<Expr> extents(boxes_read[op->name].size());
           for (size_t i=0; i<boxes_read[op->name].size(); ++i) {
             Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
             extents[i] = extent;

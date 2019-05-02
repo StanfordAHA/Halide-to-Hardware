@@ -852,7 +852,7 @@ class StorageFolding : public IRMutator2 {
         
         AttemptStorageFoldingOfFunction folder(func, explicit_only);
         debug(3) << "Attempting to fold " << op->name << "\n";
-        std::cout << "Attempting to fold " << op->name << "\n" << body << '\n';
+        //std::cout << "Attempting to fold " << op->name << "\n" << body << '\n';
         body = folder.mutate(body);
 
         if (body.same_as(op->body)) {

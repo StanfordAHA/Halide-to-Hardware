@@ -122,6 +122,10 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                      << " along loop variable " << loop_var << "\n"
                      << "Region provided:\n";
 
+            // initialize vectors
+            output_stencil_extents = std::vector<Expr>(func.dimensions());
+            input_chunk_extents = std::vector<Expr>(func.dimensions());
+
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
             for (int i = 0; i < func.dimensions(); i++) {
@@ -219,10 +223,14 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr prev_max_plus_one = substitute(loop_var, loop_var_expr - 1, max_required) + 1;
             Expr prev_min_minus_one = substitute(loop_var, loop_var_expr - 1, min_required) - 1;
 
+            std::cout << "computing some stuff\n";
             // compute sizes
             Expr output_stencil_size = simplify(max_required - min_required + 1);
+            std::cout << "output stencil: " << output_stencil_size << std::endl;
             output_stencil_extents[dim_idx] = output_stencil_size;
+            
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
+            std::cout << "input stencil: " << input_chunk_size << std::endl;
             input_chunk_extents[dim_idx] = input_chunk_size;
 
             // If there's no overlap between adjacent iterations, we shouldn't slide.

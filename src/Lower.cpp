@@ -20,6 +20,7 @@
 #include "Deinterleave.h"
 #include "EarlyFree.h"
 #include "ExtractHWKernelDAG.h"
+#include "ExtractHWBuffers.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "Function.h"
@@ -167,9 +168,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
 
     for (auto stage : inlined_stages) {
-      std::cout << "found stage: " << stage.name << std::endl;
+      //std::cout << "found stage: " << stage.name << std::endl;
       for (auto map_entry : stage.bounds) {
-        std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
+        //std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
       }
     }
     
@@ -177,13 +178,20 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = remove_extern_loops(s);
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
+    std::cout << "extracting hw buffers\n";
+    extract_hw_buffers(s, env);
+    
     debug(1) << "Performing sliding window optimization...\n";
-    std::cout << "Performing sliding window optimization...\n" << s << '\n';
+    //std::cout << "Performing sliding window optimization...\n" << s << '\n';
     if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
+      std::cout << "doing sliding window\n";
       s = sliding_window(s, env);
+    } else {
     }
+
+    
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
-    std::cout << "Lowering after sliding window:\n" << s << '\n';
+    //std::cout << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
     s = allocation_bounds_inference(s, env, func_bounds);
@@ -222,12 +230,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
-    std::cout << "Performing storage folding optimization...\n" << s << '\n';
+    //std::cout << "Performing storage folding optimization...\n" << s << '\n';
     //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
     s = storage_folding(s, env);
     //}
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
-    std::cout << "Lowering after storage folding:\n" << s << '\n';
+    //std::cout << "Lowering after storage folding:\n" << s << '\n';
 
     debug(1) << "Injecting debug_to_file calls...\n";
     s = debug_to_file(s, outputs, env);
@@ -393,7 +401,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
-    std::cout << "Lowering after final simplification:\n" << s << "\n\n";
+    //std::cout << "Lowering after final simplification:\n" << s << "\n\n";
 
     if (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))) {
         debug(1) << "Splitting off Hexagon offload...\n";
