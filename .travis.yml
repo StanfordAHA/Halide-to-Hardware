@@ -39,7 +39,7 @@ install:
   - test/scripts/install_travis.sh  
   
   # compile coreir
-  - git clone -b more_floatops https://github.com/rdaly525/coreir.git
+  - git clone -b master https://github.com/rdaly525/coreir.git
   - cd coreir/build && cmake .. && make -j2 && cd ../..
 
 before_deploy:
