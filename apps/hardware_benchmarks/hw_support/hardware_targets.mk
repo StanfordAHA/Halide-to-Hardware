@@ -19,6 +19,7 @@ HALIDE_SRC_PATH ?= ../../../..
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
 USE_COREIR_VALID ?= 0
+HALIDE_DEBUG_REDIRECT ?=
 
 HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
 
@@ -48,7 +49,7 @@ generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DE
 
 design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
 
 design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
@@ -59,11 +60,11 @@ design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt: $(BIN)/$(TESTNAME).g
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir $(HALIDE_DEBUG_REDIRECT)
 
 design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir $(HALIDE_DEBUG_REDIRECT)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
@@ -72,12 +73,12 @@ design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 
 design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls
+	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls $(HALIDE_DEBUG_REDIRECT)
 
 $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) 
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
@@ -96,11 +97,11 @@ $(BIN)/%.raw: $(BIN)/%.png
 
 run run-cpu $(BIN)/output_cpu.png: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process run cpu input.png
+	$(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-coreir $(BIN)/output_coreir.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
-	$(BIN)/process run coreir input.png
+	$(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
@@ -111,7 +112,7 @@ run-verilog: $(BIN)/top.v $(BIN)/input.raw
 
 run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process run vhls input.png
+	$(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
 compare compare-cpu-coreir compare-coreir-cpu: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
 	$(BIN)/process compare $(BIN)/output_coreir.png $(BIN)/output_cpu.png
