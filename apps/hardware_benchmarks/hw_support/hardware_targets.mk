@@ -19,6 +19,8 @@ HALIDE_SRC_PATH ?= ../../../..
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
 USE_COREIR_VALID ?= 0
+
+# set this to "1>/dev/null" or "&>/dev/null" to suppress debug output to std::cout
 HALIDE_DEBUG_REDIRECT ?=
 
 HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
