@@ -9,6 +9,11 @@ COREIR_DIR ?= ../../../../../coreir
 include ../../../support/Makefile.inc
 
 # For CoreIR generation
-#-D_GLIBCXX_USE_CXX11_ABI=0
-COREIR_CXX_FLAGS = -I $(COREIR_DIR)/include -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib 
+COREIR_CXX_FLAGS = -I $(COREIR_DIR)/include -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
+
+USE_CXX11_ABI ?=
+ifeq ($USE_CXX11_ABI, 0)
+     COREIR_CXX_FLAGS += -D_GLIBCXX_USE_CXX11_ABI=0
+endif
+
 CXXFLAGS += $(COREIR_CXX_FLAGS)
