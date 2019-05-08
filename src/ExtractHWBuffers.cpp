@@ -348,7 +348,7 @@ class HWBuffers : public IRMutator2 {
           new_body.accept(&counter);
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
-          auto input_block_box = counter.output_block_box;
+          auto input_block_box = counter.input_block_box;
           auto reader_loopnest = counter.reader_loopnest;
 
           //auto boxes_write = boxes_provided(new_body);
