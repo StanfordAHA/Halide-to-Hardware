@@ -72,10 +72,10 @@ public:
 //          output.tile(x, y, xo,yo, xi,yi, 64,64);
 //          hw_input.in().store_at(output, xo).compute_at(output, xi);
 //          //hw_input.in().store_root().compute_at(output, x);
-          hw_input.in().store_at(output, y).compute_at(output,x);
-          conv.update()
-            .unroll(r.x)
-            .unroll(r.y);
+          hw_input.in().store_root().compute_at(output,x);
+//          conv.update()
+//            .unroll(r.x)
+//            .unroll(r.y);
 //          //output.compute_root();
 //          
 //          kernel.compute_at(output, xo);

@@ -65,7 +65,7 @@ public:
         interm.update().reorder(c, r.x).unroll(c);
         f_conv.update().unroll(c);
         
-        //input buffer
+        //input buffer (with storage transform)
         input.in().compute_at(f_conv, z_o)
         .reorder_storage(_2,_0,_1);
 

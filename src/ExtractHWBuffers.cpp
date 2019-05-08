@@ -38,7 +38,25 @@ bool is_parallelized(const For *op) {
     op->for_type == ForType::Unrolled ||
     op->for_type == ForType::Vectorized;
 }
+
+class FirstForName : public IRVisitor {
+  using IRVisitor::visit;
   
+  void visit(const For *op) {
+    var = op->name;
+  }
+public:
+  string var;
+  FirstForName() {}
+};
+
+
+std::string first_for_name(Stmt s) {
+  FirstForName ffn;
+  s.accept(&ffn);
+  return ffn.var;
+}
+
 class ContainsAtLevel : public IRVisitor {
   using IRVisitor::visit;
   
@@ -230,7 +248,9 @@ public:
   CountBufferUsers(string v) : var(v), current_for(nullptr) {}
 };
 
+
 }
+
 
 
 // Perform sliding window optimization for all functions
@@ -308,9 +328,9 @@ class HWBuffers : public IRMutator2 {
           
           //std::cout << "HWBuffer Parameter: " << op->name << " has readers=" << num_readers
           //          << " writers=" << num_writers << std::endl;
-          std::cout << "new body with sliding for " << op->name << "\n"
-                    << "old body: \n" << op->body
-                    << "new body: \n" << new_body << '\n';
+          //std::cout << "new body with sliding for " << op->name << "\n"
+          //          << "old body: \n" << op->body
+          //          << "new body: \n" << new_body << '\n';
 
           return IRMutator2::visit(op);
           
@@ -354,14 +374,24 @@ class HWBuffers : public IRMutator2 {
           }
           std::cout << "]\n";
 
+          std::string for_name = first_for_name(new_body);
+          
           HWBuffer hwbuffer;
           hwbuffer.name = op->name;
           hwbuffer.total_buffer_box = total_buffer_box;
-          hwbuffer.input_chunk_box = sliding_stencil_map[hwbuffer.name].input_chunk_box;
+          hwbuffer.input_chunk_box = sliding_stencil_map.at(for_name).input_chunk_box;
           hwbuffer.input_block_box = input_block_box;
-          hwbuffer.output_stencil_box = sliding_stencil_map[hwbuffer.name].output_stencil_box;
+          hwbuffer.output_stencil_box = sliding_stencil_map.at(for_name).output_stencil_box;
           hwbuffer.output_block_box = output_block_box;
           hwbuffer.output_access_pattern = reader_loopnest;
+
+          std::cout << "map is ";
+          for (auto pair : sliding_stencil_map) {
+            std::cout << pair.first << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "Here is the hwbuffer: \n" << hwbuffer << std::endl;
           
           //std::cout << "new body with sliding for " << op->name << "\n"
           //          << "old body: \n" << op->body
@@ -376,6 +406,30 @@ public:
     HWBuffers(const map<string, Function> &e) : env(e) {}
 
 };
+
+std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
+  os << "HWBuffer: " << buffer.name << std::endl
+     << "Total Buffer: " << buffer.total_buffer_box << std::endl
+     << "Input Chunk: " << buffer.input_chunk_box << std::endl
+     << "Input Block: " << buffer.input_block_box << std::endl
+     << "Output Stencil: " << buffer.output_stencil_box << std::endl
+     << "Output Block: " << buffer.output_block_box << std::endl
+     << "Output Access Pattern: " << buffer.output_access_pattern << std::endl;
+  return os;
+};
+
 
 Stmt extract_hw_buffers(Stmt s, const map<string, Function> &env) {
     return HWBuffers(env).mutate(s);

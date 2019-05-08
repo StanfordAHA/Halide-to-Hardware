@@ -11,12 +11,12 @@
  */
 
 #include <map>
+#include <iostream>
 
 #include "IR.h"
 
 namespace Halide {
 namespace Internal {
-
 
 
 struct HWBuffer {
@@ -35,10 +35,14 @@ struct HWBuffer {
 
 };
 
-  
+std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec);
+std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer);
+
 Stmt extract_hw_buffers(Stmt s, const std::map<std::string, Function> &env);
 
 }  // namespace Internal
 }  // namespace Halide
+
+
 
 #endif

@@ -123,8 +123,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                      << "Region provided:\n";
 
             // initialize vectors
-            output_stencil_box = std::vector<Expr>(func.dimensions());
-            input_chunk_box = std::vector<Expr>(func.dimensions());
+            //output_stencil_box = std::vector<Expr>(func.dimensions());
+            //input_chunk_box = std::vector<Expr>(func.dimensions());
 
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
@@ -223,15 +223,14 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr prev_max_plus_one = substitute(loop_var, loop_var_expr - 1, max_required) + 1;
             Expr prev_min_minus_one = substitute(loop_var, loop_var_expr - 1, min_required) - 1;
 
-            std::cout << "computing some stuff\n";
             // compute sizes
             Expr output_stencil_size = simplify(max_required - min_required + 1);
-            std::cout << "output stencil: " << output_stencil_size << std::endl;
-            output_stencil_box[dim_idx] = output_stencil_size;
+            std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
+            output_stencil_box.push_back(output_stencil_size);
             
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
             std::cout << "input stencil: " << input_chunk_size << std::endl;
-            input_chunk_box[dim_idx] = input_chunk_size;
+            input_chunk_box.push_back(input_chunk_size);
 
             // If there's no overlap between adjacent iterations, we shouldn't slide.
             if (can_prove(min_required >= prev_max_plus_one) ||
@@ -350,6 +349,7 @@ public:
       output_stencil_box = obj.output_stencil_box;
       input_chunk_box = obj.input_chunk_box;
     }
+
 };
 
 }
@@ -392,21 +392,31 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
     void visit(const For *op) override {
         debug(3) << " Doing sliding window analysis over loop: " << op->name << "\n";
 
-        //Stmt new_body = op->body;
-        //visit(new_body);
+        Stmt new_body = op->body;
+        new_body.accept(this);
 
         if (op->for_type == ForType::Serial ||
             op->for_type == ForType::Unrolled) {
             SlidingWindowOnFunctionAndLoop sliding_window_mutator = SlidingWindowOnFunctionAndLoop(func, op->name, op->min);
             sliding_window_mutator.mutate(op->body);
-            SlidingStencils ss;
-            ss.output_stencil_box = sliding_window_mutator.output_stencil_box;
-            ss.input_chunk_box = sliding_window_mutator.input_chunk_box;
+
+            auto added_stencil = sliding_window_mutator.output_stencil_box;
+            ss.output_stencil_box.insert(ss.output_stencil_box.end(), added_stencil.begin(), added_stencil.end());
+            auto added_chunk = sliding_window_mutator.input_chunk_box;
+            ss.input_chunk_box.insert(ss.input_chunk_box.end(), added_chunk.begin(), added_chunk.end());
+
+            if (added_stencil.size() > 0) {
+              std::cout << "added sliding stencil called " << op->name << " with " << added_stencil.size()
+                        << "more loops resulting in num_total_loops=" << ss.output_stencil_box.size() << "\n";
+            }
+            
             buffer_sliding_stencils[op->name] = ss;
         }
     }
 
 public:
+    // contiually adds to set of loops; needed for nested for loops
+    SlidingStencils ss;
     std::map<std::string, SlidingStencils> buffer_sliding_stencils;
     SlidingWindowVisitorOnFunction(Function f) : func(f) {}
 };
