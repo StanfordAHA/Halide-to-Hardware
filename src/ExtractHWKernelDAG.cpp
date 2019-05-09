@@ -679,14 +679,14 @@ public:
           compute_level(f.schedule().accelerate_compute_level()),
           store_level(f.schedule().accelerate_store_level()),
           is_scan_loops(false) {
-      debug(0) << "creating builddag\n";
+      //debug(0) << "creating builddag\n";
 
     }
 
     HWKernelDAG build(Stmt s) {
-        debug(0) << "start of build\n";
+        //debug(0) << "start of build\n";
         s.accept(this);
-        debug(0) << "building dag\n";
+        //debug(0) << "building dag\n";
         dag.name = func.name();
         dag.loop_vars = scan_loops;
         dag.input_kernels = func.schedule().accelerate_inputs(); // TODO we don't use it later
@@ -694,11 +694,11 @@ public:
         dag.store_level = store_level;
         calculate_input_streams(dag);
 
-        debug(0) << "after building producer pointers:" << "\n";
+        std::cout << "after building producer pointers:" << "\n";
         for (const auto &p : dag.kernels)
-            debug(0) << p.second << "\n";
+          std::cout << p.second << "\n";
         for (const auto &p : dag.taps)
-            debug(0) << p.second << "\n";
+          std::cout << p.second << "\n";
 
         return dag;
     }

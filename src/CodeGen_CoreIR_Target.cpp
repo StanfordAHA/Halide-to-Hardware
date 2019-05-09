@@ -5,6 +5,7 @@
 
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
+#include "Debug.h"
 #include "Substitute.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -437,7 +438,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
     ASSERT(m, "Could not load top: design");
     //m->print();
 
-    cout << GREEN << "Created CoreIR design!!!" << RESET << endl;
+    debug(0) << GREEN << "Created CoreIR design!!!" << RESET << "\n";
     
     CoreIR::deleteContext(context);
   } else {

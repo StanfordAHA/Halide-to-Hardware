@@ -2,14 +2,14 @@
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
 
-OUTPUT_LOGGING ?= &>/dev/null
+HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 SHELL = /bin/bash
 
 all: testall
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(MAKE) -sC $@ compare $(OUTPUT_LOGGING); \
+	@$(MAKE) -sC $@ compare $(HALIDE_DEBUG_REDIRECT); \
 	EXIT_CODE=$$?; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
 	  printf "%-20s \033[0;32m%s\033[0m\n" $@ "PASSED"; \
