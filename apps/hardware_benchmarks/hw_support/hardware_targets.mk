@@ -18,6 +18,7 @@ HALIDE_SRC_PATH ?= ../../../..
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
+TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
 
 # set this to "1>/dev/null" or "&>/dev/null" to suppress debug output to std::cout
@@ -51,7 +52,7 @@ generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DE
 
 design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-strict_float $(HALIDE_DEBUG_REDIRECT)
 
 design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
@@ -62,11 +63,11 @@ design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt: $(BIN)/$(TESTNAME).g
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-strict_float -e coreir $(HALIDE_DEBUG_REDIRECT)
 
 design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid -e coreir $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-strict_float -e coreir $(HALIDE_DEBUG_REDIRECT)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
@@ -75,7 +76,7 @@ design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 
 design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls $(HALIDE_DEBUG_REDIRECT)
 
 $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o
 	@-mkdir -p $(BIN)
