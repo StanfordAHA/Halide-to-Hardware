@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <map>
+#include <functional>
 
 #include "HalideBuffer.h"
 
