@@ -1433,8 +1433,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Sub *op) {
 }
   
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Div *op) {
+  internal_assert(op->a.type() == op->b.type());
   int shift_amt;
-  if (is_const_power_of_two_integer(op->b, &shift_amt)) {
+  if (!op->a.type().is_float() && is_const_power_of_two_integer(op->b, &shift_amt)) {
     uint param_bitwidth = op->a.type().bits();
     Expr shift_expr = UIntImm::make(UInt(param_bitwidth), shift_amt);
     if (op->a.type().is_uint()) {
@@ -1444,6 +1445,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Div *op) {
       internal_assert(!op->b.type().is_uint());
       visit_binop(op->type, op->a, shift_expr, ">>", "ashr");
     }
+  } else if (op->a.type().is_float()) {
+    visit_binop(op->type, op->a, op->b, "f/", "fdiv");
   } else {
     stream << "// divide is not fully supported" << endl;
     user_warning << "WARNING: divide is not fully supported!!!!\n";
@@ -2143,6 +2146,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
     stream << "// reinterpreting " << op->args[0] << " as " << in_var << endl;
 
     // generate coreir: expecting to find the expr is a constant
+    rename_wire(in_var, in_var, op->args[0]);
+    
+  } else if (op->name == "strict_float") {
+    string in_var = print_expr(op->args[0]);
     rename_wire(in_var, in_var, op->args[0]);
     
 // This intrisic was removed:

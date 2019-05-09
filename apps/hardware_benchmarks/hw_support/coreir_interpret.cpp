@@ -193,6 +193,12 @@ void run_coreir_on_interpreter(string coreir_design,
 }
 
 // declare which types will be used with template function
+template void run_coreir_on_interpreter<float>(std::string coreir_design,
+                                               Halide::Runtime::Buffer<float> input,
+                                               Halide::Runtime::Buffer<float> output,
+                                               std::string input_name,
+                                               std::string output_name);
+
 template void run_coreir_on_interpreter<uint16_t>(std::string coreir_design,
                                                   Halide::Runtime::Buffer<uint16_t> input,
                                                   Halide::Runtime::Buffer<uint16_t> output,

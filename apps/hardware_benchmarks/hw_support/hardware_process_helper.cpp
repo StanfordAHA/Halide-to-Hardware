@@ -125,6 +125,15 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
     create_image(&input);
   } else if (args.size() == 2 && hw_name_defined) {
     input = load_and_convert_image(args[1]);
+    //input(0, 0) = 22.f;
+    //input(1, 0) = 1.0f;
+    //input(2, 0) = 3.17188f;
+    //input(3, 0) = 3.17187f;
+    //input(4, 0) = 3.15625f;
+    //input(5, 0) = 3.14063f;
+    //input(6, 0) = 3.14062f;
+
+
   } else {
     std::string hardware_set = enumerate_keys(run_calls);
     std::cout << "Usage:\n"
@@ -276,3 +285,16 @@ template int OneInOneOut_ProcessController<bool>::make_run_def(std::vector<std::
 template int OneInOneOut_ProcessController<bool>::make_compare_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<bool>::make_test_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<bool>::make_eval_def(std::vector<std::string> args);
+
+template int ProcessController<float>::process_command(int argc, char **argv);
+template int ProcessController<float>::make_image_def(std::vector<std::string> args);
+template int ProcessController<float>::make_run_def(std::vector<std::string> args);
+template int ProcessController<float>::make_compare_def(std::vector<std::string> args);
+template int ProcessController<float>::make_test_def(std::vector<std::string> args);
+template int ProcessController<float>::make_eval_def(std::vector<std::string> args);
+template void ProcessController<float>::print_usage();
+template int OneInOneOut_ProcessController<float>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float>::make_eval_def(std::vector<std::string> args);
