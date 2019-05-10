@@ -17,7 +17,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<int16_t>(input(x, y));
 
-	Func lt, gt, le, ge;
+        Func lt, gt, le, ge;
         lt(x,y) = hw_input(x,y) < cast<int16_t>(100);
         gt(x,y) = -16 < hw_input(x,y);
         le(x,y) = hw_input(x,y) <= 42;
