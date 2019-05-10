@@ -309,9 +309,14 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
                                          "feq", "fneq",
                                          "fmin", "fmax",
                                          "flt", "fgt", "fle", "fge",
-                                         "fsqr", "fflr",
+                                         "fsqr",
+                                         "fflr",
                                          "fmux"
-                                         //, "fconst"};
+                                         // fconst,
+                                         // fmod, ftanh
+                                         // fround, fceil
+                                         // fexp, flog, fpow
+                                         // fsin, fcos, ftan, fasin, facos, fatan2
   };
   
   for (auto gen_name : fplib_gen_names) {
@@ -2129,16 +2134,88 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
     stream << "[absd] ";
     visit_binop(op->type, a, b, "|-|", "absd");
 
-  } else if (op->name == "sqrt_f32") {
+
+    //Note: these can also be _f16, _f64
+  } else if (op->name == "sqrt_f32") { 
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
     stream << "[sqrt_f32] ";
     visit_unaryop(op->type, a, "sqrt", "fsqr");
+    
+    // Add rounding operations    
   } else if (op->name == "floor_f32") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
     stream << "[floor_f32] ";
     visit_unaryop(op->type, a, "floor", "fflr");
+  } else if (op->name == "ceil_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[ceil_f32] ";
+    visit_unaryop(op->type, a, "ceil", "fceil");
+  } else if (op->name == "round_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[round_f32] ";
+    visit_unaryop(op->type, a, "round", "fround");
+
+    // Add trigonometric functions
+  } else if (op->name == "sin_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[sin_f32] ";
+    visit_unaryop(op->type, a, "sin", "fsin");
+  } else if (op->name == "cos_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[cos_f32] ";
+    visit_unaryop(op->type, a, "cos", "fcos");
+  } else if (op->name == "tan_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[tan_f32] ";
+    visit_unaryop(op->type, a, "tan", "ftan");
+
+    // Add inverse trigonometric functions
+  } else if (op->name == "asin_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[asin_f32] ";
+    visit_unaryop(op->type, a, "asin", "fasin");
+  } else if (op->name == "acos_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[acos_f32] ";
+    visit_unaryop(op->type, a, "acos", "facos");
+  } else if (op->name == "atan2_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[atan2_f32] ";
+    visit_unaryop(op->type, a, "atan2", "fatan");
+
+    // Add hyperbolic functions
+  } else if (op->name == "tanh_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[tanh_f32] ";
+    visit_unaryop(op->type, a, "tanh", "ftanh");
+    
+    // Add exponential operators
+  } else if (op->name == "exp_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[exp_f32] ";
+    visit_unaryop(op->type, a, "exp", "fexp");
+  } else if (op->name == "log_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[log_f32] ";
+    visit_unaryop(op->type, a, "log", "flog");
+  } else if (op->name == "pow_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    stream << "[pow_f32] ";
+    visit_unaryop(op->type, a, "pow", "fpow");
     
   } else if (op->is_intrinsic(Call::reinterpret)) {
     string in_var = print_expr(op->args[0]);
