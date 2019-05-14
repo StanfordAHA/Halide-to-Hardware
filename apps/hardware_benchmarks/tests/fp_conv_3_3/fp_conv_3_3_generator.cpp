@@ -32,8 +32,8 @@ public:
         conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint16_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = conv(x, y);
+        output(x, y) = cast<uint16_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
