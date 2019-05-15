@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "fp_arith.h"
+#include "fp_round.h"
 
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
@@ -11,10 +11,10 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<uint8_t> processor("fp_arith",
+  OneInOneOut_ProcessController<uint8_t> processor("fp_round",
                                           {
                                             {"cpu",
-                                                [&]() { fp_arith(processor.input, processor.output); }
+                                                [&]() { fp_round(processor.input, processor.output); }
                                             },
                                             {"coreir",
                                                 [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
@@ -27,11 +27,5 @@ int main(int argc, char **argv) {
   processor.output = Buffer<uint8_t>(64, 64);
   
   processor.process_command(argc, argv);
-
-  for (size_t i=0; i<10; ++i) {
-    std::cout << "input(" << i << ",0) = " << +processor.input(i,0)
-              << "   /pi = " << +processor.output(i,0) << std::endl;
-  }
-
   
 }
