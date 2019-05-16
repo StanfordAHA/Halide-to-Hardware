@@ -102,13 +102,17 @@ bool function_defined(std::string key, std::map<std::string, std::function<void(
 
 template <class T>
 int OneInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> args) {
-  if (args.size() != 0) {
+  if (args.size() != 0 && args.size() != 1) {
     std::cout << "Usage:\n"
-              << "  ./process image\n";
+              << "  ./process image [image_type]\n";
     return 1;
   }
 
-  create_image(&input);
+  if (args.size() == 0) {
+    create_image(&input);
+  } else {
+    create_image(&input, static_cast<ImageType>(stoi(args[0])));
+  }
   save_image(input, "bin/input.png");
 
   std::cout << "Generated and saved input image\n";

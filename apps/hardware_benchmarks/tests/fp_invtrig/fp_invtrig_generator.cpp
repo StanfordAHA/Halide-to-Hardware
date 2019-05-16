@@ -20,7 +20,7 @@ public:
         Func arcsine, arccosine, arctangent;
         arcsine(x,y)    = asin(hw_input(x,y));
         arccosine(x,y)  = acos(hw_input(x,y));
-        arctangent(x,y) = atan(hw_input(x,y));
+        arctangent(x,y) = atan2(hw_input(x,y));
 
         Func hw_output("hw_output");
         hw_output(x, y) = arcsine(x,y) + arccosine(x,y) + arctangent(x,y);

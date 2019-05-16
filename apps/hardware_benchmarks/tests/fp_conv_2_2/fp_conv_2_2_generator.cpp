@@ -6,8 +6,8 @@ using namespace Halide;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
-    Input<Buffer<uint16_t>>  input{"input", 2};
-    Output<Buffer<uint16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -20,8 +20,8 @@ public:
                0, 2);
 
         kernel(x,y) = bfloat16_t(0.f);
-        kernel(0,0) = bfloat16_t(11.f);      kernel(0,1) = bfloat16_t(12.f);
-        kernel(1,0) = bfloat16_t(14.f);      kernel(1,1) = bfloat16_t(0.f);
+        kernel(0,0) = bfloat16_t(1.f);      kernel(0,1) = bfloat16_t(1.3f);
+        kernel(1,0) = bfloat16_t(1.f);      kernel(1,1) = bfloat16_t(4.f);
         fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
 
         conv(x, y) = cast<bfloat16_t>(0);
@@ -32,7 +32,7 @@ public:
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
-        output(x, y) = cast<uint16_t>(hw_output(x,y));
+        output(x, y) = cast<uint8_t>(hw_output(x,y) % 256);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

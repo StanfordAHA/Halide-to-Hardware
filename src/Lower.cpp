@@ -131,7 +131,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     bool any_memoized = false;
     Stmt s = schedule_functions(outputs, fused_groups, env, t, any_memoized);
     debug(2) << "Lowering after creating initial loop nests:\n" << s << '\n';
-    std::cout << "Lowering after creating initial loop nests:\n" << s << '\n';
 
     if (any_memoized) {
         debug(1) << "Injecting memoization...\n";
@@ -385,6 +384,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after lowering unsafe promises:\n" << s << "\n\n";
 
     debug(1) << "Emulating float16 math...\n";
+    std::cout << "Emulating float16 math...\n";
     s = emulate_float16_math(s, t);
     debug(2) << "Lowering after emulating float16 math:\n" << s << "\n\n";
 

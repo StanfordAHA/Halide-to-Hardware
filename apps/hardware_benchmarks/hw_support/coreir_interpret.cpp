@@ -180,13 +180,14 @@ void run_coreir_on_interpreter(string coreir_design,
           bool valid_value = state.getBitVec("self.valid").to_type<bool>();
           //std::cout << "got my valid\n";
           if (valid_value) {
-            std::cout << "this one is valid\n";
+            //std::cout << "this one is valid\n";
             auto output_bv = state.getBitVec(output_name);
             
             // bitcast to float if it is a float
             T output_value;
             if (has_float_output) {
               float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+              std::cout << "read out float: " << output_float << " ";
               output_value = static_cast<T>(output_float);
             } else {
               output_value = output_bv.to_type<T>();

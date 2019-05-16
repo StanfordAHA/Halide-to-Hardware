@@ -16,21 +16,20 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<float>(input(x, y));
+        hw_input(x, y) = cast<bfloat16_t>(input(x, y));
 
-        Func lt, gt, le, ge, eq_t, neq_t;
-        Expr const_k = float(100.3f);
-        lt(x,y) = hw_input(x,y) < const_k;
-        ge(x,y) = hw_input(x,y) >= Expr(float(80.2f));
-        le(x,y) = hw_input(x,y) <= Expr(float(42.42f));
-        gt(x,y) = hw_input(x,y) > Expr(float(9.6f));
-        neq_t(x,y)= hw_input(x,y) != Expr(float(6.f));
-        eq_t(x,y) = hw_input(x,y) == Expr(float(66.f));
+        Func lt, gt, le, ge, equal, not_equal;
+        lt(x,y) = hw_input(x,y) <  Expr(bfloat16_t(100.3f));
+        ge(x,y) = hw_input(x,y) >= Expr(bfloat16_t(80.2f));
+        le(x,y) = hw_input(x,y) <= Expr(bfloat16_t(42.42f));
+        gt(x,y) = hw_input(x,y) >  Expr(bfloat16_t(3.6f));
+        not_equal(x,y)= hw_input(x,y) != bfloat16_t(6.f);
+        equal(x,y) = hw_input(x,y) == bfloat16_t(66.f);
 
         Func hw_output("hw_output");
         hw_output(x, y) = select((lt(x,y) && ge(x,y)) ||
-                                 (le(x,y) && gt(x,y) && neq_t(x,y)) ||
-                                 eq_t(x,y),
+                                 (le(x,y) && gt(x,y) && not_equal(x,y)) ||
+                                 equal(x,y),
                                  255, 0);
         output(x, y) = cast<uint8_t>(hw_output(x,y));
 

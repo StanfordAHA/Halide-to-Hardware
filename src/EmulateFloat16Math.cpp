@@ -40,6 +40,8 @@ class WidenMath : public IRMutator {
     Expr visit(const LT *op) override { return visit_bin_op(op); }
     Expr visit(const GE *op) override { return visit_bin_op(op); }
     Expr visit(const GT *op) override { return visit_bin_op(op); }
+    Expr visit(const EQ *op) override { return visit_bin_op(op); }
+    Expr visit(const NE *op) override { return visit_bin_op(op); }
     Expr visit(const Min *op) override { return visit_bin_op(op); }
     Expr visit(const Max *op) override { return visit_bin_op(op); }
 
