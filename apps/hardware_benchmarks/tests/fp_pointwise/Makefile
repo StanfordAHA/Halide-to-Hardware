@@ -1,7 +1,7 @@
 include ../../hw_support/Makefile.inc
 
 TESTNAME = fp_pointwise
-USE_COREIR_VALID = 1
+USE_COREIR_VALID = 0
 
 include ../../hw_support/hardware_targets.mk
 
