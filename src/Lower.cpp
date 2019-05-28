@@ -384,6 +384,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after lowering unsafe promises:\n" << s << "\n\n";
 
     debug(1) << "Emulating float16 math...\n";
+    std::cout << "Emulating float16 math...\n";
     s = emulate_float16_math(s, t);
     debug(2) << "Lowering after emulating float16 math:\n" << s << "\n\n";
 

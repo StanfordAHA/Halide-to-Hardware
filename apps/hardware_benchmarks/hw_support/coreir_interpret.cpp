@@ -121,7 +121,9 @@ void run_coreir_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<T> input,
                                Halide::Runtime::Buffer<T> output,
                                string input_name,
-                               string output_name) {
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output) {
   // New context for coreir test
   Context* c = newContext();
   Namespace* g = c->getGlobal();
@@ -151,32 +153,71 @@ void run_coreir_on_interpreter(string coreir_design,
 
   cout << "starting coreir simulation" << endl;  
   state.resetCircuit();
-
+  cout << "reset\n";
   ImageWriter<T> coreir_img_writer(output);
 
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
-        // set input value
+
         //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
-        state.setValue(input_name, BitVector(16, input(x,y,c)));
+        
+        // Set input value.
+        // bitcast to int if it is a float
+        if (has_float_input) {
+          state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
+          //cout << "input set\n";
+        } else {
+          state.setValue(input_name, BitVector(16, input(x,y,c)));
+        }
 
         // propogate to all wires
         state.exeCombinational();
 
         // read output wire
         if (uses_valid) {
+          //std::cout << "using valid\n";
           bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-
+          //std::cout << "got my valid\n";
           if (valid_value) {
-            T output_value = state.getBitVec(output_name).to_type<T>();
+            //std::cout << "this one is valid\n";
+            auto output_bv = state.getBitVec(output_name);
+            
+            // bitcast to float if it is a float
+            T output_value;
+            if (has_float_output) {
+              float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+              std::cout << "read out float: " << output_float << " ";
+              output_value = static_cast<T>(output_float);
+            } else {
+              output_value = output_bv.to_type<T>();
+            }
+            
             coreir_img_writer.write(output_value);
-            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
           }
         } else {
-          T output_value = state.getBitVec(output_name).to_type<T>();
+          //if (std::is_floating_point<T>::value) {
+          //  T output_value = state.getBitVec(output_name);
+          //  output(x,y,c) = output_value;
+          //} else {
+          //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
+          
+          auto output_bv = state.getBitVec(output_name);
+
+          // bitcast to float if it is a float
+          T output_value;
+          if (has_float_output) {
+            float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+            output_value = static_cast<T>(output_float);
+          } else {
+            output_value = output_bv.to_type<T>();
+          }
+
           output(x,y,c) = output_value;
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            
+          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
         }
         
         // give another rising edge (execute seq)
@@ -193,33 +234,51 @@ void run_coreir_on_interpreter(string coreir_design,
 }
 
 // declare which types will be used with template function
+template void run_coreir_on_interpreter<float>(std::string coreir_design,
+                                               Halide::Runtime::Buffer<float> input,
+                                               Halide::Runtime::Buffer<float> output,
+                                               std::string input_name,
+                                               std::string output_name,
+                                               bool has_float_input,
+                                               bool has_float_output);
+
 template void run_coreir_on_interpreter<uint16_t>(std::string coreir_design,
                                                   Halide::Runtime::Buffer<uint16_t> input,
                                                   Halide::Runtime::Buffer<uint16_t> output,
                                                   std::string input_name,
-                                                  std::string output_name);
+                                                  std::string output_name,
+                                                  bool has_float_input,
+                                                  bool has_float_output);
 
 template void run_coreir_on_interpreter<int16_t>(std::string coreir_design,
                                                  Halide::Runtime::Buffer<int16_t> input,
                                                  Halide::Runtime::Buffer<int16_t> output,
                                                  std::string input_name,
-                                                 std::string output_name);
+                                                 std::string output_name,
+                                                 bool has_float_input,
+                                                 bool has_float_output);
 
 template void run_coreir_on_interpreter<uint8_t>(std::string coreir_design,
                                                  Halide::Runtime::Buffer<uint8_t> input,
                                                  Halide::Runtime::Buffer<uint8_t> output,
                                                  std::string input_name,
-                                                 std::string output_name);
+                                                 std::string output_name,
+                                                 bool has_float_input,
+                                                 bool has_float_output);
 
 template void run_coreir_on_interpreter<int8_t>(std::string coreir_design,
                                                 Halide::Runtime::Buffer<int8_t> input,
                                                 Halide::Runtime::Buffer<int8_t> output,
                                                 std::string input_name,
-                                                std::string output_name);
+                                                std::string output_name,
+                                                bool has_float_input,
+                                                bool has_float_output);
 
 template void run_coreir_on_interpreter<bool>(std::string coreir_design,
                                               Halide::Runtime::Buffer<bool> input,
                                               Halide::Runtime::Buffer<bool> output,
                                               std::string input_name,
-                                              std::string output_name);
+                                              std::string output_name,
+                                              bool has_float_input,
+                                              bool has_float_output);
 
