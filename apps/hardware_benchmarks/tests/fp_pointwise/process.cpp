@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
                                               {"coreir",
                                                   [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
                                                                                       "self.in_arg_0_0_0", "self.out_0_0",
-                                                                                      /*has_float_input=*/true, /*has_float_output=*/false); }
+                                                                                      /*has_float_input=*/true, /*has_float_output=*/true); }
                                               }
 
                                             });
@@ -32,6 +32,6 @@ int main(int argc, char **argv) {
 
   for (size_t i=0; i<10; ++i) {
     std::cout << "input(" << i << ",0) = " << +processor.input(i,0)
-              << "   /pi = " << +processor.output(i,0) << std::endl;
+              << "   *pi = " << +processor.output(i,0) << std::endl;
   }
 }
