@@ -6,8 +6,8 @@ using namespace Halide;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
-    Input<Buffer<uint16_t>>  input{"input", 2};
-    Output<Buffer<uint16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -27,17 +27,17 @@ public:
         kernel(4,0) = 30.f;      kernel(4,1) = 39.f;      kernel(4,2) = 32.f;      kernel(4,3) = 34.f;      kernel(4,4) = 37.f;      kernel(4,5) = 47.f;      kernel(4,6) = 57.f;
         kernel(5,0) = 40.f;      kernel(5,1) = 49.f;      kernel(5,2) = 42.f;      kernel(5,3) = 44.f;      kernel(5,4) = 47.f;      kernel(5,5) = 48.f;      kernel(5,6) = 58.f;
         kernel(6,0) = 50.f;      kernel(6,1) = 59.f;      kernel(6,2) = 52.f;      kernel(6,3) = 54.f;      kernel(6,4) = 57.f;      kernel(6,5) = 58.f;      kernel(6,6) = 54.f;
-        fp_kernel(x, y) = kernel(x, y);
+        fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
 
-        conv(x, y) = cast<float>(0);
+        conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<float>(input(x, y));
+        hw_input(x, y) = cast<bfloat16_t>(input(x, y));
         conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint16_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = conv(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y) % 256);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
