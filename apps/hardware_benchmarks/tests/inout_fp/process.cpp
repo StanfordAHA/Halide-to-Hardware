@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "fp_pointwise.h"
+#include "inout_fp.h"
 
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
@@ -11,10 +11,10 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<uint8_t> processor("fp_pointwise",
+  OneInOneOut_ProcessController<float> processor("inout_fp",
                                             {
                                               {"cpu",
-                                                  [&]() { fp_pointwise(processor.input, processor.output); }
+                                                  [&]() { inout_fp(processor.input, processor.output); }
                                               },
                                               {"coreir",
                                                   [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
@@ -24,8 +24,8 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<uint8_t>(64, 64);
-  processor.output = Buffer<uint8_t>(64, 64);
+  processor.input = Buffer<float>(64, 64);
+  processor.output = Buffer<float>(64, 64);
   
   processor.process_command(argc, argv);
 

@@ -204,7 +204,7 @@ namespace {
     void generate() {
 
       Func hw_input;
-      hw_input(x,y) = input(x,y);
+      hw_input(x,y) = input(x+3,y+3);
 
       Func denoised;
       denoised = hot_pixel_suppression(hw_input);
@@ -230,7 +230,7 @@ namespace {
       Func hw_output;
       hw_output = apply_curve(color_corrected, curve);
 
-      output(c, x, y) = hw_output(c, x, y);
+      output(x, y, c) = hw_output(c, x, y);
       hw_output.bound(c, 0, 3);
         
       /* THE SCHEDULE */
@@ -252,7 +252,7 @@ namespace {
         hw_output.unroll(c);
           
       } else {    // schedule to CPU
-        output.tile(x, y, xo, yo, xi, yi, 64, 64)
+        output.tile(x, y, xo, yo, xi, yi, 64-6, 64-6)
           .compute_root();
 
         output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);

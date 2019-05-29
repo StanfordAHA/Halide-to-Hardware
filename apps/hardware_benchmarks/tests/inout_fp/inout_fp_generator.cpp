@@ -6,8 +6,8 @@ using namespace Halide;
 
 class PointwiseKernel : public Halide::Generator<PointwiseKernel> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Input<Buffer<float>>  input{"input", 2};
+    Output<Buffer<float>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -20,12 +20,10 @@ public:
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
         Expr pi = bfloat16_t(3.1415926535f);
         product(x, y)  = hw_input(x, y) * pi;
-        //Expr const_val = bfloat16_t(7.f);
-        //product(x, y)  = select(hw_input(x, y) != const_val, 255, 0);
 
         Func hw_output("hw_output");
         hw_output(x, y) = product(x, y);
-        output(x, y) = cast<uint8_t>(hw_output(x,y));
+        output(x, y) = cast<float>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -48,4 +46,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(PointwiseKernel, fp_pointwise)
+HALIDE_REGISTER_GENERATOR(PointwiseKernel, inout_fp)

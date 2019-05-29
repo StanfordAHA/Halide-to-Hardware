@@ -113,6 +113,7 @@ int OneInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> ar
   } else {
     create_image(&input, static_cast<ImageType>(stoi(args[0])));
   }
+  std::cout << "Generated input image\n";
   save_image(input, "bin/input.png");
 
   std::cout << "Generated and saved input image\n";
