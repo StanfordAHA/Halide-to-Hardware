@@ -116,6 +116,22 @@ bool circuit_uses_valid(Module *m) {
   return uses_valid;
 }
 
+bool circuit_uses_inputenable(Module *m) {
+  bool uses_inputenable = false;
+  auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
+  for (auto wireable_pair : self_conxs) {
+    string port_name = wireable_pair.first->toString();
+    if (port_name == "self.in_en") {
+      uses_inputenable = true;
+      return uses_inputenable;
+    }
+  }
+
+  // no input enable found
+  return uses_inputenable;
+}
+
+
 template<typename T>
 void run_coreir_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<T> input,
@@ -150,6 +166,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
   // sets initial values for all inputs/outputs/clock
   bool uses_valid = reset_coreir_circuit(state, m);
+  bool uses_inputenable = circuit_uses_inputenable(m);
 
   cout << "starting coreir simulation" << endl;  
   state.resetCircuit();
@@ -161,6 +178,11 @@ void run_coreir_on_interpreter(string coreir_design,
       for (int c = 0; c < input.channels(); c++) {
 
         //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
+
+        // Set in_en to 1.
+        if (uses_inputenable) {
+          state.setValue("self.in_en", BitVector(1, true));
+        }
         
         // Set input value.
         // bitcast to int if it is a float
