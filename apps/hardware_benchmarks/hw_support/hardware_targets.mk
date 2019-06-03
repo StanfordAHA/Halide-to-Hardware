@@ -95,8 +95,15 @@ $(BIN)/input.raw: input.png
 	@-mkdir -p $(BIN)
 	$(HWSUPPORT)/steveconvert.csh input.png $(BIN)/input.raw
 
+$(BIN)/input.pgm: input.png
+	@-mkdir -p $(BIN)
+	convert input.png -depth 16 pgm:$(BIN)/input.pgm
+
 $(BIN)/%.raw: $(BIN)/%.png
 	$(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw
+
+$(BIN)/%.pgm: $(BIN)/%.png
+	convert $(BIN)/$*.png -depth 16 pgm:$(BIN)/$*.pgm
 
 run run-cpu $(BIN)/output_cpu.png: $(BIN)/process
 	@-mkdir -p $(BIN)

@@ -1,7 +1,7 @@
 #include <cstdio>
 #include "halide_image_io.h"
 
-enum ImageType {RANDOM, ASCENDING, UNIFORM};
+enum ImageType {RANDOM, ASCENDING, UNIFORM, FLOATINGPOINT};
 
 template <typename T>
 void create_image(Halide::Runtime::Buffer<T>* input,
@@ -41,6 +41,21 @@ void create_image(Halide::Runtime::Buffer<T>* input,
     }
     break;
   }
+
+  case ImageType::FLOATINGPOINT: {
+    int i = 1;
+    for (int y = 0; y < input->height(); y++) {
+      for (int x = 0; x < input->width(); x++) {
+        float number = i + bias;
+        uint16_t* pNumber = reinterpret_cast<uint16_t*>(&number);
+        //std::cout << "number " << i << ": is " << std::hex << pNumber[0] << " then " << pNumber[1] << "," << pNumber[2] << "," << pNumber[3] << std::dec << "\n";
+        (*input)(x, y) = pNumber[1];
+        i++;
+      }
+    }
+    break;
+  }
+
 
   }
 }

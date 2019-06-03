@@ -264,6 +264,14 @@ template void run_coreir_on_interpreter<float>(std::string coreir_design,
                                                bool has_float_input,
                                                bool has_float_output);
 
+template void run_coreir_on_interpreter<uint32_t>(std::string coreir_design,
+                                                  Halide::Runtime::Buffer<uint32_t> input,
+                                                  Halide::Runtime::Buffer<uint32_t> output,
+                                                  std::string input_name,
+                                                  std::string output_name,
+                                                  bool has_float_input,
+                                                  bool has_float_output);
+
 template void run_coreir_on_interpreter<uint16_t>(std::string coreir_design,
                                                   Halide::Runtime::Buffer<uint16_t> input,
                                                   Halide::Runtime::Buffer<uint16_t> output,
