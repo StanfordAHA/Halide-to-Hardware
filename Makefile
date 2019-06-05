@@ -2045,12 +2045,16 @@ $(DISTRIB_DIR)/halide.tgz: $(LIB_DIR)/libHalide.a \
 distrib: $(DISTRIB_DIR)/halide.tgz
 
 $(DISTRIB_DIR)/halide_config.make: $(BUILD_DIR)/halide_config.make
-	cp $(BUILD_DIR)/halide_config.make $(DISTRIB_DIR)
+	@-mkdir -p $(@D)
+	cp $(BUILD_DIR)/halide_config.make $(DISTRIB_DIR)/halide_config.make
 $(DISTRIB_DIR)/lib/libHalide.a: $(LIB_DIR)/libHalide.a
+	@-mkdir -p $(@D)
 	cp $(LIB_DIR)/libHalide.a $(DISTRIB_DIR)/lib
 $(DISTRIB_DIR)/include/Halide.h: $(INCLUDE_DIR)/Halide.h
+	@-mkdir -p $(@D)
 	cp $(INCLUDE_DIR)/Halide.h $(DISTRIB_DIR)/include
 $(DISTRIB_DIR)/tools/GenGen.cpp: $(ROOT_DIR)/tools/GenGen.cpp
+	@-mkdir -p $(@D)
 	cp $(ROOT_DIR)/tools/GenGen.cpp $(DISTRIB_DIR)/tools
 
 quick_distrib: $(DISTRIB_DIR)/halide_config.make $(DISTRIB_DIR)/lib/libHalide.a $(DISTRIB_DIR)/include/Halide.h $(DISTRIB_DIR)/tools/GenGen.cpp
