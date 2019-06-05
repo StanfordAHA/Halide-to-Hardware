@@ -99,13 +99,25 @@ $(BIN)/input.raw: input.png
 
 $(BIN)/input.pgm: input.png
 	@-mkdir -p $(BIN)
-	convert input.png -depth 16 pgm:$(BIN)/input.pgm
+	$(eval BITWIDTH := $(shell file input.png | grep -oP "\d+-bit" | grep -oP "\d+"))
+	$(eval CHANNELS := $(shell file input.png | grep -oP "\d+-bit.*? " | grep -oP "/.* "))
+	if [ "$(CHANNELS)" == "" ]; then \
+	  convert input.png -depth $(BITWIDTH) pgm:$(BIN)/input.pgm; \
+  else \
+	  convert input.png -depth $(BITWIDTH) ppm:$(BIN)/input.pgm;\
+  fi
 
 $(BIN)/%.raw: $(BIN)/%.png
 	$(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw
 
 $(BIN)/%.pgm: $(BIN)/%.png
-	convert $(BIN)/$*.png -depth 16 pgm:$(BIN)/$*.pgm
+	$(eval BITWIDTH := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit" | grep -oP "\d+"))
+	$(eval CHANNELS := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit.*? " | grep -oP "/.* "))
+	if [ "$(CHANNELS)" == "" ]; then \
+	  convert $(BIN)/$*.png -depth $(BITWIDTH) pgm:$(BIN)/$*.pgm; \
+  else \
+	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
+  fi
 
 run run-cpu $(BIN)/output_cpu.png: $(BIN)/process
 	@-mkdir -p $(BIN)
