@@ -17,7 +17,8 @@ public:
         Func product("product");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = reinterpret<float>(input(x, y));
+        hw_input(x, y) = cast<bfloat16_t>(reinterpret<float>((input(x, y)>>16)<<16));
+        //hw_input(x, y) = reinterpret<float>(input(x, y));
         Expr pi = bfloat16_t(3.1415926535f);
         product(x, y)  = hw_input(x, y) * pi;
 
@@ -25,7 +26,7 @@ public:
         hw_output(x, y) = product(x, y);
         //output(x, y) = cast<float>(hw_output(x,y));
         Expr output_value = cast<float>(hw_output(x,y));
-        output(x,y) =  reinterpret<uint32_t>(output_value);
+        output(x,y) =  reinterpret<uint32_t>(cast<float>(cast<bfloat16_t>(output_value)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

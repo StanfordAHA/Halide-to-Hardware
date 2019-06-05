@@ -151,6 +151,18 @@ class LowerBFloatConversions : public IRMutator {
 
     Expr float_to_bfloat(Expr e) {
         e = reinterpret(UInt(32, e.type().lanes()), e);
+
+        // round float to even
+        Expr half = UIntImm::make(UInt(32), 0x00008000);
+        Expr sum = e + half;
+        // check if bottom bits are all zero
+        Expr mantissa_mask = UIntImm::make(UInt(32), 0x0000ffff);
+        Expr zeroed = (sum & mantissa_mask) == 0; 
+        // clear last bit (round even) on tie
+        Expr clear_mask = ~(cast(UInt(32, e.type().lanes()), zeroed) << 16);
+        e = sum & clear_mask;
+
+        // clear bottom bits
         e = e >> 16;
         e = cast(UInt(16, e.type().lanes()), e);
         return e;
