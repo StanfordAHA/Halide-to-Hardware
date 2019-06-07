@@ -148,16 +148,16 @@
             "modref":"corebit.term"
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0":{
-            "genref":"memories.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",0], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64]}
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush":{
             "modref":"corebit.const",
             "modargs":{"value":["Bool",false]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0":{
-            "genref":"memories.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64]}
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush":{
             "modref":"corebit.const",
