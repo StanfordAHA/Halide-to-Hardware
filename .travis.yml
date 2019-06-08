@@ -58,6 +58,10 @@ deploy:
     secure: YejtxKjoEnOV0G1Dt6dPbHsrVJNNi2OZ71d9rIfs4B9ker3x0BO1EfLruNZNA1xhV8iAt1sNBzYJocuDqmCSB5j3aqlIfpkRil2HpHfQXbRtNPbwFCbhyBwVbExgXJom9GVip6+flkBMKDl7kXQg36q8f6rN9ldckp8r0SoSKVZN5kyO8NT1AKpjR+fAqzOmES6D3bvabjDWJzaFcP5WFR+ho/ISmcZwr/SpC51NUqtOvIPDlz2OYW/cMvqJrYyoJOtz9nocJuqhi26mN+i3ZMa8EUGl4MFHkiMapV4pLiOaI9OJCmj5xAjiMYUWVHAAyA2yE9jEE5nGl75qll3DQcP3LYxYfcPUlmcuBVTR0Tyx+JQ9qyLfNjGZD3PZK+s5mrN1ja9vzGv3D2Ry0HxZx+sxeoMmIWCDcRPGayhEHwBFKPj8OhCkcwYx/UJFAbnhDSmhgtU4Fq3MQJhGlK/OkP4+sm4WJvSDNdlWnFoU2CPi+mx2ht5DJpj/b55/T0t9t1eZeiAJzroMXeHvMb3/I/ro7BjIpLrfNwhHfYmyX+45RmhoiWGXnwIxy1SBVUSmxNVtdcOmxfGmig2ZR4Nb/l3GCPpyiGwfhiFvKnK2lyFoe9EBpssWbZwiDHSi9QRLK0VmSzrai2BVNE+GPld2thWZLZJEVC3OpEb+MP/ICE0=
   file: halide_distrib.tgz
   skip_cleanup: true
+  on:
+    all_branches: true
+    tags: true
+
 
 before_script:
   # create Halide compiler
