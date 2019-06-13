@@ -209,7 +209,7 @@ void run_coreir_on_interpreter(string coreir_design,
             T output_value;
             if (has_float_output) {
               float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-              std::cout << "read out float: " << output_float << " ";
+              //std::cout << "read out float: " << output_float << " ";
               output_value = static_cast<T>(output_float);
             } else {
               output_value = output_bv.to_type<T>();
@@ -217,7 +217,7 @@ void run_coreir_on_interpreter(string coreir_design,
             
             coreir_img_writer.write(output_value);
             
-            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
           }
         } else {
           //if (std::is_floating_point<T>::value) {
@@ -239,7 +239,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
           output(x,y,c) = output_value;
             
-          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
         }
         
         // give another rising edge (execute seq)
