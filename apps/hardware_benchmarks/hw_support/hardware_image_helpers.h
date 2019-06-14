@@ -1,7 +1,7 @@
 #include <cstdio>
 #include "halide_image_io.h"
 
-enum ImageType {RANDOM, ASCENDING, UNIFORM, FLOATINGPOINT};
+enum ImageType {RANDOM, ASCENDING, UNIFORM, DIAGONAL, FLOATINGPOINT};
 
 template <typename T>
 void create_image(Halide::Runtime::Buffer<T>* input,
@@ -42,6 +42,15 @@ void create_image(Halide::Runtime::Buffer<T>* input,
     break;
   }
 
+  case ImageType::DIAGONAL: {
+    for (int y = 0; y < input->height(); y++) {
+      for (int x = 0; x < input->width(); x++) {
+        (*input)(x, y) = x + y;
+      }
+    }
+    break;
+  }
+    
   case ImageType::FLOATINGPOINT: {
     int i = 1;
     for (int y = 0; y < input->height(); y++) {
