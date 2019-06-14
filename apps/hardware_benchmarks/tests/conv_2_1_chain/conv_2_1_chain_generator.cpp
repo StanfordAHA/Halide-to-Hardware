@@ -40,7 +40,7 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 640, 10-1)
+          hw_output.tile(x,y, xo,yo, xi,yi, 650, 10-1)
             .hw_accelerate(xi, xo);
 
           conv.update()
