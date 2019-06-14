@@ -46,6 +46,11 @@ $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSU
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 
+$(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
+	@-mkdir -p $(HWSUPPORT)/$(BIN)
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
+
 .PHONY: generator
 generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DEPS)
 	@-mkdir -p $(BIN)
@@ -88,6 +93,15 @@ $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_pr
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process image
+
+image-ascending: $(BIN)/process
+	@-mkdir -p $(BIN)
+	$(BIN)/process image 1
+
+image-float: $(BIN)/process
+	@-mkdir -p $(BIN)
+	$(BIN)/process image 3
+
 
 $(BIN)/input.png: input.png
 	@-mkdir -p $(BIN)
