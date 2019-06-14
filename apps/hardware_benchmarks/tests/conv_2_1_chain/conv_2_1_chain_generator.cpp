@@ -21,7 +21,7 @@ public:
 
         kernel(x,y) = 0;
         kernel(0,0) = 1;
-        kernel(0,1) = 1;
+        kernel(0,1) = 3;
 
         conv(x, y) = 0;
 
