@@ -5,7 +5,13 @@ USE_COREIR_VALID ?= 1
 
 include ../../hw_support/hardware_targets.mk
 
-# these files are handcrafted, so don't delete them
+.PHONY: graph.png
+graph.png: design_top.txt
+	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
+
+design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top.json $(BIN)/design_top.txt
+
 clean:
 	mv -t . bin/design_top.json bin/output_cpu.png
 	rm bin/*

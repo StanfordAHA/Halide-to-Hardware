@@ -5,21 +5,19 @@
 using namespace std;
 using namespace CoreIR;
 
-void run_coreir_on_interpreter(std::string coreir_design_filename,
-                               std::string output_dot_filename) {
+void coreir_to_dot(std::string coreir_design_filename,
+                   std::string output_dot_filename) {
   // New context for coreir test
   Context* context = newContext();
   Namespace* g = context->getGlobal();
 
   CoreIRLoadLibrary_commonlib(context);
   CoreIRLoadLibrary_float(context);
-  if (!loadFromFile(context, coreir_design)) {
-    cout << "Could not load " << coreir_design
+  if (!loadFromFile(context, coreir_design_filename)) {
+    cout << "Could not load " << coreir_design_filename
          << " from json!!" << endl;
     context->die();
   }
-
-  context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
   Module* design = g->getModule("DesignTop");
   assert(design != nullptr);
@@ -28,6 +26,16 @@ void run_coreir_on_interpreter(std::string coreir_design_filename,
     cout << "Could not save to dot!!" << endl;
     context->die();
   }
+}
 
+int main(int argc, char **argv) {
+  if (argc != 3) {
+    cout << "Usage:\n"
+         << "  coreir_to_dot [design].json [design].txt"
+         << endl;
+    return 1;
+  }
 
+  coreir_to_dot(argv[1], argv[2]);
+  return 0;
 }

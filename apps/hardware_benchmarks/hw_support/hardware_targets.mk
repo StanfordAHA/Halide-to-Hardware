@@ -46,10 +46,10 @@ $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSU
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 
-$(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
+coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot $< $(LDFLAGS)
 
 .PHONY: generator
 generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DEPS)
@@ -61,12 +61,15 @@ design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
 
-design-coreir $(BIN)/design_top.json $(BIN)/design_top.txt: $(BIN)/$(TESTNAME).generator
+design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
 	 make design-coreir-valid; \
 	else \
 	 make design-coreir-no_valid; \
 	fi
+
+$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top.json $(BIN)/design_top.txt
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
@@ -194,7 +197,9 @@ check:
 
 $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
-graph graph.png: $(BIN)/graph.png
+graph.png:
+	$(MAKE) $(BIN)/graph.png
+graph: $(BIN)/graph.png
 
 clean:
 	rm -rf $(BIN)
