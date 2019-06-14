@@ -61,7 +61,8 @@ design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
 
-design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
+design-coreir $(BIN)/design_top.json:
+	$(MAKE) $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
 	 make design-coreir-valid; \
 	else \
@@ -136,7 +137,8 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.png: $(BIN)/process
+run run-cpu $(BIN)/output_cpu.png:
+	$(MAKE) $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
 
@@ -197,9 +199,8 @@ check:
 
 $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
-graph.png:
+graph.png graph:
 	$(MAKE) $(BIN)/graph.png
-graph: $(BIN)/graph.png
 
 clean:
 	rm -rf $(BIN)
