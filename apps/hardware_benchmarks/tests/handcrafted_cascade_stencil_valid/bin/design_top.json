@@ -316,7 +316,7 @@
           },
           "s2_lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",62], "rate_matched":["Bool",true], "stencil_width":["Int",0], "iter_cnt":["Int",62], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",62], "rate_matched":["Bool",true], "stencil_width":["Int",0], "iter_cnt":["Int",62], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",62], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "s2_lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush":{
             "modref":"corebit.const",
@@ -324,7 +324,7 @@
           },
           "s2_lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",62], "rate_matched":["Bool",true], "stencil_width":["Int",3], "iter_cnt":["Int",62], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",62], "rate_matched":["Bool",true], "stencil_width":["Int",3], "iter_cnt":["Int",62], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",62], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "s2_lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush":{
             "modref":"corebit.const",
