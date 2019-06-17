@@ -147,7 +147,7 @@
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0":{
             "genref":"memory.rowbuffer_stencil_valid",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "stencil_width":["Int",2]}
+            "genargs":{"width":["Int",16], "depth":["Int",64], "stencil_width":["Int",3]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush":{
             "modref":"corebit.const",
@@ -248,7 +248,8 @@
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.flush"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.flush"],
           ["mul_300_302_303.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.rdata"],
-          ["self.in_arg_0_0_0","mul_336_338_339.in1"]
+          ["self.in_arg_0_0_0","mul_336_338_339.in1"],
+          ["self.valid","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.valid"]
         ]
       }
     }
