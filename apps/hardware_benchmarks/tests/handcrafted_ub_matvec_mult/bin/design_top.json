@@ -41,7 +41,7 @@
           },
           "ub_weight_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",0], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",524288], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",1024], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[2,5]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",0], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",524288], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",1024], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[3,6]}]}
           },
           "ub_weight_1_flush":{
             "modref":"corebit.const",
@@ -58,7 +58,7 @@
           },
           "ub_weight_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",0], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",524288], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",1024], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[3,6]}]}
+              "genargs":{"width":["Int",16], "depth":["Int",0], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",524288], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",1024], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[2,5]}]}
           },
           "ub_weight_2_flush":{
             "modref":"corebit.const",
