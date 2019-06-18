@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     output(0, y) = input(0, y) * weights(0, y) + input(1, y) * weights(1, y) + input(2, y) * weights(2, y) + input(3, y) * weights(3, y);
     output(1, y) = input(0, y) * weights(4, y) + input(1, y) * weights(5, y) + input(2, y) * weights(6, y) + input(3, y) * weights(7, y);
     output(2, y) = input(4, y) * weights(0, y) + input(5, y) * weights(1, y) + input(6, y) * weights(2, y) + input(7, y) * weights(3, y);
-    output(3, y) = input(5, y) * weights(4, y) + input(5, y) * weights(5, y) + input(6, y) * weights(6, y) + input(7, y) * weights(7, y);
+    output(3, y) = input(4, y) * weights(4, y) + input(5, y) * weights(5, y) + input(6, y) * weights(6, y) + input(7, y) * weights(7, y);
   }
   std::cout << "created output buffer\n";
 

@@ -49,7 +49,7 @@
           },
           "ub_output":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",0], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_flush":{
             "modref":"corebit.const",
@@ -73,19 +73,19 @@
           },
           "output_fsm":{
             "genref":"commonlib.counter",
-            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",3], "inc":["Int",1]}
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",8], "inc":["Int",1]}
           },
           "init_phase_value":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+            "modargs":{"value":[["BitVector",16],"16'h0004"]}
           },
           "output_datain_mux":{
             "genref":"coreir.mux",
             "genargs":{"width":["Int",16]}
           },
           "init_phase_selector":{
-            "genref":"coreir.neq",
+            "genref":"coreir.lt",
             "genargs":{"width":["Int",16]}
           },
           "output_valid_mux":{
@@ -129,8 +129,8 @@
             ["mul_w1_i1.out","add_out.in1"],
             ["add_out_accum.in0","add_out.out"],
             ["add_out_accum.in1","ub_output.dataout"],
-            ["add_out_accum.out","output_datain_mux.in1"],
-            ["output_bias.out","output_datain_mux.in0"],
+            ["add_out_accum.out","output_datain_mux.in0"],
+            ["output_bias.out","output_datain_mux.in1"],
             ["ub_output.datain","output_datain_mux.out"],
             ["output_fsm.out","init_phase_selector.in0"],
             ["init_phase_value.out","init_phase_selector.in1"],
@@ -138,8 +138,8 @@
             ["output_fsm.reset","self.reset"],
             ["ub_input_0.valid","output_fsm.en"],
             ["ub_output.dataout","self.out_0_0"],
-            ["ub_output.valid","output_valid_mux.in0"],
-            ["invalid_bit.out","output_valid_mux.in1"],
+            ["ub_output.valid","output_valid_mux.in1"],
+            ["invalid_bit.out","output_valid_mux.in0"],
             ["output_valid_mux.sel","init_phase_selector.out"],
             ["output_valid_mux.out","self.valid"]
         ]
