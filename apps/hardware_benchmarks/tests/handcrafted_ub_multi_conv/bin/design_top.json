@@ -66,10 +66,6 @@
             "modref":"corebit.const",
             "modargs":{"value":["Bool",false]}
           },
-          "valid_bit":{
-            "modref":"corebit.const",
-            "modargs":{"value":["Bool",true]}
-          },
           "output_bias":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
@@ -82,9 +78,9 @@
             ["ub_input_flush.out","ub_input.flush"],
             ["ub_weight_flush.out","ub_weight.flush"],
             ["self.in_en","ub_input.wen"],
-            ["init_phase_selector.out","ub_input.ren"],
-            ["self.in_en","ub_weight.wen"],
-            ["init_phase_selector.out","ub_weight.ren"],
+            ["self.in_en","ub_input.ren"],
+            ["ub_input.valid","ub_weight.wen"],
+            ["ub_input.valid","ub_weight.ren"],
             ["multiply.in0","ub_weight.dataout"],
             ["multiply.in1","ub_input.dataout"],
             ["add_out_accum.in0","multiply.out"],
@@ -99,7 +95,7 @@
             ["ub_input.valid","output_fsm.en"],
             ["output_reg.out","self.out_0_0"],
             ["invalid_bit.out","output_valid_mux.in1"],
-            ["valid_bit.out","output_valid_mux.in0"],
+            ["ub_input.valid","output_valid_mux.in0"],
             ["output_valid_mux.sel","init_phase_selector.out"],
             ["output_valid_mux.out","self.valid"]
         ]
