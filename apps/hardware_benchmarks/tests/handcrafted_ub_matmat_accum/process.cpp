@@ -9,32 +9,34 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<uint8_t> processor("handcrafted_ub_matvec_mult",
-                                            {
-                                              {"cpu",
-                                                  [&]() {  }
-                                              },
-                                              {"coreir",
-                                                  [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
-                                                                                      "self.in_arg_0_0_0", "self.out_0_0"); }
-                                              }
-
-                                            });
-
-  processor.input = Buffer<uint8_t>(2, 256);
-  processor.output = Buffer<uint8_t>(4, 256);
-  auto input = processor.input;
-  auto output = processor.output;
-  
-  processor.process_command(argc, argv);
+  auto input   = Buffer<uint16_t>(8, 256);
+  auto weights = Buffer<uint16_t>(8, 256);
+  auto output  = Buffer<uint16_t>(4, 256);
 
   for (int y = 0; y < input.height(); y++) {
-    output(0, y) = input(0, y) * 1 + input(1, y) * 3;
-    output(1, y) = input(0, y) * 2 + input(1, y) * 4;
-    output(2, y) = input(0, y) * 3 + input(1, y) * 6;
-    output(3, y) = input(0, y) * 5 + input(1, y) * 2;
+    for (int x = 0; x < input.width(); x++) {
+      input(x, y) = (1 + x + 2*y) % 70;
+    }
   }
-
-  save_image(output, "bin/output_cpu.png");
+  std::cout << "created input buffer\n";
   
+  for (int y = 0; y < weights.height(); y++) {
+    for (int x = 0; x < weights.width(); x++) {
+      weights(x, y) = (1 + x + y);
+    }
+  }
+  std::cout << "created weights buffer\n";
+    
+  for (int y = 0; y < output.height(); y++) {
+    output(0, y) = input(0, y) * weights(0, y) + input(1, y) * weights(1, y) + input(2, y) * weights(2, y) + input(3, y) * weights(3, y);
+    output(1, y) = input(0, y) * weights(4, y) + input(1, y) * weights(5, y) + input(2, y) * weights(6, y) + input(3, y) * weights(7, y);
+    output(2, y) = input(4, y) * weights(0, y) + input(5, y) * weights(1, y) + input(6, y) * weights(2, y) + input(7, y) * weights(3, y);
+    output(3, y) = input(5, y) * weights(4, y) + input(5, y) * weights(5, y) + input(6, y) * weights(6, y) + input(7, y) * weights(7, y);
+  }
+  std::cout << "created output buffer\n";
+
+  save_image(input,   "bin/input.png");
+  save_image(weights, "bin/weights.png");
+  save_image(output,  "bin/output_cpu.png");
+  return 0;
 }
