@@ -44,7 +44,7 @@
           },
           "output_fsm":{
             "genref":"commonlib.counter",
-            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",9], "inc":["Int",1]}
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",8], "inc":["Int",1]}
           },
           "init_phase_value":{
             "genref":"coreir.const",
@@ -60,6 +60,12 @@
             "genargs":{"width":["Int",16]}
           },
           "output_valid_mux":{
+            "modref":"corebit.mux"
+          },
+          "output_delay_reg":{
+              "modref":"corebit.reg"
+          },
+          "output_delay_enmux":{
             "modref":"corebit.mux"
           },
           "invalid_bit":{
@@ -95,8 +101,12 @@
             ["ub_input.valid","output_fsm.en"],
             ["output_reg.out","self.out_0_0"],
             ["invalid_bit.out","output_valid_mux.in1"],
-            ["ub_input.valid","output_valid_mux.in0"],
+            ["output_delay_reg.out","output_valid_mux.in0"],
             ["output_valid_mux.sel","init_phase_selector.out"],
+            ["output_delay_reg.in","output_delay_enmux.out"],
+            ["output_delay_reg.out","output_delay_enmux.in0"],
+            ["ub_input.valid","output_delay_enmux.in1"],
+            ["init_phase_selector.out","output_delay_enmux.sel"],
             ["output_valid_mux.out","self.valid"]
         ]
       }
