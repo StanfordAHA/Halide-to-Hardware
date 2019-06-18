@@ -6,6 +6,7 @@
         "type":["Record",[
           ["clk",["Named","coreir.clkIn"]],
           ["in_arg_0_0_0",["Array",16,"BitIn"]],
+          ["in_arg_0_0_1",["Array",16,"BitIn"]],
           ["in_en","BitIn"],
           ["out_0_0",["Array",16,"Bit"]],
           ["reset","BitIn"],
@@ -77,6 +78,7 @@
         },
         "connections":[
             ["self.in_arg_0_0_0","ub_input.datain"],
+            ["self.in_arg_0_0_1","ub_weight.datain"],
             ["ub_input_flush.out","ub_input.flush"],
             ["ub_weight_flush.out","ub_weight.flush"],
             ["self.in_en","ub_input.wen"],
