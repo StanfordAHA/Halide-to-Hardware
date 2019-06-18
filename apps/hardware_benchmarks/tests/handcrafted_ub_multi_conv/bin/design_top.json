@@ -23,7 +23,7 @@
           },
           "ub_input":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4096], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",36864], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",3], "stride_1":["Int",64], "range_1":["Int",3], "stride_2":["Int",1], "range_2":["Int",4096], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",256], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1764], "dimensionality":["Int",4], "stride_0":["Int",1], "range_0":["Int",3], "stride_1":["Int",16], "range_1":["Int",3], "stride_2":["Int",1], "range_2":["Int",14], "stride_3":["Int",16], "range_3":["Int",14], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_flush":{
             "modref":"corebit.const",
@@ -44,7 +44,7 @@
           },
           "output_fsm":{
             "genref":"commonlib.counter",
-            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",3], "inc":["Int",1]}
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",9], "inc":["Int",1]}
           },
           "init_phase_value":{
             "genref":"coreir.const",
