@@ -102,7 +102,7 @@
 
           ["self.in_en","ub_output.ren"],
           ["self.in_en","ub_input.ren"],
-          ["self.in_en","ub_weight.ren"],
+          ["ub_input.valid","ub_weight.ren"],
 
           ["mul.in0","ub_weight.dataout"],
           ["mul.in1","ub_input.dataout"],
