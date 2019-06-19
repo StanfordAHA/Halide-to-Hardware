@@ -13,9 +13,12 @@ int main(int argc, char **argv) {
   auto weights = Buffer<uint8_t>(4, 4);
   auto output  = Buffer<uint8_t>(4, 4);
 
+  auto interleaved = Buffer<uint8_t>(8, 4);
+
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       input(x, y) = (1 + x + 2*y) % 70;
+      interleaved(2 * x, y) = input(x, y);
     }
   }
   std::cout << "created input buffer\n";
@@ -23,6 +26,7 @@ int main(int argc, char **argv) {
   for (int y = 0; y < weights.height(); y++) {
     for (int x = 0; x < weights.width(); x++) {
       weights(x, y) = (1 + x + y);
+      interleaved(2 * x + 1, y) = weights(x, y);
     }
   }
   std::cout << "created weights buffer\n";
@@ -38,5 +42,6 @@ int main(int argc, char **argv) {
   save_image(input,   "bin/input.png");
   save_image(weights, "bin/weights.png");
   save_image(output,  "bin/output_cpu.png");
+  save_image(interleaved, "interleaved.png");
   return 0;
 }
