@@ -9,9 +9,9 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  auto input   = Buffer<uint16_t>(4, 4);
-  auto weights = Buffer<uint16_t>(4, 4);
-  auto output  = Buffer<uint16_t>(4, 4);
+  auto input   = Buffer<uint8_t>(4, 4);
+  auto weights = Buffer<uint8_t>(4, 4);
+  auto output  = Buffer<uint8_t>(4, 4);
 
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
