@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
   // weights are transposed
   for (int y = 0; y < output.height(); y++) {
       for (int x = 0; x < output.width(); x++) {
-          output(x, y) = input(x, 0) * weights(y, 0) + input(x, 1) * weights(y, 1) + input(x, 2) * weights(y, 2) + input(x, 3) + input(y, 3);
+          output(x, y) = input(x, 0) * weights(y, 0) + input(x, 1) * weights(y, 1) + input(x, 2) * weights(y, 2) + input(x, 3) * weights(y, 3);
       }
   }
   std::cout << "created output buffer\n";
