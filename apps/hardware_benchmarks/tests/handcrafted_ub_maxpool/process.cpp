@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
   
   for (int y = 0; y < output.height(); y++) {
       for (int x = 0; x < output.width(); x++) {
-          output(x,y) = std::max(std::max(input(x,y), input(x+1,y)), std::max(input(x,y+1),input(x+1,y+1)));
+          output(x,y) = std::max(std::max(input(2*x,2*y), input(2*x+1,2*y)), std::max(input(2*x,2*y+1),input(2*x+1,2*y+1)));
       }
   }
   std::cout << "created output buffer\n";
