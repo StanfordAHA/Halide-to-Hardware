@@ -116,10 +116,6 @@
             "genref":"commonlib.counter",
             "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",1], "inc":["Int",1]}
           },
-          "which_buffer_counter":{
-            "genref":"commonlib.counter",
-            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",1], "inc":["Int",1]}
-          },
           "counter":{
             "genref":"commonlib.counter",
             "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",7], "inc":["Int",1]}
@@ -147,7 +143,7 @@
           "init_phase_value":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+            "modargs":{"value":[["BitVector",16],"16'h0004"]}
           },
           "output_phase_value":{
             "genref":"coreir.const",
@@ -227,9 +223,9 @@
           ["ub_output_1_0_flush.out","ub_output_1_0.flush"],
           ["ub_output_1_1_flush.out","ub_output_1_1.flush"],
 
-          ["input_counter_eq_0.in0","which_buffer_counter.out"],
+          ["input_counter_eq_0.in0","input_counter.out"],
           ["input_counter_eq_0.in1","input_0_value.out"],
-          ["input_counter_eq_1.in0","which_buffer_counter.out"],
+          ["input_counter_eq_1.in0","input_counter.out"],
           ["input_counter_eq_1.in1","input_1_value.out"],
 
           ["input_valid_0_mux.in0","invalid_bit.out"],
@@ -244,8 +240,6 @@
           ["input_counter_reset_mux.sel","counter.overflow"],
           ["input_counter_reset_mux.out","input_counter.reset"],
           ["input_counter.en","self.in_en"],
-          ["which_buffer_counter.reset","input_counter_reset_mux.out"],
-          ["which_buffer_counter.en","input_counter.overflow"],
 
           ["input_valid_0_mux.out","ub_input_0.wen"],
           ["input_valid_1_mux.out","ub_input_1.wen"],
