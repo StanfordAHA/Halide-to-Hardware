@@ -379,7 +379,7 @@
           "init_phase_value":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+            "modargs":{"value":[["BitVector",16],"16'h0010"]}
           },
           "output_phase_value":{
             "genref":"coreir.const",
