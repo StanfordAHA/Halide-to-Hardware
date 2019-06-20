@@ -541,15 +541,6 @@
           },
           "output_0_valid_mux":{
             "modref":"corebit.mux"
-          },
-          "output_1_valid_mux":{
-            "modref":"corebit.mux"
-          },
-          "output_2_valid_mux":{
-            "modref":"corebit.mux"
-          },
-          "output_3_valid_mux":{
-            "modref":"corebit.mux"
           }
         },
         "connections":[
@@ -845,15 +836,6 @@
           ["output_0_valid_mux.in0","ub_output_0_0.valid"],
           ["output_0_valid_mux.in1","invalid_bit.out"],
           ["output_0_valid_mux.sel","output_phase_selector.out"],
-          ["output_1_valid_mux.in0","ub_output_0_1.valid"],
-          ["output_1_valid_mux.in1","invalid_bit.out"],
-          ["output_1_valid_mux.sel","output_phase_selector.out"],
-          ["output_2_valid_mux.in0","ub_output_0_2.valid"],
-          ["output_2_valid_mux.in1","invalid_bit.out"],
-          ["output_2_valid_mux.sel","output_phase_selector.out"],
-          ["output_3_valid_mux.in0","ub_output_0_3.valid"],
-          ["output_3_valid_mux.in1","invalid_bit.out"],
-          ["output_3_valid_mux.sel","output_phase_selector.out"],
           ["self.valid","output_0_valid_mux.out"],
 
           ["self.out_0_0","ub_output_0_0.dataout"],
