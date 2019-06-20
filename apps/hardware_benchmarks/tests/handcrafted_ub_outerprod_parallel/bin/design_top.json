@@ -7,19 +7,18 @@
           ["clk",["Named","coreir.clkIn"]],
           ["in_arg_0_0_0",["Array",16,"BitIn"]],
           ["in_arg_0_0_1",["Array",16,"BitIn"]],
-          ["in_arg_0_0_2",["Array",16,"BitIn"]],
-          ["in_arg_0_0_3",["Array",16,"BitIn"]],
-          ["in_arg_0_0_4",["Array",16,"BitIn"]],
           ["in_en","BitIn"],
           ["out_0_0",["Array",16,"Bit"]],
           ["out_0_1",["Array",16,"Bit"]],
+          ["out_0_2",["Array",16,"Bit"]],
+          ["out_0_3",["Array",16,"Bit"]],
           ["reset","BitIn"],
           ["valid","Bit"]
         ]],
         "instances":{
           "ub_weight_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_weight_0_flush":{
             "modref":"corebit.const",
@@ -27,7 +26,7 @@
           },
           "ub_weight_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_weight_1_flush":{
             "modref":"corebit.const",
@@ -35,7 +34,7 @@
           },
           "ub_weight_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_weight_2_flush":{
             "modref":"corebit.const",
@@ -43,7 +42,7 @@
           },
           "ub_weight_3":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_weight_3_flush":{
             "modref":"corebit.const",
@@ -51,7 +50,7 @@
           },
           "ub_input_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",2], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_0_flush":{
             "modref":"corebit.const",
@@ -59,7 +58,7 @@
           },
           "ub_input_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_1_flush":{
             "modref":"corebit.const",
@@ -67,7 +66,7 @@
           },
           "ub_input_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",2], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_2_flush":{
             "modref":"corebit.const",
@@ -75,7 +74,7 @@
           },
           "ub_input_3":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",8], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",2], "stride_2":["Int",1], "range_2":["Int",2], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",4], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_3_flush":{
             "modref":"corebit.const",
@@ -83,7 +82,7 @@
           },
           "ub_output_0_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_0_0_flush":{
             "modref":"corebit.const",
@@ -91,7 +90,7 @@
           },
           "ub_output_0_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_0_1_flush":{
             "modref":"corebit.const",
@@ -99,7 +98,7 @@
           },
           "ub_output_0_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_0_2_flush":{
             "modref":"corebit.const",
@@ -107,7 +106,7 @@
           },
           "ub_output_0_3":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_0_3_flush":{
             "modref":"corebit.const",
@@ -115,7 +114,7 @@
           },
           "ub_output_1_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_1_0_flush":{
             "modref":"corebit.const",
@@ -123,7 +122,7 @@
           },
           "ub_output_1_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_1_1_flush":{
             "modref":"corebit.const",
@@ -131,7 +130,7 @@
           },
           "ub_output_1_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_1_2_flush":{
             "modref":"corebit.const",
@@ -139,7 +138,7 @@
           },
           "ub_output_1_3":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_1_3_flush":{
             "modref":"corebit.const",
@@ -147,7 +146,7 @@
           },
           "ub_output_2_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_2_0_flush":{
             "modref":"corebit.const",
@@ -155,7 +154,7 @@
           },
           "ub_output_2_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_2_1_flush":{
             "modref":"corebit.const",
@@ -163,7 +162,7 @@
           },
           "ub_output_2_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_2_2_flush":{
             "modref":"corebit.const",
@@ -171,7 +170,7 @@
           },
           "ub_output_2_3":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_2_3_flush":{
             "modref":"corebit.const",
@@ -179,7 +178,7 @@
           },
           "ub_output_3_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_3_0_flush":{
             "modref":"corebit.const",
@@ -187,7 +186,7 @@
           },
           "ub_output_3_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_3_1_flush":{
             "modref":"corebit.const",
@@ -195,7 +194,7 @@
           },
           "ub_output_3_2":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_3_2_flush":{
             "modref":"corebit.const",
@@ -203,211 +202,663 @@
           },
           "ub_output_3_3":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",4], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",4], "dimensionality":["Int",3], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",256], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_3_3_flush":{
             "modref":"corebit.const",
             "modargs":{"value":["Bool",false]}
           },
-          "mul_w0_i0":{
+
+          "mul_0_0":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w0_i1":{
+          "add_0_0":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_0_1":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w0_i2":{
+          "add_0_1":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_0_2":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w0_i3":{
+          "add_0_2":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_0_3":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w1_i0":{
+          "add_0_3":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_1_0":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w1_i1":{
+          "add_1_0":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_1_1":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w1_i2":{
+          "add_1_1":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_1_2":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w1_i3":{
+          "add_1_2":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_1_3":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w2_i0":{
+          "add_1_3":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_2_0":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w2_i1":{
+          "add_2_0":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_2_1":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w2_i2":{
+          "add_2_1":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_2_2":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w2_i3":{
+          "add_2_2":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_2_3":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w3_i0":{
+          "add_2_3":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_3_0":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w3_i1":{
+          "add_3_0":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_3_1":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w3_i2":{
+          "add_3_1":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_3_2":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_w3_i3":{
+          "add_3_2":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_3_3":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "add_w0_i0":{
+          "add_3_3":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_w0_i1":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w0_i2":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w0_i3":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w1_i0":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w1_i1":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w1_i2":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w1_i3":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w2_i0":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w2_i1":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w2_i2":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w2_i3":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w3_i0":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w3_i1":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w3_i2":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "add_w3_i3":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "output_fsm":{
+
+          "input_counter":{
             "genref":"commonlib.counter",
             "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",3], "inc":["Int",1]}
+          },
+          "counter":{
+            "genref":"commonlib.counter",
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",7], "inc":["Int",1]}
+          },
+
+          "invalid_bit":{
+            "modref":"corebit.const",
+            "modargs":{"value":["Bool",false]}
+          },
+          "init_output_value":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "input_0_value":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "input_1_value":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0001"]}
+          },
+          "input_2_value":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0002"]}
+          },
+          "input_3_value":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0003"]}
           },
           "init_phase_value":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           },
-          "output_datain_mux":{
+          "output_phase_value":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0004"]}
+          },
+
+          "init_phase_selector":{
+            "genref":"coreir.eq",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_phase_selector":{
+            "genref":"coreir.ult",
+            "genargs":{"width":["Int",16]}
+          },
+          "input_counter_eq_0":{
+            "genref":"coreir.eq",
+            "genargs":{"width":["Int",16]}
+          },
+          "input_counter_eq_1":{
+            "genref":"coreir.eq",
+            "genargs":{"width":["Int",16]}
+          },
+          "input_counter_eq_2":{
+            "genref":"coreir.eq",
+            "genargs":{"width":["Int",16]}
+          },
+          "input_counter_eq_3":{
+            "genref":"coreir.eq",
+            "genargs":{"width":["Int",16]}
+          },
+
+          "input_counter_reset_mux":{
+            "modref":"corebit.mux"
+          },
+          "input_valid_0_mux":{
+            "modref":"corebit.mux"
+          },
+          "input_valid_1_mux":{
+            "modref":"corebit.mux"
+          },
+          "input_valid_2_mux":{
+            "modref":"corebit.mux"
+          },
+          "input_valid_3_mux":{
+            "modref":"corebit.mux"
+          },
+          "accum_value_0_0_mux":{
             "genref":"coreir.mux",
             "genargs":{"width":["Int",16]}
           },
-          "init_phase_selector":{
-            "genref":"coreir.neq",
+          "accum_value_0_1_mux":{
+            "genref":"coreir.mux",
             "genargs":{"width":["Int",16]}
           },
-          "output_valid_mux":{
+          "accum_value_0_2_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_0_3_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_1_0_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_1_1_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_1_2_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_1_3_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_2_0_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_2_1_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_2_2_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_2_3_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_3_0_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_3_1_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_3_2_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "accum_value_3_3_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_0_0_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_0_1_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_0_2_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_0_3_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_1_0_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_1_1_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_1_2_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_1_3_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_2_0_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_2_1_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_2_2_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_2_3_datain_mux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "output_0_valid_mux":{
             "modref":"corebit.mux"
           },
-          "invalid_bit":{
-            "modref":"corebit.const",
-            "modargs":{"value":["Bool",false]}
+          "output_1_valid_mux":{
+            "modref":"corebit.mux"
           },
-          "output_bias":{
-            "genref":"coreir.const",
-            "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          "output_2_valid_mux":{
+            "modref":"corebit.mux"
+          },
+          "output_3_valid_mux":{
+            "modref":"corebit.mux"
           }
         },
         "connections":[
-            ["self.in_arg_0_0_0","ub_input_0.datain"],
-            ["self.in_arg_0_0_1","ub_input_1.datain"],
-            ["self.in_arg_0_0_2","ub_weight_0.datain"],
-            ["self.in_arg_0_0_3","ub_weight_1.datain"],
-            ["ub_input_0_flush.out","ub_input_0.flush"],
-            ["ub_input_1_flush.out","ub_input_1.flush"],
-            ["ub_weight_0_flush.out","ub_weight_0.flush"],
-            ["ub_weight_1_flush.out","ub_weight_1.flush"],
-            ["ub_output_flush.out","ub_output.flush"],
-            ["self.in_en","ub_output.wen"],
-            ["init_phase_selector.out","ub_output.ren"],
-            ["self.in_en","ub_input_0.wen"],
-            ["init_phase_selector.out","ub_input_0.ren"],
-            ["self.in_en","ub_input_1.wen"],
-            ["init_phase_selector.out","ub_input_1.ren"],
-            ["self.in_en","ub_weight_0.wen"],
-            ["init_phase_selector.out","ub_weight_0.ren"],
-            ["self.in_en","ub_weight_1.wen"],
-            ["init_phase_selector.out","ub_weight_1.ren"],
-            ["mul_w0_i0.in0","ub_weight_0.dataout"],
-            ["mul_w1_i1.in0","ub_weight_1.dataout"],
-            ["mul_w0_i0.in1","ub_input_0.dataout"],
-            ["mul_w1_i1.in1","ub_input_1.dataout"],
-            ["mul_w0_i0.out","add_out.in0"],
-            ["mul_w1_i1.out","add_out.in1"],
-            ["add_out_accum.in0","add_out.out"],
-            ["add_out_accum.in1","ub_output.dataout"],
-            ["add_out_accum.out","output_datain_mux.in1"],
-            ["output_bias.out","output_datain_mux.in0"],
-            ["ub_output.datain","output_datain_mux.out"],
-            ["output_fsm.out","init_phase_selector.in0"],
-            ["init_phase_value.out","init_phase_selector.in1"],
-            ["output_datain_mux.sel","init_phase_selector.out"],
-            ["output_fsm.reset","self.reset"],
-            ["ub_input_0.valid","output_fsm.en"],
-            ["ub_output.dataout","self.out_0_0"],
-            ["ub_output.valid","output_valid_mux.in0"],
-            ["invalid_bit.out","output_valid_mux.in1"],
-            ["output_valid_mux.sel","init_phase_selector.out"],
-            ["output_valid_mux.out","self.valid"]
+          ["self.in_arg_0_0_0","ub_input_0.datain"],
+          ["self.in_arg_0_0_1","ub_weight_0.datain"],
+          ["self.in_arg_0_0_0","ub_input_1.datain"],
+          ["self.in_arg_0_0_1","ub_weight_1.datain"],
+          ["self.in_arg_0_0_0","ub_input_2.datain"],
+          ["self.in_arg_0_0_1","ub_weight_2.datain"],
+          ["self.in_arg_0_0_0","ub_input_3.datain"],
+          ["self.in_arg_0_0_1","ub_weight_3.datain"],
+          ["output_0_0_datain_mux.out","ub_output_0_0.datain"],
+          ["output_0_1_datain_mux.out","ub_output_0_1.datain"],
+          ["output_0_2_datain_mux.out","ub_output_0_2.datain"],
+          ["output_0_3_datain_mux.out","ub_output_0_3.datain"],
+          ["output_1_0_datain_mux.out","ub_output_1_0.datain"],
+          ["output_1_1_datain_mux.out","ub_output_1_1.datain"],
+          ["output_1_2_datain_mux.out","ub_output_1_2.datain"],
+          ["output_1_3_datain_mux.out","ub_output_1_3.datain"],
+          ["output_2_0_datain_mux.out","ub_output_2_0.datain"],
+          ["output_2_1_datain_mux.out","ub_output_2_1.datain"],
+          ["output_2_2_datain_mux.out","ub_output_2_2.datain"],
+          ["output_2_3_datain_mux.out","ub_output_2_3.datain"],
+          ["add_3_0.out","ub_output_3_0.datain"],
+          ["add_3_1.out","ub_output_3_1.datain"],
+          ["add_3_2.out","ub_output_3_2.datain"],
+          ["add_3_3.out","ub_output_3_3.datain"],
+          ["ub_input_0_flush.out","ub_input_0.flush"],
+          ["ub_weight_0_flush.out","ub_weight_0.flush"],
+          ["ub_input_1_flush.out","ub_input_1.flush"],
+          ["ub_weight_1_flush.out","ub_weight_1.flush"],
+          ["ub_input_2_flush.out","ub_input_2.flush"],
+          ["ub_weight_2_flush.out","ub_weight_2.flush"],
+          ["ub_input_3_flush.out","ub_input_3.flush"],
+          ["ub_weight_3_flush.out","ub_weight_3.flush"],
+          ["ub_output_0_0_flush.out","ub_output_0_0.flush"],
+          ["ub_output_0_1_flush.out","ub_output_0_1.flush"],
+          ["ub_output_0_2_flush.out","ub_output_0_2.flush"],
+          ["ub_output_0_3_flush.out","ub_output_0_3.flush"],
+          ["ub_output_1_0_flush.out","ub_output_1_0.flush"],
+          ["ub_output_1_1_flush.out","ub_output_1_1.flush"],
+          ["ub_output_1_2_flush.out","ub_output_1_2.flush"],
+          ["ub_output_1_3_flush.out","ub_output_1_3.flush"],
+          ["ub_output_2_0_flush.out","ub_output_2_0.flush"],
+          ["ub_output_2_1_flush.out","ub_output_2_1.flush"],
+          ["ub_output_2_2_flush.out","ub_output_2_2.flush"],
+          ["ub_output_2_3_flush.out","ub_output_2_3.flush"],
+          ["ub_output_3_0_flush.out","ub_output_3_0.flush"],
+          ["ub_output_3_1_flush.out","ub_output_3_1.flush"],
+          ["ub_output_3_2_flush.out","ub_output_3_2.flush"],
+          ["ub_output_3_3_flush.out","ub_output_3_3.flush"],
+
+          ["input_counter_eq_0.in0","input_counter.out"],
+          ["input_counter_eq_0.in1","input_0_value.out"],
+          ["input_counter_eq_1.in0","input_counter.out"],
+          ["input_counter_eq_1.in1","input_1_value.out"],
+          ["input_counter_eq_2.in0","input_counter.out"],
+          ["input_counter_eq_2.in1","input_2_value.out"],
+          ["input_counter_eq_3.in0","input_counter.out"],
+          ["input_counter_eq_3.in1","input_3_value.out"],
+
+          ["input_valid_0_mux.in0","invalid_bit.out"],
+          ["input_valid_0_mux.in1","self.in_en"],
+          ["input_valid_0_mux.sel","input_counter_eq_0.out"],
+          ["input_valid_1_mux.in0","invalid_bit.out"],
+          ["input_valid_1_mux.in1","self.in_en"],
+          ["input_valid_1_mux.sel","input_counter_eq_1.out"],
+          ["input_valid_2_mux.in0","invalid_bit.out"],
+          ["input_valid_2_mux.in1","self.in_en"],
+          ["input_valid_2_mux.sel","input_counter_eq_2.out"],
+          ["input_valid_3_mux.in0","invalid_bit.out"],
+          ["input_valid_3_mux.in1","self.in_en"],
+          ["input_valid_3_mux.sel","input_counter_eq_3.out"],
+
+          ["input_counter_reset_mux.in0","self.reset"],
+          ["input_counter_reset_mux.in1","counter.overflow"],
+          ["input_counter_reset_mux.sel","counter.overflow"],
+          ["input_counter_reset_mux.out","input_counter.reset"],
+          ["input_counter.en","self.in_en"],
+
+          ["input_valid_0_mux.out","ub_input_0.wen"],
+          ["input_valid_1_mux.out","ub_input_1.wen"],
+          ["input_valid_2_mux.out","ub_input_2.wen"],
+          ["input_valid_3_mux.out","ub_input_3.wen"],
+          ["input_valid_0_mux.out","ub_weight_0.wen"],
+          ["input_valid_1_mux.out","ub_weight_1.wen"],
+          ["input_valid_2_mux.out","ub_weight_2.wen"],
+          ["input_valid_3_mux.out","ub_weight_3.wen"],
+
+          ["self.in_en","ub_output_0_0.ren"],
+          ["self.in_en","ub_output_0_1.ren"],
+          ["self.in_en","ub_output_0_2.ren"],
+          ["self.in_en","ub_output_0_3.ren"],
+          ["self.in_en","ub_output_1_0.ren"],
+          ["self.in_en","ub_output_1_1.ren"],
+          ["self.in_en","ub_output_1_2.ren"],
+          ["self.in_en","ub_output_1_3.ren"],
+          ["self.in_en","ub_output_2_0.ren"],
+          ["self.in_en","ub_output_2_1.ren"],
+          ["self.in_en","ub_output_2_2.ren"],
+          ["self.in_en","ub_output_2_3.ren"],
+          ["self.in_en","ub_output_3_0.ren"],
+          ["self.in_en","ub_output_3_1.ren"],
+          ["self.in_en","ub_output_3_2.ren"],
+          ["self.in_en","ub_output_3_3.ren"],
+          ["ub_weight_3.valid","ub_input_0.ren"],
+          ["ub_weight_3.valid","ub_input_1.ren"],
+          ["ub_weight_3.valid","ub_input_2.ren"],
+          ["ub_weight_3.valid","ub_input_3.ren"],
+          ["ub_weight_3.valid","ub_weight_0.ren"],
+          ["ub_weight_3.valid","ub_weight_1.ren"],
+          ["ub_weight_3.valid","ub_weight_2.ren"],
+          ["self.in_en","ub_weight_3.ren"],
+
+          ["ub_weight_3.valid","ub_output_0_0.wen"],
+          ["ub_weight_3.valid","ub_output_0_1.wen"],
+          ["ub_weight_3.valid","ub_output_0_2.wen"],
+          ["ub_weight_3.valid","ub_output_0_3.wen"],
+          ["ub_weight_3.valid","ub_output_1_0.wen"],
+          ["ub_weight_3.valid","ub_output_1_1.wen"],
+          ["ub_weight_3.valid","ub_output_1_2.wen"],
+          ["ub_weight_3.valid","ub_output_1_3.wen"],
+          ["ub_weight_3.valid","ub_output_2_0.wen"],
+          ["ub_weight_3.valid","ub_output_2_1.wen"],
+          ["ub_weight_3.valid","ub_output_2_2.wen"],
+          ["ub_weight_3.valid","ub_output_2_3.wen"],
+          ["ub_weight_3.valid","ub_output_3_0.wen"],
+          ["ub_weight_3.valid","ub_output_3_1.wen"],
+          ["ub_weight_3.valid","ub_output_3_2.wen"],
+          ["ub_weight_3.valid","ub_output_3_3.wen"],
+
+          ["counter.reset","self.reset"],
+          ["counter.en","ub_weight_3.valid"],
+
+          ["mul_0_0.in0","ub_weight_0.dataout"],
+          ["mul_0_1.in0","ub_weight_0.dataout"],
+          ["mul_0_2.in0","ub_weight_0.dataout"],
+          ["mul_0_3.in0","ub_weight_0.dataout"],
+          ["mul_0_0.in1","ub_input_0.dataout"],
+          ["mul_0_1.in1","ub_input_1.dataout"],
+          ["mul_0_2.in1","ub_input_2.dataout"],
+          ["mul_0_3.in1","ub_input_3.dataout"],
+          ["mul_1_0.in0","ub_weight_1.dataout"],
+          ["mul_1_1.in0","ub_weight_1.dataout"],
+          ["mul_1_2.in0","ub_weight_1.dataout"],
+          ["mul_1_3.in0","ub_weight_1.dataout"],
+          ["mul_1_0.in1","ub_input_0.dataout"],
+          ["mul_1_1.in1","ub_input_1.dataout"],
+          ["mul_1_2.in1","ub_input_2.dataout"],
+          ["mul_1_3.in1","ub_input_3.dataout"],
+          ["mul_2_0.in0","ub_weight_2.dataout"],
+          ["mul_2_1.in0","ub_weight_2.dataout"],
+          ["mul_2_2.in0","ub_weight_2.dataout"],
+          ["mul_2_3.in0","ub_weight_2.dataout"],
+          ["mul_2_0.in1","ub_input_0.dataout"],
+          ["mul_2_1.in1","ub_input_1.dataout"],
+          ["mul_2_2.in1","ub_input_2.dataout"],
+          ["mul_2_3.in1","ub_input_3.dataout"],
+          ["mul_3_0.in0","ub_weight_3.dataout"],
+          ["mul_3_1.in0","ub_weight_3.dataout"],
+          ["mul_3_2.in0","ub_weight_3.dataout"],
+          ["mul_3_3.in0","ub_weight_3.dataout"],
+          ["mul_3_0.in1","ub_input_0.dataout"],
+          ["mul_3_1.in1","ub_input_1.dataout"],
+          ["mul_3_2.in1","ub_input_2.dataout"],
+          ["mul_3_3.in1","ub_input_3.dataout"],
+
+          ["init_phase_selector.in0","counter.out"],
+          ["init_phase_selector.in1","init_phase_value.out"],
+
+          ["accum_value_0_0_mux.in0","ub_output_0_0.dataout"],
+          ["accum_value_0_0_mux.in1","init_output_value.out"],
+          ["accum_value_0_0_mux.sel","init_phase_selector.out"],
+          ["accum_value_0_1_mux.in0","ub_output_0_1.dataout"],
+          ["accum_value_0_1_mux.in1","init_output_value.out"],
+          ["accum_value_0_1_mux.sel","init_phase_selector.out"],
+          ["accum_value_0_2_mux.in0","ub_output_0_2.dataout"],
+          ["accum_value_0_2_mux.in1","init_output_value.out"],
+          ["accum_value_0_2_mux.sel","init_phase_selector.out"],
+          ["accum_value_0_3_mux.in0","ub_output_0_3.dataout"],
+          ["accum_value_0_3_mux.in1","init_output_value.out"],
+          ["accum_value_0_3_mux.sel","init_phase_selector.out"],
+          ["accum_value_1_0_mux.in0","ub_output_1_0.dataout"],
+          ["accum_value_1_0_mux.in1","init_output_value.out"],
+          ["accum_value_1_0_mux.sel","init_phase_selector.out"],
+          ["accum_value_1_1_mux.in0","ub_output_1_1.dataout"],
+          ["accum_value_1_1_mux.in1","init_output_value.out"],
+          ["accum_value_1_1_mux.sel","init_phase_selector.out"],
+          ["accum_value_1_2_mux.in0","ub_output_1_2.dataout"],
+          ["accum_value_1_2_mux.in1","init_output_value.out"],
+          ["accum_value_1_2_mux.sel","init_phase_selector.out"],
+          ["accum_value_1_3_mux.in0","ub_output_1_3.dataout"],
+          ["accum_value_1_3_mux.in1","init_output_value.out"],
+          ["accum_value_1_3_mux.sel","init_phase_selector.out"],
+          ["accum_value_2_0_mux.in0","ub_output_2_0.dataout"],
+          ["accum_value_2_0_mux.in1","init_output_value.out"],
+          ["accum_value_2_0_mux.sel","init_phase_selector.out"],
+          ["accum_value_2_1_mux.in0","ub_output_2_1.dataout"],
+          ["accum_value_2_1_mux.in1","init_output_value.out"],
+          ["accum_value_2_1_mux.sel","init_phase_selector.out"],
+          ["accum_value_2_2_mux.in0","ub_output_2_2.dataout"],
+          ["accum_value_2_2_mux.in1","init_output_value.out"],
+          ["accum_value_2_2_mux.sel","init_phase_selector.out"],
+          ["accum_value_2_3_mux.in0","ub_output_2_3.dataout"],
+          ["accum_value_2_3_mux.in1","init_output_value.out"],
+          ["accum_value_2_3_mux.sel","init_phase_selector.out"],
+          ["accum_value_3_0_mux.in0","ub_output_3_0.dataout"],
+          ["accum_value_3_0_mux.in1","init_output_value.out"],
+          ["accum_value_3_0_mux.sel","init_phase_selector.out"],
+          ["accum_value_3_1_mux.in0","ub_output_3_1.dataout"],
+          ["accum_value_3_1_mux.in1","init_output_value.out"],
+          ["accum_value_3_1_mux.sel","init_phase_selector.out"],
+          ["accum_value_3_2_mux.in0","ub_output_3_2.dataout"],
+          ["accum_value_3_2_mux.in1","init_output_value.out"],
+          ["accum_value_3_2_mux.sel","init_phase_selector.out"],
+          ["accum_value_3_3_mux.in0","ub_output_3_3.dataout"],
+          ["accum_value_3_3_mux.in1","init_output_value.out"],
+          ["accum_value_3_3_mux.sel","init_phase_selector.out"],
+
+          ["add_0_0.in0","mul_0_0.out"],
+          ["add_0_0.in1","accum_value_0_0_mux.out"],
+          ["add_0_1.in0","mul_0_1.out"],
+          ["add_0_1.in1","accum_value_0_1_mux.out"],
+          ["add_0_2.in0","mul_0_2.out"],
+          ["add_0_2.in1","accum_value_0_2_mux.out"],
+          ["add_0_3.in0","mul_0_3.out"],
+          ["add_0_3.in1","accum_value_0_3_mux.out"],
+          ["add_1_0.in0","mul_1_0.out"],
+          ["add_1_0.in1","accum_value_1_0_mux.out"],
+          ["add_1_1.in0","mul_1_1.out"],
+          ["add_1_1.in1","accum_value_1_1_mux.out"],
+          ["add_1_2.in0","mul_1_2.out"],
+          ["add_1_2.in1","accum_value_1_2_mux.out"],
+          ["add_1_3.in0","mul_1_3.out"],
+          ["add_1_3.in1","accum_value_1_3_mux.out"],
+          ["add_2_0.in0","mul_2_0.out"],
+          ["add_2_0.in1","accum_value_2_0_mux.out"],
+          ["add_2_1.in0","mul_2_1.out"],
+          ["add_2_1.in1","accum_value_2_1_mux.out"],
+          ["add_2_2.in0","mul_2_2.out"],
+          ["add_2_2.in1","accum_value_2_2_mux.out"],
+          ["add_2_3.in0","mul_2_3.out"],
+          ["add_2_3.in1","accum_value_2_3_mux.out"],
+          ["add_3_0.in0","mul_3_0.out"],
+          ["add_3_0.in1","accum_value_3_0_mux.out"],
+          ["add_3_1.in0","mul_3_1.out"],
+          ["add_3_1.in1","accum_value_3_1_mux.out"],
+          ["add_3_2.in0","mul_3_2.out"],
+          ["add_3_2.in1","accum_value_3_2_mux.out"],
+          ["add_3_3.in0","mul_3_3.out"],
+          ["add_3_3.in1","accum_value_3_3_mux.out"],
+
+          ["output_phase_selector.in0","counter.out"],
+          ["output_phase_selector.in1","output_phase_value.out"],
+
+          ["output_0_0_datain_mux.in0","ub_output_1_0.dataout"],
+          ["output_0_0_datain_mux.in1","add_0_0.out"],
+          ["output_0_0_datain_mux.sel","output_phase_selector.out"],
+          ["output_0_1_datain_mux.in0","ub_output_1_1.dataout"],
+          ["output_0_1_datain_mux.in1","add_0_1.out"],
+          ["output_0_1_datain_mux.sel","output_phase_selector.out"],
+          ["output_0_2_datain_mux.in0","ub_output_1_2.dataout"],
+          ["output_0_2_datain_mux.in1","add_0_2.out"],
+          ["output_0_2_datain_mux.sel","output_phase_selector.out"],
+          ["output_0_3_datain_mux.in0","ub_output_1_3.dataout"],
+          ["output_0_3_datain_mux.in1","add_0_3.out"],
+          ["output_0_3_datain_mux.sel","output_phase_selector.out"],
+          ["output_1_0_datain_mux.in0","ub_output_2_0.dataout"],
+          ["output_1_0_datain_mux.in1","add_1_0.out"],
+          ["output_1_0_datain_mux.sel","output_phase_selector.out"],
+          ["output_1_1_datain_mux.in0","ub_output_2_1.dataout"],
+          ["output_1_1_datain_mux.in1","add_1_1.out"],
+          ["output_1_1_datain_mux.sel","output_phase_selector.out"],
+          ["output_1_2_datain_mux.in0","ub_output_2_2.dataout"],
+          ["output_1_2_datain_mux.in1","add_1_2.out"],
+          ["output_1_2_datain_mux.sel","output_phase_selector.out"],
+          ["output_1_3_datain_mux.in0","ub_output_2_3.dataout"],
+          ["output_1_3_datain_mux.in1","add_1_3.out"],
+          ["output_1_3_datain_mux.sel","output_phase_selector.out"],
+          ["output_2_0_datain_mux.in0","ub_output_3_0.dataout"],
+          ["output_2_0_datain_mux.in1","add_2_0.out"],
+          ["output_2_0_datain_mux.sel","output_phase_selector.out"],
+          ["output_2_1_datain_mux.in0","ub_output_3_1.dataout"],
+          ["output_2_1_datain_mux.in1","add_2_1.out"],
+          ["output_2_1_datain_mux.sel","output_phase_selector.out"],
+          ["output_2_2_datain_mux.in0","ub_output_3_2.dataout"],
+          ["output_2_2_datain_mux.in1","add_2_2.out"],
+          ["output_2_2_datain_mux.sel","output_phase_selector.out"],
+          ["output_2_3_datain_mux.in0","ub_output_3_3.dataout"],
+          ["output_2_3_datain_mux.in1","add_2_3.out"],
+          ["output_2_3_datain_mux.sel","output_phase_selector.out"],
+
+          ["output_0_valid_mux.in0","ub_output_0_0.valid"],
+          ["output_0_valid_mux.in1","invalid_bit.out"],
+          ["output_0_valid_mux.sel","output_phase_selector.out"],
+          ["output_1_valid_mux.in0","ub_output_0_1.valid"],
+          ["output_1_valid_mux.in1","invalid_bit.out"],
+          ["output_1_valid_mux.sel","output_phase_selector.out"],
+          ["output_2_valid_mux.in0","ub_output_0_2.valid"],
+          ["output_2_valid_mux.in1","invalid_bit.out"],
+          ["output_2_valid_mux.sel","output_phase_selector.out"],
+          ["output_3_valid_mux.in0","ub_output_0_3.valid"],
+          ["output_3_valid_mux.in1","invalid_bit.out"],
+          ["output_3_valid_mux.sel","output_phase_selector.out"],
+
+          ["self.out_0_0","ub_output_0_0.dataout"],
+          ["self.out_0_1","ub_output_0_1.dataout"],
+          ["self.out_0_2","ub_output_0_2.dataout"],
+          ["self.out_0_3","ub_output_0_3.dataout"]
         ]
       }
     }
