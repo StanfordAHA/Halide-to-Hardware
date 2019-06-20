@@ -83,6 +83,8 @@
           ["max_left.in1","ub_input_0_1.dataout"],
           ["max_right.in0","ub_input_1_0.dataout"],
           ["max_right.in1","ub_input_1_1.dataout"],
+          ["max_total.in0","max_left.out"],
+          ["max_total.in1","max_right.out"],
 
           ["self.out_0_0","max_total.out"],
           ["self.valid","ub_input_0_0.valid"]
