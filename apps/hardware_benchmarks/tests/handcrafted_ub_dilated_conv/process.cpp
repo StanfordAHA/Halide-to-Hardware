@@ -10,7 +10,7 @@ using namespace Halide::Runtime;
 int main(int argc, char **argv) {
 
   auto input   = Buffer<uint8_t>(16, 16);
-  auto output  = Buffer<uint8_t>(8, 8);
+  auto output  = Buffer<uint8_t>(12, 12);
   auto kernel = Buffer<uint16_t>(2, 2);
   kernel(0,0) = 0;
   kernel(1,0) = 11;
