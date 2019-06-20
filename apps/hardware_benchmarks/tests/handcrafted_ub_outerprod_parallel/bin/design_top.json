@@ -344,7 +344,7 @@
           },
           "counter":{
             "genref":"commonlib.counter",
-            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",7], "inc":["Int",1]}
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",23], "inc":["Int",1]}
           },
 
           "invalid_bit":{
@@ -384,7 +384,7 @@
           "output_phase_value":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],"16'h0004"]}
+            "modargs":{"value":[["BitVector",16],"16'h0014"]}
           },
 
           "init_phase_selector":{
@@ -664,25 +664,25 @@
           ["ub_weight_3.valid","ub_weight_2.ren"],
           ["self.in_en","ub_weight_3.ren"],
 
-          ["ub_weight_3.valid","ub_output_0_0.wen"],
-          ["ub_weight_3.valid","ub_output_0_1.wen"],
-          ["ub_weight_3.valid","ub_output_0_2.wen"],
-          ["ub_weight_3.valid","ub_output_0_3.wen"],
-          ["ub_weight_3.valid","ub_output_1_0.wen"],
-          ["ub_weight_3.valid","ub_output_1_1.wen"],
-          ["ub_weight_3.valid","ub_output_1_2.wen"],
-          ["ub_weight_3.valid","ub_output_1_3.wen"],
-          ["ub_weight_3.valid","ub_output_2_0.wen"],
-          ["ub_weight_3.valid","ub_output_2_1.wen"],
-          ["ub_weight_3.valid","ub_output_2_2.wen"],
-          ["ub_weight_3.valid","ub_output_2_3.wen"],
-          ["ub_weight_3.valid","ub_output_3_0.wen"],
-          ["ub_weight_3.valid","ub_output_3_1.wen"],
-          ["ub_weight_3.valid","ub_output_3_2.wen"],
-          ["ub_weight_3.valid","ub_output_3_3.wen"],
+          ["self.in_en","ub_output_0_0.wen"],
+          ["self.in_en","ub_output_0_1.wen"],
+          ["self.in_en","ub_output_0_2.wen"],
+          ["self.in_en","ub_output_0_3.wen"],
+          ["self.in_en","ub_output_1_0.wen"],
+          ["self.in_en","ub_output_1_1.wen"],
+          ["self.in_en","ub_output_1_2.wen"],
+          ["self.in_en","ub_output_1_3.wen"],
+          ["self.in_en","ub_output_2_0.wen"],
+          ["self.in_en","ub_output_2_1.wen"],
+          ["self.in_en","ub_output_2_2.wen"],
+          ["self.in_en","ub_output_2_3.wen"],
+          ["self.in_en","ub_output_3_0.wen"],
+          ["self.in_en","ub_output_3_1.wen"],
+          ["self.in_en","ub_output_3_2.wen"],
+          ["self.in_en","ub_output_3_3.wen"],
 
           ["counter.reset","self.reset"],
-          ["counter.en","ub_weight_3.valid"],
+          ["counter.en","self.in_en"],
 
           ["mul_0_0.in0","ub_weight_0.dataout"],
           ["mul_0_1.in0","ub_weight_0.dataout"],
@@ -854,6 +854,7 @@
           ["output_3_valid_mux.in0","ub_output_0_3.valid"],
           ["output_3_valid_mux.in1","invalid_bit.out"],
           ["output_3_valid_mux.sel","output_phase_selector.out"],
+          ["self.valid","output_0_valid_mux.out"],
 
           ["self.out_0_0","ub_output_0_0.dataout"],
           ["self.out_0_1","ub_output_0_1.dataout"],
