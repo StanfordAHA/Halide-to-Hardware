@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       input(x, y) = (1 + x + 2*y) % 70;
-      interleaved(4*x + (x % 2), y) = input(x, y);
+      interleaved(2*((x / 2) * 2) + (x % 2), y) = input(x, y);
     }
   }
   std::cout << "created input buffer\n";
@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   for (int y = 0; y < weights.height(); y++) {
     for (int x = 0; x < weights.width(); x++) {
       weights(x, y) = (1 + x + y);
-      interleaved(4*x + 2 + (x % 2), y) = weights(x, y);
+      interleaved(2*((x / 2) * 2) + (x % 2) + 2, y) = weights(x, y);
     }
   }
   std::cout << "created weights buffer\n";
