@@ -9,10 +9,10 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  auto input   = Buffer<uint8_t>(8, 256);
-  auto weights = Buffer<uint8_t>(8, 256);
-  auto output  = Buffer<uint8_t>(4, 256);
-  auto interleaved = Buffer<uint8_t>(16, 256);
+  auto input   = Buffer<uint8_t>(8, 128);
+  auto weights = Buffer<uint8_t>(8, 128);
+  auto output  = Buffer<uint8_t>(4, 128);
+  auto interleaved = Buffer<uint8_t>(16, 128);
 
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
