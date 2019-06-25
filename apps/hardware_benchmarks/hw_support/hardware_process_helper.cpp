@@ -224,8 +224,6 @@ int OneInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> arg
   return 0;
 }
 
-
-
 template int ProcessController<uint16_t>::process_command(int argc, char **argv);
 template int ProcessController<uint16_t>::make_image_def(std::vector<std::string> args);
 template int ProcessController<uint16_t>::make_run_def(std::vector<std::string> args);
