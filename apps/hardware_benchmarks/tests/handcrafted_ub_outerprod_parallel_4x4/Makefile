@@ -1,6 +1,6 @@
 include ../../hw_support/Makefile.inc
 
-TESTNAME = handcrafted_ub_strided_dilated_conv
+TESTNAME = handcrafted_ub_outerprod_parallel_4x4
 USE_COREIR_VALID ?= 1
 
 include ../../hw_support/hardware_targets.mk

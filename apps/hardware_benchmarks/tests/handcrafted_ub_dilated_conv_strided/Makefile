@@ -1,6 +1,6 @@
 include ../../hw_support/Makefile.inc
 
-TESTNAME = handcrafted_ub_matmat_accum
+TESTNAME = handcrafted_ub_dilated_conv_strided
 USE_COREIR_VALID ?= 1
 
 include ../../hw_support/hardware_targets.mk
