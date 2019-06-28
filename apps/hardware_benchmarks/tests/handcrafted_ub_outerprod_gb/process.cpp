@@ -9,8 +9,8 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  auto input   = Buffer<uint8_t>(4, 4);
-  auto weights = Buffer<uint8_t>(4, 4);
+  auto input   = Buffer<uint8_t>(4, 16);
+  auto weights = Buffer<uint8_t>(4, 16);
   auto output  = Buffer<uint8_t>(4, 4);
 
   auto interleaved = Buffer<uint8_t>(8, 4);
@@ -31,16 +31,27 @@ int main(int argc, char **argv) {
   }
   std::cout << "created weights buffer\n";
 
-  // weights are transposed
-  for (int y = 0; y < output.height(); y++) {
-      for (int x = 0; x < output.width(); x++) {
-          output(x, y) = input(x, 0) * weights(y, 0) + input(x, 1) * weights(y, 1) + input(x, 2) * weights(y, 2) + input(x, 3) * weights(y, 3);
+  int block_width = 4;
+  int block_height = 4;
+  int num_blocks = 4;
+  
+  // input is transposed
+  for (int b = 0; b < num_blocks; b++) {
+    int y_b = b*block_height;
+    for (int y = 0; y < block_height; y++) {
+      for (int x = 0; x < block_width; x++) {
+        output(x, y) =
+          input(y + y_b, 0) * weights(x, 0 + y_b) +
+          input(y + y_b, 1) * weights(x, 1 + y_b) +
+          input(y + y_b, 2) * weights(x, 2 + y_b) +
+          input(y + y_b, 3) * weights(x, 3 + y_b);
       }
+    }
   }
   std::cout << "created output buffer\n";
 
-  save_image(input,   "bin/input.png");
-  save_image(weights, "bin/weights.png");
+  save_image(input,   "input.png");
+  save_image(weights, "weights.png");
   save_image(output,  "bin/output_cpu.png");
   save_image(interleaved, "interleaved.png");
   return 0;
