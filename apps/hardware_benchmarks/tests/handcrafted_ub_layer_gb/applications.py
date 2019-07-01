@@ -505,7 +505,7 @@ class Conv3x3ReLU():
         ]
 
         # Load weights to consecutive memory in global buffer
-        wt_addr = BANK_ADDR(0)
+        wt_addr = BANK_ADDR(4)
         wt_len = 0
         for wt in wts:
             command_list += [
@@ -516,7 +516,7 @@ class Conv3x3ReLU():
             wt_len += len(wt)
 
         # Load images to consecutive memory in global buffer
-        im_addr = BANK_ADDR(4)
+        im_addr = BANK_ADDR(0)
         im_len = 0
         for im in ims:
             command_list += [
@@ -538,13 +538,13 @@ class Conv3x3ReLU():
                 img_y = k + j // 3 - 1
                 img_x = k + j % 3 - 1
                 command_list += [
-                    *configure_io(IO_INPUT_STREAM, BANK_ADDR(4) + (img_y * in_x + img_x) * in_chan, in_chan, width=self.args.width),
+                    *configure_io(IO_INPUT_STREAM, BANK_ADDR(0) + (img_y * in_x + img_x) * in_chan, in_chan, width=self.args.width),
                 ]
                 for i in range(0, out_chan):
                     command_list += [
-                        *configure_io(IO_INPUT_STREAM, BANK_ADDR(0) + j * out_chan * in_chan + i * in_chan, in_chan, width=self.args.width),
+                        *configure_io(IO_INPUT_STREAM, BANK_ADDR(4) + j * out_chan * in_chan + i * in_chan, in_chan, width=self.args.width),
                     ]
-                    if j == 0:
+                    if i == 0 and j == 0 and k == 0:
                         command_list += [
                             *configure_io(IO_OUTPUT_STREAM, BANK_ADDR(16), len(gold), width=self.args.width),
                 
