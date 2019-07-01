@@ -535,8 +535,8 @@ class Conv3x3ReLU():
 
         for k in range(0, out_x * out_y):
             for j in range(0, 9):
-                img_y = (k + j - 1) // 3
-                img_x = (k + j - 1) % 3
+                img_y = k + j // 3 - 1
+                img_x = k + j % 3 - 1
                 command_list += [
                     *configure_io(IO_INPUT_STREAM, BANK_ADDR(4) + (img_y * in_x + img_x) * in_chan, in_chan, width=self.args.width),
                 ]
