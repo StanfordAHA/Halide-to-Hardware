@@ -25,9 +25,7 @@ public:
 
         //conv(x, y) = 0;
 
-        Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x, r.y) * input(x + r.x, y + r.y);
         //conv(x,y) =
         //  kernel(0,0)*hw_input(x,y) +
         //  kernel(1,0)*hw_input(x+1,y) +
@@ -47,7 +45,6 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
@@ -59,21 +56,20 @@ public:
 
           conv.linebuffer();
 
-          hw_input.stream_to_accelerator();
+          input.in().stream_to_accelerator();
           
         } else {  // schedule to CPU
           
-          Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
+          Var x_host,y_host, x_cgra,y_cgra;
           Var xi,yi;
 
-          // Produce loop levels: host, global buffer, cgra
-          output.tile(x, y, x_host,y_host, xi,yi, 256,256);
-          output.tile(xi, yi, x_gb,y_gb, x_cgra,y_cgra, 64-2,64-2);
+          // Produce loop levels: host, cgra
+          output.tile(x, y, x_host,y_host, x_cgra,y_cgra, 256,256);
 
-          // Two copy stages: one between host and global buffer,
-          //                  another between global buffer and cgra
-          hw_input.in().store_root().compute_at(output,x_gb);
-          hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
+          // Two buffers: one on the host,
+          //              another in the cgra tiles
+          //input.store_root().compute_at(output,x_host);
+          input.in().store_at(output, x_host).compute_at(output,x_cgra);
 
           // Unroll the computation loops to duplicate hardware
           conv.update()

@@ -33,6 +33,7 @@
 #include "InferArguments.h"
 #include "InjectHostDevBufferCopies.h"
 #include "InjectOpenGLIntrinsics.h"
+#include "InsertHWBuffers.h"
 #include "Inline.h"
 #include "LICM.h"
 #include "LoopCarry.h"
@@ -182,7 +183,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     extract_hw_buffers(s, env);
     
     debug(1) << "Performing sliding window optimization...\n";
-    //std::cout << "Performing sliding window optimization...\n" << s << '\n';
+    std::cout << "Performing sliding window optimization...\n" << s << '\n';
     if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
       std::cout << "doing sliding window\n";
       s = sliding_window(s, env);
@@ -216,13 +217,15 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
+      std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+      
       for(const HWKernelDAG &dag : dags) {
         s = stream_opt(s, dag);
         //s = replace_image_param(s, dag);
       }
 
-      debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      //debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
+      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
@@ -410,7 +413,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
-    std::cout << "after passes: " << s << std::endl;
+    //std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

@@ -1,7 +1,9 @@
 #include "ExtractHWBuffers.h"
 #include "SlidingWindow.h"
+
 #include "Bounds.h"
 #include "Debug.h"
+#include "Func.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "IRPrinter.h"
@@ -9,6 +11,7 @@
 #include "Scope.h"
 #include "Simplify.h"
 #include "Substitute.h"
+//#include "Var.h"
 
 namespace Halide {
 namespace Internal {
@@ -280,9 +283,6 @@ class HWBuffers : public IRMutator2 {
           //new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
           new_body = mutate(new_body);
           
-          CountBufferUsers counter(op->name);
-          new_body.accept(&counter);
-
           auto boxes_write = boxes_provided(new_body);
           for (auto box_entry : boxes_write) {
             std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
@@ -325,6 +325,29 @@ class HWBuffers : public IRMutator2 {
             }
           }
           std::cout << "]\n";
+
+          CountBufferUsers counter(op->name);
+          new_body.accept(&counter);
+          // Parameters 3, 4, 5
+          auto output_block_box = counter.output_block_box;
+          auto input_block_box = counter.input_block_box;
+          auto reader_loopnest = counter.reader_loopnest;
+          
+          HWBuffer hwbuffer;
+          hwbuffer.name = op->name;
+          hwbuffer.total_buffer_box = box;
+          hwbuffer.input_chunk_box = box;
+          hwbuffer.input_block_box = input_block_box;
+          hwbuffer.output_stencil_box = box;
+          hwbuffer.output_block_box = output_block_box;
+          hwbuffer.output_access_pattern = reader_loopnest;
+
+          if (buffers.count(hwbuffer.name) == 0) {
+            std::cout << "Here is the hwbuffer (store=compute):"
+                      << " [" << buffers.count(hwbuffer.name) << "]\n"
+                      << hwbuffer << std::endl;
+            buffers[hwbuffer.name] = hwbuffer;
+          }
           
           //std::cout << "HWBuffer Parameter: " << op->name << " has readers=" << num_readers
           //          << " writers=" << num_writers << std::endl;
@@ -385,13 +408,19 @@ class HWBuffers : public IRMutator2 {
           hwbuffer.output_block_box = output_block_box;
           hwbuffer.output_access_pattern = reader_loopnest;
 
+          if (buffers.count(hwbuffer.name) == 0) {          
+            std::cout << "Here is the hwbuffer:"
+                      << " [" << buffers.count(hwbuffer.name) << "]\n" 
+                      << hwbuffer << std::endl;
+            buffers[hwbuffer.name] = hwbuffer;
+          }
+
           std::cout << "map is ";
           for (auto pair : sliding_stencil_map) {
             std::cout << pair.first << ", ";
           }
           std::cout << std::endl;
 
-          std::cout << "Here is the hwbuffer: \n" << hwbuffer << std::endl;
           
           //std::cout << "new body with sliding for " << op->name << "\n"
           //          << "old body: \n" << op->body
@@ -404,7 +433,8 @@ class HWBuffers : public IRMutator2 {
   
 public:
     HWBuffers(const map<string, Function> &e) : env(e) {}
-
+    std::map<std::string, HWBuffer> buffers;
+    
 };
 
 std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
@@ -431,9 +461,159 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
 };
 
 
-Stmt extract_hw_buffers(Stmt s, const map<string, Function> &env) {
-    return HWBuffers(env).mutate(s);
+//Stmt extract_hw_buffers(Stmt s, const map<string, Function> &env) {
+//    return HWBuffers(env).mutate(s);
+//}
+
+map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &env) {
+    HWBuffers ehb(env);
+    ehb.mutate(s);
+    return ehb.buffers;
 }
+
+
+// Because storage folding runs before simplification, it's useful to
+// at least substitute in constants before running it, and also simplify the RHS of Let Stmts.
+class SubstituteInConstants : public IRMutator2 {
+    using IRMutator2::visit;
+
+    Scope<Expr> scope;
+    Stmt visit(const LetStmt *op) override {
+        Expr value = simplify(mutate(op->value));
+
+        Stmt body;
+        if (is_const(value)) {
+            ScopedBinding<Expr> bind(scope, op->name, value);
+            body = mutate(op->body);
+        } else {
+            body = mutate(op->body);
+        }
+
+        if (body.same_as(op->body) && value.same_as(op->value)) {
+            return op;
+        } else {
+            return LetStmt::make(op->name, value, body);
+        }
+    }
+
+    Expr visit(const Variable *op) override {
+        if (scope.contains(op->name)) {
+            return scope.get(op->name);
+        } else {
+            return op;
+        }
+    }
+};
+
+class FindInnerLoops : public IRVisitor {
+  Function func;
+
+  LoopLevel outer_loop_exclusive;
+  LoopLevel inner_loop_inclusive;
+  bool in_inner_loops;
+
+  using IRVisitor::visit;
+
+  void visit(const ProducerConsumer *op) {
+    // match store level at PC node in case the looplevel is outermost
+    if (outer_loop_exclusive.lock().func() == op->name &&
+        outer_loop_exclusive.lock().var().name() == Var::outermost().name()) {
+      in_inner_loops = true;
+    }
+    IRVisitor::visit(op);
+  }
+
+  void visit(const For *op) {
+    // scan loops are loops between the outer store level (exclusive) and
+    // the inner compute level (inclusive) of the accelerated function
+    if (in_inner_loops && starts_with(op->name, func.name() + ".")) {
+      debug(3) << "added loop " << op->name << " to inner loops.\n";
+      inner_loops.insert(op->name);
+      //loop_mins[op->name] = op->min;
+      //loop_maxes[op->name] = simplify(op->min + op->extent - 1);
+      std::cout << "added loop to scan loop named " << op->name << " with extent=" << op->extent << std::endl;
+    }
+
+    // reevaluate in_scan_loops in terms of loop levels
+    if (outer_loop_exclusive.match(op->name)) {
+      in_inner_loops = true;
+    }
+    if (inner_loop_inclusive.match(op->name)) {
+      in_inner_loops = false;
+    }
+
+    // Recurse
+    IRVisitor::visit(op);
+  }
+
+public:  
+  FindInnerLoops(Function f, LoopLevel outer_level, LoopLevel inner_level)
+    : func(f), outer_loop_exclusive(outer_level), inner_loop_inclusive(inner_level) { }
+
+  set<string> inner_loops;
+  
+};
+
+set<string> get_loop_levels_between(Stmt s, Function func,
+                                              LoopLevel outer_level_exclusive,
+                                              LoopLevel inner_level_inclusive) {
+  FindInnerLoops fil(func, outer_level_exclusive, inner_level_inclusive);
+  s.accept(&fil);
+  return fil.inner_loops;
+}
+
+HWXcel extract_hw_xcel_top_parameters(Stmt s, Function func,
+                                      const map<string, Function> &env,
+                                      const vector<BoundsInference_Stage> &inlined) {
+  HWXcel xcel;
+  xcel.name = func.name();
+  xcel.store_level = func.schedule().accelerate_store_level();
+  xcel.compute_level = func.schedule().accelerate_compute_level();
+  xcel.streaming_loop_levels = get_loop_levels_between(s, func, xcel.compute_level, xcel.store_level);
+  xcel.input_kernels = func.schedule().accelerate_inputs();
+  xcel.hwbuffers = extract_hw_buffers(s, env);
+
+  return xcel;
+}
+
+vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
+                                const vector<BoundsInference_Stage> &inlined_stages) {
+
+  vector<HWXcel> xcels;
+  
+  s = SubstituteInConstants().mutate(s);
+  
+  for (auto stage : inlined_stages) {
+    //std::cout << "stage includes " << stage.name << std::endl;
+  }
+    
+  // for each accelerated function, build a hardware xcel: a dag of HW kernels 
+  for (const auto &p : env) {
+    Function func = p.second;
+    //std::cout << "Found function " << func.name() << "\n";
+
+    // skip this function if it is not accelerated
+    if(!func.schedule().is_accelerated())
+      continue;
+    
+    std::cout << "Found accelerate function " << func.name() << "\n";
+    LoopLevel store_locked = func.schedule().store_level().lock();
+    string store_varname =
+      store_locked.is_root() ? "root" :
+      store_locked.is_inlined() ? "inlined" :
+      store_locked.var().name();
+    if (!store_locked.defined() || !starts_with(func.name(), "hw_output")) {
+      //continue;
+    }
+    debug(3) << "Found accelerate function " << func.name() << "\n";
+    std::cout << "Found accelerate function " << func.name() << "\n";
+    debug(3) << store_locked.func() << " " << store_varname << "\n";
+    auto xcel = extract_hw_xcel_top_parameters(s, func, env, inlined_stages);
+    xcels.push_back(xcel);
+  }
+  return xcels;
+}
+
 
 }  // namespace Internal
 }  // namespace Halide
