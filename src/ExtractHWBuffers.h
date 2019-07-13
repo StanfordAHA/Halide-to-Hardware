@@ -21,24 +21,39 @@
 namespace Halide {
 namespace Internal {
 
+struct BufferDimSize {
+  std::string output_loop_name;
+  Expr logical_size;
+  Expr logical_min;
+
+  Expr input_chunk;
+  Expr input_block;
+
+  Expr output_stencil;
+  Expr output_block;
+  Expr output_min_pos;
+
+};
+
 struct HWBuffer {
   std::string name;
   
   // Parameters for the HWBuffer
-  std::vector<Expr> total_buffer_box;
-  
-  std::vector<Expr> input_chunk_box;
-  std::vector<Expr> input_block_box;
+  ////std::vector<Expr> total_buffer_box;
+  ////std::vector<Expr> input_chunk_box;
+  ////std::vector<Expr> input_block_box;
+  ////std::vector<Expr> output_min_pos;
+  ////std::vector<Expr> output_stencil_box;
+  ////std::vector<Expr> output_block_box;
+  std::vector<BufferDimSize> dims;
+
   Stmt input_access_pattern;
-  
-  std::vector<Expr> output_stencil_box;
-  std::vector<Expr> output_block_box;
   Stmt output_access_pattern;
 
   // Parameters used during optimization
   bool is_inlined;
   bool is_output;
-  //std::map<std::string, std::vector<StencilDimSpecs> > consumer_stencils;   // used for transforming call nodes and inserting dispatch calls
+  std::map<std::string, HWBuffer&> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls
   Function func;
 
@@ -55,10 +70,10 @@ struct HWXcel {
   LoopLevel store_level;
   LoopLevel compute_level;
   
-  std::set<std::string> streaming_loop_levels;
-  std::set<std::string> input_kernels;
+  std::set<std::string> streaming_loop_levels;  // store (exclusive) to compute (inclusive)
+  std::set<std::string> input_streams; // might be wrong?
   std::map<std::string, HWBuffer> hwbuffers;
-  //std::map<std::string, std::vector<StencilDimSpecs> > consumer_stencils; // used for transforming call nodes and inserting dispatch calls
+  std::map<std::string, HWBuffer&> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
   //std::map<std::string, HWTap> input_taps;
 };
 

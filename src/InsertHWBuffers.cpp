@@ -49,13 +49,17 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     return result;
 }
 
-
 }
 
 
+int to_int(Expr expr) {
+  internal_assert(is_const(simplify(expr)));
+  return (int)*as_const_int(expr);
+}
+
 class ReplaceReferencesWithStencil : public IRMutator2 {
-    const HWKernel &kernel;
-    const HWKernelDAG &dag;  // FIXME not needed
+    const HWBuffer &kernel;
+    const HWXcel &xcel;  // TODO not needed
     Scope<Expr> scope;
 
     using IRMutator2::visit;
@@ -97,7 +101,8 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
               return IRMutator2::visit(op);
             }
             Expr new_min = 0;
-            Expr new_extent = kernel.dims[dim_idx].step;
+            // FIXME(is this correct?): Expr new_extent = kernel.dims[dim_idx].step
+            Expr new_extent = kernel.dims[dim_idx].input_chunk;
 
             // create a let statement for the old_loop_var
             Expr old_min = op->min;
@@ -124,7 +129,8 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             // Replace the arguments. e.g.
             //   func.s0.x -> func.stencil.x
             for (size_t i = 0; i < kernel.func.args().size(); i++) {
-              new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
+              //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
+              new_args[i] = kernel.dims[i].output_stencil;
             }
 
             vector<Expr> new_values(op->values.size());
@@ -146,9 +152,9 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             // check assumptions
             internal_assert(op->call_type == Call::Halide);
 
-            const auto it = dag.kernels.find(op->name);
-            internal_assert(it != dag.kernels.end());
-            const HWKernel &stencil_kernel = it->second;
+            const auto it = xcel.hwbuffers.find(op->name);
+            internal_assert(it != xcel.hwbuffers.end());
+            const HWBuffer &stencil_kernel = it->second;
             internal_assert(op->args.size() == stencil_kernel.func.args().size());
 
             // Replace the call node of func with call node of func.stencil
@@ -163,13 +169,15 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
                 Expr offset;
                 if (stencil_kernel.name == kernel.name) {
                     // The call is in an update definition of the kernel itself
-                    offset = stencil_kernel.dims[i].min_pos;
+                    // FIXME: offset = stencil_kernel.dims[i].min_pos;
+                    offset = stencil_kernel.dims[i].output_min_pos;
                 } else {
                     // This is call to input stencil
-                    // we use the min_pos stored in in_kernel.consumer_stencils
-                    const auto it = stencil_kernel.consumer_stencils.find(kernel.name);
-                    internal_assert(it != kernel.consumer_stencils.end());
-                    offset = it->second[i].min_pos;
+                    // we use the min_pos stored in in_kernel.consumer_buffers
+                    const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
+                    internal_assert(it != kernel.consumer_buffers.end());
+                    // FIXME
+                    offset = it->second.dims[i].output_min_pos;
                 }
 
                 Expr new_arg = old_arg - offset;
@@ -191,8 +199,8 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
 
     Stmt visit(const Realize *op) {
         // this must be a realize node of a inlined function
-        internal_assert(dag.kernels.count(op->name));
-        internal_assert(dag.kernels.find(op->name)->second.is_inlined);
+        internal_assert(xcel.hwbuffers.count(op->name));
+        internal_assert(xcel.hwbuffers.find(op->name)->second.is_inlined);
         // expand and simplify bound expressions
         // TODO this may not be needed if the letstmt in the scope is well preserved
 
@@ -249,15 +257,15 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
     }
 
 public:
-    ReplaceReferencesWithStencil(const HWKernel &k, const HWKernelDAG &d,
+    ReplaceReferencesWithStencil(const HWBuffer &k, const HWXcel &accel,
                                  const Scope<Expr> *s = NULL)
-        : kernel(k), dag(d) {
+        : kernel(k), xcel(accel) {
         scope.set_containing_scope(s);
     }
 };
 
-
-Stmt create_hwbuffer_dispatch_call(const HWKernel& kernel, int min_fifo_depth = 0) {
+// FIXME many uses of dims
+Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 0) {
     // dispatch the stream into seperate streams for each of its consumers
     // syntax:
     //   dispatch_stream(stream_name, num_of_dimensions,
@@ -271,28 +279,29 @@ Stmt create_hwbuffer_dispatch_call(const HWKernel& kernel, int min_fifo_depth = 
     Expr stream_var = Variable::make(Handle(), kernel.name + ".stencil.stream");
     vector<Expr> dispatch_args({stream_var, (int)kernel.dims.size()});
     for (size_t i = 0; i < kernel.dims.size(); i++) {
-        dispatch_args.push_back(kernel.dims[i].size);
-        dispatch_args.push_back(kernel.dims[i].step);
-        Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-                                     kernel.dims[i].store_bound.min + 1);
-        internal_assert(is_const(store_extent));
-        dispatch_args.push_back((int)*as_const_int(store_extent));
+        dispatch_args.push_back(kernel.dims[i].output_stencil);
+        dispatch_args.push_back(kernel.dims[i].input_chunk);
+        dispatch_args.push_back(kernel.dims[i].logical_size);
+        //Expr store_extent = simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1);
+        //internal_assert(is_const(store_extent));
+        //dispatch_args.push_back((int)*as_const_int(store_extent));
     }
-    dispatch_args.push_back((int)kernel.consumer_stencils.size());
-    for (const auto& p : kernel.consumer_stencils) {
+    dispatch_args.push_back((int)kernel.consumer_buffers.size());
+    for (const auto& p : kernel.consumer_buffers) {
         dispatch_args.push_back(p.first);
-        internal_assert(kernel.consumer_fifo_depths.count(p.first));
-        dispatch_args.push_back(std::max(min_fifo_depth, kernel.consumer_fifo_depths.find(p.first)->second));
-        internal_assert(p.second.size() == kernel.dims.size());
+        //internal_assert(kernel.consumer_fifo_depths.count(p.first));
+        //dispatch_args.push_back(std::max(min_fifo_depth, kernel.consumer_fifo_depths.find(p.first)->second));
+        dispatch_args.push_back(0); // assume a 0 fifo_depth
+        internal_assert(p.second.dims.size() == kernel.dims.size());
         for (size_t i = 0; i < kernel.dims.size(); i++) {
-            Expr store_offset = simplify(p.second[i].store_bound.min -
-                                         kernel.dims[i].store_bound.min);
-            Expr store_extent = simplify(p.second[i].store_bound.max -
-                                         p.second[i].store_bound.min + 1);
-            internal_assert(is_const(store_offset));
-            internal_assert(is_const(store_extent));
-            dispatch_args.push_back((int)*as_const_int(store_offset));
-            dispatch_args.push_back((int)*as_const_int(store_extent));
+          dispatch_args.push_back(0); // assume a 0 offset
+          dispatch_args.push_back(p.second.dims[i].logical_size);
+          //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
+          //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
+          //internal_assert(is_const(store_offset));
+          //internal_assert(is_const(store_extent));
+          //dispatch_args.push_back((int)*as_const_int(store_offset));
+          //dispatch_args.push_back((int)*as_const_int(store_extent));
         }
     }
     return Evaluate::make(Call::make(Handle(), "dispatch_stream", dispatch_args, Call::Intrinsic));
@@ -300,17 +309,17 @@ Stmt create_hwbuffer_dispatch_call(const HWKernel& kernel, int min_fifo_depth = 
 
 
 // Add realize and read_stream calls arround IR s
-Stmt add_hwinput_stencil(Stmt s, const HWKernel &kernel, const HWKernel &input) {
+Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) {
     string stencil_name = input.name + ".stencil";
     string stream_name = stencil_name + ".stream";
     Expr stream_var = Variable::make(Handle(), stream_name);
     Expr stencil_var = Variable::make(Handle(), stencil_name);
 
     // syntax for read_stream()
-    // read_stream(src_stream, des_stencil, [consumer_name])
+    // read_stream(src_stream, dest_stencil, [consumer_name])
     vector<Expr> args({stream_var, stencil_var});
     if (input.name != kernel.name) {
-        // for non-output kernel, we add an addition argument
+        // for non-output kernel, we add an additional argument
         args.push_back(kernel.name);
     }
     Stmt read_call = Evaluate::make(Call::make(Handle(), "read_stream", args, Call::Intrinsic));
@@ -321,19 +330,19 @@ Stmt add_hwinput_stencil(Stmt s, const HWKernel &kernel, const HWKernel &input) 
 
     // create a realizeation of the stencil image
     Region bounds;
-    for (StencilDimSpecs dim: input.dims) {
-        bounds.push_back(Range(0, dim.size));
+    for (const auto dim: input.dims) {
+        bounds.push_back(Range(0, dim.output_stencil));
     }
     s = Realize::make(stencil_name, input.func.output_types(), MemoryType::Auto, bounds, const_true(), pc);
     return s;
 }
 
-bool need_hwbuffer(const HWKernel &kernel) {
+bool need_hwbuffer(const HWBuffer &kernel) {
     // check if we need a line buffer
     bool ret = false;
     for (size_t i = 0; i < kernel.dims.size(); i++) {
       //std::cout << "kernel " << kernel.name << " has size=" << kernel.dims[i].size << " step=" << kernel.dims[i].step << std::endl;
-      if (kernel.dims.at(i).size != kernel.dims.at(i).step) {
+      if (to_int(kernel.dims.at(i).output_stencil) != to_int(kernel.dims.at(i).input_chunk)) {
             ret = true;
             break;
         }
@@ -346,7 +355,7 @@ bool need_hwbuffer(const HWKernel &kernel) {
 // to generate the stencil.stream
 // The former is smaller, which only consist of the new pixels
 // sided in each shift of the stencil window.
-Stmt add_hwbuffer(Stmt s, const HWKernel &kernel) {
+Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
     Stmt ret;
     if (need_hwbuffer(kernel)) {
         // Before mutation:
@@ -366,9 +375,11 @@ Stmt add_hwbuffer(Stmt s, const HWKernel &kernel) {
         vector<Expr> hwbuffer_args({update_stream_var, stream_var});
         // extract the buffer size, and put it into args
         for (size_t i = 0; i < kernel.dims.size(); i++) {
-            Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-                                         kernel.dims[i].store_bound.min + 1);
-            hwbuffer_args.push_back(store_extent);
+          //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
+          //                             kernel.dims[i].store_bound.min + 1);
+          Expr store_extent = kernel.dims[i].logical_size;
+          hwbuffer_args.push_back(store_extent);
+          
             std::cout << "store extent in this hwbuffer: " << store_extent << std::endl;
         }
         Stmt hwbuffer_call = Evaluate::make(Call::make(Handle(), "hwbuffer", hwbuffer_args, Call::Intrinsic));
@@ -377,8 +388,8 @@ Stmt add_hwbuffer(Stmt s, const HWKernel &kernel) {
 
         // create a realization of the stencil of the window-size
         Region window_bounds;
-        for (StencilDimSpecs dim: kernel.dims) {
-            window_bounds.push_back(Range(0, dim.size));
+        for (const auto dim: kernel.dims) {
+            window_bounds.push_back(Range(0, dim.output_stencil));
         }
         ret = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, window_bounds, const_true(), Block::make(hwbuffer_call, Block::make(dispatch_call, s)));
     } else {
@@ -396,7 +407,7 @@ Stmt add_hwbuffer(Stmt s, const HWKernel &kernel) {
         // This works around the issue that read stencil call from a interface stream
         // in the compute kernel cannot fully unrolled
         int force_buffer_depth = 0;
-        if (kernel.input_streams.empty() && kernel.consumer_stencils.size() == 1)
+        if (kernel.input_streams.empty() && kernel.consumer_buffers.size() == 1)
             force_buffer_depth = 1;
         Stmt dispatch_call = create_hwbuffer_dispatch_call(kernel, force_buffer_depth);
         ret = Block::make(dispatch_call, s);
@@ -404,44 +415,7 @@ Stmt add_hwbuffer(Stmt s, const HWKernel &kernel) {
     return ret;
 }
 
-/*
-Stmt find_pcblock(Stmt s) {
-  Stmt stmt = s;
-  while (const Block *block = stmt.as<Block>()) {
-    if (const ProducerConsumer *pc = block->first.as<ProducerConsumer>()) {
-      Stmt block_stmt = block;
-      (void)(pc);
-      //std::cout << "found a pc block from " << pc << std::endl;
-      return block_stmt;
-    } else if (const Block *b = block->first.as<Block>()) {
-      //std::cout << "first statement is a block\n";
-      Stmt stmt = b;
-      continue;
-    } else if (const Block *b = block->rest.as<Block>()) {
-      //std::cout << "second statement is a block\n";
-      Stmt pc_stmt = b;
-      continue;
-    } else {
-      return s;
-    }
-  }
-  return s;
-}
-
-Stmt find_produce(Stmt s) {
-  Stmt stmt = s;
-  while (const LetStmt *ls = stmt.as<LetStmt>()) {
-    Stmt body = ls->body;
-    stmt = body;
-    if (stmt.as<ProducerConsumer>()) {
-      return stmt;
-    }
-  }
-  return s;
-}
-*/
-
-Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
+Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
     Stmt ret;
 
     if (const Block *op = s.as<Block>()) {
@@ -462,6 +436,7 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
 
       //const ProducerConsumer *produce_node = pc_block->first.as<ProducerConsumer>();
       //const ProducerConsumer *produce_node = first_pc.as<ProducerConsumer>();
+      // FIXME: shouldn't this be body.as<>
         const ProducerConsumer *produce_node = body.as<ProducerConsumer>();
         const ProducerConsumer *consume_node = op->rest.as<ProducerConsumer>();
         if (!(consume_node && produce_node)) {
@@ -482,13 +457,13 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         Stmt produce_stmt = body;//first_pc;//pc_block->first;
         Stmt consume_stmt = op->rest;//pc_block->rest;
       
-        const HWKernel &kernel = dag.kernels.find(produce_node->name)->second;
+        const HWBuffer &kernel = xcel.hwbuffers.find(produce_node->name)->second;
         internal_assert(!kernel.is_output);
         if (kernel.is_inlined) {
             // if it is a function inlined into the output function,
             // skip transforming this funciton
 
-            // FIXME it is buggy as the inlined function should really
+            // TODO it is buggy as the inlined function should really
             // nested in the scan loops of the output function
             internal_error;
         }
@@ -523,8 +498,8 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         Expr stream_var = Variable::make(Handle(), stream_name);
 
         // replacing the references to the original realization with refences to stencils
-        Stmt produce = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(produce_node->body);
-        //Stmt update = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(op->update);
+        Stmt produce = ReplaceReferencesWithStencil(kernel, xcel, &scope).mutate(produce_node->body);
+        //Stmt update = ReplaceReferencesWithStencil(kernel, xcel, &scope).mutate(op->update);
 
         // syntax for write_stream()
         // write_stream(des_stream, src_stencil)
@@ -539,15 +514,15 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
 
         // create a realization of the stencil of the step-size
         Region step_bounds;
-        for (StencilDimSpecs dim: kernel.dims) {
-            step_bounds.push_back(Range(0, dim.step));
+        for (const auto dim: kernel.dims) {
+            step_bounds.push_back(Range(0, dim.input_chunk));
         }
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, step_bounds, const_true(), stencil_pc);
 
         // add read_stream for each input stencil (producers fed to func)
         for (const string& s : kernel.input_streams) {
-            const auto it = dag.kernels.find(s);
-            internal_assert(it != dag.kernels.end());
+            const auto it = xcel.hwbuffers.find(s);
+            internal_assert(it != xcel.hwbuffers.end());
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
         }
 
@@ -556,31 +531,32 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         int scan_dim = 0;
         //std::cout << "writing kernel named " << stencil_name << " with bounds ";
         for(size_t i = 0; i < kernel.dims.size(); i++) {
-            if (kernel.dims[i].loop_var == "undef" )
+            if (kernel.dims[i].output_loop_name == "undef" )
                 continue;
 
             string loop_var_name = kernel.name + "." + kernel.func.args()[i]
                 + ".__scan_dim_" + std::to_string(scan_dim++);
 
-            Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-                                         kernel.dims[i].store_bound.min + 1);
+            //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
+            //                             kernel.dims[i].store_bound.min + 1);
+            int store_extent_int = to_int(kernel.dims[i].logical_size);
             //std::cout << store_extent << " ";
-            debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent << '\n';
 
+            debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent_int << '\n';
             // check the condition for the new loop for sliding the update stencil
-            const IntImm *store_extent_int = store_extent.as<IntImm>();
-            internal_assert(store_extent_int);
-            if (store_extent_int->value % kernel.dims[i].step != 0) {
+            //const IntImm *store_extent_int = store_extent.as<IntImm>();
+            //internal_assert(store_extent_int);
+            if (store_extent_int % to_int(kernel.dims[i].input_chunk) != 0) {
                 // we cannot handle this scenario yet
                 internal_error
-                    << "Line buffer extent (" << store_extent_int->value
-                    << ") is not divisible by the stencil step " << kernel.dims[i].step << '\n';
+                    << "Line buffer extent (" << store_extent_int
+                    << ") is not divisible by the stencil step " << to_int(kernel.dims[i].input_chunk) << '\n';
             }
-            int loop_extent = store_extent_int->value / kernel.dims[i].step;
+            int loop_extent = store_extent_int / to_int(kernel.dims[i].input_chunk);
 
             // add letstmt to connect old loop var to new loop var_name
-            // FIXME this is not correct in general
-            scan_loops = LetStmt::make(kernel.dims[i].loop_var, Variable::make(Int(32), loop_var_name), scan_loops);
+            // TODO this is not correct in general
+            scan_loops = LetStmt::make(kernel.dims[i].output_loop_name, Variable::make(Int(32), loop_var_name), scan_loops);
             scan_loops = For::make(loop_var_name, 0, loop_extent, ForType::Serial, DeviceAPI::Host, scan_loops);
         }
         //std::cout << "\n";
@@ -588,8 +564,8 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         // Recurse
         //std::cout << consume_node->name << " before recursion\n";
         
-        Stmt stream_consume = transform_hwkernel(consume_node->body, dag, scope);
-        //Stmt stream_consume = transform_hwkernel(consume_stmt, dag, scope);
+        Stmt stream_consume = transform_hwkernel(consume_node->body, xcel, scope);
+        //Stmt stream_consume = transform_hwkernel(consume_stmt, xcel, scope);
 
         //std::cout << consume_node->name << " after recursion\n";
         
@@ -611,8 +587,8 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         }
 
     } else {
-        // this is the output kernel of the dag
-        const HWKernel &kernel = dag.kernels.find(dag.name)->second;
+        // this is the output kernel of the xcel
+        const HWBuffer &kernel = xcel.hwbuffers.find(xcel.name)->second;
         internal_assert(kernel.is_output);
 
         string stencil_name = kernel.name + ".stencil";
@@ -621,23 +597,25 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         Expr stencil_var = Variable::make(Handle(), stencil_name);
 
         // replacing the references to the original realization with refences to stencils
-        Stmt produce = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(s);
+        Stmt produce = ReplaceReferencesWithStencil(kernel, xcel, &scope).mutate(s);
 
         // syntax for write_stream()
         // write_stream(des_stream, src_stencil)
         vector<Expr> write_args({stream_var, stencil_var});
-        // for dag output kernel, we want to record the scan loop vars,
+        // for xcel output kernel, we want to record the scan loop vars,
         // so that code gen knows when to assert TLAST signal
         int scan_dim = 0;
         for (size_t i = 0; i < kernel.dims.size(); i++) {
-            if (kernel.dims[i].loop_var != "undef") {
+            if (kernel.dims[i].output_loop_name != "undef") {
                 string loop_var_name = kernel.name + "." + kernel.func.args()[i]
                     + ".__scan_dim_" + std::to_string(scan_dim++);
-                Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-                                             kernel.dims[i].store_bound.min + 1);
-                const IntImm *store_extent_int = store_extent.as<IntImm>();
-                internal_assert(store_extent_int);
-                int loop_extent = store_extent_int->value / kernel.dims[i].step;
+                //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
+                //                             kernel.dims[i].store_bound.min + 1);
+                //const IntImm *store_extent_int = store_extent.as<IntImm>();
+                //internal_assert(store_extent_int);
+                
+                int store_extent_int = to_int(kernel.dims[i].logical_size);
+                int loop_extent = store_extent_int / to_int(kernel.dims[i].input_chunk);
 
                 Expr loop_var = Variable::make(Int(32), loop_var_name);
                 Expr loop_max = make_const(Int(32), loop_extent - 1);
@@ -654,15 +632,15 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
 
         // create a realization of the stencil image
         Region bounds;
-        for (StencilDimSpecs dim: kernel.dims) {
-            bounds.push_back(Range(0, dim.step));
+        for (const auto dim: kernel.dims) {
+            bounds.push_back(Range(0, dim.input_chunk));
         }
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), stencil_pc);
 
         // add read_stream for each input stencil (producers fed to func)
         for (const string& s : kernel.input_streams) {
-            const auto it = dag.kernels.find(s);
-            internal_assert(it != dag.kernels.end());
+            const auto it = xcel.hwbuffers.find(s);
+            internal_assert(it != xcel.hwbuffers.end());
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
         }
 
@@ -670,43 +648,43 @@ Stmt transform_hwkernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         Stmt scan_loops = stencil_realize;
         scan_dim = 0;
         for(size_t i = 0; i < kernel.dims.size(); i++) {
-            if (kernel.dims[i].loop_var == "undef" )
+            if (kernel.dims[i].output_loop_name == "undef" )
                 continue;
 
             string loop_var_name = kernel.name + "." + kernel.func.args()[i]
                 + ".__scan_dim_" + std::to_string(scan_dim++);
 
-            Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-                                         kernel.dims[i].store_bound.min + 1);
-            debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent << '\n';
+            //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
+            //                             kernel.dims[i].store_bound.min + 1);
+            int store_extent_int = to_int(kernel.dims[i].logical_size);
+            debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent_int << '\n';
 
             // check the condition for the new loop for sliding the update stencil
-            const IntImm *store_extent_int = store_extent.as<IntImm>();
-            internal_assert(store_extent_int);
-            if (store_extent_int->value % kernel.dims[i].step != 0) {
+            //const IntImm *store_extent_int = store_extent.as<IntImm>();
+            //internal_assert(store_extent_int);
+            if (store_extent_int % to_int(kernel.dims[i].input_chunk) != 0) {
                 // we cannot handle this scenario yet
                 internal_error
-                    << "Line buffer extent (" << store_extent_int->value
-                    << ") is not divisible by the stencil step " << kernel.dims[i].step << '\n';
+                    << "Line buffer extent (" << store_extent_int
+                    << ") is not divisible by the stencil step " << kernel.dims[i].input_chunk << '\n';
             }
-            int loop_extent = store_extent_int->value / kernel.dims[i].step;
+            int loop_extent = store_extent_int / to_int(kernel.dims[i].input_chunk);
 
             // add letstmt to connect old loop var to new loop var_name
-            // FIXME this is not correct in general
-            scan_loops = LetStmt::make(kernel.dims[i].loop_var, Variable::make(Int(32), loop_var_name), scan_loops);
+            // TODO this is not correct in general
+            scan_loops = LetStmt::make(kernel.dims[i].output_loop_name, Variable::make(Int(32), loop_var_name), scan_loops);
             scan_loops = For::make(loop_var_name, 0, loop_extent, ForType::Serial, DeviceAPI::Host, scan_loops);
         }
 
         Stmt ret_produce = ProducerConsumer::make_produce(stream_name, scan_loops);
         Stmt ret_consume = ProducerConsumer::make_consume(stream_name, Evaluate::make(0));
         Stmt ret_pc = Block::make(ret_produce, ret_consume);
-        //ret = ProducerConsumer::make(stream_name, scan_loops, Stmt(), Evaluate::make(0));
         ret = ret_pc;
     }
     return ret;
 }
 
-
+/*
 class TransformTapStencils : public IRMutator2 {
     const map<string, HWTap> &taps;
 
@@ -741,60 +719,45 @@ class TransformTapStencils : public IRMutator2 {
 public:
     TransformTapStencils(const map<string, HWTap> &t) : taps(t) {}
 };
+*/
 
 // Perform streaming optimization for all functions
 class InsertHWBuffers : public IRMutator2 {
-    const HWKernelDAG &dag;
+    const HWXcel &xcel;
     Scope<Expr> scope;
 
     using IRMutator2::visit;
 
     Stmt visit(const For *op) {
         Stmt stmt;
-        //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
+        //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << xcel.store_level << std::endl;
 
-        // store level doesn't match name AND loop var is not found in dag
-        if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
+        // store level doesn't match name AND loop var is not found in xcel
+        if (!xcel.store_level.match(op->name) && xcel.streaming_loop_levels.count(op->name)==0) {
             stmt = IRMutator2::visit(op);
 
         // compute level matches name
-        } else if (dag.compute_level.match(op->name)) {
-            internal_assert(dag.loop_vars.count(op->name));
+        } else if (xcel.compute_level.match(op->name)) {
+            internal_assert(xcel.streaming_loop_levels.count(op->name)); // compute level was supposed to be inclusive
 
             // walk inside of any let statements
             Stmt body = op->body;
 
             //std::cout << "visited for loop: " << body;
 
-            vector<pair<string, Expr>> lets;
-            /*
-            if (const Block *block = body.as<Block>()) {
-              Stmt old_body = body;
-              if (block->first.as<LetStmt>()) {
-                body = block->first;
-              }
-
-              while (const LetStmt *let = body.as<LetStmt>()) {
-                body = let->body;
-                scope.push(let->name, simplify(expand_expr(let->value, scope)));
-                lets.push_back(make_pair(let->name, let->value));
-              }
-
-              body = old_body;
-            }
-            */
-            
+            // place all let statements in here
+            vector<pair<string, Expr>> lets;          
             while (const LetStmt *let = body.as<LetStmt>()) {
                 body = let->body;
                 scope.push(let->name, simplify(expand_expr(let->value, scope)));
                 lets.push_back(make_pair(let->name, let->value));
             }
 
-            Stmt new_body = transform_hwkernel(body, dag, scope);
+            Stmt new_body = transform_hwkernel(body, xcel, scope);
 
-            // insert line buffers for input streams
-            for (const string &kernel_name : dag.input_kernels) {
-                const HWKernel &input_kernel = dag.kernels.find(kernel_name)->second;
+            // insert hardware buffers for input streams
+            for (const string &input_name : xcel.input_streams) {
+                const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
                 new_body = add_hwbuffer(new_body, input_kernel);
             }
 
@@ -806,15 +769,16 @@ class InsertHWBuffers : public IRMutator2 {
             // remove the loop statement if it is one of the scan loops
             stmt = new_body;
 
-        // loop var is found in dag
-        } else if (dag.loop_vars.count(op->name)){
+        // loop var is found in xcel
+        } else if (xcel.streaming_loop_levels.count(op->name)){
             // remove the loop statement if it is one of the scan loops
             stmt = mutate(op->body);
+            
         } else {
             // should be left with store level match; we should produce hls_target
-            internal_assert(dag.store_level.match(op->name));
-            debug(3) << "find the pipeline producing " << dag.name << "\n";
-            std::cout << "find the pipeline producing " << dag.name << "\n";
+            internal_assert(xcel.store_level.match(op->name));
+            debug(3) << "find the pipeline producing " << xcel.name << "\n";
+            std::cout << "find the pipeline producing " << xcel.name << "\n";
 
             // walk inside of any let statements
             Stmt body = op->body;
@@ -828,20 +792,20 @@ class InsertHWBuffers : public IRMutator2 {
 
             Stmt new_body = mutate(body);
 
-            //stmt = For::make(dag.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
-            //new_body = ProducerConsumer::make("_hls_target." + dag.name, new_body, Stmt(), Evaluate::make(0));
-            Stmt new_body_produce = ProducerConsumer::make_produce("_hls_target." + dag.name, new_body);
-            Stmt new_body_consume = ProducerConsumer::make_consume("_hls_target." + dag.name, Evaluate::make(0));
+            //stmt = For::make(xcel.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
+            Stmt new_body_produce = ProducerConsumer::make_produce("_hls_target." + xcel.name, new_body);
+            Stmt new_body_consume = ProducerConsumer::make_consume("_hls_target." + xcel.name, Evaluate::make(0));
             new_body = Block::make(new_body_produce, new_body_consume);
             
             // add declarations of inputs and output (external) streams outside the hardware pipeline IR
-            vector<string> external_streams;
-            external_streams.push_back(dag.name);
-            external_streams.insert(external_streams.end(), dag.input_kernels.begin(), dag.input_kernels.end());
+            vector<string> external_streams;  // store input, self, and output streams
+            external_streams.push_back(xcel.name);
+            external_streams.insert(external_streams.end(), xcel.input_streams.begin(), xcel.input_streams.end());
             for (const string &name : external_streams) {
-                const HWKernel kernel = dag.kernels.find(name)->second;
+                const HWBuffer &kernel = xcel.hwbuffers.find(name)->second;
                 string stream_name = need_hwbuffer(kernel) ?
-                    kernel.name + ".stencil_update.stream" : kernel.name + ".stencil.stream";
+                  kernel.name + ".stencil_update.stream" :
+                  kernel.name + ".stencil.stream";
 
                 string direction = kernel.is_output ? "stream_to_buffer" : "buffer_to_stream";
                 Expr stream_var = Variable::make(Handle(), stream_name);
@@ -850,7 +814,7 @@ class InsertHWBuffers : public IRMutator2 {
                 internal_assert(kernel.func.output_types().size() == 1);
                 vector<Expr> image_args;
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
-                    image_args.push_back(kernel.dims[i].store_bound.min);
+                    image_args.push_back(kernel.dims[i].logical_min);
                 }
                 Expr address_of_subimage_origin = Call::make(Handle(), Call::buffer_get_host, {Call::make(kernel.func, image_args, 0)}, Call::Extern);
                 Expr buffer_var = Variable::make(type_of<struct buffer_t *>(), kernel.name + ".buffer");
@@ -862,23 +826,26 @@ class InsertHWBuffers : public IRMutator2 {
                 vector<Expr> stream_call_args({direction, buffer_var, stream_var, address_of_subimage_origin});
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
                     stream_call_args.push_back(Variable::make(Int(32), kernel.name + ".stride." + std::to_string(i)));
-                    stream_call_args.push_back(simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1));
+                    stream_call_args.push_back(kernel.dims[i].logical_size);
+                    //stream_call_args.push_back(simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1));
                 }
                 Stmt stream_subimg = Evaluate::make(Call::make(Handle(), "stream_subimage", stream_call_args, Call::Intrinsic));
 
                 Region bounds;
-                for (StencilDimSpecs dim: kernel.dims) {
-                    bounds.push_back(Range(0, dim.step));
+                for (auto dim : kernel.dims) {
+                    bounds.push_back(Range(0, dim.input_chunk));
                 }
                 new_body = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), Block::make(stream_subimg, new_body));
             }
+        
 
+            /*
             // Handle tap values
-            new_body = TransformTapStencils(dag.taps).mutate(new_body);
+            new_body = TransformTapStencils(xcel.taps).mutate(new_body);
 
             // Declare and initialize tap stencils with buffers
             // TODO move this call out side the tile loops over the kernel launch
-            for (const auto &p : dag.taps) {
+            for (const auto &p : xcel.taps) {
                 const HWTap &tap = p.second;
                 const string stencil_name = tap.name + ".tap.stencil";
 
@@ -896,6 +863,7 @@ class InsertHWBuffers : public IRMutator2 {
                     vector<Type>({tap.param.type()});
                 new_body = Realize::make(stencil_name, types, MemoryType::Auto, bounds, const_true(), Block::make(convert_call, new_body));
             }
+            */
 
             // Rewrap the let statements
             for (size_t i = lets.size(); i > 0; i--) {
@@ -909,53 +877,56 @@ class InsertHWBuffers : public IRMutator2 {
     // Remove the realize node for intermediate functions in the hardware pipeline,
     // as we will create hwbuffers in the pipeline to hold these values
     Stmt visit(const Realize *op) {
-        if (dag.kernels.count(op->name) &&
-            !dag.kernels.find(op->name)->second.is_inlined && // is a hwbuffered function
-            dag.name != op->name && // not the output
-            dag.input_kernels.count(op->name) == 0 // not a input
-            ) {
-            return mutate(op->body);
-            // check constraints
-            /*
+      if (xcel.hwbuffers.count(op->name)) {
+        const HWBuffer& buffer = xcel.hwbuffers.find(op->name)->second;
+        
+        if (!buffer.is_inlined && // is a hwbuffered function
+            !buffer.is_output && // not the output
+            //xcel.name != op->name && // not the output
+            xcel.input_streams.count(op->name) == 0 // not a input
+          ) {
+          return mutate(op->body);
+          // check constraints
+          /*
             for (size_t i = 0; i < kernel.dims.size(); i++) {
-                Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-                                             kernel.dims[i].store_bound.min + 1);
-                if (!is_zero(simplify(op->bounds[i].extent - store_extent))) {
-                    user_error << "hwbuffer (" << store_extent << ") for " << op->name
-                               << " is not equal to realize extent (" << op->bounds[i].extent << ").\n";
-                }
+            Expr store_extent = simplify(kernel.dims[i].store_bound.max -
+            kernel.dims[i].store_bound.min + 1);
+            if (!is_zero(simplify(op->bounds[i].extent - store_extent))) {
+            user_error << "hwbuffer (" << store_extent << ") for " << op->name
+            << " is not equal to realize extent (" << op->bounds[i].extent << ").\n";
             }
-            */
-        } else {
-           return IRMutator2::visit(op);
+            }
+          */
         }
+      } //else
+      return IRMutator2::visit(op);
     }
 
-    Stmt visit(const LetStmt *op) {
-        Stmt stmt;
-        Expr new_value = simplify(expand_expr(op->value, scope));
-        scope.push(op->name, new_value);
-        Stmt new_body = mutate(op->body);
-        if (new_value.same_as(op->value) &&
-            new_body.same_as(op->body)) {
-            stmt = op;
-        } else {
-            stmt = LetStmt::make(op->name, new_value, new_body);
-        }
-        scope.pop(op->name);
-        return stmt;
+  Stmt visit(const LetStmt *op) {
+    Stmt stmt;
+    Expr new_value = simplify(expand_expr(op->value, scope));
+    scope.push(op->name, new_value);
+    Stmt new_body = mutate(op->body);
+    if (new_value.same_as(op->value) &&
+        new_body.same_as(op->body)) {
+      stmt = op;
+    } else {
+      stmt = LetStmt::make(op->name, new_value, new_body);
     }
+    scope.pop(op->name);
+    return stmt;
+  }
 
 public:
-    InsertHWBuffers(const HWKernelDAG &d)
-        : dag(d) {}
+    InsertHWBuffers(const HWXcel &accel)
+        : xcel(accel) {}
 };
 
-Stmt insert_hwbuffers(Stmt s, const HWKernelDAG &dag) {
-    debug(3) << s << "\n";
-    s = InsertHWBuffers(dag).mutate(s);
-    debug(3) << s << "\n";
-    return s;
+Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
+  debug(3) << s << "\n";
+  s = InsertHWBuffers(xcel).mutate(s);
+  debug(3) << s << "\n";
+  return s;
 }
 
 }

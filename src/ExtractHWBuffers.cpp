@@ -335,12 +335,15 @@ class HWBuffers : public IRMutator2 {
           
           HWBuffer hwbuffer;
           hwbuffer.name = op->name;
-          hwbuffer.total_buffer_box = box;
-          hwbuffer.input_chunk_box = box;
-          hwbuffer.input_block_box = input_block_box;
-          hwbuffer.output_stencil_box = box;
-          hwbuffer.output_block_box = output_block_box;
+          for (size_t i = 0; i < output_block_box.size(); ++i) {
+            hwbuffer.dims[i].logical_size = box.at(i);
+            hwbuffer.dims[i].input_chunk = box.at(i);
+            hwbuffer.dims[i].input_block = input_block_box.at(i);
+            hwbuffer.dims[i].output_stencil = box.at(i);
+            hwbuffer.dims[i].output_block = output_block_box.at(i);
+          }
           hwbuffer.output_access_pattern = reader_loopnest;
+
 
           if (buffers.count(hwbuffer.name) == 0) {
             std::cout << "Here is the hwbuffer (store=compute):"
@@ -401,11 +404,13 @@ class HWBuffers : public IRMutator2 {
           
           HWBuffer hwbuffer;
           hwbuffer.name = op->name;
-          hwbuffer.total_buffer_box = total_buffer_box;
-          hwbuffer.input_chunk_box = sliding_stencil_map.at(for_name).input_chunk_box;
-          hwbuffer.input_block_box = input_block_box;
-          hwbuffer.output_stencil_box = sliding_stencil_map.at(for_name).output_stencil_box;
-          hwbuffer.output_block_box = output_block_box;
+          for (size_t i = 0; i < output_block_box.size(); ++i) {
+            hwbuffer.dims[i].logical_size = total_buffer_box.at(i);
+            hwbuffer.dims[i].input_chunk = sliding_stencil_map.at(for_name).input_chunk_box.at(i);
+            hwbuffer.dims[i].input_block = input_block_box.at(i);
+            hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
+            hwbuffer.dims[i].output_block = output_block_box.at(i);
+          }
           hwbuffer.output_access_pattern = reader_loopnest;
 
           if (buffers.count(hwbuffer.name) == 0) {          
@@ -449,13 +454,36 @@ std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
   return os;
 };
 
+std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
+  vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
+  vector<Expr> output_stencil_box, output_block_box;
+  for (const auto dim : buffer.dims) {
+    total_buffer_box.emplace_back(dim.logical_size);
+    input_chunk_box.emplace_back(dim.input_chunk);
+    input_block_box.emplace_back(dim.input_block);
+    output_stencil_box.emplace_back(dim.output_stencil);
+    output_block_box.emplace_back(dim.output_block);
+  }
+  
   os << "HWBuffer: " << buffer.name << std::endl
-     << "Total Buffer: " << buffer.total_buffer_box << std::endl
-     << "Input Chunk: " << buffer.input_chunk_box << std::endl
-     << "Input Block: " << buffer.input_block_box << std::endl
-     << "Output Stencil: " << buffer.output_stencil_box << std::endl
-     << "Output Block: " << buffer.output_block_box << std::endl
+     << "Total Buffer: " << total_buffer_box << std::endl
+     << "Input Chunk: " << input_chunk_box << std::endl
+     << "Input Block: " << input_block_box << std::endl
+     << "Output Stencil: " << output_stencil_box << std::endl
+     << "Output Block: " << output_block_box << std::endl
      << "Output Access Pattern: " << buffer.output_access_pattern << std::endl;
   return os;
 };
@@ -570,7 +598,7 @@ HWXcel extract_hw_xcel_top_parameters(Stmt s, Function func,
   xcel.store_level = func.schedule().accelerate_store_level();
   xcel.compute_level = func.schedule().accelerate_compute_level();
   xcel.streaming_loop_levels = get_loop_levels_between(s, func, xcel.compute_level, xcel.store_level);
-  xcel.input_kernels = func.schedule().accelerate_inputs();
+  xcel.input_streams = func.schedule().accelerate_inputs();
   xcel.hwbuffers = extract_hw_buffers(s, env);
 
   return xcel;

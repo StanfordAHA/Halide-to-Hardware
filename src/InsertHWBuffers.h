@@ -7,7 +7,7 @@
  */
 
 #include "IR.h"
-#include "ExtractHWKernelDAG.h"
+#include "ExtractHWBuffers.h"
 
 namespace Halide {
 namespace Internal {
