@@ -332,18 +332,25 @@ class HWBuffers : public IRMutator2 {
           auto output_block_box = counter.output_block_box;
           auto input_block_box = counter.input_block_box;
           auto reader_loopnest = counter.reader_loopnest;
+
+          std::cout << "transferring parameters\n";
           
           HWBuffer hwbuffer;
           hwbuffer.name = op->name;
+
+          hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
           for (size_t i = 0; i < output_block_box.size(); ++i) {
+            hwbuffer.dims.at(i).logical_min = Expr(0);
             hwbuffer.dims[i].logical_size = box.at(i);
             hwbuffer.dims[i].input_chunk = box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
             hwbuffer.dims[i].output_stencil = box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
+            hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
+          std::cout << "created hwbuffer\n";
 
           if (buffers.count(hwbuffer.name) == 0) {
             std::cout << "Here is the hwbuffer (store=compute):"
@@ -403,13 +410,16 @@ class HWBuffers : public IRMutator2 {
           std::string for_name = first_for_name(new_body);
           
           HWBuffer hwbuffer;
+          hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
           hwbuffer.name = op->name;
           for (size_t i = 0; i < output_block_box.size(); ++i) {
             hwbuffer.dims[i].logical_size = total_buffer_box.at(i);
+            hwbuffer.dims[i].logical_min = Expr(0);
             hwbuffer.dims[i].input_chunk = sliding_stencil_map.at(for_name).input_chunk_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
             hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
+            hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 

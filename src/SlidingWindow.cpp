@@ -227,6 +227,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr output_stencil_size = simplify(max_required - min_required + 1);
             std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
             output_stencil_box.push_back(output_stencil_size);
+            output_min_pos.push_back(min_required);
             
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
             std::cout << "input stencil: " << input_chunk_size << std::endl;
@@ -340,6 +341,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
 
 public:
     std::vector<Expr> output_stencil_box;
+    std::vector<Expr> output_min_pos;
     std::vector<Expr> input_chunk_box;
     SlidingWindowOnFunctionAndLoop(Function f, string v, Expr v_min) :
       func(f), loop_var(v), loop_min(v_min) {}
@@ -347,6 +349,7 @@ public:
     // define the copy constructor without Scope (whose copy constructor is private)
     SlidingWindowOnFunctionAndLoop(const SlidingWindowOnFunctionAndLoop &obj) {
       output_stencil_box = obj.output_stencil_box;
+      output_min_pos = obj.output_min_pos;
       input_chunk_box = obj.input_chunk_box;
     }
 
@@ -404,6 +407,8 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
             ss.output_stencil_box.insert(ss.output_stencil_box.end(), added_stencil.begin(), added_stencil.end());
             auto added_chunk = sliding_window_mutator.input_chunk_box;
             ss.input_chunk_box.insert(ss.input_chunk_box.end(), added_chunk.begin(), added_chunk.end());
+            auto added_min_pos = sliding_window_mutator.output_min_pos;
+            ss.output_min_pos.insert(ss.output_min_pos.end(), added_min_pos.begin(), added_min_pos.end());
 
             if (added_stencil.size() > 0) {
               std::cout << "added sliding stencil called " << op->name << " with " << added_stencil.size()
