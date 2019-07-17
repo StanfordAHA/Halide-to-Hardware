@@ -14,7 +14,7 @@ namespace Internal {
 
 /** Perform streaming optimization
  */
-Stmt insert_hwbuffers(Stmt s, const HWKernelDAG &dag);
+Stmt insert_hwbuffers(Stmt s, const HWXcel &dag);
 
 }
 }

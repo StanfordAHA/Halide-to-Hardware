@@ -529,6 +529,7 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         Expr stream_var = Variable::make(Handle(), stream_name);
 
         // replacing the references to the original realization with refences to stencils
+        std::cout << "replacing refs in: \n" << produce_node->body << std::endl;
         Stmt produce = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(produce_node->body);
         //Stmt update = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(op->update);
 
@@ -867,10 +868,21 @@ class StreamOpt : public IRMutator2 {
 
     Stmt visit(const For *op) {
         Stmt stmt;
-        //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
+        std::cout << "visiting for loop named " << op->name
+                  << " where store_lvl=" << dag.store_level
+                  << " where compute_lvl=" << dag.compute_level
+                  << std::endl;
+
+        for (auto ll : dag.loop_vars) {
+          std::cout << ll << ",";
+        }
+        std::cout << std::endl;
+
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
+            std::cout << "just continue\n";
             stmt = IRMutator2::visit(op);
         } else if (dag.compute_level.match(op->name)) {
+            std::cout << "xcel compute\n";
             internal_assert(dag.loop_vars.count(op->name));
 
             // walk inside of any let statements
@@ -918,9 +930,11 @@ class StreamOpt : public IRMutator2 {
             // remove the loop statement if it is one of the scan loops
             stmt = new_body;
         } else if (dag.loop_vars.count(op->name)){
+            std::cout << "loopy\n";
             // remove the loop statement if it is one of the scan loops
             stmt = mutate(op->body);
         } else {
+            std::cout << "create xcel\n";
             internal_assert(dag.store_level.match(op->name));
             debug(3) << "find the pipeline producing " << dag.name << "\n";
             std::cout << "find the pipeline producing " << dag.name << "\n";
@@ -1062,6 +1076,13 @@ public:
 
 Stmt stream_opt(Stmt s, const HWKernelDAG &dag) {
     debug(3) << s << "\n";
+
+    std::cout << "kernels in dag include: \n";
+    for (auto &kernel_pair : dag.kernels) {
+      std::cout << "kernel " << kernel_pair.first << std::endl;
+    }
+
+    
     s = StreamOpt(dag).mutate(s);
     debug(3) << s << "\n";
     return s;

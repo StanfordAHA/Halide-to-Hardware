@@ -110,6 +110,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             return IRMutator2::visit(op);
         } else {
             Stmt stmt = op;
+            std::cout << "visiting pc sliding window for " << op->name << std::endl << stmt << std::endl;
 
             // We're interested in the case where exactly one of the
             // dimensions of the buffer has a min/extent that depends
@@ -224,14 +225,24 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr prev_min_minus_one = substitute(loop_var, loop_var_expr - 1, min_required) - 1;
 
             // compute sizes
-            Expr output_stencil_size = simplify(max_required - min_required + 1);
+            Expr output_stencil_size = simplify(expand_expr(max_required - min_required + 1, scope));
             std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
             output_stencil_box.push_back(output_stencil_size);
             output_min_pos.push_back(min_required);
             
+            //Expr input_chunk_size = simplify(expand_expr(max_required + 1 - prev_max_plus_one, scope));
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
+            input_chunk_size = is_zero(input_chunk_size) ? 1 : input_chunk_size;
             std::cout << "input stencil: " << input_chunk_size << std::endl;
             input_chunk_box.push_back(input_chunk_size);
+
+            std::cout << "Sliding " << func.name()
+                      << " over dimension " << dim
+                      << " along loop variable " << loop_var << "\n"
+                      << " where min=" << min_required << "  max=" << max_required
+                      << " max_prev_plus_one=" << prev_max_plus_one << "\n"
+                      << "\n";
+
 
             // If there's no overlap between adjacent iterations, we shouldn't slide.
             if (can_prove(min_required >= prev_max_plus_one) ||
@@ -242,6 +253,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                          << " there's no overlap in the region computed across iterations\n"
                          << "Min is " << min_required << "\n"
                          << "Max is " << max_required << "\n";
+
                 return stmt;
             }
 
@@ -297,7 +309,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
     }
 
     Stmt visit(const For *op) override {
-        // It's not safe to enter an inner loop whose bounds depend on
+        // It's nto safe to enter an inner loop whose bounds depend on
         // the var we're sliding over.
         Expr min = expand_expr(op->min, scope);
         Expr extent = expand_expr(op->extent, scope);
@@ -312,6 +324,9 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
         } else if (is_monotonic(min, loop_var) != Monotonic::Constant ||
                    is_monotonic(extent, loop_var) != Monotonic::Constant) {
             debug(3) << "Not entering loop over " << op->name
+                     << " because the bounds depend on the var we're sliding over: "
+                     << min << ", " << extent << "\n";
+            std::cout << "Not entering loop over " << op->name
                      << " because the bounds depend on the var we're sliding over: "
                      << min << ", " << extent << "\n";
             return op;

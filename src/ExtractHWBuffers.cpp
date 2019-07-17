@@ -65,7 +65,7 @@ class ContainsAtLevel : public IRVisitor {
   
   void visit(const For *op) {
     // don't recurse if not parallelized
-    if (is_parallelized(op)) {
+    if (is_parallelized(op) || is_one(op->extent)) {
       IRVisitor::visit(op);
     }
   }
@@ -167,6 +167,52 @@ class CountBufferUsers : public IRVisitor {
       IRVisitor::visit(op);
   }
 
+  void visit(const ProducerConsumer *op) {
+    if (!op->is_producer) {
+    //if (false) {
+      // look at the writers (writer ports)
+      if (provide_at_level(op->body, var)) {
+        auto box_write = box_provided(op->body, var);
+        std::cout << "writers inside loop " << op->name << std::endl;
+        std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
+
+        std::cout << "HWBuffer Parameter: writer ports - "
+                  << "box extent=[";
+        auto interval = box_write;
+        input_block_box = vector<Expr>(interval.size());
+        for (size_t dim=0; dim<interval.size(); ++dim) {
+          Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
+          Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
+          std::cout << lower_expr << "-" << upper_expr << " ";
+          input_block_box[dim] = lower_expr;
+        }
+        std::cout << "]\n";
+
+      }
+
+      // look at the readers (reader ports, read address gen)
+      if (call_at_level(op->body, var)) {
+        auto box_read = box_required(op->body, var);
+        std::cout << "readers inside loop " << op->name << std::endl;
+        std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
+        std::cout << "HWBuffer Parameter: reader ports - "
+                  << "box extent=[";
+        auto interval = box_read;
+
+        output_block_box = vector<Expr>(interval.size());
+        for (size_t dim=0; dim<interval.size(); ++dim) {
+          Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+          Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
+          Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
+          output_block_box[dim] = lower_expr;
+          std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
+        }
+        std::cout << "]\n";
+      }
+    }
+    IRVisitor::visit(op);
+  }
+
   void visit(const For *op) override {
     if (is_parallelized(op)) {
       auto expanded_extent = expand_expr(op->extent, scope);
@@ -175,9 +221,7 @@ class CountBufferUsers : public IRVisitor {
     // add this for loop to read address loop
     For *previous_for = current_for;
     Stmt for_stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, op->body);
-    bool first_for = false;
     if (current_for == nullptr) {
-      first_for = true;
       full_stmt = for_stmt;
       std::cout << "added first for loop: " << op->name << std::endl;
     } else {
@@ -238,11 +282,10 @@ class CountBufferUsers : public IRVisitor {
 
     // remove for loop to read address loop
     current_for = previous_for;
-    if (!first_for) {
-      current_for->body = AssertStmt::make(var, Expr(0));
-    }
     
   }
+
+  
   
 public:
   vector<Expr> output_block_box;
@@ -259,8 +302,14 @@ public:
 // Perform sliding window optimization for all functions
 class HWBuffers : public IRMutator2 {
     const map<string, Function> &env;
-  
+    Scope<Expr> scope;
+
     using IRMutator2::visit;
+  
+    Stmt visit(const LetStmt *op) override {
+      ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
+      return IRMutator2::visit(op);
+    }
 
     Stmt visit(const Realize *op) override {
       std::cout << "checking hwbuffers in realize " << op->name << std::endl;
@@ -273,9 +322,21 @@ class HWBuffers : public IRMutator2 {
             return IRMutator2::visit(op);
         }
 
+
+
         // If the Function in question has the same compute_at level
         // as its store_at level, we know this is a double buffer.
         const FuncSchedule &sched = iter->second.schedule();
+
+        if (!sched.is_hw_kernel()) {
+          std::cout << "skipping non-hwkernel realize " << op->name << std::endl;
+          return IRMutator2::visit(op);
+        }
+
+        std::cout << "creating buffer for realize " << op->name << std::endl;
+
+          
+        //if (sched.compute_level() == sched.store_level()) {
         if (sched.compute_level() == sched.store_level()) {
 
           Stmt new_body = op->body;
@@ -295,7 +356,8 @@ class HWBuffers : public IRMutator2 {
           // extent is the same for total buffer box, input chunk, and output stencil for double buffer
           vector<Expr> box(boxes_read[op->name].size());
           for (size_t i=0; i<boxes_read[op->name].size(); ++i) {
-            Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
+            //Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
+            Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
             box[i] = extent;
           }
 
@@ -328,28 +390,33 @@ class HWBuffers : public IRMutator2 {
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
+          std::cout << "counted: " << new_body << std::endl;
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
+          std::cout << "output block: " << output_block_box << std::endl;
           auto input_block_box = counter.input_block_box;
           auto reader_loopnest = counter.reader_loopnest;
 
           std::cout << "transferring parameters\n";
           
-          HWBuffer hwbuffer;
+          HWBuffer hwbuffer(output_block_box.size());
           hwbuffer.name = op->name;
 
-          hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
+          internal_assert(boxes_read.at(op->name).size() >= output_block_box.size());
+          //hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
           for (size_t i = 0; i < output_block_box.size(); ++i) {
-            hwbuffer.dims.at(i).logical_min = Expr(0);
+            hwbuffer.dims.at(i).logical_min = Expr(0); // FIXMEyikes
             hwbuffer.dims[i].logical_size = box.at(i);
             hwbuffer.dims[i].input_chunk = box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
             hwbuffer.dims[i].output_stencil = box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
+            std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
+              " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
           }
           hwbuffer.output_access_pattern = reader_loopnest;
-
+          
           std::cout << "created hwbuffer\n";
 
           if (buffers.count(hwbuffer.name) == 0) {
@@ -398,8 +465,9 @@ class HWBuffers : public IRMutator2 {
           // Parameter 6
           auto total_buffer_box = vector<Expr>(i_max);
           for (size_t i=0; i<i_max; ++i) {
-            Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
-            total_buffer_box.at(i) = extent;
+            //Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
+            Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
+            total_buffer_box[i] = extent;
 
             if (i < i_max - 1) {
               std::cout << extent << " ";
@@ -409,17 +477,22 @@ class HWBuffers : public IRMutator2 {
 
           std::string for_name = first_for_name(new_body);
           
-          HWBuffer hwbuffer;
+          HWBuffer hwbuffer;//(sliding_stencil_map.at(for_name).input_chunk_box.size());
           hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
           hwbuffer.name = op->name;
           for (size_t i = 0; i < output_block_box.size(); ++i) {
+            std::cout << "hwbuffer " << hwbuffer.name << " in begin " << i << " here\n";
             hwbuffer.dims[i].logical_size = total_buffer_box.at(i);
             hwbuffer.dims[i].logical_min = Expr(0);
             hwbuffer.dims[i].input_chunk = sliding_stencil_map.at(for_name).input_chunk_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
+            std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i << " here\n";
             hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
             hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
+            std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
+              " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
+
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
@@ -489,12 +562,16 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   }
   
   os << "HWBuffer: " << buffer.name << std::endl
-     << "Total Buffer: " << total_buffer_box << std::endl
+     << "Logical Buffer: " << total_buffer_box << std::endl
      << "Input Chunk: " << input_chunk_box << std::endl
      << "Input Block: " << input_block_box << std::endl
      << "Output Stencil: " << output_stencil_box << std::endl
      << "Output Block: " << output_block_box << std::endl
-     << "Output Access Pattern: " << buffer.output_access_pattern << std::endl;
+     << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl
+     << "is_inline=" << buffer.is_inlined << std::endl
+     << "is_output=" << buffer.is_output << std::endl;
+
+  
   return os;
 };
 
@@ -506,6 +583,15 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
 map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &env) {
     HWBuffers ehb(env);
     ehb.mutate(s);
+
+
+    
+  for (auto hwbuffer : ehb.buffers) {
+    std::cout << hwbuffer.first << " is ehb w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+    std::cout << hwbuffer.second << std::endl;
+  }
+
+    
     return ehb.buffers;
 }
 
@@ -586,32 +672,173 @@ class FindInnerLoops : public IRVisitor {
 
 public:  
   FindInnerLoops(Function f, LoopLevel outer_level, LoopLevel inner_level)
-    : func(f), outer_loop_exclusive(outer_level), inner_loop_inclusive(inner_level) { }
+    : func(f), outer_loop_exclusive(outer_level), inner_loop_inclusive(inner_level),
+      in_inner_loops(false) { }
 
   set<string> inner_loops;
   
 };
 
 set<string> get_loop_levels_between(Stmt s, Function func,
-                                              LoopLevel outer_level_exclusive,
-                                              LoopLevel inner_level_inclusive) {
+                                    LoopLevel outer_level_exclusive,
+                                    LoopLevel inner_level_inclusive) {
   FindInnerLoops fil(func, outer_level_exclusive, inner_level_inclusive);
   s.accept(&fil);
   return fil.inner_loops;
 }
 
-HWXcel extract_hw_xcel_top_parameters(Stmt s, Function func,
-                                      const map<string, Function> &env,
-                                      const vector<BoundsInference_Stage> &inlined) {
-  HWXcel xcel;
-  xcel.name = func.name();
-  xcel.store_level = func.schedule().accelerate_store_level();
-  xcel.compute_level = func.schedule().accelerate_compute_level();
-  xcel.streaming_loop_levels = get_loop_levels_between(s, func, xcel.compute_level, xcel.store_level);
-  xcel.input_streams = func.schedule().accelerate_inputs();
-  xcel.hwbuffers = extract_hw_buffers(s, env);
+void set_opt_params(HWXcel *xcel, 
+                    const map<string, Function> &env,
+                    const vector<BoundsInference_Stage> &inlined_stages) {
 
-  return xcel;
+  auto &hwbuffers = xcel->hwbuffers;
+  size_t i = inlined_stages.size() - 1 + 1;
+
+  bool in_output = true;
+  // scan through each stage before the output stage
+
+  while (i >= 1) {
+    i--;
+    const BoundsInference_Stage &stage = inlined_stages[i];
+  
+  //for (auto &hwbuffer_pair : hwbuffers) {
+    //auto &hwbuffer = hwbuffer_pair.second;
+
+    // Function func;
+    //const BoundsInference_Stage &stage = std::find(inlined_stages.begin(), inlined_stages.end(), hwbuffer.name);
+
+
+    // inlined stages
+    for (const auto &hwbuffer_pair : hwbuffers) {
+      std::cout << hwbuffer_pair.second << ",";
+    }
+    std::cout << std::endl;
+    std::cout << "there are " << hwbuffers.size() << " hwbuffers\n";
+    std::cout << "looking for " << stage.name << std::endl;
+
+    if (in_output && inlined_stages[i].name != xcel->name) {
+      continue;
+    }
+
+    
+    auto iterator = std::find_if(hwbuffers.begin(), hwbuffers.end(), [stage](const std::pair<std::string, HWBuffer>& buffer_pair){
+        if (stage.name == buffer_pair.first)
+          return true;
+        return false;
+      });
+    internal_assert(iterator != hwbuffers.end());
+    auto &hwbuffer = iterator->second;
+    internal_assert(hwbuffer.name == iterator->first);
+    
+    std::cout << hwbuffer.name << " before func\n";
+    //Function cur_func = env.at(hwbuffer.name);
+
+    //Function cur_func_to_copy = env.at(hwbuffer.name);
+    //FunctionPtr cur_func_ptr;
+    //std::map<FunctionPtr, FunctionPtr> copied_map;
+    //cur_func_to_copy.deep_copy(hwbuffer.name, cur_func_ptr, copied_map);
+    //Function cur_func = Function(cur_func_ptr);
+
+    FunctionPtr func_ptr =  env.at(hwbuffer.name).get_contents();
+    Function cur_func = Function(func_ptr);
+    
+    hwbuffer.func = cur_func;
+    if (!cur_func.schedule().is_hw_kernel()) {
+      std::cout << "skipping " << hwbuffer.name << std::endl;
+      continue;
+    }
+    
+     // bool is_output;
+    if (xcel->name == hwbuffer.name) {
+      hwbuffer.is_output = true;
+    }
+
+    if (in_output) {
+      if (inlined_stages[i].name == xcel->name) {
+        in_output = false;
+      }
+      continue;
+    }
+
+    
+      
+    // bool is_inlined;
+    if (xcel->input_streams.count(stage.name) ||
+        (cur_func.schedule().compute_level().match(xcel->compute_level) &&
+         xcel->store_level == cur_func.schedule().store_level())) {
+      hwbuffer.is_inlined = false;
+    } else {
+      hwbuffer.is_inlined = true;
+    }
+    std::cout << hwbuffer.name << " is inline=" << hwbuffer.is_inlined
+              << " store=" << cur_func.schedule().store_level()
+              << " compute=" << cur_func.schedule().compute_level()
+              << " is_xcel=" << cur_func.schedule().is_accelerated()
+              << " is_hw_kernel=" << cur_func.schedule().is_hw_kernel()
+              << std::endl;
+
+    
+    
+    for (size_t j = 0; j < stage.consumers.size(); j++) {
+      const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
+      std::cout << consumer.name << ",";
+    }
+    std::cout << std::endl;
+
+    
+    std::cout << "finished is_output " << stage.consumers.size() << " consumers\n";
+    // std::map<std::string, HWBuffer&> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
+    for (size_t j = 0; j < stage.consumers.size(); j++) {
+      internal_assert(stage.consumers[j] < (int)inlined_stages.size());
+      const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
+      std::cout << "right before " << consumer.name << " consumer of " << hwbuffer.name << "\n";
+
+      string consumer_name;
+      if (consumer.name != hwbuffer.name) {
+        const HWBuffer &consumer_buffer = hwbuffers.at(consumer.name);
+        if (consumer_buffer.is_inlined) {
+          internal_assert(consumer_buffer.consumer_buffers.size() == 1)
+            << "The inlined kernel " << consumer.name << " has more than one consumer.\n";
+          consumer_name = consumer_buffer.consumer_buffers.begin()->first;
+        } else {
+          consumer_name = consumer_buffer.name;
+        }
+      } else {
+        consumer_name = hwbuffer.name;
+      }
+
+      std::cout << "for kernel " << hwbuffer.name << ", adding consumer "
+                << consumer_name << " based on kernel " << consumer.name << std::endl;
+      hwbuffer.consumer_buffers[consumer_name] = &hwbuffers.at(consumer.name);
+
+      std::cout << "right before " << consumer.name << " inputs\n";
+    // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
+      if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
+        hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+      }
+    }
+
+  }
+}
+
+void extract_hw_xcel_top_parameters(Stmt s, Function func,
+                                      const map<string, Function> &env,
+                                      const vector<BoundsInference_Stage> &inlined,
+                                      HWXcel *xcel) {
+  xcel->name = func.name();
+  xcel->store_level = func.schedule().accelerate_store_level();
+  xcel->compute_level = func.schedule().accelerate_compute_level();
+  xcel->streaming_loop_levels = get_loop_levels_between(s, func, xcel->store_level, xcel->compute_level);
+  xcel->input_streams = func.schedule().accelerate_inputs();
+  xcel->hwbuffers = extract_hw_buffers(s, env);
+
+  set_opt_params(xcel, env, inlined);
+
+  for (auto &hwbuffer_pair : xcel->hwbuffers) {
+    std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
+              << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
+  }
+
 }
 
 vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
@@ -646,7 +873,8 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     debug(3) << "Found accelerate function " << func.name() << "\n";
     std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";
-    auto xcel = extract_hw_xcel_top_parameters(s, func, env, inlined_stages);
+    HWXcel xcel;
+    extract_hw_xcel_top_parameters(s, func, env, inlined_stages, &xcel);
     xcels.push_back(xcel);
   }
   return xcels;

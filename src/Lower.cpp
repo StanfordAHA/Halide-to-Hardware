@@ -179,8 +179,18 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = remove_extern_loops(s);
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
+    debug(1) << "Performing allocation bounds inference...\n";
+    s = allocation_bounds_inference(s, env, func_bounds);
+    debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
+
+    
     std::cout << "extracting hw buffers\n";
-    extract_hw_buffers(s, env);
+    auto buffers = extract_hw_buffers(s, env);
+    vector<HWXcel> xcels;
+    xcels = extract_hw_accelerators(s, env, inlined_stages);
+    for (auto hwbuffer : xcels.at(0).hwbuffers) {
+      std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+    }
     
     debug(1) << "Performing sliding window optimization...\n";
     std::cout << "Performing sliding window optimization...\n" << s << '\n';
@@ -188,16 +198,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       std::cout << "doing sliding window\n";
       s = sliding_window(s, env);
     } else {
+
     }
 
     
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
     //std::cout << "Lowering after sliding window:\n" << s << '\n';
-
-    debug(1) << "Performing allocation bounds inference...\n";
-    s = allocation_bounds_inference(s, env, func_bounds);
-    debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
-
+    
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -213,6 +220,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
+
+      for (const HWXcel &xcel : xcels) {
+        auto s_ub = insert_hwbuffers(s, xcel);
+        std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
+      }
+
       
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);

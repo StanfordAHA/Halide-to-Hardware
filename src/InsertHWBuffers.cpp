@@ -53,11 +53,15 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
 
 
 int to_int(Expr expr) {
-  internal_assert(is_const(simplify(expr)));
-  return (int)*as_const_int(expr);
+  //FIXMEyikes internal_assert(is_const(simplify(expr)));
+  if (is_const(simplify(expr))) {
+    return (int)*as_const_int(expr);
+  } else {
+    return -1;
+  }
 }
 
-class ReplaceReferencesWithStencil : public IRMutator2 {
+class ReplaceReferencesWithBufferStencil : public IRMutator2 {
     const HWBuffer &kernel;
     const HWXcel &xcel;  // TODO not needed
     Scope<Expr> scope;
@@ -102,7 +106,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             }
             Expr new_min = 0;
             // FIXME(is this correct?): Expr new_extent = kernel.dims[dim_idx].step
-            Expr new_extent = kernel.dims[dim_idx].input_chunk;
+            Expr new_extent = kernel.dims.at(dim_idx).input_chunk;
 
             // create a let statement for the old_loop_var
             Expr old_min = op->min;
@@ -128,9 +132,9 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
 
             // Replace the arguments. e.g.
             //   func.s0.x -> func.stencil.x
-            for (size_t i = 0; i < kernel.func.args().size(); i++) {
+            for (size_t i = 0; i < kernel.dims.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
-              new_args[i] = kernel.dims[i].output_stencil;
+              new_args[i] = kernel.dims.at(i).output_stencil;
             }
 
             vector<Expr> new_values(op->values.size());
@@ -145,18 +149,22 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
     }
 
     Expr visit(const Call *op) {
+      std::cout << op->name << " is a call in the replacerefs\n";
         if(op->name == kernel.name || // call to this kernel itself (in update definition)
            std::find(kernel.input_streams.begin(), kernel.input_streams.end(),
-                     op->name) != kernel.input_streams.end() // call to a input stencil
+                     op->name) != kernel.input_streams.end() // call to an input stencil
            ) {
+          std::cout << "inside call\n";
             // check assumptions
             internal_assert(op->call_type == Call::Halide);
-
+            
             const auto it = xcel.hwbuffers.find(op->name);
             internal_assert(it != xcel.hwbuffers.end());
             const HWBuffer &stencil_kernel = it->second;
             internal_assert(op->args.size() == stencil_kernel.func.args().size());
+          std::cout << "past call asserts\n";
 
+          
             // Replace the call node of func with call node of func.stencil
             string stencil_name = stencil_kernel.name + ".stencil";
             vector<Expr> new_args(op->args.size());
@@ -165,7 +173,9 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             // The value of the new argment is the old_value - stencil.min_pos.
             // The new value shouldn't refer to old loop vars any more
             for (size_t i = 0; i < op->args.size(); i++) {
+              std::cout << "mutating call arg " << i << std::endl;
                 Expr old_arg = mutate(op->args[i]);
+                std::cout << "mutated call arg " << i << std::endl;
                 Expr offset;
                 if (stencil_kernel.name == kernel.name) {
                     // The call is in an update definition of the kernel itself
@@ -176,10 +186,21 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
                     // we use the min_pos stored in in_kernel.consumer_buffers
                     const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
                     internal_assert(it != kernel.consumer_buffers.end());
-                    // FIXME
-                    offset = it->second.dims[i].output_min_pos;
+                    // FIXMEyikes consumer buffers doesn't seem to work
+                    //std::cout << "tricky offset here for " << kernel.name << std::endl;
+                    //std::cout << it->first << std::endl;
+                    //internal_assert(it->second->dims.size() > i);
+                    //auto x = it->second;
+                    //std::cout << *(it->second) << std::endl;
+                    //auto y = x->dims;
+                    //auto z = y.at(i);
+                    //offset = z.output_min_pos;
+                    //offset = it->second->dims.at(i).output_min_pos;
+                    offset = Expr(0);
                 }
 
+                std::cout << "calced offset\n";
+                
                 Expr new_arg = old_arg - offset;
                 new_arg = simplify(expand_expr(new_arg, scope));
                 // TODO check if the new_arg only depends on the loop vars
@@ -190,6 +211,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             Expr expr = Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
             debug(4) << "replacing call "  << Expr(op) << " with\n"
                      << "\t" << expr << "\n";
+            std::cout << "done with call\n";
             //std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
             return expr;
         } else {
@@ -198,9 +220,18 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
     }
 
     Stmt visit(const Realize *op) {
+      
+      std::cout << "found this realize: " << op->name << "\n";
+      std::cout << op << std::endl;
+
         // this must be a realize node of a inlined function
-        internal_assert(xcel.hwbuffers.count(op->name));
-        internal_assert(xcel.hwbuffers.find(op->name)->second.is_inlined);
+      for (const auto &hwbuffer_p : xcel.hwbuffers) {
+        std::cout << hwbuffer_p.first << ", ";
+      }
+      std::cout << std::endl;
+      
+      internal_assert(xcel.hwbuffers.count(op->name));
+      internal_assert(xcel.hwbuffers.find(op->name)->second.is_inlined);
         // expand and simplify bound expressions
         // TODO this may not be needed if the letstmt in the scope is well preserved
 
@@ -218,6 +249,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             new_bounds[i] = Range(new_min, new_extent);
         }
 
+        std::cout << "just about done of realize " << op->name << std::endl;
         Stmt body = mutate(op->body);
         Expr condition = mutate(op->condition);
         if (!bounds_changed &&
@@ -257,15 +289,19 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
     }
 
 public:
-    ReplaceReferencesWithStencil(const HWBuffer &k, const HWXcel &accel,
+    ReplaceReferencesWithBufferStencil(const HWBuffer &k, const HWXcel &accel,
                                  const Scope<Expr> *s = NULL)
-        : kernel(k), xcel(accel) {
+    : kernel(k), xcel(accel) {
+    //: kernel(HWBuffer()), xcel(HWXcel()) {
         scope.set_containing_scope(s);
+        std::cout << "created some stuff\n";
     }
 };
 
 // FIXME many uses of dims
 Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 0) {
+  std::cout << "creating dispatch from " << kernel.name << " of "
+            << kernel.dims.size() << " dims" << std::endl;
     // dispatch the stream into seperate streams for each of its consumers
     // syntax:
     //   dispatch_stream(stream_name, num_of_dimensions,
@@ -287,15 +323,19 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         //dispatch_args.push_back((int)*as_const_int(store_extent));
     }
     dispatch_args.push_back((int)kernel.consumer_buffers.size());
+    std::cout << "   going to " << kernel.consumer_buffers.size() << " consumers: ";
     for (const auto& p : kernel.consumer_buffers) {
+      std::cout << p.first << "(" << p.second->dims.size() << " dims)" << ", \n";
         dispatch_args.push_back(p.first);
         //internal_assert(kernel.consumer_fifo_depths.count(p.first));
         //dispatch_args.push_back(std::max(min_fifo_depth, kernel.consumer_fifo_depths.find(p.first)->second));
         dispatch_args.push_back(0); // assume a 0 fifo_depth
-        internal_assert(p.second.dims.size() == kernel.dims.size());
+        //FIXMEyikes pointer doesn't seem to work
+        //FIXME internal_assert(p.second->dims.size() == kernel.dims.size());
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           dispatch_args.push_back(0); // assume a 0 offset
-          dispatch_args.push_back(p.second.dims[i].logical_size);
+          dispatch_args.push_back(64); // FIXME logical size?
+          //FIXME dispatch_args.push_back(p.second->dims[i].logical_size);
           //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
           //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
           //internal_assert(is_const(store_offset));
@@ -338,10 +378,12 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
 }
 
 bool need_hwbuffer(const HWBuffer &kernel) {
-    // check if we need a line buffer
+    // check if we need a hwbuffer
     bool ret = false;
     for (size_t i = 0; i < kernel.dims.size(); i++) {
-      //std::cout << "kernel " << kernel.name << " has size=" << kernel.dims[i].size << " step=" << kernel.dims[i].step << std::endl;
+      std::cout << "kernel " << kernel.name
+                << " has size=" << kernel.dims.at(i).output_stencil
+                << " step=" << kernel.dims.at(i).input_chunk << std::endl;
       if (to_int(kernel.dims.at(i).output_stencil) != to_int(kernel.dims.at(i).input_chunk)) {
             ret = true;
             break;
@@ -356,8 +398,10 @@ bool need_hwbuffer(const HWBuffer &kernel) {
 // The former is smaller, which only consist of the new pixels
 // sided in each shift of the stencil window.
 Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
+  std::cout << "considering a hwbuffer for " << kernel.name << std::endl;
     Stmt ret;
     if (need_hwbuffer(kernel)) {
+      std::cout << "creating a hwbuffer for " << kernel.name << std::endl;
         // Before mutation:
         //       stmt...
         //
@@ -418,10 +462,14 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
 Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
     Stmt ret;
 
+    std::cout << "transforming:\n";
+    std::cout << s << "\n";
+    
     if (const Block *op = s.as<Block>()) {
       //Stmt pc_block_stmt = find_pcblock(s);
       //const Block *pc_block = pc_block_stmt.as<Block>();
       Stmt block_first = op->first;
+
       //std::cout << "first block is: \n" << block_first << "\n";
       //Stmt first_pc = find_produce(block_first);
 
@@ -447,6 +495,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
           //Stmt first = op->first;
           //std::cout << "first: " << first << std::endl;
           //std::cout << "rest_body: " << consume_node->body << std::endl;
+          std::cout << "didn't find pc";
           return s;
         }
 
@@ -456,14 +505,31 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
         Stmt produce_stmt = body;//first_pc;//pc_block->first;
         Stmt consume_stmt = op->rest;//pc_block->rest;
-      
-        const HWBuffer &kernel = xcel.hwbuffers.find(produce_node->name)->second;
+
+        for (auto &kernel : xcel.hwbuffers) {
+          std::cout << kernel.first << "=" << kernel.second.name << ",";
+        }
+        std::cout << std::endl;
+
+        internal_assert(xcel.hwbuffers.count(produce_node->name));
+        //const HWBuffer &kernel = xcel.hwbuffers.find(produce_node->name)->second;
+        const HWBuffer &kernel = xcel.hwbuffers.at(produce_node->name);
+
+        std::cout << "going through block " << kernel.name << std::endl;
+        std::cout << kernel.name << " has inline=" << kernel.is_inlined
+                  << " num_dims=" << kernel.dims.size() << std::endl;
+        //std::cout << " compute=" << kernel.func.schedule().compute_level()      << std::endl;
+        //std::cout          << " store=" << kernel.func.schedule().store_level() << std::endl;
+        std::cout << " compute=" << xcel.compute_level      << std::endl;
+        std::cout          << " store=" << xcel.store_level << std::endl;
+
         internal_assert(!kernel.is_output);
+
         if (kernel.is_inlined) {
             // if it is a function inlined into the output function,
             // skip transforming this funciton
 
-            // TODO it is buggy as the inlined function should really
+            // TODO it is buggy as the inlined function should really be
             // nested in the scan loops of the output function
             internal_error;
         }
@@ -498,8 +564,10 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Expr stream_var = Variable::make(Handle(), stream_name);
 
         // replacing the references to the original realization with refences to stencils
-        Stmt produce = ReplaceReferencesWithStencil(kernel, xcel, &scope).mutate(produce_node->body);
-        //Stmt update = ReplaceReferencesWithStencil(kernel, xcel, &scope).mutate(op->update);
+        //std::cout << "replacing some refs: " << produce_node->body << std::endl;
+        Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(produce_node->body);
+        std::cout << "continuing\n";
+        //Stmt update = ReplaceReferencesWitBufferhStencil(kernel, xcel, &scope).mutate(op->update);
 
         // syntax for write_stream()
         // write_stream(des_stream, src_stencil)
@@ -514,22 +582,24 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
         // create a realization of the stencil of the step-size
         Region step_bounds;
-        for (const auto dim: kernel.dims) {
+        for (const auto &dim: kernel.dims) {
             step_bounds.push_back(Range(0, dim.input_chunk));
         }
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, step_bounds, const_true(), stencil_pc);
 
+        std::cout << "write streams created\n";
         // add read_stream for each input stencil (producers fed to func)
         for (const string& s : kernel.input_streams) {
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
         }
+        std::cout << "read streams created\n";
 
         // insert scan loops
         Stmt scan_loops = stencil_realize;
         int scan_dim = 0;
-        //std::cout << "writing kernel named " << stencil_name << " with bounds ";
+        std::cout << "writing kernel named " << stencil_name << " with bounds \n";
         for(size_t i = 0; i < kernel.dims.size(); i++) {
             if (kernel.dims[i].output_loop_name == "undef" )
                 continue;
@@ -539,6 +609,9 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
             //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
             //                             kernel.dims[i].store_bound.min + 1);
+            std::cout << "store=" << kernel.dims[i].logical_size
+                      << " in_chunk=" << kernel.dims[i].input_chunk
+                      << std::endl;
             int store_extent_int = to_int(kernel.dims[i].logical_size);
             //std::cout << store_extent << " ";
 
@@ -587,8 +660,10 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         }
 
     } else {
+        std::cout << "this is output\n";        
         // this is the output kernel of the xcel
         const HWBuffer &kernel = xcel.hwbuffers.find(xcel.name)->second;
+        std::cout << "this is output: " << xcel.name << "=" << kernel.name << std::endl;        
         internal_assert(kernel.is_output);
 
         string stencil_name = kernel.name + ".stencil";
@@ -597,7 +672,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Expr stencil_var = Variable::make(Handle(), stencil_name);
 
         // replacing the references to the original realization with refences to stencils
-        Stmt produce = ReplaceReferencesWithStencil(kernel, xcel, &scope).mutate(s);
+        Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(s);
 
         // syntax for write_stream()
         // write_stream(des_stream, src_stencil)
@@ -730,14 +805,25 @@ class InsertHWBuffers : public IRMutator2 {
 
     Stmt visit(const For *op) {
         Stmt stmt;
-        //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << xcel.store_level << std::endl;
+        std::cout << "visiting for loop named " << op->name
+                  << " where store_lvl=" << xcel.store_level
+                  << " where compute_lvl=" << xcel.compute_level
+                  << std::endl;
+
+        for (auto &ll : xcel.streaming_loop_levels) {
+          std::cout << ll << ",";
+        }
+        std::cout << std::endl;
+
 
         // store level doesn't match name AND loop var is not found in xcel
         if (!xcel.store_level.match(op->name) && xcel.streaming_loop_levels.count(op->name)==0) {
+          std::cout << "just continue\n";
             stmt = IRMutator2::visit(op);
 
         // compute level matches name
         } else if (xcel.compute_level.match(op->name)) {
+          std::cout << "xcel compute\n";
             internal_assert(xcel.streaming_loop_levels.count(op->name)); // compute level was supposed to be inclusive
 
             // walk inside of any let statements
@@ -753,6 +839,7 @@ class InsertHWBuffers : public IRMutator2 {
                 lets.push_back(make_pair(let->name, let->value));
             }
 
+            std::cout << "about to transform\n";
             Stmt new_body = transform_hwkernel(body, xcel, scope);
 
             // insert hardware buffers for input streams
@@ -771,10 +858,12 @@ class InsertHWBuffers : public IRMutator2 {
 
         // loop var is found in xcel
         } else if (xcel.streaming_loop_levels.count(op->name)){
+          std::cout << "loopy\n";
             // remove the loop statement if it is one of the scan loops
             stmt = mutate(op->body);
-            
+
         } else {
+          std::cout << "create xcel\n";
             // should be left with store level match; we should produce hls_target
             internal_assert(xcel.store_level.match(op->name));
             debug(3) << "find the pipeline producing " << xcel.name << "\n";
@@ -832,7 +921,7 @@ class InsertHWBuffers : public IRMutator2 {
                 Stmt stream_subimg = Evaluate::make(Call::make(Handle(), "stream_subimage", stream_call_args, Call::Intrinsic));
 
                 Region bounds;
-                for (auto dim : kernel.dims) {
+                for (auto &dim : kernel.dims) {
                     bounds.push_back(Range(0, dim.input_chunk));
                 }
                 new_body = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), Block::make(stream_subimg, new_body));
@@ -877,6 +966,7 @@ class InsertHWBuffers : public IRMutator2 {
     // Remove the realize node for intermediate functions in the hardware pipeline,
     // as we will create hwbuffers in the pipeline to hold these values
     Stmt visit(const Realize *op) {
+      std::cout << "this a realize\n";
       if (xcel.hwbuffers.count(op->name)) {
         const HWBuffer& buffer = xcel.hwbuffers.find(op->name)->second;
         
@@ -924,10 +1014,18 @@ public:
 
 Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
   debug(3) << s << "\n";
+
+  for (auto &hwbuffer_pair : xcel.hwbuffers) {
+    std::cout << hwbuffer_pair.first << " is inline=" << hwbuffer_pair.second.is_inlined
+              << " with num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
+  }
+  
   s = InsertHWBuffers(xcel).mutate(s);
   debug(3) << s << "\n";
+  std::cout << "Inserted hwbuffers: \n" << s << "\n";
   return s;
 }
 
 }
 }
+

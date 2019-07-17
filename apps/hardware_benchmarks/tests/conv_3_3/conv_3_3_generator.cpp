@@ -43,6 +43,9 @@ public:
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
+        output.bound(x, 0, 64);
+        output.bound(y, 0, 64);
+
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
@@ -58,6 +61,7 @@ public:
             .unroll(r.y, 3);
 
           conv.linebuffer();
+          hw_input.linebuffer();
 
           hw_input.stream_to_accelerator();
           
@@ -73,9 +77,9 @@ public:
 //          hw_input.in().store_at(output, xo).compute_at(output, xi);
 //          //hw_input.in().store_root().compute_at(output, x);
           hw_input.in().store_root().compute_at(output,x);
-//          conv.update()
-//            .unroll(r.x)
-//            .unroll(r.y);
+          conv.update()
+            .unroll(r.x)
+            .unroll(r.y);
 //          //output.compute_root();
 //          
 //          kernel.compute_at(output, xo);

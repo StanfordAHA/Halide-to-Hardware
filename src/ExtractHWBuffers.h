@@ -51,11 +51,15 @@ struct HWBuffer {
   Stmt output_access_pattern;
 
   // Parameters used during optimization
-  bool is_inlined;
-  bool is_output;
-  std::map<std::string, HWBuffer&> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
+  bool is_inlined = false;
+  bool is_output = false;
+  std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls
   Function func;
+
+  HWBuffer(size_t num_dims) :
+    dims(std::vector<BufferDimSize>(num_dims)) { }
+  HWBuffer() { }
 
 };
 
@@ -73,7 +77,7 @@ struct HWXcel {
   std::set<std::string> streaming_loop_levels;  // store (exclusive) to compute (inclusive)
   std::set<std::string> input_streams; // might be wrong?
   std::map<std::string, HWBuffer> hwbuffers;
-  std::map<std::string, HWBuffer&> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
+  std::map<std::string, HWBuffer*> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
   //std::map<std::string, HWTap> input_taps;
 };
 
