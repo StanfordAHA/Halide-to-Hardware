@@ -398,8 +398,9 @@ class HWBuffers : public IRMutator2 {
           auto reader_loopnest = counter.reader_loopnest;
 
           std::cout << "transferring parameters\n";
-          
-          HWBuffer hwbuffer(output_block_box.size());
+
+          std::string for_name = first_for_name(new_body);
+          HWBuffer hwbuffer(output_block_box.size(), sliding_stencil_map.at(for_name));
           hwbuffer.name = op->name;
 
           internal_assert(boxes_read.at(op->name).size() >= output_block_box.size());
@@ -416,6 +417,9 @@ class HWBuffers : public IRMutator2 {
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
           }
           hwbuffer.output_access_pattern = reader_loopnest;
+
+          //std::string for_name = first_for_name(new_body);
+          //hwbuffer.input_stencil = &sliding_stencil_map.at(for_name);
           
           std::cout << "created hwbuffer\n";
 
@@ -477,24 +481,27 @@ class HWBuffers : public IRMutator2 {
 
           std::string for_name = first_for_name(new_body);
           
-          HWBuffer hwbuffer;//(sliding_stencil_map.at(for_name).input_chunk_box.size());
-          hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
+          HWBuffer hwbuffer(output_block_box.size(), sliding_stencil_map.at(for_name));//(sliding_stencil_map.at(for_name).input_chunk_box.size());
+          //hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
           hwbuffer.name = op->name;
           for (size_t i = 0; i < output_block_box.size(); ++i) {
             std::cout << "hwbuffer " << hwbuffer.name << " in begin " << i << " here\n";
             hwbuffer.dims[i].logical_size = total_buffer_box.at(i);
             hwbuffer.dims[i].logical_min = Expr(0);
+            std::cout << "hwbuffer " << hwbuffer.name << " before sliding " << i << " here\n";
             hwbuffer.dims[i].input_chunk = sliding_stencil_map.at(for_name).input_chunk_box.at(i);
-            hwbuffer.dims[i].input_block = input_block_box.at(i);
             std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i << " here\n";
+            hwbuffer.dims[i].input_block = input_block_box.at(i);
             hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
             hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
-            std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
+            std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
 
           }
           hwbuffer.output_access_pattern = reader_loopnest;
+
+          //hwbuffer.input_stencil = &sliding_stencil_map.at(for_name);
 
           if (buffers.count(hwbuffer.name) == 0) {          
             std::cout << "Here is the hwbuffer:"
@@ -763,7 +770,7 @@ void set_opt_params(HWXcel *xcel,
     
       
     // bool is_inlined;
-    if (xcel->input_streams.count(stage.name) ||
+    if (cur_func.schedule().is_accelerator_input() ||
         (cur_func.schedule().compute_level().match(xcel->compute_level) &&
          xcel->store_level == cur_func.schedule().store_level())) {
       hwbuffer.is_inlined = false;
@@ -809,7 +816,19 @@ void set_opt_params(HWXcel *xcel,
 
       std::cout << "for kernel " << hwbuffer.name << ", adding consumer "
                 << consumer_name << " based on kernel " << consumer.name << std::endl;
-      hwbuffer.consumer_buffers[consumer_name] = &hwbuffers.at(consumer.name);
+      hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
+
+      const auto consumer_sliding_stencils = hwbuffers.at(consumer.name).input_stencil;
+      std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name << std::endl;
+      for (size_t idx=0; idx<consumer_sliding_stencils->input_chunk_box.size(); ++idx) {
+        std::cout << " on dim " << idx << std::endl;
+        auto in_i = consumer_sliding_stencils->input_chunk_box;
+        std::cout << "got that input with " << consumer_sliding_stencils->input_chunk_box.size() << " dims\n";
+        auto in_id = consumer_sliding_stencils->input_chunk_box.at(idx);
+        std::cout << "got that input dim\n";
+        hwbuffer.dims.at(idx).input_chunk = consumer_sliding_stencils->input_chunk_box.at(idx);
+        hwbuffer.dims.at(idx).output_stencil = consumer_sliding_stencils->output_stencil_box.at(idx);
+      }
 
       std::cout << "right before " << consumer.name << " inputs\n";
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
@@ -837,6 +856,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
               << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
+    std::cout << "Final buffer:\n" << hwbuffer_pair.second << std::endl;
   }
 
 }

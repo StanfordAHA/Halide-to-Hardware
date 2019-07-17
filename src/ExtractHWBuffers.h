@@ -17,6 +17,7 @@
 
 #include "IR.h"
 #include "ExtractHWKernelDAG.h"
+#include "SlidingWindow.h"
 
 namespace Halide {
 namespace Internal {
@@ -46,6 +47,7 @@ struct HWBuffer {
   ////std::vector<Expr> output_stencil_box;
   ////std::vector<Expr> output_block_box;
   std::vector<BufferDimSize> dims;
+  std::shared_ptr<SlidingStencils> input_stencil;
 
   Stmt input_access_pattern;
   Stmt output_access_pattern;
@@ -53,13 +55,13 @@ struct HWBuffer {
   // Parameters used during optimization
   bool is_inlined = false;
   bool is_output = false;
-  std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
+  std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls
   Function func;
 
-  HWBuffer(size_t num_dims) :
-    dims(std::vector<BufferDimSize>(num_dims)) { }
-  HWBuffer() { }
+  HWBuffer(size_t num_dims, SlidingStencils &is) :
+    dims(std::vector<BufferDimSize>(num_dims)), input_stencil(std::make_shared<SlidingStencils>(is)) { }
+  HWBuffer() : input_stencil(nullptr) { }
 
 };
 

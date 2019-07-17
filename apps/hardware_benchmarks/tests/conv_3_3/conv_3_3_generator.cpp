@@ -43,8 +43,8 @@ public:
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
-        output.bound(x, 0, 64);
-        output.bound(y, 0, 64);
+        output.bound_extent(x, 62);
+        output.bound_extent(y, 62);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -61,9 +61,10 @@ public:
             .unroll(r.y, 3);
 
           conv.linebuffer();
-          hw_input.linebuffer();
+          //hw_input.linebuffer();
 
           hw_input.stream_to_accelerator();
+          kernel.compute_at(hw_output, xo);
           
         } else {  // schedule to CPU
 //          kernel.compute_root();
