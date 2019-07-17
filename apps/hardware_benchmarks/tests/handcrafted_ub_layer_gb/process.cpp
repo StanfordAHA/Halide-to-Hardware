@@ -9,12 +9,12 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  int input_x = 16;
-  int input_y = 16;
+  int input_x = 8;
+  int input_y = 8;
   int weight_x = 3;
   int weight_y = 3;
-  int in_chan = 64;
-  int out_chan = 64;
+  int in_chan = 16;
+  int out_chan = 16;
   auto input   = Buffer<uint8_t>(input_x, input_y, in_chan);
   auto weights = Buffer<uint8_t>(weight_x, weight_y, in_chan, out_chan);
   auto output  = Buffer<uint8_t>(input_x - weight_x + 1, input_y - weight_y + 1, out_chan);
