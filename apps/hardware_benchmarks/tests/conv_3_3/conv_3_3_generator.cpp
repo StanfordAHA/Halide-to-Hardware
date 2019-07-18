@@ -43,8 +43,8 @@ public:
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
-        output.bound_extent(x, 62);
-        output.bound_extent(y, 62);
+        output.bound(x, 0, 62);
+        output.bound(y, 0, 62);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

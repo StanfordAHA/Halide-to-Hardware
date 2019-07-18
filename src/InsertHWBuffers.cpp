@@ -134,7 +134,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             //   func.s0.x -> func.stencil.x
             for (size_t i = 0; i < kernel.dims.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
-              new_args[i] = kernel.dims.at(i).output_stencil;
+              new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
             }
 
             vector<Expr> new_values(op->values.size());
@@ -142,7 +142,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            //std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
+            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
         }
@@ -187,16 +187,17 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                     const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
                     internal_assert(it != kernel.consumer_buffers.end());
                     // FIXMEyikes consumer buffers doesn't seem to work
-                    //std::cout << "tricky offset here for " << kernel.name << std::endl;
-                    //std::cout << it->first << std::endl;
-                    //internal_assert(it->second->dims.size() > i);
-                    //auto x = it->second;
-                    //std::cout << *(it->second) << std::endl;
-                    //auto y = x->dims;
-                    //auto z = y.at(i);
-                    //offset = z.output_min_pos;
-                    //offset = it->second->dims.at(i).output_min_pos;
-                    offset = Expr(0);
+                    std::cout << "tricky offset here for " << kernel.name << std::endl;
+                    std::cout << it->first << std::endl;
+                    internal_assert(it->second->dims.size() > i);
+                    auto x = it->second;
+                    std::cout << *(it->second) << std::endl;
+                    auto y = x->dims;
+                    auto z = y.at(i);
+                    offset = z.output_min_pos;
+                    offset = it->second->dims.at(i).output_min_pos;
+                    std::cout << "offset=" << offset << std::endl;
+                    //offset = Expr(0);
                 }
 
                 std::cout << "calced offset\n";
@@ -212,7 +213,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             debug(4) << "replacing call "  << Expr(op) << " with\n"
                      << "\t" << expr << "\n";
             std::cout << "done with call\n";
-            //std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
+            std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
             return expr;
         } else {
           return IRMutator2::visit(op);
@@ -330,12 +331,10 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         //internal_assert(kernel.consumer_fifo_depths.count(p.first));
         //dispatch_args.push_back(std::max(min_fifo_depth, kernel.consumer_fifo_depths.find(p.first)->second));
         dispatch_args.push_back(0); // assume a 0 fifo_depth
-        //FIXMEyikes pointer doesn't seem to work
-        //FIXME internal_assert(p.second->dims.size() == kernel.dims.size());
+        internal_assert(p.second->dims.size() == kernel.dims.size());
         for (size_t i = 0; i < kernel.dims.size(); i++) {
-          dispatch_args.push_back(0); // assume a 0 offset
-          dispatch_args.push_back(64); // FIXME logical size?
-          //FIXME dispatch_args.push_back(p.second->dims[i].logical_size);
+          dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos));
+          dispatch_args.push_back(p.second->dims.at(i).logical_size);
           //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
           //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
           //internal_assert(is_const(store_offset));
@@ -484,7 +483,6 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
       //const ProducerConsumer *produce_node = pc_block->first.as<ProducerConsumer>();
       //const ProducerConsumer *produce_node = first_pc.as<ProducerConsumer>();
-      // FIXME: shouldn't this be body.as<>
         const ProducerConsumer *produce_node = body.as<ProducerConsumer>();
         const ProducerConsumer *consume_node = op->rest.as<ProducerConsumer>();
         if (!(consume_node && produce_node)) {
@@ -817,10 +815,12 @@ class InsertHWBuffers : public IRMutator2 {
         std::cout << std::endl;
 
 
-        // store level doesn't match name AND loop var is not found in xcel
+
         bool is_loop_var = std::find(xcel.streaming_loop_levels.begin(), xcel.streaming_loop_levels.end(), op->name) != xcel.streaming_loop_levels.end();
+        
+        // store level doesn't match name AND loop var is not found in xcel
         if (!xcel.store_level.match(op->name) &&
-            is_loop_var) {
+            !is_loop_var) {
           std::cout << "just continue\n";
             stmt = IRMutator2::visit(op);
 

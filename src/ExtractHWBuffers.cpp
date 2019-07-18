@@ -416,7 +416,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
             std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
-            //hwbuffer.dims[i].loop_name = loop_names.at(i);
+            hwbuffer.dims[i].loop_name = loop_names.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
@@ -499,7 +499,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
             std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
-            //hwbuffer.dims[i].loop_name = loop_names.at(i);
+            hwbuffer.dims[i].loop_name = loop_names.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
