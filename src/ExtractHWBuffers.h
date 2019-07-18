@@ -68,7 +68,8 @@ struct HWBuffer {
 std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec);
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer);
 
-std::map<std::string, HWBuffer> extract_hw_buffers(Stmt s, const std::map<std::string, Function> &env);
+std::map<std::string, HWBuffer> extract_hw_buffers(Stmt s, const std::map<std::string, Function> &env,
+                                                   const std::vector<std::string> &streaming_loop_names);
 
 
 struct HWXcel {

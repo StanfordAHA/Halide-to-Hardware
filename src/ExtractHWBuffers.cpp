@@ -290,6 +290,7 @@ class CountBufferUsers : public IRVisitor {
 public:
   vector<Expr> output_block_box;
   vector<Expr> input_block_box;
+  vector<std::string> for_loops;
   Stmt reader_loopnest;
   CountBufferUsers(string v) : var(v), current_for(nullptr) {}
 };
@@ -415,6 +416,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
             std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
+            hwbuffer.dims[i].loop_name = loop_names.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
@@ -497,7 +499,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
             std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
-
+            hwbuffer.dims[i].loop_name = loop_names.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
@@ -527,8 +529,11 @@ class HWBuffers : public IRMutator2 {
     }
   
 public:
-    HWBuffers(const map<string, Function> &e) : env(e) {}
-    std::map<std::string, HWBuffer> buffers;
+  HWBuffers(const map<string, Function> &e, const vector<string> &ln) :
+    env(e), loop_names(ln) {}
+  
+  std::map<std::string, HWBuffer> buffers;
+  const std::vector<std::string> &loop_names;
     
 };
 
@@ -587,8 +592,9 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
 //    return HWBuffers(env).mutate(s);
 //}
 
-map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &env) {
-    HWBuffers ehb(env);
+map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &env,
+                                         const vector<string> &streaming_loop_names) {
+    HWBuffers ehb(env, streaming_loop_names);
     ehb.mutate(s);
 
 
@@ -841,15 +847,15 @@ void set_opt_params(HWXcel *xcel,
 }
 
 void extract_hw_xcel_top_parameters(Stmt s, Function func,
-                                      const map<string, Function> &env,
-                                      const vector<BoundsInference_Stage> &inlined,
-                                      HWXcel *xcel) {
+                                    const map<string, Function> &env,
+                                    const vector<BoundsInference_Stage> &inlined,
+                                    HWXcel *xcel) {
   xcel->name = func.name();
   xcel->store_level = func.schedule().accelerate_store_level();
   xcel->compute_level = func.schedule().accelerate_compute_level();
   xcel->streaming_loop_levels = get_loop_levels_between(s, func, xcel->store_level, xcel->compute_level);
   xcel->input_streams = func.schedule().accelerate_inputs();
-  xcel->hwbuffers = extract_hw_buffers(s, env);
+  xcel->hwbuffers = extract_hw_buffers(s, env, xcel->streaming_loop_levels);
 
   set_opt_params(xcel, env, inlined);
 
