@@ -701,6 +701,11 @@ public:
         for (const auto &p : dag.taps)
             debug(0) << p.second << "\n";
 
+        std::cout << "after building producer pointers:" << "\n";
+        for (const auto &p : dag.kernels)
+          std::cout << p.second << "\n";
+
+        
         return dag;
     }
 };

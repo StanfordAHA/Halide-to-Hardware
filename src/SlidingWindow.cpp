@@ -137,6 +137,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                 Expr max_req = scope.get(var + ".max");
                 min_req = expand_expr(min_req, scope);
                 max_req = expand_expr(max_req, scope);
+                std::cout << "for dim=" << i << "  var=" << var
+                          << "  max=" << max_req << "  min=" << min_req << std::endl;
 
                 debug(3) << func_args[i] << ":" << min_req << ", " << max_req  << "\n";
                 if (expr_depends_on_var(min_req, loop_var) ||

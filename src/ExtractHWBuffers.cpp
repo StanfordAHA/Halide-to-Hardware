@@ -500,6 +500,7 @@ class HWBuffers : public IRMutator2 {
             std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
             hwbuffer.dims[i].loop_name = loop_names.at(i);
+            std::cout << " input stencil sliding output stencil " << hwbuffer.input_stencil->output_stencil_box.at(i) << std::endl;
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
