@@ -185,7 +185,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     
     std::cout << "extracting hw buffers\n";
-    auto buffers = extract_hw_buffers(s, env);
+    //auto buffers = extract_hw_buffers(s, env);
     vector<HWXcel> xcels;
     xcels = extract_hw_accelerators(s, env, inlined_stages);
     for (auto hwbuffer : xcels.at(0).hwbuffers) {

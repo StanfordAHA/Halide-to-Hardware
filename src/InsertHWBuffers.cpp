@@ -601,7 +601,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         int scan_dim = 0;
         std::cout << "writing kernel named " << stencil_name << " with bounds \n";
         for(size_t i = 0; i < kernel.dims.size(); i++) {
-            if (kernel.dims[i].output_loop_name == "undef" )
+            if (kernel.dims[i].loop_name == "undef" )
                 continue;
 
             string loop_var_name = kernel.name + "." + kernel.func.args()[i]
@@ -629,7 +629,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
             // add letstmt to connect old loop var to new loop var_name
             // TODO this is not correct in general
-            scan_loops = LetStmt::make(kernel.dims[i].output_loop_name, Variable::make(Int(32), loop_var_name), scan_loops);
+            scan_loops = LetStmt::make(kernel.dims[i].loop_name, Variable::make(Int(32), loop_var_name), scan_loops);
             scan_loops = For::make(loop_var_name, 0, loop_extent, ForType::Serial, DeviceAPI::Host, scan_loops);
         }
         //std::cout << "\n";
@@ -681,7 +681,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         // so that code gen knows when to assert TLAST signal
         int scan_dim = 0;
         for (size_t i = 0; i < kernel.dims.size(); i++) {
-            if (kernel.dims[i].output_loop_name != "undef") {
+            if (kernel.dims[i].loop_name != "undef") {
                 string loop_var_name = kernel.name + "." + kernel.func.args()[i]
                     + ".__scan_dim_" + std::to_string(scan_dim++);
                 //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
@@ -723,7 +723,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Stmt scan_loops = stencil_realize;
         scan_dim = 0;
         for(size_t i = 0; i < kernel.dims.size(); i++) {
-            if (kernel.dims[i].output_loop_name == "undef" )
+            if (kernel.dims[i].loop_name == "undef" )
                 continue;
 
             string loop_var_name = kernel.name + "." + kernel.func.args()[i]
@@ -747,7 +747,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
             // add letstmt to connect old loop var to new loop var_name
             // TODO this is not correct in general
-            scan_loops = LetStmt::make(kernel.dims[i].output_loop_name, Variable::make(Int(32), loop_var_name), scan_loops);
+            scan_loops = LetStmt::make(kernel.dims[i].loop_name, Variable::make(Int(32), loop_var_name), scan_loops);
             scan_loops = For::make(loop_var_name, 0, loop_extent, ForType::Serial, DeviceAPI::Host, scan_loops);
         }
 
@@ -810,6 +810,7 @@ class InsertHWBuffers : public IRMutator2 {
                   << " where compute_lvl=" << xcel.compute_level
                   << std::endl;
 
+        std::cout << "streaming loops:\n";
         for (auto &ll : xcel.streaming_loop_levels) {
           std::cout << ll << ",";
         }
@@ -817,14 +818,16 @@ class InsertHWBuffers : public IRMutator2 {
 
 
         // store level doesn't match name AND loop var is not found in xcel
-        if (!xcel.store_level.match(op->name) && xcel.streaming_loop_levels.count(op->name)==0) {
+        bool is_loop_var = std::find(xcel.streaming_loop_levels.begin(), xcel.streaming_loop_levels.end(), op->name) != xcel.streaming_loop_levels.end();
+        if (!xcel.store_level.match(op->name) &&
+            is_loop_var) {
           std::cout << "just continue\n";
             stmt = IRMutator2::visit(op);
 
         // compute level matches name
         } else if (xcel.compute_level.match(op->name)) {
           std::cout << "xcel compute\n";
-            internal_assert(xcel.streaming_loop_levels.count(op->name)); // compute level was supposed to be inclusive
+            internal_assert(is_loop_var); // compute level was supposed to be inclusive
 
             // walk inside of any let statements
             Stmt body = op->body;
@@ -857,7 +860,7 @@ class InsertHWBuffers : public IRMutator2 {
             stmt = new_body;
 
         // loop var is found in xcel
-        } else if (xcel.streaming_loop_levels.count(op->name)){
+        } else if (is_loop_var){
           std::cout << "loopy\n";
             // remove the loop statement if it is one of the scan loops
             stmt = mutate(op->body);

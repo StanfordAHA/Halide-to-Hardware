@@ -416,7 +416,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
             std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
-            hwbuffer.dims[i].loop_name = loop_names.at(i);
+            //hwbuffer.dims[i].loop_name = loop_names.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
@@ -499,7 +499,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
             std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i <<
               " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
-            hwbuffer.dims[i].loop_name = loop_names.at(i);
+            //hwbuffer.dims[i].loop_name = loop_names.at(i);
           }
           hwbuffer.output_access_pattern = reader_loopnest;
 
@@ -665,7 +665,7 @@ class FindInnerLoops : public IRVisitor {
     // the inner compute level (inclusive) of the accelerated function
     if (in_inner_loops && starts_with(op->name, func.name() + ".")) {
       debug(3) << "added loop " << op->name << " to inner loops.\n";
-      inner_loops.insert(op->name);
+      inner_loops.emplace_back(op->name);
       //loop_mins[op->name] = op->min;
       //loop_maxes[op->name] = simplify(op->min + op->extent - 1);
       std::cout << "added loop to scan loop named " << op->name << " with extent=" << op->extent << std::endl;
@@ -688,11 +688,11 @@ public:
     : func(f), outer_loop_exclusive(outer_level), inner_loop_inclusive(inner_level),
       in_inner_loops(false) { }
 
-  set<string> inner_loops;
+  vector<string> inner_loops;
   
 };
 
-set<string> get_loop_levels_between(Stmt s, Function func,
+vector<string> get_loop_levels_between(Stmt s, Function func,
                                     LoopLevel outer_level_exclusive,
                                     LoopLevel inner_level_inclusive) {
   FindInnerLoops fil(func, outer_level_exclusive, inner_level_inclusive);

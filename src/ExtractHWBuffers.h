@@ -23,7 +23,7 @@ namespace Halide {
 namespace Internal {
 
 struct BufferDimSize {
-  std::string output_loop_name;
+  std::string loop_name;
   Expr logical_size;
   Expr logical_min;
 
@@ -77,7 +77,7 @@ struct HWXcel {
   LoopLevel store_level;
   LoopLevel compute_level;
   
-  std::set<std::string> streaming_loop_levels;  // store (exclusive) to compute (inclusive)
+  std::vector<std::string> streaming_loop_levels;  // store (exclusive) to compute (inclusive)
   std::set<std::string> input_streams; // might be wrong?
   std::map<std::string, HWBuffer> hwbuffers;
   std::map<std::string, HWBuffer*> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
