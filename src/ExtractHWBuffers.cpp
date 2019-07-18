@@ -827,13 +827,12 @@ void set_opt_params(HWXcel *xcel,
       const auto consumer_sliding_stencils = hwbuffers.at(consumer.name).input_stencil;
       std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name << std::endl;
       for (size_t idx=0; idx<consumer_sliding_stencils->input_chunk_box.size(); ++idx) {
-        std::cout << " on dim " << idx << std::endl;
         auto in_i = consumer_sliding_stencils->input_chunk_box;
-        std::cout << "got that input with " << consumer_sliding_stencils->input_chunk_box.size() << " dims\n";
         auto in_id = consumer_sliding_stencils->input_chunk_box.at(idx);
-        std::cout << "got that input dim\n";
         hwbuffer.dims.at(idx).input_chunk = consumer_sliding_stencils->input_chunk_box.at(idx);
         hwbuffer.dims.at(idx).output_stencil = consumer_sliding_stencils->output_stencil_box.at(idx);
+        std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
+                  << " and output=" << hwbuffer.dims.at(idx).output_stencil << std::endl;
       }
 
       std::cout << "right before " << consumer.name << " inputs\n";
