@@ -45,15 +45,18 @@ int main(int argc, char **argv) {
   }
   std::cout << "created weights buffer\n";
 
-  for (int y = 0; y < output.height(); y++) {
-      for (int x = 0; x < output.width(); x++) {
+  int height_2 = weights.height() / 2;
+  int width_2 = weights.width() / 2;
+
+  for (int y = height_2; y < output.height() - height_2; y++) {
+      for (int x = width_2; x < output.width() - width_2; x++) {
           for (int w = 0; w < out_chan; w++) {
               uint8_t value = 0;
 
-              for (int j = -1; j < weights.height() - 1; j++) {
-                  for (int i = -1; i < weights.width() - 1; i++) {
+              for (int j = -height_2; j < weights.height() - height_2; j++) {
+                  for (int i = -width_2; i < weights.width() - width_2; i++) {
                       for (int k = 0; k < in_chan; k++) {
-                          value += input(x + i, j + i, k) * weights(i + 1, j + 1, k, w);
+                          value += input(x + i, y + j, k) * weights(i + 1, j + 1, k, w);
                       }
                   }
               }
