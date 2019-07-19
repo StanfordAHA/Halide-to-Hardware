@@ -14,6 +14,7 @@ images: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o bin/process $(LDFLAGS) $(IMAGE_IO_FLAGS) 
 	$(BIN)/process images
 
+$(BIN)/weight.png: images
 
 clean:
 	mv -t . bin/design_top.json bin/output_cpu.png
