@@ -48,15 +48,15 @@ int main(int argc, char **argv) {
   int height_2 = weights.height() / 2;
   int width_2 = weights.width() / 2;
 
-  for (int y = height_2; y < output.height() - height_2; y++) {
-      for (int x = width_2; x < output.width() - width_2; x++) {
+  for (int y = 0; y < output.height(); y++) {
+      for (int x = 0; x < output.width(); x++) {
           for (int w = 0; w < out_chan; w++) {
               uint8_t value = 0;
 
               for (int j = -height_2; j < weights.height() - height_2; j++) {
                   for (int i = -width_2; i < weights.width() - width_2; i++) {
                       for (int k = 0; k < in_chan; k++) {
-                          value += input(x + i, y + j, k) * weights(i + 1, j + 1, k, w);
+                          value += input(x + width_2 + i, y + height_2 + j, k) * weights(i + width_2, j + height_2, k, w);
                       }
                   }
               }
