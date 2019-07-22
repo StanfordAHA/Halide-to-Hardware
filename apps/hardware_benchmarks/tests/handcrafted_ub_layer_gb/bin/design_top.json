@@ -92,7 +92,6 @@
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           },
 
-
           "invalid_bit":{
             "modref":"corebit.const",
             "modargs":{"value":["Bool",false]}
