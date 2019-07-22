@@ -7,8 +7,7 @@
           ["clk",["Named","coreir.clkIn"]],
           ["in_arg_0_0_0",["Array",16,"BitIn"]],
           ["in_arg_0_0_1",["Array",16,"BitIn"]],
-          ["in_en_0_0_0","BitIn"],
-          ["in_en_0_0_1","BitIn"],
+          ["in_en","BitIn"],
           ["out_0_0",["Array",16,"Bit"]],
           ["reset","BitIn"],
           ["valid","Bit"]
@@ -151,8 +150,8 @@
           ["save_phase_selector.in0","row_counter.out"],
           ["save_phase_selector.in1","save_phase.out"],
 
-          ["self.in_en_0_0_0","ub_input.wen"],
-          ["self.in_en_0_0_1","ub_weight.wen"],
+          ["self.in_en","ub_input.wen"],
+          ["self.in_en","ub_weight.wen"],
           ["save_phase_selector.out","ub_output.wen"],
 
           ["output_read_selector.out","ub_output.ren"],
