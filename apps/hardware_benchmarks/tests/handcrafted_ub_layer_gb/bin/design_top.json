@@ -142,7 +142,7 @@
         "connections":[
           ["self.in_arg_0_0_0","ub_input.datain"],
           ["self.in_arg_0_0_1","ub_weight.datain"],
-          ["accum_reg.out","ub_output.datain"],
+          ["add.out","ub_output.datain"],
           ["ub_input_flush.out","ub_input.flush"],
           ["ub_weight_flush.out","ub_weight.flush"],
           ["ub_output_flush.out","ub_output.flush"],
