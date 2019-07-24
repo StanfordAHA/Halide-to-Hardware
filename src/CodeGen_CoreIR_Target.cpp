@@ -584,7 +584,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
         for (uint i=0; i<indices.size(); ++i) {
-          input_type = input_type->Arr(indices[i]);
+          //FIXMEyikes input_type = input_type->Arr(indices[i]);
+          input_type = input_type->Arr(1);
         }
         input_types.push_back({arg_name, input_type});
           
@@ -2140,6 +2141,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
   } else if (op->name == "linebuffer") {
     visit_linebuffer(op);
 
+  } else if (op->name == "hwbuffer") {
+    visit_linebuffer(op);
+
+    
   } else if (op->name == "write_stream") {
     visit_write_stream(op);
 
@@ -2205,7 +2210,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
   uint input_dims [num_dims];
   for (uint i=0; i<num_dims; ++i) {
     input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
-    input_type = input_type->Arr(input_dims[i]);
+    //FIXMEyikes input_type = input_type->Arr(input_dims[i]);
+    input_type = input_type->Arr(1);
     stream << input_dims[i] << " ";
   }
 

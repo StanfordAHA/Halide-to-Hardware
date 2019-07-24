@@ -51,6 +51,7 @@ struct HWBuffer {
 
   Stmt input_access_pattern;
   Stmt output_access_pattern;
+  Stmt my_stmt;
 
   // Parameters used during optimization
   bool is_inlined = false;

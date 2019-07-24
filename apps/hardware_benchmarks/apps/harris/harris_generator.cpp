@@ -94,6 +94,9 @@ public:
                                                 255,
                                                 0));
         output(x, y) = hw_output(x, y);
+
+        output.bound(x, 0, 58);
+        output.bound(y, 0, 58);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {

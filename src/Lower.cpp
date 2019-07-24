@@ -216,13 +216,14 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
+    Stmt s_ub;
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
 
       for (const HWXcel &xcel : xcels) {
-        auto s_ub = insert_hwbuffers(s, xcel);
+        s_ub = insert_hwbuffers(s, xcel);
         std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
       }
 
@@ -242,7 +243,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     }
     
     debug(1) << "Simplifying...\n";
-    s = simplify(s, false); // Storage folding needs .loop_max symbols
+    s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";

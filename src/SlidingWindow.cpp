@@ -227,6 +227,9 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             Expr prev_min_minus_one = substitute(loop_var, loop_var_expr - 1, min_required) - 1;
 
             // compute sizes
+            Box b_p = box_provided(op->body, func.name());
+            Box b_r = box_required(op->body, func.name());
+            std::cout << "func " << func.name() << " provides=" << b_p << " requires=" << b_r << std::endl;
             Expr output_stencil_size = simplify(expand_expr(max_required - min_required + 1, scope));
             std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
             output_stencil_box.push_back(output_stencil_size);
@@ -411,6 +414,7 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
 
     void visit(const For *op) override {
         debug(3) << " Doing sliding window analysis over loop: " << op->name << "\n";
+        std::cout << " Doing sliding window analysis over loop: " << op->name << "\n";
 
         Stmt new_body = op->body;
         new_body.accept(this);
@@ -445,6 +449,7 @@ public:
 
 std::map<std::string, SlidingStencils> extract_sliding_stencils(Stmt s, Function f) {
   auto sliding_window_mutator = SlidingWindowVisitorOnFunction(f);
+  std::cout << "extracting sliding stencils for: \n" << s << std::endl;
   s.accept(&sliding_window_mutator);
   return sliding_window_mutator.buffer_sliding_stencils;
 }
