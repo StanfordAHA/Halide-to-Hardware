@@ -106,6 +106,10 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             }
             Expr new_min = 0;
             // FIXME(is this correct?): Expr new_extent = kernel.dims[dim_idx].step
+            // FIXMEyikes
+            std::cout << "doing dim=" << dim_idx << " for kernel size " << kernel.dims.size() << std::endl;
+            if (dim_idx >= (int) kernel.dims.size()) { dim_idx = kernel.dims.size()-1; }
+            internal_assert(dim_idx < (int) kernel.dims.size());
             Expr new_extent = kernel.dims.at(dim_idx).input_chunk;
 
             // create a let statement for the old_loop_var
@@ -617,7 +621,8 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
             // check the condition for the new loop for sliding the update stencil
             //const IntImm *store_extent_int = store_extent.as<IntImm>();
             //internal_assert(store_extent_int);
-            if (store_extent_int % to_int(kernel.dims[i].input_chunk) != 0) {
+            if (false) {
+              //if (store_extent_int % to_int(kernel.dims[i].input_chunk) != 0) { //FIXMEyikes
                 // we cannot handle this scenario yet
                 internal_error
                     << "Line buffer extent (" << store_extent_int

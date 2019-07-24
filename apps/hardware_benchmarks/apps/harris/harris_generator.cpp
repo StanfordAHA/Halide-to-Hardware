@@ -127,7 +127,7 @@ public:
           lgyy.update(0).unroll(box.x).unroll(box.y);
           lgxy.update(0).unroll(box.x).unroll(box.y);
 
-          //padded16.stream_to_accelerator();
+          padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 58, 58);

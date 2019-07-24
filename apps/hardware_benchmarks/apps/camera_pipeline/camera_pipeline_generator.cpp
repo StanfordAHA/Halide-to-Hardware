@@ -231,7 +231,11 @@ namespace {
       hw_output = apply_curve(color_corrected, curve);
 
       output(c, x, y) = hw_output(c, x, y);
-      hw_output.bound(c, 0, 3);
+
+      output.bound(c, 0, 3);
+      output.bound(x, 0, 58);
+      output.bound(y, 0, 58);
+
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
@@ -248,8 +252,11 @@ namespace {
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
 
         hw_output.accelerate({hw_input}, xi, xo, {});
+
         //hw_output.unroll(c).unroll(xi, 2);
         hw_output.unroll(c);
+
+        hw_input.stream_to_accelerator();
           
       } else {    // schedule to CPU
         output.tile(x, y, xo, yo, xi, yi, 64, 64)
