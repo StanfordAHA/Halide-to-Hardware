@@ -11,7 +11,7 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<float> processor("inout_fp",
+  OneInOneOut_ProcessController<uint32_t> processor("inout_fp",
                                             {
                                               {"cpu",
                                                   [&]() { inout_fp(processor.input, processor.output); }
@@ -24,8 +24,8 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<float>(64, 64);
-  processor.output = Buffer<float>(64, 64);
+  processor.input = Buffer<uint32_t>(64, 64);
+  processor.output = Buffer<uint32_t>(64, 64);
   
   processor.process_command(argc, argv);
 

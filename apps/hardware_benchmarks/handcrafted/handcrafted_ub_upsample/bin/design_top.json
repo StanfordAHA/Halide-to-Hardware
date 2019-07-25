@@ -1,0 +1,39 @@
+{"top":"global.DesignTop",
+"namespaces":{
+  "global":{
+    "modules":{
+      "DesignTop":{
+        "type":["Record",[
+          ["clk",["Named","coreir.clkIn"]],
+          ["in_arg_0_0_0",["Array",16,"BitIn"]],
+          ["in_en","BitIn"],
+          ["out_0_0",["Array",16,"Bit"]],
+          ["reset","BitIn"],
+          ["valid","Bit"]
+        ]],
+        "instances":{
+          "ub_input_0_0":{
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",256], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1024], "dimensionality":["Int",4], "stride_0":["Int",0], "range_0":["Int",2], "stride_1":["Int",1], "range_1":["Int",16], "stride_2":["Int",0], "range_2":["Int",2], "stride_3":["Int",16], "range_3":["Int",16], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+          },
+          "ub_input_0_0_flush":{
+            "modref":"corebit.const",
+            "modargs":{"value":["Bool",false]}
+          }
+        },
+
+        "connections":[
+          ["self.in_arg_0_0_0","ub_input_0_0.datain"],
+          ["ub_input_0_0_flush.out","ub_input_0_0.flush"],
+
+          ["ub_input_0_0.wen","self.in_en"],
+          ["ub_input_0_0.ren","self.in_en"],
+
+          ["self.out_0_0","ub_input_0_0.dataout"],
+          ["self.valid","ub_input_0_0.valid"]
+        ]
+      }
+    }
+  }
+}
+}
