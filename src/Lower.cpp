@@ -243,6 +243,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     
     debug(1) << "Simplifying...\n";
     s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
+    //s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
