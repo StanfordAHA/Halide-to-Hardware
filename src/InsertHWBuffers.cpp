@@ -30,6 +30,7 @@ class ExpandExpr : public IRMutator2 {
     Expr visit(const Variable *var) {
         if (scope.contains(var->name)) {
           debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          //std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
           return scope.get(var->name);
         } else {
           return var;
@@ -115,18 +116,21 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             // create a let statement for the old_loop_var
             Expr old_min = op->min;
             Expr old_var_value = new_var + old_min;
-
+            
             // traversal down into the body
             scope.push(old_var_name, simplify(expand_expr(old_var_value, scope)));
             Stmt new_body = mutate(op->body);
             scope.pop(old_var_name);
 
+            std::cout << "finishing this for\n";
             new_body = LetStmt::make(old_var_name, old_var_value, new_body);
             return For::make(new_var_name, new_min, new_extent, op->for_type, op->device_api, new_body);
         }
+        std::cout << "finished replacing for ref\n";
     }
 
     Stmt visit(const Provide *op) {
+        std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
         if(op->name != kernel.name) {
           return IRMutator2::visit(op);
         } else {
@@ -420,6 +424,8 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
         Expr update_stream_var = Variable::make(Handle(), update_stream_name);
 
         vector<Expr> hwbuffer_args({update_stream_var, stream_var});
+        hwbuffer_args.push_back(Expr(kernel.dims.size()));
+        
         // extract the buffer size, and put it into args
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
@@ -429,6 +435,20 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
           
             std::cout << "store extent in this hwbuffer: " << store_extent << std::endl;
         }
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(kernel.dims.at(i).input_chunk);
+        }
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(kernel.dims.at(i).input_block);
+        }
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(kernel.dims.at(i).output_stencil);
+        }
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(kernel.dims.at(i).output_block);
+        }
+
+        
         Stmt hwbuffer_call = Evaluate::make(Call::make(Handle(), "hwbuffer", hwbuffer_args, Call::Intrinsic));
         Stmt dispatch_call = create_hwbuffer_dispatch_call(kernel);
         Stmt buffer_calls = Block::make(hwbuffer_call, dispatch_call);

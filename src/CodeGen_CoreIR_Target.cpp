@@ -584,8 +584,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
         for (uint i=0; i<indices.size(); ++i) {
-          //FIXMEyikes input_type = input_type->Arr(indices[i]);
-          input_type = input_type->Arr(1);
+          input_type = input_type->Arr(indices[i]);
         }
         input_types.push_back({arg_name, input_type});
           
@@ -2142,7 +2141,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
     visit_linebuffer(op);
 
   } else if (op->name == "hwbuffer") {
-    visit_linebuffer(op);
+    visit_hwbuffer(op);
 
     
   } else if (op->name == "write_stream") {
@@ -2166,7 +2165,106 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
   }
 }
 
-  
+
+void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
+  //IR: linebuffer(buffered.stencil_update.stream, buffered.stencil.stream, extent_0[, extent_1, ...])
+  //C: linebuffer<extent_0[, extent_1, ...]>(buffered.stencil_update.stream, buffered.stencil.stream)
+  internal_assert(op->args.size() >= 3);
+  string a0 = print_expr(op->args[0]);
+  string a1 = print_expr(op->args[1]);
+  const Variable *stencil_var = op->args[1].as<Variable>();
+  Stencil_Type stencil_type = stencils.get(stencil_var->name);
+  const Variable *in_stencil_var = op->args[0].as<Variable>();
+  Stencil_Type in_stencil_type = stencils.get(in_stencil_var->name);
+
+  stream << in_stencil_var->name << "\n";
+
+  do_indent();
+  stream << "hwbuffer<";
+//  for(size_t i = 2; i < op->args.size(); i++) {
+//    stream << print_expr(op->args[i]);
+//    if (i != op->args.size() -1)
+//      stream << ", ";
+//  }
+  stream << ">(" << a0 << ", " << a1 << ");\n";
+  id = "0"; // skip evaluation
+	
+  // generate coreir: wire up to linebuffer
+  string lb_in_name = print_name(a0);
+  string lb_out_name = print_name(a1);
+  size_t num_dims = id_const_value(op->args[2]);
+
+  // add linebuffer to coreir
+  //uint num_dims = op->args.size() - 2;
+  string lb_name = "lb" + lb_in_name;
+
+  bool connected_wen = false;
+  // FIXME: use proper bitwidth
+  CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
+  CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
+  CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
+
+  stream << "// linebuffer " << lb_name << " created with ";
+
+  stream << "input=";
+  uint input_dims [num_dims];
+  for (uint i=0; i<num_dims; ++i) {
+    input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
+    stream << input_dims[i] << " ";
+  }
+
+  stream << " output=";
+  uint output_dims [num_dims];
+  for (uint i=0; i<num_dims; ++i) {
+    //for (int i=num_dims-1; i>=0; --i) {
+    output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
+    output_type = output_type->Arr(output_dims[i]);
+    stream << output_dims[i] << " ";
+  }
+
+  stream << " image=";
+  uint image_dims [num_dims];
+  for (uint i=0; i<num_dims; ++i) {
+    image_dims[i] = id_const_value(id_const_value(op->args[i+2]));
+    image_type = image_type->Arr(image_dims[i]);
+    stream << image_dims[i] << " ";
+  }
+  stream << "\n";
+
+  CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
+                            {"output_type", CoreIR::Const::make(context,output_type)},
+                            {"image_type", CoreIR::Const::make(context,image_type)},
+                            {"has_valid",CoreIR::Const::make(context,has_valid)}};
+
+  CoreIR::Wireable* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+  if (has_valid) {
+    if (coreir_lb == NULL) {
+      internal_assert(false) << "NULL LINEBUFFER before recording\n";
+    }
+    record_linebuffer(lb_out_name, coreir_lb);
+    connected_wen = connect_linebuffer(lb_in_name, coreir_lb->sel("wen"));
+
+    def->connect({"self", "reset"}, {lb_name, "reset"});
+  } else {
+    def->addInstance(lb_name + "_reset", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+    def->connect({lb_name + "_reset", "out"}, {lb_name, "reset"});
+  }
+					
+  // connect linebuffer
+  //CoreIR::Module* bc_gen = static_cast<CoreIR::Module*>(gens["bitconst"]);
+  CoreIR::Wireable* lb_in_wire = get_wire(lb_in_name, op->args[0]);
+
+  def->connect(lb_in_wire, coreir_lb->sel("in"));
+  add_wire(lb_out_name, coreir_lb->sel("out"));
+  if (!connected_wen) {
+    CoreIR::Wireable* lb_wen = def->addInstance(lb_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
+    def->connect(lb_wen->sel("out"), coreir_lb->sel("wen"));
+  }
+  //hw_wire_set[lb_out_name] = coreir_lb->sel("out");
+
+}
+
+
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
   //IR: linebuffer(buffered.stencil_update.stream, buffered.stencil.stream, extent_0[, extent_1, ...])
   //C: linebuffer<extent_0[, extent_1, ...]>(buffered.stencil_update.stream, buffered.stencil.stream)
@@ -2210,8 +2308,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
   uint input_dims [num_dims];
   for (uint i=0; i<num_dims; ++i) {
     input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
-    //FIXMEyikes input_type = input_type->Arr(input_dims[i]);
-    input_type = input_type->Arr(1);
+    input_type = input_type->Arr(input_dims[i]);
     stream << input_dims[i] << " ";
   }
 

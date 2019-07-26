@@ -181,10 +181,11 @@ class CountBufferUsers : public IRVisitor {
         auto interval = box_write;
         input_block_box = vector<Expr>(interval.size());
         for (size_t dim=0; dim<interval.size(); ++dim) {
-          Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
-          Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
+          Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+          Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
+          Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
           std::cout << lower_expr << "-" << upper_expr << " ";
-          input_block_box[dim] = lower_expr;
+          input_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         }
         std::cout << "]\n";
 
@@ -204,7 +205,7 @@ class CountBufferUsers : public IRVisitor {
           Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
           Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
           Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-          output_block_box[dim] = lower_expr;
+          output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
           std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
         }
         std::cout << "]\n";
@@ -239,10 +240,11 @@ class CountBufferUsers : public IRVisitor {
       auto interval = box_write;
       input_block_box = vector<Expr>(interval.size());
       for (size_t dim=0; dim<interval.size(); ++dim) {
-        Expr lower_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Lower);
-        Expr upper_expr = find_constant_bound(simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope)), Direction::Upper);
+        Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+        Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
+        Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         std::cout << lower_expr << "-" << upper_expr << " ";
-        input_block_box[dim] = lower_expr;
+        input_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
       }
       std::cout << "]\n";
 
@@ -263,7 +265,7 @@ class CountBufferUsers : public IRVisitor {
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        output_block_box[dim] = lower_expr;
+        output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
         std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
       }
@@ -309,9 +311,10 @@ class FindOutputStencil : public IRVisitor {
 
   void visit(const For *op) override {
     std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
-    std::cout << op->body << std::endl;
+
 
     if (op->name == compute_level) {
+      std::cout << op->body << std::endl;
       auto box_read = box_required(op->body, var);
       auto interval = box_read;
       output_stencil_box = vector<Expr>(interval.size());
@@ -324,8 +327,8 @@ class FindOutputStencil : public IRVisitor {
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        output_stencil_box[dim] = lower_expr;
-        std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
+        output_stencil_box[dim] = lower_expr.defined() ? lower_expr : port_expr;
+        std::cout << port_expr << "?" << lower_expr.defined() << ":" << lower_expr << "-" << upper_expr  << " ";
       }
       std::cout << "]\n";
 
@@ -369,7 +372,7 @@ class FindInputStencil : public IRVisitor {
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        input_chunk_box[dim] = lower_expr;
+        input_chunk_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
       }
       std::cout << "]\n";
@@ -595,6 +598,7 @@ class HWBuffers : public IRMutator2 {
 
           
           // check that all of the extracted parameters are of the same vector length
+          //FIXMEyikes
           //internal_assert(hwbuffer.dims.size() == output_block_box.size());
           std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
           internal_assert(hwbuffer.dims.size() == loop_names.size()) << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
@@ -916,8 +920,8 @@ void set_opt_params(HWXcel *xcel,
       string consumer_name;
       if (consumer.name != hwbuffer.name) {
         if (consumer_buffer.is_inlined) {
-          internal_assert(consumer_buffer.consumer_buffers.size() == 1)
-            << "The inlined kernel " << consumer.name << " has more than one consumer.\n";
+          //FIXMEyikes
+          //internal_assert(consumer_buffer.consumer_buffers.size() == 1) << "The inlined kernel " << consumer.name << " has more than one consumer.\n";
           consumer_name = consumer_buffer.consumer_buffers.begin()->first;
         } else {
           consumer_name = consumer_buffer.name;
@@ -949,7 +953,13 @@ void set_opt_params(HWXcel *xcel,
 
       // FIXMEyikes: this doesn't seem to work
       //const auto consumer_sliding_stencils = hwbuffers.at(consumer.name).input_stencil;
-      std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name << std::endl;
+
+      if (hwbuffers.count(consumer.name) == 0) {
+        continue;
+      }
+      
+      std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name
+                << " with " << hwbuffers.count(consumer.name) << " found\n";
       for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
         //hwbuffer.dims.at(idx).input_chunk = hwbuffer.name == "hw_input" ? 3 : consumer_sliding_stencils->input_chunk_box.at(idx);
         hwbuffer.dims.at(idx).input_chunk = 1;
@@ -960,10 +970,10 @@ void set_opt_params(HWXcel *xcel,
         }
         
         //hwbuffer.dims.at(idx).output_stencil = consumer_sliding_stencils->output_stencil_box.at(idx);
-        if (true) {
-        //if (fos.found_stencil) {
-          //hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
-          hwbuffer.dims.at(idx).output_stencil = hwbuffer.dims.at(idx).output_block;
+        //if (true) {
+        if (fos.found_stencil) {
+          hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
+          //hwbuffer.dims.at(idx).output_stencil = hwbuffer.dims.at(idx).output_block;
         }
         std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
                   << " and output=" << hwbuffer.dims.at(idx).output_stencil << std::endl;

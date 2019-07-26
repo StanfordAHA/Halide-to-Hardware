@@ -227,7 +227,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
       }
 
-      
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 

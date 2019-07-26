@@ -40,12 +40,6 @@ struct HWBuffer {
   std::string name;
   
   // Parameters for the HWBuffer
-  ////std::vector<Expr> total_buffer_box;
-  ////std::vector<Expr> input_chunk_box;
-  ////std::vector<Expr> input_block_box;
-  ////std::vector<Expr> output_min_pos;
-  ////std::vector<Expr> output_stencil_box;
-  ////std::vector<Expr> output_block_box;
   std::vector<BufferDimSize> dims;
   std::shared_ptr<SlidingStencils> input_stencil;
 
