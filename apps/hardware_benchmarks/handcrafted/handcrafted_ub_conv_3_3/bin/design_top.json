@@ -348,6 +348,8 @@
           ["mul_318_320_321.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
           ["self.in_arg_0_0_0","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.datain"],
           ["self.in_en","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.wen"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.ren","self.in_en"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.ren","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.valid"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.wen","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.valid"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.flush"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.flush"],
