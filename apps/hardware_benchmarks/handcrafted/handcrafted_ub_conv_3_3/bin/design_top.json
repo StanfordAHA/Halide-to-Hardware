@@ -139,7 +139,7 @@
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",3], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
+            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush":{
             "modref":"corebit.const",
@@ -147,11 +147,38 @@
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",3], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
+            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush":{
             "modref":"corebit.const",
             "modargs":{"value":["Bool",false]}
+          },
+          "stencil_size":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h002"]}
+          },
+          "row_counter":{
+            "genref":"commonlib.counter",
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",63], "inc":["Int",1]}
+          },
+          "col_counter":{
+            "genref":"commonlib.counter",
+            "genargs":{"width":["Int",16], "min":["Int",0], "max":["Int",63], "inc":["Int",1]}
+          },
+          "lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join":{
+              "modref":"corebit.and"
+          },
+          "lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join":{
+              "modref":"corebit.and"
+          },
+          "row_compare":{
+              "genref":"coreir.ule",
+              "genargs":{"width":["Int",16]}
+          },
+          "col_compare":{
+              "genref":"coreir.ule",
+              "genargs":{"width":["Int",16]}
           },
           "mul_288_290_291":{
             "genref":"coreir.mul",
@@ -240,18 +267,30 @@
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.clk"],
           ["mul_288_290_291.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.out"],
           ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reset_term.in"],
-          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.datain","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_2.out"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.datain","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
           ["mul_318_320_321.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
-          ["lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reg_2.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.datain"],
+          ["self.in_arg_0_0_0","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.datain"],
+          ["mul_300_302_303.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.dataout"],
+          ["self.in_arg_0_0_0","mul_336_338_339.in1"],
           ["self.in_en","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.wen"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.ren","self.in_en"],
-          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.ren","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.valid"],
-          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.wen","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.valid"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.ren","self.in_en"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.wen","self.in_en"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.flush"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.flush"],
-          ["mul_300_302_303.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.dataout"],
-          ["self.valid","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.valid"],
-          ["self.in_arg_0_0_0","mul_336_338_339.in1"]
+          ["row_compare.in0","stencil_size.out"],
+          ["row_compare.in1","row_counter.out"],
+          ["col_compare.in0","stencil_size.out"],
+          ["col_compare.in1","col_counter.out"],
+          ["row_counter.reset","self.reset"],
+          ["row_counter.en","self.in_en"],
+          ["col_counter.reset","self.reset"],
+          ["col_counter.en","row_counter.overflow"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join.in1","row_compare.out"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join.in1","col_compare.out"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join.out","lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join.in0"],
+          ["self.valid","lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join.out"],
+          ["self.in_en","lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join.in0"]
         ]
       }
     }
