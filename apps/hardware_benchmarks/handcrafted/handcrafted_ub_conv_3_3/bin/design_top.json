@@ -139,7 +139,7 @@
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
+            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",3], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0_flush":{
             "modref":"corebit.const",
@@ -147,7 +147,7 @@
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",2], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
+            "genargs":{"width":["Int",16], "depth":["Int",64], "rate_matched":["Bool",true], "stencil_width":["Int",3], "iter_cnt":["Int",64], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",64], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0]}
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0_flush":{
             "modref":"corebit.const",
@@ -240,9 +240,9 @@
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.clk"],
           ["mul_288_290_291.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.out"],
           ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reset_term.in"],
-          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.datain","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.datain","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_2.out"],
           ["mul_318_320_321.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
-          ["self.in_arg_0_0_0","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.datain"],
+          ["lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reg_2.out","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.datain"],
           ["self.in_en","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.wen"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.ren","self.in_en"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.ren","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.valid"],
