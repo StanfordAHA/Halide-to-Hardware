@@ -99,15 +99,6 @@
               "genargs":{"width":["Int",16]},
               "modargs":{"value":[["BitVector",16],"16'h0013"]}
             },
-            "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reset_term":{
-              "modref":"corebit.term"
-            },
-            "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reset_term":{
-              "modref":"corebit.term"
-            },
-            "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reset_term":{
-              "modref":"corebit.term"
-            },
             "linebuffer_0_flush":{
               "modref":"corebit.const",
               "modargs":{"value":["Bool",false]}
@@ -247,9 +238,6 @@
             ["mul_300_302_303.in0","const17_17.out"],
             ["mul_318_320_321.in0","const18_18.out"],
             ["mul_336_338_339.in0","const19_19.out"],
-            ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reset_term.in"],
-            ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reset_term.in"],
-            ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reset_term.in"],
             ["self.in_arg_0_0_0","mul_336_338_339.in1"],
             ["row_compare.in0","stencil_size.out"],
             ["row_compare.in1","row_counter.out"],
