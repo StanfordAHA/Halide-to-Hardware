@@ -181,7 +181,7 @@
             },
             "linebuffer_0":{
               "genref":"commonlib.unified_buffer",
-              "genargs":{"width":["Int",16],"depth":["Int",64],"rate_matched":["Bool",true],"dimensionality":["Int",1],"iter_cnt":["Int",64],"stencil_width":["Int",2],"stride_0":["Int",1],"range_0":["Int",64],"chain_en":["Bool",false],"chain_idx":["Int",0],"starting_addr":["Int",0]}
+              "genargs":{"width":["Int",16],"depth":["Int",64],"rate_matched":["Bool",true],"dimensionality":["Int",1],"iter_cnt":["Int",64],"stencil_width":["Int",0],"stride_0":["Int",1],"range_0":["Int",64],"chain_en":["Bool",false],"chain_idx":["Int",0],"starting_addr":["Int",0]}
             },
             "linebuffer_0_0":{
               "genref":"coreir.reg",
@@ -205,7 +205,7 @@
             },
             "linebuffer_1":{
               "genref":"commonlib.unified_buffer",
-              "genargs":{"width":["Int",16],"depth":["Int",64],"rate_matched":["Bool",true],"dimensionality":["Int",1],"iter_cnt":["Int",64],"stencil_width":["Int",2],"stride_0":["Int",1],"range_0":["Int",64],"chain_en":["Bool",false],"chain_idx":["Int",0],"starting_addr":["Int",0]}
+              "genargs":{"width":["Int",16],"depth":["Int",64],"rate_matched":["Bool",true],"dimensionality":["Int",1],"iter_cnt":["Int",64],"stencil_width":["Int",3],"stride_0":["Int",1],"range_0":["Int",64],"chain_en":["Bool",false],"chain_idx":["Int",0],"starting_addr":["Int",0]}
             },
             "linebuffer_2_0":{
               "genref":"coreir.reg",
@@ -286,7 +286,7 @@
             ["linebuffer_0.valid","linebuffer_1.ren"],
             ["linebuffer_1.dataout","mul_300_302_303.in1"],
             ["linebuffer_1.flush","linebuffer_1_flush.out"],
-            ["linebuffer_2.dataout","linebuffer_2_0.in"],
+            ["linebuffer_1.dataout","linebuffer_2_0.in"],
             ["linebuffer_2_0.out","mul_294_296_297.in1"],
             ["linebuffer_2_0.clk","self.clk"],
             ["linebuffer_2_0.out","linebuffer_2_1.in"],
