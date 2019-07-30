@@ -108,9 +108,6 @@
             "genargs":{"width":["Int",16]},
             "modargs":{"clk_posedge":["Bool",true], "init":[["BitVector",16],"16'hxxxx"]}
           },
-          "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reset_term":{
-            "modref":"corebit.term"
-          },
           "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_1":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
@@ -121,9 +118,6 @@
             "genargs":{"width":["Int",16]},
             "modargs":{"clk_posedge":["Bool",true], "init":[["BitVector",16],"16'hxxxx"]}
           },
-          "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reset_term":{
-            "modref":"corebit.term"
-          },
           "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_1":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
@@ -133,9 +127,6 @@
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
             "modargs":{"clk_posedge":["Bool",true], "init":[["BitVector",16],"16'hxxxx"]}
-          },
-          "lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reset_term":{
-            "modref":"corebit.term"
           },
           "lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0":{
             "genref":"commonlib.unified_buffer",
@@ -225,21 +216,18 @@
           ["mul_330_332_333.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reg_1.out"],
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reg_2.clk"],
           ["mul_324_326_327.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reg_2.out"],
-          ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_0$reset_term.in"],
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_1.clk"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_1.in"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_2.in","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_1.out"],
           ["mul_312_314_315.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_1.out"],
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_2.clk"],
           ["mul_306_308_309.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reg_2.out"],
-          ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_1$reset_term.in"],
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_1.clk"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.dataout","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_1.in"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.in","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_1.out"],
           ["mul_294_296_297.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_1.out"],
           ["self.clk","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.clk"],
           ["mul_288_290_291.in1","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reg_2.out"],
-          ["self.reset","lb_hw_input_stencil_update_stream$lb_recurse$lb1d_2$reset_term.in"],
           ["lb_hw_input_stencil_update_stream$lb_recurse$lbmem_2_0.datain","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
           ["mul_318_320_321.in1","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.dataout"],
           ["self.in_arg_0_0_0","lb_hw_input_stencil_update_stream$lb_recurse$lbmem_1_0.datain"],
