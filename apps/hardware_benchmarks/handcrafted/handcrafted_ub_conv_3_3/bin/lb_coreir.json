@@ -107,33 +107,6 @@
               "modref":"corebit.const",
               "modargs":{"value":["Bool",false]}
             },
-            "stencil_size":{
-              "genref":"coreir.const",
-              "genargs":{"width":["Int",16]},
-              "modargs":{"value":[["BitVector",16],"16'h002"]}
-            },
-            "row_counter":{
-              "genref":"commonlib.counter",
-              "genargs":{"width":["Int",16],"min":["Int",0],"max":["Int",63],"inc":["Int",1]}
-            },
-            "col_counter":{
-              "genref":"commonlib.counter",
-              "genargs":{"width":["Int",16],"min":["Int",0],"max":["Int",63],"inc":["Int",1]}
-            },
-            "lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join":{
-              "modref":"corebit.and"
-            },
-            "lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join":{
-              "modref":"corebit.and"
-            },
-            "row_compare":{
-              "genref":"coreir.ule",
-              "genargs":{"width":["Int",16]}
-            },
-            "col_compare":{
-              "genref":"coreir.ule",
-              "genargs":{"width":["Int",16]}
-            },
             "mul_288_290_291":{
               "genref":"coreir.mul",
               "genargs":{"width":["Int",16]}
@@ -239,19 +212,7 @@
             ["mul_318_320_321.in0","const18_18.out"],
             ["mul_336_338_339.in0","const19_19.out"],
             ["self.in_arg_0_0_0","mul_336_338_339.in1"],
-            ["row_compare.in0","stencil_size.out"],
-            ["row_compare.in1","row_counter.out"],
-            ["col_compare.in0","stencil_size.out"],
-            ["col_compare.in1","col_counter.out"],
-            ["row_counter.reset","self.reset"],
-            ["row_counter.en","self.in_en"],
-            ["col_counter.reset","self.reset"],
-            ["col_counter.en","row_counter.overflow"],
-            ["lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join.in1","row_compare.out"],
-            ["lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join.in1","col_compare.out"],
-            ["lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join.out","lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join.in0"],
-            ["self.valid","lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$_join.out"],
-            ["self.in_en","lb_hw_input_stencil_update_stream$lb_recurse$valid_andr$opN_0$_join.in0"],
+            ["self.valid","linebuffer_1.valid"],
             ["self.in_arg_0_0_0","linebuffer_0_0.in"],
             ["linebuffer_0_0.out","mul_330_332_333.in1"],
             ["linebuffer_0_0.clk","self.clk"],
@@ -263,7 +224,7 @@
             ["self.in_en","linebuffer_0.ren"],
             ["linebuffer_0.dataout","mul_318_320_321.in1"],
             ["linebuffer_0.flush","linebuffer_0_flush.out"],
-            ["linebuffer_1.dataout","linebuffer_1_0.in"],
+            ["linebuffer_0.dataout","linebuffer_1_0.in"],
             ["linebuffer_1_0.out","mul_312_314_315.in1"],
             ["linebuffer_1_0.clk","self.clk"],
             ["linebuffer_1_0.out","linebuffer_1_1.in"],
