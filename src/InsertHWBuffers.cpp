@@ -23,6 +23,18 @@ using std::vector;
 
 namespace {
 
+int id_const_value(const Expr e) {
+  if (const IntImm* e_int = e.as<IntImm>()) {
+    return e_int->value;
+
+  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    return e_uint->value;
+
+  } else {
+    return -1;
+  }
+}
+
 class ExpandExpr : public IRMutator2 {
     using IRMutator2::visit;
     const Scope<Expr> &scope;
@@ -49,6 +61,88 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     debug(4) << "Expanded " << e << " into " << result << "\n";
     return result;
 }
+
+class IdentifyAddressingVar : public IRVisitor {
+  int asserts_found;
+
+  using IRVisitor::visit;
+
+  void visit(const Var *op) {
+    dim_ref = asserts_found;
+  }
+
+  void visit(const Mul *op) {
+    if (const Variable* op_a = op->a.as<Variable>()) {
+      if (op_a->name == varname) {
+        stride = id_const_value(op->b);
+      }
+      
+    } else if (const Variable* op_b = op->b.as<Variable>()) {
+      if (op_b->name == varname) {
+        stride = id_const_value(op->a);
+      }
+    }
+  }
+
+  void visit(const AssertStmt *op) {
+    IRVisitor::visit(op);
+    asserts_found += 1;
+  }
+  
+public:
+  const string varname;
+
+  // if var not found, dim_ref should be 0
+  int dim_ref;
+  // if var not found, stride should be 0
+  int stride;
+  IdentifyAddressingVar(string varname) :
+    asserts_found(0), varname(varname), dim_ref(0), stride(0) {}
+
+};
+
+class IdentifyAddressing : public IRVisitor {
+  int stream_dim_idx;
+  
+  using IRVisitor::visit;
+  
+  void visit(const For *op) {
+    varnames.push_back(op->name);
+    internal_assert(is_zero(op->min));
+
+    // push range
+    int range = id_const_value(op->extent);
+    internal_assert(range > 0);
+    ranges.push_back(range);
+
+    // determine dim_ref and stride
+    if (stream_dim_idx < num_streaming_dims) {
+      dim_refs.push_back(stream_dim_idx);
+      strides_in_dim.push_back(1);
+      stream_dim_idx++;
+      
+    } else {
+      IdentifyAddressingVar iav(op->name);
+      (op->body).accept(&iav);
+      dim_refs.push_back(iav.dim_ref);
+      strides_in_dim.push_back(iav.stride);
+    }
+
+    IRVisitor::visit(op);
+  }
+
+
+public:
+  int num_streaming_dims;
+  vector<string> varnames;
+  
+  vector<int> ranges;
+  vector<int> dim_refs;
+  vector<int> strides_in_dim;
+  IdentifyAddressing(int num_stream_dims) :
+    stream_dim_idx(0), num_streaming_dims(num_stream_dims) {}
+};
+
 
 }
 
@@ -404,7 +498,7 @@ bool need_hwbuffer(const HWBuffer &kernel) {
 // to generate the stencil.stream
 // The former is smaller, which only consist of the new pixels
 // sided in each shift of the stencil window.
-Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
+Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel) {
   std::cout << "considering a hwbuffer for " << kernel.name << std::endl;
     Stmt ret;
     if (need_hwbuffer(kernel)) {
@@ -424,6 +518,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
         Expr update_stream_var = Variable::make(Handle(), update_stream_name);
 
         vector<Expr> hwbuffer_args({update_stream_var, stream_var});
+
         hwbuffer_args.push_back(Expr(kernel.dims.size()));
         
         // extract the buffer size, and put it into args
@@ -446,6 +541,23 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel) {
         }
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           hwbuffer_args.push_back(kernel.dims.at(i).output_block);
+        }
+
+        IdentifyAddressing id_addr(xcel.streaming_loop_levels.size());
+        kernel.output_access_pattern.accept(&id_addr);
+
+        internal_assert(kernel.dims.size() == id_addr.ranges.size());
+        internal_assert(kernel.dims.size() == id_addr.dim_refs.size());
+        internal_assert(kernel.dims.size() == id_addr.strides_in_dim.size());        
+        
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(id_addr.ranges.at(i));
+        }
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(id_addr.dim_refs.at(i));
+        }
+        for (size_t i = 0; i < kernel.dims.size(); i++) {
+          hwbuffer_args.push_back(id_addr.strides_in_dim.at(i));
         }
 
         
@@ -666,7 +778,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         //std::cout << consume_node->name << " after recursion\n";
         
         // Add line buffer and dispatcher
-        Stmt stream_realize = add_hwbuffer(stream_consume, kernel);
+        Stmt stream_realize = add_hwbuffer(stream_consume, kernel, xcel);
 
         // create the PC node for update stream
         //Stmt stream_pc = ProducerConsumer::make(stream_name, scan_loops, Stmt(), stream_realize);
@@ -873,7 +985,7 @@ class InsertHWBuffers : public IRMutator2 {
             // insert hardware buffers for input streams
             for (const string &input_name : xcel.input_streams) {
                 const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
-                new_body = add_hwbuffer(new_body, input_kernel);
+                new_body = add_hwbuffer(new_body, input_kernel, xcel);
             }
 
             // Rewrap the let statements

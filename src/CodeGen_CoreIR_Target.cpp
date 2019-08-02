@@ -31,6 +31,43 @@ using std::cout;
 
 namespace {
 
+std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+std::ostream& operator<<(std::ostream& os, const std::vector<size_t>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+
+int id_const_value(const Expr e) {
+  if (const IntImm* e_int = e.as<IntImm>()) {
+    return e_int->value;
+
+  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    return e_uint->value;
+
+  } else {
+    return -1;
+  }
+}
+
 class ContainForLoop : public IRVisitor {
   using IRVisitor::visit;
   void visit(const For *op) {
@@ -110,18 +147,6 @@ class ROMInit : public IRVisitor {
     }
   }
 
-  int id_const_value(const Expr e) {
-    if (const IntImm* e_int = e.as<IntImm>()) {
-      return e_int->value;
-
-    } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-      return e_uint->value;
-
-    } else {
-      return -1;
-    }
-  }
-  
   void visit(const Store *op) {
     if (op->name == allocname) {
       auto value_expr = op->value;
@@ -146,6 +171,7 @@ nlohmann::json rom_init(Stmt s, string allocname) {
   s.accept(&rom_init);
   return rom_init.init_values;
 }
+
 
   
 class AllocationUsage : public IRVisitor {
@@ -292,7 +318,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", "linebuffer",
                                              "muxn", "abs", "absd",
-                                             "reg_array"
+                                             "reg_array", "abstract_unified_buffer"
                                              //, "const_array"
   };
   for (auto gen_name : commonlib_gen_names) {
@@ -2169,6 +2195,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Call *op) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   //IR: linebuffer(buffered.stencil_update.stream, buffered.stencil.stream, extent_0[, extent_1, ...])
   //C: linebuffer<extent_0[, extent_1, ...]>(buffered.stencil_update.stream, buffered.stencil.stream)
+  std::cout << "found the hwbuffer call:\n" << Expr(op) << std::endl;
+  
   internal_assert(op->args.size() >= 3);
   string a0 = print_expr(op->args[0]);
   string a1 = print_expr(op->args[1]);
@@ -2190,77 +2218,232 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   id = "0"; // skip evaluation
 	
   // generate coreir: wire up to linebuffer
-  string lb_in_name = print_name(a0);
-  string lb_out_name = print_name(a1);
+  string ub_in_name = print_name(a0);
+  string ub_out_name = print_name(a1);
   size_t num_dims = id_const_value(op->args[2]);
+  string ub_name = "ub" + ub_in_name;
+  
+  std::cout << "hwbuffer has num_dims=" << num_dims << std::endl;
 
-  // add linebuffer to coreir
-  //uint num_dims = op->args.size() - 2;
-  string lb_name = "lb" + lb_in_name;
-
-  bool connected_wen = false;
-  // FIXME: use proper bitwidth
-  CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
-  CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
-  CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
-
-  stream << "// linebuffer " << lb_name << " created with ";
-
-  stream << "input=";
-  uint input_dims [num_dims];
-  for (uint i=0; i<num_dims; ++i) {
-    input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
-    stream << input_dims[i] << " ";
+  stream << "// unified buffer " << ub_name << " created with ";
+  
+  // extract out parameter values
+  int cur_idx = 3;
+  CoreIR::Type* capacity_type = context->Bit();
+  vector<size_t> logical_size(num_dims);
+  stream << "logical=";
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    logical_size[i] = id_const_value(op->args[cur_idx]);
+    capacity_type = capacity_type->Arr(logical_size[i]);
+    stream << logical_size[i] << " ";
   }
 
+  vector<size_t> input_chunk(num_dims);
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    input_chunk[i] = id_const_value(op->args[cur_idx]);
+  }
+
+  CoreIR::Type* input_ports_type = context->BitIn()->Arr(bitwidth);
+  vector<size_t> input_block(num_dims);
+  stream << " input=";
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    input_block[i] = id_const_value(op->args[cur_idx]);
+    input_ports_type = input_ports_type->Arr(input_block[i]);
+    stream << input_block[i] << " ";
+  }
+
+  vector<size_t> output_stencil(num_dims);
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    output_stencil[i] = id_const_value(op->args[cur_idx]);
+  }
+
+  CoreIR::Type* output_ports_type = context->Bit()->Arr(bitwidth);
+  vector<size_t> output_block(num_dims);
   stream << " output=";
-  uint output_dims [num_dims];
-  for (uint i=0; i<num_dims; ++i) {
-    //for (int i=num_dims-1; i>=0; --i) {
-    output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
-    output_type = output_type->Arr(output_dims[i]);
-    stream << output_dims[i] << " ";
-  }
-
-  stream << " image=";
-  uint image_dims [num_dims];
-  for (uint i=0; i<num_dims; ++i) {
-    image_dims[i] = id_const_value(id_const_value(op->args[i+2]));
-    image_type = image_type->Arr(image_dims[i]);
-    stream << image_dims[i] << " ";
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    output_block[i] = id_const_value(op->args[cur_idx]);
+    output_ports_type = output_ports_type->Arr(output_block[i]);
+    stream << output_block[i] << " ";
   }
   stream << "\n";
 
-  CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
-                            {"output_type", CoreIR::Const::make(context,output_type)},
-                            {"image_type", CoreIR::Const::make(context,image_type)},
-                            {"has_valid",CoreIR::Const::make(context,has_valid)}};
+  CoreIR::Type* range_type = context->Bit();
+  vector<size_t> access_ranges(num_dims);
+  stream << " range=";
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    access_ranges[i] = id_const_value(op->args[cur_idx]);
+    range_type = range_type->Arr(access_ranges[i]);
+    stream << access_ranges[i] << " ";
+  }
 
-  CoreIR::Wireable* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+  CoreIR::Type* dim_ref_type = context->Bit();
+  vector<size_t> access_dim_refs(num_dims);
+  stream << " dim_ref=";
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    access_dim_refs[i] = id_const_value(op->args[cur_idx]);
+    dim_ref_type = dim_ref_type->Arr(access_dim_refs[i]);
+    stream << access_dim_refs[i] << " ";
+  }
+
+  CoreIR::Type* stride_type = context->Bit();
+  vector<size_t> access_strides(num_dims);
+  stream << " stride=";
+  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+    access_strides[i] = id_const_value(op->args[cur_idx]);
+    stride_type = stride_type->Arr(access_strides[i]);
+    stream << access_strides[i] << " ";
+  }
+  stream << "\n";
+  
+  auto &input_ports = input_block;
+  auto &output_ports = output_block;
+  auto &capacity = logical_size;
+
+  std::cout << "hwbuffer: " << a0 << std::endl
+            << "  input_ports=" << input_ports << std::endl
+            << "  output_ports=" << output_ports << std::endl
+            << "  capacity=" << capacity << std::endl
+            << "  access: ranges=" << access_ranges << std::endl
+            << "          dim_refs=" << access_dim_refs << std::endl
+            << "          strides=" << access_strides << std::endl;
+
+
+  CoreIR::Values ub_args = {{"input_ports", CoreIR::Const::make(context,input_ports_type)},
+                            {"output_ports", CoreIR::Const::make(context,output_ports_type)},
+                            {"capacity", CoreIR::Const::make(context,capacity_type)},
+                            {"range",CoreIR::Const::make(context,range_type)},
+                            {"dim_ref",CoreIR::Const::make(context,dim_ref_type)},
+                            {"stride",CoreIR::Const::make(context,stride_type)}};
+
+  //def->addInstance(ub_name, gens["abstract_unified_buffer"], ub_args);
+  CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["abstract_unified_buffer"], ub_args);
+
+  bool connected_wen = false;
   if (has_valid) {
-    if (coreir_lb == NULL) {
+    if (coreir_ub == NULL) {
       internal_assert(false) << "NULL LINEBUFFER before recording\n";
     }
-    record_linebuffer(lb_out_name, coreir_lb);
-    connected_wen = connect_linebuffer(lb_in_name, coreir_lb->sel("wen"));
-
-    def->connect({"self", "reset"}, {lb_name, "reset"});
+    record_linebuffer(ub_out_name, coreir_ub);
+    connected_wen = connect_linebuffer(ub_in_name, coreir_ub->sel("wen"));
+    def->connect({"self", "reset"}, {ub_name, "reset"});
+    
   } else {
-    def->addInstance(lb_name + "_reset", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
-    def->connect({lb_name + "_reset", "out"}, {lb_name, "reset"});
+    def->addInstance(ub_name + "_reset", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+    def->connect({ub_name + "_reset", "out"}, {ub_name, "reset"});
   }
-					
-  // connect linebuffer
-  //CoreIR::Module* bc_gen = static_cast<CoreIR::Module*>(gens["bitconst"]);
-  CoreIR::Wireable* lb_in_wire = get_wire(lb_in_name, op->args[0]);
 
-  def->connect(lb_in_wire, coreir_lb->sel("in"));
-  add_wire(lb_out_name, coreir_lb->sel("out"));
+  CoreIR::Wireable* ub_in_wire = get_wire(ub_in_name, op->args[0]);
+
+  def->connect(ub_in_wire, coreir_ub->sel("in"));
+  add_wire(ub_out_name, coreir_ub->sel("out"));
   if (!connected_wen) {
-    CoreIR::Wireable* lb_wen = def->addInstance(lb_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
-    def->connect(lb_wen->sel("out"), coreir_lb->sel("wen"));
+    CoreIR::Wireable* ub_wen = def->addInstance(ub_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
+    def->connect(ub_wen->sel("out"), coreir_ub->sel("wen"));
   }
-  //hw_wire_set[lb_out_name] = coreir_lb->sel("out");
+    
+  
+  // calculate parameters for coreir hwbuffer generator
+  // int width = bitwidth;
+  // int depth = 1;
+  // for (const auto &logical_dim : logical_size) {
+  //   depth *= logical_dim;
+  // }
+  // 
+  // bool rate_matched = false; //FIXME?
+  // int stencil_width = 0; // FIXME?
+  // int iter_cnt = 0; // FIXME
+  // size_t dimensionality = num_dims;
+  // 
+  // int num_input_ports = 1;
+  // for (const auto &input_size : input_block) {
+  //   num_input_ports *= input_size;
+  // }
+  // int num_output_ports = 1;
+  // for (const auto &output_size : output_block) {
+  //   num_output_ports *= output_size;
+  // }
+  // 
+  // vector<int> output_stride(6);
+  // vector<int> output_range(6);
+  // 
+  // vector<int> input_stride(6);
+  // vector<int> input_range(6);
+  // assert(input_chunk.size() == input_block.size());
+  // for (size_t i = 0; i < input_chunk.size(); ++i) {
+  //   input_stride[i] = input_block[i];
+  //   internal_assert(input_chunk[i] % input_block[i] == 0);
+  //   input_range[i] = input_chunk[i] / input_block[i];
+  // }
+  // std::cout << "running..\n";
+  // 
+  // // input starting addresses for banking
+  // vector<int> input_starting_addrs(num_input_ports);
+  // vector<size_t> in_indexes(num_dims); // from inner to outer dim
+  // for (int port = 0; port < num_input_ports; ++port) {
+  //   // calculate address
+  //   int start_addr = 0;
+  //   for (size_t idx = 0; idx < in_indexes.size(); ++idx) {
+  //     int stride = idx==0 ? 1 : logical_size.at(idx-1);
+  //     start_addr += in_indexes.at(idx) * stride;
+  //   }
+  // 
+  //   // set input port as calculated starting address
+  //   input_starting_addrs.at(port) = start_addr;
+  // 
+  //   // increment index
+  //   in_indexes.at(0) += 1;
+  //   for (size_t dim = 0; dim < num_dims; ++dim) {
+  //     if (in_indexes.at(dim) >= input_block.at(dim)) {
+  //       in_indexes.at(dim) = 0;
+  //       if (dim + 1 < num_dims) {
+  //         in_indexes.at(dim+1) += 1;
+  //       }
+  //     }
+  //   }
+  // }
+  // 
+  // // output starting adresses for banking
+  // vector<int> output_starting_addrs(num_output_ports);
+  // vector<size_t> out_indexes(num_dims); // from inner to outer dim
+  // for (int port = 0; port < num_output_ports; ++port) {
+  //   // calculate address
+  //   int start_addr = 0;
+  //   for (size_t idx = 0; idx < out_indexes.size(); ++idx) {
+  //     int stride = idx==0 ? 1 : logical_size.at(idx-1);
+  //     start_addr += out_indexes.at(idx) * stride;
+  //   }
+  // 
+  //   // set output port as calculated starting address
+  //   output_starting_addrs.at(port) = start_addr;
+  // 
+  //   // increment index
+  //   out_indexes.at(0) += 1;
+  //   for (size_t dim = 0; dim < num_dims; ++dim) {
+  //     if (out_indexes.at(dim) >= output_block.at(dim)) {
+  //       out_indexes.at(dim) = 0;
+  //       if (dim + 1 < num_dims) {
+  //         out_indexes.at(dim+1) += 1;
+  //       }
+  //     }
+  //   }
+  // }
+  // 
+  // //int init; ??
+  // bool chain_en = false;   // always create an unchained memory
+  // int chain_idx = 0;
+  // 
+  // 
+  // std::cout << "hwbuffer: " << a0 << std::endl
+  //           << "  width=" << width << "  depth=" << depth << "  iter_cnt=" << iter_cnt << std::endl
+  //           << "  num_dims=" << dimensionality << "  rate_matched=" << rate_matched << "  stencil_width=" << stencil_width << std::endl
+  //           << "  num_ports:  in=" << num_input_ports << " out=" << num_output_ports << std::endl
+  //           << "  output:  stride0=" << output_stride.at(0) << " range0=" << output_range.at(0) << std::endl
+  //           << "           stride1=" << output_stride.at(1) << " range1=" << output_range.at(1) << std::endl
+  //           << "  output_start_addr=" << output_starting_addrs << std::endl
+  //           << "  chain_en=" << chain_en << "  chain_idx=" << chain_idx << std::endl;
+  
+  // add linebuffer to coreir
+  //uint num_dims = op->args.size() - 2;
 
 }
 

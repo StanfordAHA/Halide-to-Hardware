@@ -53,6 +53,7 @@ struct HWBuffer {
   std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls
   Function func;
+  std::vector<std::string> streaming_loops;
 
   HWBuffer(size_t num_dims, SlidingStencils &is) :
     dims(std::vector<BufferDimSize>(num_dims)), input_stencil(std::make_shared<SlidingStencils>(is)) { }
