@@ -786,6 +786,91 @@
                                 ]
                             }
                         },
+                        "abstract_ub_hw_input_stencil_update_stream": {
+                            "genref": "commonlib.abstract_unified_buffer",
+                            "genargs": {
+                                "capacity": [
+                                    "CoreIRType",
+                                    [
+                                        "Array",
+                                        64,
+                                        [
+                                            "Array",
+                                            64,
+                                            "Bit"
+                                        ]
+                                    ]
+                                ],
+                                "dim_ref": [
+                                    "CoreIRType",
+                                    [
+                                        "Array",
+                                        1,
+                                        [
+                                            "Array",
+                                            0,
+                                            "Bit"
+                                        ]
+                                    ]
+                                ],
+                                "input_ports": [
+                                    "CoreIRType",
+                                    [
+                                        "Array",
+                                        1,
+                                        [
+                                            "Array",
+                                            1,
+                                            [
+                                                "Array",
+                                                16,
+                                                "BitIn"
+                                            ]
+                                        ]
+                                    ]
+                                ],
+                                "output_ports": [
+                                    "CoreIRType",
+                                    [
+                                        "Array",
+                                        3,
+                                        [
+                                            "Array",
+                                            3,
+                                            [
+                                                "Array",
+                                                16,
+                                                "Bit"
+                                            ]
+                                        ]
+                                    ]
+                                ],
+                                "range": [
+                                    "CoreIRType",
+                                    [
+                                        "Array",
+                                        62,
+                                        [
+                                            "Array",
+                                            62,
+                                            "Bit"
+                                        ]
+                                    ]
+                                ],
+                                "stride": [
+                                    "CoreIRType",
+                                    [
+                                        "Array",
+                                        1,
+                                        [
+                                            "Array",
+                                            1,
+                                            "Bit"
+                                        ]
+                                    ]
+                                ]
+                            }
+                        },
                         "add_242_246_247": {
                             "genref": "coreir.add",
                             "genargs": {
@@ -2708,10 +2793,6 @@
                                 ]
                             }
                         },
-                        "linebuffer_bank_0_0_flush":{
-                          "modref":"corebit.const",
-                          "modargs":{"value":["Bool",false]}
-                        },
                         "linebuffer_bank_0_0_0": {
                             "modref": "coreir.reg",
                             "genargs": {
@@ -2848,10 +2929,6 @@
                                     0
                                 ]
                             }
-                        },
-                        "linebuffer_bank_0_1_flush":{
-                          "modref":"corebit.const",
-                          "modargs":{"value":["Bool",false]}
                         },
                         "linebuffer_bank_0_2_0": {
                             "modref": "coreir.reg",
@@ -4183,26 +4260,25 @@
                             "linebuffer_bank_0_1.datain",
                             "linebuffer_bank_0_0.dataout"
                         ],
-                        [ "linebuffer_bank_0_1.flush","linebuffer_bank_0_1_flush.out"],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.2",
                             "linebuffer_bank_0_1.dataout"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.8",
-                            "self.in.arg_0"
+                            "ub_hw_input_stencil_update_stream_in_reshape.out"
                         ],
                         [
                             "linebuffer_bank_0_0.wen",
-                            "self.in_en"
+                            "ub_hw_input_stencil_update_stream_wen.out"
                         ],
                         [
                             "linebuffer_bank_0_0.ren",
-                            "self.in_en"
+                            "ub_hw_input_stencil_update_stream_wen.out"
                         ],
                         [
                             "linebuffer_bank_0_0.datain",
-                            "self.datain"
+                            "ub_hw_input_stencil_update_stream_in_reshape.out"
                         ],
                         [
                             "linebuffer_bank_0_0_0.clk",
@@ -4210,7 +4286,7 @@
                         ],
                         [
                             "linebuffer_bank_0_0_0.in",
-                            "self.in.arg_0"
+                            "ub_hw_input_stencil_update_stream_in_reshape.out"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.7",
@@ -4236,7 +4312,6 @@
                             "linebuffer_bank_0_1_0.in",
                             "linebuffer_bank_0_0.dataout"
                         ],
-                        [ "linebuffer_bank_0_0.flush","linebuffer_bank_0_0_flush.out"],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.4",
                             "linebuffer_bank_0_1_0.out"
