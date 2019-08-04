@@ -2703,7 +2703,7 @@
                                     0
                                 ],
                                 "starting_addr": [
-                                    "int",
+                                    "Int",
                                     0
                                 ]
                             }
@@ -2840,7 +2840,7 @@
                                     0
                                 ],
                                 "starting_addr": [
-                                    "int",
+                                    "Int",
                                     0
                                 ]
                             }
