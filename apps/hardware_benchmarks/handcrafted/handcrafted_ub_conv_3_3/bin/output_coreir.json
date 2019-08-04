@@ -2708,6 +2708,10 @@
                                 ]
                             }
                         },
+                        "linebuffer_bank_0_0_flush":{
+                          "modref":"corebit.const",
+                          "modargs":{"value":["Bool",false]}
+                        },
                         "linebuffer_bank_0_0_0": {
                             "modref": "coreir.reg",
                             "genargs": {
@@ -2844,6 +2848,10 @@
                                     0
                                 ]
                             }
+                        },
+                        "linebuffer_bank_0_1_flush":{
+                          "modref":"corebit.const",
+                          "modargs":{"value":["Bool",false]}
                         },
                         "linebuffer_bank_0_2_0": {
                             "modref": "coreir.reg",
@@ -4175,13 +4183,14 @@
                             "linebuffer_bank_0_1.datain",
                             "linebuffer_bank_0_0.dataout"
                         ],
+                        [ "linebuffer_bank_0_1.flush","linebuffer_bank_0_1_flush.out"],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.2",
                             "linebuffer_bank_0_1.dataout"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.8",
-                            "self.datain"
+                            "self.in.arg_0"
                         ],
                         [
                             "linebuffer_bank_0_0.wen",
@@ -4201,7 +4210,7 @@
                         ],
                         [
                             "linebuffer_bank_0_0_0.in",
-                            "self.datain"
+                            "self.in.arg_0"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.7",
@@ -4227,6 +4236,7 @@
                             "linebuffer_bank_0_1_0.in",
                             "linebuffer_bank_0_0.dataout"
                         ],
+                        [ "linebuffer_bank_0_0.flush","linebuffer_bank_0_0_flush.out"],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.4",
                             "linebuffer_bank_0_1_0.out"
