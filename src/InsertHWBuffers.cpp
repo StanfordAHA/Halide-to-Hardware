@@ -108,7 +108,7 @@ class IdentifyAddressing : public IRVisitor {
   
   void visit(const For *op) {
     varnames.push_back(op->name);
-    internal_assert(is_zero(op->min));
+    //internal_assert(is_zero(op->min)); FIXME
 
     // push range
     int range = id_const_value(op->extent);
@@ -244,7 +244,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
+            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl
+                      << " using min_x=" << kernel.dims.at(0).output_min_pos << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
         }
@@ -435,7 +436,8 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         dispatch_args.push_back(0); // assume a 0 fifo_depth
         internal_assert(p.second->dims.size() == kernel.dims.size());
         for (size_t i = 0; i < kernel.dims.size(); i++) {
-          dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos));
+          //dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos)); FIXME
+          dispatch_args.push_back(p.second->dims.at(i).logical_min);
           dispatch_args.push_back(p.second->dims.at(i).logical_size);
           //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
           //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
@@ -546,17 +548,17 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel) {
         IdentifyAddressing id_addr(xcel.streaming_loop_levels.size());
         kernel.output_access_pattern.accept(&id_addr);
 
-        internal_assert(kernel.dims.size() == id_addr.ranges.size());
-        internal_assert(kernel.dims.size() == id_addr.dim_refs.size());
-        internal_assert(kernel.dims.size() == id_addr.strides_in_dim.size());        
+        hwbuffer_args.push_back(Expr(id_addr.ranges.size()));
+        internal_assert(id_addr.ranges.size() == id_addr.dim_refs.size());
+        internal_assert(id_addr.ranges.size() == id_addr.strides_in_dim.size());        
         
-        for (size_t i = 0; i < kernel.dims.size(); i++) {
+        for (size_t i = 0; i < id_addr.ranges.size(); i++) {
           hwbuffer_args.push_back(id_addr.ranges.at(i));
         }
-        for (size_t i = 0; i < kernel.dims.size(); i++) {
+        for (size_t i = 0; i < id_addr.ranges.size(); i++) {
           hwbuffer_args.push_back(id_addr.dim_refs.at(i));
         }
-        for (size_t i = 0; i < kernel.dims.size(); i++) {
+        for (size_t i = 0; i < id_addr.ranges.size(); i++) {
           hwbuffer_args.push_back(id_addr.strides_in_dim.at(i));
         }
 

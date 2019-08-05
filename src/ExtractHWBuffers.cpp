@@ -316,9 +316,25 @@ class FindOutputStencil : public IRVisitor {
     if (op->name == compute_level) {
       std::cout << op->body << std::endl;
       auto box_read = box_required(op->body, var);
+
+      // Box box = box_provided(op->body, var);
+      // std::cout << "let's save this output box num_dims=" << func.dimensions() << " box=" << box.size() << "\n";
+      // // save the bounds values in scope
+      // Scope<Expr> stencil_bounds;
+      // if (func.name() == var) {
+      //   for (int i = 0; i < func.dimensions(); i++) {
+      //     string stage_name = func.name() + ".s0." + func.args()[i];
+      //     stencil_bounds.push(stage_name + ".min", box[i].min);
+      //     stencil_bounds.push(stage_name + ".max", box[i].max);
+      //   }
+      // }
+      // std::cout << "box saved\n";
+
       auto interval = box_read;
       output_stencil_box = vector<Expr>(interval.size());
-      
+      //output_min_pos_box = vector<Expr>(interval.size());
+
+      std::cout << op->body << std::endl;
       std::cout << "HWBuffer Parameter: " << var << " output stencil size - "
                 << "box extent=[";
 
@@ -329,6 +345,8 @@ class FindOutputStencil : public IRVisitor {
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         output_stencil_box[dim] = lower_expr.defined() ? lower_expr : port_expr;
         std::cout << port_expr << "?" << lower_expr.defined() << ":" << lower_expr << "-" << upper_expr  << " ";
+        //output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
+        //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
       std::cout << "]\n";
 
@@ -337,9 +355,11 @@ class FindOutputStencil : public IRVisitor {
   }
 public:
   vector<Expr> output_stencil_box;
+  vector<Expr> output_min_pos_box;
   bool found_stencil;
-  FindOutputStencil(string v, string cl) :
-    var(v), compute_level(cl), found_stencil(false) {
+  Function func;
+  FindOutputStencil(string v, Function func, string cl) :
+    var(v), compute_level(cl), found_stencil(false), func(func) {
     std::cout << "looking to find " << v << " output stencil where compute_level=" << compute_level << std::endl;
   }
 };
@@ -360,9 +380,23 @@ class FindInputStencil : public IRVisitor {
     std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     if (op->name == compute_level) {
+      std::cout << op->body << std::endl;
       auto box_write = box_provided(op->body, var);
       auto interval = box_write;
       input_chunk_box = vector<Expr>(interval.size());
+
+      std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
+      // save the bounds values in scope
+      Scope<Expr> stencil_bounds;
+      if (func.name() == var) {
+        for (size_t i = 0; i < box_write.size(); i++) {
+          string stage_name = func.name() + ".s0." + func.args()[i];
+          stencil_bounds.push(stage_name + ".min", box_write[i].min);
+          stencil_bounds.push(stage_name + ".max", box_write[i].max);
+        }
+      }
+      std::cout << "box saved\n";
+      output_min_pos_box = vector<Expr>(interval.size());
       
       std::cout << "HWBuffer Parameter: " << var << " input chunk size - "
                 << "box extent=[";
@@ -374,6 +408,8 @@ class FindInputStencil : public IRVisitor {
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         input_chunk_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
+        output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
+        std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
       std::cout << "]\n";
 
@@ -382,9 +418,11 @@ class FindInputStencil : public IRVisitor {
   }
 public:
   vector<Expr> input_chunk_box;
+  vector<Expr> output_min_pos_box;
   bool found_stencil;
-  FindInputStencil(string v, string cl) :
-    var(v), compute_level(cl), found_stencil(false) {}
+  Function func;
+  FindInputStencil(string v, Function func, string cl) :
+    var(v), compute_level(cl), found_stencil(false), func(func) {}
 };
 
 
@@ -420,6 +458,7 @@ class HWBuffers : public IRMutator2 {
           std::cout << "skipping non-hwkernel realize " << op->name << std::endl;
           return IRMutator2::visit(op);
         }
+        Function func = iter->second;
 
 
         // If the Function in question has the same compute_at level
@@ -483,7 +522,7 @@ class HWBuffers : public IRMutator2 {
           }
           std::cout << "]\n";
 
-          FindOutputStencil fos(op->name, compute_level);
+          FindOutputStencil fos(op->name, func, compute_level);
           new_body.accept(&fos);
 
 
@@ -556,7 +595,7 @@ class HWBuffers : public IRMutator2 {
           // Parameters 1 and 2
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
           new_body = mutate(new_body);
-          FindOutputStencil fos(op->name, compute_level);
+          FindOutputStencil fos(op->name, func, compute_level);
           new_body.accept(&fos);
           auto output_stencil_box = fos.output_stencil_box;
 
@@ -622,9 +661,9 @@ class HWBuffers : public IRMutator2 {
             //hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
             //hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
-            //hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
-            hwbuffer.dims[i].output_min_pos = 0;
-            //std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i << " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
+            hwbuffer.dims[i].output_min_pos = sliding_stencil_map.at(for_name).output_min_pos.at(i);
+            //hwbuffer.dims[i].output_min_pos = 0;
+            std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i << " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
             //hwbuffer.dims[i].loop_name = i < loop_names.size() ? loop_names.at(i) : "_other_";
             hwbuffer.dims[i].loop_name = loop_names.at(i);
             std::cout << " input stencil sliding output stencil " << hwbuffer.input_stencil->output_stencil_box.at(i) << std::endl;
@@ -934,7 +973,7 @@ void set_opt_params(HWXcel *xcel,
                 << consumer_name << " based on kernel " << consumer.name << std::endl;
       hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
 
-      FindOutputStencil fos(hwbuffer.name, compute_level);
+      FindOutputStencil fos(hwbuffer.name, cur_func, compute_level);
       consumer_buffer.my_stmt.accept(&fos);
 
       std::cout << consumer_buffer.my_stmt << std::endl;
@@ -942,7 +981,7 @@ void set_opt_params(HWXcel *xcel,
                 << " at " << compute_level
                 << " is " << fos.output_stencil_box << std::endl;
       
-      FindInputStencil fis(hwbuffer.name, compute_level);
+      FindInputStencil fis(consumer.name, cur_func, compute_level);
       hwbuffer.my_stmt.accept(&fis);
 
       std::cout << hwbuffer.my_stmt << std::endl;
@@ -968,11 +1007,16 @@ void set_opt_params(HWXcel *xcel,
           //hwbuffer.dims.at(idx).input_chunk = fis.input_chunk_box.at(idx);
           hwbuffer.dims.at(idx).input_chunk = hwbuffer.dims.at(idx).input_block;
         }
+        if (fis.found_stencil) {
+          hwbuffer.dims.at(idx).output_min_pos = fis.output_min_pos_box.at(idx);
+        }
         
         //hwbuffer.dims.at(idx).output_stencil = consumer_sliding_stencils->output_stencil_box.at(idx);
         //if (true) {
         if (fos.found_stencil) {
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
+
+          //hwbuffer.dims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
           //hwbuffer.dims.at(idx).output_stencil = hwbuffer.dims.at(idx).output_block;
         }
         std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
