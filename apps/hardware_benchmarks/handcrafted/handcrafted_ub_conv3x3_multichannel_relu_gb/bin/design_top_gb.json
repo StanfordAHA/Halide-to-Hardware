@@ -125,6 +125,9 @@
             "modref":"corebit.mux"
           },
 
+          "input_wen":{
+            "modref":"corebit.and"
+          },
           "row_zero_selector":{
             "genref":"coreir.eq",
             "genargs":{"width":["Int",16]}
@@ -163,7 +166,10 @@
           ["save_phase_selector.in0","row_counter.out"],
           ["save_phase_selector.in1","save_phase.out"],
 
-          ["self.in_en","ub_input.wen"],
+          ["input_wen.in0","self.in_en"],
+          ["input_wen.in1","matrix_zero_selector.out"],
+
+          ["input_wen.out","ub_input.wen"],
           ["self.in_en","ub_weight.wen"],
           ["save_phase_selector.out","ub_output.wen"],
 
