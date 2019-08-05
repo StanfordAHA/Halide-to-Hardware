@@ -4266,7 +4266,7 @@
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.8",
-                            "ub_hw_input_stencil_update_stream_in_reshape.out"
+                            "ub_hw_input_stencil_update_stream_in_reshape.out.0"
                         ],
                         [
                             "linebuffer_bank_0_0.wen",
@@ -4278,7 +4278,7 @@
                         ],
                         [
                             "linebuffer_bank_0_0.datain",
-                            "ub_hw_input_stencil_update_stream_in_reshape.out"
+                            "ub_hw_input_stencil_update_stream_in_reshape.out.0"
                         ],
                         [
                             "linebuffer_bank_0_0_0.clk",
@@ -4286,7 +4286,7 @@
                         ],
                         [
                             "linebuffer_bank_0_0_0.in",
-                            "ub_hw_input_stencil_update_stream_in_reshape.out"
+                            "ub_hw_input_stencil_update_stream_in_reshape.out.0"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.7",
