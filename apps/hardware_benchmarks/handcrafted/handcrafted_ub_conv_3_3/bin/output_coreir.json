@@ -2702,9 +2702,11 @@
                                     "Int",
                                     0
                                 ],
-                                "starting_addr": [
-                                    "Int",
-                                    0
+				"input_stride_0":["Int", 0],
+				"input_range_0":["Int", 1],
+				"logical_size":["Json",{"capacity":[64]}],
+                                "output_starting_addrs": [
+				    "Json", {"addr":[0]}
                                 ]
                             }
                         },
@@ -2839,9 +2841,11 @@
                                     "Int",
                                     0
                                 ],
-                                "starting_addr": [
-                                    "Int",
-                                    0
+				"input_stride_0":["Int", 0],
+				"input_range_0":["Int", 1],
+       				"logical_size":["Json",{"capacity":[64]}],
+	      			"output_starting_addrs": [
+				    "Json", {"addr":[0]}
                                 ]
                             }
                         },
@@ -4161,7 +4165,7 @@
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.5",
-                            "linebuffer_bank_0_0.dataout"
+                            "linebuffer_bank_0_0.dataout.0"
                         ],
                         [
                             "linebuffer_bank_0_1.wen",
@@ -4177,7 +4181,7 @@
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.2",
-                            "linebuffer_bank_0_1.dataout"
+                            "linebuffer_bank_0_1.dataout.0"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.8",
@@ -4192,12 +4196,8 @@
                             "ub_hw_input_stencil_update_stream_wen.out"
                         ],
                         [
-                            "linebuffer_bank_0_0.datain",
+                            "linebuffer_bank_0_0.datain.0",
                             "ub_hw_input_stencil_update_stream_in_reshape.out.0"
-                        ],
-                        [
-                            "linebuffer_bank_0_0_0.clk",
-                            "self.clk"
                         ],
                         [
                             "linebuffer_bank_0_0_0.in",
@@ -4208,10 +4208,6 @@
                             "linebuffer_bank_0_0_0.out"
                         ],
                         [
-                            "linebuffer_bank_0_0_1.clk",
-                            "self.clk"
-                        ],
-                        [
                             "linebuffer_bank_0_0_1.in",
                             "linebuffer_bank_0_0_0.out"
                         ],
@@ -4220,20 +4216,12 @@
                             "linebuffer_bank_0_0_1.out"
                         ],
                         [
-                            "linebuffer_bank_0_1_0.clk",
-                            "self.clk"
-                        ],
-                        [
                             "linebuffer_bank_0_1_0.in",
-                            "linebuffer_bank_0_0.dataout"
+                            "linebuffer_bank_0_0.dataout.0"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.4",
                             "linebuffer_bank_0_1_0.out"
-                        ],
-                        [
-                            "linebuffer_bank_0_1_1.clk",
-                            "self.clk"
                         ],
                         [
                             "linebuffer_bank_0_1_1.in",
@@ -4244,20 +4232,12 @@
                             "linebuffer_bank_0_1_1.out"
                         ],
                         [
-                            "linebuffer_bank_0_2_0.clk",
-                            "self.clk"
-                        ],
-                        [
                             "linebuffer_bank_0_2_0.in",
-                            "linebuffer_bank_0_1.dataout"
+                            "linebuffer_bank_0_1.dataout.0"
                         ],
                         [
                             "ub_hw_input_stencil_update_stream_out_reshape.in.1",
                             "linebuffer_bank_0_2_0.out"
-                        ],
-                        [
-                            "linebuffer_bank_0_2_1.clk",
-                            "self.clk"
                         ],
                         [
                             "linebuffer_bank_0_2_1.in",
