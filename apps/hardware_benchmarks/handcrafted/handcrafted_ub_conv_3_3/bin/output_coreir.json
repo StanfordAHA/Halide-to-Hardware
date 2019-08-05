@@ -2709,7 +2709,7 @@
                             }
                         },
                         "linebuffer_bank_0_0_0": {
-                            "modref": "coreir.reg",
+                            "genref": "coreir.reg",
                             "genargs": {
                                 "width": [
                                     "Int",
@@ -2731,7 +2731,7 @@
                             }
                         },
                         "linebuffer_bank_0_0_1": {
-                            "modref": "coreir.reg",
+                            "genref": "coreir.reg",
                             "genargs": {
                                 "width": [
                                     "Int",
@@ -2753,7 +2753,7 @@
                             }
                         },
                         "linebuffer_bank_0_1_0": {
-                            "modref": "coreir.reg",
+                            "genref": "coreir.reg",
                             "genargs": {
                                 "width": [
                                     "Int",
@@ -2775,7 +2775,7 @@
                             }
                         },
                         "linebuffer_bank_0_1_1": {
-                            "modref": "coreir.reg",
+                            "genref": "coreir.reg",
                             "genargs": {
                                 "width": [
                                     "Int",
@@ -2846,7 +2846,7 @@
                             }
                         },
                         "linebuffer_bank_0_2_0": {
-                            "modref": "coreir.reg",
+                            "genref": "coreir.reg",
                             "genargs": {
                                 "width": [
                                     "Int",
@@ -2868,7 +2868,7 @@
                             }
                         },
                         "linebuffer_bank_0_2_1": {
-                            "modref": "coreir.reg",
+                            "genref": "coreir.reg",
                             "genargs": {
                                 "width": [
                                     "Int",
