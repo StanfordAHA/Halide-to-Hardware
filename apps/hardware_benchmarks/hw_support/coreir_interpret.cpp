@@ -140,6 +140,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
 // Build the simulator with the new model
   auto ubufBuilder = [](WireNode& wd) {
+    //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
     UnifiedBuffer* ubufModel = new UnifiedBuffer();
     return ubufModel;
   };
@@ -163,6 +164,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
   ImageWriter<T> coreir_img_writer(output);
 
+  for (int i = 0; i < 2; ++i) {
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
@@ -180,12 +182,12 @@ void run_coreir_on_interpreter(string coreir_design,
           if (valid_value) {
             T output_value = state.getBitVec(output_name).to_type<T>();
             coreir_img_writer.write(output_value);
-            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
           }
         } else {
           T output_value = state.getBitVec(output_name).to_type<T>();
           output(x,y,c) = output_value;
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
         
         // give another rising edge (execute seq)
@@ -194,8 +196,10 @@ void run_coreir_on_interpreter(string coreir_design,
       }
     }
   }
+  }
   coreir_img_writer.print_coords();
 
+  
   deleteContext(c);
   printf("finished running CoreIR code\n");
 

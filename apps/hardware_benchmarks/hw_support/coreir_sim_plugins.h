@@ -43,6 +43,7 @@ private:
   int capacity;
   int select;
   int width;
+  bool has_switched_once;
 
   UnifiedBufferAddressGenerator write_iterator;
   UnifiedBufferAddressGenerator read_iterator;

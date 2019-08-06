@@ -400,7 +400,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", "linebuffer",
                                              "muxn", "abs", "absd",
-                                             "reg_array", "reshape",
+                                             "reg_array", "reshape", "transpose_reshape",
                                              "abstract_unified_buffer", "unified_buffer"
   };
   for (auto gen_name : commonlib_gen_names) {
@@ -2479,7 +2479,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   
     // set input port as calculated starting address
     input_starting_addrs.at(port) = start_addr;
-    input_starting_json["output_start"][port] = input_starting_addrs.at(port);
+    input_starting_json["input_start"][port] = input_starting_addrs.at(port);
   
     // increment index
     in_indexes.at(0) += 1;
@@ -2507,7 +2507,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   
     // set output port as calculated starting address
     output_starting_addrs.at(port) = start_addr;
-    output_starting_json["addr"][port] = output_starting_addrs.at(port);
+    output_starting_json["output_start"][port] = output_starting_addrs.at(port);
       
     // increment index
     out_indexes.at(0) += 1;
@@ -2592,7 +2592,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     {{"input_type", CoreIR::Const::make(context, context->Flip(context->Bit()->Arr(bitwidth)->Arr(num_output_ports)))},
      {"output_type", CoreIR::Const::make(context, output_ports_type)}};
   CoreIR::Wireable* output_reshape = def->addInstance(ub_name + "_out_reshape",
-                                                      gens["reshape"],
+                                                      gens["transpose_reshape"],
                                                       output_reshape_args);
 
   bool simulation_compatible = true;
