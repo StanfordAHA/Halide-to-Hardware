@@ -187,9 +187,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     std::cout << "extracting hw buffers\n";
     //auto buffers = extract_hw_buffers(s, env);
     vector<HWXcel> xcels;
-    xcels = extract_hw_accelerators(s, env, inlined_stages);
-    for (auto hwbuffer : xcels.at(0).hwbuffers) {
-      std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+    if (t.has_feature(Target::CoreIR)) {
+      xcels = extract_hw_accelerators(s, env, inlined_stages);
+      for (auto hwbuffer : xcels.at(0).hwbuffers) {
+        std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+      }
     }
     
     debug(1) << "Performing sliding window optimization...\n";
@@ -223,27 +225,27 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       //std::cout << "Performing HLS target optimization..." << s << '\n';
 
       for (const HWXcel &xcel : xcels) {
-        s_ub = insert_hwbuffers(s, xcel);
+        s = insert_hwbuffers(s, xcel);
         std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
       }
 
-      vector<HWKernelDAG> dags;
-      s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
-
-      std::cout << "Lowering before HLS optimization:\n" << s << '\n';
-      
-      for(const HWKernelDAG &dag : dags) {
-        s = stream_opt(s, dag);
-        //s = replace_image_param(s, dag);
-      }
+      // vector<HWKernelDAG> dags;
+      // s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+      // 
+      // std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+      // 
+      // for(const HWKernelDAG &dag : dags) {
+      //   s = stream_opt(s, dag);
+      //   //s = replace_image_param(s, dag);
+      // }
 
       //debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
       std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
-    s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
-    //s = simplify(s, false); // Storage folding needs .loop_max symbols
+    //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
+    s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";

@@ -68,6 +68,88 @@ int id_const_value(const Expr e) {
   }
 }
 
+vector<CoreIR::Wireable*> get_wires(CoreIR::Wireable* base_wire, const vector<size_t> ports) {
+  int num_ports = 1;
+  for (const auto& port_length : ports) {
+    num_ports *= port_length;
+  }
+//  std::cout << "we have " << num_ports << " ports\n";
+  vector<CoreIR::Wireable*> all_wires(num_ports);
+
+  vector<uint> port_idxs(ports.size());
+    
+  for (int idx = 0; idx < num_ports; ++idx) {
+    // find the wire associated with the indices
+    CoreIR::Wireable* cur_wire = base_wire;
+    for (const auto& port_idx : port_idxs) {
+      cur_wire = cur_wire->sel(port_idx);
+    }
+
+    // add the wire to our list
+    all_wires.at(idx) = cur_wire;
+    
+    // increment  index
+    port_idxs.at(0) += 1;
+    for (size_t dim = 0; dim < port_idxs.size(); ++dim) {
+      if (port_idxs.at(dim) >= ports.at(dim)) {
+        port_idxs.at(dim) = 0;
+        if (dim + 1 < port_idxs.size()) {
+          port_idxs.at(dim+1) += 1;
+        }
+      }
+    }
+  }
+    
+  return all_wires;
+}
+
+vector<CoreIR::Wireable*> get_wires(CoreIR::Wireable* base_wire, const vector<size_t> ports, string wire_prefix) {
+  int num_ports = 1;
+  for (const auto& port_length : ports) {
+    num_ports *= port_length;
+  }
+
+  vector<CoreIR::Wireable*> all_wires(num_ports);
+
+  vector<uint> port_idxs(ports.size());
+    
+  for (int idx = 0; idx < num_ports; ++idx) {
+    // find the wire associated with the indices
+    string selstr = "";
+    for (const auto& port_idx : port_idxs) {
+      selstr += std::to_string(port_idx) + ".";
+    }
+    //sel_str = sel_str.substr(0, sel_str.size()-1);
+    selstr.pop_back();
+
+    // add the wire to our list
+    all_wires.at(idx) = base_wire->sel(wire_prefix + selstr);
+    
+    // increment  index
+    port_idxs.at(0) += 1;
+    for (size_t dim = 0; dim < port_idxs.size(); ++dim) {
+      if (port_idxs.at(dim) >= ports.at(dim)) {
+        port_idxs.at(dim) = 0;
+        if (dim + 1 < port_idxs.size()) {
+          port_idxs.at(dim+1) += 1;
+        }
+      }
+    }
+  }
+    
+  return all_wires;
+}
+
+
+void connect_wires(CoreIR::ModuleDef *def, vector<CoreIR::Wireable*> in_wires, vector<CoreIR::Wireable*> out_wires) {
+  assert(in_wires.size() == out_wires.size());
+  
+  for (size_t idx=0; idx<in_wires.size(); ++idx) {
+    def->connect(in_wires.at(idx), out_wires.at(idx));
+  }
+}
+
+
 class ContainForLoop : public IRVisitor {
   using IRVisitor::visit;
   void visit(const For *op) {
@@ -2397,7 +2479,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   
     // set input port as calculated starting address
     input_starting_addrs.at(port) = start_addr;
-    input_starting_json["addr"][port] = input_starting_addrs.at(port);
+    input_starting_json["output_start"][port] = input_starting_addrs.at(port);
   
     // increment index
     in_indexes.at(0) += 1;
@@ -2501,20 +2583,35 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   CoreIR::Values input_reshape_args =
     {{"input_type", CoreIR::Const::make(context, input_ports_type)},
-     {"output_type", CoreIR::Const::make(context, context->Flip(coreir_ub->sel("datain")->getType()))}};
+     {"output_type", CoreIR::Const::make(context, context->Flip(context->BitIn()->Arr(bitwidth)->Arr(num_input_ports)))}};
   CoreIR::Wireable* input_reshape = def->addInstance(ub_name + "_in_reshape",
                                                      gens["reshape"],
                                                      input_reshape_args);
 
   CoreIR::Values output_reshape_args =
-    {{"input_type", CoreIR::Const::make(context, context->Flip(coreir_ub->sel("dataout")->getType()))},
+    {{"input_type", CoreIR::Const::make(context, context->Flip(context->Bit()->Arr(bitwidth)->Arr(num_output_ports)))},
      {"output_type", CoreIR::Const::make(context, output_ports_type)}};
   CoreIR::Wireable* output_reshape = def->addInstance(ub_name + "_out_reshape",
                                                       gens["reshape"],
                                                       output_reshape_args);
 
-  def->connect(input_reshape->sel("out"), coreir_ub->sel("datain"));
-  def->connect(coreir_ub->sel("dataout"), output_reshape->sel("in"));
+  bool simulation_compatible = true;
+  if (simulation_compatible) {
+    std::cout << "let's get some wires\n";
+    auto coreir_ub_inputs = get_wires(coreir_ub, {(size_t)num_input_ports}, "datain");
+    auto coreir_ub_outputs = get_wires(coreir_ub, {(size_t)num_output_ports}, "dataout");
+    std::cout << "got some ub wires\n";
+    auto coreir_reshape_for_inputs = get_wires(input_reshape->sel("out"), {(size_t)num_input_ports});
+    auto coreir_reshape_for_outputs = get_wires(output_reshape->sel("in"), {(size_t)num_output_ports});
+    std::cout << "connection time\n";
+    connect_wires(def, coreir_ub_inputs, coreir_reshape_for_inputs);
+    connect_wires(def, coreir_ub_outputs, coreir_reshape_for_outputs);
+
+  } else {
+    def->connect(input_reshape->sel("out"), coreir_ub->sel("datain"));
+    def->connect(coreir_ub->sel("dataout"), output_reshape->sel("in"));
+
+  }
   
   std::cout << "created that unified buffer! " << ub_name << std::endl;
 

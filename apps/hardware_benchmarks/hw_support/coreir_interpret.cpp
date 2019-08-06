@@ -131,6 +131,7 @@ void run_coreir_on_interpreter(string coreir_design,
     c->die();
   }
 
+  std::cout << "about to run some passes\n";
   c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
   Module* m = g->getModule("DesignTop");
