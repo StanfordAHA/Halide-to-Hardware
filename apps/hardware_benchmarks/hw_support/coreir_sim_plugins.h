@@ -19,15 +19,10 @@ private:
   bool is_done;
 
 public:
-  UnifiedBufferAddressGenerator() {
-    is_done = false;
-  }
-    
+  ~UnifiedBufferAddressGenerator();
+  UnifiedBufferAddressGenerator();
   UnifiedBufferAddressGenerator(std::vector<int> range, std::vector<int> stride,
-                                std::vector<int> start, int myWidth) :
-    is_done(false) {
-    init_parameters(myWidth, range, stride, start);
-  }
+                                std::vector<int> start, int myWidth);
 
   bool isDone() { return is_done; }
   void restart();
@@ -40,6 +35,7 @@ public:
   void initialize(CoreIR::vdisc vd, CoreIR::SimulatorState& simState) override;
   void exeSequential(CoreIR::vdisc vd, CoreIR::SimulatorState& simState) override;
   void exeCombinational(CoreIR::vdisc vd, CoreIR::SimulatorState& simState) override;
+
 };
 
 class UnifiedBuffer : public CoreIR::SimulatorPlugin {
@@ -57,4 +53,6 @@ public:
   void initialize(CoreIR::vdisc vd, CoreIR::SimulatorState& simState) override;
   void exeSequential(CoreIR::vdisc vd, CoreIR::SimulatorState& simState) override;
   void exeCombinational(CoreIR::vdisc vd, CoreIR::SimulatorState& simState) override;
+  ~UnifiedBuffer();
+  UnifiedBuffer();
 };

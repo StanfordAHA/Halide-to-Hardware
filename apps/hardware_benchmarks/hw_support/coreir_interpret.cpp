@@ -1,6 +1,7 @@
 #include "coreir/passes/transform/rungenerators.h"
 
 #include "coreir_interpret.h"
+#include "coreir_sim_plugins.h"
 
 using namespace std;
 using namespace CoreIR;
@@ -136,7 +137,17 @@ void run_coreir_on_interpreter(string coreir_design,
 
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
-  SimulatorState state(m);
+
+// Build the simulator with the new model
+  auto ubufBuilder = [](WireNode& wd) {
+    UnifiedBuffer* ubufModel = new UnifiedBuffer();
+    return ubufModel;
+  };
+
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("commonlib.unified_buffer"), ubufBuilder}};
+
+  SimulatorState state(m, qualifiedNamesToSimPlugins);
+  //SimulatorState state(m);
 
   if (!saveToFile(g, "bin/design_simulated.json", m)) {
     cout << "Could not save to json!!" << endl;

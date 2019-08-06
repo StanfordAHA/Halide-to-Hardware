@@ -26,6 +26,22 @@ vector<int> get_dims(Type* type) {
   return lengths;
 }
 
+UnifiedBufferAddressGenerator::UnifiedBufferAddressGenerator() {
+  is_done = false;
+}
+
+UnifiedBuffer::UnifiedBuffer() { }
+
+
+UnifiedBufferAddressGenerator::UnifiedBufferAddressGenerator(std::vector<int> range, std::vector<int> stride,
+                                                             std::vector<int> start, int myWidth) :
+  is_done(false) {
+  init_parameters(myWidth, range, stride, start);
+}
+
+UnifiedBufferAddressGenerator::~UnifiedBufferAddressGenerator() {}
+UnifiedBuffer::~UnifiedBuffer() {}
+
 
 
 void UnifiedBuffer::initialize(vdisc vd, SimulatorState& simState) {
@@ -37,8 +53,8 @@ void UnifiedBuffer::initialize(vdisc vd, SimulatorState& simState) {
   // extract parameters
   Instance* inst = toInstance(w);
   width = inst->getModuleRef()->getGenArgs().at("width")->get<int>();
-  auto outputRangeType = inst->getModuleRef()->getGenArgs().at("output_range_type")->get<Type*>();
-  auto outputStrideType = inst->getModuleRef()->getGenArgs().at("output_stride_type")->get<Type*>();
+  auto outputRangeType = inst->getModuleRef()->getGenArgs().at("range_type")->get<Type*>();
+  auto outputStrideType = inst->getModuleRef()->getGenArgs().at("stride_type")->get<Type*>();
   auto outputStartType = inst->getModuleRef()->getGenArgs().at("output_start_type")->get<Type*>();
 
   auto inputRangeType = inst->getModuleRef()->getGenArgs().at("input_range_type")->get<Type*>();
@@ -134,7 +150,6 @@ void UnifiedBuffer::exeCombinational(vdisc vd, SimulatorState& simState) {
     simState.setValue(toSelect(inst->sel("dataout")->sel(i)), BitVector(width, out_data.at(i)));
   }
 }
-
 
 void UnifiedBufferAddressGenerator::restart() {
   is_done = false;
@@ -267,3 +282,5 @@ void UnifiedBufferAddressGenerator::exeCombinational(vdisc vd, SimulatorState& s
   int addr_offset = calcBaseAddress();
   simState.setValue(toSelect(inst->sel("out")), BitVector(width, addr_offset));
 }
+
+
