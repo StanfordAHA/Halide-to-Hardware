@@ -67,12 +67,16 @@ public:
 
           conv.reorder(w,x,y)
             .reorder_storage(w,x,y);
+
+          conv.update()
+            .reorder(w,r.y,r.z,x,y);
+
           
           conv.update()
             .unroll(r.x, 3)
-            .unroll(r.y, 3);
+            //.unroll(r.y, 3);
             //.unroll(r.z, 4);
-            //.unroll(w, 4);
+            .unroll(w, 4);
 
           conv.linebuffer();
 

@@ -24,6 +24,19 @@ using std::cout;
 
 namespace {
 
+std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+
 int id_const_value(const Expr e) {
   if (const IntImm* e_int = e.as<IntImm>()) {
     return e_int->value;
@@ -68,24 +81,31 @@ class IdentifyAddressingVar : public IRVisitor {
 
   using IRVisitor::visit;
 
-  void visit(const Var *op) {
-    dim_ref = asserts_found;
+  void visit(const Variable *op) {
+    if (op->name == varname) {
+      dim_ref = asserts_found;
+      stride = 1;
+    }
   }
 
   void visit(const Mul *op) {
+    std::cout << "found a multiply: " << Expr(op) << "\n";
     if (const Variable* op_a = op->a.as<Variable>()) {
       if (op_a->name == varname) {
         stride = id_const_value(expand_expr(op->b, scope));
+        dim_ref = asserts_found;
       }
       
     } else if (const Variable* op_b = op->b.as<Variable>()) {
       if (op_b->name == varname) {
         stride = id_const_value(expand_expr(op->a, scope));
+        dim_ref = asserts_found;
       }
     }
   }
 
   void visit(const AssertStmt *op) {
+    std::cout << "found an assert: " << Stmt(op) << "\n";
     IRVisitor::visit(op);
     asserts_found += 1;
   }
@@ -128,10 +148,12 @@ class IdentifyAddressing : public IRVisitor {
       
     } else {
       IdentifyAddressingVar iav(op->name, scope);
-      std::cout << "finding stride and range in: " << op->body << std::endl;
+      std::cout << "finding stride and range for " << op->name
+                << "\n in: " << op->body << std::endl;
       (op->body).accept(&iav);
       dim_refs.push_back(iav.dim_ref);
       strides_in_dim.push_back(iav.stride);
+      std::cout << op->name << " has stride=" << iav.stride << " dim_ref=" << iav.dim_ref << "\n";
     }
 
     IRVisitor::visit(op);
@@ -267,6 +289,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
 
     Expr visit(const Call *op) {
       std::cout << op->name << " is a call in the replacerefs\n";
+      std::cout << "kernelname=" << kernel.name << " input_streams=" << kernel.input_streams << "\n";
         if(op->name == kernel.name || // call to this kernel itself (in update definition)
            std::find(kernel.input_streams.begin(), kernel.input_streams.end(),
                      op->name) != kernel.input_streams.end() // call to an input stencil
@@ -412,7 +435,7 @@ public:
     : kernel(k), xcel(accel) {
     //: kernel(HWBuffer()), xcel(HWXcel()) {
         scope.set_containing_scope(s);
-        std::cout << "created some stuff\n";
+        std::cout << "created pass to replace refs for " << k.name << "\n";
     }
 };
 

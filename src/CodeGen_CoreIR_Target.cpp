@@ -1081,7 +1081,9 @@ CoreIR::Wireable* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::get_wire(string name,
       //attach a read enable
       CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
       def->connect(rom_ren->sel("out"), inst->sel("ren"));
-
+      
+      auto ram_wen = def->addInstance(name + "_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,false)}});
+      def->connect(ram_wen->sel("out"), inst->sel("wen"));
     }
 
     auto ref_name = inst_args->ref_name;
@@ -1945,7 +1947,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const For *op) {
     int min_value = is_const(op->min) ? id_const_value(op->min) : 0;
     int max_value = min_value + id_const_value(op->extent) - 1;
     int inc_value = 1;
-    string counter_name = "count_" + wirename;
+    string counter_name = unique_name("count_" + wirename);
 
     stream << "// creating counter for " << wirename << "\n";
 
@@ -2439,15 +2441,16 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     num_output_ports *= output_size;
   }
 
+  std::cout << "extracting..\n";
   size_t dimensionality = num_streaming_dims;
   
   // set output range and stride based on access pattern
   vector<int> output_stride(6);
   vector<int> output_range(6);
 
-  vector<int> flat_dim_strides(6);
-  internal_assert(flat_dim_strides.size() <= 6);
-  for (size_t i=0; i<num_streaming_dims; ++i) {
+  vector<int> flat_dim_strides(capacity.size());
+  internal_assert(flat_dim_strides.size() == capacity.size());
+  for (size_t i=0; i<capacity.size(); ++i) {
     if (i == 0) {
       flat_dim_strides.at(i) = 1;
     } else {
@@ -2455,6 +2458,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     }
   }
 
+  internal_assert(num_streaming_dims <= access_strides.size());
+  internal_assert(num_streaming_dims <= access_dim_refs.size());
+  internal_assert(num_streaming_dims <= access_ranges.size());
   for (size_t i=0; i<num_streaming_dims; ++i) {
     output_stride.at(i) = access_strides.at(i) * 
       flat_dim_strides.at(access_dim_refs.at(i));
@@ -2464,7 +2470,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   // set input range and stride
   vector<int> input_stride(6);
   vector<int> input_range(6);
-  assert(input_chunk.size() == input_block.size());
+  internal_assert(input_chunk.size() == input_block.size());
+  internal_assert(input_chunk.size() <= input_stride.size());
   for (size_t i = 0; i < input_chunk.size(); ++i) {
     input_stride[i] = input_block[i];
     internal_assert(input_chunk[i] % input_block[i] == 0);

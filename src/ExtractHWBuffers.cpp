@@ -953,6 +953,10 @@ void set_opt_params(HWXcel *xcel,
       internal_assert(stage.consumers[j] < (int)inlined_stages.size());
       const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
       std::cout << "right before " << consumer.name << " consumer of " << hwbuffer.name << "\n";
+      if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
+        hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+      }
+
 
       const Box &b = stage.bounds.find(make_pair(consumer.name,
                                                  consumer.stage))->second;
