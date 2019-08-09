@@ -639,14 +639,15 @@ class HWBuffers : public IRMutator2 {
           // check that all of the extracted parameters are of the same vector length
           //FIXMEyikes
           //internal_assert(hwbuffer.dims.size() == output_block_box.size());
-          std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
+          std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while " << total_buffer_box.size() << " num box_dims\n";
           internal_assert(hwbuffer.dims.size() == loop_names.size()) << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
           internal_assert(hwbuffer.dims.size() == hwbuffer.input_stencil->output_stencil_box.size());
           internal_assert(hwbuffer.dims.size() == sliding_stencil_map.at(for_name).output_stencil_box.size());
-          //internal_assert(hwbuffer.dims.size() == output_stencil_box.size());
-          //internal_assert(hwbuffer.dims.size() == output_block_box.size());
-          //internal_assert(hwbuffer.dims.size() == input_block_box.size());
-          //internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
+          internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
+          internal_assert(hwbuffer.dims.size() == output_stencil_box.size());
+          internal_assert(hwbuffer.dims.size() == output_block_box.size());
+          internal_assert(hwbuffer.dims.size() == input_block_box.size());
+
           
           for (size_t i = 0; i < hwbuffer.dims.size(); ++i) {
             std::cout << "hwbuffer " << hwbuffer.name << " in begin " << i << " here\n";
@@ -730,13 +731,14 @@ std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec) {
 
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
-  vector<Expr> output_stencil_box, output_block_box;
+  vector<Expr> output_stencil_box, output_block_box, output_min_pos;
   for (const auto dim : buffer.dims) {
     total_buffer_box.emplace_back(dim.logical_size);
     input_chunk_box.emplace_back(dim.input_chunk);
     input_block_box.emplace_back(dim.input_block);
     output_stencil_box.emplace_back(dim.output_stencil);
     output_block_box.emplace_back(dim.output_block);
+    output_min_pos.emplace_back(dim.output_min_pos);
   }
   
   os << "HWBuffer: " << buffer.name << std::endl
@@ -746,6 +748,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
      << "Output Stencil: " << output_stencil_box << std::endl
      << "Output Block: " << output_block_box << std::endl
      << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl
+     << "Output Min Pos:\n " << output_min_pos << std::endl
      << "is_inline=" << buffer.is_inlined << std::endl
      << "is_output=" << buffer.is_output << std::endl;
 
@@ -1002,18 +1005,18 @@ void set_opt_params(HWXcel *xcel,
       for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
         //hwbuffer.dims.at(idx).input_chunk = hwbuffer.name == "hw_input" ? 3 : consumer_sliding_stencils->input_chunk_box.at(idx);
         hwbuffer.dims.at(idx).input_chunk = 1;
-        if (true) {
+        if (hwbuffer.dims.size() > idx) {
         //if (fis.found_stencil) {
           //hwbuffer.dims.at(idx).input_chunk = fis.input_chunk_box.at(idx);
           hwbuffer.dims.at(idx).input_chunk = hwbuffer.dims.at(idx).input_block;
         }
-        if (fis.found_stencil) {
+        if (fis.found_stencil && idx < fis.output_min_pos_box.size()) {
           hwbuffer.dims.at(idx).output_min_pos = fis.output_min_pos_box.at(idx);
         }
         
         //hwbuffer.dims.at(idx).output_stencil = consumer_sliding_stencils->output_stencil_box.at(idx);
         //if (true) {
-        if (fos.found_stencil) {
+        if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
 
           //hwbuffer.dims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
@@ -1042,6 +1045,13 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   xcel->compute_level = func.schedule().accelerate_compute_level();
   xcel->streaming_loop_levels = get_loop_levels_between(s, func, xcel->store_level, xcel->compute_level);
   xcel->input_streams = func.schedule().accelerate_inputs();
+
+  std::cout << xcel->name << " has the streaming loops: ";
+  for (const auto& streaming_loop_name : xcel->streaming_loop_levels) {
+    std::cout << streaming_loop_name << " ";
+  }
+  std::cout << "\n";
+  
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel->streaming_loop_levels);
 
   set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels);

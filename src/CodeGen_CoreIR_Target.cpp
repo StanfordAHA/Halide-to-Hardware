@@ -683,6 +683,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
         if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
         for (uint i=0; i<indices.size(); ++i) {
+          std::cout << "output with appended width=" << indices[i] << std::endl;
           output_type = output_type->Arr(indices[i]);
         }
         hw_output_set.insert(arg_name);
@@ -745,6 +746,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   }
 
   design = global_ns->newModuleDecl("DesignTop", design_type);
+  design->print();
   def = design->newModuleDef();
   self = def->sel("self");
 
@@ -1817,7 +1819,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Provide *op) {
       args_indices[i] = print_expr(op->args[i]);
       //internal_assert(is_const(op->args[i])) << "variable store used. FIXME: Demux not yet implemented\n";
       if (!is_const(op->args[i])) {
-        user_warning << "variable store used. FIXME: Demux not yet implemented\n";
+        Expr max_index = find_constant_bound(op->args[i], Direction::Upper);
+        Expr min_index = find_constant_bound(op->args[i], Direction::Lower);
+        user_warning << "variable store used for " << op->name << ". FIXME: Demux not yet implemented\n"
+                     << op->args[i] << " ranges from " << min_index << " to " << max_index << "\n";
+        
         indices.push_back(0);
       } else {
         indices.push_back(id_const_value(op->args[i]));
@@ -2440,6 +2446,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   vector<int> output_range(6);
 
   vector<int> flat_dim_strides(6);
+  internal_assert(flat_dim_strides.size() <= 6);
   for (size_t i=0; i<num_streaming_dims; ++i) {
     if (i == 0) {
       flat_dim_strides.at(i) = 1;

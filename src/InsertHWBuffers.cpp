@@ -20,6 +20,7 @@ using std::map;
 using std::set;
 using std::pair;
 using std::vector;
+using std::cout;
 
 namespace {
 
@@ -74,12 +75,12 @@ class IdentifyAddressingVar : public IRVisitor {
   void visit(const Mul *op) {
     if (const Variable* op_a = op->a.as<Variable>()) {
       if (op_a->name == varname) {
-        stride = id_const_value(op->b);
+        stride = id_const_value(expand_expr(op->b, scope));
       }
       
     } else if (const Variable* op_b = op->b.as<Variable>()) {
       if (op_b->name == varname) {
-        stride = id_const_value(op->a);
+        stride = id_const_value(expand_expr(op->a, scope));
       }
     }
   }
@@ -90,19 +91,22 @@ class IdentifyAddressingVar : public IRVisitor {
   }
   
 public:
+  const Scope<Expr> &scope;
   const string varname;
+  
 
   // if var not found, dim_ref should be 0
   int dim_ref;
   // if var not found, stride should be 0
   int stride;
-  IdentifyAddressingVar(string varname) :
-    asserts_found(0), varname(varname), dim_ref(0), stride(0) {}
+  IdentifyAddressingVar(string varname, const Scope<Expr> &thescope) :
+    asserts_found(0), scope(thescope), varname(varname), dim_ref(0), stride(0) {}
 
 };
 
 class IdentifyAddressing : public IRVisitor {
   int stream_dim_idx;
+  const Scope<Expr> &scope;
   
   using IRVisitor::visit;
   
@@ -111,8 +115,9 @@ class IdentifyAddressing : public IRVisitor {
     //internal_assert(is_zero(op->min)); FIXME
 
     // push range
-    int range = id_const_value(op->extent);
-    internal_assert(range > 0);
+    int range = id_const_value(expand_expr(op->extent, scope));
+    range = range < 0 && op->name=="conv.s1.r$z.r$z" ? 4 : range;
+    internal_assert(range > 0) << "the range is " << range << " for " << op->extent << " for " << op->name << "\n";
     ranges.push_back(range);
 
     // determine dim_ref and stride
@@ -122,7 +127,8 @@ class IdentifyAddressing : public IRVisitor {
       stream_dim_idx++;
       
     } else {
-      IdentifyAddressingVar iav(op->name);
+      IdentifyAddressingVar iav(op->name, scope);
+      std::cout << "finding stride and range in: " << op->body << std::endl;
       (op->body).accept(&iav);
       dim_refs.push_back(iav.dim_ref);
       strides_in_dim.push_back(iav.stride);
@@ -139,8 +145,8 @@ public:
   vector<int> ranges;
   vector<int> dim_refs;
   vector<int> strides_in_dim;
-  IdentifyAddressing(int num_stream_dims) :
-    stream_dim_idx(0), num_streaming_dims(num_stream_dims) {}
+  IdentifyAddressing(int num_stream_dims, const Scope<Expr> &scope) :
+    stream_dim_idx(0), scope(scope), num_streaming_dims(num_stream_dims) {}
 };
 
 
@@ -164,7 +170,9 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
     using IRMutator2::visit;
 
     Stmt visit(const For *op) {
+      std::cout << "starting this for replace\n";
         if (!starts_with(op->name, kernel.name)) {
+          std::cout << "trivial for\n";
             // try to simplify trivial reduction loops
             // TODO add assertions to check loop type
             Expr loop_extent = simplify(expand_expr(op->extent, scope));
@@ -178,6 +186,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, body);
             }
         } else {
+          std::cout << "starting this replace: " << op->name << "\n";
             // replace the loop var over the dimensions of the original function
             // realization with the loop var over the stencil dimension.
             // e.g. funcA.s0.x -> funcA.stencil.s0.x
@@ -195,6 +204,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                     break;
                 }
             if (dim_idx == -1) {
+              std::cout << "nvm this is a reduction\n";
                 // it is a loop over reduction domain, and we keep it
                 // TODO add an assertion
               return IRMutator2::visit(op);
@@ -210,6 +220,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             // create a let statement for the old_loop_var
             Expr old_min = op->min;
             Expr old_var_value = new_var + old_min;
+            std::cout << "replacing " << old_var_name << " with the value=" << old_var_value << "\n";
             
             // traversal down into the body
             scope.push(old_var_name, simplify(expand_expr(old_var_value, scope)));
@@ -231,12 +242,15 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
             vector<Expr> new_args(op->args.size());
+            internal_assert(new_args.size() == kernel.dims.size());
 
             // Replace the arguments. e.g.
             //   func.s0.x -> func.stencil.x
-            for (size_t i = 0; i < kernel.dims.size(); i++) {
+            for (size_t i = 0; i < op->args.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is " << kernel.dims.at(i).output_min_pos << "\n";
+              std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
 
             vector<Expr> new_values(op->values.size());
@@ -393,7 +407,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
     }
 
 public:
-    ReplaceReferencesWithBufferStencil(const HWBuffer &k, const HWXcel &accel,
+  ReplaceReferencesWithBufferStencil(const HWBuffer &k, const HWXcel &accel,
                                  const Scope<Expr> *s = NULL)
     : kernel(k), xcel(accel) {
     //: kernel(HWBuffer()), xcel(HWXcel()) {
@@ -500,7 +514,7 @@ bool need_hwbuffer(const HWBuffer &kernel) {
 // to generate the stencil.stream
 // The former is smaller, which only consist of the new pixels
 // sided in each shift of the stencil window.
-Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel) {
+Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scope<Expr> &scope) {
   std::cout << "considering a hwbuffer for " << kernel.name << std::endl;
     Stmt ret;
     if (need_hwbuffer(kernel)) {
@@ -521,6 +535,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel) {
 
         vector<Expr> hwbuffer_args({update_stream_var, stream_var});
 
+        std::cout << "hwbuffer num_dims=" << kernel.dims.size() << "\n";
         hwbuffer_args.push_back(Expr(kernel.dims.size()));
         
         // extract the buffer size, and put it into args
@@ -542,10 +557,11 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel) {
           hwbuffer_args.push_back(kernel.dims.at(i).output_stencil);
         }
         for (size_t i = 0; i < kernel.dims.size(); i++) {
+          std::cout << "output_blk" << i << " = " << kernel.dims.at(i).output_block << "\n";
           hwbuffer_args.push_back(kernel.dims.at(i).output_block);
         }
 
-        IdentifyAddressing id_addr(xcel.streaming_loop_levels.size());
+        IdentifyAddressing id_addr(xcel.streaming_loop_levels.size(), scope);
         kernel.output_access_pattern.accept(&id_addr);
 
         hwbuffer_args.push_back(Expr(id_addr.ranges.size()));
@@ -553,6 +569,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel) {
         internal_assert(id_addr.ranges.size() == id_addr.strides_in_dim.size());        
         
         for (size_t i = 0; i < id_addr.ranges.size(); i++) {
+          std::cout << "range" << i << " = " << id_addr.ranges.at(i) << "\n";
           hwbuffer_args.push_back(id_addr.ranges.at(i));
         }
         for (size_t i = 0; i < id_addr.ranges.size(); i++) {
@@ -700,7 +717,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Expr stream_var = Variable::make(Handle(), stream_name);
 
         // replacing the references to the original realization with refences to stencils
-        //std::cout << "replacing some refs: " << produce_node->body << std::endl;
+        std::cout << "replacing some refs: " << produce_node->body << std::endl;
         Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(produce_node->body);
         std::cout << "continuing\n";
         //Stmt update = ReplaceReferencesWitBufferhStencil(kernel, xcel, &scope).mutate(op->update);
@@ -780,7 +797,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         //std::cout << consume_node->name << " after recursion\n";
         
         // Add line buffer and dispatcher
-        Stmt stream_realize = add_hwbuffer(stream_consume, kernel, xcel);
+        Stmt stream_realize = add_hwbuffer(stream_consume, kernel, xcel, scope);
 
         // create the PC node for update stream
         //Stmt stream_pc = ProducerConsumer::make(stream_name, scan_loops, Stmt(), stream_realize);
@@ -809,6 +826,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Expr stencil_var = Variable::make(Handle(), stencil_name);
 
         // replacing the references to the original realization with refences to stencils
+        std::cout << "replacing some output refs: " << s << std::endl;
         Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(s);
 
         // syntax for write_stream()
@@ -987,7 +1005,7 @@ class InsertHWBuffers : public IRMutator2 {
             // insert hardware buffers for input streams
             for (const string &input_name : xcel.input_streams) {
                 const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
-                new_body = add_hwbuffer(new_body, input_kernel, xcel);
+                new_body = add_hwbuffer(new_body, input_kernel, xcel, scope);
             }
 
             // Rewrap the let statements

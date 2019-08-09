@@ -104,11 +104,11 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             Expr old_var_value = new_var + old_min;
 
             // traversal down into the body
+            Stmt let_body = LetStmt::make(old_var_name, old_var_value, op->body);
             scope.push(old_var_name, simplify(expand_expr(old_var_value, scope)));
-            Stmt new_body = mutate(op->body);
+            Stmt new_body = mutate(let_body);
             scope.pop(old_var_name);
 
-            new_body = LetStmt::make(old_var_name, old_var_value, new_body);
             return For::make(new_var_name, new_min, new_extent, op->for_type, op->device_api, new_body);
         }
     }
