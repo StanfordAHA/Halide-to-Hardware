@@ -35,7 +35,8 @@ public:
             hw_output.compute_root();
 
             hw_output.tile(x, y, xo, yo, xi, yi, width, height)
-                .hw_accelerate(xi, xo);
+              .reorder(xi,yi,z,xo,yo)
+              .hw_accelerate(xi, xo);
 
             nearest_neighbor.linebuffer();
 

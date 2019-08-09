@@ -30,14 +30,23 @@ public:
         hw_output(x, y, z) = cast<uint8_t>(max_pool(x, y, z));
         output(x, y, z) = hw_output(x, y, z);
 
+        max_pool.bound(x, 0, 64);
+        max_pool.bound(y, 0, 64);
+        max_pool.bound(z, 0, 64);
+        output.bound(x, 0, 64);
+        output.bound(y, 0, 64);
+        output.bound(z, 0, 4);
+
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
             Var xi, yi, xo, yo;
             hw_input.compute_root();
             hw_output.compute_root();
 
-            hw_output.tile(x, y, xo, yo, xi, yi, width / stride, height / stride)
-                .hw_accelerate(xi, xo);
+            hw_output.tile(x, y, xo, yo, xi, yi, 64 / stride, 64 / stride)
+              .reorder(xi,yi,z,xo,yo)
+              //.hw_accelerate(xi, xo);
+              .accelerate({hw_input}, xi, xo);
 
             //max_pool.unroll(x, stride)
             //        .unroll(y, stride);

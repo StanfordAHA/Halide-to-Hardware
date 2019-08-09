@@ -61,15 +61,17 @@ public:
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 62, 62)
-            .reorder(xi,yi,w,xo,yo) // order from inner to outermost
-            .hw_accelerate(xi, xo);
+            .reorder(w,xi,yi,xo,yo) // order from inner to outermost
+            .reorder_storage(w,x,y)
+            .hw_accelerate(w, xo);
 
-          conv.reorder(x,y,w);
+          conv.reorder(w,x,y)
+            .reorder_storage(w,x,y);
           
           conv.update()
             .unroll(r.x, 3)
-            .unroll(r.y, 3)
-            .unroll(r.z, 2);
+            .unroll(r.y, 3);
+            //.unroll(r.z, 4);
             //.unroll(w, 4);
 
           conv.linebuffer();

@@ -2439,7 +2439,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     num_output_ports *= output_size;
   }
 
-  size_t dimensionality = num_dims;
+  size_t dimensionality = num_streaming_dims;
   
   // set output range and stride based on access pattern
   vector<int> output_stride(6);
