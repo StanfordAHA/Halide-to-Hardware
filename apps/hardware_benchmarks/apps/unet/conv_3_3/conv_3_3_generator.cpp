@@ -19,7 +19,7 @@ public:
         Expr width = input.dim(1).extent();
         //Expr k_z = kernel.dim(2).extent();
 
-        Expr k_z = 4;
+        Expr k_z = 2;
         Func kernel;
         kernel(x,y,z,w) = 0;
         kernel(0,0,0,0) = 11;      kernel(0,1,0,0) = 12;      kernel(0,2,0,0) = 13;
@@ -65,23 +65,31 @@ public:
             .reorder_storage(w,x,y)
             .hw_accelerate(w, xo);
 
+          hw_input.
+            reorder_storage(x,y,z);
+          
           conv.reorder(w,x,y)
             .reorder_storage(w,x,y);
 
           conv.update()
-            .reorder(w,r.y,r.z,x,y);
+            .reorder(r.y,r.z,w,x,y);
+            //.reorder(r.z,r.y,w,x,y);
 
           
           conv.update()
-            .unroll(r.x, 3)
+            .unroll(r.x, 3);
             //.unroll(r.y, 3);
             //.unroll(r.z, 4);
-            .unroll(w, 4);
+            //.unroll(w, 4);
+
+          //hw_output.unroll(w, 4);
 
           conv.linebuffer();
 
           kernel.compute_at(hw_output, xo);
+          //kernel_copy.stream_to_accelerator();
           
+          //hw_input.unroll(x, 3);
           hw_input.stream_to_accelerator();
 
         } else {  // schedule to CPU

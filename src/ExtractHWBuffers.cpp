@@ -35,6 +35,26 @@ int id_const_value(const Expr e) {
   }
 }
 
+std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
+    std::vector<std::string> tokens;
+    size_t prev = 0, pos = 0;
+    std::string token;
+    // copied from https://stackoverflow.com/a/7621814
+    while ((pos = line.find_first_of(delimiter, prev)) != std::string::npos) {
+        if (pos > prev) {
+            tokens.emplace_back(line.substr(prev, pos - prev));
+        }
+        prev = pos + 1;
+    }
+    if (prev < line.length()) tokens.emplace_back(line.substr(prev, std::string::npos));
+    // remove empty ones
+    std::vector<std::string> result;
+    result.reserve(tokens.size());
+    for (auto const &t : tokens)
+        if (!t.empty()) result.emplace_back(t);
+    return result;
+}
+
 // return true if the for loop is not serialized
 bool is_parallelized(const For *op) {
   return op->for_type == ForType::Parallel ||
@@ -221,6 +241,13 @@ class CountBufferUsers : public IRVisitor {
     if (current_for == nullptr) {
       full_stmt = for_stmt;
       std::cout << "added first for loop: " << op->name << std::endl;
+
+      auto box_read = box_required(op->body, var);
+      auto interval = box_read;
+      for (size_t dim=0; dim<interval.size(); ++dim) {
+        auto assertstmt = AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope)));
+        std::cout << "min pos in dim " << dim << ":" << assertstmt;
+      }
     } else {
       current_for->body = for_stmt;
       std::cout << "added for loop: " << op->name << std::endl;
@@ -296,6 +323,83 @@ public:
     var(v), current_for(nullptr){}
 };
 
+class FindVarStride : public IRVisitor {
+  string varname;
+  string loopname;
+  int cur_stride;
+  bool in_var;
+  bool in_div;
+  
+  using IRVisitor::visit;
+
+  void visit(const Variable *op) {
+    if (op->name == loopname && in_var) {
+      std::cout << "found loop=" << op->name << " and setting stride=" << cur_stride << std::endl;
+      stride_for_var = cur_stride;
+      is_div = in_div;
+      IRVisitor::visit(op);
+    }
+  }
+  
+  void visit(const Call *op) {
+    if (op->name == varname) {
+      in_var = true;
+      std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
+      IRVisitor::visit(op);
+      in_var = false;
+    } else {
+      IRVisitor::visit(op);
+    }
+  }
+  void visit(const Div *op) {
+    std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
+    if (is_const(op->b)) {
+      cur_stride *= id_const_value(op->b);
+      //std::cout << "div setting to " << cur_stride << "\n";
+      in_div = true;
+      op->a.accept(this);
+      in_div = false;
+      cur_stride /= id_const_value(op->b);
+      //std::cout << "div setting to " << cur_stride << "\n";
+      
+    } else {
+      IRVisitor::visit(op);
+    }
+  }
+
+  void visit(const Mul *op) {
+    std::cout << "this is a multiply: " << Expr(op) << std::endl;
+    if (is_const(op->a)) {
+      cur_stride *= id_const_value(op->a);
+      //std::cout << "mult setting to " << cur_stride << "\n";
+      op->b.accept(this);
+      cur_stride /= id_const_value(op->a);
+      //std::cout << "mult setting to " << cur_stride << "\n";
+      
+    } else if (is_const(op->b)) {
+      cur_stride *= id_const_value(op->b);
+      //std::cout << "mult setting to " << cur_stride << "\n";
+      op->a.accept(this);
+      cur_stride /= id_const_value(op->b);
+      //std::cout << "mult setting to " << cur_stride << "\n";
+      
+    } else {
+      op->a.accept(this);
+      op->b.accept(this);
+    }
+  }
+
+public:
+  int stride_for_var;
+  bool is_div;
+  
+  FindVarStride(string varname, string forname) :
+    varname(varname), loopname(forname),
+    cur_stride(1), in_var(false), in_div(false),
+    stride_for_var(0), is_div(false) { }
+};
+
+
 
 class FindOutputStencil : public IRVisitor {
   using IRVisitor::visit;
@@ -311,6 +415,19 @@ class FindOutputStencil : public IRVisitor {
 
   void visit(const For *op) override {
     std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
+
+    auto fvs = FindVarStride(var, op->name);
+    (op->body).accept(&fvs);
+    int stride_for_var = fvs.stride_for_var;
+
+    auto var_tokens = get_tokens(op->name, ".");
+    auto varname = var_tokens.size() > 2 ? var_tokens.at(2) : op->name;
+    stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
+    stride_map[varname].is_inverse = fvs.is_div;
+    
+    std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
+              << " stride_map[" << varname << "]=" << stride_map[varname].stride << std::endl;
+    //std::cout << op->body << std::endl;
 
 
     if (op->name == compute_level) {
@@ -356,6 +473,7 @@ class FindOutputStencil : public IRVisitor {
 public:
   vector<Expr> output_stencil_box;
   vector<Expr> output_min_pos_box;
+  map<string, Stride> stride_map;
   bool found_stencil;
   Function func;
   FindOutputStencil(string v, Function func, string cl) :
@@ -548,6 +666,10 @@ class HWBuffers : public IRMutator2 {
           std::string for_name = first_for_name(new_body);
           HWBuffer hwbuffer(output_block_box.size(), sliding_stencil_map.at(for_name));
           hwbuffer.name = op->name;
+          
+          hwbuffer.stride_map = fos.stride_map;
+          std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
+
 
           //hwbuffer.dims = vector<BufferDimSize>(output_block_box.size());
           for (size_t i = 0; i < output_block_box.size(); ++i) {
@@ -599,6 +721,7 @@ class HWBuffers : public IRMutator2 {
           new_body.accept(&fos);
           auto output_stencil_box = fos.output_stencil_box;
 
+
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
           // Parameters 3, 4, 5
@@ -634,6 +757,9 @@ class HWBuffers : public IRMutator2 {
           std::string for_name = first_for_name(new_body);
           HWBuffer hwbuffer(loop_names.size(), sliding_stencil_map.at(for_name));//(sliding_stencil_map.at(for_name).input_chunk_box.size());
           hwbuffer.name = op->name;
+
+          hwbuffer.stride_map = fos.stride_map;
+          std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
 
           
           // check that all of the extracted parameters are of the same vector length
@@ -882,7 +1008,7 @@ void set_opt_params(HWXcel *xcel,
   
     // inlined stages
     for (const auto &hwbuffer_pair : hwbuffers) {
-      std::cout << hwbuffer_pair.second << ",";
+      std::cout << hwbuffer_pair.first << ",";
     }
     std::cout << std::endl;
     std::cout << "there are " << hwbuffers.size() << " hwbuffers\n";
@@ -953,8 +1079,14 @@ void set_opt_params(HWXcel *xcel,
       internal_assert(stage.consumers[j] < (int)inlined_stages.size());
       const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
       std::cout << "right before " << consumer.name << " consumer of " << hwbuffer.name << "\n";
-      if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
+
+
+      if (!hwbuffer.is_inlined &&  hwbuffers.count(consumer.name)) {
+      //if (hwbuffers.count(consumer.name)) {
+        std::cout << "adding " << hwbuffer.name << " as an input of " << consumer.name << "\n";
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+      } else {
+        std::cout << "couldn't find consumer " << consumer.name << std::endl;
       }
 
 
@@ -982,6 +1114,13 @@ void set_opt_params(HWXcel *xcel,
 
       FindOutputStencil fos(hwbuffer.name, cur_func, compute_level);
       consumer_buffer.my_stmt.accept(&fos);
+      hwbuffer.stride_map = fos.stride_map;
+      std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
+      for (const auto& string_int_pair : hwbuffer.stride_map) {
+        std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
+      }
+
+
 
       std::cout << consumer_buffer.my_stmt << std::endl;
       std::cout << "the output stencil of " << hwbuffer.name << " from " << consumer_buffer.name

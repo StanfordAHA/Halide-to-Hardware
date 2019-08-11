@@ -36,6 +36,14 @@ struct BufferDimSize {
 
 };
 
+struct Stride {
+  int stride;
+  bool is_inverse;
+  Stride(int stride=0, bool is_inverse=false) :
+    stride(stride), is_inverse(is_inverse) {}
+
+};
+  
 struct HWBuffer {
   std::string name;
   
@@ -54,6 +62,7 @@ struct HWBuffer {
   std::vector<std::string> input_streams;  // used when inserting read_stream calls
   Function func;
   std::vector<std::string> streaming_loops;
+  std::map<std::string, Stride> stride_map;
 
   HWBuffer(size_t num_dims, SlidingStencils &is) :
     dims(std::vector<BufferDimSize>(num_dims)), input_stencil(std::make_shared<SlidingStencils>(is)) { }

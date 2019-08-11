@@ -735,6 +735,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     design_type = context->Record({
       {"in", context->Record(input_types)},
       {"reset", context->BitIn()},
+      {"in_en", context->BitIn()},
       {"out", output_type},
       {"valid", context->Bit()}
     });
@@ -1336,8 +1337,12 @@ bool CodeGen_CoreIR_Target::CodeGen_CoreIR_C::connect_linebuffer(std::string con
 
   if (is_input(consumer_name)) {
     // connect to self upstream valid
-    stream << "// TODO: connect to upstream valid here\n";
-    return false;
+    stream << "// connected to upstream valid (input enable) here\n";
+    def->connect(self->sel("in_en"), consumer_wen_wire);
+    return true;
+
+    //stream << "// TODO: connect to upstream valid here\n";
+    //return false;
   } else if (lb_map.count(producer_name) > 0) {
     // connect to upstream linebuffer valid
     stream << "// connecting " << producer_name << " valid to " 
