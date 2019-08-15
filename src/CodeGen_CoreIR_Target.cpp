@@ -233,6 +233,7 @@ class ROMInit : public IRVisitor {
     if (op->name == allocname) {
       auto value_expr = op->value;
       auto index_expr = op->index;
+      std::cout << "store: " << Stmt(op) << std::endl;
       internal_assert(is_const(value_expr) && is_const(index_expr));
 
       int index = id_const_value(index_expr);
@@ -328,7 +329,7 @@ AllocationType identify_allocation(Stmt s, string allocname) {
     return NO_ALLOCATION;
 
   } else if (au.uses_variable_load_index &&
-             !au.uses_variable_store_index &&
+             //!au.uses_variable_store_index &&
              !au.uses_variable_store_value) {
     return ROM_ALLOCATION;
 
@@ -367,8 +368,8 @@ bool can_use_rom(Stmt s, string allocname) {
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
-    srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-//srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,
@@ -2088,12 +2089,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
          << "[" << constant_size << "]; [alloc]\n";
 
   auto alloc_type = identify_allocation(new_body, alloc_name);
+
+  std::cout << "found alloc#=" << alloc_type << "\n";
   
   // define a rom that can be created and used later
   // FIXME: better way to decide to use rom
   // FIXME: use an array of constants to load the rom
   if (alloc_type == AllocationType::ROM_ALLOCATION &&
-      constant_size > 100) {
+      constant_size > 16) {
     CoreIR_Inst_Args rom_args;
     rom_args.ref_name = alloc_name;
     rom_args.name = "rom_" + alloc_name;
@@ -2351,17 +2354,21 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     stream << input_block[i] << " ";
   }
 
+  CoreIR::Type* output_stencil_type = context->Bit()->Arr(bitwidth);
   vector<size_t> output_stencil(num_dims);
+  stream << " output stencil=";
   for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
     output_stencil[i] = id_const_value(op->args[cur_idx]);
+    stream << output_stencil[i] << " ";
   }
+  std::cout << "\n" << output_stencil_type << std::endl;
 
-  CoreIR::Type* output_ports_type = context->Bit()->Arr(bitwidth);
+  CoreIR::Type* output_block_type = context->Bit()->Arr(bitwidth);
   vector<size_t> output_block(num_dims);
   stream << " output=";
   for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
     output_block[i] = id_const_value(op->args[cur_idx]);
-    output_ports_type = output_ports_type->Arr(output_block[i]);
+    output_block_type = output_block_type->Arr(output_block[i]);
     stream << output_block[i] << " ";
   }
   stream << "\n";
@@ -2371,7 +2378,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   
   CoreIR::Type* range_type = context->Bit();
   vector<size_t> access_ranges(num_streaming_dims);
-  stream << " range=";
+  stream << "//   range=";
   for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
     access_ranges[i] = id_const_value(op->args[cur_idx]);
     range_type = range_type->Arr(access_ranges[i]);
@@ -2398,19 +2405,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   stream << "\n";
   
   auto &input_ports = input_block;
-  auto &output_ports = output_block;
   auto &capacity = logical_size;
 
   std::cout << "hwbuffer: " << a0 << std::endl
             << "  input_ports=" << input_ports << std::endl
-            << "  output_ports=" << output_ports << std::endl
+            << "  output_ports=" << output_block << std::endl
             << "  capacity=" << capacity << std::endl
             << "  access: ranges=" << access_ranges << std::endl
             << "          dim_refs=" << access_dim_refs << std::endl
             << "          strides=" << access_strides << std::endl;    
 
   CoreIR::Values aub_args = {{"input_ports", CoreIR::Const::make(context,input_ports_type)},
-                            {"output_ports", CoreIR::Const::make(context,output_ports_type)},
+                            {"output_ports", CoreIR::Const::make(context,output_block_type)},
                             {"capacity", CoreIR::Const::make(context,capacity_type)},
                             {"range",CoreIR::Const::make(context,range_type)},
                             {"dim_ref",CoreIR::Const::make(context,dim_ref_type)},
@@ -2482,6 +2488,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     internal_assert(input_chunk[i] % input_block[i] == 0);
     input_range[i] = input_chunk[i] / input_block[i];
   }
+
+  int num_reduction_iter = 1;
+  for (size_t i = 0; i < output_stencil.size(); ++i) {
+    internal_assert(output_stencil[i] % output_block[i] == 0);
+    num_reduction_iter *= output_stencil[i] / output_block[i];
+  }
+  std::cout << "num_reduction_iter=" << num_reduction_iter << std::endl;
+    
   std::cout << "running..\n";
   
   // input starting addresses for banking
@@ -2595,6 +2609,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"output_starting_addrs",CoreIR::Const::make(context, output_starting_json)},
                             {"logical_size",         CoreIR::Const::make(context, logical_json)},
                             {"init",                 CoreIR::Const::make(context, init)},
+                            {"num_reduction_iter",   CoreIR::Const::make(context, num_reduction_iter)},
   };
 
 
@@ -2609,9 +2624,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   CoreIR::Values output_reshape_args =
     {{"input_type", CoreIR::Const::make(context, context->Flip(context->Bit()->Arr(bitwidth)->Arr(num_output_ports)))},
-     {"output_type", CoreIR::Const::make(context, output_ports_type)}};
+     {"output_type", CoreIR::Const::make(context, output_block_type)}};
   CoreIR::Wireable* output_reshape = def->addInstance(ub_name + "_out_reshape",
-                                                      gens["transpose_reshape"],
+                                                      gens["reshape"],
                                                       output_reshape_args);
 
   bool simulation_compatible = true;

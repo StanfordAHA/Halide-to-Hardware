@@ -6,174 +6,127 @@ using namespace Halide;
 
 class ConvolutionLayer : public Halide::Generator<ConvolutionLayer> {
 public:
-    Input<Buffer<int8_t>>  input{"input", 4};
-    Input<Buffer<int8_t>>  filter_dw{"filter_dw", 3};
-    Input<Buffer<int8_t>>  filter_pw{"filter_pw", 2};
-    Input<Buffer<int8_t>>  bias_dw{"bias_dw", 1};
-    Input<Buffer<int8_t>>  bias_pw{"bias_pw", 1};
-    Output<Buffer<uint8_t>> app_output{"ReLU", 4};
-
-    Func build() {
-        /* THE ALGORITHM */
-
-        Func output("output");
-        Var x("x"), y("y"), c("c"), n("n");
-
-        Func dw_conv("dw_conv");
-        Func pw_conv("pw_conv");
-        /*RDom r(filter.dim(0).min(), filter.dim(0).extent(),
-               filter.dim(1).min(), filter.dim(1).extent(),
-               filter.dim(2).min(), filter.dim(2).extent());
-        */
-        RDom r_dw(0, 3, 0, 3);
-        RDom r_pw(0, 32);
-
-        filter_dw.dim(0).set_bounds(0, 3)
-            .dim(1).set_bounds(0, 3)
-            .dim(2).set_bounds(0, 32);
-
-        filter_pw.dim(0).set_bounds(0, 32)
-            .dim(1).set_bounds(0, 64);
-
-        bias_dw.dim(0).set_bounds(0, 32);
-        bias_pw.dim(0).set_bounds(0, 32);
-
-        //depthwise ConvolutionLayer
-        dw_conv(x, y, c, n) = cast<int16_t>(bias_dw(c));
-        dw_conv(x, y, c, n) += cast<int16_t>(filter_dw(r_dw.x, r_dw.y, c) * input(x + r_dw.x, y + r_dw.y, c, n));
-
-        //pointwise ConvolutionLayer
-        pw_conv(x, y, c, n) = cast<int16_t>(bias_pw(c));
-        pw_conv(x, y, c, n) += cast<int16_t>(filter_pw(r_pw.x, c) * dw_conv(x, y, r_pw.x, n));
-        output(x, y, c, n) = cast<int8_t>(max(0, pw_conv(x, y, c, n)));
-
-
-        /* THE SCHEDULE */
-        // Blocking spatially on X Y dim
-        Var xo("xo"), xi("xi"), yo("yo"), yi("yi"), u("u");
-        //RVar z_o("z_o"), z_t("z_t");
-
-        output.tile(x, y, xo, yo, xi, yi, 32, 32).reorder(c, xi, yi, xo, yo);
-
-        //schedule dw conv
-        Var co("co_dw"), ci("ci_dw");
-        dw_conv.compute_at(output, xo);
-        dw_conv.update().split(c, co, ci, 4).reorder(ci, x, y, co);
-        dw_conv.update().unroll(r_dw.x).unroll(r_dw.y).unroll(ci);
-
-        //add input buffer
-        input.in()
-            .compute_at(dw_conv, x)
-            .store_at(output, xo)
-            .reorder(_2, _0, _1)
-            .reorder_storage(_2, _0, _1);
-
-        //schedule pw conv
-        Var co_("co_pw"), ci_("ci_pw");
-        RVar zo("z_o"), zi("z_i");
-        pw_conv.compute_at(output, xo);
-        pw_conv.update()
-            .split(r_pw.x, zo, zi, 4)
-            .split(c, co_, ci_, 4).reorder(zi, ci_, zo, x, y, co_);
-
-        //create the function spliting the RDom
-        //outter loop zo can be parallelize, but we will use unroll to create a reduction tree of zi
-        Func pw_conv_interm = pw_conv.update().rfactor({{zo, u}});
-        pw_conv_interm.compute_at(pw_conv, zo);
-
-        //2D unroll input and output channel
-        pw_conv_interm.update().unroll(ci_).unroll(zi);
-        //unroll the accumulation of partial sum
-        pw_conv.update().unroll(ci_);
-
-
-        output.compile_to_lowered_stmt("conv.html",
-               output.infer_arguments(),
-               Halide::HTML);
-        output.compile_to_c("conv.cpp",
-               output.infer_arguments(),
-               "conv");
-        return output;
-   }
+    Input<Buffer<int8_t>>  input{"input", 3};
+    Output<Buffer<uint8_t>> output{"output", 3};
 
   void generate() {
         /* THE ALGORITHM */
 
-        Func hw_output("output");
-        Var x("x"), y("y"), c("c"), n("n");
+        Func hw_input("hw_input");
+        Func hw_output("hw_output");
+        Var x("x"), y("y"), c("c"), k("k");
+
+        Func filter_dw, filter_pw;
+        Func bias_dw, bias_pw;
+
+        filter_dw(x, y, c) = 1;
+        filter_pw(c, k) = 3;
+        bias_dw(c) = 0;
+        bias_pw(k) = 0;
 
         Func dw_conv("dw_conv");
         Func pw_conv("pw_conv");
-        /*RDom r(filter.dim(0).min(), filter.dim(0).extent(),
-               filter.dim(1).min(), filter.dim(1).extent(),
-               filter.dim(2).min(), filter.dim(2).extent());
-        */
+        Func pw_conv_reduction;
+
         RDom r_dw(0, 3, 0, 3);
-        RDom r_pw(0, 32);
+        RVar pw_c("c");
+        RDom r_pw(0, 4);
 
-        filter_dw.dim(0).set_bounds(0, 3)
-            .dim(1).set_bounds(0, 3)
-            .dim(2).set_bounds(0, 32);
-
-        filter_pw.dim(0).set_bounds(0, 32)
-            .dim(1).set_bounds(0, 64);
-
-        bias_dw.dim(0).set_bounds(0, 32);
-        bias_pw.dim(0).set_bounds(0, 32);
+        hw_input(x, y, c) = input(x, y, c);
 
         //depthwise ConvolutionLayer
-        dw_conv(x, y, c, n) = cast<int16_t>(bias_dw(c));
-        dw_conv(x, y, c, n) += cast<int16_t>(filter_dw(r_dw.x, r_dw.y, c) * input(x + r_dw.x, y + r_dw.y, c, n));
+        dw_conv(x, y, c) = cast<int16_t>(bias_dw(c));
+        dw_conv(x, y, c) += cast<int16_t>(filter_dw(r_dw.x, r_dw.y, c) *
+                                          hw_input(x + r_dw.x, y + r_dw.y, c));
 
         //pointwise ConvolutionLayer
-        pw_conv(x, y, c, n) = cast<int16_t>(bias_pw(c));
-        pw_conv(x, y, c, n) += cast<int16_t>(filter_pw(r_pw.x, c) * dw_conv(x, y, r_pw.x, n));
-        hw_output(x, y, c, n) = cast<int8_t>(max(0, pw_conv(x, y, c, n)));
-        app_output(x, y, c, n) = cast<uint8_t>(hw_output(x, y, c, n));
+        pw_conv(x, y, c, k) = cast<int16_t>(bias_pw(k));
+        pw_conv(x, y, c, k) += cast<int16_t>(filter_pw(c, k) * dw_conv(x, y, c));
+        pw_conv_reduction(x, y, k) = 0;
+        pw_conv_reduction(x, y, k) += cast<int16_t>(pw_conv(x, y, r_pw.x, k));
+        hw_output(x, y, k) = cast<int8_t>(max(0, pw_conv_reduction(x, y, k)));
+        //hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
 
+        output(x, y, k) = cast<uint8_t>(hw_output(x, y, k));
+
+
+        output.bound(x, 0, 14);
+        output.bound(y, 0, 14);
+        output.bound(k, 0, 4);
+
+        hw_output.bound(x, 0, 14);
+        hw_output.bound(y, 0, 14);
+        hw_output.bound(k, 0, 4);
+
+        bias_dw.bound(c, 0, 4);
+        bias_pw.bound(k, 0, 4);
+        
+        filter_dw.bound(c, 0, 4);
+        filter_pw.bound(c, 0, 4);
+        filter_pw.bound(k, 0, 4);
+
+        pw_conv.bound(x, 0, 14);
+        pw_conv.bound(y, 0, 14);
+        pw_conv.bound(k, 0, 4);
 
         /* THE SCHEDULE */
-        // Blocking spatially on X Y dim
-        Var xo("xo"), xi("xi"), yo("yo"), yi("yi"), u("u");
-        //RVar z_o("z_o"), z_t("z_t");
-
-        app_output.tile(x, y, xo, yo, xi, yi, 32, 32).reorder(c, xi, yi, xo, yo);
-
-        //schedule dw conv
-        Var co("co_dw"), ci("ci_dw");
-        dw_conv.compute_at(app_output, xo);
-        dw_conv.update().split(c, co, ci, 4).reorder(ci, x, y, co);
-        dw_conv.update().unroll(r_dw.x).unroll(r_dw.y).unroll(ci);
-
-        //add input buffer
-        input.in()
-            .compute_at(dw_conv, x)
-            .store_at(app_output, xo)
-            .reorder(_2, _0, _1)
-            .reorder_storage(_2, _0, _1);
-
-        //schedule pw conv
-        Var co_("co_pw"), ci_("ci_pw");
-        RVar zo("z_o"), zi("z_i");
-        pw_conv.compute_at(app_output, xo);
-        pw_conv.update()
-            .split(r_pw.x, zo, zi, 4)
-            .split(c, co_, ci_, 4).reorder(zi, ci_, zo, x, y, co_);
-
-        //create the function spliting the RDom
-        //outter loop zo can be parallelize, but we will use unroll to create a reduction tree of zi
-        Func pw_conv_interm = pw_conv.update().rfactor({{zo, u}});
-        pw_conv_interm.compute_at(pw_conv, zo);
-
-        //2D unroll input and output channel
-        pw_conv_interm.update().unroll(ci_).unroll(zi);
-        //unroll the accumulation of partial sum
-        pw_conv.update().unroll(ci_);
-
         if (get_target().has_feature(Target::CoreIR)) {
+          // Blocking spatially on X Y dim
+          Var xo("xo"), xi("xi"), yo("yo"), yi("yi");
+          
+          hw_input.compute_root();
+          hw_output.compute_root();
 
+          filter_dw.compute_at(hw_output, xo)
+            .unroll(x).unroll(y).unroll(c);
+          filter_pw.compute_at(hw_output, xo)
+            .unroll(c).unroll(k);
+          bias_dw.compute_at(hw_output, xo)
+            .unroll(c);
+          bias_pw.compute_at(hw_output, xo)
+            .unroll(k);
+
+          hw_output.tile(x, y, xo, yo, xi, yi, 14, 14)
+            .reorder(xi, yi, k, xo, yo)
+            .reorder_storage(k, x, y)
+            //.hw_accelerate(xi, xo);
+            .accelerate({hw_input}, xi, xo);
+
+          //schedule pw conv reduction
+          pw_conv_reduction.update()
+            //.unroll(k)
+            .reorder(k, x, y, r_pw.x);
+
+          pw_conv_reduction.compute_at(hw_output, xo).store_at(hw_output, xo);
+
+          //schedule pw conv
+          //pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
+          pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
+            .reorder(c, x, y, k);
+          
+          //schedule dw conv
+          dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
+            .reorder(x, y, c);
+          
+          //dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
+          //dw_conv.compute_at(hw_output, xi).store_at(hw_output, xo)
+          //dw_conv.linebuffer()
+
+
+          dw_conv.update()
+            .reorder(r_dw.x, r_dw.y, x, y, c)
+            .unroll(r_dw.x)
+            .unroll(r_dw.y);
+          //.unroll(c);
+          
+
+          //add input stream
+          hw_input.stream_to_accelerator().reorder_storage(c, x, y);
+          
         }
+
   }
+  
 };
 
 }  // namespace

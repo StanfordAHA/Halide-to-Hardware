@@ -56,13 +56,18 @@ public:
 
         // shift gradients
         Func lxx, lyy, lxy;
-        lxx(x, y) = grad_xx(x, y) >> 7;
-        lyy(x, y) = grad_yy(x, y) >> 7;
-        lxy(x, y) = grad_xy(x, y) >> 7;
+        //lxx(x, y) = grad_xx(x, y) >> 7;
+        //lyy(x, y) = grad_yy(x, y) >> 7;
+        //lxy(x, y) = grad_xy(x, y) >> 7;
+        lxx(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_x(x,y)) >> 7;
+        lyy(x, y) = cast<int32_t>(grad_y(x,y)) * cast<int32_t>(grad_y(x,y)) >> 7;
+        lxy(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_y(x,y)) >> 7;
+
 
         // box filter (i.e. windowed sum)
         Func lgxx, lgyy, lgxy;
-        RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        //RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        RDom box(0, blockSize, 0, blockSize);
         lgxx(x, y) += lxx(x+box.x, y+box.y);
         lgyy(x, y) += lyy(x+box.x, y+box.y);
         lgxy(x, y) += lxy(x+box.x, y+box.y);
@@ -90,9 +95,11 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold),
-                                                255,
-                                                0));
+        //hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cast<uint8_t>(cim(x,y));
+        //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
+
+
         output(x, y) = hw_output(x, y);
 
         output.bound(x, 0, 58);

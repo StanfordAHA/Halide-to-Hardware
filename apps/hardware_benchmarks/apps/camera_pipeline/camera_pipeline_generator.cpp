@@ -242,16 +242,17 @@ namespace {
         hw_input.compute_root();
         hw_output.compute_root();
           
-        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6);
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
+          .reorder(c,xi,yi,xo,yo);;
           
-        denoised.linebuffer()
-          .unroll(x).unroll(y);
-        demosaicked.linebuffer()
-          .unroll(c).unroll(x).unroll(y);
+        denoised.linebuffer();
+        //.unroll(x).unroll(y);
+        demosaicked.linebuffer();
+          //.unroll(c).unroll(x).unroll(y);
 
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
 
-        hw_output.accelerate({hw_input}, xi, xo, {});
+        hw_output.accelerate({hw_input}, c, xo, {});
 
         //hw_output.unroll(c).unroll(xi, 2);
         hw_output.unroll(c);

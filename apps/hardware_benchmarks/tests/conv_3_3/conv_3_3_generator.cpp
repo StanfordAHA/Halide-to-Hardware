@@ -9,6 +9,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
+  int ksize = 3;
+  int imgsize = 62;
+
     void generate() {
         /* THE ALGORITHM */
 
@@ -16,7 +19,7 @@ public:
 
         Func kernel("kernel");
         Func conv("conv");
-        RDom r(0, 3,               0, 3);
+        RDom r(0, ksize,               0, ksize);
 
         kernel(x,y) = 0;
         kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
@@ -43,8 +46,8 @@ public:
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
-        output.bound(x, 0, 62);
-        output.bound(y, 0, 62);
+        output.bound(x, 0, imgsize);
+        output.bound(y, 0, imgsize);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -62,12 +65,12 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             .hw_accelerate(xi, xo);
 
           conv.update()
-            .unroll(r.x, 3)
-            .unroll(r.y, 3);
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
 
           conv.linebuffer();
           //hw_input.linebuffer();
@@ -79,8 +82,8 @@ public:
 //          kernel.compute_root();
 //          conv.compute_root();
 //          conv.update()
-//            .unroll(r.x, 3)
-//            .unroll(r.y, 3);
+//            .unroll(r.x, ksize)
+//            .unroll(r.y, ksize);
           
 //          Var xi,yi, xo,yo;
 //          output.tile(x, y, xo,yo, xi,yi, 64,64);

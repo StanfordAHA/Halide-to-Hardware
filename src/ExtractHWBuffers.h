@@ -46,6 +46,8 @@ struct Stride {
   
 struct HWBuffer {
   std::string name;
+  std::string store_level;
+  std::string compute_level;
   
   // Parameters for the HWBuffer
   std::vector<BufferDimSize> dims;
@@ -91,6 +93,11 @@ struct HWXcel {
 
 std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, Function> &env,
                                             const std::vector<BoundsInference_Stage> &inlined_stages);
+
+
+std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec);
+int id_const_value(const Expr e);
+std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);
 
 
 }  // namespace Internal

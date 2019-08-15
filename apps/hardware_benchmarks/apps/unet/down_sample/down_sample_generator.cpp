@@ -85,7 +85,11 @@ public:
 
             //max_pool.linebuffer();
             avg_pool.linebuffer();
+            avg_pool.update()
+              .unroll(r.x)
+              .unroll(r.y);
 
+            //hw_input.unroll(x, 4);
             hw_input.stream_to_accelerator();
             
         } else { // schedule to CPU

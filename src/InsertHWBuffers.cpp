@@ -24,31 +24,6 @@ using std::cout;
 
 namespace {
 
-std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
-  os << "[";
-  for (size_t i=0; i<vec.size(); ++i) {
-    os << vec.at(i);
-    if (i < vec.size() - 1) {
-      os << ",";
-    }
-  }
-  os << "]";
-  return os;
-};
-
-
-int id_const_value(const Expr e) {
-  if (const IntImm* e_int = e.as<IntImm>()) {
-    return e_int->value;
-
-  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-    return e_uint->value;
-
-  } else {
-    return -1;
-  }
-}
-
 class ExpandExpr : public IRMutator2 {
     using IRMutator2::visit;
     const Scope<Expr> &scope;
@@ -382,8 +357,6 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             internal_assert(it != xcel.hwbuffers.end());
             const HWBuffer &stencil_kernel = it->second;
             internal_assert(op->args.size() == stencil_kernel.func.args().size());
-          std::cout << "past call asserts\n";
-
           
             // Replace the call node of func with call node of func.stencil
             string stencil_name = stencil_kernel.name + ".stencil";
@@ -393,9 +366,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             // The value of the new argment is the old_value - stencil.min_pos.
             // The new value shouldn't refer to old loop vars any more
             for (size_t i = 0; i < op->args.size(); i++) {
-              std::cout << "mutating call arg " << i << std::endl;
                 Expr old_arg = mutate(op->args[i]);
-                std::cout << "mutated call arg " << i << std::endl;
                 Expr offset;
                 if (stencil_kernel.name == kernel.name) {
                     // The call is in an update definition of the kernel itself
@@ -408,22 +379,15 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                     internal_assert(it != kernel.consumer_buffers.end());
                     // FIXMEyikes consumer buffers doesn't seem to work
                     std::cout << "tricky offset here for " << kernel.name << std::endl;
-                    std::cout << it->first << std::endl;
                     internal_assert(it->second->dims.size() > i);
-                    auto x = it->second;
-                    std::cout << *(it->second) << std::endl;
-                    auto y = x->dims;
-                    auto z = y.at(i);
-                    offset = z.output_min_pos;
                     offset = it->second->dims.at(i).output_min_pos;
                     std::cout << "offset=" << offset << std::endl;
                     //offset = Expr(0);
                 }
 
-                std::cout << "calced offset\n";
-                
                 Expr new_arg = old_arg - offset;
                 new_arg = simplify(expand_expr(new_arg, scope));
+                std::cout << "new_arg" << i << " = " << new_arg << std::endl;
                 // TODO check if the new_arg only depends on the loop vars
                 // inside the producer
                 new_args[i] = new_arg;
@@ -551,7 +515,7 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         //internal_assert(kernel.consumer_fifo_depths.count(p.first));
         //dispatch_args.push_back(std::max(min_fifo_depth, kernel.consumer_fifo_depths.find(p.first)->second));
         dispatch_args.push_back(0); // assume a 0 fifo_depth
-        internal_assert(p.second->dims.size() == kernel.dims.size());
+        //internal_assert(p.second->dims.size() == kernel.dims.size()); FIXME, should this be the case?
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           //dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos)); FIXME
           dispatch_args.push_back(p.second->dims.at(i).logical_min);
@@ -1127,6 +1091,7 @@ class InsertHWBuffers : public IRMutator2 {
             // insert hardware buffers for input streams
             for (const string &input_name : xcel.input_streams) {
                 const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
+                std::cout << "let's add input stream " << input_name << std::endl;
                 new_body = add_hwbuffer(new_body, input_kernel, xcel, scope);
             }
 
