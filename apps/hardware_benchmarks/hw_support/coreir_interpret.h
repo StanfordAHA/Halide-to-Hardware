@@ -22,6 +22,24 @@ private:
   uint current_x, current_y, current_z;
 };
 
+template <typename T>
+class CoreIRInputBuffer {
+public:
+  std::vector<std::string> input_wirename;
+  Halide::Runtime::Buffer<T> input;
+
+  bool bitcast_buffer_to_int;
+};
+
+template <typename T>
+class CoreIROutputBuffer {
+public:
+  std::vector<std::string> output_wirename;
+  Halide::Runtime::Buffer<T> output;
+
+  bool bitcast_output_to_float;
+};
+  
 
 bool reset_coreir_circuit(CoreIR::SimulatorState &state, CoreIR::Module *m);
 
@@ -34,4 +52,12 @@ void run_coreir_on_interpreter(std::string coreir_design,
                                bool has_float_input=false,
                                bool has_float_output=false);
 
+template<typename T>
+void run_multi_coreir_on_interpreter(std::string coreir_design,
+                                     Halide::Runtime::Buffer<T> input,
+                                     Halide::Runtime::Buffer<T> output,
+                                     std::string input_names,
+                                     std::vector<std::string> output_names,
+                                     bool has_float_input=false,
+                                     bool has_float_output=false);
 

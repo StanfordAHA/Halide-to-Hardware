@@ -75,23 +75,27 @@ bool compare_images(const Halide::Runtime::Buffer<T>& image0,
   bool equal_images = true;
 
   if (image0.height() != image1.height() ||
-      image0.width() != image1.width()) {
+      image0.width() != image1.width() ||
+      image0.channels() != image1.channels()) {
     std::cout << "Image sizes are not equal: "
-              << "(" << image0.width() << "," << image0.height() << ") vs "
-              << "(" << image1.width() << "," << image1.height() << ")\n";
+              << "(" << image0.width() << "," << image0.height() << "," << image0.channels() << ") vs "
+              << "(" << image1.width() << "," << image1.height() << "," << image1.channels() << ")\n";
     return 0;
   }
   
   for (int y=0; y<image0.height(); y++) {
     for (int x=0; x<image0.width(); x++) {
-      if (image0(x,y) != image1(x,y) && equal_images) {
-        int pixel_location = image0.width()*y + x;
-        std::cout << "image0(y=" << y << ",x=" << x << ") = " << +image0(x,y)
-                  << ", while image1(" << y << "," << x << ") = " << +image1(x,y)
-                  << std::hex << "  (debug at pixel " << +pixel_location << ")\n" << std::dec;
-      }
-      if (image0(x,y) != image1(x,y)) {
-        equal_images = false;
+      for (int c=0; c<image0.channels(); c++) {
+        if (image0(x,y,c) != image1(x,y,c) && equal_images) {
+          int pixel_location = image0.channels()*image0.width()*y + image0.channels()*x + c;
+          std::cout << "image0(y=" << y << ",x=" << x << ",c=" << c << ") = " << +image0(x,y,c)
+                    << ", while "
+                    << "image1(" << y << "," << x << "," << c << ") = " << +image1(x,y,c)
+                    << std::hex << "  (debug at pixel " << +pixel_location << ")\n" << std::dec;
+        }
+        if (image0(x,y,c) != image1(x,y,c)) {
+          equal_images = false;
+        }
       }
     }
   }

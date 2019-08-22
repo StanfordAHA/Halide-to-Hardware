@@ -19,15 +19,20 @@ void ImageWriter<elem_t>::write(elem_t data) {
     image(current_x, current_y, current_z) = data;
 
     // increment coords
-    current_x++;
+    current_z++;
+    if (current_z == channels) {
+      current_x++;
+      current_z = 0;
+    }
+
     if (current_x == width) {
       current_y++;
       current_x = 0;
     }
-    if (current_y == height) {
-      current_z++;
-      current_y = 0;
-    }
+    //if (current_y == height) {
+    //  current_z++;
+    //  current_y = 0;
+    //}
   }
 }
 
@@ -132,6 +137,8 @@ bool circuit_uses_inputenable(Module *m) {
 }
 
 
+
+
 template<typename T>
 void run_coreir_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<T> input,
@@ -140,6 +147,20 @@ void run_coreir_on_interpreter(string coreir_design,
                                string output_name,
                                bool has_float_input,
                                bool has_float_output) {
+  run_multi_coreir_on_interpreter(coreir_design,
+                                  input, output,
+                                  input_name, {output_name},
+                                  has_float_input, has_float_output);
+}
+
+template<typename T>
+void run_multi_coreir_on_interpreter(string coreir_design,
+                                     Halide::Runtime::Buffer<T> input,
+                                     Halide::Runtime::Buffer<T> output,
+                                     string input_name,
+                                     vector<string> output_names,
+                                     bool has_float_input,
+                                     bool has_float_output) {
   // New context for coreir test
   Context* c = newContext();
   Namespace* g = c->getGlobal();
@@ -203,21 +224,24 @@ void run_coreir_on_interpreter(string coreir_design,
           //std::cout << "got my valid\n";
           if (valid_value) {
             //std::cout << "this one is valid\n";
-            auto output_bv = state.getBitVec(output_name);
+
+            for (auto output_name : output_names) {
+              auto output_bv = state.getBitVec(output_name);
             
-            // bitcast to float if it is a float
-            T output_value;
-            if (has_float_output) {
-              float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-              //std::cout << "read out float: " << output_float << " ";
-              output_value = static_cast<T>(output_float);
-            } else {
-              output_value = output_bv.to_type<T>();
+              // bitcast to float if it is a float
+              T output_value;
+              if (has_float_output) {
+                float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+                //std::cout << "read out float: " << output_float << " ";
+                output_value = static_cast<T>(output_float);
+              } else {
+                output_value = output_bv.to_type<T>();
+              }
+            
+              coreir_img_writer.write(output_value);
+            
+              std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
             }
-            
-            coreir_img_writer.write(output_value);
-            
-            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
           }
         } else {
           //if (std::is_floating_point<T>::value) {
@@ -225,19 +249,21 @@ void run_coreir_on_interpreter(string coreir_design,
           //  output(x,y,c) = output_value;
           //} else {
           //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
-          
-          auto output_bv = state.getBitVec(output_name);
 
-          // bitcast to float if it is a float
-          T output_value;
-          if (has_float_output) {
-            float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-            output_value = static_cast<T>(output_float);
-          } else {
-            output_value = output_bv.to_type<T>();
+          for (auto output_name : output_names) {
+            auto output_bv = state.getBitVec(output_name);
+
+            // bitcast to float if it is a float
+            T output_value;
+            if (has_float_output) {
+              float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+              output_value = static_cast<T>(output_float);
+            } else {
+              output_value = output_bv.to_type<T>();
+            }
+
+            output(x,y,c) = output_value; // FIXME: this assumes same-sized input and output
           }
-
-          output(x,y,c) = output_value;
             
           //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
         }

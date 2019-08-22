@@ -17,8 +17,8 @@ int main(int argc, char **argv) {
                                                   [&]() { demosaic(processor.input, processor.output); }
                                               },
                                               {"coreir",
-                                                  [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
-                                                                                      "self.in_arg_0_0_0", "self.out_0_0_0"); }
+                                                  [&]() { run_multi_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
+                                                                                            "self.in_arg_0_0_0", {"self.out_0_0_0","self.out_1_0_0","self.out_2_0_0"}); }
                                               }
 
                                             });
