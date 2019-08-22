@@ -232,7 +232,10 @@ namespace {
       hw_output = apply_curve(color_corrected, curve);
 
       output(x, y, c) = hw_output(c, x, y);
-      hw_output.bound(c, 0, 3);
+      
+      output.bound(c, 0, 3);
+      output.bound(x, 0, 64-6);
+      output.bound(y, 0, 64-6);
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {

@@ -133,6 +133,7 @@ class ROMInit : public IRVisitor {
       int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
       init_values["init"][index] = value;
+      //init_values.emplace_back(std::to_string(value));
     }
   }
 

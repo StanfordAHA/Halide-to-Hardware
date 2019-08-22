@@ -217,7 +217,7 @@ void run_coreir_on_interpreter(string coreir_design,
             
             coreir_img_writer.write(output_value);
             
-            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
           }
         } else {
           //if (std::is_floating_point<T>::value) {

@@ -16,7 +16,7 @@
         "instances":{
           "ub_weight_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_weight_0_flush":{
             "modref":"corebit.const",
@@ -24,7 +24,7 @@
           },
           "ub_weight_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_weight_1_flush":{
             "modref":"corebit.const",
@@ -32,7 +32,7 @@
           },
           "ub_input_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_0_flush":{
             "modref":"corebit.const",
@@ -40,7 +40,7 @@
           },
           "ub_input_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",2], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",2], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",2], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_input_1_flush":{
             "modref":"corebit.const",
@@ -48,7 +48,7 @@
           },
           "ub_output_0_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_0_0_flush":{
             "modref":"corebit.const",
@@ -56,7 +56,7 @@
           },
           "ub_output_0_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_0_1_flush":{
             "modref":"corebit.const",
@@ -64,7 +64,7 @@
           },
           "ub_output_1_0":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_1_0_flush":{
             "modref":"corebit.const",
@@ -72,7 +72,7 @@
           },
           "ub_output_1_1":{
             "genref":"commonlib.unified_buffer",
-            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+            "genargs":{"width":["Int",16], "depth":["Int",1], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",1], "dimensionality":["Int",1], "stride_0":["Int",1], "range_0":["Int",1], "stride_1":["Int",0], "range_1":["Int",0], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "init":["Json",{"init":[0]}]}
           },
           "ub_output_1_1_flush":{
             "modref":"corebit.const",
@@ -206,14 +206,14 @@
           }
         },
         "connections":[
-          ["self.in_arg_0_0_0","ub_input_0.datain"],
-          ["self.in_arg_0_0_1","ub_weight_0.datain"],
-          ["self.in_arg_0_0_0","ub_input_1.datain"],
-          ["self.in_arg_0_0_1","ub_weight_1.datain"],
-          ["output_0_0_datain_mux.out","ub_output_0_0.datain"],
-          ["output_0_1_datain_mux.out","ub_output_0_1.datain"],
-          ["add_1_0.out","ub_output_1_0.datain"],
-          ["add_1_1.out","ub_output_1_1.datain"],
+          ["self.in_arg_0_0_0","ub_input_0.datain.0"],
+          ["self.in_arg_0_0_1","ub_weight_0.datain.0"],
+          ["self.in_arg_0_0_0","ub_input_1.datain.0"],
+          ["self.in_arg_0_0_1","ub_weight_1.datain.0"],
+          ["output_0_0_datain_mux.out","ub_output_0_0.datain.0"],
+          ["output_0_1_datain_mux.out","ub_output_0_1.datain.0"],
+          ["add_1_0.out","ub_output_1_0.datain.0"],
+          ["add_1_1.out","ub_output_1_1.datain.0"],
           ["ub_input_0_flush.out","ub_input_0.flush"],
           ["ub_weight_0_flush.out","ub_weight_0.flush"],
           ["ub_input_1_flush.out","ub_input_1.flush"],
@@ -263,28 +263,28 @@
           ["counter.reset","self.reset"],
           ["counter.en","self.in_en"],
 
-          ["mul_0_0.in0","ub_weight_0.dataout"],
-          ["mul_0_1.in0","ub_weight_0.dataout"],
-          ["mul_0_0.in1","ub_input_0.dataout"],
-          ["mul_0_1.in1","ub_input_1.dataout"],
-          ["mul_1_0.in0","ub_weight_1.dataout"],
-          ["mul_1_1.in0","ub_weight_1.dataout"],
-          ["mul_1_0.in1","ub_input_0.dataout"],
-          ["mul_1_1.in1","ub_input_1.dataout"],
+          ["mul_0_0.in0","ub_weight_0.dataout.0"],
+          ["mul_0_1.in0","ub_weight_0.dataout.0"],
+          ["mul_0_0.in1","ub_input_0.dataout.0"],
+          ["mul_0_1.in1","ub_input_1.dataout.0"],
+          ["mul_1_0.in0","ub_weight_1.dataout.0"],
+          ["mul_1_1.in0","ub_weight_1.dataout.0"],
+          ["mul_1_0.in1","ub_input_0.dataout.0"],
+          ["mul_1_1.in1","ub_input_1.dataout.0"],
 
           ["init_phase_selector.in0","counter.out"],
           ["init_phase_selector.in1","init_phase_value.out"],
 
-          ["accum_value_0_0_mux.in0","ub_output_0_0.dataout"],
+          ["accum_value_0_0_mux.in0","ub_output_0_0.dataout.0"],
           ["accum_value_0_0_mux.in1","init_output_value.out"],
           ["accum_value_0_0_mux.sel","init_phase_selector.out"],
-          ["accum_value_0_1_mux.in0","ub_output_0_1.dataout"],
+          ["accum_value_0_1_mux.in0","ub_output_0_1.dataout.0"],
           ["accum_value_0_1_mux.in1","init_output_value.out"],
           ["accum_value_0_1_mux.sel","init_phase_selector.out"],
-          ["accum_value_1_0_mux.in0","ub_output_1_0.dataout"],
+          ["accum_value_1_0_mux.in0","ub_output_1_0.dataout.0"],
           ["accum_value_1_0_mux.in1","init_output_value.out"],
           ["accum_value_1_0_mux.sel","init_phase_selector.out"],
-          ["accum_value_1_1_mux.in0","ub_output_1_1.dataout"],
+          ["accum_value_1_1_mux.in0","ub_output_1_1.dataout.0"],
           ["accum_value_1_1_mux.in1","init_output_value.out"],
           ["accum_value_1_1_mux.sel","init_phase_selector.out"],
 
@@ -300,10 +300,10 @@
           ["output_phase_selector.in0","counter.out"],
           ["output_phase_selector.in1","output_phase_value.out"],
 
-          ["output_0_0_datain_mux.in0","ub_output_1_0.dataout"],
+          ["output_0_0_datain_mux.in0","ub_output_1_0.dataout.0"],
           ["output_0_0_datain_mux.in1","add_0_0.out"],
           ["output_0_0_datain_mux.sel","output_phase_selector.out"],
-          ["output_0_1_datain_mux.in0","ub_output_1_1.dataout"],
+          ["output_0_1_datain_mux.in0","ub_output_1_1.dataout.0"],
           ["output_0_1_datain_mux.in1","add_0_1.out"],
           ["output_0_1_datain_mux.sel","output_phase_selector.out"],
 
@@ -312,8 +312,8 @@
           ["output_0_valid_mux.sel","output_phase_selector.out"],
           ["self.valid","output_0_valid_mux.out"],
 
-          ["self.out_0_0","ub_output_0_0.dataout"],
-          ["self.out_0_1","ub_output_0_1.dataout"]
+          ["self.out_0_0","ub_output_0_0.dataout.0"],
+          ["self.out_0_1","ub_output_0_1.dataout.0"]
         ]
       }
     }
