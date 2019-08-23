@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "camera_pipeline.h"
+#include "demosaic_complex.h"
 
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
@@ -11,21 +11,20 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<uint8_t> processor("camera_pipeline",
+  OneInOneOut_ProcessController<uint8_t> processor("demosaic_complex",
                                             {
                                               {"cpu",
-                                                  [&]() { camera_pipeline(processor.input, processor.output); }
+                                                  [&]() { demosaic_complex(processor.input, processor.output); }
                                               },
                                               {"coreir",
                                                   [&]() { run_multi_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
-                                                                                            "self.in_arg_0_0_0", {"self.out_0_0_0","self.out_1_0_0","self.out_2_0_0"}); }
+                                                                                            "self.in_arg_0_0_0", {"self.out_0_0_0","self.out_0_0_1","self.out_0_0_2"}); }
                                               }
 
                                             });
 
   processor.input = Buffer<uint8_t>(64, 64);
-  processor.output = Buffer<uint8_t>(64-6, 64-6, 3);
-  //processor.output = Buffer<uint8_t>(64-2, 64-2, 3);
+  processor.output = Buffer<uint8_t>(64-2, 64-2, 3);
   
   processor.process_command(argc, argv);
   

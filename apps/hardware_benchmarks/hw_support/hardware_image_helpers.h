@@ -86,7 +86,8 @@ bool compare_images(const Halide::Runtime::Buffer<T>& image0,
   for (int y=0; y<image0.height(); y++) {
     for (int x=0; x<image0.width(); x++) {
       for (int c=0; c<image0.channels(); c++) {
-        if (image0(x,y,c) != image1(x,y,c) && equal_images) {
+        //if (image0(x,y,c) != image1(x,y,c) && equal_images) {
+        if (image0(x,y,c) != image1(x,y,c)) {
           int pixel_location = image0.channels()*image0.width()*y + image0.channels()*x + c;
           std::cout << "image0(y=" << y << ",x=" << x << ",c=" << c << ") = " << +image0(x,y,c)
                     << ", while "

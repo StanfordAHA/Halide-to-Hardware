@@ -16,8 +16,8 @@ public:
 
         Func kernel("kernel");
         Func conv("conv");
-        RDom r(0, 3,
-               0, 3);
+        RDom r(-1, 3,
+               -1, 3);
 
         kernel(x,y) = 0;
         kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
@@ -27,8 +27,8 @@ public:
         conv(x, y) = 0;
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        hw_input(x, y) = cast<uint16_t>(input(x+1, y+1));
+        conv(x, y)  += kernel(r.x+1, r.y+1) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));

@@ -40,13 +40,13 @@ install:
   
   # compile coreir
   - git clone -b ubuffer https://github.com/rdaly525/coreir.git
-  - cd coreir/build && cmake .. && make -j2 && cd ../..
+  - cd coreir/build && cmake .. && make -j4 && cd ../..
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - make distrib
+  - make -j4 distrib
   - rm distrib/halide.tgz
   - rm distrib/bin/libHalide.so
   - tar -czvf halide_distrib.tgz distrib
@@ -63,7 +63,7 @@ deploy:
 
 before_script:
   # create Halide compiler
-  - make -j2 distrib
+  - make -j4 distrib
   
 script:
   # run test cases for hardware codegens

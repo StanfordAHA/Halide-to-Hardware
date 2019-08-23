@@ -32,7 +32,7 @@ if [ ${BUILD_SYSTEM} = 'CMAKE' ]; then
         ../
 
   # Build and run internal tests
-  make VERBOSE=1
+  make -j4 VERBOSE=1
   # Build docs
   #make doc
 
@@ -68,10 +68,10 @@ elif [ ${BUILD_SYSTEM} = 'MAKE' ]; then
   # make
 
   # Run the tests
-  make test_coreir
+  make -j4 test_coreir
 
   if [ ${TEST_HALIDE_CORRECTNES} ]; then
-      make test_correctness
+      make -j4 test_correctness
   fi
 
 else

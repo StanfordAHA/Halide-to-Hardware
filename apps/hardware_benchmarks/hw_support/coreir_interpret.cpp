@@ -219,15 +219,14 @@ void run_multi_coreir_on_interpreter(string coreir_design,
 
         // read output wire
         if (uses_valid) {
-          //std::cout << "using valid\n";
-          bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-          //std::cout << "got my valid\n";
-          if (valid_value) {
-            //std::cout << "this one is valid\n";
 
+          bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+          if (valid_value) {
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=";
+            
             for (auto output_name : output_names) {
               auto output_bv = state.getBitVec(output_name);
-            
+              
               // bitcast to float if it is a float
               T output_value;
               if (has_float_output) {
@@ -239,9 +238,10 @@ void run_multi_coreir_on_interpreter(string coreir_design,
               }
             
               coreir_img_writer.write(output_value);
-            
-              std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+              std::cout << +output_value << ", "; //<< " based on bv=" << state.getBitVec(output_name);
+              //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
             }
+            std::cout << std::dec << std::endl;
           }
         } else {
           //if (std::is_floating_point<T>::value) {

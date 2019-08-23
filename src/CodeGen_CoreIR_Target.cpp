@@ -130,8 +130,8 @@ class ROMInit : public IRVisitor {
       auto index_expr = op->index;
       internal_assert(is_const(value_expr) && is_const(index_expr));
 
-      //int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
+      //int index = id_const_value(index_expr);
       //init_values["init"][index] = value;
       init_values.emplace_back(std::to_string(value));
     }
@@ -647,6 +647,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     });
   }
 
+  if (global_ns->hasModule("DesignTop") || global_ns->hasGenerator("DesignTop")) {
+    std::cout << "design already created\n";
+    return;
+  }
+  
   design = global_ns->newModuleDecl("DesignTop", design_type);
   def = design->newModuleDef();
   self = def->sel("self");
