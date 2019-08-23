@@ -197,9 +197,8 @@ namespace {
       //                            input(x, y, c) >= 1024, 255,
       //                            curve(in_val));
 
-      //hw_output(c, x, y) = curve(in_val);
-      //hw_output(x, y, c) = curve(in_val);
-      hw_output(x, y, c) = cast<uint8_t>(in_val);
+      hw_output(x, y, c) = curve(in_val);
+      //hw_output(x, y, c) = cast<uint8_t>(in_val);
 
       return hw_output;
     }
