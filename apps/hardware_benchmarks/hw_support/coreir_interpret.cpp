@@ -164,7 +164,6 @@ void run_coreir_on_interpreter(string coreir_design,
 
   ImageWriter<T> coreir_img_writer(output);
 
-  for (int i = 0; i < 2; ++i) {
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
@@ -196,7 +195,7 @@ void run_coreir_on_interpreter(string coreir_design,
       }
     }
   }
-  }
+
   coreir_img_writer.print_coords();
 
   
