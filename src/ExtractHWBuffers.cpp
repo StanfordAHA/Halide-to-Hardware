@@ -20,6 +20,26 @@ using std::map;
 using std::vector;
 using std::string;
 
+
+std::vector<BufferDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
+                                                 std::vector<int> output_stencil, std::vector<int> output_block,
+                                                 std::vector<int> input_chunk, std::vector<int> input_block) {
+   internal_assert(logical_size.size() == output_stencil.size());
+   internal_assert(logical_size.size() == output_block.size());
+   internal_assert(logical_size.size() == input_chunk.size());
+   internal_assert(logical_size.size() == input_block.size());
+
+   std::vector<BufferDimSize> dims(logical_size.size());
+
+   for (size_t i=0; i < logical_size.size(); ++i) {
+     dims[i] = BufferDimSize({"loop" + std::to_string(i), Expr(logical_size.at(i)), Expr(0),
+           Expr(input_chunk.at(i)), Expr(input_block.at(i)),
+           Expr(output_stencil.at(i)), Expr(output_block.at(i)), Expr(0)});
+   }
+   
+   return dims;
+}
+
 std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
   os << "[";
   for (size_t i=0; i<vec.size(); ++i) {
@@ -31,19 +51,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
   os << "]";
   return os;
 };
-
-
-int id_const_value(const Expr e) {
-  if (const IntImm* e_int = e.as<IntImm>()) {
-    return e_int->value;
-
-  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-    return e_uint->value;
-
-  } else {
-    return -1;
-  }
-}
 
 std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
     std::vector<std::string> tokens;
@@ -65,6 +72,18 @@ std::vector<std::string> get_tokens(const std::string &line, const std::string &
     return result;
 }
 
+
+int id_const_value(const Expr e) {
+  if (const IntImm* e_int = e.as<IntImm>()) {
+    return e_int->value;
+
+  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    return e_uint->value;
+
+  } else {
+    return -1;
+  }
+}
 
 namespace {
 
@@ -186,7 +205,10 @@ Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
     return result;
 }
 
-  
+/* 
+ * Used to calculate input and output block size. 
+ * Also records the (writer and) reader loopnest.
+ */  
 class CountBufferUsers : public IRVisitor {
   using IRVisitor::visit;
   string var;
@@ -206,7 +228,7 @@ class CountBufferUsers : public IRVisitor {
       // look at the writers (writer ports)
       if (provide_at_level(op->body, var)) {
         auto box_write = box_provided(op->body, var);
-        std::cout << "writers inside loop " << op->name << std::endl;
+        std::cout << "writers inside pc " << op->name << std::endl;
         std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
 
         std::cout << "HWBuffer Parameter: writer ports - "
@@ -227,9 +249,9 @@ class CountBufferUsers : public IRVisitor {
       // look at the readers (reader ports, read address gen)
       if (call_at_level(op->body, var)) {
         auto box_read = box_required(op->body, var);
-        std::cout << "readers inside loop " << op->name << std::endl;
+        std::cout << "readers inside pc " << op->name << std::endl;
         std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-        std::cout << Stmt(op->body) << std::endl;
+        //std::cout << Stmt(op->body) << std::endl;
         std::cout << "HWBuffer Parameter: reader ports - "
                   << "box extent=[";
         auto interval = box_read;
@@ -254,7 +276,7 @@ class CountBufferUsers : public IRVisitor {
     Stmt for_stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, op->body);
     if (current_for == nullptr) {
       full_stmt = for_stmt;
-      std::cout << "added first for loop: " << op->name << std::endl;
+      //std::cout << "added first for loop: " << op->name << std::endl;
 
       auto box_read = box_required(op->body, var);
       auto interval = box_read;
@@ -296,7 +318,7 @@ class CountBufferUsers : public IRVisitor {
       auto box_read = box_required(op->body, var);
       std::cout << "readers inside loop " << op->name << std::endl;
       std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-      std::cout << Stmt(op->body) << std::endl;
+      //std::cout << Stmt(op->body) << std::endl;
       std::cout << "HWBuffer Parameter: reader ports - "
                 << "box extent=[";
       auto interval = box_read;
@@ -325,8 +347,6 @@ class CountBufferUsers : public IRVisitor {
     current_for = previous_for;
     
   }
-
-  
   
 public:
   vector<Expr> output_block_box;
@@ -349,7 +369,7 @@ class FindVarStride : public IRVisitor {
 
   void visit(const Variable *op) {
     if (op->name == loopname && in_var) {
-      std::cout << "found loop=" << op->name << " and setting stride=" << cur_stride << std::endl;
+      //std::cout << "found loop=" << op->name << " and setting stride=" << cur_stride << std::endl;
       stride_for_var = cur_stride;
       is_div = in_div;
       IRVisitor::visit(op);
@@ -359,7 +379,7 @@ class FindVarStride : public IRVisitor {
   void visit(const Call *op) {
     if (op->name == varname) {
       in_var = true;
-      std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
+      //std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
       IRVisitor::visit(op);
       in_var = false;
     } else {
@@ -367,7 +387,7 @@ class FindVarStride : public IRVisitor {
     }
   }
   void visit(const Div *op) {
-    std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
+    //std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
     if (is_const(op->b)) {
       cur_stride *= id_const_value(op->b);
       //std::cout << "div setting to " << cur_stride << "\n";
@@ -383,7 +403,7 @@ class FindVarStride : public IRVisitor {
   }
 
   void visit(const Mul *op) {
-    std::cout << "this is a multiply: " << Expr(op) << std::endl;
+    //std::cout << "this is a multiply: " << Expr(op) << std::endl;
     if (is_const(op->a)) {
       cur_stride *= id_const_value(op->a);
       //std::cout << "mult setting to " << cur_stride << "\n";
@@ -429,7 +449,7 @@ class FindOutputStencil : public IRVisitor {
   }
 
   void visit(const For *op) override {
-    std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
+    //std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     auto fvs = FindVarStride(var, op->name);
     (op->body).accept(&fvs);
@@ -446,7 +466,7 @@ class FindOutputStencil : public IRVisitor {
 
 
     if (op->name == compute_level) {
-      std::cout << op->body << std::endl;
+      //std::cout << op->body << std::endl;
       auto box_read = box_required(op->body, var);
 
       Box box = box_provided(op->body, var);
@@ -466,7 +486,6 @@ class FindOutputStencil : public IRVisitor {
       output_stencil_box = vector<Expr>(interval.size());
       output_min_pos_box = vector<Expr>(interval.size());
 
-      std::cout << op->body << std::endl;
       std::cout << "HWBuffer Parameter: " << var << " output stencil size - "
                 << "box extent=[";
 
@@ -514,7 +533,7 @@ class FindInputStencil : public IRVisitor {
     std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     if (op->name == compute_level) {
-      std::cout << op->body << std::endl;
+      //std::cout << op->body << std::endl;
       auto box_write = box_provided(op->body, var);
       auto interval = box_write;
       input_chunk_box = vector<Expr>(interval.size());
@@ -529,7 +548,7 @@ class FindInputStencil : public IRVisitor {
           stencil_bounds.push(stage_name + ".max", box_write[i].max);
         }
       }
-      std::cout << "box saved\n";
+
       output_min_pos_box = vector<Expr>(interval.size());
       
       std::cout << "HWBuffer Parameter: " << var << " input chunk size - "
@@ -666,7 +685,7 @@ class HWBuffers : public IRMutator2 {
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
-          std::cout << "counted: " << new_body << std::endl;
+          //std::cout << "counted: " << new_body << std::endl;
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
           std::cout << "output block: " << output_block_box << std::endl;
@@ -1150,7 +1169,7 @@ void set_opt_params(HWXcel *xcel,
                 << consumer_name << " based on kernel " << consumer.name << std::endl;
       hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
 
-      FindOutputStencil fos(hwbuffer.name, cur_func, hwbuffer.compute_level);
+      FindOutputStencil fos(hwbuffer.name, cur_func, consumer_buffer.compute_level);
       consumer_buffer.my_stmt.accept(&fos);
       hwbuffer.stride_map = fos.stride_map;
       std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
@@ -1158,17 +1177,16 @@ void set_opt_params(HWXcel *xcel,
         std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
       }
 
-
-
-      std::cout << consumer_buffer.my_stmt << std::endl;
+      //std::cout << consumer_buffer.my_stmt << std::endl;
       std::cout << "the output stencil of " << hwbuffer.name << " from " << consumer_buffer.name
                 << " at " << hwbuffer.compute_level
                 << " is " << fos.output_stencil_box << std::endl;
+      std::cout << consumer_buffer.my_stmt;
       
       FindInputStencil fis(consumer.name, cur_func, hwbuffer.compute_level);
       hwbuffer.my_stmt.accept(&fis);
 
-      std::cout << hwbuffer.my_stmt << std::endl;
+      //std::cout << hwbuffer.my_stmt << std::endl;
       std::cout << "the input chunk of " << hwbuffer.name
                 << " at " << hwbuffer.compute_level
                 << " is " << fis.input_chunk_box << std::endl;
@@ -1204,6 +1222,7 @@ void set_opt_params(HWXcel *xcel,
         //if (true) {
         if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
+          std::cout << "replaced output stencil for " << hwbuffer.name << " based on consumer " << consumer.name << std::endl;
 
           //hwbuffer.dims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
           //hwbuffer.dims.at(idx).output_stencil = hwbuffer.dims.at(idx).output_block;

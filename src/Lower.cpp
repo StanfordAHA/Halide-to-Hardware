@@ -2,6 +2,7 @@
 #include <iostream>
 #include <set>
 #include <sstream>
+#include <vector>
 
 #include "Lower.h"
 
@@ -195,7 +196,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     }
     
     debug(1) << "Performing sliding window optimization...\n";
-    std::cout << "Performing sliding window optimization...\n" << s << '\n';
+    //std::cout << "Performing sliding window optimization...\n" << s << '\n';
     if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
       std::cout << "doing sliding window\n";
       s = sliding_window(s, env);
@@ -226,7 +227,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
       for (const HWXcel &xcel : xcels) {
         s = insert_hwbuffers(s, xcel);
-        std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
+        //std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
       }
 
       // vector<HWKernelDAG> dags;
@@ -240,7 +241,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       // }
 
       //debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
-      std::cout << "Lowering after HLS optimization:\n" << s << '\n';
+      //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";

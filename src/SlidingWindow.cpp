@@ -110,7 +110,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             return IRMutator2::visit(op);
         } else {
             Stmt stmt = op;
-            std::cout << "visiting pc sliding window for " << op->name << std::endl << stmt << std::endl;
+            std::cout << "visiting pc sliding window for " << op->name << std::endl;
+            //std::cout << stmt << std::endl;
 
             // We're interested in the case where exactly one of the
             // dimensions of the buffer has a min/extent that depends
@@ -449,7 +450,7 @@ public:
 
 std::map<std::string, SlidingStencils> extract_sliding_stencils(Stmt s, Function f) {
   auto sliding_window_mutator = SlidingWindowVisitorOnFunction(f);
-  std::cout << "extracting sliding stencils for: \n" << s << std::endl;
+  //std::cout << "extracting sliding stencils for: \n" << s << std::endl;
   s.accept(&sliding_window_mutator);
   return sliding_window_mutator.buffer_sliding_stencils;
 }

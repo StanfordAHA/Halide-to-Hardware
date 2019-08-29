@@ -43,6 +43,10 @@ struct Stride {
     stride(stride), is_inverse(is_inverse) {}
 
 };
+
+std::vector<BufferDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
+                                                 std::vector<int> output_stencil, std::vector<int> output_block,
+                                                 std::vector<int> input_chunk, std::vector<int> input_block);
   
 struct HWBuffer {
   std::string name;
@@ -69,6 +73,9 @@ struct HWBuffer {
   HWBuffer(size_t num_dims, SlidingStencils &is) :
     dims(std::vector<BufferDimSize>(num_dims)), input_stencil(std::make_shared<SlidingStencils>(is)) { }
   HWBuffer() : input_stencil(nullptr) { }
+
+  HWBuffer(std::string name, std::vector<BufferDimSize> dims, bool is_inlined, bool is_output) :
+    name(name), dims(dims), is_inlined(is_inlined), is_output(is_output) { };
 
 };
 
