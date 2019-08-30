@@ -52,6 +52,8 @@ struct HWBuffer {
   std::string name;
   std::string store_level;
   std::string compute_level;
+  LoopLevel store_looplevel;
+  LoopLevel compute_looplevel = LoopLevel::inlined();
   
   // Parameters for the HWBuffer
   std::vector<BufferDimSize> dims;

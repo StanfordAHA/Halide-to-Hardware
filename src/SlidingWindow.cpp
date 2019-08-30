@@ -279,6 +279,11 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
                      << "Pushing min up from " << min_required << " to " << new_min << "\n"
                      << "Shrinking max from " << max_required << " to " << new_max << "\n";
 
+            std::cout << "Sliding " << func.name() << ", " << dim << "\n"
+                      << "  Pushing min up from " << min_required << " to " << new_min << "\n"
+                      << "  Shrinking max from " << max_required << " to " << new_max << "\n";
+
+            
             // Now redefine the appropriate regions required
             if (can_slide_up) {
                 replacements[prefix + dim + ".min"] = new_min;
@@ -315,7 +320,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
     }
 
     Stmt visit(const For *op) override {
-        // It's nto safe to enter an inner loop whose bounds depend on
+        // It's not safe to enter an inner loop whose bounds depend on
         // the var we're sliding over.
         Expr min = expand_expr(op->min, scope);
         Expr extent = expand_expr(op->extent, scope);
@@ -422,6 +427,7 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
 
         if (op->for_type == ForType::Serial ||
             op->for_type == ForType::Unrolled) {
+            std::cout << "searching for sliding window for " << func.name() << " using loop " << op->name << std::endl;
             SlidingWindowOnFunctionAndLoop sliding_window_mutator = SlidingWindowOnFunctionAndLoop(func, op->name, op->min);
             sliding_window_mutator.mutate(op->body);
 

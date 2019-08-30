@@ -105,6 +105,18 @@ public:
   FirstForName() {}
 };
 
+class FirstProducer : public IRVisitor {
+  using IRVisitor::visit;
+  
+  void visit(const ProducerConsumer *op) {
+    producer = Stmt(op);
+  }
+public:
+  Stmt producer;
+  FirstProducer() {}
+};
+
+
 
 std::string first_for_name(Stmt s) {
   FirstForName ffn;
@@ -435,6 +447,69 @@ public:
 };
 
 
+class ReplaceForBounds : public IRMutator2 {
+  using IRMutator2::visit;
+  Scope<Expr> scope;
+
+  Stmt visit(const LetStmt *op) override {
+    if (!scope.contains(op->name)) {
+    //if (true) {
+      //ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
+      scope.push(op->name, simplify(expand_expr(op->value, scope)));
+      std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
+    } else {
+      std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
+    }
+    return IRMutator2::visit(op);
+  }
+
+  Stmt visit(const For *op) {
+    Expr min = mutate(op->min);
+    Expr extent = mutate(op->extent);
+    Stmt body = mutate(op->body);
+    
+    if (scope.contains(op->name + ".min")) {
+      auto new_min = scope.get(op->name + ".min");
+      auto new_max = scope.get(op->name + ".max");
+      if (!new_min.same_as(min)) {
+        std::cout << op->name << " replaced this min from " << min << " to " << new_min << std::endl;
+        min = new_min;
+        min = 0;
+        //extent = simplify(extent - new_min);
+        extent = 1;
+        auto for_stmt = For::make(op->name, std::move(min), std::move(extent),
+                                  op->for_type, op->device_api, std::move(body));
+
+        //auto return_stmt = LetStmt::make(op->name + ".loop_extent", simplify(new_max-new_min+1), for_stmt);
+        //return_stmt = LetStmt::make(op->name + ".loop_max", new_max, return_stmt);
+        //return_stmt = LetStmt::make(op->name + ".loop_min", new_min, return_stmt);
+        auto return_stmt = LetStmt::make(op->name + ".loop_extent", 1, for_stmt);
+        return_stmt = LetStmt::make(op->name + ".loop_max", 0, return_stmt);
+        return_stmt = LetStmt::make(op->name + ".loop_min", 0, return_stmt);
+        return return_stmt;
+      } else {
+        std::cout << op->name << " same replaced this min from " << min << " to " << new_min << std::endl;
+      }
+      
+    } else {
+      std::cout << "couldn't find for loop " << op->name + ".min\n";
+    }
+
+
+    if (min.same_as(op->min) &&
+        extent.same_as(op->extent) &&
+        body.same_as(op->body)) {
+        return op;
+    }
+    return For::make(op->name, std::move(min), std::move(extent),
+                     op->for_type, op->device_api, std::move(body));
+
+  }
+  
+public:
+  ReplaceForBounds() {}
+};
+
 
 class FindOutputStencil : public IRVisitor {
   using IRVisitor::visit;
@@ -466,10 +541,30 @@ class FindOutputStencil : public IRVisitor {
 
 
     if (op->name == compute_level) {
-      //std::cout << op->body << std::endl;
-      auto box_read = box_required(op->body, var);
+      std::cout << var << " found compute level with for loop " << op->name << std::endl;
 
-      Box box = box_provided(op->body, var);
+      ReplaceForBounds rfb;
+      Stmt new_body = rfb.mutate(op->body);
+
+      std::cout << Stmt(new_body);
+      if (false) {
+        //if (var == "hw_input_7_5_2_64") {
+        FirstProducer fp;
+        (new_body).accept(&fp);
+        new_body = fp.producer;
+        std::cout << "new body: \n" << new_body;
+      }
+
+      //if (scope.contains(op->name + ".min")) {
+      //  std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
+      //} else {
+      //  std::cout << "couldn't find a loop min\n";
+      //}
+      
+      //std::cout << op->body << std::endl;
+      auto box_read = box_required(new_body, var);
+
+      //Box box = box_provided(new_body, var);
       // std::cout << "let's save this output box num_dims=" << func.dimensions() << " box=" << box.size() << "\n";
       // // save the bounds values in scope
       // Scope<Expr> stencil_bounds;
@@ -486,6 +581,7 @@ class FindOutputStencil : public IRVisitor {
       output_stencil_box = vector<Expr>(interval.size());
       output_min_pos_box = vector<Expr>(interval.size());
 
+
       std::cout << "HWBuffer Parameter: " << var << " output stencil size - "
                 << "box extent=[";
 
@@ -499,6 +595,7 @@ class FindOutputStencil : public IRVisitor {
         //output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, scope));
         output_min_pos_box[dim] = interval[dim].min;
         std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+        std::cout << " using " << interval[dim].max - interval[dim].min + 1 << std::endl;
       }
       std::cout << "]\n";
 
@@ -583,7 +680,6 @@ public:
 
 
 
-// Perform sliding window optimization for all functions
 class HWBuffers : public IRMutator2 {
     const map<string, Function> &env;
     Scope<Expr> scope;
@@ -613,22 +709,41 @@ class HWBuffers : public IRMutator2 {
         }
         Function func = iter->second;
 
-
         // If the Function in question has the same compute_at level
         // as its store_at level, we know this is a double buffer.
         std::cout << "creating buffer for realize " << op->name << std::endl;
         string xcel_compute_level = loop_names.at(loop_names.size()-1);
         std::cout << "xcel compute level is " << xcel_compute_level << std::endl;
 
+        LoopLevel store_locked = func.schedule().store_level().lock();
+        string store_varname =
+          store_locked.is_root() ? "root" :
+          store_locked.is_inlined() ? "inlined" :
+          store_locked.var().name();
+        string store_level = sched.store_level().func() + "." + store_varname;
+        LoopLevel compute_locked = func.schedule().compute_level().lock();
+        string compute_varname =
+          compute_locked.is_root() ? "root" :
+          compute_locked.is_inlined() ? "inlined" :
+          compute_locked.var().name();
+        string compute_level = sched.compute_level().func() + "." + compute_varname;
+
+        std::cout << "func " << op->name << " has store=" << store_locked.to_string()
+                  << "  compute=" << compute_locked.to_string() << std::endl;
           
         if (sched.compute_level() == sched.store_level()) {
-        //if (sched.compute_level() == sched.store_level() && op->name != "hw_input") {
-
+          std::cout << op->name << " has compute=store level\n";
+          //std::cout << op->body << std::endl;
           Stmt new_body = op->body;
 
           // use sliding window to get stencil sizes
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
           new_body = mutate(new_body);
+          
+          std::string for_namer = first_for_name(new_body);
+          std::cout << op->name << " sliding output=" << sliding_stencil_map.at(for_namer).output_stencil_box
+                    << " input=" << sliding_stencil_map.at(for_namer).input_chunk_box << std::endl;
+
           
           auto boxes_write = boxes_provided(new_body);
           for (auto box_entry : boxes_write) {
@@ -682,7 +797,6 @@ class HWBuffers : public IRMutator2 {
           FindOutputStencil fos(op->name, func, func_compute_level);
           new_body.accept(&fos);
 
-
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
           //std::cout << "counted: " << new_body << std::endl;
@@ -706,6 +820,8 @@ class HWBuffers : public IRMutator2 {
           HWBuffer hwbuffer(output_block_box.size(), sliding_stencil_map.at(for_name));
           hwbuffer.name = op->name;
           hwbuffer.compute_level = func_compute_level;
+          hwbuffer.compute_looplevel = sched.compute_level();
+          hwbuffer.store_looplevel = sched.store_level();
 
           LoopLevel store_l = sched.store_level();
           hwbuffer.store_level = store_l.lock().func();
@@ -718,13 +834,13 @@ class HWBuffers : public IRMutator2 {
           for (size_t i = 0; i < output_block_box.size(); ++i) {
             hwbuffer.dims.at(i).logical_min = Expr(0); // FIXMEyikes
             hwbuffer.dims[i].logical_size = box.at(i);
-            //hwbuffer.dims[i].input_chunk = box.at(i);
+            hwbuffer.dims[i].input_chunk = box.at(i);
             std::cout << "box dim " << i << " works\n";
-            hwbuffer.dims[i].input_chunk = input_block_box.at(i);
+            //hwbuffer.dims[i].input_chunk = input_block_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
             //hwbuffer.dims[i].output_stencil = box.at(i);
             std::cout << "input dim " << i << " works\n";
-            hwbuffer.dims[i].output_stencil = output_block_box.at(i);
+            //hwbuffer.dims[i].output_stencil = output_block_box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
             std::cout << "output dim " << i << " works\n";
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
@@ -763,10 +879,14 @@ class HWBuffers : public IRMutator2 {
           // Parameters 1 and 2
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
           new_body = mutate(new_body);
+          
+          std::string for_namer = first_for_name(new_body);
+          std::cout << op->name << " sliding output=" << sliding_stencil_map.at(for_namer).output_stencil_box
+                    << " input=" << sliding_stencil_map.at(for_namer).input_chunk_box << std::endl;
+
           FindOutputStencil fos(op->name, func, func_compute_level);
           new_body.accept(&fos);
           auto output_stencil_box = fos.output_stencil_box;
-
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
@@ -807,14 +927,12 @@ class HWBuffers : public IRMutator2 {
           hwbuffer.stride_map = fos.stride_map;
           std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
 
-          
           // check that all of the extracted parameters are of the same vector length
           //FIXMEyikes
           //internal_assert(hwbuffer.dims.size() == output_block_box.size());
           std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while " << total_buffer_box.size() << " num box_dims\n";
           std::cout << " loops are: " << loop_names << std::endl;
 
-          
           //internal_assert(hwbuffer.dims.size() == loop_names.size()) << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
           //internal_assert(loop_names.size() == hwbuffer.input_stencil->output_stencil_box.size());
           //internal_assert(loop_names.size() == sliding_stencil_map.at(for_name).output_stencil_box.size());
@@ -823,7 +941,6 @@ class HWBuffers : public IRMutator2 {
           internal_assert(hwbuffer.dims.size() == output_block_box.size());
           internal_assert(hwbuffer.dims.size() == input_block_box.size());
 
-          
           for (size_t i = 0; i < hwbuffer.dims.size(); ++i) {
             std::cout << "hwbuffer " << hwbuffer.name << " in begin " << i << " here\n";
             hwbuffer.dims[i].logical_size = total_buffer_box.at(i);
@@ -1169,7 +1286,37 @@ void set_opt_params(HWXcel *xcel,
                 << consumer_name << " based on kernel " << consumer.name << std::endl;
       hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
 
-      FindOutputStencil fos(hwbuffer.name, cur_func, consumer_buffer.compute_level);
+      //FindOutputStencil fos(hwbuffer.name, cur_func, consumer_buffer.compute_level);
+      //FindOutputStencil fos(hwbuffer.name, cur_func, xcel->compute_level.lock().func());
+
+      std::string func_compute_level = xcel->streaming_loop_levels.at(xcel->streaming_loop_levels.size()-1);
+      const FuncSchedule &sched = cur_func.schedule();
+      hwbuffer.compute_looplevel = sched.compute_level();
+      
+      for (auto loopname : streaming_loop_levels) {
+        if (hwbuffer.name == "conv0_7_5_3_64") {
+          func_compute_level = "conv1_7_5_3_64.s1.x";
+          break;
+        }
+        if (hwbuffer.name == "hw_input_7_5_3_64") {
+          func_compute_level = "conv0_7_5_3_64.s1.x";
+          break;
+        }
+        
+        
+        if (hwbuffer.compute_looplevel.lock().defined() &&
+            !hwbuffer.compute_looplevel.lock().is_inlined() &&
+            !hwbuffer.compute_looplevel.lock().is_root() &&
+            hwbuffer.compute_looplevel.lock().match(loopname)) {
+          func_compute_level = loopname;
+        }
+      }
+
+      std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name()
+                << "compute=" << cur_func.schedule().compute_level() << std::endl;
+
+      //FindOutputStencil fos(hwbuffer.name, cur_func, xcel->streaming_loop_levels.at(xcel->streaming_loop_levels.size()-1));
+      FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
       consumer_buffer.my_stmt.accept(&fos);
       hwbuffer.stride_map = fos.stride_map;
       std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
