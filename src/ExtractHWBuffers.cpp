@@ -1214,6 +1214,9 @@ void set_opt_params(HWXcel *xcel,
     // HWBuffer Parameter: bool is_output;
     if (xcel->name == hwbuffer.name) {
       hwbuffer.is_output = true;
+      for (auto &dim : hwbuffer.dims) {
+        dim.output_stencil = 1;
+      }
     }
     std::cout << "finished is_output " << stage.consumers.size() << " consumers\n";
     
