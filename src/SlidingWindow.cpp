@@ -488,6 +488,7 @@ class SlidingWindow : public IRMutator2 {
         Stmt new_body = op->body;
 
         debug(3) << "Doing sliding window analysis on realization of " << op->name << "\n";
+        std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
 
         new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
 

@@ -184,12 +184,20 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = allocation_bounds_inference(s, env, func_bounds);
     debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
 
-    
+    std::cout << "doing sliding window lowering pass\n";
+    Stmt s_sliding;
+    if (t.has_feature(Target::CoreIR)) {
+      s_sliding = sliding_window(s, env);
+      std::cout << "finished sliding window lowering pass\n" << s;
+    } else {
+      s = sliding_window(s, env);
+    }
+
     std::cout << "extracting hw buffers\n";
     //auto buffers = extract_hw_buffers(s, env);
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR)) {
-      xcels = extract_hw_accelerators(s, env, inlined_stages);
+      xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
       for (auto hwbuffer : xcels.at(0).hwbuffers) {
         std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       }
@@ -198,13 +206,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Performing sliding window optimization...\n";
     //std::cout << "Performing sliding window optimization...\n" << s << '\n';
     //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
-    if (!t.has_feature(Target::HLS)) {
-      std::cout << "doing sliding window\n";
-      s = sliding_window(s, env);
-    } else {
-
-    }
-
+    //if (!t.has_feature(Target::HLS)) {
     
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
     //std::cout << "Lowering after sliding window:\n" << s << '\n';

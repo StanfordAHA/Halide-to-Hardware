@@ -834,13 +834,13 @@ class HWBuffers : public IRMutator2 {
           for (size_t i = 0; i < output_block_box.size(); ++i) {
             hwbuffer.dims.at(i).logical_min = Expr(0); // FIXMEyikes
             hwbuffer.dims[i].logical_size = box.at(i);
-            hwbuffer.dims[i].input_chunk = box.at(i);
+            //hwbuffer.dims[i].input_chunk = box.at(i);
             std::cout << "box dim " << i << " works\n";
-            //hwbuffer.dims[i].input_chunk = input_block_box.at(i);
+            hwbuffer.dims[i].input_chunk = input_block_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
             //hwbuffer.dims[i].output_stencil = box.at(i);
             std::cout << "input dim " << i << " works\n";
-            //hwbuffer.dims[i].output_stencil = output_block_box.at(i);
+            hwbuffer.dims[i].output_stencil = output_block_box.at(i);
             hwbuffer.dims[i].output_block = output_block_box.at(i);
             std::cout << "output dim " << i << " works\n";
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;

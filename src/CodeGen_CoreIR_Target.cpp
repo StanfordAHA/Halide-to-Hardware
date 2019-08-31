@@ -2489,9 +2489,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     input_range[i] = input_chunk[i] / input_block[i];
   }
 
+  // FIXME: This isn't always the case
   int num_reduction_iter = 1;
   for (size_t i = 0; i < output_stencil.size(); ++i) {
-    internal_assert(output_stencil[i] % output_block[i] == 0);
+    //internal_assert(output_stencil[i] % output_block[i] == 0)
+    //  << a0 << " dim=" << i << " output stencil=" << output_stencil[i] << " + block=" << output_block[i];
     num_reduction_iter *= output_stencil[i] / output_block[i];
   }
   std::cout << "num_reduction_iter=" << num_reduction_iter << std::endl;

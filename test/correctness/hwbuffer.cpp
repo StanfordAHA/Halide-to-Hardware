@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
     //
     //if (conv_hwbuffer_test(3, 16) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
-    if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
+    //if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
 
     printf("Running conv chain hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
