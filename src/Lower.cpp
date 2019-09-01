@@ -187,7 +187,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     std::cout << "doing sliding window lowering pass\n";
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
-      s_sliding = sliding_window(s, env);
+      s_sliding = s;//sliding_window(s, env);
+      //s = sliding_window(s, env);
       std::cout << "finished sliding window lowering pass\n" << s;
     } else {
       s = sliding_window(s, env);
@@ -228,20 +229,24 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
 
-      for (const HWXcel &xcel : xcels) {
-        s = insert_hwbuffers(s, xcel);
-        //std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
-      }
+      bool use_ubuffer = true;
 
-      // vector<HWKernelDAG> dags;
-      // s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
-      // 
-      // std::cout << "Lowering before HLS optimization:\n" << s << '\n';
-      // 
-      // for(const HWKernelDAG &dag : dags) {
-      //   s = stream_opt(s, dag);
-      //   //s = replace_image_param(s, dag);
-      // }
+      if (use_ubuffer) {
+        for (const HWXcel &xcel : xcels) {
+          s = insert_hwbuffers(s, xcel);
+          //std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
+        }
+      } else {
+       vector<HWKernelDAG> dags;
+       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+       
+       std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+       
+       for(const HWKernelDAG &dag : dags) {
+         s = stream_opt(s, dag);
+         //s = replace_image_param(s, dag);
+       }
+      }
 
       //debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
       //std::cout << "Lowering after HLS optimization:\n" << s << '\n';

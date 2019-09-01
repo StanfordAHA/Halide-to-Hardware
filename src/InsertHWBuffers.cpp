@@ -318,6 +318,10 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
         } else {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
+
+            //scope.push("hw_output.s0.x.xi", 0);
+            //scope.push("hw_output.s0.y.yi", 0);
+            
             vector<Expr> new_args(op->args.size());
             internal_assert(new_args.size() == kernel.dims.size());
 
@@ -326,6 +330,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             for (size_t i = 0; i < op->args.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              //new_args[i] = simplify(expand_expr(mutate(op->args[i]), scope));
               std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is " << kernel.dims.at(i).output_min_pos << "\n";
               std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
@@ -337,6 +342,10 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
             std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl
                       << " using min_x=" << kernel.dims.at(0).output_min_pos << std::endl;
+
+
+            //scope.pop("hw_output.s0.x.xi");
+            //scope.pop("hw_output.s0.y.yi");
 
             return Provide::make(stencil_name, new_values, new_args);
         }
@@ -373,6 +382,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                     // FIXME: offset = stencil_kernel.dims[i].min_pos;
                     offset = stencil_kernel.dims[i].output_min_pos;
                 } else {
+                  
                     // This is call to input stencil
                     // we use the min_pos stored in in_kernel.consumer_buffers
                     const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
@@ -383,6 +393,10 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                     offset = it->second->dims.at(i).output_min_pos;
                     std::cout << "offset=" << offset << std::endl;
                     //offset = Expr(0);
+
+                  //offset = Expr(0);
+                  //offset = it->second->dims.at(i).output_min_pos;
+                  
                 }
 
                 Expr new_arg = old_arg - offset;
