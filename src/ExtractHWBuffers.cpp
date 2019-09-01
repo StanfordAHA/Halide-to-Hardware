@@ -456,9 +456,9 @@ class ReplaceForBounds : public IRMutator2 {
     //if (true) {
       //ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       scope.push(op->name, simplify(expand_expr(op->value, scope)));
-      std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
+      //std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
     } else {
-      std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
+      //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
     }
     return IRMutator2::visit(op);
   }
@@ -636,7 +636,7 @@ class FindInputStencil : public IRVisitor {
 
       std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
       // save the bounds values in scope
-      Scope<Expr> stencil_bounds;
+      //Scope<Expr> stencil_bounds;
       if (func.name() == var) {
         for (size_t i = 0; i < box_write.size(); i++) {
           string stage_name = func.name() + ".s0." + func.args()[i];
@@ -670,8 +670,9 @@ public:
   vector<Expr> output_min_pos_box;
   bool found_stencil;
   Function func;
-  FindInputStencil(string v, Function func, string cl) :
-    var(v), compute_level(cl), found_stencil(false), func(func) {}
+  Scope<Expr> &stencil_bounds;
+  FindInputStencil(string v, Function func, string cl, Scope<Expr> &stencil_bounds) :
+    var(v), compute_level(cl), found_stencil(false), func(func), stencil_bounds(stencil_bounds) {}
 };
 
 
@@ -1255,6 +1256,8 @@ void set_opt_params(HWXcel *xcel,
     }
     std::cout << std::endl;
 
+    Scope<Expr> stencil_bounds;
+
     // HWBuffer Parameter: map<string, HWBuffer&> consumer_buffers
     for (size_t j = 0; j < stage.consumers.size(); j++) {
       internal_assert(stage.consumers[j] < (int)inlined_stages.size());
@@ -1338,7 +1341,7 @@ void set_opt_params(HWXcel *xcel,
       std::cout << consumer_buffer.my_stmt;
       
       //FindInputStencil fis(consumer.name, cur_func, hwbuffer.compute_level);
-      FindInputStencil fis(consumer.name, cur_func, func_compute_level);
+      FindInputStencil fis(consumer.name, cur_func, func_compute_level, stencil_bounds);
       hwbuffer.my_stmt.accept(&fis);
 
       //std::cout << hwbuffer.my_stmt << std::endl;
@@ -1367,7 +1370,8 @@ void set_opt_params(HWXcel *xcel,
         
         if (fis.found_stencil && idx < fis.output_min_pos_box.size()) { // this works
           hwbuffer.dims.at(idx).output_min_pos = fis.output_min_pos_box.at(idx);
-          std::cout << "replaced min pos for " << hwbuffer.name << "\n";
+          std::cout << "replaced min pos for " << hwbuffer.name << " " << idx << " with "
+                    << hwbuffer.dims.at(idx).output_min_pos << "\n";
         }
 
         //if (hwbuffer.name == "hw_input") {
@@ -1393,6 +1397,24 @@ void set_opt_params(HWXcel *xcel,
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
       }
     }
+
+    // save the bounds values in scope
+    for (int i = 0; i < cur_func.dimensions(); i++) {
+      string arg = cur_func.name() + ".s" + std::to_string(stage.stage) + "." + cur_func.args()[i];
+      // calculate the max position of the stencil windows
+//      Expr stencil_max;
+//      if (cur_kernel.is_inlined) {
+//        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].size - 1);
+//      } else {
+//        // NOTE we use 'step' here since r we will have line buffer
+//        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].step - 1);
+//      }
+      stencil_bounds.push(arg + ".min", hwbuffer.dims[i].output_min_pos);
+      //stencil_bounds.push(arg + ".max", stencil_max);
+      //store_bounds.push(arg + ".min", cur_kernel.dims[i].store_bound.min);
+      //store_bounds.push(arg + ".max", cur_kernel.dims[i].store_bound.max);
+    }
+
 
   }
 }
