@@ -335,17 +335,17 @@ int main(int argc, char **argv) {
     //if (conv_hwbuffer_test(5, 64) != 0) { return -1; }
     //
     //if (conv_hwbuffer_test(3, 16) != 0) { return -1; }
-    //if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
-    if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
+    if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
+    //if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
 
     printf("Running conv chain hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
 
     if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
-    if (pipeline_hwbuffer_test({3, 1}, 64) != 0) { return -1; }
-    if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
-    if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
+    //if (pipeline_hwbuffer_test({3, 1}, 64) != 0) { return -1; }
+    //if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
+    //if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
 
     
     printf("Success!\n");

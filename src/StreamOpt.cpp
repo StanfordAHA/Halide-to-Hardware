@@ -132,7 +132,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            //std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
+            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
         }

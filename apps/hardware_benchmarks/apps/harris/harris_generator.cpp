@@ -38,12 +38,17 @@ public:
 
         // sobel filter
         Func grad_x_unclamp, grad_y_unclamp, grad_x, grad_y;
-        grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x-1,y-1) +   padded16(x+1,y-1)
-                                             -2*padded16(x-1,y)   + 2*padded16(x+1,y)
-                                               -padded16(x-1,y+1) +   padded16(x+1,y+1));
-        grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
-                                              2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
-                                                padded16(x+1,y+1) -   padded16(x+1,y-1));
+        grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x,  y)   +   padded16(x+2,y)
+                                             -2*padded16(x,  y+1) + 2*padded16(x+2,y+1)
+                                               -padded16(x,  y+2) +   padded16(x+2,y+2));
+        grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x,  y+2) -   padded16(x,  y) +
+                                              2*padded16(x+1,y+2) - 2*padded16(x+1,y) +
+                                                padded16(x+2,y+2) -   padded16(x+2,y));
+        //RDom r(0, 3, 0, 3);
+        //grad_x_unclamp(x, y) = 0;
+        //grad_x_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
+        //grad_y_unclamp(x, y) = 0;
+        //grad_y_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
 
         grad_x(x, y) = clamp(grad_x_unclamp(x,y), -255, 255);
         grad_y(x, y) = clamp(grad_y_unclamp(x,y), -255, 255);
@@ -120,8 +125,8 @@ public:
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
         
-          grad_x.linebuffer();
-          grad_y.linebuffer();
+          //grad_x.linebuffer();
+          //grad_y.linebuffer();
           lxx.linebuffer();
           lyy.linebuffer();
           lxy.linebuffer();

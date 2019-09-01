@@ -265,11 +265,13 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
 
             Expr new_min, new_max;
             if (can_slide_up) {
-                new_min = select(loop_var_expr <= loop_min, min_required, likely_if_innermost(prev_max_plus_one));
+              //new_min = select(loop_var_expr <= loop_min, min_required, likely_if_innermost(prev_max_plus_one));
+              new_min = prev_max_plus_one;
                 new_max = max_required;
             } else {
                 new_min = min_required;
-                new_max = select(loop_var_expr <= loop_min, max_required, likely_if_innermost(prev_min_minus_one));
+                //new_max = select(loop_var_expr <= loop_min, max_required, likely_if_innermost(prev_min_minus_one));
+                new_max = prev_min_minus_one;
             }
 
             Expr early_stages_min_required = new_min;
@@ -488,6 +490,7 @@ class SlidingWindow : public IRMutator2 {
         Stmt new_body = op->body;
 
         debug(3) << "Doing sliding window analysis on realization of " << op->name << "\n";
+        std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
 
         new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
 

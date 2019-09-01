@@ -33,7 +33,10 @@ class ExpandExpr : public IRMutator2 {
           debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
           //std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
           return scope.get(var->name);
+
+
         } else {
+          std::cout << "Scope does not contain  " << var->name << "\n";
           return var;
         }
     }
@@ -50,6 +53,40 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     debug(4) << "Expanded " << e << " into " << result << "\n";
     return result;
 }
+
+class ExpandExprNoVar : public IRMutator2 {
+    using IRMutator2::visit;
+    const Scope<Expr> &scope;
+
+    Expr visit(const Variable *var) {
+        if (scope.contains(var->name)) {
+          debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          //std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          if (var->name == "hw_output.s0.x.xi") { return Expr(0); }
+          if (var->name == "hw_output.s0.y.yi") { return Expr(0); }
+          return Expr(0);
+          //return scope.get(var->name);
+
+
+        } else {
+          std::cout << "Scope does not contain  " << var->name << "\n";
+          return var;
+        }
+    }
+
+public:
+    ExpandExprNoVar(const Scope<Expr> &s) : scope(s) {}
+
+};
+
+// Perform all the substitutions in a scope
+Expr expand_expr_no_var(Expr e, const Scope<Expr> &scope) {
+    ExpandExprNoVar ee(scope);
+    Expr result = ee.mutate(e);
+    debug(4) << "Expanded " << e << " into " << result << "\n";
+    return result;
+}
+
 
 class IdentifyAddressingVar : public IRVisitor {
   int asserts_found;
@@ -318,6 +355,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
         } else {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
+
             vector<Expr> new_args(op->args.size());
             internal_assert(new_args.size() == kernel.dims.size());
 
@@ -325,7 +363,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             //   func.s0.x -> func.stencil.x
             for (size_t i = 0; i < op->args.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
-              new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]), scope));
               std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is " << kernel.dims.at(i).output_min_pos << "\n";
               std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
@@ -362,6 +401,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             string stencil_name = stencil_kernel.name + ".stencil";
             vector<Expr> new_args(op->args.size());
 
+
             // Mutate the arguments.
             // The value of the new argment is the old_value - stencil.min_pos.
             // The new value shouldn't refer to old loop vars any more
@@ -369,10 +409,14 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 Expr old_arg = mutate(op->args[i]);
                 Expr offset;
                 if (stencil_kernel.name == kernel.name) {
+                //if (false) {
                     // The call is in an update definition of the kernel itself
                     // FIXME: offset = stencil_kernel.dims[i].min_pos;
                     offset = stencil_kernel.dims[i].output_min_pos;
-                } else {
+                    std::cout << "offset from own kernel for " << kernel.name << std::endl;
+                    std::cout << "offset=" << offset << std::endl;
+                } else { // this works 
+                  
                     // This is call to input stencil
                     // we use the min_pos stored in in_kernel.consumer_buffers
                     const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
@@ -383,21 +427,28 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                     offset = it->second->dims.at(i).output_min_pos;
                     std::cout << "offset=" << offset << std::endl;
                     //offset = Expr(0);
+
+                  //offset = Expr(0);
+                  //offset = it->second->dims.at(i).output_min_pos;
+                  
                 }
 
+                offset = Expr(0);
                 Expr new_arg = old_arg - offset;
-                new_arg = simplify(expand_expr(new_arg, scope));
+                new_arg = simplify(expand_expr_no_var(new_arg, scope));
                 std::cout << "new_arg" << i << " = " << new_arg << std::endl;
                 // TODO check if the new_arg only depends on the loop vars
                 // inside the producer
                 new_args[i] = new_arg;
-                //std::cout << "offset=" << offset << " since stencil_name=" << stencil_kernel.name << " kernel_name=" <<  kernel.name << "\n";
+                std::cout << "replacing call to " << op->name << ": "
+                  << "offset=" << offset << " since stencil_name=" << stencil_kernel.name << " kernel_name=" <<  kernel.name << "\n";
             }
             Expr expr = Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
             debug(4) << "replacing call "  << Expr(op) << " with\n"
                      << "\t" << expr << "\n";
             std::cout << "done with call\n";
             std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
+
             return expr;
         } else {
           return IRMutator2::visit(op);
