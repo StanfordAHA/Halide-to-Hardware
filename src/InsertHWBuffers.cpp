@@ -186,9 +186,11 @@ class IdentifyAddressing : public IRVisitor {
     if (dim_map.count(varname)>0) {
       std::cout << "this is a streaming loop: " << varname << " for " << op->name << "\n";
 
+      cout << "stride_map: ";
       for (const auto& string_int_pair : stride_map) {
-        std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
+        std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
       }
+      std::cout << std::endl;
       
       std::cout << " and mapcount=" << stride_map.size() << " " << stride_map.count(varname) << std::endl;
       int stride = stride_map.count(varname)>0 ? stride_map.at(varname).stride : 1;

@@ -391,7 +391,7 @@ class FindVarStride : public IRVisitor {
   void visit(const Call *op) {
     if (op->name == varname) {
       in_var = true;
-      //std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
+      std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
       IRVisitor::visit(op);
       in_var = false;
     } else {
@@ -401,12 +401,15 @@ class FindVarStride : public IRVisitor {
   void visit(const Div *op) {
     //std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
     if (is_const(op->b)) {
-      cur_stride *= id_const_value(op->b);
-      //std::cout << "div setting to " << cur_stride << "\n";
-      in_div = true;
-      op->a.accept(this);
-      in_div = false;
-      cur_stride /= id_const_value(op->b);
+      if (in_var) {
+        cur_stride *= id_const_value(op->b);
+        in_div = true;
+        op->a.accept(this);
+        in_div = false;
+        cur_stride /= id_const_value(op->b);
+      } else {
+        op->a.accept(this);
+      }
       //std::cout << "div setting to " << cur_stride << "\n";
       
     } else {
@@ -417,18 +420,22 @@ class FindVarStride : public IRVisitor {
   void visit(const Mul *op) {
     //std::cout << "this is a multiply: " << Expr(op) << std::endl;
     if (is_const(op->a)) {
-      cur_stride *= id_const_value(op->a);
-      //std::cout << "mult setting to " << cur_stride << "\n";
-      op->b.accept(this);
-      cur_stride /= id_const_value(op->a);
-      //std::cout << "mult setting to " << cur_stride << "\n";
+      if (in_var) {
+        cur_stride *= id_const_value(op->a);
+        op->b.accept(this);
+        cur_stride /= id_const_value(op->a);
+      } else {
+        op->b.accept(this);
+      }
       
     } else if (is_const(op->b)) {
-      cur_stride *= id_const_value(op->b);
-      //std::cout << "mult setting to " << cur_stride << "\n";
-      op->a.accept(this);
-      cur_stride /= id_const_value(op->b);
-      //std::cout << "mult setting to " << cur_stride << "\n";
+      if (in_var) {
+        cur_stride *= id_const_value(op->b);
+        op->a.accept(this);
+        cur_stride /= id_const_value(op->b);
+      } else {
+        op->a.accept(this);
+      }
       
     } else {
       op->a.accept(this);
@@ -537,7 +544,7 @@ class FindOutputStencil : public IRVisitor {
     
     std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
               << " stride_map[" << varname << "]=" << stride_map[varname].stride << std::endl;
-    //std::cout << op->body << std::endl;
+    std::cout << op->body << std::endl;
 
 
     if (op->name == compute_level) {
@@ -637,11 +644,13 @@ class FindInputStencil : public IRVisitor {
       std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
       // save the bounds values in scope
       //Scope<Expr> stencil_bounds;
+      std::cout << "doing findinputstencil for " << var << " " << stencil_bounds << std::endl;
       if (func.name() == var) {
         for (size_t i = 0; i < box_write.size(); i++) {
           string stage_name = func.name() + ".s0." + func.args()[i];
           stencil_bounds.push(stage_name + ".min", box_write[i].min);
           stencil_bounds.push(stage_name + ".max", box_write[i].max);
+          std::cout << "this is stage: " << stage_name << " " << stencil_bounds << std::endl;
         }
       }
 
@@ -713,6 +722,7 @@ class HWBuffers : public IRMutator2 {
         // as its store_at level, we know this is a double buffer.
         std::cout << "creating buffer for realize " << op->name << std::endl;
         string xcel_compute_level = loop_names.at(loop_names.size()-1);
+        string xcel_store_level = loop_names.at(0);
         std::cout << "xcel compute level is " << xcel_compute_level << std::endl;
 
         LoopLevel store_locked = func.schedule().store_level().lock();
@@ -793,8 +803,9 @@ class HWBuffers : public IRMutator2 {
           //LoopLevel compute_l = sched.compute_level();
           //string func_compute_level = compute_l.lock().to_string();
           auto func_compute_level = xcel_compute_level;
+          auto func_store_level = xcel_store_level;
           
-          FindOutputStencil fos(op->name, func, func_compute_level);
+          FindOutputStencil fos(op->name, func, func_store_level);
           new_body.accept(&fos);
 
           CountBufferUsers counter(op->name);
@@ -1168,6 +1179,18 @@ void set_opt_params(HWXcel *xcel,
   bool in_output = true;
   // scan through each stage before the output stage
 
+  Scope<Expr> stencil_bounds;
+//  if (func.name() == var) {
+//    for (size_t i = 0; i < box_write.size(); i++) {
+//      string stage_name = func.name() + ".s0." + func.args()[i];
+//      stencil_bounds.push(stage_name + ".min", box_write[i].min);
+//      stencil_bounds.push(stage_name + ".max", box_write[i].max);
+//    }
+//  }
+//  FindInputStencil fis(consumer.name, cur_func, func_compute_level, stencil_bounds);
+//  hwbuffer.my_stmt.accept(&fis);
+
+
   while (i >= 1) {
     i--;
     const BoundsInference_Stage &stage = inlined_stages[i];
@@ -1258,8 +1281,6 @@ void set_opt_params(HWXcel *xcel,
       std::cout << consumer.name << ",";
     }
     std::cout << std::endl;
-
-    Scope<Expr> stencil_bounds;
 
     // HWBuffer Parameter: map<string, HWBuffer&> consumer_buffers
     for (size_t j = 0; j < stage.consumers.size(); j++) {
@@ -1398,7 +1419,31 @@ void set_opt_params(HWXcel *xcel,
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        
       }
+
+
+    // save the bounds values in scope
+    for (int i = 0; i < cur_func.dimensions(); i++) {
+      string arg = consumer.name + ".s" + std::to_string(stage.stage) + "." + cur_func.args()[i];
+      // calculate the max position of the stencil windows
+//      Expr stencil_max;
+//      if (cur_kernel.is_inlined) {
+//        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].size - 1);
+//      } else {
+//        // NOTE we use 'step' here since r we will have line buffer
+//        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].step - 1);
+//      }
+      stencil_bounds.push(arg + ".min", hwbuffer.dims[i].output_min_pos);
+      std::cout << "pushed min pos " << arg + ".min" << " " << i << "=" << hwbuffer.dims[i].output_min_pos
+                << "   " << stencil_bounds << "\n";
+      //stencil_bounds.push(arg + ".max", stencil_max);
+      //store_bounds.push(arg + ".min", cur_kernel.dims[i].store_bound.min);
+      //store_bounds.push(arg + ".max", cur_kernel.dims[i].store_bound.max);
+    }
+
+
+      
     }
 
     // save the bounds values in scope
@@ -1413,10 +1458,29 @@ void set_opt_params(HWXcel *xcel,
 //        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].step - 1);
 //      }
       stencil_bounds.push(arg + ".min", hwbuffer.dims[i].output_min_pos);
+      std::cout << "pushed min pos " << arg + ".min" << " " << i << "=" << hwbuffer.dims[i].output_min_pos
+                << "   " << stencil_bounds << "\n";
       //stencil_bounds.push(arg + ".max", stencil_max);
       //store_bounds.push(arg + ".min", cur_kernel.dims[i].store_bound.min);
       //store_bounds.push(arg + ".max", cur_kernel.dims[i].store_bound.max);
     }
+    if(stage.stage > 0) {
+      //const Definition &r = cur_func.updates()[stage.stage - 1];
+      StageSchedule update_schedule = cur_func.update_schedule(stage.stage - 1);
+      // TODO check the sliding dimensions are all pure, referring to
+      // BoundsInference::Stage::define_bounds()
+      //if (r.domain.defined()) {
+      for (ReductionVariable i : update_schedule.rvars()) {
+        string arg = cur_func.name() + ".s" + std::to_string(stage.stage) + "." + i.var;
+        internal_assert(is_const(i.min));
+        internal_assert(is_const(i.extent));
+        Expr min = i.min;
+        Expr max = simplify(i.extent + i.min - 1);
+        stencil_bounds.push(arg + ".min", min);
+        stencil_bounds.push(arg + ".max", max);
+      }
+    }
+
 
 
   }
