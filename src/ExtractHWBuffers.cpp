@@ -11,7 +11,6 @@
 #include "Scope.h"
 #include "Simplify.h"
 #include "Substitute.h"
-//#include "Var.h"
 
 namespace Halide {
 namespace Internal {
@@ -20,6 +19,57 @@ using std::map;
 using std::vector;
 using std::string;
 
+std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+
+std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
+  vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
+  vector<Expr> output_stencil_box, output_block_box, output_min_pos;
+  for (const auto dim : buffer.dims) {
+    total_buffer_box.emplace_back(dim.logical_size);
+    input_chunk_box.emplace_back(dim.input_chunk);
+    input_block_box.emplace_back(dim.input_block);
+    output_stencil_box.emplace_back(dim.output_stencil);
+    output_block_box.emplace_back(dim.output_block);
+    output_min_pos.emplace_back(dim.output_min_pos);
+  }
+  
+  os << "HWBuffer: " << buffer.name << std::endl
+     << "Logical Buffer: " << total_buffer_box << std::endl
+     << "Input Chunk: " << input_chunk_box << std::endl
+     << "Input Block: " << input_block_box << std::endl
+     << "Output Stencil: " << output_stencil_box << std::endl
+     << "Output Block: " << output_block_box << std::endl
+     << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl
+     << "Output Min Pos:\n " << output_min_pos << std::endl
+     << "is_inline=" << buffer.is_inlined << std::endl
+     << "is_output=" << buffer.is_output << std::endl;
+
+  
+  return os;
+};
 
 std::vector<BufferDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
                                                  std::vector<int> output_stencil, std::vector<int> output_block,
@@ -105,26 +155,13 @@ public:
   FirstForName() {}
 };
 
-class FirstProducer : public IRVisitor {
-  using IRVisitor::visit;
-  
-  void visit(const ProducerConsumer *op) {
-    producer = Stmt(op);
-  }
-public:
-  Stmt producer;
-  FirstProducer() {}
-};
-
-
-
 std::string first_for_name(Stmt s) {
   FirstForName ffn;
   s.accept(&ffn);
   return ffn.var;
 }
 
-class ContainsAtLevel : public IRVisitor {
+class ExamineLoopLevel : public IRVisitor {
   using IRVisitor::visit;
   
   void visit(const For *op) {
@@ -152,21 +189,21 @@ public:
   bool found_provide;
   bool found_call;
   string var;
-  ContainsAtLevel(string var) : found_provide(false), found_call(false), var(var) {}
+  ExamineLoopLevel(string var) : found_provide(false), found_call(false), var(var) {}
 };
 
 // return if provide creates the var at this level (not recursing into serial loops)
 bool provide_at_level(Stmt s, string var = "") {
-  ContainsAtLevel cal(var);
-  s.accept(&cal);
-  return cal.found_provide;
+  ExamineLoopLevel ell(var);
+  s.accept(&ell);
+  return ell.found_provide;
 }
 
 // return if call uses the var at this level (not recursing into serial loops)
 bool call_at_level(Stmt s, string var = "") {
-  ContainsAtLevel cal(var);
-  s.accept(&cal);
-  return cal.found_call;
+  ExamineLoopLevel ell(var);
+  s.accept(&ell);
+  return ell.found_call;
 }
   
 class ExpandExpr : public IRMutator2 {
@@ -410,7 +447,6 @@ class FindVarStride : public IRVisitor {
       } else {
         op->a.accept(this);
       }
-      //std::cout << "div setting to " << cur_stride << "\n";
       
     } else {
       IRVisitor::visit(op);
@@ -554,13 +590,6 @@ class FindOutputStencil : public IRVisitor {
       Stmt new_body = rfb.mutate(op->body);
 
       std::cout << Stmt(new_body);
-      if (false) {
-        //if (var == "hw_input_7_5_2_64") {
-        FirstProducer fp;
-        (new_body).accept(&fp);
-        new_body = fp.producer;
-        std::cout << "new body: \n" << new_body;
-      }
 
       //if (scope.contains(op->name + ".min")) {
       //  std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
@@ -737,7 +766,6 @@ class HWBuffers : public IRMutator2 {
           compute_locked.is_inlined() ? "inlined" :
           compute_locked.var().name();
         string compute_level = sched.compute_level().func() + "." + compute_varname;
-
         std::cout << "func " << op->name << " has store=" << store_locked.to_string()
                   << "  compute=" << compute_locked.to_string() << std::endl;
           
@@ -776,32 +804,24 @@ class HWBuffers : public IRMutator2 {
           std::cout << "HWBuffer Parameter: Total buffer box is of size [";          
           for (size_t i=0; i<box.size(); ++i) {
             std::cout << box[i];
-            if (i < box.size() - 1) {
-              std::cout << " ";
-            }
+            if (i < box.size() - 1) { std::cout << " "; }
           }
           std::cout << "]\n";
 
           std::cout << "HWBuffer Parameter: Input Chunk box is of size [";
           for (size_t i=0; i<box.size(); ++i) {
             std::cout << box[i];
-            if (i < box.size() - 1) {
-              std::cout << " ";
-            }
+            if (i < box.size() - 1) { std::cout << " "; }
           }
           std::cout << "]\n";
           
           std::cout << "HWBuffer Parameter: Output Stencil box is of size [";
           for (size_t i=0; i<box.size(); ++i) {
             std::cout << box[i];
-            if (i < box.size() - 1) {
-              std::cout << " ";
-            }
+            if (i < box.size() - 1) { std::cout << " "; }
           }
           std::cout << "]\n";
 
-          //LoopLevel compute_l = sched.compute_level();
-          //string func_compute_level = compute_l.lock().to_string();
           auto func_compute_level = xcel_compute_level;
           auto func_store_level = xcel_store_level;
           
@@ -810,7 +830,7 @@ class HWBuffers : public IRMutator2 {
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
-          //std::cout << "counted: " << new_body << std::endl;
+
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
           std::cout << "output block: " << output_block_box << std::endl;
@@ -823,7 +843,6 @@ class HWBuffers : public IRMutator2 {
 
           internal_assert(boxes_read.at(op->name).size() == output_block_box.size());
           //internal_assert(boxes_read.at(op->name).size() == input_block_box.size());
-
           
           std::cout << "transferring parameters\n";
 
@@ -871,17 +890,12 @@ class HWBuffers : public IRMutator2 {
             buffers[hwbuffer.name] = hwbuffer;
           }
           
-          //std::cout << "new body with sliding for " << op->name << "\n"
-          //          << "old body: \n" << op->body
-          //          << "new body: \n" << new_body << '\n';
-
           return IRMutator2::visit(op);
           
         } else {
           // look for a sliding window that can be used in a line buffer
           Stmt new_body = op->body;
-          //LoopLevel compute_l = sched.compute_level();
-          //string func_compute_level = compute_l.lock().to_string();
+
           auto func_compute_level = xcel_compute_level;
 
           std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
@@ -901,6 +915,7 @@ class HWBuffers : public IRMutator2 {
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
+          
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
           auto input_block_box = counter.input_block_box;
@@ -920,13 +935,11 @@ class HWBuffers : public IRMutator2 {
           // Parameter 6
           auto total_buffer_box = vector<Expr>(i_max);
           for (size_t i=0; i<i_max; ++i) {
-            //Expr extent = simplify(boxes_read[op->name][i].max - boxes_read[op->name][i].min + 1);
             Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
             total_buffer_box[i] = extent;
 
-            if (i < i_max - 1) {
-              std::cout << extent << " ";
-            }
+            std::cout << total_buffer_box[i];
+            if (i < i_max - 1) { std::cout << extent << " "; }
           }
           std::cout << "]\n";
 
@@ -988,11 +1001,6 @@ class HWBuffers : public IRMutator2 {
           }
           std::cout << std::endl;
 
-          
-          //std::cout << "new body with sliding for " << op->name << "\n"
-          //          << "old body: \n" << op->body
-          //          << "new body: \n" << new_body << '\n';
-          
           return Realize::make(op->name, op->types, op->memory_type,
                                op->bounds, op->condition, new_body);
         }
@@ -1005,58 +1013,6 @@ public:
   std::map<std::string, HWBuffer> buffers;
   const std::vector<std::string> &loop_names;
     
-};
-
-std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
-  os << "[";
-  for (size_t i=0; i<vec.size(); ++i) {
-    os << vec.at(i);
-    if (i < vec.size() - 1) {
-      os << ",";
-    }
-  }
-  os << "]";
-  return os;
-};
-
-std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec) {
-  os << "[";
-  for (size_t i=0; i<vec.size(); ++i) {
-    os << vec.at(i);
-    if (i < vec.size() - 1) {
-      os << ",";
-    }
-  }
-  os << "]";
-  return os;
-};
-
-
-std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
-  vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
-  vector<Expr> output_stencil_box, output_block_box, output_min_pos;
-  for (const auto dim : buffer.dims) {
-    total_buffer_box.emplace_back(dim.logical_size);
-    input_chunk_box.emplace_back(dim.input_chunk);
-    input_block_box.emplace_back(dim.input_block);
-    output_stencil_box.emplace_back(dim.output_stencil);
-    output_block_box.emplace_back(dim.output_block);
-    output_min_pos.emplace_back(dim.output_min_pos);
-  }
-  
-  os << "HWBuffer: " << buffer.name << std::endl
-     << "Logical Buffer: " << total_buffer_box << std::endl
-     << "Input Chunk: " << input_chunk_box << std::endl
-     << "Input Block: " << input_block_box << std::endl
-     << "Output Stencil: " << output_stencil_box << std::endl
-     << "Output Block: " << output_block_box << std::endl
-     << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl
-     << "Output Min Pos:\n " << output_min_pos << std::endl
-     << "is_inline=" << buffer.is_inlined << std::endl
-     << "is_output=" << buffer.is_output << std::endl;
-
-  
-  return os;
 };
 
 map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &env,
@@ -1208,9 +1164,11 @@ void set_opt_params(HWXcel *xcel,
     }
     
     auto iterator = std::find_if(hwbuffers.begin(), hwbuffers.end(), [stage](const std::pair<std::string, HWBuffer>& buffer_pair){
-        if (stage.name == buffer_pair.first)
+        if (stage.name == buffer_pair.first) {
           return true;
-        return false;
+        } else {
+          return false;
+        }
       });
     internal_assert(iterator != hwbuffers.end());
     auto &hwbuffer = iterator->second;
@@ -1394,6 +1352,11 @@ void set_opt_params(HWXcel *xcel,
         
         if (fis.found_stencil && idx < fis.output_min_pos_box.size()) { // this works
           hwbuffer.dims.at(idx).output_min_pos = fis.output_min_pos_box.at(idx);
+          
+          if (is_zero(hwbuffer.dims.at(idx).output_min_pos)) {
+            hwbuffer.dims.at(idx).output_min_pos = consumer_buffer.dims.at(idx).output_min_pos;
+          }
+          
           std::cout << "replaced min pos for " << hwbuffer.name << " " << idx << " with "
                     << hwbuffer.dims.at(idx).output_min_pos << "\n";
         }
@@ -1527,9 +1490,8 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
+    
     Function func = p.second;
-    //std::cout << "Found function " << func.name() << "\n";
-
     // skip this function if it is not accelerated
     if(!func.schedule().is_accelerated())
       continue;
@@ -1540,9 +1502,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       store_locked.is_root() ? "root" :
       store_locked.is_inlined() ? "inlined" :
       store_locked.var().name();
-    if (!store_locked.defined() || !starts_with(func.name(), "hw_output")) {
-      //continue;
-    }
+
     debug(3) << "Found accelerate function " << func.name() << "\n";
     std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";

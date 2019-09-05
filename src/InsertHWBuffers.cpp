@@ -366,7 +366,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             for (size_t i = 0; i < op->args.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
-              new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]), scope));
+              new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              //new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]), scope));
               std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is " << kernel.dims.at(i).output_min_pos << "\n";
               std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
@@ -435,9 +436,10 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                   
                 }
 
-                offset = Expr(0);
+                //offset = Expr(0);
                 Expr new_arg = old_arg - offset;
-                new_arg = simplify(expand_expr_no_var(new_arg, scope));
+                //new_arg = simplify(expand_expr_no_var(new_arg, scope));
+                new_arg = simplify(expand_expr(new_arg, scope));
                 std::cout << "new_arg" << i << " = " << new_arg << std::endl;
                 // TODO check if the new_arg only depends on the loop vars
                 // inside the producer
