@@ -747,6 +747,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     });
   }
 
+  if (context->hasModule("global.DesignTop")) {
+    return;
+  }
+
   design = global_ns->newModuleDecl("DesignTop", design_type);
   design->print();
   def = design->newModuleDef();
