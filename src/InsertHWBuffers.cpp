@@ -377,7 +377,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl
+            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op
                       << " using min_x=" << kernel.dims.at(0).output_min_pos << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
@@ -436,6 +436,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                   
                 }
 
+                offset = stencil_kernel.dims[i].output_min_pos;
                 //offset = Expr(0);
                 Expr new_arg = old_arg - offset;
                 //new_arg = simplify(expand_expr_no_var(new_arg, scope));

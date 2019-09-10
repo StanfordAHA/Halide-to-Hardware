@@ -674,6 +674,7 @@ class FindInputStencil : public IRVisitor {
       // save the bounds values in scope
       //Scope<Expr> stencil_bounds;
       std::cout << "doing findinputstencil for " << var << " " << stencil_bounds << std::endl;
+      std::cout << op->body << std::endl;
       if (func.name() == var) {
         for (size_t i = 0; i < box_write.size(); i++) {
           string stage_name = func.name() + ".s0." + func.args()[i];
@@ -1355,6 +1356,12 @@ void set_opt_params(HWXcel *xcel,
           
           if (is_zero(hwbuffer.dims.at(idx).output_min_pos)) {
             hwbuffer.dims.at(idx).output_min_pos = consumer_buffer.dims.at(idx).output_min_pos;
+
+            //if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
+            //  std::cout << "old min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+            //  hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
+            //  std::cout << "new min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+            //}
           }
           
           std::cout << "replaced min pos for " << hwbuffer.name << " " << idx << " with "
@@ -1370,9 +1377,16 @@ void set_opt_params(HWXcel *xcel,
         if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
           std::cout << "replaced output stencil for " << hwbuffer.name << " based on consumer " << consumer.name << std::endl;
+          std::cout << "output min position is: " << fos.output_min_pos_box.at(idx) << std::endl;
 
-          //hwbuffer.dims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
           //hwbuffer.dims.at(idx).output_stencil = hwbuffer.dims.at(idx).output_block;
+          //if (!hwbuffer.dims.at(idx).output_min_pos.same_as(fos.output_min_pos_box.at(idx))) {
+          //  std::cout << "old min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+          if (!consumer_buffer.is_output) {
+            hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
+          }
+          //  std::cout << "new min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+          //}
         }
         std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
                   << " and output=" << hwbuffer.dims.at(idx).output_stencil << std::endl;
