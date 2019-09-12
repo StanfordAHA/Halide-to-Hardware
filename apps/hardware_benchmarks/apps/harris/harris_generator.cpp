@@ -71,8 +71,8 @@ public:
 
         // box filter (i.e. windowed sum)
         Func lgxx, lgyy, lgxy;
-        //RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
-        RDom box(0, blockSize, 0, blockSize);
+        RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        //RDom box(0, blockSize, 0, blockSize);
         lgxx(x, y) += lxx(x+box.x, y+box.y);
         lgyy(x, y) += lyy(x+box.x, y+box.y);
         lgxy(x, y) += lxy(x+box.x, y+box.y);
