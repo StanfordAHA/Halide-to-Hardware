@@ -1052,6 +1052,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Stmt ret_consume = ProducerConsumer::make_consume(stream_name, Evaluate::make(0));
         Stmt ret_pc = Block::make(ret_produce, ret_consume);
         ret = ret_pc;
+        std::cout << "finished with output stencil:\n" << ret_pc;
     }
     return ret;
 }
