@@ -100,8 +100,10 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        //hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
-        hw_output(x, y) = cast<uint8_t>(cim(x,y));
+        Func cim_output;
+        cim_output(x,y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cim_output(x,y);
+        //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
 
 
@@ -134,6 +136,7 @@ public:
           lgyy.linebuffer();
           lgxy.linebuffer();
           cim.linebuffer();
+          cim_output.linebuffer();
 
           lgxx.update(0).unroll(box.x).unroll(box.y);
           lgyy.update(0).unroll(box.x).unroll(box.y);

@@ -2681,6 +2681,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     def->connect(ub_wen->sel("out"), coreir_ub->sel("wen"));
   }
 
+  CoreIR::Wireable* ub_ren = def->addInstance(ub_name+"_ren", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
+  def->connect(ub_ren->sel("out"), coreir_ub->sel("ren"));
   
 }
 
