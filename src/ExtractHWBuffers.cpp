@@ -1108,11 +1108,61 @@ vector<string> get_loop_levels_between(Stmt s, Function func,
   return fil.inner_loops;
 }
 
+class FindOutputBounds : public IRVisitor {
+  LoopLevel compute_level;
+  Function func;
+
+  using IRVisitor::visit;
+
+  void visit(const For *op) {
+    //std::cout << "visiting " << op->name << std::endl;
+    if (compute_level.match(op->name)) {
+      Box box = box_provided(op->body, func.name());
+      output_bounds = box;
+    }
+    IRVisitor::visit(op);
+  }
+
+public:
+  Box output_bounds;
+  
+  FindOutputBounds(LoopLevel compute, Function func)
+    : compute_level(compute), func(func) {
+    std::cout << "func trying to find output bounds: " << func.name()
+              << " " << compute.var().name() << std::endl;
+  }
+};
+
+Box find_output_bounds(Stmt s, Function func,
+                       LoopLevel compute_level) {
+  FindOutputBounds fob(compute_level, func);
+  s.accept(&fob);
+  return fob.output_bounds;
+}
+
+void find_output_scope(Stmt s, Function func,
+                       LoopLevel compute_level,
+                       Scope<Expr> &scope) {
+  FindOutputBounds fob(compute_level, func);
+  s.accept(&fob);
+  auto box = fob.output_bounds;
+  
+  for (int i = 0; i < func.dimensions(); i++) {
+    string stage_name = func.name() + ".s0." + func.args()[i];
+    scope.push(stage_name + ".min", box[i].min);
+    std::cout << stage_name << ".min being set to " << box[i].min << std::endl;
+    scope.push(stage_name + ".max", box[i].max);
+  }
+}
+
+
 // Second pass through hwbuffers, setting some more parameters.
 void set_opt_params(HWXcel *xcel, 
                     const map<string, Function> &env,
                     const vector<BoundsInference_Stage> &inlined_stages,
-                    const vector<string> &streaming_loop_levels) {
+                    const vector<string> &streaming_loop_levels,
+                    Scope<Expr>& output_scope,
+                    Box output_bounds) {
 
   auto &hwbuffers = xcel->hwbuffers;
   size_t i = inlined_stages.size() - 1 + 1;
@@ -1121,7 +1171,9 @@ void set_opt_params(HWXcel *xcel,
   bool in_output = true;
   // scan through each stage before the output stage
 
-  Scope<Expr> stencil_bounds;
+  Scope<Expr>& stencil_bounds = output_scope;
+  std::cout << "stencil bounds when in the set_opt method: " << stencil_bounds << std::endl;
+    
 //  if (func.name() == var) {
 //    for (size_t i = 0; i < box_write.size(); i++) {
 //      string stage_name = func.name() + ".s0." + func.args()[i];
@@ -1362,9 +1414,13 @@ void set_opt_params(HWXcel *xcel,
         }
 
         //hwbuffer.dims.at(idx).output_min_pos = simplify(hwbuffer.dims.at(idx).output_min_pos);
-        if (!consumer_buffer.is_output) {
+        //if (!consumer_buffer.is_output) {
+        if (true) {
           hwbuffer.dims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
           std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+        //} else {
+        //  hwbuffer.dims.at(idx).output_min_pos = output_bounds[idx].min;
+        //  std::cout << "replaced output bounds min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
         }
         
         std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
@@ -1378,7 +1434,7 @@ void set_opt_params(HWXcel *xcel,
         
       }
 
-      if (consumer_buffer.is_output && starts_with(hwbuffer.name, "demosaick")) {
+      if (consumer_buffer.is_output && starts_with(hwbuffer.name, "demosaick") && false) {
         hwbuffer.dims.at(0).output_min_pos = hwbuffer.dims.at(1).output_min_pos;
         hwbuffer.dims.at(1).output_min_pos = hwbuffer.dims.at(2).output_min_pos;
         hwbuffer.dims.at(2).output_min_pos = 0;
@@ -1459,10 +1515,17 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     std::cout << streaming_loop_name << " ";
   }
   std::cout << "\n";
+
+  Scope<Expr> output_scope;
+  find_output_scope(s, func, xcel->compute_level, output_scope);
+
+  auto output_box = find_output_bounds(s, func, xcel->compute_level);
+  
+  std::cout << "output bounds: " << output_box << std::endl;
   
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel->streaming_loop_levels);
 
-  set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels);
+  set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
