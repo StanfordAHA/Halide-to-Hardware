@@ -311,6 +311,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"coreir", Target::CoreIR},
     {"coreir_valid", Target::CoreIRValid},
     {"hls", Target::HLS},
+    {"coreir-hls", Target::CoreIRHLS}
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.
 };

@@ -105,6 +105,7 @@ struct Target {
         DisableLLVMLoopUnroll = halide_target_feature_disable_llvm_loop_unroll,
         CoreIR = halide_target_feature_coreir,
         CoreIRValid = halide_target_feature_coreir_valid,
+        CoreIRHLS = halide_target_feature_coreir_hls,
         HLS = halide_target_feature_hls,
         FeatureEnd = halide_target_feature_end
     };
