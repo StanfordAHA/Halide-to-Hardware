@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestEqual : public Halide::Generator<UnitTestEqual> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -22,7 +22,7 @@ public:
         ne(x,y) = hw_input(x,y) != 64;
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int16_t>(select(eq(x,y) && ne(x,y), 200, 0));
+        hw_output(x, y) = cast<uint8_t>(select(eq(x,y) ^ ne(x,y), 200, 0));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
@@ -32,7 +32,7 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();

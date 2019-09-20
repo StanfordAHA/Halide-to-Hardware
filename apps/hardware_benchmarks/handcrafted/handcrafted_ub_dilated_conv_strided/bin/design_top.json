@@ -1,0 +1,141 @@
+{"top":"global.DesignTop",
+"namespaces":{
+  "global":{
+    "modules":{
+      "DesignTop":{
+        "type":["Record",[
+          ["clk",["Named","coreir.clkIn"]],
+          ["in_arg_0_0_0",["Array",16,"BitIn"]],
+          ["in_en","BitIn"],
+          ["out_0_0",["Array",16,"Bit"]],
+          ["reset","BitIn"],
+          ["valid","Bit"]
+        ]],
+        "instances":{
+          "const_0_0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "const_0_1":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h000b"]}
+          },
+          "const_1_0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h000d"]}
+          },
+          "const_1_1":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h000e"]}
+          },
+
+          "ub_input_0_0":{
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",256], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",36], "dimensionality":["Int",2], "stride_0":["Int",2], "range_0":["Int",6], "stride_1":["Int",32], "range_1":["Int",6], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",0], "init":["Json",{"init":[0]}]}
+          },
+          "ub_input_0_0_flush":{
+            "modref":"corebit.const",
+            "modargs":{"value":["Bool",false]}
+          },
+          "ub_input_0_1":{
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",256], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",36], "dimensionality":["Int",2], "stride_0":["Int",2], "range_0":["Int",6], "stride_1":["Int",32], "range_1":["Int",6], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",2], "init":["Json",{"init":[0]}]}
+          },
+          "ub_input_0_1_flush":{
+            "modref":"corebit.const",
+            "modargs":{"value":["Bool",false]}
+          },
+          "ub_input_1_0":{
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",256], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",36], "dimensionality":["Int",2], "stride_0":["Int",2], "range_0":["Int",6], "stride_1":["Int",32], "range_1":["Int",6], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",32], "init":["Json",{"init":[0]}]}
+          },
+          "ub_input_1_0_flush":{
+            "modref":"corebit.const",
+            "modargs":{"value":["Bool",false]}
+          },
+          "ub_input_1_1":{
+            "genref":"commonlib.unified_buffer",
+            "genargs":{"width":["Int",16], "depth":["Int",256], "rate_matched":["Bool",false], "stencil_width":["Int",0], "iter_cnt":["Int",36], "dimensionality":["Int",2], "stride_0":["Int",2], "range_0":["Int",6], "stride_1":["Int",32], "range_1":["Int",6], "stride_2":["Int",0], "range_2":["Int",0], "chain_en":["Bool",false], "chain_idx":["Int",0], "starting_addr":["Int",34], "init":["Json",{"init":[0]}]}
+          },
+          "ub_input_1_1_flush":{
+            "modref":"corebit.const",
+            "modargs":{"value":["Bool",false]}
+          },
+
+          "mul_0_0":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_0_1":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_1_0":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_1_1":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_left":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_right":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_total":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          }
+        },
+
+        "connections":[
+          ["self.in_arg_0_0_0","ub_input_0_0.datain"],
+          ["self.in_arg_0_0_0","ub_input_0_1.datain"],
+          ["self.in_arg_0_0_0","ub_input_1_0.datain"],
+          ["self.in_arg_0_0_0","ub_input_1_1.datain"],
+          ["ub_input_0_0_flush.out","ub_input_0_0.flush"],
+          ["ub_input_0_1_flush.out","ub_input_0_1.flush"],
+          ["ub_input_1_0_flush.out","ub_input_1_0.flush"],
+          ["ub_input_1_1_flush.out","ub_input_1_1.flush"],
+
+          ["ub_input_0_0.wen","self.in_en"],
+          ["ub_input_0_1.wen","self.in_en"],
+          ["ub_input_1_0.wen","self.in_en"],
+          ["ub_input_1_1.wen","self.in_en"],
+
+          ["ub_input_0_0.ren","self.in_en"],
+          ["ub_input_0_1.ren","ub_input_0_0.valid"],
+          ["ub_input_1_0.ren","ub_input_0_0.valid"],
+          ["ub_input_1_1.ren","ub_input_0_0.valid"],
+
+          ["mul_0_0.in0","ub_input_0_0.dataout"],
+          ["mul_0_0.in1","const_0_0.out"],
+          ["mul_0_1.in0","ub_input_0_1.dataout"],
+          ["mul_0_1.in1","const_0_1.out"],
+          ["mul_1_0.in0","ub_input_1_0.dataout"],
+          ["mul_1_0.in1","const_1_0.out"],
+          ["mul_1_1.in0","ub_input_1_1.dataout"],
+          ["mul_1_1.in1","const_1_1.out"],
+          ["add_left.in0","mul_0_0.out"],
+          ["add_left.in1","mul_0_1.out"],
+          ["add_right.in0","mul_1_0.out"],
+          ["add_right.in1","mul_1_1.out"],
+          ["add_total.in0","add_left.out"],
+          ["add_total.in1","add_right.out"],
+        
+          ["self.out_0_0","add_total.out"],
+          ["self.valid","ub_input_0_0.valid"]
+        ]
+      }
+    }
+  }
+}
+}

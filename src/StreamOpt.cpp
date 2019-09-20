@@ -23,8 +23,8 @@ using std::vector;
 
 namespace {
 
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
     const Scope<Expr> &scope;
 
     Expr visit(const Variable *var) {
@@ -53,12 +53,12 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
 }
 
 
-class ReplaceReferencesWithStencil : public IRMutator2 {
+class ReplaceReferencesWithStencil : public IRMutator {
     const HWKernel &kernel;
     const HWKernelDAG &dag;  // FIXME not needed
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Stmt visit(const For *op) {
         if (!starts_with(op->name, kernel.name)) {
@@ -94,7 +94,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             if (dim_idx == -1) {
                 // it is a loop over reduction domain, and we keep it
                 // TODO add an assertion
-              return IRMutator2::visit(op);
+              return IRMutator::visit(op);
             }
             Expr new_min = 0;
             Expr new_extent = kernel.dims[dim_idx].step;
@@ -115,7 +115,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
 
     Stmt visit(const Provide *op) {
         if(op->name != kernel.name) {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         } else {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
@@ -185,7 +185,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             //std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
             return expr;
         } else {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         }
     }
 
@@ -822,15 +822,15 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
 }
 
 
-class TransformTapStencils : public IRMutator2 {
+class TransformTapStencils : public IRMutator {
     const map<string, HWTap> &taps;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     // Replace calls to ImageParam with calls to Stencil
     Expr visit(const Call *op) {
         if (taps.count(op->name) == 0) {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         } else if (op->call_type == Call::Image || op->call_type == Call::Halide) {
             debug(3) << "replacing " << op->name << '\n';
             const HWTap &tap = taps.find(op->name)->second;
@@ -849,7 +849,7 @@ class TransformTapStencils : public IRMutator2 {
             return Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
         } else {
             internal_error << "unexpected call_type\n";
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
     }
 
@@ -858,17 +858,17 @@ public:
 };
 
 // Perform streaming optimization for all functions
-class StreamOpt : public IRMutator2 {
+class StreamOpt : public IRMutator {
     const HWKernelDAG &dag;
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Stmt visit(const For *op) {
         Stmt stmt;
         //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
-            stmt = IRMutator2::visit(op);
+            stmt = IRMutator::visit(op);
         } else if (dag.compute_level.match(op->name)) {
             internal_assert(dag.loop_vars.count(op->name));
 
@@ -922,7 +922,7 @@ class StreamOpt : public IRMutator2 {
         } else {
             internal_assert(dag.store_level.match(op->name));
             debug(3) << "find the pipeline producing " << dag.name << "\n";
-            //std::cout << "find the pipeline producing " << dag.name << "\n";
+            std::cout << "find the pipeline producing " << dag.name << "\n";
 
             // walk inside of any let statements
             Stmt body = op->body;
@@ -1035,7 +1035,7 @@ class StreamOpt : public IRMutator2 {
             }
             */
         } else {
-           return IRMutator2::visit(op);
+           return IRMutator::visit(op);
         }
     }
 

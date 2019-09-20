@@ -6,8 +6,8 @@ using namespace Halide;
 
 class PointwiseMultiplication : public Halide::Generator<PointwiseMultiplication> {
 public:
-    Input<Buffer<uint16_t>>  input{"input", 2};
-    Output<Buffer<uint16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -16,9 +16,10 @@ public:
 
         Func hw_input, hw_output;
         Func mult("mult");
-        hw_input(x, y) = input(x, y);
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        
         mult(x, y) = hw_input(x,y) * 2;
-        hw_output(x, y) = cast<uint16_t>(mult(x, y));
+        hw_output(x, y) = cast<uint8_t>(mult(x, y));
         output(x, y) = hw_output(x, y);
 
         /* THE SCHEDULE */

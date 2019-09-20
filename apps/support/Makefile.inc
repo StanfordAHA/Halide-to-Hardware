@@ -9,8 +9,14 @@ IMAGES ?= ../images
 HL_TARGET ?= host
 UNAME ?= $(shell uname)
 
-# This pulls in the definition of HALIDE_SYSTEM_LIBS
+SANITIZER_FLAGS ?=
+
+# This pulls in the definition of HALIDE_SYSTEM_LIBS and HALIDE_RTTI
+#include $(HALIDE_DISTRIB_PATH)/halide_config.make
+ifneq ("$(wildcard $(HALIDE_DISTRIB_PATH)/halide_config.make)","")
 include $(HALIDE_DISTRIB_PATH)/halide_config.make
+endif
+
 
 ifeq ($(OS), Windows_NT)
 # Flags for mingw environment
@@ -23,7 +29,11 @@ CXX ?= g++
 GXX ?= g++
 
 CFLAGS += -I $(HALIDE_DISTRIB_PATH)/include/ -I $(HALIDE_DISTRIB_PATH)/tools/ -I $(HALIDE_DISTRIB_PATH)/apps/support/
-CXXFLAGS += -std=c++11 -I $(HALIDE_DISTRIB_PATH)/include/ -I $(HALIDE_DISTRIB_PATH)/tools/
+CXXFLAGS += -std=c++11 -I $(HALIDE_DISTRIB_PATH)/include/ -I $(HALIDE_DISTRIB_PATH)/tools/ $(SANITIZER_FLAGS) -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-unknown-warning-option -Wno-psabi
+
+ifeq (0, $(HALIDE_RTTI))
+CXXFLAGS += -fno-rtti
+endif
 
 ifeq ($(UNAME), Darwin)
 CXXFLAGS += -fvisibility=hidden
@@ -88,14 +98,17 @@ ifneq (, $(findstring metal,$(HL_TARGET)))
   LDFLAGS += -framework Metal -framework Foundation
 endif
 
+$(BIN)/%.registration.cpp: $(BIN)/%.a
+	@echo $@ produced implicitly by $^
+
 $(BIN)/RunGenMain.o: $(HALIDE_DISTRIB_PATH)/tools/RunGenMain.cpp $(HALIDE_DISTRIB_PATH)/tools/RunGen.h
 	@mkdir -p $(@D)
 	@$(CXX) -c $< $(CXXFLAGS) $(IMAGE_IO_CXX_FLAGS) -I$(BIN) -o $@
 
 # Really, .SECONDARY is what we want, but it won't accept wildcards
 .PRECIOUS: $(BIN)/%.rungen
-$(BIN)/%.rungen: $(BIN)/%.a $(BIN)/RunGenMain.o $(HALIDE_DISTRIB_PATH)/tools/RunGenStubs.cpp
-	$(CXX) $(CXXFLAGS) -I$(BIN) -DHL_RUNGEN_FILTER_HEADER=\"$*.h\" $^ -o $@ $(IMAGE_IO_FLAGS) $(LDFLAGS)
+$(BIN)/%.rungen: $(BIN)/RunGenMain.o $(BIN)/%.a $(BIN)/%.registration.cpp
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(IMAGE_IO_FLAGS) $(LDFLAGS)
 
 RUNARGS ?=
 
@@ -114,5 +127,5 @@ HL_VIDEOPLAYER ?= mplayer
 
 # For CoreIR generation
 LDFLAGS += -lcurses
-LDFLAGS += -L$(COREIR_DIR)/lib
-LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim
+LDFLAGS += -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
+LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float

@@ -14,8 +14,8 @@ int blockSize = 5;
 
 class GaussianBlur : public Halide::Generator<GaussianBlur> {
 public:
-    Input<Buffer<int16_t>>  input{"input", 2};
-    Output<Buffer<int16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -24,10 +24,10 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         // Create a reduction domain of the correct bounds.
-        RDom win(-blockSize/2, blockSize, -blockSize, blockSize);
+        RDom win(0, blockSize, 0, blockSize);
 
         Func hw_input;
-        hw_input(x, y) = cast<int16_t>(input(x+blockSize/2, y+blockSize/2));
+        hw_input(x, y) = cast<int16_t>(input(x, y));
 
         // create the gaussian kernel
         Func kernel_f;
@@ -53,7 +53,7 @@ public:
         blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
 
         Func hw_output;
-        hw_output(x, y) = cast<int16_t>( blur(x, y) );
+        hw_output(x, y) = cast<uint8_t>( blur(x, y) );
         output(x, y) = hw_output(x, y);
         
         /* THE SCHEDULE */
@@ -65,7 +65,7 @@ public:
           
           hw_output
             //            .compute_at(output, xo)
-            .tile(x, y, xo, yo, xi, yi, 64, 64)
+            .tile(x, y, xo, yo, xi, yi, 64-blockSize+1, 64-blockSize+1)
             .hw_accelerate(xi, xo);
 
           blur_unnormalized.update().unroll(win.x).unroll(win.y);
@@ -76,7 +76,7 @@ public:
           hw_input.stream_to_accelerator();
           
         } else {    // schedule to CPU
-          output.tile(x, y, xo, yo, xi, yi, 64, 64)
+          output.tile(x, y, xo, yo, xi, yi, 64-blockSize+1, 64-blockSize+1)
             .vectorize(xi, 8)
             .fuse(xo, yo, xo)
             .parallel(xo);

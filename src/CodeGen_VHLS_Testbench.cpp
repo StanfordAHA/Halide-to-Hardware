@@ -67,7 +67,8 @@ const string vhls_headers =
 }
 
   CodeGen_VHLS_Testbench::CodeGen_VHLS_Testbench(ostream &tb_stream, Target target)
-    : CodeGen_VHLS_Base(tb_stream, target, CPlusPlusImplementation, ""),
+      : CodeGen_VHLS_Base(tb_stream, target, CPlusPlusImplementation, ""),
+  //: CodeGen_VHLS_Base(std::cout, target, CPlusPlusImplementation, ""),
       cg_target("vhls_target", target) {
     cg_target.init_module();
 
@@ -78,8 +79,6 @@ CodeGen_VHLS_Testbench::~CodeGen_VHLS_Testbench() {
 }
 
 void CodeGen_VHLS_Testbench::visit(const ProducerConsumer *op) {
-    //std::cout << op->name << " visited, a producerconsumer\n";
-    
     if (starts_with(op->name, "_hls_target.")) {
       if (op->is_producer) {
         Stmt hw_body = op->body;

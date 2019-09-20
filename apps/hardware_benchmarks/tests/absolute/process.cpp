@@ -11,7 +11,7 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<int16_t> processor("absolute",
+  OneInOneOut_ProcessController<uint8_t> processor("absolute",
                                             {
                                               {"cpu",
                                                   [&]() { absolute(processor.input, processor.output); }
@@ -23,8 +23,8 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<int16_t>(64, 64);
-  processor.output = Buffer<int16_t>(64, 64);
+  processor.input = Buffer<uint8_t>(64, 64);
+  processor.output = Buffer<uint8_t>(64, 64);
   
   processor.process_command(argc, argv);
   

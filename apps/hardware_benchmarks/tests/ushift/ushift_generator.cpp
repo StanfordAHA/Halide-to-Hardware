@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestUshift : public Halide::Generator<UnitTestUshift> {
 public:
-    Input<Buffer<uint16_t>>  input{"input", 2};
-    Output<Buffer<uint16_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -23,7 +23,7 @@ public:
         shiftl(x,y) = hw_input(x,y) << 14;
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint16_t>(shiftr(x,y) + shiftl(x,y));
+        hw_output(x, y) = cast<uint8_t>(shiftr(x,y) + shiftl(x,y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */

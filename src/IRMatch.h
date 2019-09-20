@@ -142,11 +142,10 @@ inline HALIDE_NEVER_INLINE
 Expr make_const_special_expr(halide_type_t ty) {
     const uint16_t flags = ty.lanes & MatcherState::special_values_mask;
     ty.lanes &= ~MatcherState::special_values_mask;
-    static std::atomic<int> counter;
     if (flags & MatcherState::indeterminate_expression) {
-        return Call::make(ty, Call::indeterminate_expression, {counter++}, Call::Intrinsic);
+        return make_indeterminate_expression(ty);
     } else if (flags & MatcherState::signed_integer_overflow) {
-        return Call::make(ty, Call::signed_integer_overflow, {counter++}, Call::Intrinsic);
+        return make_signed_integer_overflow(ty);
     }
     // unreachable
     return Expr();
@@ -171,6 +170,7 @@ Expr make_const_expr(halide_scalar_value_t val, halide_type_t ty) {
         e = UIntImm::make(scalar_type, val.u.u64);
         break;
     case halide_type_float:
+    case halide_type_bfloat:
         e = FloatImm::make(scalar_type, val.u.f64);
         break;
     default:
@@ -530,6 +530,7 @@ struct Const {
             val.u.u64 = (uint64_t)v;
             break;
         case halide_type_float:
+        case halide_type_bfloat:
             val.u.f64 = (double)v;
             break;
         default:
@@ -634,6 +635,7 @@ struct BinOp {
             val.u.u64 = constant_fold_bin_op<Op>(ty, val_a.u.u64, val_b.u.u64);
             break;
         case halide_type_float:
+        case halide_type_bfloat:
             val.u.f64 = constant_fold_bin_op<Op>(ty, val_a.u.f64, val_b.u.f64);
             break;
         default:
@@ -726,6 +728,7 @@ struct CmpOp {
             val.u.u64 = constant_fold_cmp_op<Op>(val_a.u.u64, val_b.u.u64);
             break;
         case halide_type_float:
+        case halide_type_bfloat:
             val.u.u64 = constant_fold_cmp_op<Op>(val_a.u.f64, val_b.u.f64);
             break;
         default:
@@ -1401,9 +1404,11 @@ struct NotOp {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != IRNodeType::Not) {
+            return false;
+        }
         const Not &op = (const Not &)e.expr;
-        return (e.expr.node_type == IRNodeType::Not &&
-                a.template match<bound>(SpecificExpr{*op.a.get()}, state));
+        return (a.template match<bound>(SpecificExpr{*op.a.get()}, state));
     }
 
     template<uint32_t bound, typename A2>
@@ -1425,7 +1430,8 @@ struct NotOp {
         a.make_folded_const(val, ty, state);
         val.u.u64 = ~val.u.u64;
         val.u.u64 &= 1;
-        ty.lanes |= ((int)ty.code == (int)halide_type_float) ? MatcherState::indeterminate_expression : 0;
+        ty.lanes |= (((int)ty.code == (int)halide_type_float) ||
+                     ((int)ty.code == (int)halide_type_bfloat)) ? MatcherState::indeterminate_expression : 0;
     }
 };
 
@@ -1457,9 +1463,11 @@ struct SelectOp {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != Select::_node_type) {
+            return false;
+        }
         const Select &op = (const Select &)e.expr;
-        return (e.expr.node_type == Select::_node_type &&
-                c.template match<bound>(SpecificExpr{*op.condition.get()}, state) &&
+        return (c.template match<bound>(SpecificExpr{*op.condition.get()}, state) &&
                 t.template match<bound | bindings<C>::mask>(SpecificExpr{*op.true_value.get()}, state) &&
                 f.template match<bound | bindings<C>::mask | bindings<T>::mask>(SpecificExpr{*op.false_value.get()}, state));
     }
@@ -1587,9 +1595,11 @@ struct RampOp {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != Ramp::_node_type) {
+            return false;
+        }
         const Ramp &op = (const Ramp &)e.expr;
-        if (op.node_type == Ramp::_node_type &&
-            (lanes == op.type.lanes() || !known_lanes) &&
+        if ((lanes == op.type.lanes() || !known_lanes) &&
             a.template match<bound>(SpecificExpr{*op.base.get()}, state) &&
             b.template match<bound | bindings<A>::mask>(SpecificExpr{*op.stride.get()}, state)) {
             return true;
@@ -1658,9 +1668,11 @@ struct NegateOp {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != Sub::_node_type) {
+            return false;
+        }
         const Sub &op = (const Sub &)e.expr;
-        return (op.node_type == Sub::_node_type &&
-                a.template match<bound>(SpecificExpr{*op.b.get()}, state) &&
+        return (a.template match<bound>(SpecificExpr{*op.b.get()}, state) &&
                 is_zero(op.a));
     }
 
@@ -1698,6 +1710,7 @@ struct NegateOp {
             val.u.u64 = ((-val.u.u64) << dead_bits) >> dead_bits;
             break;
         case halide_type_float:
+        case halide_type_bfloat:
             val.u.f64 = -val.u.f64;
             break;
         default:
@@ -1734,9 +1747,11 @@ struct CastOp {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != Cast::_node_type) {
+            return false;
+        }
         const Cast &op = (const Cast &)e.expr;
-        return (op.node_type == Cast::_node_type &&
-                e.expr.type == t &&
+        return (e.expr.type == t &&
                 a.template match<bound>(SpecificExpr{*op.value.get()}, state));
     }
     template<uint32_t bound, typename A2>
@@ -1841,9 +1856,11 @@ struct Indeterminate {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != Call::_node_type) {
+            return false;
+        }
         const Call &op = (const Call &)e.expr;
-        return (op.node_type == Call::_node_type &&
-                op.is_intrinsic(Call::indeterminate_expression));
+        return (op.is_intrinsic(Call::indeterminate_expression));
     }
 
     HALIDE_ALWAYS_INLINE
@@ -1874,9 +1891,11 @@ struct Overflow {
     template<uint32_t bound>
     HALIDE_ALWAYS_INLINE
     bool match(SpecificExpr e, MatcherState &state) const noexcept {
+        if (e.expr.node_type != Call::_node_type) {
+            return false;
+        }
         const Call &op = (const Call &)e.expr;
-        return (op.node_type == Call::_node_type &&
-                op.is_intrinsic(Call::signed_integer_overflow));
+        return (op.is_intrinsic(Call::signed_integer_overflow));
     }
 
     HALIDE_ALWAYS_INLINE
@@ -2054,6 +2073,7 @@ void fuzz_test_rule(Before &&before, After &&after, Predicate &&pred,
                 }
                 break;
             case halide_type_float:
+            case halide_type_bfloat:
                 {
                     // Use a very narrow range of precise floats, so
                     // that none of the rules a human is likely to
@@ -2092,6 +2112,7 @@ void fuzz_test_rule(Before &&before, After &&after, Predicate &&pred,
                    constant_fold_bin_op<Add>(output_type, val_after.u.i64, 0));
             break;
         case halide_type_float:
+        case halide_type_bfloat:
             {
                 double error = std::abs(val_before.u.f64 - val_after.u.f64);
                 // We accept an equal bit pattern (e.g. inf vs inf),
