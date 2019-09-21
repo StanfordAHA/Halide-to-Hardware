@@ -92,7 +92,7 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 
 design-coreir-hls-valid design-coreir-hls_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir-hls_valid -e coreir-hls $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_hls -e coreir-hls $(HALIDE_DEBUG_REDIRECT)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
