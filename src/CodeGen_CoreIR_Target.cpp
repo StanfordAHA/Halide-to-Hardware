@@ -616,12 +616,12 @@ class HWInstr {
         return std::to_string(constWidth) + "'d" + constValue;
       }
 
-      return std::to_string(uniqueNum);
+      return "%" + std::to_string(uniqueNum);
     }
 };
 
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
-  out << instr.uniqueNum << " = " << instr.name << "(";
+  out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
   for (auto op : instr.operands) {
     out << op->compactString() << ", ";
   }
@@ -756,16 +756,34 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
+    HWInstr* strConstI(const std::string& name) {
+      auto ist = newI();
+      ist->tp = HWINSTR_TP_STR;
+      ist->strConst = name;
+      return ist;
+    }
+
     void visit(const Load* ld) {
       auto ist = newI();
       ist->name = "load";
+      vector<HWInstr*> operands;
+      operands.push_back(strConstI(ld->name));
+      operands.push_back(codegen(ld->predicate));
+      operands.push_back(codegen(ld->index));
+      ist->operands = operands;
       instrs.push_back(ist);
       lastValue = ist;
     }
 
     void visit(const Store* st) {
       auto ist = newI();
+      vector<HWInstr*> operands;
+      operands.push_back(strConstI(st->name));
+      operands.push_back(codegen(st->predicate));
+      operands.push_back(codegen(st->value));
+      operands.push_back(codegen(st->index));
       ist->name = "store_inst";
+      ist->operands = operands;
       instrs.push_back(ist);
       lastValue = ist;
     }
