@@ -667,6 +667,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->name = "cast";
       auto operand = codegen(c->value);
       ist->operands = {operand};
+      instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -688,6 +689,10 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Provide* p) {
 
       vector<HWInstr*> operands;
+      auto nameConst = newI();
+      nameConst->strConst = p->name;
+      nameConst->tp = HWINSTR_TP_STR;
+      operands.push_back(nameConst);
       for (size_t i = 0; i < p->values.size(); i++) {
         auto v = codegen(p->values[i]);
         //p->values[i].accept(this);
@@ -702,7 +707,7 @@ class InstructionCollector : public IRGraphVisitor {
       }
       //IRGraphVisitor::visit(p);
       auto ist = newI(); 
-      ist->name = "provide_" + p->name;
+      ist->name = "provide";
       ist->operands = operands;
       instrs.push_back(ist);
       lastValue = ist;
@@ -785,7 +790,6 @@ class InstructionCollector : public IRGraphVisitor {
       }
 
       auto ist = newI();
-      ist->operands = callOperands;
       if (op->name == "linebuffer") {
         ist->name = "linebuf_decl";
       } else if (op->name == "write_stream") {
@@ -794,12 +798,18 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "read_stream";
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
+        auto calledStencil = op->name;
+        auto callOp = newI();
+        callOp->tp = HWINSTR_TP_STR;
+        callOp->strConst = calledStencil;
+        callOperands.insert(std::begin(callOperands), callOp);
       } else if (ends_with(op->name, ".stencil_update")) {
         ist->name = "stencil_update";
       } else {
         ist->name = "other_instr";
         assert(false);
       }
+      ist->operands = callOperands;
       instrs.push_back(ist);
       lastValue = ist;
     }
