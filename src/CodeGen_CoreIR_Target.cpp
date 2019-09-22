@@ -606,12 +606,24 @@ class HWInstr {
     string constValue;
 
     HWInstr() : preBound(false), tp(HWINSTR_TP_INSTR) {}
+
+    std::string compactString() const {
+      if (tp == HWINSTR_TP_STR) {
+        return strConst;
+      }
+
+      if (tp == HWINSTR_TP_CONST) {
+        return std::to_string(constWidth) + "'d" + constValue;
+      }
+
+      return std::to_string(uniqueNum);
+    }
 };
 
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   out << instr.uniqueNum << " = " << instr.name << "(";
   for (auto op : instr.operands) {
-    out << op->uniqueNum << ", ";
+    out << op->compactString() << ", ";
   }
   out << ");";
   return out;
@@ -650,6 +662,22 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
+    void visit(const Cast* c) {
+      auto ist = newI();
+      ist->name = "cast";
+      auto operand = codegen(c->value);
+      ist->operands = {operand};
+      lastValue = ist;
+    }
+
+    void visit(const FloatImm* imm) {
+      auto ist = newI();
+      ist->tp = HWINSTR_TP_CONST;
+      ist->constWidth = 16;
+      ist->constValue = std::to_string(imm->value);
+      lastValue = ist;
+    }
+
     void visit(const StringImm* imm) {
       auto ist = newI();
       ist->tp = HWINSTR_TP_STR;
@@ -658,9 +686,24 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const Provide* p) {
-      IRGraphVisitor::visit(p);
+
+      vector<HWInstr*> operands;
+      for (size_t i = 0; i < p->values.size(); i++) {
+        auto v = codegen(p->values[i]);
+        //p->values[i].accept(this);
+        internal_assert(v != nullptr) << " provide value is null?\n";
+        operands.push_back(v);
+      }
+      for (size_t i = 0; i < p->args.size(); i++) {
+        auto a = codegen(p->args[i]);
+        internal_assert(a != nullptr) << " provide arg is null?\n";
+        operands.push_back(a);
+        //p->args[i].accept(this);
+      }
+      //IRGraphVisitor::visit(p);
       auto ist = newI(); 
       ist->name = "provide_" + p->name;
+      ist->operands = operands;
       instrs.push_back(ist);
       lastValue = ist;
     }
@@ -686,7 +729,8 @@ class InstructionCollector : public IRGraphVisitor {
     HWInstr* codegen(const Expr e) {
       lastValue = nullptr;
       e.accept(this);
-      internal_assert(lastValue) << "Codegen did not produce an LLVM value\n";
+
+      internal_assert(lastValue) << "Codegen did not produce an LLVM value for " << e << "\n";
       return lastValue;
     }
 
@@ -731,6 +775,7 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const Call* op) {
       vector<HWInstr*> callOperands;
+      cout << "Processing call: " << op->name << endl;
       for (size_t i = 0; i < op->args.size(); i++) {
         op->args[i].accept(this);
         cout << "Processing argument " << i << ": " << op->args[i] << endl;
@@ -777,7 +822,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   NestExtractor extractor;
   stmt.accept(&extractor);
 
-  cout << "\tAll loops" << endl;
+  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
     vector<HWInstr*> body = buildHWBody(lp);
