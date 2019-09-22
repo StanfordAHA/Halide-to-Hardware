@@ -599,7 +599,67 @@ class InstructionCollector : public IRGraphVisitor {
   public:
     vector<HWInstr*> instrs;
 
+    void visit(const Provide* p) {
+      IRGraphVisitor::visit(p);
+      auto ist = new HWInstr();
+      ist->name = "provide_" + p->name;
+      instrs.push_back(ist);
+    }
+
+    void visit(const Ramp* r) {
+
+      IRGraphVisitor::visit(r);
+
+      auto ist = new HWInstr();
+      ist->name = "ramp";
+      instrs.push_back(ist);
+    }
+    void visit(const Variable* v) {
+      IRGraphVisitor::visit(v);
+      auto ist = new HWInstr();
+      ist->name = "variable";
+      instrs.push_back(ist);
+    }
+
+    void visit_binop(const std::string& name, const Expr a, const Expr b) {
+      a.accept(this);
+      b.accept(this);
+      HWInstr* ist = new HWInstr();
+      ist->name = name;
+      instrs.push_back(ist);
+    }
+
+    void visit(const Let* l) {
+      auto ist = new HWInstr();
+      ist->name = "letval";
+      instrs.push_back(ist);
+    }
+
+    void visit(const Load* ld) {
+      auto ist = new HWInstr();
+      ist->name = "load";
+      instrs.push_back(ist);
+    }
+
+    void visit(const Store* st) {
+      auto ist = new HWInstr();
+      ist->name = "store_inst";
+      instrs.push_back(ist);
+    }
+
+    void visit(const Add* a) {
+      visit_binop("add", a->a, a->b);
+    }
+
+    void visit(const Mul* b) {
+      visit_binop("mul", b->a, b->b);
+    }
+
     void visit(const Call* op) {
+      for (size_t i = 0; i < op->args.size(); i++) {
+        op->args[i].accept(this);
+      }
+
       HWInstr* ist = new HWInstr();
 
       if (op->name == "linebuffer") {
@@ -608,11 +668,13 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "write_stream";
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
-      } else if (ends_with(op->name, ".stencil") ||
-          ends_with(op->name, ".stencil_update")) {
-        ist->name = "stencil_call";
+      } else if (ends_with(op->name, ".stencil")) {
+        ist->name = "stencil_read";
+      } else if (ends_with(op->name, ".stencil_update")) {
+        ist->name = "stencil_update";
       } else {
         ist->name = "other_instr";
+        assert(false);
       }
       instrs.push_back(ist);
     }
