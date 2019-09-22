@@ -805,6 +805,13 @@ class InstructionCollector : public IRGraphVisitor {
       visit_binop("mul", b->a, b->b);
     }
 
+    HWInstr* andHW(HWInstr* a, HWInstr* b) {
+      auto andOp = newI();
+      andOp->name = "and";
+      andOp->operands = {a, b};
+      instrs.push_back(andOp);
+      return andOp;
+    }
     void visit(const Call* op) {
       vector<HWInstr*> callOperands;
       cout << "Processing call: " << op->name << endl;
@@ -817,12 +824,18 @@ class InstructionCollector : public IRGraphVisitor {
       }
 
       auto ist = newI();
+      HWInstr* checkPred = nullptr;
       if (op->name == "linebuffer") {
         ist->name = "linebuf_decl";
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
+        checkPred = newI();
+        checkPred->name = "read_stream_valid";
+        checkPred->operands = callOperands;
+        instrs.push_back(checkPred);
+        currentPredicate = currentPredicate == nullptr ? checkPred : andHW(currentPredicate, checkPred);
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
