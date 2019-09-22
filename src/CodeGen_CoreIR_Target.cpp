@@ -577,74 +577,148 @@ class NestExtractor : public IRGraphVisitor {
     }
 };
 
+enum HWInstrTp {
+  HWINSTR_TP_INSTR,
+  HWINSTR_TP_CONST,
+  HWINSTR_TP_STR,
+  HWINSTR_TP_ARG
+};
+
 class HWInstr {
   public:
+    int uniqueNum;
+    HWInstrTp tp;
     CoreIR::Module* opType;
+    
     bool preBound;
     string boundTargetName;
+    
     int latency;
 
+    string strConst;
+
     vector<CoreIR::Type*> operandTypes;
+    vector<HWInstr*> operands;
     CoreIR::Type* retType;
 
     string name;
+    int constWidth;
+    string constValue;
+
+    HWInstr() : preBound(false), tp(HWINSTR_TP_INSTR) {}
 };
 
-class NestProgram {  
-  public:
-    vector<HWInstr> instrs;
-};
+std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
+  out << instr.uniqueNum << " = " << instr.name << "(";
+  for (auto op : instr.operands) {
+    out << op->uniqueNum << ", ";
+  }
+  out << ");";
+  return out;
+}
 
 class InstructionCollector : public IRGraphVisitor {
   public:
     vector<HWInstr*> instrs;
+    HWInstr* lastValue;
+
+    int uniqueNum;
+
+    InstructionCollector() : lastValue(nullptr), uniqueNum(0) {}
+
+    HWInstr* newI() {
+      int n = uniqueNum;
+      auto ist = new HWInstr();
+      ist->uniqueNum = n;
+      uniqueNum++;
+      return ist;
+    }
+
+    void visit(const UIntImm* imm) {
+      auto ist = newI();
+      ist->tp = HWINSTR_TP_CONST;
+      ist->constWidth = 16;
+      ist->constValue = std::to_string(imm->value);
+      lastValue = ist;
+    }
+
+    void visit(const IntImm* imm) {
+      auto ist = newI();
+      ist->tp = HWINSTR_TP_CONST;
+      ist->constWidth = 16;
+      ist->constValue = std::to_string(imm->value);
+      lastValue = ist;
+    }
+
+    void visit(const StringImm* imm) {
+      auto ist = newI();
+      ist->tp = HWINSTR_TP_STR;
+      ist->strConst = imm->value;
+      lastValue = ist;
+    }
 
     void visit(const Provide* p) {
       IRGraphVisitor::visit(p);
-      auto ist = new HWInstr();
+      auto ist = newI(); 
       ist->name = "provide_" + p->name;
       instrs.push_back(ist);
+      lastValue = ist;
     }
 
     void visit(const Ramp* r) {
 
       IRGraphVisitor::visit(r);
 
-      auto ist = new HWInstr();
+      auto ist = newI();
       ist->name = "ramp";
       instrs.push_back(ist);
+      lastValue = ist;
     }
+
     void visit(const Variable* v) {
       IRGraphVisitor::visit(v);
-      auto ist = new HWInstr();
+      auto ist = newI();
       ist->name = "variable";
       instrs.push_back(ist);
+      lastValue = ist;
+    }
+
+    HWInstr* codegen(const Expr e) {
+      lastValue = nullptr;
+      e.accept(this);
+      internal_assert(lastValue) << "Codegen did not produce an LLVM value\n";
+      return lastValue;
     }
 
     void visit_binop(const std::string& name, const Expr a, const Expr b) {
-      a.accept(this);
-      b.accept(this);
-      HWInstr* ist = new HWInstr();
+      auto aV = codegen(a);
+      auto bV = codegen(b);
+      auto ist = newI();
       ist->name = name;
+      ist->operands = {aV, bV};
       instrs.push_back(ist);
+      lastValue = ist;
     }
 
     void visit(const Let* l) {
-      auto ist = new HWInstr();
+      auto ist = newI();
       ist->name = "letval";
       instrs.push_back(ist);
+      lastValue = ist;
     }
 
     void visit(const Load* ld) {
-      auto ist = new HWInstr();
+      auto ist = newI();
       ist->name = "load";
       instrs.push_back(ist);
+      lastValue = ist;
     }
 
     void visit(const Store* st) {
-      auto ist = new HWInstr();
+      auto ist = newI();
       ist->name = "store_inst";
       instrs.push_back(ist);
+      lastValue = ist;
     }
 
     void visit(const Add* a) {
@@ -656,12 +730,17 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const Call* op) {
+      vector<HWInstr*> callOperands;
       for (size_t i = 0; i < op->args.size(); i++) {
         op->args[i].accept(this);
+        cout << "Processing argument " << i << ": " << op->args[i] << endl;
+        internal_assert(lastValue != nullptr) << "Error: In call lastValue is null\n";
+        callOperands.push_back(lastValue);
+        lastValue = nullptr;
       }
 
-      HWInstr* ist = new HWInstr();
-
+      auto ist = newI();
+      ist->operands = callOperands;
       if (op->name == "linebuffer") {
         ist->name = "linebuf_decl";
       } else if (op->name == "write_stream") {
@@ -677,6 +756,7 @@ class InstructionCollector : public IRGraphVisitor {
         assert(false);
       }
       instrs.push_back(ist);
+      lastValue = ist;
     }
 };
 
@@ -703,7 +783,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     vector<HWInstr*> body = buildHWBody(lp);
     cout << "\t\tInstructions in body = " << endl;
     for (auto instr : body) {
-      cout << "\t\t\t" << instr->name << endl;
+      cout << "\t\t\t" << *instr << endl;
     }
   }
 
