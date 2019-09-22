@@ -56,6 +56,55 @@ namespace Halide {
 
     typedef std::map<std::string,int> VarValues;
 
+enum HWInstrTp {
+  HWINSTR_TP_INSTR,
+  HWINSTR_TP_CONST,
+  HWINSTR_TP_STR,
+  HWINSTR_TP_ARG,
+  HWINSTR_TP_VAR
+};
+
+class HWInstr {
+  public:
+    int uniqueNum;
+    HWInstrTp tp;
+    CoreIR::Module* opType;
+    
+    bool preBound;
+    std::string boundTargetName;
+    
+    int latency;
+
+    std::string strConst;
+
+    HWInstr* predicate;
+    std::vector<CoreIR::Type*> operandTypes;
+    std::vector<HWInstr*> operands;
+    CoreIR::Type* retType;
+
+    std::string name;
+    int constWidth;
+    std::string constValue;
+
+    HWInstr() : predicate(nullptr), preBound(false), tp(HWINSTR_TP_INSTR) {}
+
+    std::string compactString() const {
+      if (tp == HWINSTR_TP_STR) {
+        return strConst;
+      }
+
+      if (tp == HWINSTR_TP_VAR) {
+        return name;
+      }
+
+      if (tp == HWINSTR_TP_CONST) {
+        return std::to_string(constWidth) + "'d" + constValue;
+      }
+
+      return "%" + std::to_string(uniqueNum);
+    }
+};
+
 /** 
  * This class emits CoreIR designs in JSON format.
  */
@@ -83,6 +132,7 @@ namespace Halide {
         CodeGen_CoreIR_C(std::ostream &s, Target target, OutputKind output_kind);
         ~CodeGen_CoreIR_C();
 
+        CoreIR::Module* moduleForKernel(std::vector<HWInstr*>& instrs, int kernelNo);
         void set_output_path(std::string pathname) {
           output_base_path = pathname;
         }

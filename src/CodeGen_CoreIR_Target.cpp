@@ -577,55 +577,6 @@ class NestExtractor : public IRGraphVisitor {
     }
 };
 
-enum HWInstrTp {
-  HWINSTR_TP_INSTR,
-  HWINSTR_TP_CONST,
-  HWINSTR_TP_STR,
-  HWINSTR_TP_ARG,
-  HWINSTR_TP_VAR
-};
-
-class HWInstr {
-  public:
-    int uniqueNum;
-    HWInstrTp tp;
-    CoreIR::Module* opType;
-    
-    bool preBound;
-    string boundTargetName;
-    
-    int latency;
-
-    string strConst;
-
-    HWInstr* predicate;
-    vector<CoreIR::Type*> operandTypes;
-    vector<HWInstr*> operands;
-    CoreIR::Type* retType;
-
-    string name;
-    int constWidth;
-    string constValue;
-
-    HWInstr() : predicate(nullptr), preBound(false), tp(HWINSTR_TP_INSTR) {}
-
-    std::string compactString() const {
-      if (tp == HWINSTR_TP_STR) {
-        return strConst;
-      }
-
-      if (tp == HWINSTR_TP_VAR) {
-        return name;
-      }
-
-      if (tp == HWINSTR_TP_CONST) {
-        return std::to_string(constWidth) + "'d" + constValue;
-      }
-
-      return "%" + std::to_string(uniqueNum);
-    }
-};
-
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": " << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
   for (auto op : instr.operands) {
@@ -861,6 +812,22 @@ vector<HWInstr*> buildHWBody(const For* perfectNest) {
   return collector.instrs;
 }
 
+CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(vector<HWInstr*>& instrs, int kernelNum) {
+
+  CoreIR::Type* design_type = context->Record({{"reset", context->BitIn()}, {"clk", context->BitIn()}});
+  //{"reset", context->BitIn()},
+  //{"out", output_type},
+  //{"valid", context->Bit()},
+  //{"in_en", context->BitIn()}
+
+  auto global_ns = context->getNamespace("global");
+  design = global_ns->newModuleDecl("design_kernel_test_" + std::to_string(kernelNum), design_type);
+  def = design->newModuleDef();
+  self = def->sel("self");
+
+  return design;
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -873,6 +840,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   stmt.accept(&extractor);
 
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
+  int kernelN = 0;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
     vector<HWInstr*> body = buildHWBody(lp);
@@ -880,7 +848,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
     }
-  }
+
+    CoreIR::Module* m = moduleForKernel(body, kernelN);
+    cout << "Module for kernel..." << endl;
+    m->print();
+    kernelN++;
+  }    
+
+  return;
 
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
