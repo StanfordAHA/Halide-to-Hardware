@@ -598,6 +598,7 @@ class HWInstr {
 
     string strConst;
 
+    HWInstr* predicate;
     vector<CoreIR::Type*> operandTypes;
     vector<HWInstr*> operands;
     CoreIR::Type* retType;
@@ -606,7 +607,7 @@ class HWInstr {
     int constWidth;
     string constValue;
 
-    HWInstr() : preBound(false), tp(HWINSTR_TP_INSTR) {}
+    HWInstr() : predicate(nullptr), preBound(false), tp(HWINSTR_TP_INSTR) {}
 
     std::string compactString() const {
       if (tp == HWINSTR_TP_STR) {
@@ -626,7 +627,7 @@ class HWInstr {
 };
 
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
-  out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
+  out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": " << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
   for (auto op : instr.operands) {
     out << op->compactString() << ", ";
   }
@@ -638,15 +639,17 @@ class InstructionCollector : public IRGraphVisitor {
   public:
     vector<HWInstr*> instrs;
     HWInstr* lastValue;
+    HWInstr* currentPredicate;
 
     int uniqueNum;
 
-    InstructionCollector() : lastValue(nullptr), uniqueNum(0) {}
+    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr), uniqueNum(0) {}
 
     HWInstr* newI() {
       int n = uniqueNum;
       auto ist = new HWInstr();
       ist->uniqueNum = n;
+      ist->predicate = currentPredicate;
       uniqueNum++;
       return ist;
     }
