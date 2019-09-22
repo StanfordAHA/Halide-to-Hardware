@@ -15,6 +15,7 @@
 #include "Simplify.h"
 #include "Debug.h"
 #include "Float16.h"
+#include "IRPrinter.h"
 
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
@@ -541,10 +542,45 @@ uint num_bits(uint N) {
   return num_shifts;
 }
 
+class NestExtractor : public IRGraphVisitor {
+  public:
+    vector<const For*> loops;
+
+    bool inFor;
+
+    NestExtractor() : inFor(false) {}
+
+    void visit(const For* l) {
+      if (inFor) {
+        return;
+      }
+
+      loops.push_back(l);
+      inFor = true;
+
+      l->min.accept(this);
+      l->extent.accept(this);
+      l->body.accept(this);
+
+      inFor = false;
+    }
+};
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
+
+  cout << "Emitting kernel for " << name << endl;
+
+  cout << "\tStmt is = " << stmt << endl;
+  NestExtractor extractor;
+  stmt.accept(&extractor);
+
+  cout << "\tAll loops" << endl;
+  for (const For* lp : extractor.loops) {
+    cout << "\t\tLOOP" << endl;
+  }
 
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
