@@ -581,7 +581,8 @@ enum HWInstrTp {
   HWINSTR_TP_INSTR,
   HWINSTR_TP_CONST,
   HWINSTR_TP_STR,
-  HWINSTR_TP_ARG
+  HWINSTR_TP_ARG,
+  HWINSTR_TP_VAR
 };
 
 class HWInstr {
@@ -610,6 +611,10 @@ class HWInstr {
     std::string compactString() const {
       if (tp == HWINSTR_TP_STR) {
         return strConst;
+      }
+
+      if (tp == HWINSTR_TP_VAR) {
+        return name;
       }
 
       if (tp == HWINSTR_TP_CONST) {
@@ -726,8 +731,9 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Variable* v) {
       IRGraphVisitor::visit(v);
       auto ist = newI();
-      ist->name = "variable";
-      instrs.push_back(ist);
+      ist->name = v->name;
+      ist->tp = HWINSTR_TP_VAR;
+
       lastValue = ist;
     }
 
