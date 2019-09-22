@@ -542,6 +542,17 @@ uint num_bits(uint N) {
   return num_shifts;
 }
 
+// What structure do we want to extract?
+// 1. Set of top-level loops (kernels) in the app
+// 2. Set of linebuffers in the app
+// 3. DAG of dispatches and connections in the app
+// 4. Set of top-level arguments to the app
+// 5. Set of stream names in the app?
+// 6. Other?
+//
+// What is the procedure for scheduling going to be?
+// 1. Form IR for each loop nest
+// 2. Shedule the IR assuming II = 1?
 class NestExtractor : public IRGraphVisitor {
   public:
     vector<const For*> loops;
@@ -566,6 +577,28 @@ class NestExtractor : public IRGraphVisitor {
     }
 };
 
+class HWInstr {
+  public:
+    CoreIR::Module* opType;
+    bool preBound;
+    string boundTargetName;
+    int latency;
+
+    vector<CoreIR::Type*> operandTypes;
+    CoreIR::Type* retType;
+
+    string name;
+};
+
+class NestProgram {  
+  public:
+    vector<HWInstr> instrs;
+};
+
+vector<HWInstr*> buildHWBody(const For* perfectNest) {
+  return {};
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -580,6 +613,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   cout << "\tAll loops" << endl;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
+    vector<HWInstr*> body = buildHWBody(lp);
+    cout << "\t\tInstructions in body = " << endl;
+    for (auto instr : body) {
+      cout << "\t\t\t" << instr->name << endl;
+    }
   }
 
   // Emit the function prototype
