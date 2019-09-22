@@ -595,8 +595,33 @@ class NestProgram {
     vector<HWInstr> instrs;
 };
 
+class InstructionCollector : public IRGraphVisitor {
+  public:
+    vector<HWInstr*> instrs;
+
+    void visit(const Call* op) {
+      HWInstr* ist = new HWInstr();
+
+      if (op->name == "linebuffer") {
+        ist->name = "linebuf_decl";
+      } else if (op->name == "write_stream") {
+        ist->name = "write_stream";
+      } else if (op->name == "read_stream") {
+        ist->name = "read_stream";
+      } else if (ends_with(op->name, ".stencil") ||
+          ends_with(op->name, ".stencil_update")) {
+        ist->name = "stencil_call";
+      } else {
+        ist->name = "other_instr";
+      }
+      instrs.push_back(ist);
+    }
+};
+
 vector<HWInstr*> buildHWBody(const For* perfectNest) {
-  return {};
+  InstructionCollector collector;
+  perfectNest->accept(&collector);
+  return collector.instrs;
 }
 
 // add new design
