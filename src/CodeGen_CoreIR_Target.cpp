@@ -601,6 +601,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto ist = new HWInstr();
       ist->uniqueNum = n;
       ist->predicate = currentPredicate;
+      ist->tp = HWINSTR_TP_INSTR;
       uniqueNum++;
       return ist;
     }
@@ -812,14 +813,56 @@ vector<HWInstr*> buildHWBody(const For* perfectNest) {
   return collector.instrs;
 }
 
+bool isCall(const std::string& str, const HWInstr* instr) {
+  return instr->tp == HWINSTR_TP_INSTR && instr->name == str;
+}
+
+bool isStreamWrite(HWInstr* const instr) {
+  return isCall("write_stream", instr);
+}
+
+bool isStreamRead(HWInstr* const instr) {
+  if (instr->tp != HWINSTR_TP_INSTR) {
+    return false;
+  }
+
+  cout << "Instruction name = " << instr->name << endl;
+  if (instr->name == "read_stream") {
+    return true;
+  }
+
+  return false;
+}
+
 CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(vector<HWInstr*>& instrs, int kernelNum) {
+  vector<std::pair<std::string, CoreIR::Type*> > tps;
+  tps = {{"reset", context->BitIn()}, {"clk", context->BitIn()}};
+  std::set<string> inStreams;
+  std::set<string> outStreams;
+  for (auto instr : instrs) {
+    if (isStreamRead(instr)) {
+      inStreams.insert(instr->operands[0]->compactString());
+    }
 
-  CoreIR::Type* design_type = context->Record({{"reset", context->BitIn()}, {"clk", context->BitIn()}});
-  //{"reset", context->BitIn()},
-  //{"out", output_type},
-  //{"valid", context->Bit()},
-  //{"in_en", context->BitIn()}
+    if (isStreamWrite(instr)) {
+      outStreams.insert(instr->operands[0]->compactString());
+    }
+  }
 
+  cout << "Current stencils..." << endl;
+  cout << stencils << endl;
+  cout << "All input streams" << endl;
+  for (auto is : inStreams) {
+    cout << "\t\t" << is << endl;
+    Stencil_Type tp = stencils.get(is);
+    cout << "Stencil type = " << tp.type << endl;
+  }
+  cout << "All output streams" << endl;
+  for (auto is : outStreams) {
+    cout << "\t\t" << is << endl;
+  }
+  CoreIR::Type* design_type = context->Record(tps);
+  
   auto global_ns = context->getNamespace("global");
   design = global_ns->newModuleDecl("design_kernel_test_" + std::to_string(kernelNum), design_type);
   def = design->newModuleDef();
