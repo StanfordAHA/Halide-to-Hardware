@@ -743,7 +743,7 @@ class InstructionCollector : public IRGraphVisitor {
       operands.push_back(codegen(st->predicate));
       operands.push_back(codegen(st->value));
       operands.push_back(codegen(st->index));
-      ist->name = "store_inst";
+      ist->name = "store";
       ist->operands = operands;
       instrs.push_back(ist);
       lastValue = ist;
@@ -970,12 +970,32 @@ bool isLoad(HWInstr* instr) {
   return isCall("load", instr);
 }
 
+bool isStore(HWInstr* instr) {
+  return isCall("store", instr);
+}
 bool isConstant(HWInstr* instr) {
   return instr->tp == HWINSTR_TP_CONST;
 }
 
+bool operator==(const HWInstr& a, const HWInstr& b) {
+  if (a.tp != b.tp) {
+    return false;
+  }
+
+  if (a.tp == HWINSTR_TP_STR) {
+    return a.strConst == b.strConst;
+  }
+
+
+  if (a.tp == HWINSTR_TP_CONST) {
+    return a.constWidth == b.constWidth && a.constValue == b.constValue;
+  }
+  assert(false);
+}
 void removeBadStores(vector<HWInstr*>& body) {
   vector<HWInstr*> constLoads;
+  std::map<HWInstr*, HWInstr*> loadsToConstants;
+  int pos = 0;
   for (auto instr : body) {
     if (isLoad(instr)) {
       auto location = instr->operands[2];
@@ -983,10 +1003,34 @@ void removeBadStores(vector<HWInstr*>& body) {
       if (isConstant(location)) {
         constLoads.push_back(instr);
       }
+
+      // Try to find last store to location
+      HWInstr* lastStoreToLoc = nullptr;
+      for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
+        HWInstr* lastI = body[lastStorePos];
+        if (isStore(lastI)) {
+          cout << "Found store " << *lastI << endl;
+          if (*(lastI->operands[0]) == *(instr->operands[0])) {
+            cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
+            if (*(lastI->operands[3]) == *location) {
+              lastStoreToLoc = lastI;
+              break;
+            }
+          }
+        }
+      }
+
+      if (lastStoreToLoc) {
+        loadsToConstants[instr] = lastStoreToLoc->operands[2];
+      }
     }
+    pos++;
   }
 
   cout << "# of const loads = " << constLoads.size() << endl;
+  for (auto ldNewVal : loadsToConstants) {
+    cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
+  }
 }
 
 // add new design
