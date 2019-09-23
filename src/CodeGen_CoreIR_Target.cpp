@@ -931,11 +931,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     string inName = is;
     replaceAll(inName, ".", "_");
     tps.push_back({inName, base});
-    for (auto arg : dispatchInfo) {
-      cout << "\t\t" << arg << endl;
-    }
-    //Stencil_Type tp = stencils.get(is);
-    //cout << "Stencil type = " << tp.type << endl;
+    tps.push_back({inName + "_valid", context->BitIn()});
   }
   cout << "All output streams" << endl;
   for (auto is : outStreams) {
