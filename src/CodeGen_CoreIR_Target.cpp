@@ -766,10 +766,10 @@ class InstructionCollector : public IRGraphVisitor {
     }
     void visit(const Call* op) {
       vector<HWInstr*> callOperands;
-      cout << "Processing call: " << op->name << endl;
+      //cout << "Processing call: " << op->name << endl;
       for (size_t i = 0; i < op->args.size(); i++) {
         op->args[i].accept(this);
-        cout << "Processing argument " << i << ": " << op->args[i] << endl;
+        //cout << "Processing argument " << i << ": " << op->args[i] << endl;
         internal_assert(lastValue != nullptr) << "Error: In call lastValue is null\n";
         callOperands.push_back(lastValue);
         lastValue = nullptr;
@@ -826,7 +826,7 @@ bool isStreamRead(HWInstr* const instr) {
     return false;
   }
 
-  cout << "Instruction name = " << instr->name << endl;
+  //cout << "Instruction name = " << instr->name << endl;
   if (instr->name == "read_stream") {
     return true;
   }
@@ -834,7 +834,73 @@ bool isStreamRead(HWInstr* const instr) {
   return false;
 }
 
-CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(vector<HWInstr*>& instrs, int kernelNum) {
+class DispatchInfo {
+  public:
+
+};
+
+class StencilInfoCollector : public IRGraphVisitor {
+  public:
+
+    StencilInfo info;
+    vector<DispatchInfo> dispatches;
+
+    void visit(const Call* op) {
+      cout << "Stencil visiting call: " << op->name << endl;
+      if (op->name == "dispatch_stream") {
+        cout << "Found dispatch" << endl;
+        cout << "\tName = " << op->args[0] << "\n";
+        cout << "\t# dims = " << op->args[1] << "\n";
+
+        vector<string> dinfo;
+        for (int i = 1; i  < op->args.size(); i++) {
+          Expr e = op->args[i];
+          ostringstream ss;
+          ss << e;
+
+          string en = ss.str();
+          dinfo.push_back(en);
+          //info.push_back(print_expr(op->args[i]));
+        }
+
+        ostringstream ss;
+        ss << op->args[0];
+        info.streamDispatches[ss.str()] = dinfo;
+      }
+    }
+
+    void visit(const Realize* op)  {
+      if (ends_with(op->name, ".stream")) {
+        auto tps = op->types[0];
+        auto bnds = op->bounds;
+        cout << "Realizing " << op->name << " with type = " << tps << endl;
+        cout << "and bounds..." << endl;
+        for (auto bnd : bnds) {
+          cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
+        }
+      }
+
+      IRGraphVisitor::visit(op);
+    }
+
+};
+
+vector<int> streamWindowDims(std::string& name, StencilInfo& info) {
+  return {3, 3};
+}
+
+void replaceAll( string &s, const string &search, const string &replace ) {
+    for( size_t pos = 0; ; pos += replace.length() ) {
+        // Locate the substring to replace
+        pos = s.find( search, pos );
+        if( pos == string::npos ) break;
+        // Replace by erasing and inserting
+        s.erase( pos, search.length() );
+        s.insert( pos, replace );
+    }
+}
+
+CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, vector<HWInstr*>& instrs, int kernelNum) {
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"clk", context->BitIn()}};
   std::set<string> inStreams;
@@ -849,13 +915,27 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(vector<
     }
   }
 
-  cout << "Current stencils..." << endl;
-  cout << stencils << endl;
+  //cout << "Current stencils..." << endl;
+  //cout << stencils << endl;
   cout << "All input streams" << endl;
   for (auto is : inStreams) {
     cout << "\t\t" << is << endl;
-    Stencil_Type tp = stencils.get(is);
-    cout << "Stencil type = " << tp.type << endl;
+    vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
+    cout << "\tDispatch info..." << endl;
+    vector<int> windowDims = streamWindowDims(is, info);
+    CoreIR::Type* base = context->BitIn()->Arr(16);
+    for (auto d : windowDims) {
+      base = base->Arr(d);
+    }
+
+    string inName = is;
+    replaceAll(inName, ".", "_");
+    tps.push_back({inName, base});
+    for (auto arg : dispatchInfo) {
+      cout << "\t\t" << arg << endl;
+    }
+    //Stencil_Type tp = stencils.get(is);
+    //cout << "Stencil type = " << tp.type << endl;
   }
   cout << "All output streams" << endl;
   for (auto is : outStreams) {
@@ -878,10 +958,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
   cout << "Emitting kernel for " << name << endl;
 
+
   cout << "\tStmt is = " << stmt << endl;
   NestExtractor extractor;
   stmt.accept(&extractor);
 
+  StencilInfoCollector scl;
+  stmt.accept(&scl);
+  
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
   for (const For* lp : extractor.loops) {
@@ -892,7 +976,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "\t\t\t" << *instr << endl;
     }
 
-    CoreIR::Module* m = moduleForKernel(body, kernelN);
+    CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
     cout << "Module for kernel..." << endl;
     m->print();
     kernelN++;

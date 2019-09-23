@@ -105,6 +105,12 @@ class HWInstr {
     }
 };
 
+class StencilInfo {
+  public:
+    std::map<std::string, std::vector<int> > windowDims;
+    std::map<std::string, std::vector<std::string> > streamDispatches;
+};
+
 /** 
  * This class emits CoreIR designs in JSON format.
  */
@@ -132,7 +138,7 @@ class HWInstr {
         CodeGen_CoreIR_C(std::ostream &s, Target target, OutputKind output_kind);
         ~CodeGen_CoreIR_C();
 
-        CoreIR::Module* moduleForKernel(std::vector<HWInstr*>& instrs, int kernelNo);
+        CoreIR::Module* moduleForKernel(StencilInfo& info, std::vector<HWInstr*>& instrs, int kernelNo);
         void set_output_path(std::string pathname) {
           output_base_path = pathname;
         }
