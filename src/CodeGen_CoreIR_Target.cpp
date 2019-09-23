@@ -954,6 +954,8 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
         cout << "Instruction name = " << name << endl;
         if (name == "add") {
           def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
+        } else if (name == "mul") {
+          def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         }
       }
     }
