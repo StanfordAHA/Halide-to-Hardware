@@ -966,6 +966,29 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   return design;
 }
 
+bool isLoad(HWInstr* instr) {
+  return isCall("load", instr);
+}
+
+bool isConstant(HWInstr* instr) {
+  return instr->tp == HWINSTR_TP_CONST;
+}
+
+void removeBadStores(vector<HWInstr*>& body) {
+  vector<HWInstr*> constLoads;
+  for (auto instr : body) {
+    if (isLoad(instr)) {
+      auto location = instr->operands[2];
+      cout << "Load " << *instr << " from location: " << location->compactString() << endl;
+      if (isConstant(location)) {
+        constLoads.push_back(instr);
+      }
+    }
+  }
+
+  cout << "# of const loads = " << constLoads.size() << endl;
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -991,6 +1014,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "\t\t\t" << *instr << endl;
     }
 
+    removeBadStores(body);
+    cout << "After store optimization..." << endl;
+    for (auto instr : body) {
+      cout << "\t\t\t" << *instr << endl;
+    }
     CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
     cout << "Module for kernel..." << endl;
     m->print();
