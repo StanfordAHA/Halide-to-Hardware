@@ -107,7 +107,7 @@ class HWInstr {
 
 class StencilInfo {
   public:
-    std::map<std::string, std::vector<int> > windowDims;
+    std::map<std::string, std::vector<std::string> > stencilSizes;
     std::map<std::string, std::vector<std::string> > streamDispatches;
 };
 

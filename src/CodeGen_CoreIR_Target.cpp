@@ -936,6 +936,19 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   cout << "All output streams" << endl;
   for (auto is : outStreams) {
     cout << "\t\t" << is << endl;
+
+    vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
+    cout << "\tDispatch info..." << endl;
+    vector<int> windowDims = streamWindowDims(is, info);
+    CoreIR::Type* base = context->BitIn()->Arr(16);
+    for (auto d : windowDims) {
+      base = base->Arr(d);
+    }
+
+    string inName = is;
+    replaceAll(inName, ".", "_");
+    tps.push_back({inName, base});
+    tps.push_back({inName + "_valid", context->BitIn()});
   }
   CoreIR::Type* design_type = context->Record(tps);
   
