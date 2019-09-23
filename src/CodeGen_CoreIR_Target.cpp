@@ -586,6 +586,23 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   return out;
 }
 
+// Now: Schedule and collect the output
+// Q: What is the schedule going to look like?
+// A: List of stages containing instructions + II
+//    And: Resource mapping for each operation
+class HWLoopSchedule {
+  public:
+    vector<vector<HWInstr*> > stages;
+    int II;
+
+    std::map<HWInstr*, std::string> unitMapping;
+
+    // Also: Need a mapping from stages in the pipeline
+    // to value locations in registers?
+    // And we need a mapping from stream names in the
+    // code to arguments?
+};
+
 class InstructionCollector : public IRGraphVisitor {
   public:
     vector<HWInstr*> instrs;
@@ -906,6 +923,44 @@ void replaceAll( string &s, const string &search, const string &replace ) {
     }
 }
 
+// Note that stencils will need to have
+// multiple define (or set) stages
+// Also note that inside a cycle different
+// instructions may use the current value of an
+// instruction or a later value
+// Note: For each instruction in a pipeline
+// its intermediate result register will only
+// be stored to if the instruction predicate
+// is true in that stage, and the stage is active
+class PipelineInfo {
+  public:
+    HWInstr* instruction;
+    int defStage;
+    vector<int> useStages;
+};
+
+void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
+  assert(sched.II == 1);
+  // TODO: Emit actual counter controller for stages
+  // Also: Need to connect up clock and reset
+  // Need to wire up predicates and state wires
+  // For each instruction: Find its def stage, and
+  // find all stages where it is used
+  int defStage = 0;
+  for (auto stage : sched.stages) {
+    for (auto instr : stage) {
+      if (instr->tp == HWINSTR_TP_INSTR) {
+        string name = instr->name;
+        cout << "Instruction name = " << name << endl;
+        if (name == "add") {
+          def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
+        }
+      }
+    }
+    defStage++;
+  }
+}
+
 CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, vector<HWInstr*>& instrs, int kernelNum) {
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"clk", context->BitIn()}};
@@ -963,6 +1018,16 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   def = design->newModuleDef();
   self = def->sel("self");
 
+  HWLoopSchedule sched;
+  sched.II = 1;
+  for (auto instr : instrs) {
+    sched.stages.push_back({instr});
+  }
+
+  cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
+  emitCoreIR(context, sched, def);
+
+  design->setDef(def);
   return design;
 }
 
