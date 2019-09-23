@@ -992,6 +992,24 @@ bool operator==(const HWInstr& a, const HWInstr& b) {
   }
   assert(false);
 }
+
+
+void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
+  int i = 0;
+  for (auto op : instr->operands) {
+    if (op == toReplace) {
+      instr->operands[i] = replacement;
+    }
+    i++;
+  }
+}
+
+void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
+  for (auto* instr : body) {
+    replaceOperand(toReplace, replacement, instr);
+  }
+}
+
 void removeBadStores(vector<HWInstr*>& body) {
   vector<HWInstr*> constLoads;
   std::map<HWInstr*, HWInstr*> loadsToConstants;
@@ -1030,7 +1048,14 @@ void removeBadStores(vector<HWInstr*>& body) {
   cout << "# of const loads = " << constLoads.size() << endl;
   for (auto ldNewVal : loadsToConstants) {
     cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
+    replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
+
+  for (auto ldNewVal : loadsToConstants) {
+    CoreIR::remove(ldNewVal.first, body);
+  }
+
+  CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
 }
 
 // add new design
