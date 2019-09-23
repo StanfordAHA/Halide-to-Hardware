@@ -958,6 +958,16 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
           def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         }
       }
+    
+      int constNo = 0;
+      for (auto op : instr->operands) {
+        if (op->tp == HWINSTR_TP_CONST) {
+          int width = op->constWidth;
+          int value = stoi(op->constValue);
+          def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
+          constNo++;
+        }
+      }
     }
     defStage++;
   }
