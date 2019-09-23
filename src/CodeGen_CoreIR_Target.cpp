@@ -886,7 +886,13 @@ class StencilInfoCollector : public IRGraphVisitor {
 };
 
 vector<int> streamWindowDims(std::string& name, StencilInfo& info) {
-  return {3, 3};
+  vector<string> dispInfo = CoreIR::map_find(name, info.streamDispatches);
+  int numDims = stoi(dispInfo[0]);
+  vector<int> dims;
+  for (int i = 0; i < numDims; i++) {
+    dims.push_back(stoi(dispInfo[3*i + 1]));
+  }
+  return dims;
 }
 
 void replaceAll( string &s, const string &search, const string &replace ) {
