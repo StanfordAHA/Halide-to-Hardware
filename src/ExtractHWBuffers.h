@@ -33,7 +33,7 @@ struct BufferDimSize {
   Expr output_stencil;
   Expr output_block;
   Expr output_min_pos;
-
+  Expr output_max_pos;
 };
 
 struct Stride {

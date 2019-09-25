@@ -214,7 +214,9 @@ class IdentifyAddressing : public IRVisitor {
         ranges.insert(ranges.begin(), range);
       }
 
-      std::cout << op->name << " has stride=" << strides_in_dim.at(0) << " dim_ref=" << dim_refs.at(0) << "\n";
+      std::cout << op->name << " has stride=" << strides_in_dim.at(0)
+                << " dim_ref=" << dim_refs.at(0)
+                << " range=" << ranges.at(0) << "\n";
       
     } else {
       IdentifyAddressingVar iav(op->name, scope);

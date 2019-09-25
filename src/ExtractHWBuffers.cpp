@@ -498,9 +498,9 @@ class ReplaceForBounds : public IRMutator2 {
     //if (true) {
       //ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       scope.push(op->name, simplify(expand_expr(op->value, scope)));
-      //std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
+      std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
     } else {
-      //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
+      std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
     }
     return IRMutator2::visit(op);
   }
@@ -713,6 +713,34 @@ public:
     var(v), compute_level(cl), found_stencil(false), func(func), stencil_bounds(stencil_bounds) {}
 };
 
+class ReplaceOutputAccessPatternRanges : public IRMutator2 {
+  using IRMutator2::visit;
+  int count;
+  int max_count;
+  const HWBuffer& kernel;
+
+  Stmt visit(const For *old_op) override {
+    Expr new_extent;
+    if (count < max_count) {
+      new_extent = kernel.dims.at(count).logical_size;
+      count += 1;
+    } else {
+      new_extent = old_op->extent;
+    }
+
+    Stmt s = IRMutator2::visit(old_op);
+    const For *op = s.as<For>();
+    Stmt for_stmt = For::make(op->name, op->min, new_extent, op->for_type, op->device_api, op->body);
+    
+    return for_stmt;
+  }
+  
+
+public:
+  ReplaceOutputAccessPatternRanges(const HWBuffer& hwkernel) :
+    count(0), max_count(hwkernel.dims.size()), kernel(hwkernel) { }
+};
+
 }
 
 class HWBuffers : public IRMutator2 {
@@ -906,6 +934,7 @@ class HWBuffers : public IRMutator2 {
           auto output_stencil_box = fos.output_stencil_box;
 
           CountBufferUsers counter(op->name);
+          std::cout << "looking for those access patterns for buffer named: " << op->name << new_body;
           new_body.accept(&counter);
           
           // Parameters 3, 4, 5
@@ -1415,14 +1444,12 @@ void set_opt_params(HWXcel *xcel,
 
         //hwbuffer.dims.at(idx).output_min_pos = simplify(hwbuffer.dims.at(idx).output_min_pos);
         //if (!consumer_buffer.is_output) {
-        if (true) {
-          hwbuffer.dims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
-          std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
-        //} else {
-        //  hwbuffer.dims.at(idx).output_min_pos = output_bounds[idx].min;
-        //  std::cout << "replaced output bounds min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
-        }
-        
+        hwbuffer.dims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
+        hwbuffer.dims.at(idx).output_max_pos = simplify(expand_expr(consumer_bounds[idx].max, stencil_bounds));
+        std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+        auto loop_range = simplify(expand_expr(consumer_bounds[idx].max - consumer_bounds[idx].min + 1, stencil_bounds));
+        std::cout << "  range would/should be: " << loop_range << std::endl;
+
         std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
                   << " and output=" << hwbuffer.dims.at(idx).output_stencil << std::endl;
       }
@@ -1432,12 +1459,6 @@ void set_opt_params(HWXcel *xcel,
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
         
-      }
-
-      if (consumer_buffer.is_output && starts_with(hwbuffer.name, "demosaick") && false) {
-        hwbuffer.dims.at(0).output_min_pos = hwbuffer.dims.at(1).output_min_pos;
-        hwbuffer.dims.at(1).output_min_pos = hwbuffer.dims.at(2).output_min_pos;
-        hwbuffer.dims.at(2).output_min_pos = 0;
       }
 
 //      // save the bounds values in scope
@@ -1461,6 +1482,9 @@ void set_opt_params(HWXcel *xcel,
 //
     }
 
+    ReplaceOutputAccessPatternRanges foapr(hwbuffer);
+    hwbuffer.output_access_pattern = foapr.mutate(hwbuffer.output_access_pattern);
+
     // save the bounds values in scope
     for (int i = 0; i < cur_func.dimensions(); i++) {
       string arg = cur_func.name() + ".s" + std::to_string(stage.stage) + "." + cur_func.args()[i];
@@ -1473,11 +1497,10 @@ void set_opt_params(HWXcel *xcel,
 //        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].step - 1);
 //      }
       stencil_bounds.push(arg + ".min", hwbuffer.dims[i].output_min_pos);
-      std::cout << "pushed min pos " << arg + ".min" << " " << i << "=" << hwbuffer.dims[i].output_min_pos
-                << "   " << stencil_bounds << "\n";
-      //stencil_bounds.push(arg + ".max", stencil_max);
-      //store_bounds.push(arg + ".min", cur_kernel.dims[i].store_bound.min);
-      //store_bounds.push(arg + ".max", cur_kernel.dims[i].store_bound.max);
+      stencil_bounds.push(arg + ".max", hwbuffer.dims[i].output_max_pos);
+      std::cout << "pushed min pos " << arg + ".min" << " " << i << "=" << hwbuffer.dims[i].output_min_pos << "\n";
+      //<< "   " << stencil_bounds << "\n";
+      std::cout << "pushed max pos " << arg + ".max" << " " << i << "=" << hwbuffer.dims[i].output_max_pos << "\n";
     }
     if(stage.stage > 0) {
       //const Definition &r = cur_func.updates()[stage.stage - 1];
