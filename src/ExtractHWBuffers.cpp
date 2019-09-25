@@ -1458,7 +1458,8 @@ void set_opt_params(HWXcel *xcel,
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
-        
+        ReplaceOutputAccessPatternRanges foapr(consumer_buffer);
+        hwbuffer.output_access_pattern = foapr.mutate(hwbuffer.output_access_pattern);
       }
 
 //      // save the bounds values in scope
@@ -1481,9 +1482,6 @@ void set_opt_params(HWXcel *xcel,
 //      }
 //
     }
-
-    ReplaceOutputAccessPatternRanges foapr(hwbuffer);
-    hwbuffer.output_access_pattern = foapr.mutate(hwbuffer.output_access_pattern);
 
     // save the bounds values in scope
     for (int i = 0; i < cur_func.dimensions(); i++) {
