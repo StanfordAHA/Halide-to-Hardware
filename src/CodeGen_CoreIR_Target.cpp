@@ -740,6 +740,27 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
+
+    void visit(const GE* a) {
+      visit_binop("gte", a->a, a->b);
+    }
+
+    void visit(const LE* a) {
+      visit_binop("lte", a->a, a->b);
+    }
+    
+    void visit(const LT* a) {
+      visit_binop("lt", a->a, a->b);
+    }
+
+    void visit(const GT* a) {
+      visit_binop("gt", a->a, a->b);
+    }
+    
+    void visit(const And* a) {
+      visit_binop("and", a->a, a->b);
+    }
+
     HWInstr* codegen(const Expr e) {
       lastValue = nullptr;
       e.accept(this);
