@@ -1272,6 +1272,20 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
+void valueConvertStreamReads(StencilInfo& info, vector<HWInstr*>& body) {
+  for (auto instr : body) {
+    if (isCall("read_stream", instr)) {
+      auto callRep = new HWInstr();
+      callRep->uniqueNum = 999;
+      callRep->name = "rd_stream";
+      callRep->operands = {instr->operands[0]};
+      auto targetStencil = instr->operands[1];
+      replaceAllUsesWith(targetStencil, callRep, body);
+      insertAt(instr, callRep, body);
+    }
+  }
+}
+
 void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
@@ -1369,6 +1383,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
     }
+
+
+    valueConvertStreamReads(scl.info, body);
+    cout << "After stream read conversion..." << endl;
+    for (auto instr : body) {
+      cout << "\t\t\t" << *instr << endl;
+    }
+    
     CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
     cout << "Module for kernel..." << endl;
     m->print();
