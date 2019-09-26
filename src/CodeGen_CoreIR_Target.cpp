@@ -1190,7 +1190,7 @@ void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
   body.insert(std::begin(body) + i, instr);
 }
 
-void valueConvertProvides(vector<HWInstr*>& body) {
+void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : body) {
@@ -1254,7 +1254,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     }
   }
 
-  return;
+  //return;
   
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
@@ -1272,7 +1272,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "\t\t\t" << *instr << endl;
     }
 
-    valueConvertProvides(body);
+    valueConvertProvides(scl.info, body);
     cout << "After provide conversion..." << endl;
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;

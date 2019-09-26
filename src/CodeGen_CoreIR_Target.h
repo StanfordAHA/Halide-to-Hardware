@@ -90,7 +90,7 @@ class HWInstr {
 
     std::string compactString() const {
       if (tp == HWINSTR_TP_STR) {
-        return strConst;
+        return "\"" + strConst + "\"";
       }
 
       if (tp == HWINSTR_TP_VAR) {
