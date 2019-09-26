@@ -105,6 +105,14 @@ class HWInstr {
     }
 };
 
+class HWFunction {
+  public:
+    int uniqueNum;
+    std::vector<HWInstr*> body;
+
+    HWFunction() : uniqueNum(0) {}
+};
+
 class StencilInfo {
   public:
     std::map<std::string, std::vector<std::string> > stencilSizes;
