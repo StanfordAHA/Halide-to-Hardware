@@ -592,11 +592,30 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
 //    And: Resource mapping for each operation
 class HWLoopSchedule {
   public:
+    vector<HWInstr*> body;
     vector<vector<HWInstr*> > stages;
     int II;
 
     std::map<HWInstr*, std::string> unitMapping;
 
+    // Annoying things
+    // 1. Hierarchical types in coreir
+    // 2. Not sure if I want one record type per stream argument, or multiple ports for arguments
+    // 3. Not sure if I want to change provides on stencils in to value producers or keep them as stores
+    // 4. I dont want a bunch of special cases in hw instructions, I want them to be stateful or stateless
+
+    // Q: What to do about provide instructions?
+    // A: What is the problem there?
+    //    Normal values just need to be set to
+    //    their value in one pipeline stage, but then need
+    //    to be used in many. stencils that are the subject
+    //    of provide ops may be defined in several places
+    //    and then used in several places. Though I suppose
+    //    I could create the first instance of it as an
+    //    undefined value, then set it later. That way
+    //    I would not have to deal with implicitly set values
+    //    in each provide operation.
+    //
     // Also: Need a mapping from stages in the pipeline
     // to value locations in registers?
     // And we need a mapping from stream names in the
@@ -956,6 +975,8 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
           def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "mul") {
           def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+        } else if (name == "cast") {
+          def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
         }
       }
     
@@ -1031,6 +1052,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   self = def->sel("self");
 
   HWLoopSchedule sched;
+  sched.body = instrs;
   sched.II = 1;
   for (auto instr : instrs) {
     sched.stages.push_back({instr});
@@ -1135,6 +1157,24 @@ void removeBadStores(vector<HWInstr*>& body) {
   CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
 }
 
+void valueConvertProvides(vector<HWInstr*>& body) {
+  std::map<string, vector<HWInstr*> > provides;
+  for (auto instr : body) {
+    if (isCall("provide", instr)) {
+      string target = instr->operands[0]->compactString();
+      provides[target].push_back(instr);
+    }
+  }
+
+  cout << "Provides" << endl;
+  for (auto pr : provides) {
+    cout << "\t" << pr.first << " has provide calls" << endl;
+    for (auto instr : pr.second) {
+      cout << "\t\t" << *instr << endl;
+    }
+  }
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -1162,6 +1202,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     removeBadStores(body);
     cout << "After store optimization..." << endl;
+    for (auto instr : body) {
+      cout << "\t\t\t" << *instr << endl;
+    }
+
+    valueConvertProvides(body);
+    cout << "After provide conversion..." << endl;
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
     }
