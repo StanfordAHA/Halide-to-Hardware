@@ -832,11 +832,11 @@ class InstructionCollector : public IRGraphVisitor {
         assert(callOperands.size() > 1);
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
-        checkPred = newI();
-        checkPred->name = "read_stream_valid";
-        checkPred->operands = callOperands;
-        instrs.push_back(checkPred);
-        currentPredicate = currentPredicate == nullptr ? checkPred : andHW(currentPredicate, checkPred);
+        //checkPred = newI();
+        //checkPred->name = "read_stream_valid";
+        //checkPred->operands = callOperands;
+        //instrs.push_back(checkPred);
+        //currentPredicate = currentPredicate == nullptr ? checkPred : andHW(currentPredicate, checkPred);
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
@@ -1265,10 +1265,10 @@ void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
   insert(position, refresh, body);
 }
 
-void replaceAllUsesAfter(HWInstr* refresh, HWInstr* target, HWInstr* toReplace, vector<HWInstr*>& body) {
+void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
   int startPos = instructionPosition(refresh, body);
   for (int i = startPos + 1; i < (int) body.size(); i++) {
-    replaceOperand(target, toReplace, body[i]);
+    replaceOperand(toReplace, replacement, body[i]);
  }
 }
 
@@ -1303,6 +1303,7 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
     for (auto instr : pr.second) {
       cout << "\t\t" << *instr << endl;
       HWInstr* refresh = new HWInstr();
+      refresh->uniqueNum = provideNum + 100;
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       insertAt(instr, refresh, body);
