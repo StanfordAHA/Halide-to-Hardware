@@ -1131,10 +1131,18 @@ bool operator==(const HWInstr& a, const HWInstr& b) {
     return a.strConst == b.strConst;
   }
 
+  if (a.tp == HWINSTR_TP_VAR) {
+    return a.name == b.name;
+  }
 
   if (a.tp == HWINSTR_TP_CONST) {
     return a.constWidth == b.constWidth && a.constValue == b.constValue;
   }
+
+  if (a.tp == HWINSTR_TP_INSTR) {
+    return a.uniqueNum == b.uniqueNum;
+  }
+
   assert(false);
 }
 
