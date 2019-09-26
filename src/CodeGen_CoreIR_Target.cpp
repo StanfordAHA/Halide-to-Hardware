@@ -1004,6 +1004,40 @@ class PipelineInfo {
     vector<int> useStages;
 };
 
+vector<int> getStencilDims(const std::string& name, StencilInfo& info) {
+  if (CoreIR::contains_key(name, info.stencilRealizations)) {
+    vector<string> rz = CoreIR::map_find(name, info.stencilRealizations);
+    internal_assert(rz.size() % 2 == 0);
+    vector<int> dims;
+    for (int i = 0; i < rz.size() % 2; i++) {
+      string min = rz[2*i];
+      string ext = rz[2*i + 1];
+      dims.push_back(stoi(min));
+      dims.push_back(stoi(ext));
+
+    }
+    return dims;
+  }
+
+  internal_assert(false);
+}
+
+vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
+  if (CoreIR::contains_key(str, info.streamWrites)) {
+
+    string inputStencil = info.streamWrites[str];
+    cout << "Source of " << str << " is stencil " << inputStencil << endl;
+    return getStencilDims(inputStencil, info);
+    //internal_assert(CoreIR::contains_key(str, info.stencilSizes));
+    //vector<string> sizes = CoreIR::map_find(str, info.stencilSizes);
+    //cout << "Sizes = ";
+    //for (auto sz : sizes) {
+      //cout << "\t" << sz << endl;
+    //}
+  }
+  internal_assert(false);
+}
+
 void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
   // TODO: Emit actual counter controller for stages
@@ -1077,9 +1111,11 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   for (auto is : outStreams) {
     cout << "\t\t" << is << endl;
 
-    vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
-    cout << "\tDispatch info..." << endl;
-    vector<int> windowDims = streamWindowDims(is, info);
+    vector<int> windowDims = getStreamDims(is, info);
+    //assert(CoreIR::contains_key(is, info.streamDispatches));
+    //vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
+    //cout << "\tDispatch info..." << endl;
+    //vector<int> windowDims = streamWindowDims(is, info);
     CoreIR::Type* base = context->BitIn()->Arr(16);
     for (auto d : windowDims) {
       base = base->Arr(d);
