@@ -1157,18 +1157,36 @@ void removeBadStores(vector<HWInstr*>& body) {
   CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
 }
 
+void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
+  body.insert(std::begin(body) + i, instr);
+}
+
 void valueConvertProvides(vector<HWInstr*>& body) {
   std::map<string, vector<HWInstr*> > provides;
+  std::map<string, HWInstr*> stencilDecls;
   for (auto instr : body) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
       provides[target].push_back(instr);
+      stencilDecls[target] = instr;
     }
   }
 
+  // What is the right way to optimize this?
+  // Find the initialization value of the provides
+  // Create an instruction to initialize the provide
+  // Replace all references to stencil after a given
+  // provide with the result of the new provide call
+  std::map<std::string, HWInstr*> initProvides;
   cout << "Provides" << endl;
   for (auto pr : provides) {
+    auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
+    HWInstr* instr = new HWInstr();
+    instr->name = "init_provide_" + pr.first;
+    insert(0, instr, body);
     cout << "\t" << pr.first << " has provide calls" << endl;
+    HWInstr* activeProvide = instr;
+    replaceAllUsesWith(provideValue, activeProvide, body);
     for (auto instr : pr.second) {
       cout << "\t\t" << *instr << endl;
     }
