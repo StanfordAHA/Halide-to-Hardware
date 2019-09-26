@@ -578,11 +578,15 @@ class NestExtractor : public IRGraphVisitor {
 };
 
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
-  out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": " << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
-  for (auto op : instr.operands) {
-    out << op->compactString() << ", ";
+  if (instr.tp == HWINSTR_TP_VAR) {
+    out << instr.name;
+  } else {
+    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": " << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
+    for (auto op : instr.operands) {
+      out << op->compactString() << ", ";
+    }
+    out << ");";
   }
-  out << ");";
   return out;
 }
 
@@ -642,6 +646,13 @@ class InstructionCollector : public IRGraphVisitor {
       return ist;
     }
 
+    HWInstr* varI(const std::string& name) {
+      auto nI = newI();
+      nI->tp = HWINSTR_TP_VAR;
+      nI->name = name;
+      return nI;
+    }
+
     void visit(const UIntImm* imm) {
       auto ist = newI();
       ist->tp = HWINSTR_TP_CONST;
@@ -686,8 +697,9 @@ class InstructionCollector : public IRGraphVisitor {
 
       vector<HWInstr*> operands;
       auto nameConst = newI();
-      nameConst->strConst = p->name;
-      nameConst->tp = HWINSTR_TP_STR;
+      //nameConst->strConst = p->name;
+      nameConst->name = p->name;
+      nameConst->tp = HWINSTR_TP_VAR;
       operands.push_back(nameConst);
       for (size_t i = 0; i < p->values.size(); i++) {
         auto v = codegen(p->values[i]);
@@ -817,6 +829,7 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "linebuf_decl";
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
+        assert(callOperands.size() > 1);
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
         checkPred = newI();
@@ -828,9 +841,13 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
         auto callOp = newI();
-        callOp->tp = HWINSTR_TP_STR;
-        callOp->strConst = calledStencil;
+        callOp->tp = HWINSTR_TP_VAR;
+        callOp->name = calledStencil;
+        
+        //callOp->strConst = calledStencil;
         callOperands.insert(std::begin(callOperands), callOp);
+
+        //callOperands[0] = varI(callOperands[0]->compactString());
       } else if (ends_with(op->name, ".stencil_update")) {
         ist->name = "stencil_update";
       } else {
@@ -1125,7 +1142,7 @@ bool operator==(const HWInstr& a, const HWInstr& b) {
 void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
   int i = 0;
   for (auto op : instr->operands) {
-    if (op == toReplace) {
+    if (*op == *toReplace) {
       instr->operands[i] = replacement;
     }
     i++;
@@ -1215,7 +1232,8 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
     insert(0, instr, body);
     cout << "\t" << pr.first << " has provide calls" << endl;
     HWInstr* activeProvide = instr;
-    replaceAllUsesWith(provideValue, activeProvide, body);
+    cout << "Replacing " << *(provideValue->operands[0]) << " with " << *activeProvide << endl;
+    replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
     for (auto instr : pr.second) {
       cout << "\t\t" << *instr << endl;
     }
