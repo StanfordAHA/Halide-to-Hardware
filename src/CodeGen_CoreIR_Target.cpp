@@ -1332,6 +1332,12 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
       provideNum++;
     }
   }
+
+  for (auto pr : provides) {
+    for (auto instr : pr.second) {
+      CoreIR::remove(instr, body);
+    }
+  }
 }
 
 // add new design
