@@ -112,6 +112,7 @@ class StencilInfo {
     std::map<std::string, std::vector<std::string> > streamDispatches;
     std::map<std::string, std::string> streamWrites;
     std::map<std::string, std::string> streamReads;
+    std::vector<std::vector<std::string> > linebuffers;
 };
 
 /** 

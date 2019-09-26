@@ -909,6 +909,11 @@ class StencilInfoCollector : public IRGraphVisitor {
         ostringstream ss;
         ss << op->args[0];
         info.streamDispatches[ss.str()] = dinfo;
+      } else if (op->name == "linebuffer") {
+        info.linebuffers.push_back({});
+        for (auto arg : op->args) {
+          info.linebuffers.back().push_back(exprString(arg));
+        }
       } else if (op->name == "read_stream") {
         info.streamReads[exprString(op->args[0])] = exprString(op->args[1]);
       } else if (op->name == "write_stream") {
