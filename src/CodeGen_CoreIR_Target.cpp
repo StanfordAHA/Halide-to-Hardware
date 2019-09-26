@@ -1273,6 +1273,7 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
 }
 
 void valueConvertStreamReads(StencilInfo& info, vector<HWInstr*>& body) {
+  std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
     if (isCall("read_stream", instr)) {
       auto callRep = new HWInstr();
@@ -1281,9 +1282,14 @@ void valueConvertStreamReads(StencilInfo& info, vector<HWInstr*>& body) {
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
       replaceAllUsesWith(targetStencil, callRep, body);
-      insertAt(instr, callRep, body);
+      replacements[instr] = callRep;
     }
   }
+
+  for (auto rp : replacements) {
+    insertAt(rp.first, rp.second, body);
+  }
+  CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
 }
 
 void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
