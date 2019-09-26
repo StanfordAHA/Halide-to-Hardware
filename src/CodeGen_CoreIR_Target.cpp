@@ -1265,6 +1265,13 @@ void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
   insert(position, refresh, body);
 }
 
+void replaceAllUsesAfter(HWInstr* refresh, HWInstr* target, HWInstr* toReplace, vector<HWInstr*>& body) {
+  int startPos = instructionPosition(refresh, body);
+  for (int i = startPos + 1; i < (int) body.size(); i++) {
+    replaceOperand(target, toReplace, body[i]);
+ }
+}
+
 void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
@@ -1296,8 +1303,11 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
     for (auto instr : pr.second) {
       cout << "\t\t" << *instr << endl;
       HWInstr* refresh = new HWInstr();
+      refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       insertAt(instr, refresh, body);
+      replaceAllUsesAfter(refresh, activeProvide, refresh, body);
+      activeProvide = refresh;
       provideNum++;
     }
   }
