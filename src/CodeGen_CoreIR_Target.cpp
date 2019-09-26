@@ -1206,7 +1206,7 @@ void removeBadStores(vector<HWInstr*>& body) {
   for (auto instr : body) {
     if (isLoad(instr)) {
       auto location = instr->operands[2];
-      cout << "Load " << *instr << " from location: " << location->compactString() << endl;
+      //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
       if (isConstant(location)) {
         constLoads.push_back(instr);
       }
@@ -1216,9 +1216,9 @@ void removeBadStores(vector<HWInstr*>& body) {
       for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
         HWInstr* lastI = body[lastStorePos];
         if (isStore(lastI)) {
-          cout << "Found store " << *lastI << endl;
+          //cout << "Found store " << *lastI << endl;
           if (*(lastI->operands[0]) == *(instr->operands[0])) {
-            cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
+            //cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
             if (*(lastI->operands[3]) == *location) {
               lastStoreToLoc = lastI;
               break;
@@ -1234,9 +1234,9 @@ void removeBadStores(vector<HWInstr*>& body) {
     pos++;
   }
 
-  cout << "# of const loads = " << constLoads.size() << endl;
+  //cout << "# of const loads = " << constLoads.size() << endl;
   for (auto ldNewVal : loadsToConstants) {
-    cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
+    //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
 
@@ -1249,6 +1249,20 @@ void removeBadStores(vector<HWInstr*>& body) {
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
   body.insert(std::begin(body) + i, instr);
+}
+
+int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
+  for (int pos = 0; pos < (int) body.size(); pos++) {
+    if (body[pos] == instr) {
+      return pos;
+    }
+  }
+  return -1;
+}
+void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
+  int position = instructionPosition(instr, body);
+  assert(position >= 0);
+  insert(position, refresh, body);
 }
 
 void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
@@ -1278,8 +1292,13 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
     HWInstr* activeProvide = instr;
     cout << "Replacing " << *(provideValue->operands[0]) << " with " << *activeProvide << endl;
     replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+    int provideNum = 0;
     for (auto instr : pr.second) {
       cout << "\t\t" << *instr << endl;
+      HWInstr* refresh = new HWInstr();
+      refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
+      insertAt(instr, refresh, body);
+      provideNum++;
     }
   }
 }
