@@ -875,6 +875,13 @@ class DispatchInfo {
 
 };
 
+std::string exprString(const Expr e) {
+  ostringstream ss;
+  ss << e;
+  string en = ss.str();
+  return en;
+}
+
 class StencilInfoCollector : public IRGraphVisitor {
   public:
 
@@ -902,8 +909,13 @@ class StencilInfoCollector : public IRGraphVisitor {
         ostringstream ss;
         ss << op->args[0];
         info.streamDispatches[ss.str()] = dinfo;
+      } else if (op->name == "read_stream") {
+        info.streamReads[exprString(op->args[0])] = exprString(op->args[1]);
+      } else if (op->name == "write_stream") {
+        info.streamWrites[exprString(op->args[0])] = exprString(op->args[1]);
       }
     }
+
 
     void visit(const Realize* op)  {
       if (ends_with(op->name, ".stream")) {
@@ -913,6 +925,18 @@ class StencilInfoCollector : public IRGraphVisitor {
         cout << "and bounds..." << endl;
         for (auto bnd : bnds) {
           cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
+        }
+      } else if (ends_with(op->name, ".stencil")) {
+
+        info.stencilRealizations[op->name] = {};
+        auto tps = op->types[0];
+        auto bnds = op->bounds;
+        cout << "Realizing " << op->name << " with type = " << tps << endl;
+        cout << "and bounds..." << endl;
+        for (auto bnd : bnds) {
+          cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
+          info.stencilRealizations[op->name].push_back(exprString(bnd.min));
+          info.stencilRealizations[op->name].push_back(exprString(bnd.extent));
         }
       }
 
@@ -1207,6 +1231,25 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
   StencilInfoCollector scl;
   stmt.accept(&scl);
+  cout << "Stencil info" << endl;
+  StencilInfo info = scl.info;
+  cout << "Dispatches" << endl;
+  for (auto ds : info.streamDispatches) {
+    cout << ds.first << endl;
+    for (auto r : ds.second) {
+      cout << "\t" << r << endl;
+    }
+  }
+
+  cout << "Stencils" << endl;
+  for (auto ds : info.stencilRealizations) {
+    cout << ds.first << endl;
+    for (auto r : ds.second) {
+      cout << "\t" << r << endl;
+    }
+  }
+
+  return;
   
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;

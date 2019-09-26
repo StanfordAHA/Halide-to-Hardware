@@ -108,7 +108,10 @@ class HWInstr {
 class StencilInfo {
   public:
     std::map<std::string, std::vector<std::string> > stencilSizes;
+    std::map<std::string, std::vector<std::string> > stencilRealizations;
     std::map<std::string, std::vector<std::string> > streamDispatches;
+    std::map<std::string, std::string> streamWrites;
+    std::map<std::string, std::string> streamReads;
 };
 
 /** 
