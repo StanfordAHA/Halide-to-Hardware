@@ -928,10 +928,13 @@ class InstructionCollector : public IRGraphVisitor {
     }
 };
 
-vector<HWInstr*> buildHWBody(const For* perfectNest) {
+//vector<HWInstr*> buildHWBody(const For* perfectNest) {
+
+HWFunction buildHWBody(const For* perfectNest) {
   InstructionCollector collector;
   perfectNest->accept(&collector);
-  return collector.f.body;
+  //return collector.f.body;
+  return collector.f;
 }
 
 bool isCall(const std::string& str, const HWInstr* instr) {
@@ -1493,7 +1496,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   int kernelN = 0;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
-    vector<HWInstr*> body = buildHWBody(lp);
+    //vector<HWInstr*> body = buildHWBody(lp);
+    HWFunction f = buildHWBody(lp);
+    auto& body = f.body;
     cout << "\t\tInstructions in body = " << endl;
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
