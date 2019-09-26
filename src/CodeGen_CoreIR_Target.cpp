@@ -628,22 +628,27 @@ class HWLoopSchedule {
 
 class InstructionCollector : public IRGraphVisitor {
   public:
-    vector<HWInstr*> instrs;
+    HWFunction f;
+   //vector<HWInstr*> instrs;
     HWInstr* lastValue;
     HWInstr* currentPredicate;
 
-    int uniqueNum;
+    //int uniqueNum;
 
-    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr), uniqueNum(0) {}
+    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
 
     HWInstr* newI() {
-      int n = uniqueNum;
+      int n = f.uniqueNum;
       auto ist = new HWInstr();
       ist->uniqueNum = n;
       ist->predicate = currentPredicate;
       ist->tp = HWINSTR_TP_INSTR;
-      uniqueNum++;
+      f.uniqueNum++;
       return ist;
+    }
+
+    void pushInstr(HWInstr* instr) {
+      f.body.push_back(instr);
     }
 
     HWInstr* varI(const std::string& name) {
@@ -674,7 +679,8 @@ class InstructionCollector : public IRGraphVisitor {
       ist->name = "cast";
       auto operand = codegen(c->value);
       ist->operands = {operand};
-      instrs.push_back(ist);
+      pushInstr(ist);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -717,7 +723,8 @@ class InstructionCollector : public IRGraphVisitor {
       auto ist = newI(); 
       ist->name = "provide";
       ist->operands = operands;
-      instrs.push_back(ist);
+      pushInstr(ist);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -727,7 +734,8 @@ class InstructionCollector : public IRGraphVisitor {
 
       auto ist = newI();
       ist->name = "ramp";
-      instrs.push_back(ist);
+      pushInstr(ist);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -777,7 +785,8 @@ class InstructionCollector : public IRGraphVisitor {
       ist->name = "sel";
       ist->operands = {c, tv, fv};
       lastValue = ist;
-      instrs.push_back(lastValue);
+      pushInstr(lastValue);
+      //instrs.push_back(lastValue);
     }
 
     void visit_binop(const std::string& name, const Expr a, const Expr b) {
@@ -786,7 +795,8 @@ class InstructionCollector : public IRGraphVisitor {
       auto ist = newI();
       ist->name = name;
       ist->operands = {aV, bV};
-      instrs.push_back(ist);
+      pushInstr(lastValue);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -799,7 +809,8 @@ class InstructionCollector : public IRGraphVisitor {
       assignV->name = "assign";
       assignV->operands = {vI, ev};
 
-      instrs.push_back(assignV);
+      pushInstr(assignV);
+      //instrs.push_back(assignV);
 
       auto lv = codegen(l->body);
       internal_assert(lv) << "let body did not produce a value\n";
@@ -829,7 +840,8 @@ class InstructionCollector : public IRGraphVisitor {
       operands.push_back(codegen(ld->predicate));
       operands.push_back(codegen(ld->index));
       ist->operands = operands;
-      instrs.push_back(ist);
+      pushInstr(ist);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -842,7 +854,8 @@ class InstructionCollector : public IRGraphVisitor {
       operands.push_back(codegen(st->index));
       ist->name = "store";
       ist->operands = operands;
-      instrs.push_back(ist);
+      pushInstr(ist);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -862,7 +875,8 @@ class InstructionCollector : public IRGraphVisitor {
       auto andOp = newI();
       andOp->name = "and";
       andOp->operands = {a, b};
-      instrs.push_back(andOp);
+      pushInstr(andOp);
+      //instrs.push_back(andOp);
       return andOp;
     }
     void visit(const Call* op) {
@@ -908,7 +922,8 @@ class InstructionCollector : public IRGraphVisitor {
         assert(false);
       }
       ist->operands = callOperands;
-      instrs.push_back(ist);
+      pushInstr(ist);
+      //instrs.push_back(ist);
       lastValue = ist;
     }
 };
@@ -916,7 +931,7 @@ class InstructionCollector : public IRGraphVisitor {
 vector<HWInstr*> buildHWBody(const For* perfectNest) {
   InstructionCollector collector;
   perfectNest->accept(&collector);
-  return collector.instrs;
+  return collector.f.body;
 }
 
 bool isCall(const std::string& str, const HWInstr* instr) {
