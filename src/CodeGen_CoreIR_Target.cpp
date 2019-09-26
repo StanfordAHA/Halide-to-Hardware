@@ -1358,13 +1358,13 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
   cout << "Provides" << endl;
   for (auto pr : provides) {
     auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
-    HWInstr* instr = new HWInstr();
-    instr->name = "init_provide_" + pr.first;
-    insert(0, instr, body);
-    cout << "\t" << pr.first << " has provide calls" << endl;
-    HWInstr* activeProvide = instr;
-    cout << "Replacing " << *(provideValue->operands[0]) << " with " << *activeProvide << endl;
-    replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+    //HWInstr* instr = new HWInstr();
+    //instr->name = "init_provide_" + pr.first;
+    //insert(0, instr, body);
+    //cout << "\t" << pr.first << " has provide calls" << endl;
+    //HWInstr* activeProvide = instr;
+    //cout << "Replacing " << *(provideValue->operands[0]) << " with " << *activeProvide << endl;
+    //replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
 
     // TODO: Select out the first constant reads;
     vector<HWInstr*> initialSets;
@@ -1383,9 +1383,23 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
       cout << "\t" << *i << endl;
     }
 
+    HWInstr* initInstr = new HWInstr();
+    initInstr->name = "init_stencil_" + pr.first;
+    initInstr->operands = {};
+    for (auto initI : initialSets) {
+      for (int i = 1; i < (int) initI->operands.size(); i++) {
+        initInstr->operands.push_back(initI->operands[i]);
+      }
+    }
+
+    insert(0, initInstr, body);
+    HWInstr* activeProvide = initInstr;
+    replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
     cout << "done with set values..." << endl;
     int provideNum = 0;
-    for (auto instr : pr.second) {
+    //for (auto instr : pr.second) {
+    for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
+      auto instr = pr.second[i];
       cout << "\t\t" << *instr << endl;
       HWInstr* refresh = new HWInstr();
       refresh->uniqueNum = provideNum + 100;
