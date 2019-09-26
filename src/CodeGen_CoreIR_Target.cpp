@@ -748,6 +748,17 @@ class InstructionCollector : public IRGraphVisitor {
       return lastValue;
     }
 
+    void visit(const Select* sel) {
+      auto c = codegen(sel->condition);
+      auto tv = codegen(sel->true_value);
+      auto fv = codegen(sel->false_value);
+      auto ist = newI();
+      ist->name = "sel";
+      ist->operands = {c, tv, fv};
+      lastValue = ist;
+      instrs.push_back(lastValue);
+    }
+
     void visit_binop(const std::string& name, const Expr a, const Expr b) {
       auto aV = codegen(a);
       auto bV = codegen(b);
@@ -759,10 +770,27 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const Let* l) {
-      auto ist = newI();
-      ist->name = "letval";
-      instrs.push_back(ist);
-      lastValue = ist;
+      auto vI = varI(l->name);
+      lastValue = vI;
+
+      auto ev = codegen(l->value);
+      auto assignV = newI();
+      assignV->name = "assign";
+      assignV->operands = {vI, ev};
+
+      instrs.push_back(assignV);
+
+      auto lv = codegen(l->body);
+      internal_assert(lv) << "let body did not produce a value\n";
+      lastValue = lv;
+      
+      //IRGraphVisitor::visit(l->body);
+      // Then: Codegen body
+      
+      //auto ist = newI();
+      //ist->name = "letval";
+      //instrs.push_back(ist);
+      //lastValue = ist;
     }
 
     HWInstr* strConstI(const std::string& name) {
@@ -795,6 +823,10 @@ class InstructionCollector : public IRGraphVisitor {
       ist->operands = operands;
       instrs.push_back(ist);
       lastValue = ist;
+    }
+
+    void visit(const Div* d) {
+      visit_binop("div", d->a, d->b);
     }
 
     void visit(const Add* a) {
@@ -1292,6 +1324,20 @@ void valueConvertStreamReads(StencilInfo& info, vector<HWInstr*>& body) {
   CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
 }
 
+bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
+  //for (auto instr : hwInstr) {
+  internal_assert(start >= 0);
+  internal_assert(end <= hwInstr.size());
+  for (int i = start; i < end; i++) {
+    if (hwInstr[i]->tp != HWINSTR_TP_CONST) {
+      cout << "Instruction " << *(hwInstr[i]) << " is not const!" << endl;
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
@@ -1319,6 +1365,25 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
     HWInstr* activeProvide = instr;
     cout << "Replacing " << *(provideValue->operands[0]) << " with " << *activeProvide << endl;
     replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+
+    // TODO: Select out the first constant reads;
+    vector<HWInstr*> initialSets;
+    for (auto instr : pr.second) {
+      auto operands = instr->operands;
+      if (allConst(1, operands.size(), operands)) {
+        cout << "All operands to " << *instr << " are constants" << endl;
+        initialSets.push_back(instr);
+      } else {
+        break;
+      }
+    }
+
+    cout << "Initial set values" << endl;
+    for (auto i : initialSets) {
+      cout << "\t" << *i << endl;
+    }
+
+    cout << "done with set values..." << endl;
     int provideNum = 0;
     for (auto instr : pr.second) {
       cout << "\t\t" << *instr << endl;
