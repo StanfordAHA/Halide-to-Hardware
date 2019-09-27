@@ -305,11 +305,11 @@ void loadHalideLib(CoreIR::Context* context) {
 
 
   {
-    CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", widthParams,
+    CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         return c->Record({{"out", c->Bit()}});
         });
-    hns->newGeneratorDecl("create_stencil", ws, widthParams);
+    hns->newGeneratorDecl("create_stencil", ws, widthDimParams);
   }
 }
 
@@ -1188,6 +1188,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   // Create a map from HWInstrs to wireables?
   int defStage = 0;
   std::map<HWInstr*, CoreIR::Wireable*> instrValues;
+  std::map<HWInstr*, vector<int> > stencilRanges;
   for (auto stage : sched.stages) {
     for (auto instr : stage) {
       if (instr->tp == HWINSTR_TP_INSTR) {
@@ -1231,11 +1232,19 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
           auto dimRanges = getDimRanges(dims);
 
+          stencilRanges[instr] = dimRanges;
           auto initS = def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
-          //def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = initS->sel("out");
+
         } else if (starts_with(name, "create_stencil")) {
-          def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}});
+          auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
+          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+
+          stencilRanges[instr] = dimRanges;
+          instrValues[instr] = cS->sel("out");
+
         } else if (starts_with(name, "stencil_read")) {
+
           def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
         }
       }
