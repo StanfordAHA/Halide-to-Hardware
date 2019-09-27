@@ -259,6 +259,17 @@ bool can_use_rom(Stmt s, string allocname) {
 
 }
 
+void loadHalideLib(CoreIR::Context* context) {
+  auto hns = context->newNamespace("halidehw");
+
+  CoreIR::Params widthParams;
+  CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthParams,
+      [](CoreIR::Context* c, CoreIR::Values args) {
+      return c->Record({{"in", c->BitIn()}});
+      });
+  hns->newGeneratorDecl("rd_stream", tg, {});
+}
+
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
@@ -273,6 +284,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   bitwidth = 16;
   context = CoreIR::newContext();
   global_ns = context->getGlobal();
+
+  loadHalideLib(context);
 
   // add all generators from coreirprims
   context->getNamespace("coreir");
@@ -1130,9 +1143,9 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
         } else if (name == "cast") {
           def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "rd_stream") {
-          def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {});
+          def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {}, {});
         } else if (name == "write_stream") {
-          def->addInstance("read_stream_" + std::to_string(defStage), "halidehw.write_stream", {});
+          def->addInstance("read_stream_" + std::to_string(defStage), "halidehw.write_stream", {}, {});
         }
       }
     
