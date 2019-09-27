@@ -332,7 +332,7 @@ class CountBufferUsers : public IRVisitor {
         auto assertstmt = AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope)));
         std::cout << "min pos in dim " << dim << ":" << assertstmt;
       }
-    } else {
+    } else if (!is_parallelized(op)) {
       current_for->body = for_stmt;
       std::cout << "added for loop: " << op->name << std::endl;
     }

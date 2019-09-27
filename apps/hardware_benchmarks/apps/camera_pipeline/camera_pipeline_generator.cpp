@@ -191,13 +191,16 @@ namespace {
     Func apply_curve(Func input, Func curve) {
       // copied from FCam
 
-      Func hw_output("hw_output");
+      Func curved("curved");
       Expr in_val = clamp(input(x, y, c), 0, 1023);
-      hw_output(c, x, y) = select(input(x, y, c) < 0, 0,
-                                  input(x, y, c) >= 1024, 255,
-                                  curve(in_val));
+      curved(c, x, y) = select(input(x, y, c) < 0, 0,
+                               input(x, y, c) >= 1024, 255,
+                               curve(in_val));
 
-      return hw_output;
+      curved.reorder(x,y,c);
+      //curved.bound(c, 0, 3);
+      //curved.reorder(x,y,c).unroll(c);
+      return curved;
     }
 
     
@@ -250,7 +253,7 @@ namespace {
         hw_output.unroll(c);
         
         demosaicked.linebuffer();
-          //.unroll(c).unroll(x).unroll(y);
+        demosaicked.unroll(c);
         //demosaicked.reorder(c, x, y);
 
         denoised.linebuffer();
