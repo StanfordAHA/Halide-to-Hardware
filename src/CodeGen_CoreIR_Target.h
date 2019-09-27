@@ -88,6 +88,17 @@ class HWInstr {
 
     HWInstr() : predicate(nullptr), preBound(false), tp(HWINSTR_TP_INSTR) {}
 
+    int toInt() const {
+      internal_assert(tp == HWINSTR_TP_CONST);
+      internal_assert(constWidth <= 32);
+      return stoi(constValue);
+    }
+
+    HWInstr* getOperand(const int i) const {
+      internal_assert(i < (int) operands.size());
+      return operands.at(i);
+    }
+
     std::string compactString() const {
       if (tp == HWINSTR_TP_STR) {
         return "\"" + strConst + "\"";

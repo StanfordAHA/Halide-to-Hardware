@@ -1223,6 +1223,11 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           auto res = wrStrm->sel("out");
           instrValues[instr] = res;
         } else if (starts_with(name, "init_stencil")) {
+          int bnds = instr->getOperand(3)->toInt();
+          vector<int> dims;
+          for (int i = 4; i < 4 + bnds; i++) {
+            dims.push_back(instr->getOperand(i)->toInt());
+          }
           def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "create_stencil")) {
           def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}});
