@@ -266,7 +266,10 @@ void loadHalideLib(CoreIR::Context* context) {
   CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
   CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthDimParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
-      return c->Record({{"in", c->BitIn()}});
+      auto nr = args.at("nrows")->get<int>();
+      auto nc = args.at("ncols")->get<int>();
+      auto w = args.at("width")->get<int>();
+      return c->Record({{"in", c->BitIn()}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
       });
   hns->newGeneratorDecl("rd_stream", tg, widthDimParams);
 
@@ -1180,18 +1183,27 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   // Need to wire up predicates and state wires
   // For each instruction: Find its def stage, and
   // find all stages where it is used
+  //
+  // For now how should we start getting this code to work?
+  // Create a map from instructions to instances?
+  //
+  // Create a map from HWInstrs to wireables?
   int defStage = 0;
+  std::map<HWInstr*, CoreIR::Wireable*> instrValues;
   for (auto stage : sched.stages) {
     for (auto instr : stage) {
       if (instr->tp == HWINSTR_TP_INSTR) {
         string name = instr->name;
         cout << "Instruction name = " << name << endl;
         if (name == "add") {
-          def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
+          auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = adder->sel("out");
         } else if (name == "mul") {
-          def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+          auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
         } else if (name == "cast") {
-          def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
+          auto cs = def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = cs->sel("out");
         } else if (name == "rd_stream") {
           auto dims = getStreamDims(instr->operands[0]->name, info);
           cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
@@ -1200,7 +1212,10 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           }
 
           vector<int> dimRanges = getDimRanges(dims);
-          def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
+          auto rdStrm = def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
+
+          auto res = rdStrm->sel("out");
+          instrValues[instr] = res;
         } else if (name == "write_stream") {
 
           auto dims = getStreamDims(instr->operands[0]->name, info);
