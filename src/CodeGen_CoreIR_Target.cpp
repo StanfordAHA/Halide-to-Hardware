@@ -1557,7 +1557,9 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     initInstr->operands = {};
 
     initInstr->operands.push_back(f.newConst(32, dims.size()));
+    cout << "Dims of " << provideName << endl;
     for (auto c : dims) {
+      cout << "\t" << c << endl;
       initInstr->operands.push_back(f.newConst(32, c));
     }
 
