@@ -954,11 +954,6 @@ class InstructionCollector : public IRGraphVisitor {
         assert(callOperands.size() > 1);
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
-        //checkPred = newI();
-        //checkPred->name = "read_stream_valid";
-        //checkPred->operands = callOperands;
-        //instrs.push_back(checkPred);
-        //currentPredicate = currentPredicate == nullptr ? checkPred : andHW(currentPredicate, checkPred);
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
@@ -1177,6 +1172,17 @@ vector<int> getDimRanges(const vector<int>& ranges) {
 
 #define COREMK(ctx, v) CoreIR::Const::make((ctx), (v))
 
+std::string coreirSanitize(const std::string& str) {
+  string san = "";
+  for (auto c : str) {
+    if (c == '.') {
+      san += "_";
+    } else {
+      san += c;
+    }
+  }
+  return san;
+}
 void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
   // TODO: Emit actual counter controller for stages
@@ -1267,7 +1273,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           string name = op->name;
           cout << "Finding argument value for " << name << endl;
           auto self = def->sel("self");
-          auto val = self->sel(name);
+          auto val = self->sel(coreirSanitize(name));
           instrValues[op] = val;
         }
       }
@@ -1282,7 +1288,9 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   std::set<string> inStreams;
   std::set<string> outStreams;
   for (auto instr : instrs) {
-    if (isStreamRead(instr)) {
+    cout << "Checking if " << *instr << " is a stream read" << endl;
+    if (isCall("rd_stream", instr)) {
+      cout << "Yes, it is" << endl;;
       inStreams.insert(instr->operands[0]->compactString());
     }
 
@@ -1307,7 +1315,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     string inName = is;
     replaceAll(inName, ".", "_");
     tps.push_back({inName, base});
-    tps.push_back({inName + "_valid", context->BitIn()});
+    //tps.push_back({inName + "_valid", context->BitIn()});
   }
   cout << "All output streams" << endl;
   for (auto is : outStreams) {
@@ -1326,7 +1334,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     string inName = is;
     replaceAll(inName, ".", "_");
     tps.push_back({inName, base});
-    tps.push_back({inName + "_valid", context->BitIn()});
+    //tps.push_back({inName + "_valid", context->BitIn()});
   }
   CoreIR::Type* design_type = context->Record(tps);
   
