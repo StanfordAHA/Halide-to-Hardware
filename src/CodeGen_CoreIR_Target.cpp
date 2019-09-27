@@ -1129,6 +1129,10 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
           def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "cast") {
           def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
+        } else if (name == "rd_stream") {
+          def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {});
+        } else if (name == "write_stream") {
+          def->addInstance("read_stream_" + std::to_string(defStage), "halidehw.write_stream", {});
         }
       }
     
