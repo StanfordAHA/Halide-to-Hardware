@@ -277,7 +277,10 @@ void loadHalideLib(CoreIR::Context* context) {
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
-        return c->Record({{"in", c->BitIn()}});
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto w = args.at("width")->get<int>();
+        return c->Record({{"in", c->BitIn()}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
     hns->newGeneratorDecl("write_stream", ws, widthDimParams);
   }
@@ -1221,7 +1224,9 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           auto dims = getStreamDims(instr->operands[0]->name, info);
           vector<int> dimRanges = getDimRanges(dims);
 
-          def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+          auto wrStrm = def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+          auto res = wrStrm->sel("out");
+          instrValues[instr] = res;
         } else if (starts_with(name, "init_stencil")) {
           def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "create_stencil")) {
