@@ -1153,6 +1153,12 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
           def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "write_stream") {
           def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}});
+        } else if (starts_with(name, "init_stencil")) {
+          def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
+        } else if (starts_with(name, "create_stencil")) {
+          def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}});
+        } else if (starts_with(name, "stencil_read")) {
+          def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
         }
       }
     
