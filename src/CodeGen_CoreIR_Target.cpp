@@ -1344,6 +1344,18 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
+vector<HWInstr*> allInstructions(HWFunction& f) {
+  return f.body;
+}
+
+void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
+  for (auto instr : allInstructions(f)) {
+    if (isCall("write_stream", instr)) {
+      instr->operands = {instr->operands[0], instr->operands[1]};
+    }
+  }
+}
+
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
 //vector<HWInstr*>& body) {
   auto& body = f.body;
@@ -1526,6 +1538,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
 
     valueConvertStreamReads(scl.info, f);
+    removeWriteStreamArgs(scl.info, f);
      //body);
     cout << "After stream read conversion..." << endl;
     for (auto instr : body) {
