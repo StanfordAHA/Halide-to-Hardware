@@ -112,6 +112,14 @@ class HWFunction {
 
     HWFunction() : uniqueNum(0) {}
 
+    HWInstr* newConst(const int width, const int value) {
+      auto ist = newI();
+      ist->tp = HWINSTR_TP_CONST;
+      ist->constWidth = width;
+      ist->constValue = std::to_string(value);
+      return ist;
+    }
+
     HWInstr* newI() {
       auto in = new HWInstr();
       in->tp = HWINSTR_TP_INSTR;

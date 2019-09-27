@@ -695,12 +695,7 @@ class InstructionCollector : public IRGraphVisitor {
 
     HWInstr* newI() {
       auto ist = f.newI();
-      //int n = f.uniqueNum;
-      //auto ist = new HWInstr();
-      //ist->uniqueNum = n;
       ist->predicate = currentPredicate;
-      //ist->tp = HWINSTR_TP_INSTR;
-      //f.uniqueNum++;
       return ist;
     }
 
@@ -1519,39 +1514,32 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   cout << "Provides" << endl;
   for (auto pr : provides) {
     auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
-    //HWInstr* instr = new HWInstr();
-    //instr->name = "init_provide_" + pr.first;
-    //insert(0, instr, body);
-    //cout << "\t" << pr.first << " has provide calls" << endl;
-    //HWInstr* activeProvide = instr;
-    //cout << "Replacing " << *(provideValue->operands[0]) << " with " << *activeProvide << endl;
-    //replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+    auto provideName = provideValue->operands[0]->compactString();
+    // What to do?
+    vector<int> dims = getStencilDims(provideName, info);
 
-    // TODO: Select out the first constant reads;
     vector<HWInstr*> initialSets;
     for (auto instr : pr.second) {
       auto operands = instr->operands;
       if (allConst(1, operands.size(), operands)) {
-        cout << "All operands to " << *instr << " are constants" << endl;
         initialSets.push_back(instr);
       } else {
         break;
       }
     }
 
-    cout << "Initial set values" << endl;
-    for (auto i : initialSets) {
-      cout << "\t" << *i << endl;
-    }
-
     HWInstr* initInstr = f.newI();
-     //new HWInstr();
     initInstr->name = "init_stencil_" + pr.first;
     initInstr->operands = {};
     for (auto initI : initialSets) {
       for (int i = 1; i < (int) initI->operands.size(); i++) {
         initInstr->operands.push_back(initI->operands[i]);
       }
+    }
+
+    initInstr->operands.push_back(f.newConst(32, dims.size()));
+    for (auto c : dims) {
+      initInstr->operands.push_back(f.newConst(32, c));
     }
 
     insert(0, initInstr, body);
