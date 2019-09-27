@@ -1130,7 +1130,7 @@ vector<int> getStencilDims(const std::string& name, StencilInfo& info) {
     vector<string> rz = CoreIR::map_find(name, info.stencilRealizations);
     internal_assert(rz.size() % 2 == 0);
     vector<int> dims;
-    for (int i = 0; i < rz.size() % 2; i++) {
+    for (int i = 0; i < rz.size() / 2; i++) {
       string min = rz[2*i];
       string ext = rz[2*i + 1];
       dims.push_back(stoi(min));
@@ -1149,17 +1149,20 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
     string inputStencil = info.streamWrites[str];
     cout << "Source of " << str << " is stencil " << inputStencil << endl;
     return getStencilDims(inputStencil, info);
-    //internal_assert(CoreIR::contains_key(str, info.stencilSizes));
-    //vector<string> sizes = CoreIR::map_find(str, info.stencilSizes);
-    //cout << "Sizes = ";
-    //for (auto sz : sizes) {
-      //cout << "\t" << sz << endl;
-    //}
   }
+
+
+  if (CoreIR::contains_key(str, info.streamReads)) {
+
+    string inputStencil = info.streamReads[str];
+    cout << "Source of " << str << " is stencil " << inputStencil << endl;
+    return getStencilDims(inputStencil, info);
+  }
+
   internal_assert(false);
 }
 
-void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
+void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
   // TODO: Emit actual counter controller for stages
   // Also: Need to connect up clock and reset
@@ -1179,7 +1182,12 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
         } else if (name == "cast") {
           def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "rd_stream") {
-          def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}});
+          auto dims = getStreamDims(instr->operands[0]->name, info);
+          cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
+          for (auto d : dims) {
+            cout << "Dim = " << d << endl;
+          }
+          def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "write_stream") {
           def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "init_stencil")) {
@@ -1272,7 +1280,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   }
 
   cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
-  emitCoreIR(context, sched, def);
+  emitCoreIR(info, context, sched, def);
 
   design->setDef(def);
   return design;
