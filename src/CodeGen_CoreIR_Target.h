@@ -111,6 +111,14 @@ class HWFunction {
     std::vector<HWInstr*> body;
 
     HWFunction() : uniqueNum(0) {}
+
+    HWInstr* newI() {
+      auto in = new HWInstr();
+      in->tp = HWINSTR_TP_INSTR;
+      in->uniqueNum = uniqueNum;
+      uniqueNum++;
+      return in;
+    }
 };
 
 class StencilInfo {

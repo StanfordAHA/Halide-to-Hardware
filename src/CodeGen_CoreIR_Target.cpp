@@ -638,12 +638,13 @@ class InstructionCollector : public IRGraphVisitor {
     InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
 
     HWInstr* newI() {
-      int n = f.uniqueNum;
-      auto ist = new HWInstr();
-      ist->uniqueNum = n;
+      auto ist = f.newI();
+      //int n = f.uniqueNum;
+      //auto ist = new HWInstr();
+      //ist->uniqueNum = n;
       ist->predicate = currentPredicate;
-      ist->tp = HWINSTR_TP_INSTR;
-      f.uniqueNum++;
+      //ist->tp = HWINSTR_TP_INSTR;
+      //f.uniqueNum++;
       return ist;
     }
 
@@ -795,7 +796,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto ist = newI();
       ist->name = name;
       ist->operands = {aV, bV};
-      pushInstr(lastValue);
+      pushInstr(ist);
       //instrs.push_back(ist);
       lastValue = ist;
     }
@@ -1343,12 +1344,15 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
-void valueConvertStreamReads(StencilInfo& info, vector<HWInstr*>& body) {
+void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
+//vector<HWInstr*>& body) {
+  auto& body = f.body;
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
     if (isCall("read_stream", instr)) {
-      auto callRep = new HWInstr();
-      callRep->uniqueNum = 999;
+      auto callRep = f.newI();
+      //auto callRep = new HWInstr();
+      //callRep->uniqueNum = 999;
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
@@ -1377,7 +1381,9 @@ bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
   return true;
 }
 
-void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
+void valueConvertProvides(StencilInfo& info, HWFunction& f) {
+ //ector<HWInstr*>& body) {
+  auto& body = f.body;
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : body) {
@@ -1422,7 +1428,8 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
       cout << "\t" << *i << endl;
     }
 
-    HWInstr* initInstr = new HWInstr();
+    HWInstr* initInstr = f.newI();
+     //new HWInstr();
     initInstr->name = "init_stencil_" + pr.first;
     initInstr->operands = {};
     for (auto initI : initialSets) {
@@ -1440,8 +1447,9 @@ void valueConvertProvides(StencilInfo& info, vector<HWInstr*>& body) {
     for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
       auto instr = pr.second[i];
       cout << "\t\t" << *instr << endl;
-      HWInstr* refresh = new HWInstr();
-      refresh->uniqueNum = provideNum + 100;
+      //HWInstr* refresh = new HWInstr();
+      auto refresh = f.newI();
+      //refresh->uniqueNum = provideNum + 100;
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       insertAt(instr, refresh, body);
@@ -1510,14 +1518,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "\t\t\t" << *instr << endl;
     }
 
-    valueConvertProvides(scl.info, body);
+    valueConvertProvides(scl.info, f);
     cout << "After provide conversion..." << endl;
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
     }
 
 
-    valueConvertStreamReads(scl.info, body);
+    valueConvertStreamReads(scl.info, f);
+     //body);
     cout << "After stream read conversion..." << endl;
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
