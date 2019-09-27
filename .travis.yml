@@ -38,8 +38,11 @@ install:
   # install framework specific to halide
   - test/scripts/install_travis.sh  
   # compile coreir
-  - git clone -b dev https://github.com/rdaly525/coreir.git
-  - make -j2 -C coreir all
+  - git clone -b ubuffer https://github.com/rdaly525/coreir.git
+  - pushd .
+  - cd coreir/build && cmake ..
+  - make -j2 all
+  - popd
 
 script:
   - test/scripts/build_travis.sh
