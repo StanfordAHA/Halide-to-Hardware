@@ -1260,8 +1260,15 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
         if (op->tp == HWINSTR_TP_CONST) {
           int width = op->constWidth;
           int value = stoi(op->constValue);
-          def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
+          auto cInst = def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
           constNo++;
+          instrValues[op] = cInst->sel("out");
+        } else if (op->tp == HWINSTR_TP_VAR) {
+          string name = op->name;
+          cout << "Finding argument value for " << name << endl;
+          auto self = def->sel("self");
+          auto val = self->sel(name);
+          instrValues[op] = val;
         }
       }
     }
