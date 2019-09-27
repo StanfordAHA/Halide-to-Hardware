@@ -262,7 +262,7 @@ bool can_use_rom(Stmt s, string allocname) {
 void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
-  CoreIR::Params widthParams;
+  CoreIR::Params widthParams{{"width", context->Int()}};
   CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
       return c->Record({{"in", c->BitIn()}});
@@ -1143,7 +1143,7 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
         } else if (name == "cast") {
           def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "rd_stream") {
-          def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {}, {});
+          def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "write_stream") {
           def->addInstance("read_stream_" + std::to_string(defStage), "halidehw.write_stream", {}, {});
         }
