@@ -287,11 +287,11 @@ void loadHalideLib(CoreIR::Context* context) {
 
 
   {
-    CoreIR::TypeGen* ws = hns->newTypeGen("init_stencil", widthParams,
+    CoreIR::TypeGen* ws = hns->newTypeGen("init_stencil", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         return c->Record({{"out", c->Bit()}});
         });
-    hns->newGeneratorDecl("init_stencil", ws, widthParams);
+    hns->newGeneratorDecl("init_stencil", ws, widthDimParams);
   }
 
 
@@ -1223,12 +1223,16 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           auto res = wrStrm->sel("out");
           instrValues[instr] = res;
         } else if (starts_with(name, "init_stencil")) {
-          int bnds = instr->getOperand(3)->toInt();
+          int bnds = instr->getOperand(0)->toInt();
           vector<int> dims;
-          for (int i = 4; i < 4 + bnds; i++) {
+          for (int i = 1; i < 1 + bnds; i++) {
             dims.push_back(instr->getOperand(i)->toInt());
           }
-          def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
+
+          auto dimRanges = getDimRanges(dims);
+
+          auto initS = def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+          //def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "create_stencil")) {
           def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "stencil_read")) {
@@ -1536,15 +1540,16 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     HWInstr* initInstr = f.newI();
     initInstr->name = "init_stencil_" + pr.first;
     initInstr->operands = {};
-    for (auto initI : initialSets) {
-      for (int i = 1; i < (int) initI->operands.size(); i++) {
-        initInstr->operands.push_back(initI->operands[i]);
-      }
-    }
 
     initInstr->operands.push_back(f.newConst(32, dims.size()));
     for (auto c : dims) {
       initInstr->operands.push_back(f.newConst(32, c));
+    }
+
+    for (auto initI : initialSets) {
+      for (int i = 1; i < (int) initI->operands.size(); i++) {
+        initInstr->operands.push_back(initI->operands[i]);
+      }
     }
 
     insert(0, initInstr, body);
