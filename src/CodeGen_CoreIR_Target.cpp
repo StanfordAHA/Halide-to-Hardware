@@ -307,7 +307,10 @@ void loadHalideLib(CoreIR::Context* context) {
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
-        return c->Record({{"out", c->Bit()}});
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto w = args.at("width")->get<int>();
+        return c->Record({{"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
     hns->newGeneratorDecl("create_stencil", ws, widthDimParams);
   }
