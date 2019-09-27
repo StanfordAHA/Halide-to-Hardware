@@ -268,6 +268,13 @@ void loadHalideLib(CoreIR::Context* context) {
       return c->Record({{"in", c->BitIn()}});
       });
   hns->newGeneratorDecl("rd_stream", tg, widthParams);
+
+
+  CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthParams,
+      [](CoreIR::Context* c, CoreIR::Values args) {
+      return c->Record({{"in", c->BitIn()}});
+      });
+  hns->newGeneratorDecl("write_stream", ws, widthParams);
 }
 
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
@@ -1145,7 +1152,7 @@ void emitCoreIR(CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleD
         } else if (name == "rd_stream") {
           def->addInstance("rd_stream" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (name == "write_stream") {
-          def->addInstance("read_stream_" + std::to_string(defStage), "halidehw.write_stream", {}, {});
+          def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}});
         }
       }
     
