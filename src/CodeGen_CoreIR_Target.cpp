@@ -1357,7 +1357,9 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   for (auto is : outStreams) {
     cout << "\t\t" << is << endl;
 
-    vector<int> windowDims = getStreamDims(is, info);
+    vector<int> rgs = getStreamDims(is, info);
+    vector<int> windowDims = getDimRanges(rgs);
+    //vector<int> windowDims = streamWindowDims(is, info);
     //assert(CoreIR::contains_key(is, info.streamDispatches));
     //vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
     //cout << "\tDispatch info..." << endl;
