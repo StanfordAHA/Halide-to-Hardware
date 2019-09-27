@@ -267,7 +267,7 @@ void loadHalideLib(CoreIR::Context* context) {
       [](CoreIR::Context* c, CoreIR::Values args) {
       return c->Record({{"in", c->BitIn()}});
       });
-  hns->newGeneratorDecl("rd_stream", tg, {});
+  hns->newGeneratorDecl("rd_stream", tg, widthParams);
 }
 
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
