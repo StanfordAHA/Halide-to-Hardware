@@ -270,11 +270,40 @@ void loadHalideLib(CoreIR::Context* context) {
   hns->newGeneratorDecl("rd_stream", tg, widthParams);
 
 
-  CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthParams,
-      [](CoreIR::Context* c, CoreIR::Values args) {
-      return c->Record({{"in", c->BitIn()}});
-      });
-  hns->newGeneratorDecl("write_stream", ws, widthParams);
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        return c->Record({{"in", c->BitIn()}});
+        });
+    hns->newGeneratorDecl("write_stream", ws, widthParams);
+  }
+
+
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("init_stencil", widthParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        return c->Record({{"out", c->Bit()}});
+        });
+    hns->newGeneratorDecl("init_stencil", ws, widthParams);
+  }
+
+
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("stencil_read", widthParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        return c->Record({{"out", c->Bit()}});
+        });
+    hns->newGeneratorDecl("stencil_read", ws, widthParams);
+  }
+
+
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", widthParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        return c->Record({{"out", c->Bit()}});
+        });
+    hns->newGeneratorDecl("create_stencil", ws, widthParams);
+  }
 }
 
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
