@@ -62,7 +62,7 @@ deploy:
   on:
     tags: true
 
-script:
+script: |
   make distrib -j2
   test/scripts/build_travis.sh
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
