@@ -272,11 +272,11 @@ void loadHalideLib(CoreIR::Context* context) {
 
 
   {
-    CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthParams,
+    CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         return c->Record({{"in", c->BitIn()}});
         });
-    hns->newGeneratorDecl("write_stream", ws, widthParams);
+    hns->newGeneratorDecl("write_stream", ws, widthDimParams);
   }
 
 
@@ -1170,6 +1170,9 @@ vector<int> getDimRanges(const vector<int>& ranges) {
   }
   return rngs;
 }
+
+#define COREMK(ctx, v) CoreIR::Const::make((ctx), (v))
+
 void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
   // TODO: Emit actual counter controller for stages
@@ -1199,7 +1202,11 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           vector<int> dimRanges = getDimRanges(dims);
           def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
         } else if (name == "write_stream") {
-          def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}});
+
+          auto dims = getStreamDims(instr->operands[0]->name, info);
+          vector<int> dimRanges = getDimRanges(dims);
+
+          def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
         } else if (starts_with(name, "init_stencil")) {
           def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "create_stencil")) {
