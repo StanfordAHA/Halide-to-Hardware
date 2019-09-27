@@ -1302,7 +1302,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   //    connect it to the appropriate input
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body) {
-    if (instr->name == "add") {
+    if (instr->name == "add" || (instr->name == "mul")) {
       auto arg0 = instr->getOperand(0);
       auto arg1 = instr->getOperand(1);
 
