@@ -263,11 +263,12 @@ void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
   CoreIR::Params widthParams{{"width", context->Int()}};
-  CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthParams,
+  CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
+  CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthDimParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
       return c->Record({{"in", c->BitIn()}});
       });
-  hns->newGeneratorDecl("rd_stream", tg, widthParams);
+  hns->newGeneratorDecl("rd_stream", tg, widthDimParams);
 
 
   {
@@ -1162,6 +1163,13 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   internal_assert(false);
 }
 
+vector<int> getDimRanges(const vector<int>& ranges) {
+  vector<int> rngs;
+  for (int i = 0; i < (int) (ranges.size() / 2); i++) {
+    rngs.push_back(ranges[2*i + 1] - ranges[2*i]);
+  }
+  return rngs;
+}
 void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
   // TODO: Emit actual counter controller for stages
@@ -1187,7 +1195,9 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           for (auto d : dims) {
             cout << "Dim = " << d << endl;
           }
-          def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}});
+
+          vector<int> dimRanges = getDimRanges(dims);
+          def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
         } else if (name == "write_stream") {
           def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}});
         } else if (starts_with(name, "init_stencil")) {
