@@ -1190,6 +1190,9 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   //
   // Create a map from HWInstrs to wireables?
   int defStage = 0;
+
+  // TODO: Merge constant handling in to this code
+  // Also: Assign variables for input / output streams to wireables on module self
   std::map<HWInstr*, CoreIR::Wireable*> instrValues;
   std::map<HWInstr*, vector<int> > stencilRanges;
   for (auto stage : sched.stages) {
