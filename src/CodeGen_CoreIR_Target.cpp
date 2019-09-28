@@ -1776,8 +1776,22 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     kernelN++;
   }    
-  }
 
+  // TODO: Create top-level module using jeffs code for inputs / outputs
+
+  CoreIR::Type* topType = context->Record({});
+  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+  auto def = topMod->newModuleDef();
+
+  for (auto k : kernelModules) {
+    auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
+  }
+  topMod->setDef(def);
+  
+  
+  cout << "Top module" << endl;
+  topMod->print();
+  
   //cout << "Saving coreir for module " << m->getName() << endl;
   //if (!saveToFile(global_ns, m->getName() + ".json")) {
   if (!saveToFile(global_ns, "conv_3_3_app.json")) {
@@ -1787,6 +1801,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   }
 
   
+  }
   return;
 
   // Emit the function prototype
