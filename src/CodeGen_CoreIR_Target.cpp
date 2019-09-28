@@ -1783,8 +1783,26 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
   auto def = topMod->newModuleDef();
 
+  std::map<const For*, CoreIR::Instance*> kernels;
   for (auto k : kernelModules) {
     auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
+    kernels[k.first] = kI;
+  }
+
+  for (auto lb : scl.info.linebuffers) {
+    string inName = lb[0];
+    string outName = lb[1];
+
+    vector<int> params;
+    for (int i = 2; i < (int) lb.size(); i++) {
+      params.push_back(stoi(lb[i]));
+    }
+
+    cout << "Linebuffer from " << inName << " to " << outName << " with params: ";
+    for (auto p : params) {
+      cout << p << ", ";
+    }
+    cout << endl;
   }
   topMod->setDef(def);
   
