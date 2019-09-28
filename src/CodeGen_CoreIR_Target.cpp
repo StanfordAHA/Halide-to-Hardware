@@ -1213,7 +1213,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
     for (auto instr : stage) {
       if (instr->tp == HWINSTR_TP_INSTR) {
         string name = instr->name;
-        cout << "Instruction name = " << name << endl;
+        //cout << "Instruction name = " << name << endl;
         if (name == "add") {
           auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = adder->sel("out");
@@ -1364,9 +1364,9 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   std::set<string> inStreams;
   std::set<string> outStreams;
   for (auto instr : instrs) {
-    cout << "Checking if " << *instr << " is a stream read" << endl;
+    //cout << "Checking if " << *instr << " is a stream read" << endl;
     if (isCall("rd_stream", instr)) {
-      cout << "Yes, it is" << endl;;
+      //cout << "Yes, it is" << endl;;
       inStreams.insert(instr->operands[0]->compactString());
     }
 
@@ -1695,6 +1695,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
 
+  if (!is_header()) {
   cout << "Emitting kernel for " << name << endl;
 
 
@@ -1761,12 +1762,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     cout << "Module for kernel..." << endl;
     m->print();
 
-    if (!saveToFile(global_ns, m->getName() + ".json", m)) {
-      cout << "Could not save " << m->getName() << " to json" << endl;
-      context->die();
-    }
-    kernelN++;
-  }    
+      cout << "Saving coreir for module " << m->getName() << endl;
+      if (!saveToFile(global_ns, m->getName() + ".json", m)) {
+        cout << "Could not save " << m->getName() << " to json" << endl;
+        context->die();
+      }
+      kernelN++;
+    }    
+  }
 
   return;
 
