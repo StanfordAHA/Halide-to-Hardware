@@ -1696,6 +1696,16 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   }
 }
 
+std::vector<HWInstr*> inputStreams(HWFunction& f) {
+  vector<HWInstr*> ins;
+  for (auto instr : f.body) {
+    if (isCall("rd_stream", instr)) {
+      ins.push_back(instr->getOperand(0));
+    }
+  }
+
+  return ins;
+}
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -1789,6 +1799,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     kernels[k.first] = kI;
   }
 
+  std::map<string, CoreIR::Instance*> linebufferResults;
   for (auto lb : scl.info.linebuffers) {
     string inName = lb[0];
     string outName = lb[1];
@@ -1839,8 +1850,26 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       {"image_type", CoreIR::Const::make(context,image_type)},
       {"has_valid",CoreIR::Const::make(context,true)}};
 
-    CoreIR::Wireable* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+    CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+    linebufferResults[outName] = coreir_lb;
   }
+
+
+  // TODO: Connect all streams that appear in the design to all of their sources
+  // How to do that?
+  // For each input to a kernel find the input and wire it to the kernel module
+  // For each input to the top-level module find its source and wire it up
+  //
+  for (auto f : functions) {
+    for (auto input : inputStreams(f.second)) {
+      cout << "Function " << f.second.name << " has input " << *input << endl;
+      if (CoreIR::contains_key(input->name, linebufferResults)) {
+        auto lb = linebufferResults[input->name];
+        def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+      }
+    }
+  }
+
   topMod->setDef(def);
   
   
