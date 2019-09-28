@@ -275,6 +275,8 @@ void loadHalideLib(CoreIR::Context* context) {
   hns->newGeneratorDecl("rd_stream", tg, widthDimParams);
 
 
+
+
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
@@ -1773,6 +1775,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     //cout << "Could not save " << m->getName() << " to json" << endl;
     context->die();
   }
+
+  
   return;
 
   // Emit the function prototype
