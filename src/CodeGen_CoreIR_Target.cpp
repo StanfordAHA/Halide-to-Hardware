@@ -1733,27 +1733,30 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   // in stream in / stream out?
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
+
+  std::map<const For*, CoreIR::Module*> kernelModules;
+  std::map<const For*, HWFunction> functions;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
     //vector<HWInstr*> body = buildHWBody(lp);
     HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
     auto& body = f.body;
-    cout << "\t\tInstructions in body = " << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
-    }
+    //cout << "\t\tInstructions in body = " << endl;
+    //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+    //}
 
     removeBadStores(body);
-    cout << "After store optimization..." << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
-    }
+    //cout << "After store optimization..." << endl;
+    //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+    //}
 
     valueConvertProvides(scl.info, f);
-    cout << "After provide conversion..." << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
-    }
+    //cout << "After provide conversion..." << endl;
+    //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+    //}
 
 
     valueConvertStreamReads(scl.info, f);
@@ -1763,9 +1766,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (auto instr : body) {
       cout << "\t\t\t" << *instr << endl;
     }
-    
+
     //CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
     CoreIR::Module* m = moduleForKernel(scl.info, f);
+    kernelModules[lp] = m;
+    functions[lp] = f;
     cout << "Module for kernel..." << endl;
     m->print();
 
