@@ -1362,7 +1362,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, vector<HWInstr*>& instrs, int kernelNum) {
+CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, HWFunction& f) {
+  auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"clk", context->BitIn()}};
   std::set<string> inStreams;
@@ -1421,7 +1422,8 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   CoreIR::Type* design_type = context->Record(tps);
   
   auto global_ns = context->getNamespace("global");
-  design = global_ns->newModuleDecl("design_kernel_test_" + std::to_string(kernelNum), design_type);
+  //design = global_ns->newModuleDecl("design_kernel_test_" + std::to_string(kernelNum), design_type);
+  design = global_ns->newModuleDecl(f.name, design_type);
   def = design->newModuleDef();
   self = def->sel("self");
 
@@ -1762,7 +1764,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "\t\t\t" << *instr << endl;
     }
     
-    CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
+    //CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
+    CoreIR::Module* m = moduleForKernel(scl.info, f);
     cout << "Module for kernel..." << endl;
     m->print();
 
