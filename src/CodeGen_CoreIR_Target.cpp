@@ -1760,6 +1760,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
     cout << "Module for kernel..." << endl;
     m->print();
+
+    if (!saveToFile(global_ns, m->getName() + ".json", m)) {
+      cout << "Could not save " << m->getName() << " to json" << endl;
+      context->die();
+    }
     kernelN++;
   }    
 
