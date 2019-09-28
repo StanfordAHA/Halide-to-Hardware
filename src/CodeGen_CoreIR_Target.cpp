@@ -1762,15 +1762,17 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     cout << "Module for kernel..." << endl;
     m->print();
 
-      cout << "Saving coreir for module " << m->getName() << endl;
-      if (!saveToFile(global_ns, m->getName() + ".json", m)) {
-        cout << "Could not save " << m->getName() << " to json" << endl;
-        context->die();
-      }
-      kernelN++;
-    }    
+    kernelN++;
+  }    
   }
 
+  //cout << "Saving coreir for module " << m->getName() << endl;
+  //if (!saveToFile(global_ns, m->getName() + ".json")) {
+  if (!saveToFile(global_ns, "conv_3_3_app.json")) {
+    cout << "Could not save global namespace" << endl;
+    //cout << "Could not save " << m->getName() << " to json" << endl;
+    context->die();
+  }
   return;
 
   // Emit the function prototype
