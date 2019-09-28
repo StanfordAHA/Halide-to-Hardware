@@ -283,7 +283,7 @@ void loadHalideLib(CoreIR::Context* context) {
         auto nr = args.at("nrows")->get<int>();
         auto nc = args.at("ncols")->get<int>();
         auto w = args.at("width")->get<int>();
-        return c->Record({{"stream", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}, {"stencil", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}});
+        return c->Record({{"stream", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}, {"stencil", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
     hns->newGeneratorDecl("write_stream", ws, widthDimParams);
   }
@@ -1409,7 +1409,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     //vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
     //cout << "\tDispatch info..." << endl;
     //vector<int> windowDims = streamWindowDims(is, info);
-    CoreIR::Type* base = context->BitIn()->Arr(16);
+    CoreIR::Type* base = context->Bit()->Arr(16);
     for (auto d : windowDims) {
       base = base->Arr(d);
     }
@@ -1696,6 +1696,17 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   }
 }
 
+std::vector<HWInstr*> outputStreams(HWFunction& f) {
+  vector<HWInstr*> ins;
+  for (auto instr : f.body) {
+    if (isCall("write_stream", instr)) {
+      ins.push_back(instr->getOperand(0));
+    }
+  }
+
+  return ins;
+}
+
 std::vector<HWInstr*> inputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
   for (auto instr : f.body) {
@@ -1788,8 +1799,80 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   }    
 
   // TODO: Create top-level module using jeffs code for inputs / outputs
+  uint num_inouts = 0;
 
-  CoreIR::Type* topType = context->Record({});
+  // Keep track of the inputs, output, and taps for this module
+  std::vector<std::pair<string, CoreIR::Type*>> input_types;
+  std::map<string, CoreIR::Type*> tap_types;
+  CoreIR::Type* output_type = context->Bit();
+
+  for (size_t i = 0; i < args.size(); i++) {
+    string arg_name = "arg_" + std::to_string(i);
+
+    if (args[i].is_stencil) {
+      CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+
+      internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
+                      args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
+      allocations.push(args[i].name, {args[i].stencil_type.elemType});
+      stencils.push(args[i].name, args[i].stencil_type);
+
+      vector<uint> indices;
+      for(const auto &range : stype.bounds) {
+        internal_assert(is_const(range.extent));
+        indices.push_back(id_const_value(range.extent));
+      }
+
+      if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        // add as the output
+        uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
+        if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
+        for (uint i=0; i<indices.size(); ++i) {
+          output_type = output_type->Arr(indices[i]);
+        }
+        hw_output_set.insert(arg_name);
+        
+      } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        // add another input
+        uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
+        CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+        for (uint i=0; i<indices.size(); ++i) {
+          input_type = input_type->Arr(indices[i]);
+        }
+        input_types.push_back({arg_name, input_type});
+          
+      } else {
+        // add another array of taps (configuration changes infrequently)
+        uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
+        CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
+        for (uint i=0; i<indices.size(); ++i) {
+          tap_type = tap_type->Arr(indices[i]);
+        }
+        tap_types[args[i].name] = tap_type;
+      }
+
+      num_inouts++;
+
+    } else {
+      // add another tap (single value)
+      uint in_bitwidth = inst_bitwidth(args[i].scalar_type.bits());
+      CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
+      tap_types[arg_name] = tap_type;
+    }
+
+  }
+
+  CoreIR::Type* design_type;
+
+  design_type = context->Record({
+      {"in", context->Record(input_types)},
+      {"reset", context->BitIn()},
+      {"out", output_type},
+      {"valid", context->Bit()},
+      {"in_en", context->BitIn()}
+      });
+
+  CoreIR::Type* topType = design_type;
   CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
   auto def = topMod->newModuleDef();
 
@@ -1866,6 +1949,25 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       if (CoreIR::contains_key(input->name, linebufferResults)) {
         auto lb = linebufferResults[input->name];
         def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+      } else {
+        // The input is a top-level module input?
+        bool foundProducer = false;
+        for (auto otherF : functions) {
+          for (auto output : outputStreams(otherF.second)) {
+            if (output->name == input->name) {
+              cout << input->name << " is produced by " << otherF.second.name << endl;
+              def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+              foundProducer = true;
+              break;
+            }
+          }
+
+          if (foundProducer) {
+            break;
+          }
+        }
+
+        internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
       }
     }
   }
