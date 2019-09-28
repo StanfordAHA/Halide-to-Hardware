@@ -118,6 +118,7 @@ class HWInstr {
 
 class HWFunction {
   public:
+    std::string name;
     int uniqueNum;
     std::vector<HWInstr*> body;
 

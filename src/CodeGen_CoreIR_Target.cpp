@@ -989,9 +989,11 @@ class InstructionCollector : public IRGraphVisitor {
 
 //vector<HWInstr*> buildHWBody(const For* perfectNest) {
 
-HWFunction buildHWBody(const For* perfectNest) {
+HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
+
   InstructionCollector collector;
   perfectNest->accept(&collector);
+  collector.f.name = name;
   //return collector.f.body;
   return collector.f;
 }
@@ -1725,14 +1727,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     }
   }
 
-  //return;
-  
+  // TODO: Connect the different loop kernels using the structure contained
+  // in stream in / stream out?
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
     //vector<HWInstr*> body = buildHWBody(lp);
-    HWFunction f = buildHWBody(lp);
+    HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
     auto& body = f.body;
     cout << "\t\tInstructions in body = " << endl;
     for (auto instr : body) {
