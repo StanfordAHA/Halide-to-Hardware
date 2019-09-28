@@ -1793,6 +1793,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     string inName = lb[0];
     string outName = lb[1];
 
+    string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
     vector<int> params;
     for (int i = 2; i < (int) lb.size(); i++) {
       params.push_back(stoi(lb[i]));
@@ -1803,6 +1804,42 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << p << ", ";
     }
     cout << endl;
+
+    // Need to create: input_type, output_type, image_type, has_valid (assume true)
+
+    int bitWidth = 16;
+    int num_dims = params.size();
+    CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
+    CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
+    CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
+
+    uint input_dims [num_dims];
+    for (uint i=0; i<num_dims; ++i) {
+      input_dims[i] = 1;
+      //input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
+      input_type = input_type->Arr(input_dims[i]);
+    }
+
+    uint output_dims [num_dims];
+    for (uint i=0; i<num_dims; ++i) {
+      output_dims[i] = 3;
+      //output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
+      output_type = output_type->Arr(output_dims[i]);
+    }
+
+    uint image_dims [num_dims];
+    for (uint i=0; i<num_dims; ++i) {
+      image_dims[i] = params[i];
+      //image_dims[i] = id_const_value(id_const_value(op->args[i+2]));
+      image_type = image_type->Arr(image_dims[i]);
+    }
+
+    CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
+      {"output_type", CoreIR::Const::make(context,output_type)},
+      {"image_type", CoreIR::Const::make(context,image_type)},
+      {"has_valid",CoreIR::Const::make(context,true)}};
+
+    CoreIR::Wireable* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
   }
   topMod->setDef(def);
   
