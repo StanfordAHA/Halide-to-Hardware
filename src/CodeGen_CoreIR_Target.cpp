@@ -1267,6 +1267,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
           stencilRanges[instr] = dimRanges;
           instrValues[instr] = cS->sel("out");
+          unitMapping[instr] = cS;
 
         } else if (starts_with(name, "stencil_read")) {
           vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
@@ -1274,7 +1275,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
-          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
@@ -1336,6 +1337,14 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
       internal_assert(contains_key(arg, instrValues)) << "stencil_read arg not in instrValues\n";
       def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
+    } else if (starts_with(instr->name, "create_stencil")) {
+      auto srcStencil = instr->getOperand(0);
+      auto newVal = instr->getOperand(1);
+
+      internal_assert(CoreIR::contains_key(instr, unitMapping));
+      auto unit = CoreIR::map_find(instr, unitMapping);
+      def->connect(unit->sel("in_stencil"), CoreIR::map_find(srcStencil, instrValues));
+      def->connect(unit->sel("new_val"), CoreIR::map_find(newVal, instrValues));
     }
   }
 }
