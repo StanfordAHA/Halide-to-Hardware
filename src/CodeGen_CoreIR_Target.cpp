@@ -270,7 +270,7 @@ void loadHalideLib(CoreIR::Context* context) {
       auto nr = args.at("nrows")->get<int>();
       auto nc = args.at("ncols")->get<int>();
       auto w = args.at("width")->get<int>();
-      return c->Record({{"in", c->BitIn()}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
+      return c->Record({{"in", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
       });
   hns->newGeneratorDecl("rd_stream", tg, widthDimParams);
 
@@ -290,7 +290,10 @@ void loadHalideLib(CoreIR::Context* context) {
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("init_stencil", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
-        return c->Record({{"out", c->Bit()}});
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto w = args.at("width")->get<int>();
+        return c->Record({{"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
     hns->newGeneratorDecl("init_stencil", ws, widthDimParams);
   }
@@ -299,8 +302,10 @@ void loadHalideLib(CoreIR::Context* context) {
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("stencil_read", stencilReadParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
         auto width = args.at("width")->get<int>();
-        return c->Record({{"out", c->Bit()->Arr(width)}});
+        return c->Record({{"in", c->BitIn()->Arr(width)->Arr(nr)->Arr(nc)}, {"out", c->Bit()->Arr(width)}});
         });
     hns->newGeneratorDecl("stencil_read", ws, stencilReadParams);
   }
@@ -1272,6 +1277,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = cS->sel("out");
+          unitMapping[instr] = cS;
         }
       }
     
@@ -1314,6 +1320,22 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
       def->connect(unit->sel("in0"), CoreIR::map_find(arg0, instrValues));
       def->connect(unit->sel("in1"), CoreIR::map_find(arg1, instrValues));
+    } else if (instr->name == "cast") {
+      auto arg = instr->getOperand(0);
+      auto unit = CoreIR::map_find(instr, unitMapping);
+      def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
+    } else if (instr->name == "rd_stream") {
+      auto arg = instr->getOperand(0);
+      auto unit = CoreIR::map_find(instr, unitMapping);
+      def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
+    } else if (instr->name == "stencil_read") {
+      auto arg = instr->getOperand(0);
+
+      internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit for stencil_read\n";
+      auto unit = CoreIR::map_find(instr, unitMapping);
+
+      internal_assert(contains_key(arg, instrValues)) << "stencil_read arg not in instrValues\n";
+      def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
     }
   }
 }
