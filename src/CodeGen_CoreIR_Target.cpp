@@ -281,7 +281,7 @@ void loadHalideLib(CoreIR::Context* context) {
         auto nr = args.at("nrows")->get<int>();
         auto nc = args.at("ncols")->get<int>();
         auto w = args.at("width")->get<int>();
-        return c->Record({{"in", c->BitIn()}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
+        return c->Record({{"stream", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}, {"stencil", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
     hns->newGeneratorDecl("write_stream", ws, widthDimParams);
   }
@@ -1246,8 +1246,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           vector<int> dimRanges = getDimRanges(dims);
 
           auto wrStrm = def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
-          auto res = wrStrm->sel("out");
-          instrValues[instr] = res;
+          //auto res = wrStrm->sel("out");
+          //instrValues[instr] = res;
           unitMapping[instr] = wrStrm;
         } else if (starts_with(name, "init_stencil")) {
           int bnds = instr->getOperand(0)->toInt();
@@ -1335,7 +1335,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
     } else if (instr->name == "stencil_read") {
       auto arg = instr->getOperand(0);
 
-      internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit for stencil_read\n";
+      //internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit for stencil_read\n";
       //auto unit = CoreIR::map_find(instr, unitMapping);
 
       internal_assert(contains_key(arg, instrValues)) << "stencil_read arg not in instrValues\n";
@@ -1344,10 +1344,16 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       auto srcStencil = instr->getOperand(0);
       auto newVal = instr->getOperand(1);
 
-      internal_assert(CoreIR::contains_key(instr, unitMapping));
+      //internal_assert(CoreIR::contains_key(instr, unitMapping));
       //auto unit = CoreIR::map_find(instr, unitMapping);
       def->connect(unit->sel("in_stencil"), CoreIR::map_find(srcStencil, instrValues));
       def->connect(unit->sel("new_val"), CoreIR::map_find(newVal, instrValues));
+    } else if (instr->name == "write_stream") {
+      auto strm = instr->getOperand(0);
+      auto stencil = instr->getOperand(1);
+
+      def->connect(unit->sel("stream"), CoreIR::map_find(strm, instrValues));
+      def->connect(unit->sel("stencil"), CoreIR::map_find(stencil, instrValues));
     }
   }
 }
