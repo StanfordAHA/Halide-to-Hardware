@@ -1723,312 +1723,301 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const vector<CoreIR_Argument> &args) {
 
   if (!is_header()) {
-  cout << "Emitting kernel for " << name << endl;
+    cout << "Emitting kernel for " << name << endl;
 
 
-  cout << "\tStmt is = " << stmt << endl;
-  NestExtractor extractor;
-  stmt.accept(&extractor);
+    cout << "\tStmt is = " << stmt << endl;
+    NestExtractor extractor;
+    stmt.accept(&extractor);
 
-  StencilInfoCollector scl;
-  stmt.accept(&scl);
-  cout << "Stencil info" << endl;
-  StencilInfo info = scl.info;
-  cout << "Dispatches" << endl;
-  for (auto ds : info.streamDispatches) {
-    cout << ds.first << endl;
-    for (auto r : ds.second) {
-      cout << "\t" << r << endl;
-    }
-  }
-
-  cout << "Stencils" << endl;
-  for (auto ds : info.stencilRealizations) {
-    cout << ds.first << endl;
-    for (auto r : ds.second) {
-      cout << "\t" << r << endl;
-    }
-  }
-
-  // TODO: Connect the different loop kernels using the structure contained
-  // in stream in / stream out?
-  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
-  int kernelN = 0;
-
-  std::map<const For*, CoreIR::Module*> kernelModules;
-  std::map<const For*, HWFunction> functions;
-  for (const For* lp : extractor.loops) {
-    cout << "\t\tLOOP" << endl;
-    //vector<HWInstr*> body = buildHWBody(lp);
-    HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
-    auto& body = f.body;
-    //cout << "\t\tInstructions in body = " << endl;
-    //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-    //}
-
-    removeBadStores(body);
-    //cout << "After store optimization..." << endl;
-    //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-    //}
-
-    valueConvertProvides(scl.info, f);
-    //cout << "After provide conversion..." << endl;
-    //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-    //}
-
-
-    valueConvertStreamReads(scl.info, f);
-    removeWriteStreamArgs(scl.info, f);
-     //body);
-    cout << "After stream read conversion..." << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
+    StencilInfoCollector scl;
+    stmt.accept(&scl);
+    cout << "Stencil info" << endl;
+    StencilInfo info = scl.info;
+    cout << "Dispatches" << endl;
+    for (auto ds : info.streamDispatches) {
+      cout << ds.first << endl;
+      for (auto r : ds.second) {
+        cout << "\t" << r << endl;
+      }
     }
 
-    //CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
-    CoreIR::Module* m = moduleForKernel(scl.info, f);
-    kernelModules[lp] = m;
-    functions[lp] = f;
-    cout << "Module for kernel..." << endl;
-    m->print();
+    cout << "Stencils" << endl;
+    for (auto ds : info.stencilRealizations) {
+      cout << ds.first << endl;
+      for (auto r : ds.second) {
+        cout << "\t" << r << endl;
+      }
+    }
 
-    kernelN++;
-  }    
+    // TODO: Connect the different loop kernels using the structure contained
+    // in stream in / stream out?
+    cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
+    int kernelN = 0;
 
-  uint num_inouts = 0;
+    std::map<const For*, CoreIR::Module*> kernelModules;
+    std::map<const For*, HWFunction> functions;
+    for (const For* lp : extractor.loops) {
+      cout << "\t\tLOOP" << endl;
+      //vector<HWInstr*> body = buildHWBody(lp);
+      HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
+      auto& body = f.body;
+      //cout << "\t\tInstructions in body = " << endl;
+      //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+      //}
 
-  // Keep track of the inputs, output, and taps for this module
-  std::vector<std::pair<string, CoreIR::Type*>> input_types;
-  std::map<string, CoreIR::Type*> tap_types;
-  CoreIR::Type* output_type = context->Bit();
+      removeBadStores(body);
+      //cout << "After store optimization..." << endl;
+      //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+      //}
 
-  string output_name = "";
-  for (size_t i = 0; i < args.size(); i++) {
-    //string arg_name = "arg_" + std::to_string(i);
-    string arg_name = coreirSanitize(args[i].name);
+      valueConvertProvides(scl.info, f);
+      //cout << "After provide conversion..." << endl;
+      //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+      //}
 
-    if (args[i].is_stencil) {
-      CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
 
-      internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
-                      args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
-      allocations.push(args[i].name, {args[i].stencil_type.elemType});
-      stencils.push(args[i].name, args[i].stencil_type);
-
-      vector<uint> indices;
-      for(const auto &range : stype.bounds) {
-        internal_assert(is_const(range.extent));
-        indices.push_back(id_const_value(range.extent));
+      valueConvertStreamReads(scl.info, f);
+      removeWriteStreamArgs(scl.info, f);
+      //body);
+      cout << "After stream read conversion..." << endl;
+      for (auto instr : body) {
+        cout << "\t\t\t" << *instr << endl;
       }
 
-      if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-        // add as the output
-        uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
-        if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
-        for (uint i=0; i<indices.size(); ++i) {
-          output_type = output_type->Arr(indices[i]);
-        }
-        hw_output_set.insert(arg_name);
-        output_name = coreirSanitize(args[i].name);
+      //CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
+      CoreIR::Module* m = moduleForKernel(scl.info, f);
+      kernelModules[lp] = m;
+      functions[lp] = f;
+      cout << "Module for kernel..." << endl;
+      m->print();
 
-      } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-        // add another input
-        uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
-        CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
-        for (uint i=0; i<indices.size(); ++i) {
-          input_type = input_type->Arr(indices[i]);
+      kernelN++;
+    }    
+
+    uint num_inouts = 0;
+
+    // Keep track of the inputs, output, and taps for this module
+    std::vector<std::pair<string, CoreIR::Type*>> input_types;
+    std::map<string, CoreIR::Type*> tap_types;
+    CoreIR::Type* output_type = context->Bit();
+
+    string output_name = "";
+    for (size_t i = 0; i < args.size(); i++) {
+      //string arg_name = "arg_" + std::to_string(i);
+      string arg_name = coreirSanitize(args[i].name);
+
+      if (args[i].is_stencil) {
+        CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+
+        internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
+            args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
+        allocations.push(args[i].name, {args[i].stencil_type.elemType});
+        stencils.push(args[i].name, args[i].stencil_type);
+
+        vector<uint> indices;
+        for(const auto &range : stype.bounds) {
+          internal_assert(is_const(range.extent));
+          indices.push_back(id_const_value(range.extent));
         }
-        input_types.push_back({arg_name, input_type});
-          
+
+        if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+          // add as the output
+          uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
+          if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
+          for (uint i=0; i<indices.size(); ++i) {
+            output_type = output_type->Arr(indices[i]);
+          }
+          hw_output_set.insert(arg_name);
+          output_name = coreirSanitize(args[i].name);
+
+        } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+          // add another input
+          uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
+          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+          for (uint i=0; i<indices.size(); ++i) {
+            input_type = input_type->Arr(indices[i]);
+          }
+          input_types.push_back({arg_name, input_type});
+
+        } else {
+          // add another array of taps (configuration changes infrequently)
+          uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
+          CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
+          for (uint i=0; i<indices.size(); ++i) {
+            tap_type = tap_type->Arr(indices[i]);
+          }
+          tap_types[args[i].name] = tap_type;
+        }
+
+        num_inouts++;
+
       } else {
-        // add another array of taps (configuration changes infrequently)
-        uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
-        CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
-        for (uint i=0; i<indices.size(); ++i) {
-          tap_type = tap_type->Arr(indices[i]);
+        // add another tap (single value)
+        uint in_bitwidth = inst_bitwidth(args[i].scalar_type.bits());
+        CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
+        tap_types[arg_name] = tap_type;
+      }
+
+    }
+
+    CoreIR::Type* design_type;
+
+    design_type = context->Record({
+        {"in", context->Record(input_types)},
+        {"reset", context->BitIn()},
+        {output_name, output_type},
+        //{"out", output_type},
+        {"valid", context->Bit()},
+        {"in_en", context->BitIn()}
+        });
+
+    CoreIR::Type* topType = design_type;
+    CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+    auto def = topMod->newModuleDef();
+
+    std::map<const For*, CoreIR::Instance*> kernels;
+    for (auto k : kernelModules) {
+      auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
+      kernels[k.first] = kI;
+    }
+
+    std::map<string, CoreIR::Instance*> linebufferResults;
+    std::map<string, CoreIR::Instance*> linebufferInputs;
+    for (auto lb : scl.info.linebuffers) {
+      string inName = lb[0];
+      string outName = lb[1];
+
+
+      string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
+      vector<int> params;
+      for (int i = 2; i < (int) lb.size(); i++) {
+        params.push_back(stoi(lb[i]));
+      }
+
+      cout << "Linebuffer from " << inName << " to " << outName << " with params: ";
+      for (auto p : params) {
+        cout << p << ", ";
+      }
+      cout << endl;
+
+      // Need to create: input_type, output_type, image_type, has_valid (assume true)
+
+      uint num_dims = params.size();
+      CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
+      CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
+      CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
+
+      uint input_dims [num_dims];
+      for (uint i=0; i<num_dims; ++i) {
+        input_dims[i] = 1;
+        //input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
+        input_type = input_type->Arr(input_dims[i]);
+      }
+
+      uint output_dims [num_dims];
+      for (uint i=0; i<num_dims; ++i) {
+        output_dims[i] = 3;
+        //output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
+        output_type = output_type->Arr(output_dims[i]);
+      }
+
+      uint image_dims [num_dims];
+      for (uint i=0; i<num_dims; ++i) {
+        image_dims[i] = params[i];
+        //image_dims[i] = id_const_value(id_const_value(op->args[i+2]));
+        image_type = image_type->Arr(image_dims[i]);
+      }
+
+      CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
+        {"output_type", CoreIR::Const::make(context,output_type)},
+        {"image_type", CoreIR::Const::make(context,image_type)},
+        {"has_valid",CoreIR::Const::make(context,true)}};
+
+      CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+      def->connect(coreir_lb->sel("reset"), def->sel("self")->sel("reset"));
+      linebufferResults[outName] = coreir_lb;
+      linebufferInputs[inName] = coreir_lb;
+    }
+
+    for (auto in : linebufferInputs) {
+      string inName = in.first;
+      auto lb = in.second;
+
+      bool foundInput = false;
+      for (auto v : args) {
+        if (coreirSanitize(v.name) == coreirSanitize(inName)) {
+          def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirSanitize(inName)));
+          def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
+          //->sel(coreirSanitize(inName)));
+          foundInput = true;
+          break;
         }
-        tap_types[args[i].name] = tap_type;
       }
 
-      num_inouts++;
-
-    } else {
-      // add another tap (single value)
-      uint in_bitwidth = inst_bitwidth(args[i].scalar_type.bits());
-      CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
-      tap_types[arg_name] = tap_type;
+      internal_assert(foundInput) << "Could not find input for " << inName << "\n";
     }
 
-  }
-
-  CoreIR::Type* design_type;
-
-  design_type = context->Record({
-      {"in", context->Record(input_types)},
-      {"reset", context->BitIn()},
-      {output_name, output_type},
-      //{"out", output_type},
-      {"valid", context->Bit()},
-      {"in_en", context->BitIn()}
-      });
-
-  CoreIR::Type* topType = design_type;
-  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
-  auto def = topMod->newModuleDef();
-
-  std::map<const For*, CoreIR::Instance*> kernels;
-  for (auto k : kernelModules) {
-    auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
-    kernels[k.first] = kI;
-  }
-
-  std::map<string, CoreIR::Instance*> linebufferResults;
-  std::map<string, CoreIR::Instance*> linebufferInputs;
-  for (auto lb : scl.info.linebuffers) {
-    string inName = lb[0];
-    string outName = lb[1];
-
-
-    string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
-    vector<int> params;
-    for (int i = 2; i < (int) lb.size(); i++) {
-      params.push_back(stoi(lb[i]));
-    }
-
-    cout << "Linebuffer from " << inName << " to " << outName << " with params: ";
-    for (auto p : params) {
-      cout << p << ", ";
-    }
-    cout << endl;
-
-    // Need to create: input_type, output_type, image_type, has_valid (assume true)
-
-    int bitWidth = 16;
-    int num_dims = params.size();
-    CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
-    CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
-    CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
-
-    uint input_dims [num_dims];
-    for (uint i=0; i<num_dims; ++i) {
-      input_dims[i] = 1;
-      //input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
-      input_type = input_type->Arr(input_dims[i]);
-    }
-
-    uint output_dims [num_dims];
-    for (uint i=0; i<num_dims; ++i) {
-      output_dims[i] = 3;
-      //output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
-      output_type = output_type->Arr(output_dims[i]);
-    }
-
-    uint image_dims [num_dims];
-    for (uint i=0; i<num_dims; ++i) {
-      image_dims[i] = params[i];
-      //image_dims[i] = id_const_value(id_const_value(op->args[i+2]));
-      image_type = image_type->Arr(image_dims[i]);
-    }
-
-    CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
-      {"output_type", CoreIR::Const::make(context,output_type)},
-      {"image_type", CoreIR::Const::make(context,image_type)},
-      {"has_valid",CoreIR::Const::make(context,true)}};
-
-    CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
-    def->connect(coreir_lb->sel("reset"), def->sel("self")->sel("reset"));
-    linebufferResults[outName] = coreir_lb;
-    linebufferInputs[inName] = coreir_lb;
-  }
-
-  for (auto in : linebufferInputs) {
-    string inName = in.first;
-    auto lb = in.second;
-
-    bool foundInput = false;
-    for (auto v : args) {
-      if (coreirSanitize(v.name) == coreirSanitize(inName)) {
-        def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirSanitize(inName)));
-        def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
-            //->sel(coreirSanitize(inName)));
-        foundInput = true;
-        break;
+    bool foundOut = false;
+    // Wire up output
+    for (auto f : functions) {
+      for (auto out : outputStreams(f.second)) {
+        if (coreirSanitize(out->name) == coreirSanitize(output_name)) {
+          def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
+          foundOut = true;
+          break;
+        }
       }
     }
+    internal_assert(foundOut) << "Could not find output for " << output_name << "\n";
 
-    internal_assert(foundInput) << "Could not find input for " << inName << "\n";
-    //if (isDesignInput(inName, m)) {
+    for (auto f : functions) {
+      for (auto input : inputStreams(f.second)) {
+        cout << "Function " << f.second.name << " has input " << *input << endl;
+        if (CoreIR::contains_key(input->name, linebufferResults)) {
+          auto lb = linebufferResults[input->name];
+          def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+        } else {
+          // The input is a top-level module input?
+          bool foundProducer = false;
+          for (auto otherF : functions) {
+            for (auto output : outputStreams(otherF.second)) {
+              if (output->name == input->name) {
+                cout << input->name << " is produced by " << otherF.second.name << endl;
+                def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+                foundProducer = true;
+                break;
+              }
+            }
 
-    //} else {
-      //internal_assert(false) << "Could not find source for linebuffer input " << inName << "\n";
-    //}
-  }
-
-  bool foundOut = false;
-  // Wire up output
-  for (auto f : functions) {
-    for (auto out : outputStreams(f.second)) {
-      if (coreirSanitize(out->name) == coreirSanitize(output_name)) {
-        def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
-        foundOut = true;
-        break;
-      }
-    }
-  }
-  internal_assert(foundOut) << "Could not find output for " << output_name << "\n";
-
-  // TODO: Connect all streams that appear in the design to all of their sources
-  // How to do that?
-  // For each input to a kernel find the input and wire it to the kernel module
-  // For each input to the top-level module find its source and wire it up
-  //
-  for (auto f : functions) {
-    for (auto input : inputStreams(f.second)) {
-      cout << "Function " << f.second.name << " has input " << *input << endl;
-      if (CoreIR::contains_key(input->name, linebufferResults)) {
-        auto lb = linebufferResults[input->name];
-        def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
-      } else {
-        // The input is a top-level module input?
-        bool foundProducer = false;
-        for (auto otherF : functions) {
-          for (auto output : outputStreams(otherF.second)) {
-            if (output->name == input->name) {
-              cout << input->name << " is produced by " << otherF.second.name << endl;
-              def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
-              foundProducer = true;
+            if (foundProducer) {
               break;
             }
           }
 
-          if (foundProducer) {
-            break;
-          }
+          internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
         }
-
-        internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
       }
     }
-  }
 
-  topMod->setDef(def);
-  
-  
-  cout << "Top module" << endl;
-  topMod->print();
-  
-  //cout << "Saving coreir for module " << m->getName() << endl;
-  //if (!saveToFile(global_ns, m->getName() + ".json")) {
-  if (!saveToFile(global_ns, "conv_3_3_app.json")) {
-    cout << "Could not save global namespace" << endl;
-    //cout << "Could not save " << m->getName() << " to json" << endl;
-    context->die();
-  }
+    topMod->setDef(def);
 
-  
+
+    cout << "Top module" << endl;
+    topMod->print();
+
+    //cout << "Saving coreir for module " << m->getName() << endl;
+    //if (!saveToFile(global_ns, m->getName() + ".json")) {
+    if (!saveToFile(global_ns, "conv_3_3_app.json")) {
+      cout << "Could not save global namespace" << endl;
+      //cout << "Could not save " << m->getName() << " to json" << endl;
+      context->die();
+    }
+
+
   }
   return;
 

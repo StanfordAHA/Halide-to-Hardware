@@ -86,7 +86,7 @@ class HWInstr {
     int constWidth;
     std::string constValue;
 
-    HWInstr() : predicate(nullptr), preBound(false), tp(HWINSTR_TP_INSTR) {}
+    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), predicate(nullptr) {}
 
     int toInt() const {
       internal_assert(tp == HWINSTR_TP_CONST);
