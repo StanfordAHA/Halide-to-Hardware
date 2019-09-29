@@ -1915,10 +1915,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     std::map<string, CoreIR::Type*> tap_types;
     CoreIR::Type* output_type = context->Bit();
 
+    std::map<std::string, std::string> inputAliases;
     string output_name = "";
     for (size_t i = 0; i < args.size(); i++) {
-      //string arg_name = "arg_" + std::to_string(i);
-      string arg_name = coreirSanitize(args[i].name);
+      string arg_name = "arg_" + std::to_string(i);
+      string arg_name_real = args[i].name;
+      //coreirSanitize(args[i].name);
+
+      inputAliases[arg_name_real] = arg_name;
 
       if (args[i].is_stencil) {
         CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
@@ -1935,7 +1939,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         }
 
         if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-          // add as the output
+          // add as the outputrg
           uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
           if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
           for (uint i=0; i<indices.size(); ++i) {
@@ -1980,7 +1984,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         {"in", context->Record(input_types)},
         {"reset", context->BitIn()},
         {output_name, output_type},
-        //{"out", output_type},
         {"valid", context->Bit()},
         {"in_en", context->BitIn()}
         });
@@ -2060,7 +2063,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       bool foundInput = false;
       for (auto v : args) {
         if (coreirSanitize(v.name) == coreirSanitize(inName)) {
-          def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirSanitize(inName)));
+
+          internal_assert(CoreIR::contains_key(inName, inputAliases));
+          string coreirName = CoreIR::map_find(inName, inputAliases);
+          def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
           def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
           foundInput = true;
           break;
