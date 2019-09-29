@@ -1306,6 +1306,10 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           auto mul = def->addInstance("and_" + std::to_string(defStage), "corebit.and");
           instrValues[instr] = mul->sel("out");
           unitMapping[instr] = mul;
+        } else if (name == "sel") {
+          auto sel = def->addInstance("sel_" + std::to_string(defStage), "coreir.mux", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = sel->sel("out");
+          unitMapping[instr] = sel;
         } else if (name == "cast") {
           auto cs = def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = cs->sel("out");
@@ -2057,12 +2061,22 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         if (coreirSanitize(v.name) == coreirSanitize(inName)) {
           def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirSanitize(inName)));
           def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
-          //->sel(coreirSanitize(inName)));
           foundInput = true;
           break;
         }
       }
 
+      // Could not find an input for this linebuffer in module inputs
+      if (!foundInput) {
+        for (auto f : functions) {
+          for (auto output : outputStreams(f.second)) {
+            //if (CoreIR::contains_key(output->name, linebufferInputs)) {
+            if (coreirSanitize(output->name) == coreirSanitize(inName)) {
+              def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
+            }
+          }
+        }
+      }
       internal_assert(foundInput) << "Could not find input for " << inName << "\n";
     }
 
