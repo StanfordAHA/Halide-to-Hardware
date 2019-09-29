@@ -303,7 +303,24 @@ void loadHalideLib(CoreIR::Context* context) {
         auto w = args.at("width")->get<int>();
         return c->Record({{"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
-    hns->newGeneratorDecl("init_stencil", ws, widthDimParams);
+    auto initStencil = hns->newGeneratorDecl("init_stencil", ws, widthDimParams);
+
+    initStencil->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto m = def->getModule();
+        auto r = m->getGenArgs().at("nrows")->get<int>();
+        auto cls = m->getGenArgs().at("ncols")->get<int>();
+
+        cout << "r = " << r << endl;
+        cout << "cls = " << cls << endl;
+        auto w = m->getGenArgs().at("width")->get<int>();
+        for (int i = 0; i < r; i++) {
+        for (int j = 0; j < cls; j++) {
+
+          auto cs = def->addInstance("init_const_" + std::to_string(i) + "_" + std::to_string(j), "coreir.const", {{"width", CoreIR::Const::make(c, w)}}, {{"value", CoreIR::Const::make(c, BitVector(w, 0))}});
+          def->connect(def->sel("self")->sel("out")->sel(i)->sel(j), cs->sel("out"));
+        }
+        }
+        });
   }
 
 
