@@ -332,7 +332,13 @@ void loadHalideLib(CoreIR::Context* context) {
         auto width = args.at("width")->get<int>();
         return c->Record({{"in", c->BitIn()->Arr(width)->Arr(nr)->Arr(nc)}, {"out", c->Bit()->Arr(width)}});
         });
-    hns->newGeneratorDecl("stencil_read", ws, stencilReadParams);
+    auto readStencil = hns->newGeneratorDecl("stencil_read", ws, stencilReadParams);
+    readStencil->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto row = args.at("r")->get<int>();
+        auto col = args.at("c")->get<int>();
+
+        def->connect(def->sel("self")->sel("in")->sel(row)->sel(col), def->sel("self")->sel("out"));
+        });
   }
 
 
