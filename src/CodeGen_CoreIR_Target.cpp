@@ -272,9 +272,10 @@ void loadHalideLib(CoreIR::Context* context) {
       auto w = args.at("width")->get<int>();
       return c->Record({{"in", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
       });
-  hns->newGeneratorDecl("rd_stream", tg, widthDimParams);
-
-
+  auto rdStreamGen = hns->newGeneratorDecl("rd_stream", tg, widthDimParams);
+  rdStreamGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+      def->connect("self.in", "self.out");
+      });
 
 
   {
@@ -285,7 +286,12 @@ void loadHalideLib(CoreIR::Context* context) {
         auto w = args.at("width")->get<int>();
         return c->Record({{"stream", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}, {"stencil", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
-    hns->newGeneratorDecl("write_stream", ws, widthDimParams);
+    auto wrStream = hns->newGeneratorDecl("write_stream", ws, widthDimParams);
+
+    wrStream->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        def->connect("self.stream", "self.stencil");
+        });
+
   }
 
 
