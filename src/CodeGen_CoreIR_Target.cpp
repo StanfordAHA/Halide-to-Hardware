@@ -1939,6 +1939,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       {"has_valid",CoreIR::Const::make(context,true)}};
 
     CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+    def->connect(coreir_lb->sel("reset"), def->sel("self")->sel("reset"));
     linebufferResults[outName] = coreir_lb;
     linebufferInputs[inName] = coreir_lb;
   }
@@ -1951,6 +1952,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (auto v : args) {
       if (coreirSanitize(v.name) == coreirSanitize(inName)) {
         def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirSanitize(inName)));
+        def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
+            //->sel(coreirSanitize(inName)));
         foundInput = true;
         break;
       }
