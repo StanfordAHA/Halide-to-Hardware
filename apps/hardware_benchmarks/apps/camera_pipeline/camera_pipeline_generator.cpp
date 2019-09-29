@@ -161,6 +161,7 @@ namespace {
       demosaicked(x, y, c) = select(c == 0, r(x, y),
                                     c == 1, g(x, y),
                                     b(x, y));
+      demosaicked.bound(c, 0, 3);
       return demosaicked;
     }
 
@@ -193,7 +194,7 @@ namespace {
 
       Func curved("curved");
       Expr in_val = clamp(input(x, y, c), 0, 1023);
-      curved(c, x, y) = select(input(x, y, c) < 0, 0,
+      curved(x, y, c) = select(input(x, y, c) < 0, 0,
                                input(x, y, c) >= 1024, 255,
                                curve(in_val));
 
@@ -207,7 +208,7 @@ namespace {
     void generate() {
 
       Func hw_input;
-      hw_input(x,y) = input(x,y);
+      hw_input(x,y) = input(x+3,y+3);
 
       Func denoised;
       denoised = hot_pixel_suppression(hw_input);
@@ -233,8 +234,9 @@ namespace {
       Func hw_output;
       hw_output = apply_curve(color_corrected, curve);
 
-      output(c, x, y) = hw_output(c, x, y);
+      output(x, y, c) = hw_output(x, y, c);
 
+      curve.bound(x, 0, 255);
       output.bound(c, 0, 3);
       output.bound(x, 0, 58);
       output.bound(y, 0, 58);
@@ -264,7 +266,7 @@ namespace {
         hw_input.stream_to_accelerator();
           
       } else {    // schedule to CPU
-        output.tile(x, y, xo, yo, xi, yi, 64, 64)
+        output.tile(x, y, xo, yo, xi, yi, 58,58)
           .compute_root();
 
         output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
