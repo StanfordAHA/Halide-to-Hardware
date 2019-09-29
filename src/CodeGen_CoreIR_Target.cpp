@@ -1807,7 +1807,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   CoreIR::Type* output_type = context->Bit();
 
   for (size_t i = 0; i < args.size(); i++) {
-    string arg_name = "arg_" + std::to_string(i);
+    //string arg_name = "arg_" + std::to_string(i);
+    string arg_name = coreirSanitize(args[i].name);
 
     if (args[i].is_stencil) {
       CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
@@ -1883,9 +1884,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   }
 
   std::map<string, CoreIR::Instance*> linebufferResults;
+  std::map<string, CoreIR::Instance*> linebufferInputs;
   for (auto lb : scl.info.linebuffers) {
     string inName = lb[0];
     string outName = lb[1];
+
 
     string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
     vector<int> params;
@@ -1935,8 +1938,29 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
     linebufferResults[outName] = coreir_lb;
+    linebufferInputs[inName] = coreir_lb;
   }
 
+  for (auto in : linebufferInputs) {
+    string inName = in.first;
+    auto lb = in.second;
+
+    bool foundInput = false;
+    for (auto v : args) {
+      if (coreirSanitize(v.name) == coreirSanitize(inName)) {
+        def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirSanitize(inName)));
+        foundInput = true;
+        break;
+      }
+    }
+
+    internal_assert(foundInput) << "Could not find input for " << inName << "\n";
+    //if (isDesignInput(inName, m)) {
+
+    //} else {
+      //internal_assert(false) << "Could not find source for linebuffer input " << inName << "\n";
+    //}
+  }
 
   // TODO: Connect all streams that appear in the design to all of their sources
   // How to do that?
