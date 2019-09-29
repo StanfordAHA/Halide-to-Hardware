@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <map>
 #include <functional>
-
+#include <string>
 #include "HalideBuffer.h"
 
 template <class T>
