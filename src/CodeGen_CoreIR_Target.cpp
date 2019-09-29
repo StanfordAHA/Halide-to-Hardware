@@ -343,14 +343,35 @@ void loadHalideLib(CoreIR::Context* context) {
 
 
   {
-    CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", widthDimParams,
+    CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", stencilReadParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         auto nr = args.at("nrows")->get<int>();
         auto nc = args.at("ncols")->get<int>();
         auto w = args.at("width")->get<int>();
         return c->Record({{"new_val", c->BitIn()->Arr(w)}, {"in_stencil", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)}});
         });
-    hns->newGeneratorDecl("create_stencil", ws, widthDimParams);
+    auto createStencil = hns->newGeneratorDecl("create_stencil", ws, stencilReadParams);
+    createStencil->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto nRows = args.at("nrows")->get<int>();
+        auto nCols = args.at("ncols")->get<int>();
+        auto width = args.at("width")->get<int>();
+        auto newR = args.at("r")->get<int>();
+
+        cout << "Got r from create stencil = " << newR << endl;
+        auto newC = args.at("c")->get<int>();
+        cout << "Got C " << endl;
+
+        auto self = def->sel("self");
+        for (int i = 0; i < nRows; i++) {
+        for (int j = 0; j < nCols; j++) {
+          if (i == newR && (j == newC)) {
+            def->connect(def->sel("self")->sel("new_val"), self->sel("out")->sel(i)->sel(j));
+          } else {
+            def->connect(self->sel("in_stencil")->sel(i)->sel(j), self->sel("out")->sel(i)->sel(j));
+          }
+        }
+        }
+        });
   }
 }
 
@@ -1298,7 +1319,10 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
         } else if (starts_with(name, "create_stencil")) {
           auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
-          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+
+          int selRow = instr->getOperand(2)->toInt();
+          int selCol = instr->getOperand(3)->toInt();
+          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
 
           stencilRanges[instr] = dimRanges;
           instrValues[instr] = cS->sel("out");
