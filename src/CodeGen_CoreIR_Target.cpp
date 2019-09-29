@@ -1277,6 +1277,10 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = mul->sel("out");
           unitMapping[instr] = mul;
+        } else if (name == "div") {
+          auto mul = def->addInstance("div_" + std::to_string(defStage), "coreir.udiv", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
         } else if (name == "cast") {
           auto cs = def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = cs->sel("out");
@@ -1339,6 +1343,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
+        } else {
+          internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
         }
       }
     
@@ -1844,30 +1850,30 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       m->print();
 
       //if (kernelN == 1) {
-        cout << "This is kernel 1" << endl;
+        //cout << "This is kernel 1" << endl;
 
-        context->runPasses({"rungenerators", "flatten", "flattentypes", "removewires", "deletedeadinstances", "wireclocks-coreir"});
-        cout << "Kernel after simulator preprocessing" << endl;
-        m->print();
+        //context->runPasses({"rungenerators", "flatten", "flattentypes", "removewires", "deletedeadinstances", "wireclocks-coreir"});
+        //cout << "Kernel after simulator preprocessing" << endl;
+        //m->print();
 
-        CoreIR::SimulatorState state(m);
-        for (int i = 0; i < 3; i++) {
-          for (int j = 0; j < 3; j++) {
-            BitVector val(16, i*3 +j);
-            state.setValue("self.hw_input_stencil_stream_" + std::to_string(i) + "_" + std::to_string(j), val);
+        //CoreIR::SimulatorState state(m);
+        //for (int i = 0; i < 3; i++) {
+          //for (int j = 0; j < 3; j++) {
+            //BitVector val(16, i*3 +j);
+            //state.setValue("self.hw_input_stencil_stream_" + std::to_string(i) + "_" + std::to_string(j), val);
 
-          }
-        }
+          //}
+        //}
 
-        state.execute();
+        //state.execute();
 
-        int expected = 11*0 + 12*1 + 13*2 +
-          14*3 + 0*4 + 16*5 +
-          17*6 + 18*7 + 19*8;
-        cout << "Expected        = " << expected << endl;
-        cout << "Output value is = " << state.getBitVec("self.conv_stencil_stream_0_0") << endl;
-        cout << "As an integer   = " << state.getBitVec("self.conv_stencil_stream_0_0").to_type<int>() << endl;
-        internal_assert(false) << "Stopping here\n";
+        //int expected = 11*0 + 12*1 + 13*2 +
+          //14*3 + 0*4 + 16*5 +
+          //17*6 + 18*7 + 19*8;
+        //cout << "Expected        = " << expected << endl;
+        //cout << "Output value is = " << state.getBitVec("self.conv_stencil_stream_0_0") << endl;
+        //cout << "As an integer   = " << state.getBitVec("self.conv_stencil_stream_0_0").to_type<int>() << endl;
+        //internal_assert(false) << "Stopping here\n";
       //}
       kernelN++;
     }    
