@@ -1877,6 +1877,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "Module for kernel..." << endl;
       m->print();
 
+      context->runPasses({"rungenerators", "flatten"});
+
       //if (kernelN == 1) {
         //cout << "This is kernel 1" << endl;
 
