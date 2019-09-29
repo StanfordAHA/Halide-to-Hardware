@@ -747,12 +747,10 @@ class HWLoopSchedule {
 
 class InstructionCollector : public IRGraphVisitor {
   public:
+    std::map<std::string, HWInstr*> vars;
     HWFunction f;
-   //vector<HWInstr*> instrs;
     HWInstr* lastValue;
     HWInstr* currentPredicate;
-
-    //int uniqueNum;
 
     InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
 
@@ -855,6 +853,12 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const Variable* v) {
+
+      if (CoreIR::contains_key(v->name, vars)) {
+        lastValue = CoreIR::map_find(v->name, vars);
+        return;
+      }
+
       IRGraphVisitor::visit(v);
       auto ist = newI();
       ist->name = v->name;
@@ -916,20 +920,25 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const Let* l) {
-      auto vI = varI(l->name);
-      lastValue = vI;
+      //auto vI = varI(l->name);
+      //lastValue = vI;
+
 
       auto ev = codegen(l->value);
-      auto assignV = newI();
-      assignV->name = "assign";
-      assignV->operands = {vI, ev};
 
-      pushInstr(assignV);
+
+      vars[l->name] = ev;
+      //auto assignV = newI();
+      //assignV->name = "assign";
+      //assignV->operands = {vI, ev};
+      //pushInstr(assignV);
       //instrs.push_back(assignV);
 
       auto lv = codegen(l->body);
       internal_assert(lv) << "let body did not produce a value\n";
       lastValue = lv;
+
+      vars.erase(l->name);
       
       //IRGraphVisitor::visit(l->body);
       // Then: Codegen body
@@ -1279,6 +1288,22 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           unitMapping[instr] = mul;
         } else if (name == "div") {
           auto mul = def->addInstance("div_" + std::to_string(defStage), "coreir.udiv", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "lt") {
+          auto mul = def->addInstance("lt_" + std::to_string(defStage), "coreir.ult", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "gt") {
+          auto mul = def->addInstance("gt_" + std::to_string(defStage), "coreir.ugt", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "lte") {
+          auto mul = def->addInstance("lte_" + std::to_string(defStage), "coreir.ule", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "and") {
+          auto mul = def->addInstance("and_" + std::to_string(defStage), "corebit.and");
           instrValues[instr] = mul->sel("out");
           unitMapping[instr] = mul;
         } else if (name == "cast") {
