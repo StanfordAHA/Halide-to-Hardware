@@ -20,6 +20,7 @@
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "coreir/simulator/interpreter.h"
 
 namespace Halide {
 namespace Internal {
@@ -1457,11 +1458,6 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
 
     vector<int> rgs = getStreamDims(is, info);
     vector<int> windowDims = getDimRanges(rgs);
-    //vector<int> windowDims = streamWindowDims(is, info);
-    //assert(CoreIR::contains_key(is, info.streamDispatches));
-    //vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
-    //cout << "\tDispatch info..." << endl;
-    //vector<int> windowDims = streamWindowDims(is, info);
     CoreIR::Type* base = context->Bit()->Arr(16);
     for (auto d : windowDims) {
       base = base->Arr(d);
@@ -1475,7 +1471,6 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   CoreIR::Type* design_type = context->Record(tps);
   
   auto global_ns = context->getNamespace("global");
-  //design = global_ns->newModuleDecl("design_kernel_test_" + std::to_string(kernelNum), design_type);
   design = global_ns->newModuleDecl(f.name, design_type);
   def = design->newModuleDef();
   self = def->sel("self");
@@ -1848,6 +1843,17 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "Module for kernel..." << endl;
       m->print();
 
+      if (kernelN == 1) {
+        cout << "This is kernel 1" << endl;
+
+        context->runPasses({"rungenerators", "flatten", "flattentypes", "removewires", "deletedeadinstances", "wireclocks-coreir"});
+        cout << "Kernel after simulator preprocessing" << endl;
+        m->print();
+
+        CoreIR::SimulatorState state(m);
+
+        internal_assert(false) << "Stopping here\n";
+      }
       kernelN++;
     }    
 
