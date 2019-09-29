@@ -214,7 +214,9 @@ class IdentifyAddressing : public IRVisitor {
         ranges.insert(ranges.begin(), range);
       }
 
-      std::cout << op->name << " has stride=" << strides_in_dim.at(0) << " dim_ref=" << dim_refs.at(0) << "\n";
+      std::cout << op->name << " has stride=" << strides_in_dim.at(0)
+                << " dim_ref=" << dim_refs.at(0)
+                << " range=" << ranges.at(0) << "\n";
       
     } else {
       IdentifyAddressingVar iav(op->name, scope);
@@ -366,7 +368,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             for (size_t i = 0; i < op->args.size(); i++) {
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
-              new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]), scope));
+              new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              //new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]), scope));
               std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is " << kernel.dims.at(i).output_min_pos << "\n";
               std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
@@ -376,7 +379,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl
+            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op
                       << " using min_x=" << kernel.dims.at(0).output_min_pos << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
@@ -435,9 +438,11 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                   
                 }
 
-                offset = Expr(0);
+                offset = stencil_kernel.dims[i].output_min_pos;
+                //offset = Expr(0);
                 Expr new_arg = old_arg - offset;
-                new_arg = simplify(expand_expr_no_var(new_arg, scope));
+                //new_arg = simplify(expand_expr_no_var(new_arg, scope));
+                new_arg = simplify(expand_expr(new_arg, scope));
                 std::cout << "new_arg" << i << " = " << new_arg << std::endl;
                 // TODO check if the new_arg only depends on the loop vars
                 // inside the producer
@@ -1049,6 +1054,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Stmt ret_consume = ProducerConsumer::make_consume(stream_name, Evaluate::make(0));
         Stmt ret_pc = Block::make(ret_produce, ret_consume);
         ret = ret_pc;
+        std::cout << "finished with output stencil:\n" << ret_pc;
     }
     return ret;
 }

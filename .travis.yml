@@ -38,17 +38,17 @@ install:
   # install framework specific to halide
   - test/scripts/install_travis.sh  
   # compile coreir
-  - git clone -b dev https://github.com/rdaly525/coreir.git
-  - make -j2 -C coreir all
-
-script:
-  - test/scripts/build_travis.sh
+  - git clone -b ubuffer https://github.com/rdaly525/coreir.git
+  - pushd .
+  - cd coreir/build && cmake ..
+  - make -j2 all
+  - popd
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - make distrib
+  - make distrib -j2
   - rm distrib/halide.tgz
   - rm distrib/bin/libHalide.so
   - tar -czvf halide_distrib.tgz distrib
@@ -63,6 +63,8 @@ deploy:
     tags: true
 
 script: |
+  make distrib -j2
+  test/scripts/build_travis.sh
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
   echo "TRAVIS_BRANCH=$TRAVIS_BRANCH TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST"
   if [[ ($TRAVIS_BRANCH == master) &&

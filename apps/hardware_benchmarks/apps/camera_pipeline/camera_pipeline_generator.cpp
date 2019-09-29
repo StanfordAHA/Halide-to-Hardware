@@ -191,13 +191,16 @@ namespace {
     Func apply_curve(Func input, Func curve) {
       // copied from FCam
 
-      Func hw_output("hw_output");
+      Func curved("curved");
       Expr in_val = clamp(input(x, y, c), 0, 1023);
-      hw_output(c, x, y) = select(input(x, y, c) < 0, 0,
-                                  input(x, y, c) >= 1024, 255,
-                                  curve(in_val));
+      curved(c, x, y) = select(input(x, y, c) < 0, 0,
+                               input(x, y, c) >= 1024, 255,
+                               curve(in_val));
 
-      return hw_output;
+      curved.reorder(x,y,c);
+      //curved.bound(c, 0, 3);
+      //curved.reorder(x,y,c).unroll(c);
+      return curved;
     }
 
     
@@ -241,22 +244,23 @@ namespace {
       if (get_target().has_feature(Target::CoreIR)) {
         hw_input.compute_root();
         hw_output.compute_root();
-          
-        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
-          .reorder(c,xi,yi,xo,yo);;
-          
-        denoised.linebuffer();
-        //.unroll(x).unroll(y);
-        demosaicked.linebuffer();
-          //.unroll(c).unroll(x).unroll(y);
 
-        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-
-        hw_output.accelerate({hw_input}, c, xo, {});
+        hw_output.accelerate({hw_input}, xi, xo, {});
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6);
+        //.reorder(c,xi,yi,xo,yo);;
 
         //hw_output.unroll(c).unroll(xi, 2);
         hw_output.unroll(c);
+        
+        demosaicked.linebuffer();
+        demosaicked.unroll(c);
+        //demosaicked.reorder(c, x, y);
 
+        denoised.linebuffer();
+        //.unroll(x).unroll(y);
+
+        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+        
         hw_input.stream_to_accelerator();
           
       } else {    // schedule to CPU

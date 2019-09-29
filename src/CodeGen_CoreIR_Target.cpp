@@ -73,7 +73,7 @@ vector<CoreIR::Wireable*> get_wires(CoreIR::Wireable* base_wire, const vector<si
   for (const auto& port_length : ports) {
     num_ports *= port_length;
   }
-//  std::cout << "we have " << num_ports << " ports\n";
+//  cout << "we have " << num_ports << " ports\n";
   vector<CoreIR::Wireable*> all_wires(num_ports);
 
   vector<uint> port_idxs(ports.size());
@@ -233,7 +233,7 @@ class ROMInit : public IRVisitor {
     if (op->name == allocname) {
       auto value_expr = op->value;
       auto index_expr = op->index;
-      std::cout << "store: " << Stmt(op) << std::endl;
+      cout << "store: " << Stmt(op) << std::endl;
       internal_assert(is_const(value_expr) && is_const(index_expr));
 
       int index = id_const_value(index_expr);
@@ -369,7 +369,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
     //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,
@@ -745,6 +745,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       {"in", context->Record(input_types)},
       {"out", output_type}
     });
+  }
+
+  if (context->hasModule("global.DesignTop")) {
+    return;
   }
 
   design = global_ns->newModuleDecl("DesignTop", design_type);
@@ -2677,6 +2681,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     def->connect(ub_wen->sel("out"), coreir_ub->sel("wen"));
   }
 
+  CoreIR::Wireable* ub_ren = def->addInstance(ub_name+"_ren", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
+  def->connect(ub_ren->sel("out"), coreir_ub->sel("ren"));
   
 }
 

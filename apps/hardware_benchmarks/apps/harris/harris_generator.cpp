@@ -38,13 +38,13 @@ public:
 
         // sobel filter
         Func grad_x_unclamp, grad_y_unclamp, grad_x, grad_y;
-        grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x,  y)   +   padded16(x+2,y)
-                                             -2*padded16(x,  y+1) + 2*padded16(x+2,y+1)
-                                               -padded16(x,  y+2) +   padded16(x+2,y+2));
-        grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x,  y+2) -   padded16(x,  y) +
-                                              2*padded16(x+1,y+2) - 2*padded16(x+1,y) +
-                                                padded16(x+2,y+2) -   padded16(x+2,y));
-        //RDom r(0, 3, 0, 3);
+        grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x-1,y-1) +   padded16(x+1,y-1)
+                                             -2*padded16(x-1,y)   + 2*padded16(x+1,y)
+                                               -padded16(x-1,y+1) +   padded16(x+1,y+1));
+        grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
+                                              2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
+                                                padded16(x+1,y+1) -   padded16(x+1,y-1));
+        //RDom r(-1, 3, -1, 3);
         //grad_x_unclamp(x, y) = 0;
         //grad_x_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
         //grad_y_unclamp(x, y) = 0;
@@ -71,8 +71,8 @@ public:
 
         // box filter (i.e. windowed sum)
         Func lgxx, lgyy, lgxy;
-        //RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
-        RDom box(0, blockSize, 0, blockSize);
+        RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        //RDom box(0, blockSize, 0, blockSize);
         lgxx(x, y) += lxx(x+box.x, y+box.y);
         lgyy(x, y) += lyy(x+box.x, y+box.y);
         lgxy(x, y) += lxy(x+box.x, y+box.y);
@@ -100,8 +100,10 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        //hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
-        hw_output(x, y) = cast<uint8_t>(cim(x,y));
+        Func cim_output;
+        cim_output(x,y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cim_output(x,y);
+        //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
 
 
@@ -134,6 +136,7 @@ public:
           lgyy.linebuffer();
           lgxy.linebuffer();
           cim.linebuffer();
+          cim_output.linebuffer();
 
           lgxx.update(0).unroll(box.x).unroll(box.y);
           lgyy.update(0).unroll(box.x).unroll(box.y);
