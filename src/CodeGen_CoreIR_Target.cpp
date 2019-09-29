@@ -1501,7 +1501,6 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     string inName = is;
     replaceAll(inName, ".", "_");
     tps.push_back({inName, base});
-    //tps.push_back({inName + "_valid", context->BitIn()});
   }
   CoreIR::Type* design_type = context->Record(tps);
   
