@@ -1798,7 +1798,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     kernelN++;
   }    
 
-  // TODO: Create top-level module using jeffs code for inputs / outputs
   uint num_inouts = 0;
 
   // Keep track of the inputs, output, and taps for this module
@@ -1806,6 +1805,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   std::map<string, CoreIR::Type*> tap_types;
   CoreIR::Type* output_type = context->Bit();
 
+  string output_name = "";
   for (size_t i = 0; i < args.size(); i++) {
     //string arg_name = "arg_" + std::to_string(i);
     string arg_name = coreirSanitize(args[i].name);
@@ -1832,7 +1832,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
           output_type = output_type->Arr(indices[i]);
         }
         hw_output_set.insert(arg_name);
-        
+        output_name = coreirSanitize(args[i].name);
+
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         // add another input
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
@@ -1868,7 +1869,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   design_type = context->Record({
       {"in", context->Record(input_types)},
       {"reset", context->BitIn()},
-      {"out", output_type},
+      {output_name, output_type},
+      //{"out", output_type},
       {"valid", context->Bit()},
       {"in_en", context->BitIn()}
       });
@@ -1961,6 +1963,19 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       //internal_assert(false) << "Could not find source for linebuffer input " << inName << "\n";
     //}
   }
+
+  bool foundOut = false;
+  // Wire up output
+  for (auto f : functions) {
+    for (auto out : outputStreams(f.second)) {
+      if (coreirSanitize(out->name) == coreirSanitize(output_name)) {
+        def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
+        foundOut = true;
+        break;
+      }
+    }
+  }
+  internal_assert(foundOut) << "Could not find output for " << output_name << "\n";
 
   // TODO: Connect all streams that appear in the design to all of their sources
   // How to do that?
