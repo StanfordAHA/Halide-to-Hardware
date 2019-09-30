@@ -987,6 +987,14 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
+    void visit(const Min* m) {
+      visit_binop("min", m->a, m->b);
+    }
+    
+    void visit(const Max* m) {
+      visit_binop("max", m->a, m->b);
+    }
+
     void visit(const Div* d) {
       visit_binop("div", d->a, d->b);
     }
@@ -1301,6 +1309,14 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           unitMapping[instr] = mul;
         } else if (name == "div") {
           auto mul = def->addInstance("div_" + std::to_string(defStage), "coreir.udiv", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "max") {
+          auto mul = def->addInstance("max_" + std::to_string(defStage), "commonlib.umax", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "min") {
+          auto mul = def->addInstance("min_" + std::to_string(defStage), "commonlib.umin", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = mul->sel("out");
           unitMapping[instr] = mul;
         } else if (name == "lt") {
