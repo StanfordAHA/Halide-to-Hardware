@@ -1284,6 +1284,11 @@ class UnitMapping {
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
 
+    std::map<HWInstr*, int> productionStages;
+    std::map<HWInstr*, std::map<int, CoreIR::Instance*> > pipelineRegisters;
+
+    std::vector<HWInstr*> body;
+
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
       internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
       return CoreIR::map_find(arg1, instrValues);
@@ -1295,6 +1300,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   int defStage = 0;
 
   UnitMapping m;
+  m.body = sched.body;
   auto& unitMapping = m.unitMapping;
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
@@ -1477,11 +1483,13 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       } else if (instr->name == "cast") {
         auto arg = instr->getOperand(0);
         //auto unit = CoreIR::map_find(instr, unitMapping);
-        def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
+        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+            //CoreIR::map_find(arg, instrValues));
       } else if (instr->name == "rd_stream") {
         auto arg = instr->getOperand(0);
         //auto unit = CoreIR::map_find(instr, unitMapping);
-        def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
+        //def->connect(unit->sel("in"), CoreIR::map_find(arg, instrValues));
+        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       } else if (instr->name == "stencil_read") {
         auto arg = instr->getOperand(0);
 
@@ -1502,8 +1510,12 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
         auto strm = instr->getOperand(0);
         auto stencil = instr->getOperand(1);
 
-        def->connect(unit->sel("stream"), CoreIR::map_find(strm, instrValues));
-        def->connect(unit->sel("stencil"), CoreIR::map_find(stencil, instrValues));
+        
+        def->connect(unit->sel("stream"), m.valueAt(strm, stageNo));
+        def->connect(unit->sel("stencil"), m.valueAt(stencil, stageNo));
+        
+        //def->connect(unit->sel("stream"), CoreIR::map_find(strm, instrValues));
+        //def->connect(unit->sel("stencil"), CoreIR::map_find(stencil, instrValues));
       }
     }
   }
