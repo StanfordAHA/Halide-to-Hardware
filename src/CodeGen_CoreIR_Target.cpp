@@ -1215,7 +1215,7 @@ vector<int> getStencilDims(const std::string& name, StencilInfo& info) {
     return dims;
   }
 
-  internal_assert(false);
+  internal_assert(false) << "No stencil dimensions for " << name << "\n";
 }
 
 vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
@@ -1234,7 +1234,7 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
     return getStencilDims(inputStencil, info);
   }
 
-  internal_assert(false);
+  internal_assert(false) << "No stream dims for " << str << "\n";
 }
 
 vector<int> getDimRanges(const vector<int>& ranges) {
@@ -2031,6 +2031,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
       CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
 
+
+      vector<int> inRanges = getStreamDims(inName, info);
+      vector<int> outRanges = getStreamDims(outName, info);
       uint input_dims [num_dims];
       for (uint i=0; i<num_dims; ++i) {
         input_dims[i] = 1;
