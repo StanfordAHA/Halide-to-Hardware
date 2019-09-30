@@ -1517,6 +1517,8 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   def = design->newModuleDef();
   self = def->sel("self");
 
+  def->connect(self->sel("in_en"), self->sel("valid"));
+
   HWLoopSchedule sched;
   sched.body = instrs;
   sched.II = 1;
@@ -2108,6 +2110,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       for (auto out : outputStreams(f.second)) {
         if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
           def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
+          def->connect(map_find(f.first, kernels)->sel("valid"), def->sel("self")->sel("valid"));
           foundOut = true;
           break;
         }
@@ -2145,10 +2148,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     }
 
     // TODO: Remove this hack
-    if (linebufferResults.size() == 1) {
-      CoreIR::Instance* lb = begin(linebufferResults)->second;
-      def->connect(def->sel("self")->sel("valid"), lb->sel("valid"));
-    }
+    //if (linebufferResults.size() == 1) {
+      //CoreIR::Instance* lb = begin(linebufferResults)->second;
+      //def->connect(def->sel("self")->sel("valid"), lb->sel("valid"));
+    //}
     topMod->setDef(def);
 
 
@@ -3536,7 +3539,7 @@ class RenameAllocation : public IRMutator {
     }
   }
 
-  Stmt visit(const Store *op) {
+  Stmt visit(const Store *op) override {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
