@@ -1908,6 +1908,19 @@ std::vector<HWInstr*> inputStreams(HWFunction& f) {
   return ins;
 }
 
+std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
+  std::set<CoreIR::Wireable*> allC;
+  for (auto c : w->getConnectedWireables()) {
+    allC.insert(c);
+  }
+
+  for (auto r : w->getSelects()) {
+    for (auto wc : allConnectedWireables(r.second)) {
+      allC.insert(wc);
+    }
+  }
+  return allC;
+}
 
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
@@ -1926,36 +1939,43 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
     visited.insert(val);
     cout << "Next value to get local connections for = " << CoreIR::toString(*(val)) << endl;
     toVisit.pop_front();
-    //for (auto c : val->getConnectedWireables()) {
-      //auto* f = c;
 
-      //cout << "\tLocal select = ";
-      //auto selPath = f->getSelectPath();
-      //for (auto s : selPath) {
-        //cout << s << ", " << endl;
-      //}
-      //cout << endl;
+    std::set<CoreIR::Wireable*> allConnected =
+      allConnectedWireables(val);
+
+    for (auto w : allConnected) {
+      cout << "\t" << CoreIR::toString(*w) << endl;
+      if (!CoreIR::elem(w, visited)) {
+        toVisit.push_back(w);
+      }
+
+      component.insert(w);
+    }
+
+    //cout << "Connected wireables" << endl;
+    //for (auto c : val->getConnectedWireables()) {
+      //cout << "\t" << CoreIR::toString(*c) << endl;
     //}
 
-    cout << "Connected wireables" << endl;
-    for (auto c : val->getConnectedWireables()) {
-      cout << "\t" << CoreIR::toString(*c) << endl;
-    }
+    //cout << "All selects" << endl;
+    //for (auto s : val->getSelects()) {
+      //cout << "\t" << s.first << " -> " << CoreIR::toString(*(s.second)) << endl;
+    //}
 
-    cout << "All selects" << endl;
-    for (auto s : val->getSelects()) {
-      cout << "\t" << s.first << " -> " << CoreIR::toString(*(s.second)) << endl;
-    }
+    //cout << "GetAllSelects..." << endl;
+    //for (auto sels : val->getAllSelects()) {
+      //cout << "\tSelect map" << endl;
+      //cout << "\t" << CoreIR::toString(sels.first) << " -> " << CoreIR::toString(*(sels.second)) << endl;
+      //if (!CoreIR::elem(sels.second, visited)) {
+        //cout << "\t\tNot an elem of visited..., adding " << CoreIR::toString(*(sels.second)) << " to toVisit" << endl;
+        //toVisit.push_back(sels.second);
+      //}
+    //}
+  }
 
-    cout << "GetAllSelects..." << endl;
-    for (auto sels : val->getAllSelects()) {
-      cout << "\tSelect map" << endl;
-      cout << "\t" << CoreIR::toString(sels.first) << " -> " << CoreIR::toString(*(sels.second)) << endl;
-      if (!CoreIR::elem(sels.second, visited)) {
-        cout << "\t\tNot an elem of visited..., adding " << CoreIR::toString(*(sels.second)) << " to toVisit" << endl;
-        toVisit.push_back(sels.second);
-      }
-    }
+  cout << "Connected component..." << endl;
+  for (auto w : component) {
+    cout << "\t" << CoreIR::toString(*w) << endl;
   }
 }
 
