@@ -1234,6 +1234,7 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
     return getStencilDims(inputStencil, info);
   }
 
+  return {0, 1, 0, 1};
   internal_assert(false) << "No stream dims for " << str << "\n";
 }
 
@@ -2036,14 +2037,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       vector<int> outRanges = getStreamDims(outName, info);
       uint input_dims [num_dims];
       for (uint i=0; i<num_dims; ++i) {
-        input_dims[i] = 1;
+        input_dims[i] = inRanges[2*i + 1] - inRanges[2*i];
         //input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
         input_type = input_type->Arr(input_dims[i]);
       }
 
       uint output_dims [num_dims];
       for (uint i=0; i<num_dims; ++i) {
-        output_dims[i] = 3;
+        //output_dims[i] = 3;
+        output_dims[i] = outRanges[2*i + 1] - outRanges[2*i];
         //output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
         output_type = output_type->Arr(output_dims[i]);
       }
