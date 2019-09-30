@@ -2141,6 +2141,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       }
     }
 
+    // TODO: Remove this hack
+    if (linebufferResults.size() == 1) {
+      CoreIR::Instance* lb = begin(linebufferResults)->second;
+      def->connect(def->sel("self")->sel("valid"), lb->sel("valid"));
+    }
     topMod->setDef(def);
 
 
