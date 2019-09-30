@@ -318,7 +318,8 @@ void loadHalideLib(CoreIR::Context* context) {
         for (int j = 0; j < cls; j++) {
 
           auto cs = def->addInstance("init_const_" + std::to_string(i) + "_" + std::to_string(j), "coreir.const", {{"width", CoreIR::Const::make(c, w)}}, {{"value", CoreIR::Const::make(c, BitVector(w, 0))}});
-          def->connect(def->sel("self")->sel("out")->sel(i)->sel(j), cs->sel("out"));
+          //def->connect(def->sel("self")->sel("out")->sel(i)->sel(j), cs->sel("out"));
+          def->connect(def->sel("self")->sel("out")->sel(j)->sel(i), cs->sel("out"));
         }
         }
         });
@@ -338,7 +339,8 @@ void loadHalideLib(CoreIR::Context* context) {
         auto row = args.at("r")->get<int>();
         auto col = args.at("c")->get<int>();
 
-        def->connect(def->sel("self")->sel("in")->sel(row)->sel(col), def->sel("self")->sel("out"));
+        //def->connect(def->sel("self")->sel("in")->sel(row)->sel(col), def->sel("self")->sel("out"));
+        def->connect(def->sel("self")->sel("in")->sel(col)->sel(row), def->sel("self")->sel("out"));
         });
   }
 
@@ -366,9 +368,11 @@ void loadHalideLib(CoreIR::Context* context) {
         for (int i = 0; i < nRows; i++) {
         for (int j = 0; j < nCols; j++) {
           if (i == newR && (j == newC)) {
-            def->connect(def->sel("self")->sel("new_val"), self->sel("out")->sel(i)->sel(j));
+            //def->connect(def->sel("self")->sel("new_val"), self->sel("out")->sel(i)->sel(j));
+            def->connect(def->sel("self")->sel("new_val"), self->sel("out")->sel(j)->sel(i));
           } else {
-            def->connect(self->sel("in_stencil")->sel(i)->sel(j), self->sel("out")->sel(i)->sel(j));
+            //def->connect(self->sel("in_stencil")->sel(i)->sel(j), self->sel("out")->sel(i)->sel(j));
+            def->connect(self->sel("in_stencil")->sel(i)->sel(j), self->sel("out")->sel(j)->sel(i));
           }
         }
         }
