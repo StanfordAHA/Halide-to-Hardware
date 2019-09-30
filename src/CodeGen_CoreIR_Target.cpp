@@ -1222,7 +1222,7 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   if (CoreIR::contains_key(str, info.streamWrites)) {
 
     string inputStencil = info.streamWrites[str];
-    cout << "Source of " << str << " is stencil " << inputStencil << endl;
+    cout << "Stream " << str << " writes to stencil " << inputStencil << endl;
     return getStencilDims(inputStencil, info);
   }
 
@@ -1230,7 +1230,7 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   if (CoreIR::contains_key(str, info.streamReads)) {
 
     string inputStencil = info.streamReads[str];
-    cout << "Source of " << str << " is stencil " << inputStencil << endl;
+    cout << "Stream " << str << " reads from stencil " << inputStencil << endl;
     return getStencilDims(inputStencil, info);
   }
 
@@ -1818,7 +1818,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     cout << "Emitting kernel for " << name << endl;
 
 
-    cout << "\tStmt is = " << stmt << endl;
+    cout << "\tStmt is = " << endl;
+    cout << stmt << endl;
     NestExtractor extractor;
     stmt.accept(&extractor);
 
