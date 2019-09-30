@@ -1289,11 +1289,29 @@ class UnitMapping {
 
     std::vector<HWInstr*> body;
 
+    bool hasOutput(HWInstr* const arg) const {
+      return CoreIR::contains_key(arg, instrValues);
+    }
+
+    CoreIR::Type* outputType(HWInstr* const arg) {
+      internal_assert(CoreIR::contains_key(arg, instrValues));
+      return CoreIR::map_find(arg, instrValues)->getType();
+    }
+
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
       internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
       return CoreIR::map_find(arg1, instrValues);
     }
 };
+
+CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
+
+  // TODO: Fix this hack
+  int awidth = 16;
+  auto r = def->addInstance(name, "mantle.reg",{{"width",CoreIR::Const::make(context, awidth)},{"has_en", COREMK(context, true)}});
+
+    return r;
+}
 
 UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
 
@@ -1438,6 +1456,22 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
     }
     defStage++;
   }
+  
+  
+  int uNum = 0;
+  for (int i = 0; i < (int) sched.stages.size(); i++) {
+    auto& stg = sched.stages[i];
+    for (auto instr : stg) {
+      m.productionStages[instr] = i;
+    }
+
+    for (auto instr : m.body) {
+      if (m.hasOutput(instr)) {
+        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(uNum), m.outputType(instr));
+        uNum++;
+      }
+    }
+  }
   ////defStage++;
   //}
   //
@@ -1446,20 +1480,13 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
 
 void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
-  //int defStage = 0;
 
   UnitMapping m = createUnitMapping(info, context, sched, def);
   auto& unitMapping = m.unitMapping;
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
 
-  // Build connections assuming all in one stage
-  // What is the process going to be? for every instruction:
-  //  for every argument:
-  //    get the wire for the argument
-  //    connect it to the appropriate input
   cout << "Building connections inside each cycle\n";
-  //for (auto instr : sched.body) {
   for (int i = 0; i < (int) sched.stages.size(); i++) {
 
     int stageNo = i;
@@ -1471,7 +1498,6 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       if (instr->name == "add" || (instr->name == "mul")) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
-
 
         def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
         def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
@@ -1528,7 +1554,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, HWFunction& f) {
   auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
-  tps = {{"reset", context->BitIn()}, {"clk", context->BitIn()}};
+  tps = {{"reset", context->BitIn()}};
+  //, {"clk", context->BitIn()}};
   std::set<string> inStreams;
   std::set<string> outStreams;
   for (auto instr : instrs) {
@@ -1959,7 +1986,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "Module for kernel..." << endl;
       m->print();
 
-      context->runPasses({"rungenerators", "flatten"});
+      context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
 
       //if (kernelN == 1) {
         //cout << "This is kernel 1" << endl;
