@@ -1294,142 +1294,143 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   std::map<HWInstr*, CoreIR::Wireable*> instrValues;
   std::map<HWInstr*, vector<int> > stencilRanges;
   std::map<HWInstr*, CoreIR::Instance*> unitMapping;
-  for (auto stage : sched.stages) {
-    for (auto instr : stage) {
-      if (instr->tp == HWINSTR_TP_INSTR) {
-        string name = instr->name;
-        //cout << "Instruction name = " << name << endl;
-        if (name == "add") {
-          auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = adder->sel("out");
-          unitMapping[instr] = adder;
-        } else if (name == "mul") {
-          auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "sub") {
-          auto mul = def->addInstance("sub_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "div") {
-          auto mul = def->addInstance("div_" + std::to_string(defStage), "coreir.udiv", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "max") {
-          auto mul = def->addInstance("max_" + std::to_string(defStage), "commonlib.umax", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "min") {
-          auto mul = def->addInstance("min_" + std::to_string(defStage), "commonlib.umin", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "lt") {
-          auto mul = def->addInstance("lt_" + std::to_string(defStage), "coreir.ult", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "gt") {
-          auto mul = def->addInstance("gt_" + std::to_string(defStage), "coreir.ugt", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "lte") {
-          auto mul = def->addInstance("lte_" + std::to_string(defStage), "coreir.ule", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "and") {
-          auto mul = def->addInstance("and_" + std::to_string(defStage), "corebit.and");
-          instrValues[instr] = mul->sel("out");
-          unitMapping[instr] = mul;
-        } else if (name == "sel") {
-          auto sel = def->addInstance("sel_" + std::to_string(defStage), "coreir.mux", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = sel->sel("out");
-          unitMapping[instr] = sel;
-        } else if (name == "cast") {
-          auto cs = def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = cs->sel("out");
-          unitMapping[instr] = cs;
-        } else if (name == "rd_stream") {
-          auto dims = getStreamDims(instr->operands[0]->name, info);
-          cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
-          for (auto d : dims) {
-            cout << "Dim = " << d << endl;
-          }
-
-          vector<int> dimRanges = getDimRanges(dims);
-          stencilRanges[instr] = dimRanges;
-          auto rdStrm = def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
-
-          auto res = rdStrm->sel("out");
-          instrValues[instr] = res;
-          unitMapping[instr] = rdStrm;
-        } else if (name == "write_stream") {
-
-          auto dims = getStreamDims(instr->operands[0]->name, info);
-          vector<int> dimRanges = getDimRanges(dims);
-
-          auto wrStrm = def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
-          //auto res = wrStrm->sel("out");
-          //instrValues[instr] = res;
-          unitMapping[instr] = wrStrm;
-        } else if (starts_with(name, "init_stencil")) {
-          int bnds = instr->getOperand(0)->toInt();
-          vector<int> dims;
-          for (int i = 1; i < 1 + bnds; i++) {
-            dims.push_back(instr->getOperand(i)->toInt());
-          }
-
-          auto dimRanges = getDimRanges(dims);
-
-          stencilRanges[instr] = dimRanges;
-          auto initS = def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
-          instrValues[instr] = initS->sel("out");
-          unitMapping[instr] = initS;
-
-        } else if (starts_with(name, "create_stencil")) {
-          auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
-
-          int selRow = instr->getOperand(2)->toInt();
-          int selCol = instr->getOperand(3)->toInt();
-          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
-
-          stencilRanges[instr] = dimRanges;
-          instrValues[instr] = cS->sel("out");
-          unitMapping[instr] = cS;
-
-        } else if (starts_with(name, "stencil_read")) {
-          vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
-          internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
-
-          int selRow = instr->getOperand(1)->toInt();
-          int selCol = instr->getOperand(2)->toInt();
-          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
-          instrValues[instr] = cS->sel("out");
-          unitMapping[instr] = cS;
-        } else {
-          internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
+  //for (auto stage : sched.stages) {
+  //for (auto instr : stage) {
+  for (auto instr : sched.body) {
+    if (instr->tp == HWINSTR_TP_INSTR) {
+      string name = instr->name;
+      //cout << "Instruction name = " << name << endl;
+      if (name == "add") {
+        auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = adder->sel("out");
+        unitMapping[instr] = adder;
+      } else if (name == "mul") {
+        auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "sub") {
+        auto mul = def->addInstance("sub_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "div") {
+        auto mul = def->addInstance("div_" + std::to_string(defStage), "coreir.udiv", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "max") {
+        auto mul = def->addInstance("max_" + std::to_string(defStage), "commonlib.umax", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "min") {
+        auto mul = def->addInstance("min_" + std::to_string(defStage), "commonlib.umin", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "lt") {
+        auto mul = def->addInstance("lt_" + std::to_string(defStage), "coreir.ult", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "gt") {
+        auto mul = def->addInstance("gt_" + std::to_string(defStage), "coreir.ugt", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "lte") {
+        auto mul = def->addInstance("lte_" + std::to_string(defStage), "coreir.ule", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "and") {
+        auto mul = def->addInstance("and_" + std::to_string(defStage), "corebit.and");
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "sel") {
+        auto sel = def->addInstance("sel_" + std::to_string(defStage), "coreir.mux", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = sel->sel("out");
+        unitMapping[instr] = sel;
+      } else if (name == "cast") {
+        auto cs = def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = cs->sel("out");
+        unitMapping[instr] = cs;
+      } else if (name == "rd_stream") {
+        auto dims = getStreamDims(instr->operands[0]->name, info);
+        cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
+        for (auto d : dims) {
+          cout << "Dim = " << d << endl;
         }
-      }
-    
-      int constNo = 0;
-      for (auto op : instr->operands) {
-        if (op->tp == HWINSTR_TP_CONST) {
-          int width = op->constWidth;
-          int value = stoi(op->constValue);
-          auto cInst = def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
-          constNo++;
-          instrValues[op] = cInst->sel("out");
-        } else if (op->tp == HWINSTR_TP_VAR) {
-          string name = op->name;
-          cout << "Finding argument value for " << name << endl;
-          auto self = def->sel("self");
-          auto val = self->sel(coreirSanitize(name));
-          instrValues[op] = val;
+
+        vector<int> dimRanges = getDimRanges(dims);
+        stencilRanges[instr] = dimRanges;
+        auto rdStrm = def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
+
+        auto res = rdStrm->sel("out");
+        instrValues[instr] = res;
+        unitMapping[instr] = rdStrm;
+      } else if (name == "write_stream") {
+
+        auto dims = getStreamDims(instr->operands[0]->name, info);
+        vector<int> dimRanges = getDimRanges(dims);
+
+        auto wrStrm = def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+        //auto res = wrStrm->sel("out");
+        //instrValues[instr] = res;
+        unitMapping[instr] = wrStrm;
+      } else if (starts_with(name, "init_stencil")) {
+        int bnds = instr->getOperand(0)->toInt();
+        vector<int> dims;
+        for (int i = 1; i < 1 + bnds; i++) {
+          dims.push_back(instr->getOperand(i)->toInt());
         }
+
+        auto dimRanges = getDimRanges(dims);
+
+        stencilRanges[instr] = dimRanges;
+        auto initS = def->addInstance("init_stencil_" + std::to_string(defStage), "halidehw.init_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
+        instrValues[instr] = initS->sel("out");
+        unitMapping[instr] = initS;
+
+      } else if (starts_with(name, "create_stencil")) {
+        auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
+
+        int selRow = instr->getOperand(2)->toInt();
+        int selCol = instr->getOperand(3)->toInt();
+        auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+
+        stencilRanges[instr] = dimRanges;
+        instrValues[instr] = cS->sel("out");
+        unitMapping[instr] = cS;
+
+      } else if (starts_with(name, "stencil_read")) {
+        vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
+        internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
+
+        int selRow = instr->getOperand(1)->toInt();
+        int selCol = instr->getOperand(2)->toInt();
+        auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+        //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = cS->sel("out");
+        unitMapping[instr] = cS;
+      } else {
+        internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
-      defStage++;
     }
-    //defStage++;
+
+    int constNo = 0;
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_CONST) {
+        int width = op->constWidth;
+        int value = stoi(op->constValue);
+        auto cInst = def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
+        constNo++;
+        instrValues[op] = cInst->sel("out");
+      } else if (op->tp == HWINSTR_TP_VAR) {
+        string name = op->name;
+        cout << "Finding argument value for " << name << endl;
+        auto self = def->sel("self");
+        auto val = self->sel(coreirSanitize(name));
+        instrValues[op] = val;
+      }
+    }
+    defStage++;
   }
+  ////defStage++;
+  //}
 
   // Build connections assuming all in one stage
   // What is the process going to be? for every instruction:
