@@ -2097,6 +2097,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             //if (CoreIR::contains_key(output->name, linebufferInputs)) {
             if (coreirSanitize(output->name) == coreirSanitize(inName)) {
               def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
+              def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
+              //coreirSanitize(output->name)));
             }
           }
         }
@@ -3549,7 +3551,7 @@ class RenameAllocation : public IRMutator {
     }
   }
 
-  Stmt visit(const Free *op) {
+  Stmt visit(const Free *op) override {
     if (op->name == orig_name) {
       return Free::make(new_name);
     } else {
