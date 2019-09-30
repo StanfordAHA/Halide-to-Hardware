@@ -177,6 +177,9 @@ void run_coreir_on_interpreter(string coreir_design,
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
 
+        //cout << "y = " << y << endl;
+        //cout << "x = " << x << endl;
+        //cout << "c = " << c << endl;
         //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
 
         // Set in_en to 1.
@@ -191,6 +194,8 @@ void run_coreir_on_interpreter(string coreir_design,
           //cout << "input set\n";
         } else {
           state.setValue(input_name, BitVector(16, input(x,y,c)));
+          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+          std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
         }
 
         // propogate to all wires
@@ -201,8 +206,9 @@ void run_coreir_on_interpreter(string coreir_design,
           //std::cout << "using valid\n";
           bool valid_value = state.getBitVec("self.valid").to_type<bool>();
           //std::cout << "got my valid\n";
+          //cout << "output_bv_n = " << output_bv_n << endl;
           if (valid_value) {
-            //std::cout << "this one is valid\n";
+            std::cout << "this one is valid\n";
             auto output_bv = state.getBitVec(output_name);
             
             // bitcast to float if it is a float
@@ -239,7 +245,8 @@ void run_coreir_on_interpreter(string coreir_design,
 
           output(x,y,c) = output_value;
             
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+          std::cout << "y=" << y << ",x=" << x << " " << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
         }
         
         // give another rising edge (execute seq)
