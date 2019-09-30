@@ -1158,6 +1158,12 @@ class StencilInfoCollector : public IRGraphVisitor {
         }
       } else if (ends_with(op->name, ".stencil")) {
 
+        if (CoreIR::contains_key(op->name, info.stencilRealizations)) {
+          IRGraphVisitor::visit(op);
+          return;
+        }
+
+        //internal_assert(!CoreIR::contains_key(op->name, info.stencilRealizations)) << "Realizations already contains an entry for " << op->name << "\n";
         info.stencilRealizations[op->name] = {};
         auto tps = op->types[0];
         auto bnds = op->bounds;
