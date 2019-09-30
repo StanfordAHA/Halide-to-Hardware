@@ -2126,6 +2126,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         if (CoreIR::contains_key(input->name, linebufferResults)) {
           auto lb = linebufferResults[input->name];
           def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+          def->connect(lb->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
         } else {
           // The input is a top-level module input?
           bool foundProducer = false;
@@ -2134,6 +2135,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
               if (output->name == input->name) {
                 cout << input->name << " is produced by " << otherF.second.name << endl;
                 def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+                def->connect(map_find(otherF.first, kernels)->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
                 foundProducer = true;
                 break;
               }
