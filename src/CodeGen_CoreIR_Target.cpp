@@ -1283,6 +1283,11 @@ class UnitMapping {
     std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
+
+    CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
+      internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
+      return CoreIR::map_find(arg1, instrValues);
+    }
 };
 
 UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
@@ -1451,6 +1456,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   //for (auto instr : sched.body) {
   for (int i = 0; i < (int) sched.stages.size(); i++) {
 
+    int stageNo = i;
     auto& instrsInStage = sched.stages[i];
     for (auto instr : instrsInStage) {
       internal_assert(CoreIR::contains_key(instr, unitMapping));
@@ -1461,11 +1467,13 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
         auto arg1 = instr->getOperand(1);
 
 
-        internal_assert(CoreIR::contains_key(arg0, instrValues)) << *arg0 << " is not in instrValues\n";
-        internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
+        def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
+        def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
+        //internal_assert(CoreIR::contains_key(arg0, instrValues)) << *arg0 << " is not in instrValues\n";
+        //internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
 
-        def->connect(unit->sel("in0"), CoreIR::map_find(arg0, instrValues));
-        def->connect(unit->sel("in1"), CoreIR::map_find(arg1, instrValues));
+        //def->connect(unit->sel("in0"), CoreIR::map_find(arg0, instrValues));
+        //def->connect(unit->sel("in1"), CoreIR::map_find(arg1, instrValues));
       } else if (instr->name == "cast") {
         auto arg = instr->getOperand(0);
         //auto unit = CoreIR::map_find(instr, unitMapping);
