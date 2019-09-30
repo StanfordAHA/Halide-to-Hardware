@@ -999,6 +999,10 @@ class InstructionCollector : public IRGraphVisitor {
       visit_binop("mul", b->a, b->b);
     }
 
+    void visit(const Sub* b) {
+      visit_binop("sub", b->a, b->b);
+    }
+
     HWInstr* andHW(HWInstr* a, HWInstr* b) {
       auto andOp = newI();
       andOp->name = "and";
@@ -1289,6 +1293,10 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
           unitMapping[instr] = adder;
         } else if (name == "mul") {
           auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = mul->sel("out");
+          unitMapping[instr] = mul;
+        } else if (name == "sub") {
+          auto mul = def->addInstance("sub_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = mul->sel("out");
           unitMapping[instr] = mul;
         } else if (name == "div") {
@@ -1696,7 +1704,7 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
 bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
   //for (auto instr : hwInstr) {
   internal_assert(start >= 0);
-  internal_assert(end <= hwInstr.size());
+  internal_assert(end <= (int) hwInstr.size());
   for (int i = start; i < end; i++) {
     if (hwInstr[i]->tp != HWINSTR_TP_CONST) {
       cout << "Instruction " << *(hwInstr[i]) << " is not const!" << endl;
