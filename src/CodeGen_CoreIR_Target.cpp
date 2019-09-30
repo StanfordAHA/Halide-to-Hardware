@@ -1507,6 +1507,9 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     replaceAll(inName, ".", "_");
     tps.push_back({inName, base});
   }
+
+  tps.push_back({"in_en", context->BitIn()});
+  tps.push_back({"valid", context->Bit()});
   CoreIR::Type* design_type = context->Record(tps);
   
   auto global_ns = context->getNamespace("global");
