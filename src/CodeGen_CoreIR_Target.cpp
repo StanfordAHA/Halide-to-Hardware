@@ -1907,6 +1907,47 @@ std::vector<HWInstr*> inputStreams(HWFunction& f) {
 
   return ins;
 }
+
+
+void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
+
+  auto instF = m->getInstancesIterBegin();
+  if (instF == nullptr) {
+    return;
+  }
+
+  cout << "First instance to examine is = " << instF->getInstname() << endl;
+  std::deque<CoreIR::Wireable*> toVisit{instF};
+  std::set<CoreIR::Wireable*> component;
+  std::set<CoreIR::Wireable*> visited;
+  cout << "Removing unconnected wires" << endl;
+  while (toVisit.size() > 0) {
+    auto val = toVisit.front();
+    visited.insert(val);
+    cout << "Next value to get local connections for = " << CoreIR::toString(*(val)) << endl;
+    toVisit.pop_front();
+    //for (auto c : val->getConnectedWireables()) {
+      //auto* f = c;
+
+      //cout << "\tLocal select = ";
+      //auto selPath = f->getSelectPath();
+      //for (auto s : selPath) {
+        //cout << s << ", " << endl;
+      //}
+      //cout << endl;
+    //}
+
+    for (auto sels : val->getAllSelects()) {
+      cout << "\tSelect map" << endl;
+      cout << "\t" << CoreIR::toString(sels.first) << " -> " << CoreIR::toString(*(sels.second)) << endl;
+      if (!CoreIR::elem(sels.second, visited)) {
+        cout << "\t\tNot an elem of visited..., adding to toVisit" << endl;
+        toVisit.push_back(sels.second);
+      }
+    }
+  }
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -1987,6 +2028,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       m->print();
 
       context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
+      removeUnconnectedInstances(m->getDef());
 
       //if (kernelN == 1) {
         //cout << "This is kernel 1" << endl;
