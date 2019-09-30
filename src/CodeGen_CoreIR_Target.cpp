@@ -1277,25 +1277,26 @@ std::string coreirSanitize(const std::string& str) {
   }
   return san;
 }
-void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
-  assert(sched.II == 1);
-  // TODO: Emit actual counter controller for stages
-  // Also: Need to connect up clock and reset
-  // Need to wire up predicates and state wires
-  // For each instruction: Find its def stage, and
-  // find all stages where it is used
-  //
-  // For now how should we start getting this code to work?
-  // Create a map from instructions to instances?
-  //
-  // Create a map from HWInstrs to wireables?
+
+class UnitMapping {
+  public:
+    std::map<HWInstr*, CoreIR::Wireable*> instrValues;
+    std::map<HWInstr*, vector<int> > stencilRanges;
+    std::map<HWInstr*, CoreIR::Instance*> unitMapping;
+};
+
+UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
+
   int defStage = 0;
 
-  std::map<HWInstr*, CoreIR::Wireable*> instrValues;
-  std::map<HWInstr*, vector<int> > stencilRanges;
-  std::map<HWInstr*, CoreIR::Instance*> unitMapping;
-  //for (auto stage : sched.stages) {
-  //for (auto instr : stage) {
+  UnitMapping m;
+  auto& unitMapping = m.unitMapping;
+  auto& instrValues = m.instrValues;
+  auto& stencilRanges = m.stencilRanges;
+  
+  //std::map<HWInstr*, CoreIR::Wireable*> instrValues;
+  //std::map<HWInstr*, vector<int> > stencilRanges;
+  //std::map<HWInstr*, CoreIR::Instance*> unitMapping;
   for (auto instr : sched.body) {
     if (instr->tp == HWINSTR_TP_INSTR) {
       string name = instr->name;
@@ -1431,6 +1432,18 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
   ////defStage++;
   //}
+  //
+  return m;
+}
+
+void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
+  assert(sched.II == 1);
+  //int defStage = 0;
+
+  UnitMapping m = createUnitMapping(info, context, sched, def);
+  auto& unitMapping = m.unitMapping;
+  auto& instrValues = m.instrValues;
+  auto& stencilRanges = m.stencilRanges;
 
   // Build connections assuming all in one stage
   // What is the process going to be? for every instruction:
