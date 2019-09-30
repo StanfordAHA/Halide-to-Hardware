@@ -1937,11 +1937,22 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
       //cout << endl;
     //}
 
+    cout << "Connected wireables" << endl;
+    for (auto c : val->getConnectedWireables()) {
+      cout << "\t" << CoreIR::toString(*c) << endl;
+    }
+
+    cout << "All selects" << endl;
+    for (auto s : val->getSelects()) {
+      cout << "\t" << s.first << " -> " << CoreIR::toString(*(s.second)) << endl;
+    }
+
+    cout << "GetAllSelects..." << endl;
     for (auto sels : val->getAllSelects()) {
       cout << "\tSelect map" << endl;
       cout << "\t" << CoreIR::toString(sels.first) << " -> " << CoreIR::toString(*(sels.second)) << endl;
       if (!CoreIR::elem(sels.second, visited)) {
-        cout << "\t\tNot an elem of visited..., adding to toVisit" << endl;
+        cout << "\t\tNot an elem of visited..., adding " << CoreIR::toString(*(sels.second)) << " to toVisit" << endl;
         toVisit.push_back(sels.second);
       }
     }
