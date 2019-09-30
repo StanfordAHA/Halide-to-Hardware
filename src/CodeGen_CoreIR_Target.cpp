@@ -1916,7 +1916,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     CoreIR::Type* output_type = context->Bit();
 
     std::map<std::string, std::string> inputAliases;
+    std::map<std::string, std::string> outputAliases;
     string output_name = "";
+    string output_name_real = "";
     for (size_t i = 0; i < args.size(); i++) {
       string arg_name = "arg_" + std::to_string(i);
       string arg_name_real = args[i].name;
@@ -1946,7 +1948,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             output_type = output_type->Arr(indices[i]);
           }
           hw_output_set.insert(arg_name);
-          output_name = coreirSanitize(args[i].name);
+          output_name = "out";
+          output_name_real = coreirSanitize(args[i].name);
 
         } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
           // add another input
@@ -2091,14 +2094,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     // Wire up output
     for (auto f : functions) {
       for (auto out : outputStreams(f.second)) {
-        if (coreirSanitize(out->name) == coreirSanitize(output_name)) {
+        if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
           def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
           foundOut = true;
           break;
         }
       }
     }
-    internal_assert(foundOut) << "Could not find output for " << output_name << "\n";
+    internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
     for (auto f : functions) {
       for (auto input : inputStreams(f.second)) {
