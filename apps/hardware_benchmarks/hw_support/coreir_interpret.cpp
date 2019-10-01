@@ -231,6 +231,28 @@ class CoordinateVector {
       }
     }
 
+    int coord(const std::string& str) {
+      for (int i = 0; i < (int) names.size(); i++) {
+        auto cN = names[i];
+        if (cN == str) {
+          return values[i];
+        }
+      }
+
+      assert(false);
+    }
+
+    std::string coordString() const {
+      std::string str = "{";
+      for (int i = 0; i < ((int) bounds.size()); i++) {
+        str += std::to_string(values[i]) + " : " + std::to_string(bounds[i]);
+        if (i < ((int) bounds.size()) - 1) {
+          str += ", ";
+        }
+      }
+      str += "}";
+      return str;
+    }
     bool allLowerAtMax(const int level) const {
       if (level == ((int) bounds.size()) - 1) {
         return true;
@@ -246,7 +268,9 @@ class CoordinateVector {
     }
 
     bool atMax(const int level) const {
-      return bounds[level] == values[level];
+      bool atM = bounds[level] == values[level];
+      cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
+      return atM;
     }
 
     bool allDone() const {
@@ -265,6 +289,7 @@ class CoordinateVector {
           for (int j = i + 1; j < (int) bounds.size(); j++) {
             values[j] = 0;
           }
+          break;
         }
       }
     }
@@ -400,11 +425,16 @@ void run_coreir_on_interpreter(string coreir_design,
   cout << "reset\n";
   ImageWriter<T> coreir_img_writer(output);
 
-  CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height(), input.width(), input.channels()});
-  CoordinateVector<int> readIdx({"y", "x", "c"}, {input.height(), input.width(), input.channels()});
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
+        cout << "Write idx = " << writeIdx.coordString() << endl;
+        assert(writeIdx.coord("x") == x);
+        assert(writeIdx.coord("y") == y);
+        assert(writeIdx.coord("c") == c);
+        writeIdx.increment();
         run_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
       }
     }
