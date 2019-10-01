@@ -63,6 +63,9 @@ public:
           //kernel.compute_root();
           hw_output.compute_root();
           
+          hw_output.bound(x, 0, 64-blockSize+1);
+          hw_output.bound(y, 0, 64-blockSize+1);
+          
           hw_output
             //            .compute_at(output, xo)
             .tile(x, y, xo, yo, xi, yi, 64-blockSize+1, 64-blockSize+1)

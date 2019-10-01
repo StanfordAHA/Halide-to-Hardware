@@ -43,6 +43,9 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
+          hw_output.bound(x, 0, 60);
+          hw_output.bound(y, 0, 60);
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64-4, 64-4)
             .hw_accelerate(xi, xo);
 

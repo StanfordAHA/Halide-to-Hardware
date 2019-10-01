@@ -19,10 +19,10 @@ public:
 
         Func mult, div, add, sub, mod;
         mult(x,y) = hw_input(x,y) * 13;
-	div(x,y) = hw_input(x,y) / 4;
-	mod(x,y) = hw_input(x,y) % 16;
-	add(x,y) = div(x,y) + mod(x,y);
-	sub(x,y) = mult(x,y) - add(x,y);
+        div(x,y) = hw_input(x,y) / 4;
+        mod(x,y) = hw_input(x,y) % 16;
+        add(x,y) = div(x,y) + mod(x,y);
+        sub(x,y) = mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(sub(x, y));
@@ -35,6 +35,9 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
+          hw_output.bound(x, 0, 64);
+          hw_output.bound(y, 0, 64);
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 

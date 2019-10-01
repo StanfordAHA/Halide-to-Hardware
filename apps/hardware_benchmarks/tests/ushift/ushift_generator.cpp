@@ -17,7 +17,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
 
-	Func addbias, shiftr, shiftl;
+        Func addbias, shiftr, shiftl;
         addbias(x,y) = hw_input(x,y) + 40000;
         shiftr(x,y) = addbias(x,y) >> 12;
         shiftl(x,y) = hw_input(x,y) << 14;
@@ -32,7 +32,10 @@ public:
           
           hw_input.compute_root();
           hw_output.compute_root();
-          
+
+          hw_output.bound(x, 0, 64);
+          hw_output.bound(y, 0, 64);
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
