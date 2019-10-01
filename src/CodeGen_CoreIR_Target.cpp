@@ -2262,6 +2262,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       kernelN++;
     }    
 
+    cout << "Done creating kernels..." << endl;
     uint num_inouts = 0;
 
     // Keep track of the inputs, output, and taps for this module
