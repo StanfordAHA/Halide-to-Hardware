@@ -270,7 +270,7 @@ void run_coreir_on_interpreter(string coreir_design,
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
-
+        run_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, coreir_design, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
         //cout << "y = " << y << endl;
         //cout << "x = " << x << endl;
         //cout << "c = " << c << endl;
