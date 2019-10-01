@@ -1300,17 +1300,28 @@ class UnitMapping {
 
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
       internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
-      return CoreIR::map_find(arg1, instrValues);
+
+      if (arg1->tp == HWINSTR_TP_VAR || (arg1->tp == HWINSTR_TP_CONST)) {
+        return CoreIR::map_find(arg1, instrValues);
+      }
+
+      internal_assert(CoreIR::contains_key(arg1, productionStages)) << *arg1 << " is not produced at any stage of the pipeline\n";
+
+      int producedStage = CoreIR::map_find(arg1, productionStages);
+
+      internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
+      if (stageNo == CoreIR::map_find(arg1, productionStages)) {
+        return CoreIR::map_find(arg1, instrValues);
+      } else {
+        internal_assert(false) << "Stage " << producedStage << ", consumed at " << stageNo << "\n";
+      }
     }
 };
 
 CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
 
   auto r = def->addInstance(name, "commonlib.reg_array", {{"type", COREMK(context, type)}});
-  // TODO: Fix this hack //int awidth = 16;
-  //auto r = def->addInstance(name, "mantle.reg",{{"width",CoreIR::Const::make(context, awidth)},{"has_en", COREMK(context, true)}});
-
-    return r;
+  return r;
 }
 
 UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
@@ -1461,6 +1472,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   int uNum = 0;
   for (int i = 0; i < (int) sched.stages.size(); i++) {
     auto& stg = sched.stages[i];
+
     for (auto instr : stg) {
       m.productionStages[instr] = i;
     }
@@ -1620,8 +1632,8 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   sched.II = 1;
   sched.stages.push_back({});
   for (auto instr : instrs) {
-    sched.stages[0].push_back(instr);
-    //sched.stages.push_back({instr});
+    //sched.stages[0].push_back(instr);
+    sched.stages.push_back({instr});
   }
 
   cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
