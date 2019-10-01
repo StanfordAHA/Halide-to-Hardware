@@ -271,80 +271,80 @@ void run_coreir_on_interpreter(string coreir_design,
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
         run_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, coreir_design, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-        //cout << "y = " << y << endl;
-        //cout << "x = " << x << endl;
-        //cout << "c = " << c << endl;
-        //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
+        ////cout << "y = " << y << endl;
+        ////cout << "x = " << x << endl;
+        ////cout << "c = " << c << endl;
+        ////state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
 
-        // Set in_en to 1.
-        if (uses_inputenable) {
-          state.setValue("self.in_en", BitVector(1, true));
-        }
+        //// Set in_en to 1.
+        //if (uses_inputenable) {
+          //state.setValue("self.in_en", BitVector(1, true));
+        //}
         
-        // Set input value.
-        // bitcast to int if it is a float
-        if (has_float_input) {
-          state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
-          //cout << "input set\n";
-        } else {
-          state.setValue(input_name, BitVector(16, input(x,y,c)));
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
-          std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
-        }
+        //// Set input value.
+        //// bitcast to int if it is a float
+        //if (has_float_input) {
+          //state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
+          ////cout << "input set\n";
+        //} else {
+          //state.setValue(input_name, BitVector(16, input(x,y,c)));
+          ////std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+          //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+        //}
 
-        // propogate to all wires
-        state.exeCombinational();
+        //// propogate to all wires
+        //state.exeCombinational();
 
-        // read output wire
-        if (uses_valid) {
-          //std::cout << "using valid\n";
-          bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-          //std::cout << "got my valid\n";
-          //cout << "output_bv_n = " << output_bv_n << endl;
-          if (valid_value) {
-            std::cout << "this one is valid\n";
-            auto output_bv = state.getBitVec(output_name);
+        //// read output wire
+        //if (uses_valid) {
+          ////std::cout << "using valid\n";
+          //bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+          ////std::cout << "got my valid\n";
+          ////cout << "output_bv_n = " << output_bv_n << endl;
+          //if (valid_value) {
+            //std::cout << "this one is valid\n";
+            //auto output_bv = state.getBitVec(output_name);
             
-            // bitcast to float if it is a float
-            T output_value;
-            if (has_float_output) {
-              float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-              //std::cout << "read out float: " << output_float << " ";
-              output_value = static_cast<T>(output_float);
-            } else {
-              output_value = output_bv.to_type<T>();
-            }
+            //// bitcast to float if it is a float
+            //T output_value;
+            //if (has_float_output) {
+              //float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+              ////std::cout << "read out float: " << output_float << " ";
+              //output_value = static_cast<T>(output_float);
+            //} else {
+              //output_value = output_bv.to_type<T>();
+            //}
             
-            coreir_img_writer.write(output_value);
+            //coreir_img_writer.write(output_value);
             
-            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
-          }
-        } else {
-          //if (std::is_floating_point<T>::value) {
-          //  T output_value = state.getBitVec(output_name);
-          //  output(x,y,c) = output_value;
-          //} else {
-          //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
+            ////std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+          //}
+        //} else {
+          ////if (std::is_floating_point<T>::value) {
+          ////  T output_value = state.getBitVec(output_name);
+          ////  output(x,y,c) = output_value;
+          ////} else {
+          ////std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
           
-          auto output_bv = state.getBitVec(output_name);
+          //auto output_bv = state.getBitVec(output_name);
 
-          // bitcast to float if it is a float
-          T output_value;
-          if (has_float_output) {
-            float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-            output_value = static_cast<T>(output_float);
-          } else {
-            output_value = output_bv.to_type<T>();
-          }
+          //// bitcast to float if it is a float
+          //T output_value;
+          //if (has_float_output) {
+            //float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+            //output_value = static_cast<T>(output_float);
+          //} else {
+            //output_value = output_bv.to_type<T>();
+          //}
 
-          output(x,y,c) = output_value;
+          //output(x,y,c) = output_value;
             
-          std::cout << "y=" << y << ",x=" << x << " " << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
-        }
+          //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+          ////std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+        //}
         
-        // give another rising edge (execute seq)
-        state.exeSequential();
+        //// give another rising edge (execute seq)
+        //state.exeSequential();
 
       }
     }
