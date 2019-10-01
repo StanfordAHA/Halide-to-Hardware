@@ -1922,10 +1922,35 @@ std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
   return allC;
 }
 
+CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
+  if (CoreIR::isa<CoreIR::Instance>(w)) {
+    return w;
+  }
+
+  if (CoreIR::isa<CoreIR::Interface>(w)) {
+    return w;
+  }
+
+  cout << "Getting base of " << CoreIR::toString(*w) << endl;
+
+  internal_assert(CoreIR::isa<CoreIR::Select>(w));
+  auto s = static_cast<CoreIR::Select*>(w);
+  return getBase(s->getParent());
+}
+
 CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wireable*>& alreadyDone) {
+  std::set<CoreIR::Instance*> instances;
+  for (auto d : alreadyDone) {
+    CoreIR::Wireable* base = getBase(d);
+    if (CoreIR::isa<CoreIR::Instance>(base)) {
+      instances.insert(static_cast<CoreIR::Instance*>(base));
+    }
+  }
+  cout << "Getting next instance" << endl;
   for (auto inst : def->getInstances()) {
     auto instV = inst.second;
-    if (!CoreIR::elem(static_cast<CoreIR::Wireable*>(instV), alreadyDone)) {
+    cout << "Checking instance " << instV->getInstname() << endl;
+    if (!CoreIR::elem(instV, instances)) {
       return instV;
     }
   }
@@ -1934,40 +1959,50 @@ CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wire
 }
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
-  std::set<CoreIR::Wireable*> component;
+  std::vector<std::set<CoreIR::Wireable*> > components;
   std::set<CoreIR::Wireable*> visited;
 
-  auto instF = pickNextInstance(m, visited);
-  if (instF == nullptr) {
-    return;
-  }
-
-  std::deque<CoreIR::Wireable*> toVisit{instF};
-  
-  cout << "Removing unconnected wires" << endl;
-  while (toVisit.size() > 0) {
-    auto val = toVisit.front();
-    visited.insert(val);
-    cout << "Next value to get local connections for = " << CoreIR::toString(*(val)) << endl;
-    toVisit.pop_front();
-
-    std::set<CoreIR::Wireable*> allConnected =
-      allConnectedWireables(val);
-
-    for (auto w : allConnected) {
-      cout << "\t" << CoreIR::toString(*w) << endl;
-      if (!CoreIR::elem(w, visited)) {
-        toVisit.push_back(w);
-      }
-
-      component.insert(w);
+  while (true) {
+    auto instF = pickNextInstance(m, visited);
+    if (instF == nullptr) {
+      cout << "Next instance is a nullptr!" << endl;
+      break;
     }
 
-  }
+    std::set<CoreIR::Wireable*> component;
+    std::deque<CoreIR::Wireable*> toVisit{instF};
 
-  cout << "Connected component..." << endl;
-  for (auto w : component) {
-    cout << "\t" << CoreIR::toString(*w) << endl;
+    //cout << "Removing unconnected wires" << endl;
+    while (toVisit.size() > 0) {
+      auto val = toVisit.front();
+      visited.insert(val);
+      //cout << "Next value to get local connections for = " << CoreIR::toString(*(val)) << endl;
+      toVisit.pop_front();
+
+      std::set<CoreIR::Wireable*> allConnected =
+        allConnectedWireables(val);
+
+      for (auto w : allConnected) {
+        cout << "\t" << CoreIR::toString(*w) << endl;
+        if (!CoreIR::elem(w, visited)) {
+          toVisit.push_back(w);
+        }
+
+        component.insert(w);
+      }
+
+    }
+
+    cout << "Inserting component with " << component.size() << " entries" << endl;
+    components.push_back(component);
+
+  }
+  cout << "Connected components..." << endl;
+  for (auto component : components) {
+    cout << "\tComponent" << endl;
+    for (auto w : component) {
+      cout << "\t\t" << CoreIR::toString(*w) << endl;
+    }
   }
 }
 
