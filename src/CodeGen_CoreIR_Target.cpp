@@ -1293,17 +1293,28 @@ class UnitMapping {
       return CoreIR::contains_key(arg, instrValues);
     }
 
-    CoreIR::Type* outputType(HWInstr* const arg) {
+    CoreIR::Type* outputType(HWInstr* const arg) const {
       internal_assert(CoreIR::contains_key(arg, instrValues));
       return CoreIR::map_find(arg, instrValues)->getType();
     }
 
+    bool isOutputArg(HWInstr* arg) const {
+      return outputType(arg)->isInput();
+    }
+ 
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
       internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
 
-      if (arg1->tp == HWINSTR_TP_VAR || (arg1->tp == HWINSTR_TP_CONST)) {
+      if (arg1->tp == HWINSTR_TP_CONST) {
         return CoreIR::map_find(arg1, instrValues);
       }
+
+      if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
+        return CoreIR::map_find(arg1, instrValues);
+      }
+      //if (arg1->tp == HWINSTR_TP_VAR || (arg1->tp == HWINSTR_TP_CONST)) {
+        //return CoreIR::map_find(arg1, instrValues);
+      //}
 
       internal_assert(CoreIR::contains_key(arg1, productionStages)) << *arg1 << " is not produced at any stage of the pipeline\n";
 
@@ -1467,7 +1478,23 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         cout << "Finding argument value for " << name << endl;
         auto self = def->sel("self");
         auto val = self->sel(coreirSanitize(name));
+
         instrValues[op] = val;
+        
+        if (val->getType()->isOutput()) {
+          m.productionStages[op] = 0;
+
+          for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
+            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
+          }
+
+          // Need to decide how to map pipeline stage numbers? Maybe start from stage 1?
+          for (int stage = 0; stage < ((int) sched.stages.size()) - 1; stage++) {
+            if (stage == 0) {
+
+            }
+          }
+        }
       }
     }
     defStage++;
