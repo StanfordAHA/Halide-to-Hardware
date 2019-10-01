@@ -1525,12 +1525,15 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       auto fstVal = CoreIR::map_find(instr, m.instrValues);
       int prodStage = CoreIR::map_find(instr, m.productionStages);
 
-      auto lastReg = m.pipelineRegisters[instr][prodStage];
-      def->connect(lastReg->sel("in"), fstVal);
+      CoreIR::Wireable* lastReg = fstVal;
+      //auto lastReg = m.pipelineRegisters[instr][prodStage];
+      //def->connect(lastReg->sel("in"), fstVal);
       for (int i = prodStage + 1; i < (int) sched.stages.size(); i++) {
         CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
-        def->connect(pipeReg->sel("in"), lastReg->sel("out"));
-        lastReg = pipeReg;
+        def->connect(pipeReg->sel("in"), lastReg);
+         //lastReg->sel("out"));
+        lastReg = pipeReg->sel("out");
+        //lastReg = pipeReg;
       }
     }
   }
