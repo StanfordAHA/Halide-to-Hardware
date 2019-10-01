@@ -2049,16 +2049,16 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
   while (foundUnused) {
     foundUnused = false;
 
-    cout << "Finding unused instances" << endl;
+    //cout << "Finding unused instances" << endl;
     CoreIR::Instance* unused = nullptr;
     for (auto instV : def->getInstances()) {
       auto inst = instV.second;
-      cout << "All connections for " << CoreIR::toString(*inst) << endl;
-      for (auto c : allConnectedWireables(inst)) {
-        cout << "\t" << CoreIR::toString(*c) << endl;
-      }
+      //cout << "All connections for " << CoreIR::toString(*inst) << endl;
+      //for (auto c : allConnectedWireables(inst)) {
+        //cout << "\t" << CoreIR::toString(*c) << endl;
+      //}
       auto allOutputs = allOutputConnections(inst);
-      cout << CoreIR::toString(*inst) << " has " << allOutputs.size() << " output connections" << endl;
+      //cout << CoreIR::toString(*inst) << " has " << allOutputs.size() << " output connections" << endl;
 
       if (allOutputs.size() == 0) {
         foundUnused = true;
