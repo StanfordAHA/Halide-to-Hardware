@@ -1984,8 +1984,8 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
       for (auto w : allConnected) {
         cout << "\t" << CoreIR::toString(*w) << endl;
-        if (!CoreIR::elem(w, visited)) {
-          toVisit.push_back(w);
+        if (!CoreIR::elem(getBase(w), visited)) {
+          toVisit.push_back(getBase(w));
         }
 
         component.insert(w);
