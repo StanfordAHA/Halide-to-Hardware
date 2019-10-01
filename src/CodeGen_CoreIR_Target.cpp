@@ -1931,7 +1931,7 @@ CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
     return w;
   }
 
-  cout << "Getting base of " << CoreIR::toString(*w) << endl;
+  //cout << "Getting base of " << CoreIR::toString(*w) << endl;
 
   internal_assert(CoreIR::isa<CoreIR::Select>(w));
   auto s = static_cast<CoreIR::Select*>(w);
@@ -1946,10 +1946,10 @@ CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wire
       instances.insert(static_cast<CoreIR::Instance*>(base));
     }
   }
-  cout << "Getting next instance" << endl;
+  //cout << "Getting next instance" << endl;
   for (auto inst : def->getInstances()) {
     auto instV = inst.second;
-    cout << "Checking instance " << instV->getInstname() << endl;
+    //cout << "Checking instance " << instV->getInstname() << endl;
     if (!CoreIR::elem(instV, instances)) {
       return instV;
     }
@@ -1997,12 +1997,34 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
     components.push_back(component);
 
   }
+
+  std::set<CoreIR::Instance*> toDel;
   cout << "Connected components..." << endl;
   for (auto component : components) {
     cout << "\tComponent" << endl;
+    bool containsInterface = false;
     for (auto w : component) {
       cout << "\t\t" << CoreIR::toString(*w) << endl;
+      auto b = getBase(w);
+      if (CoreIR::isa<CoreIR::Interface>(b)) {
+        containsInterface = true;
+      }
     }
+
+    if (!containsInterface) {
+      cout << "\tNOTE: Unused component: Should be deleted" << endl;
+      for (auto w : component) {
+        auto b = getBase(w);
+        if (CoreIR::isa<CoreIR::Instance>(b)) {
+          toDel.insert(static_cast<CoreIR::Instance*>(b));
+        }
+      }
+    }
+  }
+
+  for (auto d : toDel) {
+    m->disconnect(d);
+    m->removeInstance(d);
   }
 }
 
@@ -2087,6 +2109,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
       removeUnconnectedInstances(m->getDef());
+
+      cout << "Module after optimization" << endl;
+      m->print();
 
       //if (kernelN == 1) {
         //cout << "This is kernel 1" << endl;
