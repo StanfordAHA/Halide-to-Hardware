@@ -297,9 +297,7 @@ class CoordinateVector {
 };
 
 template<typename T>
-void run_for_cycle(const int x,
-    const int y,
-    const int c,
+void run_for_cycle(CoordinateVector<int>& writeIdx,
     bool uses_inputenable,
     bool has_float_input,
     bool has_float_output,
@@ -313,6 +311,10 @@ void run_for_cycle(const int x,
     ImageWriter<T>& coreir_img_writer,
     bool uses_valid
     ) {
+
+  const int x = writeIdx.coord("x");
+  const int y = writeIdx.coord("y");
+  const int c = writeIdx.coord("c");
 
   if (uses_inputenable) {
     state.setValue("self.in_en", BitVector(1, true));
@@ -434,9 +436,10 @@ void run_coreir_on_interpreter(string coreir_design,
         assert(writeIdx.coord("x") == x);
         assert(writeIdx.coord("y") == y);
         assert(writeIdx.coord("c") == c);
-        //run_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-        run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+        run_for_cycle(writeIdx,
             uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        //run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
 
         writeIdx.increment();
 
