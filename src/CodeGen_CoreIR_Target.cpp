@@ -1484,7 +1484,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
 
     for (auto instr : m.body) {
       if (m.hasOutput(instr)) {
-        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(uNum), m.outputType(instr));
+        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
         uNum++;
       }
     }
@@ -1513,8 +1513,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
   UnitMapping m = createUnitMapping(info, context, sched, def);
   auto& unitMapping = m.unitMapping;
-  auto& instrValues = m.instrValues;
-  auto& stencilRanges = m.stencilRanges;
+  //auto& instrValues = m.instrValues;
+  //auto& stencilRanges = m.stencilRanges;
 
   cout << "Building connections inside each cycle\n";
   for (int i = 0; i < (int) sched.stages.size(); i++) {
@@ -1654,6 +1654,7 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   }
 
   int nStages = sched.stages.size();
+  cout << "Number of stages = " << nStages << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
   for (int i = 0; i < nStages - 1; i++) {
     //auto vR = pipelineRegister(context, def, "valid_delay_reg_" + std::to_string(i), context->Bit());
@@ -2016,11 +2017,17 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
   while (foundUnused) {
     foundUnused = false;
 
+    cout << "Finding unused instances" << endl;
     CoreIR::Instance* unused = nullptr;
     for (auto instV : def->getInstances()) {
       auto inst = instV.second;
+      cout << "All connections for " << CoreIR::toString(*inst) << endl;
+      for (auto c : allConnectedWireables(inst)) {
+        cout << "\t" << CoreIR::toString(*c) << endl;
+      }
       auto allOutputs = allOutputConnections(inst);
       cout << CoreIR::toString(*inst) << " has " << allOutputs.size() << " output connections" << endl;
+
       if (allOutputs.size() == 0) {
         foundUnused = true;
         unused = inst;
