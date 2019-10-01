@@ -4,6 +4,7 @@ namespace {
 
 using namespace Halide;
 
+// UNet?
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
