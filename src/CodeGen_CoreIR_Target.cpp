@@ -1319,7 +1319,6 @@ class UnitMapping {
         internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
 
         return CoreIR::map_find(stageNo, pregs)->sel("out");
-        //internal_assert(false) << "Stage " << producedStage << ", consumed at " << stageNo << "\n";
       }
     }
 };
@@ -1490,9 +1489,22 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
   }
-  ////defStage++;
-  //}
-  //
+
+  // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
+  for (auto instr : sched.body) {
+    if (m.hasOutput(instr)) {
+      auto fstVal = CoreIR::map_find(instr, m.instrValues);
+      int prodStage = CoreIR::map_find(instr, m.productionStages);
+
+      auto lastReg = m.pipelineRegisters[instr][prodStage];
+      def->connect(lastReg->sel("in"), fstVal);
+      for (int i = prodStage + 1; i < (int) sched.stages.size(); i++) {
+        CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
+        def->connect(pipeReg->sel("in"), lastReg->sel("out"));
+        lastReg = pipeReg;
+      }
+    }
+  }
   return m;
 }
 
