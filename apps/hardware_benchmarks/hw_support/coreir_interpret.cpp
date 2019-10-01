@@ -149,11 +149,6 @@ void read_for_cycle(const int x,
     bool uses_valid
     ) {
 
-  //cout << "y = " << y << endl;
-  //cout << "x = " << x << endl;
-  //cout << "c = " << c << endl;
-  //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
-
   // Set in_en to 1.
   if (uses_inputenable) {
     state.setValue("self.in_en", BitVector(1, false));
@@ -215,13 +210,75 @@ void read_for_cycle(const int x,
 }
 
 template<typename T>
+class CoordinateVector {
+  public:
+
+    std::vector<T> values;
+    std::vector<std::string> names;
+    std::vector<T> bounds;
+
+    CoordinateVector(vector<std::string> names_, vector<T> bounds_) : names(names_), bounds(bounds_) {
+      values.resize(names.size());
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        values[i] = 0;
+      }
+    }
+
+    CoordinateVector(vector<std::string>& names_, vector<T>& bounds_) : names(names_), bounds(bounds_) {
+      values.resize(names.size());
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        values[i] = 0;
+      }
+    }
+
+    bool allLowerAtMax(const int level) const {
+      if (level == ((int) bounds.size()) - 1) {
+        return true;
+      }
+
+      for (int i = level + 1; i < (int) bounds.size(); i++) {
+        if (!atMax(i)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    bool atMax(const int level) const {
+      return bounds[level] == values[level];
+    }
+
+    bool allDone() const {
+      return atMax(0) && allLowerAtMax(0);
+    }
+    
+    void increment() {
+      if (allDone()) {
+        return;
+      }
+
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        if (allLowerAtMax(i)) {
+          values[i]++;
+
+          for (int j = i + 1; j < (int) bounds.size(); j++) {
+            values[j] = 0;
+          }
+        }
+      }
+    }
+
+};
+
+template<typename T>
 void run_for_cycle(const int x,
     const int y,
     const int c,
     bool uses_inputenable,
     bool has_float_input,
     bool has_float_output,
-    
+
     Halide::Runtime::Buffer<T> input,
     Halide::Runtime::Buffer<T> output,
     string input_name,
@@ -232,12 +289,6 @@ void run_for_cycle(const int x,
     bool uses_valid
     ) {
 
-  //cout << "y = " << y << endl;
-  //cout << "x = " << x << endl;
-  //cout << "c = " << c << endl;
-  //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
-
-  // Set in_en to 1.
   if (uses_inputenable) {
     state.setValue("self.in_en", BitVector(1, true));
   }
@@ -349,6 +400,8 @@ void run_coreir_on_interpreter(string coreir_design,
   cout << "reset\n";
   ImageWriter<T> coreir_img_writer(output);
 
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height(), input.width(), input.channels()});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {input.height(), input.width(), input.channels()});
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
