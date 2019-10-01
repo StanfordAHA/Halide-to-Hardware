@@ -139,14 +139,16 @@ class CoordinateVector {
     std::vector<std::string> names;
     std::vector<T> bounds;
 
-    CoordinateVector(vector<std::string> names_, vector<T> bounds_) : names(names_), bounds(bounds_) {
+    bool finished;
+
+    CoordinateVector(vector<std::string> names_, vector<T> bounds_) : names(names_), bounds(bounds_), finished(false) {
       values.resize(names.size());
       for (int i = 0; i < (int) bounds.size(); i++) {
         values[i] = 0;
       }
     }
 
-    CoordinateVector(vector<std::string>& names_, vector<T>& bounds_) : names(names_), bounds(bounds_) {
+    CoordinateVector(vector<std::string>& names_, vector<T>& bounds_) : names(names_), bounds(bounds_), finished(false) {
       values.resize(names.size());
       for (int i = 0; i < (int) bounds.size(); i++) {
         values[i] = 0;
@@ -195,11 +197,19 @@ class CoordinateVector {
       return atM;
     }
 
-    bool allDone() const {
+    bool allAtMax() const {
       return atMax(0) && allLowerAtMax(0);
+    }
+
+    bool allDone() const {
+      return finished && atMax(0) && allLowerAtMax(0);
     }
     
     void increment() {
+      if (allAtMax() && !allDone()) {
+        finished = true;
+      }
+
       if (allDone()) {
         return;
       }
@@ -320,7 +330,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   const int y = writeIdx.coord("y");
   const int c = writeIdx.coord("c");
 
-  if (!readIdx.allDone()) {
+  if (!writeIdx.allDone()) {
 
     if (uses_inputenable) {
       state.setValue("self.in_en", BitVector(1, true));
