@@ -193,7 +193,7 @@ class CoordinateVector {
 
     bool atMax(const int level) const {
       bool atM = bounds[level] == values[level];
-      cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
+      //cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
       return atM;
     }
 
@@ -346,6 +346,8 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
       //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
       std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
     }
+
+    writeIdx.increment();
   } else {
     state.setValue("self.in_en", BitVector(1, false));
   }
@@ -375,6 +377,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
       coreir_img_writer.write(output_value);
 
       std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+      readIdx.increment();
     }
   } else {
     //if (std::is_floating_point<T>::value) {
@@ -446,45 +449,55 @@ void run_coreir_on_interpreter(string coreir_design,
   ImageWriter<T> coreir_img_writer(output);
 
   int maxCycles = 10000;
+  int cycles = 0;
 
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
   CoordinateVector<int> readIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
-  for (int y = 0; y < input.height(); y++) {
-    for (int x = 0; x < input.width(); x++) {
-      for (int c = 0; c < input.channels(); c++) {
-        cout << "Write idx = " << writeIdx.coordString() << endl;
+  while (cycles < maxCycles && !readIdx.allAtMax()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+    run_for_cycle(writeIdx, readIdx,
+        uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+    cycles++;
+  }
 
-        assert(writeIdx.coord("x") == x);
-        assert(writeIdx.coord("y") == y);
-        assert(writeIdx.coord("c") == c);
-        run_for_cycle(writeIdx, readIdx,
-            uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-        //run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+  
+  //for (int y = 0; y < input.height(); y++) {
+    //for (int x = 0; x < input.width(); x++) {
+      //for (int c = 0; c < input.channels(); c++) {
+        //cout << "Write idx = " << writeIdx.coordString() << endl;
+
+        //assert(writeIdx.coord("x") == x);
+        //assert(writeIdx.coord("y") == y);
+        //assert(writeIdx.coord("c") == c);
+        //run_for_cycle(writeIdx, readIdx,
+            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        ////run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            ////uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        //writeIdx.increment();
+
+      //}
+    //}
+  //}
+
+  //int spareRows = 3;
+  //int spareCols = 20;
+  //int spareChannels = 1;
+
+  //for (int y = input.height(); y < input.height() + spareRows; y++) {
+    //for (int x = input.width(); x < input.width() + spareCols; x++) {
+      //for (int c = input.channels(); c < input.channels() + spareChannels; c++) {
+
+        //read_for_cycle(writeIdx,
+             //writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
             //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
 
-        writeIdx.increment();
-
-      }
-    }
-  }
-
-  int spareRows = 3;
-  int spareCols = 20;
-  int spareChannels = 1;
-
-  for (int y = input.height(); y < input.height() + spareRows; y++) {
-    for (int x = input.width(); x < input.width() + spareCols; x++) {
-      for (int c = input.channels(); c < input.channels() + spareChannels; c++) {
-
-        read_for_cycle(writeIdx,
-             //writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
-            uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-
-        writeIdx.increment();
-        //read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-      }
-    }
-  }
+        //writeIdx.increment();
+        ////read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+      //}
+    //}
+  //}
   coreir_img_writer.print_coords();
 
   deleteContext(c);
