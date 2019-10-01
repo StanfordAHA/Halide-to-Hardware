@@ -451,7 +451,12 @@ void run_coreir_on_interpreter(string coreir_design,
   for (int y = input.height(); y < input.height() + spareRows; y++) {
     for (int x = input.width(); x < input.width() + spareCols; x++) {
       for (int c = input.channels(); c < input.channels() + spareChannels; c++) {
-        read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        read_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        writeIdx.increment();
+        //read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
       }
     }
   }
