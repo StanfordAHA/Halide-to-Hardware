@@ -1313,7 +1313,13 @@ class UnitMapping {
       if (stageNo == CoreIR::map_find(arg1, productionStages)) {
         return CoreIR::map_find(arg1, instrValues);
       } else {
-        internal_assert(false) << "Stage " << producedStage << ", consumed at " << stageNo << "\n";
+        internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
+        auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
+
+        internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
+
+        return CoreIR::map_find(stageNo, pregs)->sel("out");
+        //internal_assert(false) << "Stage " << producedStage << ", consumed at " << stageNo << "\n";
       }
     }
 };
