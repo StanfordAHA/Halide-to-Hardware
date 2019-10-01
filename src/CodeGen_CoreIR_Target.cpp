@@ -1306,9 +1306,9 @@ class UnitMapping {
 
 CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
 
-  // TODO: Fix this hack
-  int awidth = 16;
-  auto r = def->addInstance(name, "mantle.reg",{{"width",CoreIR::Const::make(context, awidth)},{"has_en", COREMK(context, true)}});
+  auto r = def->addInstance(name, "commonlib.reg_array", {{"type", COREMK(context, type)}});
+  // TODO: Fix this hack //int awidth = 16;
+  //auto r = def->addInstance(name, "mantle.reg",{{"width",CoreIR::Const::make(context, awidth)},{"has_en", COREMK(context, true)}});
 
     return r;
 }
