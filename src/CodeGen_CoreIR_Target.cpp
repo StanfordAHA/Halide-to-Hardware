@@ -1643,7 +1643,6 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   def = design->newModuleDef();
   self = def->sel("self");
 
-  def->connect(self->sel("in_en"), self->sel("valid"));
 
   HWLoopSchedule sched;
   sched.body = instrs;
@@ -1653,6 +1652,17 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     //sched.stages[0].push_back(instr);
     sched.stages.push_back({instr});
   }
+
+  int nStages = sched.stages.size();
+  CoreIR::Wireable* inEn = self->sel("in_en");
+  for (int i = 0; i < nStages - 1; i++) {
+    //auto vR = pipelineRegister(context, def, "valid_delay_reg_" + std::to_string(i), context->Bit());
+    auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
+    def->connect(inEn, vR->sel("in"));
+    inEn = vR->sel("out");
+  }
+  def->connect(inEn, self->sel("valid"));
+  //def->connect(self->sel("in_en"), self->sel("valid"));
 
   cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
   emitCoreIR(info, context, sched, def);
