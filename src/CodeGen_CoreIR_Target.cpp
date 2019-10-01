@@ -1683,8 +1683,8 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   sched.II = 1;
   sched.stages.push_back({});
   for (auto instr : instrs) {
-    //sched.stages[0].push_back(instr);
-    sched.stages.push_back({instr});
+    sched.stages[0].push_back(instr);
+    //sched.stages.push_back({instr});
   }
 
   int nStages = sched.stages.size();
@@ -2190,6 +2190,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     std::map<const For*, HWFunction> functions;
     for (const For* lp : extractor.loops) {
       cout << "\t\tLOOP" << endl;
+      cout << "Original body.." << endl;
+      cout << lp->body << endl;
       //vector<HWInstr*> body = buildHWBody(lp);
       HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
       auto& body = f.body;
@@ -2223,8 +2225,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       CoreIR::Module* m = moduleForKernel(scl.info, f);
       kernelModules[lp] = m;
       functions[lp] = f;
-      cout << "Module for kernel..." << endl;
-      m->print();
+      //cout << "Module for kernel..." << endl;
+      //m->print();
 
       context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
       removeUnconnectedInstances(m->getDef());
