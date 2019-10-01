@@ -452,8 +452,10 @@ void run_coreir_on_interpreter(string coreir_design,
   int cycles = 0;
 
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
-  CoordinateVector<int> readIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
-  while (cycles < maxCycles && !readIdx.allAtMax()) {
+
+  // TODO: Need to get imagewriter bounds?
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {((int)coreir_img_writer.getHeight() - 1), ((int)coreir_img_writer.getWidth()) - 1, ((int) coreir_img_writer.getChannels()) - 1});
+  while (cycles < maxCycles && !readIdx.allDone()) {
     cout << "Read index = " << readIdx.coordString() << endl;
     cout << "Cycles     = " << cycles << endl;
     run_for_cycle(writeIdx, readIdx,

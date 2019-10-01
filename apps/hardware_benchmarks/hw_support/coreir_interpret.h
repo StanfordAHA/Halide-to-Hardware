@@ -16,6 +16,10 @@ public:
   void save_image(std::string image_name);
   void print_coords();
 
+  uint getHeight() const { return height; }
+  uint getWidth() const { return width; }
+  uint getChannels() const { return channels; }
+
 private:
   const uint width, height, channels;
   Halide::Runtime::Buffer<elem_t> image;
