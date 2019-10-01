@@ -434,8 +434,12 @@ void run_coreir_on_interpreter(string coreir_design,
         assert(writeIdx.coord("x") == x);
         assert(writeIdx.coord("y") == y);
         assert(writeIdx.coord("c") == c);
+        //run_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
         writeIdx.increment();
-        run_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
       }
     }
   }
