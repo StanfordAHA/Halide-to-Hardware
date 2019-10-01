@@ -1639,7 +1639,9 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     cout << "\t\t" << is << endl;
     vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
     cout << "\tDispatch info..." << endl;
-    vector<int> windowDims = streamWindowDims(is, info);
+    //vector<int> windowDims = streamWindowDims(is, info);
+    vector<int> windowRngs = getStreamDims(is, info);
+    vector<int> windowDims = getDimRanges(windowRngs);
     CoreIR::Type* base = context->BitIn()->Arr(16);
     for (auto d : windowDims) {
       base = base->Arr(d);
