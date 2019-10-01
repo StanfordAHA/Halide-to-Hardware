@@ -2020,6 +2020,7 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
     for (auto instV : def->getInstances()) {
       auto inst = instV.second;
       auto allOutputs = allOutputConnections(inst);
+      cout << CoreIR::toString(*inst) << " has " << allOutputs.size() << " output connections" << endl;
       if (allOutputs.size() == 0) {
         foundUnused = true;
         unused = inst;
@@ -2186,6 +2187,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
       removeUnconnectedInstances(m->getDef());
+      removeUnusedInstances(m->getDef());
 
       cout << "Module after optimization" << endl;
       m->print();
