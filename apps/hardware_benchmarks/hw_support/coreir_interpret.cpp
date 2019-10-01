@@ -220,10 +220,6 @@ class CoordinateVector {
 
 template<typename T>
 void read_for_cycle(
-    //const int x,
-    //const int y,
-    //const int c,
-
     CoordinateVector<int>& writeIdx,
     bool uses_inputenable,
     bool has_float_input,
@@ -305,6 +301,7 @@ void read_for_cycle(
 
 template<typename T>
 void run_for_cycle(CoordinateVector<int>& writeIdx,
+    CoordinateVector<int>& readIdx,
     bool uses_inputenable,
     bool has_float_input,
     bool has_float_output,
@@ -323,21 +320,25 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   const int y = writeIdx.coord("y");
   const int c = writeIdx.coord("c");
 
-  if (uses_inputenable) {
-    state.setValue("self.in_en", BitVector(1, true));
-  }
+  if (!readIdx.allDone()) {
 
-  // Set input value.
-  // bitcast to int if it is a float
-  if (has_float_input) {
-    state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
-    //cout << "input set\n";
+    if (uses_inputenable) {
+      state.setValue("self.in_en", BitVector(1, true));
+    }
+
+    // Set input value.
+    // bitcast to int if it is a float
+    if (has_float_input) {
+      state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
+      //cout << "input set\n";
+    } else {
+      state.setValue(input_name, BitVector(16, input(x,y,c)));
+      //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+    }
   } else {
-    state.setValue(input_name, BitVector(16, input(x,y,c)));
-    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
-    std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+    state.setValue("self.in_en", BitVector(1, false));
   }
-
   // propogate to all wires
   state.exeCombinational();
 
@@ -434,16 +435,19 @@ void run_coreir_on_interpreter(string coreir_design,
   cout << "reset\n";
   ImageWriter<T> coreir_img_writer(output);
 
+  int maxCycles = 10000;
+
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
   CoordinateVector<int> readIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
         cout << "Write idx = " << writeIdx.coordString() << endl;
+
         assert(writeIdx.coord("x") == x);
         assert(writeIdx.coord("y") == y);
         assert(writeIdx.coord("c") == c);
-        run_for_cycle(writeIdx,
+        run_for_cycle(writeIdx, readIdx,
             uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
         //run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
             //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
