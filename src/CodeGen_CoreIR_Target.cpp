@@ -1962,6 +1962,19 @@ std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
   return allC;
 }
 
+std::set<CoreIR::Wireable*> allOutputConnections(CoreIR::Wireable* w) {
+  auto allConnections = allConnectedWireables(w);
+
+  std::set<CoreIR::Wireable*> outConnections;
+  for (auto w : allConnections) {
+    CoreIR::Type* tp = w->getType();
+    if (tp->hasInput()) {
+      outConnections.insert(w);
+    }
+  }
+  return outConnections;
+}
+
 CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
   if (CoreIR::isa<CoreIR::Instance>(w)) {
     return w;
@@ -1997,6 +2010,30 @@ CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wire
 
   return nullptr;
 }
+
+void removeUnusedInstances(CoreIR::ModuleDef* def) {
+  bool foundUnused = true;
+  while (foundUnused) {
+    foundUnused = false;
+
+    CoreIR::Instance* unused = nullptr;
+    for (auto instV : def->getInstances()) {
+      auto inst = instV.second;
+      auto allOutputs = allOutputConnections(inst);
+      if (allOutputs.size() == 0) {
+        foundUnused = true;
+        unused = inst;
+        break;
+      }
+    }
+
+    if (foundUnused) {
+      def->disconnect(unused);
+      def->removeInstance(unused);
+    }
+  }
+}
+
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
   std::vector<std::set<CoreIR::Wireable*> > components;
