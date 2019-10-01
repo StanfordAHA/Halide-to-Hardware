@@ -1491,7 +1491,9 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
           // Need to decide how to map pipeline stage numbers? Maybe start from stage 1?
           for (int stage = 0; stage < ((int) sched.stages.size()) - 1; stage++) {
             if (stage == 0) {
-
+              def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), instrValues[op]);
+            } else {
+              def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
             }
           }
         }
