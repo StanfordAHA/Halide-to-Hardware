@@ -141,6 +141,9 @@ class HWFunction {
     }
 };
 
+typedef std::pair<std::string, std::string> StreamWriteInfo;
+typedef std::pair<std::string, std::string> StreamReadInfo;
+
 class StencilInfo {
   public:
     std::map<std::string, std::vector<std::string> > stencilSizes;
@@ -149,6 +152,9 @@ class StencilInfo {
     std::map<std::string, std::string> streamWrites;
     std::map<std::string, std::string> streamReads;
     std::vector<std::vector<std::string> > linebuffers;
+
+    std::map<StreamWriteInfo, std::vector<std::string> > writeRealizations;
+    std::map<StreamReadInfo, std::vector<std::string> > readRealizations;
 };
 
 /** 

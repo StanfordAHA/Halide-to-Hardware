@@ -1112,6 +1112,7 @@ class StencilInfoCollector : public IRGraphVisitor {
 
     StencilInfo info;
     vector<DispatchInfo> dispatches;
+    Scope<std::vector<std::string> > activeRealizations;
 
     void visit(const Call* op) {
       cout << "Stencil visiting call: " << op->name << endl;
@@ -1156,14 +1157,19 @@ class StencilInfoCollector : public IRGraphVisitor {
         for (auto bnd : bnds) {
           cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
         }
+
+        IRGraphVisitor::visit(op);
+
       } else if (ends_with(op->name, ".stencil")) {
 
-        if (CoreIR::contains_key(op->name, info.stencilRealizations)) {
-          IRGraphVisitor::visit(op);
-          return;
-        }
+        //if (CoreIR::contains_key(op->name, info.stencilRealizations)) {
+          //IRGraphVisitor::visit(op);
+          //return;
+        //}
 
+        
         //internal_assert(!CoreIR::contains_key(op->name, info.stencilRealizations)) << "Realizations already contains an entry for " << op->name << "\n";
+        //
         info.stencilRealizations[op->name] = {};
         auto tps = op->types[0];
         auto bnds = op->bounds;
@@ -1174,9 +1180,14 @@ class StencilInfoCollector : public IRGraphVisitor {
           info.stencilRealizations[op->name].push_back(exprString(bnd.min));
           info.stencilRealizations[op->name].push_back(exprString(bnd.extent));
         }
+
+        activeRealizations.push(op->name, info.stencilRealizations[op->name]);
+        IRGraphVisitor::visit(op);
+        activeRealizations.pop(op->name);
+
       }
 
-      IRGraphVisitor::visit(op);
+
     }
 
 };
