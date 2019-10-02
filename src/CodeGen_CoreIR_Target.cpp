@@ -944,13 +944,6 @@ class InstructionCollector : public IRGraphVisitor {
 
       vars.erase(l->name);
       
-      //IRGraphVisitor::visit(l->body);
-      // Then: Codegen body
-      
-      //auto ist = newI();
-      //ist->name = "letval";
-      //instrs.push_back(ist);
-      //lastValue = ist;
     }
 
     HWInstr* strConstI(const std::string& name) {
@@ -1019,6 +1012,7 @@ class InstructionCollector : public IRGraphVisitor {
       //instrs.push_back(andOp);
       return andOp;
     }
+    
     void visit(const Call* op) {
       vector<HWInstr*> callOperands;
       //cout << "Processing call: " << op->name << endl;

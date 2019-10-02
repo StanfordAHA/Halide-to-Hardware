@@ -78,7 +78,7 @@ class HWInstr {
     std::string strConst;
 
     HWInstr* predicate;
-    std::vector<CoreIR::Type*> operandTypes;
+    //std::vector<CoreIR::Type*> operandTypes;
     std::vector<HWInstr*> operands;
     CoreIR::Type* retType;
 
