@@ -1129,7 +1129,6 @@ class StencilInfoCollector : public IRGraphVisitor {
 
           string en = ss.str();
           dinfo.push_back(en);
-          //info.push_back(print_expr(op->args[i]));
         }
 
         ostringstream ss;
@@ -1141,12 +1140,23 @@ class StencilInfoCollector : public IRGraphVisitor {
           info.linebuffers.back().push_back(exprString(arg));
         }
       } else if (op->name == "read_stream") {
+        string stencilDest = exprString(op->args[1]);
+
+        internal_assert(CoreIR::contains_key(stencilDest, info.stencilRealizations)) << "no entry for " << stencilDest << "\n";
+        auto realizeParams = CoreIR::map_find(stencilDest, info.stencilRealizations);
+        info.streamReadRealize[exprString(op->args[0])] = realizeParams;
+        
         info.streamReads[exprString(op->args[0])] = exprString(op->args[1]);
+
       } else if (op->name == "write_stream") {
+        string stencilDest = exprString(op->args[1]);
+
+        internal_assert(CoreIR::contains_key(stencilDest, info.stencilRealizations)) << "no entry for " << stencilDest << "\n";
+        auto realizeParams = CoreIR::map_find(stencilDest, info.stencilRealizations);
+        info.streamWriteRealize[exprString(op->args[0])] = realizeParams;
         info.streamWrites[exprString(op->args[0])] = exprString(op->args[1]);
       }
     }
-
 
     void visit(const Realize* op)  {
       if (ends_with(op->name, ".stream")) {
