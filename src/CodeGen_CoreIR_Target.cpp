@@ -2426,8 +2426,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"stride",CoreIR::Const::make(context,stride_type)}};
 
   //CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["abstract_unified_buffer"], aub_args);
-  def->addInstance("abstract_" + ub_name, gens["abstract_unified_buffer"], aub_args);
-
+  //def->addInstance("abstract_" + ub_name, gens["abstract_unified_buffer"], aub_args);
+  if (false) {
+    (void) aub_args;
+  }
   
   // calculate parameters for coreir hwbuffer generator
   int width = bitwidth;
