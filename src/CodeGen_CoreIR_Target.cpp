@@ -35,6 +35,21 @@ using std::cout;
 
 namespace {
 
+vector<int> getDimRanges(const vector<int>& ranges) {
+  vector<int> rngs;
+  for (int i = 0; i < (int) (ranges.size() / 2); i++) {
+    rngs.push_back(ranges[2*i + 1] - ranges[2*i]);
+  }
+  return rngs;
+}
+
+  std::vector<int> toInts(const std::vector<std::string>& strs) {
+    vector<int> ints;
+    for (auto s : strs) {
+      ints.push_back(stoi(s));
+    }
+    return ints;
+  }
 
 std::string exprString(const Expr e) {
   ostringstream ss;
@@ -1058,6 +1073,14 @@ class InstructionCollector : public IRGraphVisitor {
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
         assert(callOperands.size() > 1);
+
+        string stencilName = exprString(op->args[1]);
+        vector<string> bnds = activeRealizations.get(stencilName);
+        vector<int> rngs = toInts(bnds);
+        vector<int> windowDims = getDimRanges(rngs);
+        ist->operandTypes.resize(callOperands.size());
+        ist->operandTypes[1] = {16, windowDims};
+        //ist->operandTypes[1] = opType;
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
       } else if (ends_with(op->name, ".stencil")) {
@@ -1292,14 +1315,6 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
 
   return {0, 1, 0, 1};
   internal_assert(false) << "No stream dims for " << str << "\n";
-}
-
-vector<int> getDimRanges(const vector<int>& ranges) {
-  vector<int> rngs;
-  for (int i = 0; i < (int) (ranges.size() / 2); i++) {
-    rngs.push_back(ranges[2*i + 1] - ranges[2*i]);
-  }
-  return rngs;
 }
 
 #define COREMK(ctx, v) CoreIR::Const::make((ctx), (v))

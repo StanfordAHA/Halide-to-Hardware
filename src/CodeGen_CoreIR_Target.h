@@ -64,6 +64,12 @@ enum HWInstrTp {
   HWINSTR_TP_VAR
 };
 
+class HWType {
+  public:
+    int baseWidth;
+    std::vector<int> dims;
+};
+
 class HWInstr {
   public:
     int uniqueNum;
@@ -79,6 +85,7 @@ class HWInstr {
 
     HWInstr* predicate;
     std::vector<HWInstr*> operands;
+    std::vector<HWType> operandTypes;
     CoreIR::Type* retType;
 
     std::string name;
