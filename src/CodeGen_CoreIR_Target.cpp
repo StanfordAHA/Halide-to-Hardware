@@ -1114,6 +1114,8 @@ class StencilInfoCollector : public IRGraphVisitor {
     vector<DispatchInfo> dispatches;
     Scope<std::vector<std::string> > activeRealizations;
 
+    // So when a realization happens
+
     void visit(const Call* op) {
       cout << "Stencil visiting call: " << op->name << endl;
       if (op->name == "dispatch_stream") {
@@ -1151,8 +1153,10 @@ class StencilInfoCollector : public IRGraphVisitor {
       } else if (op->name == "write_stream") {
         string stencilDest = exprString(op->args[1]);
 
-        internal_assert(CoreIR::contains_key(stencilDest, info.stencilRealizations)) << "no entry for " << stencilDest << "\n";
-        auto realizeParams = CoreIR::map_find(stencilDest, info.stencilRealizations);
+        //internal_assert(CoreIR::contains_key(stencilDest, info.stencilRealizations)) << "no entry for " << stencilDest << "\n";
+        //auto realizeParams = CoreIR::map_find(stencilDest, info.stencilRealizations);
+
+        auto realizeParams = activeRealizations.get(stencilDest);
         info.streamWriteRealize[exprString(op->args[0])] = realizeParams;
         info.streamWrites[exprString(op->args[0])] = exprString(op->args[1]);
       }
