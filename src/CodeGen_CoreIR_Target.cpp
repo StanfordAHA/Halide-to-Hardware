@@ -35,6 +35,14 @@ using std::cout;
 
 namespace {
 
+
+std::string exprString(const Expr e) {
+  ostringstream ss;
+  ss << e;
+  string en = ss.str();
+  return en;
+}
+
 class ContainForLoop : public IRVisitor {
   using IRVisitor::visit;
   void visit(const For *op) {
@@ -756,6 +764,9 @@ class InstructionCollector : public IRGraphVisitor {
     HWInstr* lastValue;
     HWInstr* currentPredicate;
 
+    
+    Scope<std::vector<std::string> > activeRealizations;
+    
     InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
 
     HWInstr* newI() {
@@ -766,6 +777,22 @@ class InstructionCollector : public IRGraphVisitor {
 
     void pushInstr(HWInstr* instr) {
       f.body.push_back(instr);
+    }
+
+    void visit(const Realize* op) {
+      if (ends_with(op->name, ".stencil")) {
+        vector<std::string> fields;
+        for (auto bnd : op->bounds) {
+          fields.push_back(exprString(bnd.min));
+          fields.push_back(exprString(bnd.extent));
+        }
+        activeRealizations.push(op->name, fields);
+        IRGraphVisitor::visit(op);
+        activeRealizations.pop(op->name);
+        return;
+      }
+    
+      IRGraphVisitor::visit(op);
     }
 
     HWInstr* varI(const std::string& name) {
@@ -1094,13 +1121,6 @@ class DispatchInfo {
 
 };
 
-std::string exprString(const Expr e) {
-  ostringstream ss;
-  ss << e;
-  string en = ss.str();
-  return en;
-}
-
 class StencilInfoCollector : public IRGraphVisitor {
   public:
 
@@ -1194,7 +1214,6 @@ class StencilInfoCollector : public IRGraphVisitor {
         activeRealizations.pop(op->name);
 
       }
-
 
     }
 

@@ -78,7 +78,6 @@ class HWInstr {
     std::string strConst;
 
     HWInstr* predicate;
-    //std::vector<CoreIR::Type*> operandTypes;
     std::vector<HWInstr*> operands;
     CoreIR::Type* retType;
 
@@ -86,7 +85,9 @@ class HWInstr {
     int constWidth;
     std::string constValue;
 
-    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), predicate(nullptr) {}
+    CoreIR::Type* resType;
+
+    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), predicate(nullptr), resType(nullptr) {}
 
     int toInt() const {
       internal_assert(tp == HWINSTR_TP_CONST);
