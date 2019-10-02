@@ -1080,9 +1080,17 @@ class InstructionCollector : public IRGraphVisitor {
         vector<int> windowDims = getDimRanges(rngs);
         ist->operandTypes.resize(callOperands.size());
         ist->operandTypes[1] = {16, windowDims};
-        //ist->operandTypes[1] = opType;
+      
       } else if (op->name == "read_stream") {
         ist->name = "read_stream";
+
+        string stencilName = exprString(op->args[1]);
+        vector<string> bnds = activeRealizations.get(stencilName);
+        vector<int> rngs = toInts(bnds);
+        vector<int> windowDims = getDimRanges(rngs);
+        ist->operandTypes.resize(callOperands.size());
+        ist->operandTypes[1] = {16, windowDims};
+
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
@@ -1126,29 +1134,29 @@ bool isStreamWrite(HWInstr* const instr) {
   return isCall("write_stream", instr);
 }
 
-bool isStreamRead(HWInstr* const instr) {
-  if (instr->tp != HWINSTR_TP_INSTR) {
-    return false;
-  }
+//bool isStreamRead(HWInstr* const instr) {
+  //if (instr->tp != HWINSTR_TP_INSTR) {
+    //return false;
+  //}
 
-  //cout << "Instruction name = " << instr->name << endl;
-  if (instr->name == "read_stream") {
-    return true;
-  }
+  ////cout << "Instruction name = " << instr->name << endl;
+  //if (instr->name == "read_stream") {
+    //return true;
+  //}
 
-  return false;
-}
+  //return false;
+//}
 
-class DispatchInfo {
-  public:
+//class DispatchInfo {
+  //public:
 
-};
+//};
 
 class StencilInfoCollector : public IRGraphVisitor {
   public:
 
     StencilInfo info;
-    vector<DispatchInfo> dispatches;
+    //vector<DispatchInfo> dispatches;
     Scope<std::vector<std::string> > activeRealizations;
 
     // So when a realization happens
@@ -1471,8 +1479,17 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         unitMapping[instr] = rdStrm;
       } else if (name == "write_stream") {
 
+        internal_assert(instr->operandTypes.size() > 1);
+        auto otherDims = instr->operandTypes[1];
+        cout << "# of dims in write_stream to " << instr->getOperand(0)->compactString() << " = " << otherDims.dims.size() << endl;
+        for (auto d : otherDims.dims) {
+          cout << "\t" << d << endl;
+        }
+        
         auto dims = getStreamDims(instr->operands[0]->name, info);
-        vector<int> dimRanges = getDimRanges(dims);
+        //vector<int> dimRanges = getDimRanges(dims);
+        //auto dimRanges = getDimRanges(otherDims.dims);
+        auto dimRanges = otherDims.dims;
 
         auto wrStrm = def->addInstance("write_stream_" + std::to_string(defStage), "halidehw.write_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}});
         //auto res = wrStrm->sel("out");
