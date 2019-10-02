@@ -2674,6 +2674,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     def->connect({ub_name + "_reset", "out"}, {ub_name, "reset"});
   }
 
+  def->addInstance(ub_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+  def->connect({ub_name + "_flush", "out"}, {ub_name, "flush"});
+
   CoreIR::Wireable* ub_in_wire = get_wire(ub_in_name, op->args[0]);
 
   def->connect(ub_in_wire, input_reshape->sel("in"));
@@ -2783,6 +2786,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
     CoreIR::Wireable* lb_wen = def->addInstance(lb_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
     def->connect(lb_wen->sel("out"), coreir_lb->sel("wen"));
   }
+
+  def->addInstance(lb_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+  def->connect({lb_name + "_flush", "out"}, {lb_name, "flush"});
+
   //hw_wire_set[lb_out_name] = coreir_lb->sel("out");
 
 }
