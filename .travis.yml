@@ -23,7 +23,7 @@ env:
   #
   # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
-  - LLVM_VERSION=5.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
+  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
 
 cache: apt
 
@@ -62,9 +62,15 @@ deploy:
   on:
     tags: true
 
-script: |
-  make distrib -j2
-  test/scripts/build_travis.sh
+before_script:
+  - make -j2 distrib
+
+script:
+  # run test cases for hardware codegens
+  - export HALIDE_DEBUG_REDIRECT=""
+  - bash test/scripts/build_travis.sh
+
+after_script: |
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
   echo "TRAVIS_BRANCH=$TRAVIS_BRANCH TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST"
   if [[ ($TRAVIS_BRANCH == master) &&
