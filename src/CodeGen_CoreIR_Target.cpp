@@ -1195,6 +1195,8 @@ class StencilInfoCollector : public IRGraphVisitor {
         
         info.streamReads[exprString(op->args[0])] = exprString(op->args[1]);
 
+        info.streamReadCalls[exprString(op->args[0])].push_back(op);
+
       } else if (op->name == "write_stream") {
         string stencilDest = exprString(op->args[1]);
 
@@ -1204,6 +1206,9 @@ class StencilInfoCollector : public IRGraphVisitor {
         auto realizeParams = activeRealizations.get(stencilDest);
         info.streamWriteRealize[exprString(op->args[0])] = realizeParams;
         info.streamWrites[exprString(op->args[0])] = exprString(op->args[1]);
+
+        info.streamWriteCalls[exprString(op->args[0])].push_back(op);
+
       }
     }
 
