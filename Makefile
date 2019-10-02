@@ -834,8 +834,6 @@ $(BUILD_DIR)/llvm_objects/list: $(OBJECTS) $(INITIAL_MODULES)
 	# object files in which archives it uses to resolve
 	# symbols. We only care about the libLLVM ones.
 	@mkdir -p $(@D)
-	#$(CXX) -o /dev/null -shared $(OBJECTS) $(INITIAL_MODULES) -Wl,-t,--verbose $(LLVM_STATIC_LIBS) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) 2>&1| cat
-	$(CXX) -o /dev/null -shared $(OBJECTS) $(INITIAL_MODULES) -Wl,-t,--verbose $(LLVM_STATIC_LIBS) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) 2>&1| egrep "libLLVM.*\)"
 	$(CXX) -o /dev/null -shared $(OBJECTS) $(INITIAL_MODULES) -Wl,-t,--verbose $(LLVM_STATIC_LIBS) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) 2>&1| egrep "libLLVM.*\)" > $(BUILD_DIR)/llvm_objects/list.new
 	# if the list has changed since the previous build, or there
 	# is no list from a previous build, then delete any old object
