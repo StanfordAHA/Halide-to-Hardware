@@ -33,7 +33,19 @@ using std::ostringstream;
 using std::ofstream;
 using std::cout;
 
+using CoreIR::map_find;
+using CoreIR::contains_key;
 namespace {
+
+template<typename K, typename V>
+std::ostream& operator<<(std::ostream& out, const std::map<K, V>& strs) {
+  out << "{";
+  for (auto str : strs) {
+    out << "{" << str.first << ", " << str.second << "}, ";
+  }
+  out << "}";
+  return out;
+}
 
 std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& strs) {
   out << "{";
@@ -1265,15 +1277,15 @@ class StencilInfoCollector : public IRGraphVisitor {
 
 };
 
-vector<int> streamWindowDims(std::string& name, StencilInfo& info) {
-  vector<string> dispInfo = CoreIR::map_find(name, info.streamDispatches);
-  int numDims = stoi(dispInfo[0]);
-  vector<int> dims;
-  for (int i = 0; i < numDims; i++) {
-    dims.push_back(stoi(dispInfo[3*i + 1]));
-  }
-  return dims;
-}
+//vector<int> streamWindowDims(std::string& name, StencilInfo& info) {
+  //vector<string> dispInfo = CoreIR::map_find(name, info.streamDispatches);
+  //int numDims = stoi(dispInfo[0]);
+  //vector<int> dims;
+  //for (int i = 0; i < numDims; i++) {
+    //dims.push_back(stoi(dispInfo[3*i + 1]));
+  //}
+  //return dims;
+//}
 
 void replaceAll( string &s, const string &search, const string &replace ) {
     for( size_t pos = 0; ; pos += replace.length() ) {
@@ -1320,24 +1332,34 @@ vector<int> getStencilDims(const std::string& name, StencilInfo& info) {
   internal_assert(false) << "No stencil dimensions for " << name << "\n";
 }
 
+
 vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
-  if (CoreIR::contains_key(str, info.streamWrites)) {
-
-    string inputStencil = info.streamWrites[str];
-    cout << "Stream " << str << " writes to stencil " << inputStencil << endl;
-    return getStencilDims(inputStencil, info);
+  //internal_assert(CoreIR::contains_key(str, info.streamParams)) << " error: no stream named " << str << " in stream params\n";
+  //<< info.streamParams << "\n";
+  if (CoreIR::contains_key(str, info.streamParams)) {
+    return toInts(CoreIR::map_find(str, info.streamParams));
   }
 
-
-  if (CoreIR::contains_key(str, info.streamReads)) {
-
-    string inputStencil = info.streamReads[str];
-    cout << "Stream " << str << " reads from stencil " << inputStencil << endl;
-    return getStencilDims(inputStencil, info);
-  }
-
+  // Assume this is a top-level input
   return {0, 1, 0, 1};
-  internal_assert(false) << "No stream dims for " << str << "\n";
+
+  //if (CoreIR::contains_key(str, info.streamWrites)) {
+
+    //string inputStencil = info.streamWrites[str];
+    //cout << "Stream " << str << " writes to stencil " << inputStencil << endl;
+    //return getStencilDims(inputStencil, info);
+  //}
+
+
+  //if (CoreIR::contains_key(str, info.streamReads)) {
+
+    //string inputStencil = info.streamReads[str];
+    //cout << "Stream " << str << " reads from stencil " << inputStencil << endl;
+    //return getStencilDims(inputStencil, info);
+  //}
+
+  //return {0, 1, 0, 1};
+  //internal_assert(false) << "No stream dims for " << str << "\n";
 }
 
 #define COREMK(ctx, v) CoreIR::Const::make((ctx), (v))
@@ -2286,7 +2308,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (auto sp : scl.info.streamParams) {
       cout << "\t" << sp.first << " " << sp.second << endl;
     }
-    internal_assert(false) << "Stopping here to let Dillon view stream info\n";
+    //internal_assert(false) << "Stopping here to let Dillon view stream info\n";
     
     cout << "Stencil info" << endl;
     StencilInfo info = scl.info;
