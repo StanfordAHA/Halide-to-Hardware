@@ -37,6 +37,52 @@ using CoreIR::map_find;
 using CoreIR::contains_key;
 namespace {
 
+bool isCall(const std::string& str, const HWInstr* instr) {
+  return instr->tp == HWINSTR_TP_INSTR && instr->name == str;
+}
+
+bool isStreamWrite(HWInstr* const instr) {
+  return isCall("write_stream", instr);
+}
+
+std::vector<HWInstr*> outputStreams(HWFunction& f) {
+  vector<HWInstr*> ins;
+  for (auto instr : f.body) {
+    if (isCall("write_stream", instr)) {
+      ins.push_back(instr->getOperand(0));
+    }
+  }
+
+  return ins;
+}
+
+std::vector<HWInstr*> inputStreams(HWFunction& f) {
+  vector<HWInstr*> ins;
+  for (auto instr : f.body) {
+    if (isCall("rd_stream", instr)) {
+      ins.push_back(instr->getOperand(0));
+    }
+  }
+
+  return ins;
+}
+
+std::vector<HWInstr*> allStreams(HWFunction& f) {
+  auto st = outputStreams(f);
+  for (auto is : inputStreams(f)) {
+    st.push_back(is);
+  }
+  return st;
+}
+
+std::set<std::string> allStreamNames(HWFunction& f) {
+  std::set<std::string> strms;
+  for (auto st : allStreams(f)) {
+    strms.insert(st->name);
+  }
+  return strms;
+}
+
 template<typename K, typename V>
 std::ostream& operator<<(std::ostream& out, const std::map<K, V>& strs) {
   out << "{";
@@ -1146,14 +1192,6 @@ HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
   return collector.f;
 }
 
-bool isCall(const std::string& str, const HWInstr* instr) {
-  return instr->tp == HWINSTR_TP_INSTR && instr->name == str;
-}
-
-bool isStreamWrite(HWInstr* const instr) {
-  return isCall("write_stream", instr);
-}
-
 //bool isStreamRead(HWInstr* const instr) {
   //if (instr->tp != HWINSTR_TP_INSTR) {
     //return false;
@@ -1987,8 +2025,34 @@ bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
   return true;
 }
 
+template<typename K, typename V>
+V map_get(const K& k, const std::map<K, V>& m) {
+  internal_assert(contains_key(k, m));
+  return map_find(k, m);
+}
+
+std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo& info) {
+  std::set<std::string> users;
+  for (auto wr : info.streamReadCallRealizations) {
+    users.insert(exprString(wr.first->args[0]));
+  }
+
+  for (auto wr : info.streamWriteCallRealizations) {
+    users.insert(exprString(wr.first->args[0]));
+  }
+  return users;
+}
+
+vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::string& stencilName) {
+  std::set<std::string> streamUsers = streamsThatUseStencil(stencilName, info);
+  std::set<std::string> streamsInF = allStreamNames(f);
+  std::set<std::string> streamUsersInF = CoreIR::intersection(streamUsers, streamsInF);
+  internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  auto user = *std::begin(streamUsersInF);
+  return toInts(map_get(user, info.streamParams));
+}
+
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
- //ector<HWInstr*>& body) {
   auto& body = f.body;
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
@@ -2011,8 +2075,9 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
     auto provideName = provideValue->operands[0]->compactString();
     // What to do?
-    vector<int> dims = getStencilDims(provideName, info);
+    //vector<int> dims = getStencilDims(provideName, info);
 
+    vector<int> dims = stencilDimsInBody(info, f, provideName);
     vector<HWInstr*> initialSets;
     for (auto instr : pr.second) {
       auto operands = instr->operands;
@@ -2066,28 +2131,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       CoreIR::remove(instr, body);
     }
   }
-}
-
-std::vector<HWInstr*> outputStreams(HWFunction& f) {
-  vector<HWInstr*> ins;
-  for (auto instr : f.body) {
-    if (isCall("write_stream", instr)) {
-      ins.push_back(instr->getOperand(0));
-    }
-  }
-
-  return ins;
-}
-
-std::vector<HWInstr*> inputStreams(HWFunction& f) {
-  vector<HWInstr*> ins;
-  for (auto instr : f.body) {
-    if (isCall("rd_stream", instr)) {
-      ins.push_back(instr->getOperand(0));
-    }
-  }
-
-  return ins;
 }
 
 std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
