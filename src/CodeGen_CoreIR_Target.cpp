@@ -2758,10 +2758,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         def->connect(in.first, in.second);
       }
 
+      cout << "Done connecting inputMap" << endl;
+
       auto fKernel = map_find(f.first, kernels);
       if (allEnables.size() == 0) {
         // Do nothing
-      } if (allEnables.size() == 1) {
+      } else if (allEnables.size() == 1) {
         def->connect(allEnables[0], fKernel->sel("in_en"));
       } else {
         auto v0 = allEnables[0];
@@ -2774,6 +2776,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
         def->connect(fKernel->sel("in_en"), v0);
       }
+
+      cout << "Done setting enables" << endl;
     }
 
     cout << "Setting definition of topMod..." << endl;
