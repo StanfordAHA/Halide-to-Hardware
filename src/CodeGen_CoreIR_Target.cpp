@@ -2229,7 +2229,7 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   while (true) {
     auto instF = pickNextInstance(m, visited);
     if (instF == nullptr) {
-      cout << "Next instance is a nullptr!" << endl;
+      //cout << "Next instance is a nullptr!" << endl;
       break;
     }
 
@@ -2247,7 +2247,7 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
         allConnectedWireables(val);
 
       for (auto w : allConnected) {
-        cout << "\t" << CoreIR::toString(*w) << endl;
+        //cout << "\t" << CoreIR::toString(*w) << endl;
         if (!CoreIR::elem(getBase(w), visited)) {
           toVisit.push_back(getBase(w));
         }
@@ -2257,18 +2257,18 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
     }
 
-    cout << "Inserting component with " << component.size() << " entries" << endl;
+    //cout << "Inserting component with " << component.size() << " entries" << endl;
     components.push_back(component);
 
   }
 
   std::set<CoreIR::Instance*> toDel;
-  cout << "Connected components..." << endl;
+  //cout << "Connected components..." << endl;
   for (auto component : components) {
-    cout << "\tComponent" << endl;
+    //cout << "\tComponent" << endl;
     bool containsInterface = false;
     for (auto w : component) {
-      cout << "\t\t" << CoreIR::toString(*w) << endl;
+      //cout << "\t\t" << CoreIR::toString(*w) << endl;
       auto b = getBase(w);
       if (CoreIR::isa<CoreIR::Interface>(b)) {
         containsInterface = true;
@@ -2276,7 +2276,7 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
     }
 
     if (!containsInterface) {
-      cout << "\tNOTE: Unused component: Should be deleted" << endl;
+      //cout << "\tNOTE: Unused component: Should be deleted" << endl;
       for (auto w : component) {
         auto b = getBase(w);
         if (CoreIR::isa<CoreIR::Instance>(b)) {
