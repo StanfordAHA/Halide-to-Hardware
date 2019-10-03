@@ -874,17 +874,49 @@ class HWLoopSchedule {
     // code to arguments?
 };
 
+class InnermostLoopChecker : public IRGraphVisitor {
+  public:
+    bool foundSubLoop;
+
+    InnermostLoopChecker() : foundSubLoop(false) {}
+
+    void visit(const For* f) {
+      foundSubLoop = true;
+    }
+};
+
+bool isInnermostLoop(const For* f) {
+  InnermostLoopChecker c;
+  f->body->accept(&c);
+  return !c.foundSubLoop;
+}
+
 class LetPusher : public IRMutator {
   public:
 
+    vector<const LetStmt*> letStack;
+
     Stmt visit(const LetStmt* let) {
-      //auto& body = let;
+      letStack.push_back(let);
+      auto res = IRMutator::visit(let);
+      letStack.pop_back();
 
-      //if (LetStmt::classof()) {
+      return res;
+    }
 
-      //} else {
-        //return IRMutator::visit(let);
-      //}
+    Stmt visit(const For* f) {
+      if (isInnermostLoop(f)) {
+        cout << "Found innermost loop with var: " << f->name << endl;
+        Stmt lBody = f->body;
+        for (int i = ((int) letStack.size()) - 1; i >= 0; i--) {
+          auto let = letStack[i];
+          lBody = LetStmt::make(let->name, let->value, lBody);
+        }
+
+        return For::make(f->name, f->min, f->extent, f->for_type, f->device_api, lBody);
+      } else {
+        return IRMutator::visit(f);
+      }
     }
 };
 
@@ -2365,6 +2397,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const vector<CoreIR_Argument> &args) {
 
   if (!is_header()) {
+
+    LetPusher pusher;
+    //stmt.accept(&pusher);
+
+    stmt = pusher.mutate(stmt);
+    cout << "After let pushing..." << endl;
+    cout << stmt << endl;
+
+    internal_assert(false) << "Stopping here for dillon to view\n";
 
     StoreCollector stCollector;
     stmt.accept(&stCollector);
