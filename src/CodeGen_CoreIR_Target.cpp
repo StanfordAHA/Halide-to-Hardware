@@ -1195,6 +1195,7 @@ class StencilInfoCollector : public IRGraphVisitor {
         
         info.streamReads[exprString(op->args[0])] = exprString(op->args[1]);
 
+        info.streamReadCallRealizations[op] = realizeParams;
         info.streamReadCalls[exprString(op->args[0])].push_back(op);
 
       } else if (op->name == "write_stream") {
@@ -1207,6 +1208,7 @@ class StencilInfoCollector : public IRGraphVisitor {
         info.streamWriteRealize[exprString(op->args[0])] = realizeParams;
         info.streamWrites[exprString(op->args[0])] = exprString(op->args[1]);
 
+        info.streamWriteCallRealizations[op] = realizeParams;
         info.streamWriteCalls[exprString(op->args[0])].push_back(op);
 
       }
@@ -2229,8 +2231,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
   if (!is_header()) {
     cout << "Emitting kernel for " << name << endl;
-
-
     cout << "\tStmt is = " << endl;
     cout << stmt << endl;
     NestExtractor extractor;
@@ -2238,6 +2238,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     StencilInfoCollector scl;
     stmt.accept(&scl);
+
     cout << "Stencil info" << endl;
     StencilInfo info = scl.info;
     cout << "Dispatches" << endl;
@@ -2255,6 +2256,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         cout << "\t" << r << endl;
       }
     }
+
+    internal_assert(false) << "Stopping here to let Dillon view stream info\n";
 
     // TODO: Connect the different loop kernels using the structure contained
     // in stream in / stream out?

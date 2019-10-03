@@ -171,6 +171,10 @@ class StencilInfo {
 
     std::map<std::string, std::vector<const Call*> > streamReadCalls;
     std::map<std::string, std::vector<const Call*> > streamWriteCalls;
+
+
+    std::map<const Call*, std::vector<std::string> > streamReadCallRealizations;
+    std::map<const Call*, std::vector<std::string> > streamWriteCallRealizations;
 };
 
 /** 
