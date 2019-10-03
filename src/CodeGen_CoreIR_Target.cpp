@@ -1929,9 +1929,9 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
       //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
       if (isConstant(location)) {
         constLoads.push_back(instr);
-      }
+        //}
 
-      // Try to find last store to location
+        // Try to find last store to location
       HWInstr* lastStoreToLoc = nullptr;
       for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
         HWInstr* lastI = body[lastStorePos];
@@ -1951,8 +1951,9 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
         loadsToConstants[instr] = lastStoreToLoc->operands[2];
       }
     }
-    pos++;
   }
+  pos++;
+}
 
   //cout << "# of const loads = " << constLoads.size() << endl;
   for (auto ldNewVal : loadsToConstants) {
