@@ -2255,8 +2255,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamReadCallRealizations[c] << endl;
       }
     }
-
     
+    cout << "------------ Stream writes" << endl;
+    for (auto streamRead : scl.info.streamWriteCalls) {
+      cout << "\tWrites from " << streamRead.first << endl;
+      for (auto c : streamRead.second) {
+        cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamWriteCallRealizations[c] << endl;
+      }
+    }
     internal_assert(false) << "Stopping here to let Dillon view stream info\n";
     
     cout << "Stencil info" << endl;
