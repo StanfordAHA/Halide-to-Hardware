@@ -1315,16 +1315,6 @@ class StencilInfoCollector : public IRGraphVisitor {
 
 };
 
-//vector<int> streamWindowDims(std::string& name, StencilInfo& info) {
-  //vector<string> dispInfo = CoreIR::map_find(name, info.streamDispatches);
-  //int numDims = stoi(dispInfo[0]);
-  //vector<int> dims;
-  //for (int i = 0; i < numDims; i++) {
-    //dims.push_back(stoi(dispInfo[3*i + 1]));
-  //}
-  //return dims;
-//}
-
 void replaceAll( string &s, const string &search, const string &replace ) {
     for( size_t pos = 0; ; pos += replace.length() ) {
         // Locate the substring to replace
@@ -2291,12 +2281,32 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   }
 }
 
+class StoreCollector : public IRGraphVisitor {
+  public:
+
+    std::vector<const Store*> stores;
+
+    void visit(const Store* st) {
+      stores.push_back(st);
+      IRGraphVisitor::visit(st);
+    }
+};
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
 
   if (!is_header()) {
+
+    StoreCollector stCollector;
+    stmt.accept(&stCollector);
+    for (auto s : stCollector.stores) {
+      cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
+    }
+
+    internal_assert(false) << "Stopping here for dillon to view\n";
+
     cout << "Emitting kernel for " << name << endl;
     cout << "\tStmt is = " << endl;
     cout << stmt << endl;
