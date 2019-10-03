@@ -2257,26 +2257,34 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         newParams = scl.info.streamReadCallRealizations[c];
       }
 
-      //auto sParams = scl.info.streamReadCallRealizations[c];
       if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
         scl.info.streamParams[streamRead.first] = newParams;
       }
 
-      // Type check
       auto oldParams = scl.info.streamParams[streamRead.first];
       internal_assert(oldParams == newParams);
-      //internal_assert(oldParams.size() == sParams.size());
-      //for (int i = 0; i < (int) oldParams.size(); i++) {
-        //internal_assert(oldParams[i] == sParams[i]);
-      //}
     }
     
     cout << "------------ Stream writes" << endl;
     for (auto streamRead : scl.info.streamWriteCalls) {
       cout << "\tWrites from " << streamRead.first << endl;
+      vector<std::string> newParams = {};
       for (auto c : streamRead.second) {
         cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamWriteCallRealizations[c] << endl;
+        newParams = scl.info.streamWriteCallRealizations[c];
       }
+
+      if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
+        scl.info.streamParams[streamRead.first] = newParams;
+      }
+
+      auto oldParams = scl.info.streamParams[streamRead.first];
+      internal_assert(oldParams == newParams);
+    }
+
+    cout << "-------------- Inferred stream parameters..." << endl;
+    for (auto sp : scl.info.streamParams) {
+      cout << "\t" << sp.first << " " << sp.second << endl;
     }
     internal_assert(false) << "Stopping here to let Dillon view stream info\n";
     
