@@ -1797,6 +1797,11 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     }
   }
 
+  for (auto v : f.controlVars) {
+    string vName = coreirSanitize(v);
+    tps.push_back({vName, context->BitIn()->Arr(16)});
+  }
+
   //cout << "Current stencils..." << endl;
   //cout << stencils << endl;
   cout << "All input streams" << endl;
@@ -2323,8 +2328,14 @@ class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
 
+    void visit(const LetStmt* l) {
+      hwVars.push_back(l->name);
+      IRGraphVisitor::visit(l);
+    }
     void visit(const For* lp) {
       hwVars.push_back(lp->name);
+
+      IRGraphVisitor::visit(lp);
     }
 };
 
@@ -2439,6 +2450,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       auto hwVars = extractHardwareVars(lp);
       HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
+      f.controlVars = hwVars;
       auto& body = f.body;
 
       removeBadStores(stCollector, body);

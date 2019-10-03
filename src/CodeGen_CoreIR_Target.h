@@ -129,6 +129,7 @@ class HWFunction {
     std::string name;
     int uniqueNum;
     std::vector<HWInstr*> body;
+    std::vector<std::string> controlVars;
 
     HWFunction() : uniqueNum(0) {}
 
