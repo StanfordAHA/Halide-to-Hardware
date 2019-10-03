@@ -37,6 +37,38 @@ using CoreIR::map_find;
 using CoreIR::contains_key;
 namespace {
 
+
+int getConstInt(const Expr e) {
+  if (const IntImm* e_int = e.as<IntImm>()) {
+    return e_int->value;
+
+  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    return e_uint->value;
+
+  } else {
+    //internal_error << "invalid constant expr\n";
+    return -1;
+  }
+}
+class StoreCollector : public IRGraphVisitor {
+  public:
+
+    std::vector<const Store*> stores;
+    std::map<std::string, std::map<int, int> > constStores;
+
+    void visit(const Store* st) {
+      stores.push_back(st);
+      int storeIndex = getConstInt(st->index);
+      // TODO: Change to isConst
+      int storeValue = getConstInt(st->value);
+      if  ((storeValue >= 0) && storeIndex >= 0) {
+        constStores[st->name].insert({storeIndex, storeValue});
+      }
+      // Populate the constStores code
+      IRGraphVisitor::visit(st);
+    }
+};
+
 bool isCall(const std::string& str, const HWInstr* instr) {
   return instr->tp == HWINSTR_TP_INSTR && instr->name == str;
 }
@@ -1887,7 +1919,7 @@ void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr
   }
 }
 
-void removeBadStores(vector<HWInstr*>& body) {
+void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
   vector<HWInstr*> constLoads;
   std::map<HWInstr*, HWInstr*> loadsToConstants;
   int pos = 0;
@@ -2281,17 +2313,6 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   }
 }
 
-class StoreCollector : public IRGraphVisitor {
-  public:
-
-    std::vector<const Store*> stores;
-
-    void visit(const Store* st) {
-      stores.push_back(st);
-      IRGraphVisitor::visit(st);
-    }
-};
-
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -2305,7 +2326,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
     }
 
-    internal_assert(false) << "Stopping here for dillon to view\n";
+    //internal_assert(false) << "Stopping here for dillon to view\n";
 
     cout << "Emitting kernel for " << name << endl;
     cout << "\tStmt is = " << endl;
@@ -2395,7 +2416,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       //cout << "\t\t\t" << *instr << endl;
       //}
 
-      removeBadStores(body);
+      removeBadStores(stCollector, body);
       //cout << "After store optimization..." << endl;
       //for (auto instr : body) {
       //cout << "\t\t\t" << *instr << endl;

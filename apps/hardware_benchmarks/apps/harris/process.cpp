@@ -62,10 +62,13 @@ void run_harris_on_interpreter(string coreir_design,
         if (uses_valid) {
           bool valid_value = state.getBitVec("self.valid").to_type<bool>();
 
+
           if (valid_value) {
             T output_value = state.getBitVec(output_name).to_type<T>();
             coreir_img_writer.write(output_value);
-            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+          } else {
+            std::cout << "Invalid Pixel: y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << endl;
           }
         } else {
           T output_value = state.getBitVec(output_name).to_type<T>();
