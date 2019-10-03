@@ -2321,10 +2321,14 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
 class HWVarExtractor : public IRGraphVisitor {
   public:
-    vector<const Var*> hwVars;
+    vector<std::string> hwVars;
+
+    void visit(const For* lp) {
+      hwVars.push_back(lp->name);
+    }
 };
 
-vector<const Var*> extractHardwareVars(const For* lp) {
+vector<std::string> extractHardwareVars(const For* lp) {
   HWVarExtractor ex;
   lp->accept(&ex);
   return ex.hwVars;
@@ -2433,7 +2437,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "Original body.." << endl;
       cout << lp->body << endl;
 
-      vector<const Var*> hwVars = extractHardwareVars(lp);
+      auto hwVars = extractHardwareVars(lp);
       HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
       auto& body = f.body;
 
