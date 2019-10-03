@@ -35,6 +35,14 @@ using std::cout;
 
 namespace {
 
+std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& strs) {
+  out << "{";
+  for (auto str : strs) {
+    out << str << ", ";
+  }
+  out << "}";
+  return out;
+}
 vector<int> getDimRanges(const vector<int>& ranges) {
   vector<int> rngs;
   for (int i = 0; i < (int) (ranges.size() / 2); i++) {
@@ -2239,6 +2247,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     StencilInfoCollector scl;
     stmt.accept(&scl);
 
+    cout << "----- Stream info" << endl;
+    cout << "------------ Stream reads" << endl;
+    for (auto streamRead : scl.info.streamReadCalls) {
+      cout << "\tReads from " << streamRead.first << endl;
+      for (auto c : streamRead.second) {
+        cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamReadCallRealizations[c] << endl;
+      }
+    }
+
+    
+    internal_assert(false) << "Stopping here to let Dillon view stream info\n";
+    
     cout << "Stencil info" << endl;
     StencilInfo info = scl.info;
     cout << "Dispatches" << endl;
@@ -2257,7 +2277,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       }
     }
 
-    internal_assert(false) << "Stopping here to let Dillon view stream info\n";
 
     // TODO: Connect the different loop kernels using the structure contained
     // in stream in / stream out?
