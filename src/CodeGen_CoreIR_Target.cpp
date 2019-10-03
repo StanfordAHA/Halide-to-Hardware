@@ -1944,29 +1944,29 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
         //}
 
         // Try to find last store to location
-      //HWInstr* lastStoreToLoc = nullptr;
-      //for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
+        //HWInstr* lastStoreToLoc = nullptr;
+        //for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
         //HWInstr* lastI = body[lastStorePos];
         //if (isStore(lastI)) {
-          ////cout << "Found store " << *lastI << endl;
-          //if (*(lastI->operands[0]) == *(instr->operands[0])) {
-            ////cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
-            //if (*(lastI->operands[3]) == *location) {
-              //lastStoreToLoc = lastI;
-              //break;
-            //}
-          //}
+        ////cout << "Found store " << *lastI << endl;
+        //if (*(lastI->operands[0]) == *(instr->operands[0])) {
+        ////cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
+        //if (*(lastI->operands[3]) == *location) {
+        //lastStoreToLoc = lastI;
+        //break;
         //}
-      //}
+        //}
+        //}
+        //}
 
-      if (lastStoreToLoc) {
-        loadsToConstants[instr] = lastStoreToLoc;
+        if (lastStoreToLoc) {
+          loadsToConstants[instr] = lastStoreToLoc;
           //lastStoreToLoc->operands[2];
-      }
+        }
     }
   }
-  pos++;
 }
+  pos++;
 
   //cout << "# of const loads = " << constLoads.size() << endl;
   for (auto ldNewVal : loadsToConstants) {
