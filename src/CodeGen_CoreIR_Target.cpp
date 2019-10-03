@@ -2718,15 +2718,13 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       std::vector<CoreIR::Wireable*> allEnables;
       for (auto input : inputStreams(f.second)) {
         cout << "Function " << f.second.name << " has input " << *input << endl;
-        CoreIR::Wireable* inPort = map_find(f.first, kernels)->sel(coreirSanitize(input->name));
+        CoreIR::Wireable* inPort = map_get(f.first, kernels)->sel(coreirSanitize(input->name));
 
         if (CoreIR::contains_key(input->name, linebufferResults)) {
           auto lb = linebufferResults[input->name];
           inputMap[inPort] = lb->sel("out");
           allEnables.push_back(lb->sel("valid"));
 
-          //def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
-          //def->connect(lb->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
         } else {
           // The input is a top-level module input?
           bool foundProducer = false;
@@ -2734,8 +2732,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             for (auto output : outputStreams(otherF.second)) {
               if (output->name == input->name) {
                 cout << input->name << " is produced by " << otherF.second.name << endl;
-                inputMap[inPort] = map_find(otherF.first, kernels)->sel(coreirSanitize(output->name));
-                allEnables.push_back(map_find(otherF.first, kernels)->sel("valid"));
+                inputMap[inPort] = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
+                allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
 
                 //def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
                 //def->connect(map_find(otherF.first, kernels)->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
@@ -2753,13 +2751,17 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         }
       }
 
+      cout << "Done getting function inputs..." << endl;
+
       // Actually connect sources to enables
       for (auto in : inputMap) {
         def->connect(in.first, in.second);
       }
 
       auto fKernel = map_find(f.first, kernels);
-      if (allEnables.size() == 1) {
+      if (allEnables.size() == 0) {
+        // Do nothing
+      } if (allEnables.size() == 1) {
         def->connect(allEnables[0], fKernel->sel("in_en"));
       } else {
         auto v0 = allEnables[0];
@@ -2773,6 +2775,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         def->connect(fKernel->sel("in_en"), v0);
       }
     }
+
+    cout << "Setting definition of topMod..." << endl;
 
     topMod->setDef(def);
 
