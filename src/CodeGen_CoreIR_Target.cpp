@@ -1134,6 +1134,8 @@ class InstructionCollector : public IRGraphVisitor {
       //HWInstr* checkPred = nullptr;
       if (op->name == "linebuffer") {
         ist->name = "linebuf_decl";
+      } else if (op->name == "absd") {
+        ist->name = "absd";
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
         assert(callOperands.size() > 1);
@@ -1170,7 +1172,7 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "stencil_update";
       } else {
         ist->name = "other_instr";
-        assert(false);
+        internal_assert(false) << "Unsupported call: " << op->name << "\n";
       }
       ist->operands = callOperands;
       pushInstr(ist);
