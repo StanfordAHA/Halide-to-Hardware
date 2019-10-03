@@ -1706,7 +1706,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       internal_assert(CoreIR::contains_key(instr, unitMapping));
       CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
-      if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max")) {
+      if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
+          (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and")) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
 
@@ -1739,9 +1740,9 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
         
       } else if (instr->name == "sel") {
 
-        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
-        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
-        def->connect(unit->sel("sel"), m.valueAt(instr->getOperand(2), stageNo));
+        def->connect(unit->sel("sel"), m.valueAt(instr->getOperand(0), stageNo));
+        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(1), stageNo));
+        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(2), stageNo));
 
       } else if (starts_with(instr->name, "init_stencil")) {
         // No inputs
@@ -2630,8 +2631,13 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             if (coreirSanitize(output->name) == coreirSanitize(inName)) {
               def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
               def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
-              //coreirSanitize(output->name)));
+              foundInput = true;
+              break;
             }
+          }
+
+          if (foundInput) {
+            break;
           }
         }
       }
