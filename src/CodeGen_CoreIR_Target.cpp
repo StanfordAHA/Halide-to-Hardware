@@ -874,6 +874,20 @@ class HWLoopSchedule {
     // code to arguments?
 };
 
+class LetPusher : public IRMutator {
+  public:
+
+    Stmt visit(const LetStmt* let) {
+      //auto& body = let;
+
+      //if (LetStmt::classof()) {
+
+      //} else {
+        //return IRMutator::visit(let);
+      //}
+    }
+};
+
 class InstructionCollector : public IRGraphVisitor {
   public:
     std::map<std::string, HWInstr*> vars;
