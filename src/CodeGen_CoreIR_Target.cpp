@@ -407,7 +407,6 @@ void loadHalideLib(CoreIR::Context* context) {
         for (int j = 0; j < cls; j++) {
 
           auto cs = def->addInstance("init_const_" + std::to_string(i) + "_" + std::to_string(j), "coreir.const", {{"width", CoreIR::Const::make(c, w)}}, {{"value", CoreIR::Const::make(c, BitVector(w, 0))}});
-          //def->connect(def->sel("self")->sel("out")->sel(i)->sel(j), cs->sel("out"));
           def->connect(def->sel("self")->sel("out")->sel(j)->sel(i), cs->sel("out"));
         }
         }
@@ -428,7 +427,6 @@ void loadHalideLib(CoreIR::Context* context) {
         auto row = args.at("r")->get<int>();
         auto col = args.at("c")->get<int>();
 
-        //def->connect(def->sel("self")->sel("in")->sel(row)->sel(col), def->sel("self")->sel("out"));
         def->connect(def->sel("self")->sel("in")->sel(col)->sel(row), def->sel("self")->sel("out"));
         });
   }
@@ -1837,7 +1835,6 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     inEn = vR->sel("out");
   }
   def->connect(inEn, self->sel("valid"));
-  //def->connect(self->sel("in_en"), self->sel("valid"));
 
   cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
   emitCoreIR(info, context, sched, def);
@@ -2576,22 +2573,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       uint input_dims [num_dims];
       for (uint i=0; i<num_dims; ++i) {
         input_dims[i] = inRanges[2*i + 1] - inRanges[2*i];
-        //input_dims[i] = id_const_value(in_stencil_type.bounds[i].extent);
         input_type = input_type->Arr(input_dims[i]);
       }
 
       uint output_dims [num_dims];
       for (uint i=0; i<num_dims; ++i) {
-        //output_dims[i] = 3;
         output_dims[i] = outRanges[2*i + 1] - outRanges[2*i];
-        //output_dims[i] = id_const_value(stencil_type.bounds[i].extent);
         output_type = output_type->Arr(output_dims[i]);
       }
 
       uint image_dims [num_dims];
       for (uint i=0; i<num_dims; ++i) {
         image_dims[i] = params[i];
-        //image_dims[i] = id_const_value(id_const_value(op->args[i+2]));
         image_type = image_type->Arr(image_dims[i]);
       }
 
@@ -2606,6 +2599,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       linebufferInputs[inName] = coreir_lb;
     }
 
+    // Create inter-kernel connections
+    // Q: What is a good intermediate representation?
+    // A: Nodes (linebuffers or kernels) with a map from names to inputs / outputs
     for (auto in : linebufferInputs) {
       string inName = in.first;
       auto lb = in.second;
@@ -2627,7 +2623,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       if (!foundInput) {
         for (auto f : functions) {
           for (auto output : outputStreams(f.second)) {
-            //if (CoreIR::contains_key(output->name, linebufferInputs)) {
             if (coreirSanitize(output->name) == coreirSanitize(inName)) {
               def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
               def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
@@ -2659,12 +2654,22 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
     for (auto f : functions) {
+      // Collect a map from input names to output wireables?
+      // And together all inputs?
+      //
+      std::map<CoreIR::Wireable*, CoreIR::Wireable*> inputMap;
+      std::vector<CoreIR::Wireable*> allEnables;
       for (auto input : inputStreams(f.second)) {
         cout << "Function " << f.second.name << " has input " << *input << endl;
+        CoreIR::Wireable* inPort = map_find(f.first, kernels)->sel(coreirSanitize(input->name));
+
         if (CoreIR::contains_key(input->name, linebufferResults)) {
           auto lb = linebufferResults[input->name];
-          def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
-          def->connect(lb->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
+          inputMap[inPort] = lb->sel("out");
+          allEnables.push_back(lb->sel("valid"));
+
+          //def->connect(lb->sel("out"), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+          //def->connect(lb->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
         } else {
           // The input is a top-level module input?
           bool foundProducer = false;
@@ -2672,8 +2677,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             for (auto output : outputStreams(otherF.second)) {
               if (output->name == input->name) {
                 cout << input->name << " is produced by " << otherF.second.name << endl;
-                def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
-                def->connect(map_find(otherF.first, kernels)->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
+                inputMap[inPort] = map_find(otherF.first, kernels)->sel(coreirSanitize(output->name));
+                allEnables.push_back(map_find(otherF.first, kernels)->sel("valid"));
+
+                //def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
+                //def->connect(map_find(otherF.first, kernels)->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
                 foundProducer = true;
                 break;
               }
@@ -2687,24 +2695,36 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
           internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
         }
       }
+
+      // Actually connect sources to enables
+      for (auto in : inputMap) {
+        def->connect(in.first, in.second);
+      }
+
+      auto fKernel = map_find(f.first, kernels);
+      if (allEnables.size() == 1) {
+        def->connect(allEnables[0], fKernel->sel("in_en"));
+      } else {
+        auto v0 = allEnables[0];
+        for (int i = 1; i < (int) allEnables.size(); i++) {
+          auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
+          def->connect(and0->sel("in0"), v0);
+          def->connect(and0->sel("in1"), allEnables[i]);
+          v0 = and0->sel("out");
+        }
+
+        def->connect(fKernel->sel("in_en"), v0);
+      }
     }
 
-    // TODO: Remove this hack
-    //if (linebufferResults.size() == 1) {
-      //CoreIR::Instance* lb = begin(linebufferResults)->second;
-      //def->connect(def->sel("self")->sel("valid"), lb->sel("valid"));
-    //}
     topMod->setDef(def);
 
 
     cout << "Top module" << endl;
     topMod->print();
 
-    //cout << "Saving coreir for module " << m->getName() << endl;
-    //if (!saveToFile(global_ns, m->getName() + ".json")) {
     if (!saveToFile(global_ns, "conv_3_3_app.json")) {
       cout << "Could not save global namespace" << endl;
-      //cout << "Could not save " << m->getName() << " to json" << endl;
       context->die();
     }
 
