@@ -43,7 +43,6 @@ V map_get(const K& k, const std::map<K, V>& m) {
   return map_find(k, m);
 }
 
-
 int getConstInt(const Expr e) {
   if (const IntImm* e_int = e.as<IntImm>()) {
     return e_int->value;
@@ -56,6 +55,7 @@ int getConstInt(const Expr e) {
     return -1;
   }
 }
+
 class StoreCollector : public IRGraphVisitor {
   public:
 
@@ -1785,13 +1785,10 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
   auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}};
-  //, {"clk", context->BitIn()}};
   std::set<string> inStreams;
   std::set<string> outStreams;
   for (auto instr : instrs) {
-    //cout << "Checking if " << *instr << " is a stream read" << endl;
     if (isCall("rd_stream", instr)) {
-      //cout << "Yes, it is" << endl;;
       inStreams.insert(instr->operands[0]->compactString());
     }
 
@@ -1818,7 +1815,6 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(Stencil
     string inName = is;
     replaceAll(inName, ".", "_");
     tps.push_back({inName, base});
-    //tps.push_back({inName + "_valid", context->BitIn()});
   }
   cout << "All output streams" << endl;
   for (auto is : outStreams) {
@@ -2323,6 +2319,17 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   }
 }
 
+class HWVarExtractor : public IRGraphVisitor {
+  public:
+    vector<const Var*> hwVars;
+};
+
+vector<const Var*> extractHardwareVars(const For* lp) {
+  HWVarExtractor ex;
+  lp->accept(&ex);
+  return ex.hwVars;
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -2425,36 +2432,20 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "\t\tLOOP" << endl;
       cout << "Original body.." << endl;
       cout << lp->body << endl;
-      //vector<HWInstr*> body = buildHWBody(lp);
+
+      vector<const Var*> hwVars = extractHardwareVars(lp);
       HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
       auto& body = f.body;
-      //cout << "\t\tInstructions in body = " << endl;
-      //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-      //}
 
       removeBadStores(stCollector, body);
-      //cout << "After store optimization..." << endl;
-      //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-      //}
-
       valueConvertProvides(scl.info, f);
-      //cout << "After provide conversion..." << endl;
-      //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-      //}
-
-
       valueConvertStreamReads(scl.info, f);
       removeWriteStreamArgs(scl.info, f);
-      //body);
       cout << "After stream read conversion..." << endl;
       for (auto instr : body) {
         cout << "\t\t\t" << *instr << endl;
       }
 
-      //CoreIR::Module* m = moduleForKernel(scl.info, body, kernelN);
       CoreIR::Module* m = moduleForKernel(scl.info, f);
       kernelModules[lp] = m;
       functions[lp] = f;
