@@ -2251,9 +2251,24 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     cout << "------------ Stream reads" << endl;
     for (auto streamRead : scl.info.streamReadCalls) {
       cout << "\tReads from " << streamRead.first << endl;
+      vector<std::string> newParams = {};
       for (auto c : streamRead.second) {
         cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamReadCallRealizations[c] << endl;
+        newParams = scl.info.streamReadCallRealizations[c];
       }
+
+      //auto sParams = scl.info.streamReadCallRealizations[c];
+      if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
+        scl.info.streamParams[streamRead.first] = newParams;
+      }
+
+      // Type check
+      auto oldParams = scl.info.streamParams[streamRead.first];
+      internal_assert(oldParams == newParams);
+      //internal_assert(oldParams.size() == sParams.size());
+      //for (int i = 0; i < (int) oldParams.size(); i++) {
+        //internal_assert(oldParams[i] == sParams[i]);
+      //}
     }
     
     cout << "------------ Stream writes" << endl;
