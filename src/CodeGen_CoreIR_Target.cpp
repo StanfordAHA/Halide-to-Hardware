@@ -37,6 +37,12 @@ using CoreIR::map_find;
 using CoreIR::contains_key;
 namespace {
 
+template<typename K, typename V>
+V map_get(const K& k, const std::map<K, V>& m) {
+  internal_assert(contains_key(k, m));
+  return map_find(k, m);
+}
+
 
 int getConstInt(const Expr e) {
   if (const IntImm* e_int = e.as<IntImm>()) {
@@ -1928,27 +1934,34 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
       auto location = instr->operands[2];
       //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
       if (isConstant(location)) {
+        cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
+        int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
+        HWInstr* lastStoreToLoc = new HWInstr();
+        lastStoreToLoc->tp = HWINSTR_TP_CONST;
+        lastStoreToLoc->constWidth = 16;
+        lastStoreToLoc->constValue = std::to_string(newValue);
         constLoads.push_back(instr);
         //}
 
         // Try to find last store to location
-      HWInstr* lastStoreToLoc = nullptr;
-      for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
-        HWInstr* lastI = body[lastStorePos];
-        if (isStore(lastI)) {
-          //cout << "Found store " << *lastI << endl;
-          if (*(lastI->operands[0]) == *(instr->operands[0])) {
-            //cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
-            if (*(lastI->operands[3]) == *location) {
-              lastStoreToLoc = lastI;
-              break;
-            }
-          }
-        }
-      }
+      //HWInstr* lastStoreToLoc = nullptr;
+      //for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
+        //HWInstr* lastI = body[lastStorePos];
+        //if (isStore(lastI)) {
+          ////cout << "Found store " << *lastI << endl;
+          //if (*(lastI->operands[0]) == *(instr->operands[0])) {
+            ////cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
+            //if (*(lastI->operands[3]) == *location) {
+              //lastStoreToLoc = lastI;
+              //break;
+            //}
+          //}
+        //}
+      //}
 
       if (lastStoreToLoc) {
-        loadsToConstants[instr] = lastStoreToLoc->operands[2];
+        loadsToConstants[instr] = lastStoreToLoc;
+          //lastStoreToLoc->operands[2];
       }
     }
   }
@@ -2040,12 +2053,6 @@ bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
   }
 
   return true;
-}
-
-template<typename K, typename V>
-V map_get(const K& k, const std::map<K, V>& m) {
-  internal_assert(contains_key(k, m));
-  return map_find(k, m);
 }
 
 std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo& info) {
