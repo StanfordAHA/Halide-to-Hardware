@@ -1706,7 +1706,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       internal_assert(CoreIR::contains_key(instr, unitMapping));
       CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
-      if (instr->name == "add" || (instr->name == "mul")) {
+      if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max")) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
 
