@@ -68,7 +68,7 @@ class StoreCollector : public IRGraphVisitor {
       // TODO: Change to isConst
       int storeValue = getConstInt(st->value);
       if  ((storeValue >= 0) && storeIndex >= 0) {
-        constStores[st->name].insert({storeIndex, storeValue});
+        constStores[st->name][storeIndex] = storeValue;
       }
       // Populate the constStores code
       IRGraphVisitor::visit(st);
@@ -1936,6 +1936,8 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
       if (isConstant(location)) {
         cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
         int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
+
+        cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
         HWInstr* lastStoreToLoc = new HWInstr();
         lastStoreToLoc->tp = HWINSTR_TP_CONST;
         lastStoreToLoc->constWidth = 16;
@@ -2332,6 +2334,13 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     stmt.accept(&stCollector);
     for (auto s : stCollector.stores) {
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
+    }
+
+    for (auto s : stCollector.constStores) {
+      cout << "Constant stores to " << s.first << endl;
+      for (auto sc : s.second) {
+        cout << "\t[" << sc.first << "] = " << sc.second << endl;
+      }
     }
 
     //internal_assert(false) << "Stopping here for dillon to view\n";
