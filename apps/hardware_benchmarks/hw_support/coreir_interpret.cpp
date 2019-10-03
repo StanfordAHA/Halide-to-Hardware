@@ -443,9 +443,9 @@ void run_coreir_on_interpreter(string coreir_design,
   bool uses_valid = reset_coreir_circuit(state, m);
   bool uses_inputenable = circuit_uses_inputenable(m);
 
-  cout << "starting coreir simulation" << endl;  
+  cout << "starting coreir simulation by calling resetCircuit" << endl;  
   state.resetCircuit();
-  cout << "reset\n";
+  cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
 
   int maxCycles = 10000;
