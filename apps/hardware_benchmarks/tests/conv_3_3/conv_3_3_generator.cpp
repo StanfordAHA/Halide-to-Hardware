@@ -22,9 +22,9 @@ public:
         RDom r(0, ksize,               0, ksize);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 1;      kernel(0,1) = 0;      kernel(0,2) = 0;
-        kernel(1,0) = 0;      kernel(1,1) = 0;       kernel(1,2) = 0;
-        kernel(2,0) = 0;      kernel(2,1) = 0;      kernel(2,2) = 0;
+        kernel(0,0) = 17;      kernel(0,1) = 4;      kernel(0,2) = 6;
+        kernel(1,0) = 7;      kernel(1,1) = 19;       kernel(1,2) = 4;
+        kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
 
         conv(x, y) = 0;
 
@@ -89,7 +89,7 @@ public:
 //          output.tile(x, y, xo,yo, xi,yi, 64,64);
 //          hw_input.in().store_at(output, xo).compute_at(output, xi);
 //          //hw_input.in().store_root().compute_at(output, x);
-          hw_input.in().store_root().compute_at(output,x);
+          //hw_input.in().store_root().compute_at(output,x);
           conv.update()
             .unroll(r.x)
             .unroll(r.y);

@@ -10,7 +10,7 @@ using namespace Halide::Tools;
 using namespace Halide::Runtime;
 using namespace CoreIR;
 using namespace std;
-
+/*
 template<typename T>
 void run_harris_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<T> input,
@@ -43,7 +43,7 @@ void run_harris_on_interpreter(string coreir_design,
   // sets initial values for all inputs/outputs/clock
   bool uses_valid = reset_coreir_circuit(state, m);
 
-  cout << "starting coreir simulation" << endl;  
+  cout << "starting coreir simulation" << endl;
   state.resetCircuit();
 
   ImageWriter<T> coreir_img_writer(output);
@@ -72,7 +72,7 @@ void run_harris_on_interpreter(string coreir_design,
           output(x,y,c) = output_value;
           //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
-        
+
         // give another rising edge (execute seq)
         state.exeSequential();
 
@@ -91,7 +91,7 @@ void run_harris_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<uint8_t> output,
                                string input_name,
                                string output_name);
-
+*/
 int main(int argc, char **argv) {
 
   OneInOneOut_ProcessController<uint8_t> processor("harris",
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
                                                   [&]() { harris(processor.input, processor.output); }
                                               },
                                               {"coreir",
-                                                  [&]() { run_harris_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
+                                                  [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
                                                                                       "self.in_arg_1_0_0", "self.out_0_0"); }
                                               }
 
@@ -108,8 +108,8 @@ int main(int argc, char **argv) {
 
   processor.input = Buffer<uint8_t>(64, 64);
   processor.output = Buffer<uint8_t>(58, 58);
-  
+
   processor.process_command(argc, argv);
-  
+
 }
 

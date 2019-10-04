@@ -1,5 +1,4 @@
 #include "coreir/passes/transform/rungenerators.h"
-#include "coreir/simulator/ubuf.h"
 
 #include "coreir_interpret.h"
 //#include "coreir_sim_plugins.h"
@@ -128,6 +127,7 @@ void run_coreir_on_interpreter(string coreir_design,
   Namespace* g = c->getGlobal();
 
   CoreIRLoadLibrary_commonlib(c);
+  CoreIRLoadLibrary_lakelib(c);
   if (!loadFromFile(c, coreir_design)) {
     cout << "Could not load " << coreir_design
          << " from json!!" << endl;
@@ -147,7 +147,7 @@ void run_coreir_on_interpreter(string coreir_design,
     return ubufModel;
   };
 
-  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("commonlib.unified_buffer"), ubufBuilder}};
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
 
   SimulatorState state(m, qualifiedNamesToSimPlugins);
   //SimulatorState state(m);
