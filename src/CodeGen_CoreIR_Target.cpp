@@ -496,7 +496,9 @@ void loadHalideLib(CoreIR::Context* context) {
         for (int i = 0; i < r; i++) {
         for (int j = 0; j < cls; j++) {
         for (int b = 0; b < chans; b++) {
-          auto cs = def->addInstance("init_const_" + std::to_string(i) + "_" + std::to_string(j), "coreir.const", {{"width", CoreIR::Const::make(c, w)}}, {{"value", CoreIR::Const::make(c, BitVector(w, 0))}});
+          auto cs = def->addInstance("init_const_" + std::to_string(i) + "_" + std::to_string(j) + "_" + std::to_string(b),
+              "coreir.const",
+              {{"width", CoreIR::Const::make(c, w)}}, {{"value", CoreIR::Const::make(c, BitVector(w, 0))}});
           def->connect(def->sel("self")->sel("out")->sel(b)->sel(j)->sel(i), cs->sel("out"));
           }
         }
@@ -1669,7 +1671,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
-      } else if (name == "mod") {
+      } else if (name == "absd") {
+        auto mul = def->addInstance("absd" + std::to_string(defStage), "commonlib.abs", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      }else if (name == "mod") {
 
         // TODO: Replace this with real implementation of mod!!!
         auto mul = def->addInstance("mod" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
@@ -1926,7 +1932,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
         def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
         def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
-      } else if (instr->name == "cast") {
+      } else if (instr->name == "cast" || (instr->name == "absd")) {
         auto arg = instr->getOperand(0);
         //auto unit = CoreIR::map_find(instr, unitMapping);
         def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
