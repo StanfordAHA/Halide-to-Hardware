@@ -2426,7 +2426,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     cout << "After let erasure..." << endl;
     cout << stmt << endl;
-    internal_assert(false) << "Stopping here for dillon to view\n";
+    //internal_assert(false) << "Stopping here for dillon to view\n";
 
     StoreCollector stCollector;
     stmt.accept(&stCollector);
