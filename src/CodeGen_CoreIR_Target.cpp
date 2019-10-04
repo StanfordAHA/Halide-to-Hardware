@@ -790,17 +790,6 @@ uint num_bits(uint N) {
   return num_shifts;
 }
 
-// What structure do we want to extract?
-// 1. Set of top-level loops (kernels) in the app
-// 2. Set of linebuffers in the app
-// 3. DAG of dispatches and connections in the app
-// 4. Set of top-level arguments to the app
-// 5. Set of stream names in the app?
-// 6. Other?
-//
-// What is the procedure for scheduling going to be?
-// 1. Form IR for each loop nest
-// 2. Shedule the IR assuming II = 1?
 class NestExtractor : public IRGraphVisitor {
   public:
     vector<const For*> loops;
@@ -1293,24 +1282,6 @@ HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
   //return collector.f.body;
   return collector.f;
 }
-
-//bool isStreamRead(HWInstr* const instr) {
-  //if (instr->tp != HWINSTR_TP_INSTR) {
-    //return false;
-  //}
-
-  ////cout << "Instruction name = " << instr->name << endl;
-  //if (instr->name == "read_stream") {
-    //return true;
-  //}
-
-  //return false;
-//}
-
-//class DispatchInfo {
-  //public:
-
-//};
 
 class StencilInfoCollector : public IRGraphVisitor {
   public:
