@@ -933,7 +933,6 @@ class InstructionCollector : public IRGraphVisitor {
     HWFunction f;
     HWInstr* lastValue;
     HWInstr* currentPredicate;
-
     
     Scope<std::vector<std::string> > activeRealizations;
     
@@ -1203,6 +1202,14 @@ class InstructionCollector : public IRGraphVisitor {
       visit_binop("add", a->a, a->b);
     }
 
+    void visit(const EQ* a) {
+      visit_binop("eq", a->a, a->b);
+    }
+    
+    void visit(const NE* a) {
+      visit_binop("neq", a->a, a->b);
+    }
+    
     void visit(const Mul* b) {
       visit_binop("mul", b->a, b->b);
     }
