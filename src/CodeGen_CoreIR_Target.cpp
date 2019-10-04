@@ -1582,6 +1582,12 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
+      } else if (name == "mod") {
+
+        // TODO: Replace this with real implementation of mod!!!
+        auto mul = def->addInstance("mod" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
       } else if (name == "sub") {
         auto mul = def->addInstance("sub_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
@@ -1598,6 +1604,15 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto mul = def->addInstance("min_" + std::to_string(defStage), "commonlib.umin", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
+      } else if (name == "eq") {
+        auto mul = def->addInstance("eq" + std::to_string(defStage), "coreir.eq", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+      } else if (name == "neq") {
+        auto mul = def->addInstance("neq" + std::to_string(defStage), "coreir.neq", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
+
       } else if (name == "lt") {
         auto mul = def->addInstance("lt_" + std::to_string(defStage), "coreir.ult", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
