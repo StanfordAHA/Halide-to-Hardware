@@ -1191,6 +1191,10 @@ class InstructionCollector : public IRGraphVisitor {
       visit_binop("max", m->a, m->b);
     }
 
+    void visit(const Mod* d) {
+      visit_binop("mod", d->a, d->b);
+    }
+
     void visit(const Div* d) {
       visit_binop("div", d->a, d->b);
     }
