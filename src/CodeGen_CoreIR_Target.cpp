@@ -1519,7 +1519,12 @@ class UnitMapping {
     }
  
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
-      internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues\n";
+      string iValStr = "{";
+      for (auto kv : instrValues) {
+        iValStr += "\t{" + kv.first->compactString() + " -> " + CoreIR::toString(*(kv.second)) + "}, " + "\n";
+      }
+      iValStr += "}";
+      internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues: " << iValStr << "\n";
 
       if (arg1->tp == HWINSTR_TP_CONST) {
         return CoreIR::map_find(arg1, instrValues);
