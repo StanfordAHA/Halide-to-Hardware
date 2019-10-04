@@ -1691,11 +1691,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "max") {
-        auto mul = def->addInstance("max_" + std::to_string(defStage), "commonlib.umax", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("max_" + std::to_string(defStage), "commonlib.smax", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "min") {
-        auto mul = def->addInstance("min_" + std::to_string(defStage), "commonlib.umin", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("min_" + std::to_string(defStage), "commonlib.smin", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "eq") {
@@ -1708,15 +1708,15 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         unitMapping[instr] = mul;
 
       } else if (name == "lt") {
-        auto mul = def->addInstance("lt_" + std::to_string(defStage), "coreir.ult", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("lt_" + std::to_string(defStage), "coreir.slt", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "gt") {
-        auto mul = def->addInstance("gt_" + std::to_string(defStage), "coreir.ugt", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("gt_" + std::to_string(defStage), "coreir.sgt", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "lte") {
-        auto mul = def->addInstance("lte_" + std::to_string(defStage), "coreir.ule", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("lte_" + std::to_string(defStage), "coreir.sle", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "and") {
