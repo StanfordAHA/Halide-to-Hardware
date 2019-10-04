@@ -1570,6 +1570,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
   
+  std::set<std::string> pipeVars;
   for (auto instr : sched.body) {
     if (instr->tp == HWINSTR_TP_INSTR) {
       string name = instr->name;
@@ -1719,6 +1720,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         instrValues[op] = cInst->sel("out");
       } else if (op->tp == HWINSTR_TP_VAR) {
         string name = op->name;
+        if (CoreIR::elem(name, pipeVars)) {
+          continue;
+        }
+        pipeVars.insert(name);
         cout << "Finding argument value for " << name << endl;
         auto self = def->sel("self");
         auto val = self->sel(coreirSanitize(name));
@@ -1802,7 +1807,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
       if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
-          (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and")) {
+          (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and") || (instr->name == "mod") ||
+          (instr->name == "eq") || (instr->name == "neq")) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
 
