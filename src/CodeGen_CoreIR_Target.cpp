@@ -1961,8 +1961,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       } else if (instr->name == "sel") {
 
         def->connect(unit->sel("sel"), m.valueAt(instr->getOperand(0), stageNo));
-        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(1), stageNo));
-        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(2), stageNo));
+        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
+        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(2), stageNo));
 
       } else if (starts_with(instr->name, "init_stencil")) {
         // No inputs
@@ -2991,8 +2991,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                 inputMap[inPort] = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
                 allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
 
-                //def->connect(map_find(otherF.first, kernels)->sel(coreirSanitize(output->name)), map_find(f.first, kernels)->sel(coreirSanitize(input->name)));
-                //def->connect(map_find(otherF.first, kernels)->sel("valid"), map_find(f.first, kernels)->sel("in_en"));
                 foundProducer = true;
                 break;
               }
@@ -3003,7 +3001,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             }
           }
 
-          internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
+          if (!foundProducer) {
+            // Assume that this must be a top-level input
+            auto self = def->sel("self");
+            // TODO: Use hardware input map
+            inputMap[inPort] = self->sel("in")->sel("arg_0");
+            allEnables.push_back(self->sel("in_en"));
+            //internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
+          }
         }
       }
 
