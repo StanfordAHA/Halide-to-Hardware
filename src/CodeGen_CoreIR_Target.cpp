@@ -422,7 +422,22 @@ void loadHalideLib(CoreIR::Context* context) {
 
   }
 
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("write_stream_3", widthDimParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto nb = args.at("nchannels")->get<int>();
+        auto w = args.at("width")->get<int>();
+        return c->Record({{"stream", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)->Arr(nb)}, {"stencil", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)->Arr(nb)}});
+        });
+    auto wrStream = hns->newGeneratorDecl("write_stream_3", ws, widthDimParams);
 
+    wrStream->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        def->connect("self.stream", "self.stencil");
+        });
+
+  }
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("init_stencil", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
