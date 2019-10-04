@@ -147,13 +147,13 @@ vector<int> getDimRanges(const vector<int>& ranges) {
   return rngs;
 }
 
-  std::vector<int> toInts(const std::vector<std::string>& strs) {
-    vector<int> ints;
-    for (auto s : strs) {
-      ints.push_back(stoi(s));
-    }
-    return ints;
+std::vector<int> toInts(const std::vector<std::string>& strs) {
+  vector<int> ints;
+  for (auto s : strs) {
+    ints.push_back(stoi(s));
   }
+  return ints;
+}
 
 std::string exprString(const Expr e) {
   ostringstream ss;
@@ -1120,20 +1120,26 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const Let* l) {
-      //auto vI = varI(l->name);
-      //lastValue = vI;
-
+    void visit(const LetStmt* l) {
 
       auto ev = codegen(l->value);
 
+      vars[l->name] = ev;
+
+      l->body->accept(this);
+      //IRGraphVisitor::visit(l->body);
+      //auto lv = codegen(l->body);
+      //internal_assert(lv) << "let body did not produce a value\n";
+      //lastValue = lv;
+
+      //vars.erase(l->name);
+      
+    }
+    void visit(const Let* l) {
+
+      auto ev = codegen(l->value);
 
       vars[l->name] = ev;
-      //auto assignV = newI();
-      //assignV->name = "assign";
-      //assignV->operands = {vI, ev};
-      //pushInstr(assignV);
-      //instrs.push_back(assignV);
 
       auto lv = codegen(l->body);
       internal_assert(lv) << "let body did not produce a value\n";
@@ -2362,17 +2368,19 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
+    std::set<std::string> defined;
     HWFunction* f;
 
-    void visit(const Variable* v) {
-      auto allStreams = allStreamNames(*f);
-      if (!CoreIR::elem(v->name, allStreams) && !CoreIR::elem(v->name, hwVars)) {
-        hwVars.push_back(v->name);
-      }
-    }
+    //void visit(const Variable* v) {
+      //auto allStreams = allStreamNames(*f);
+
+      //if (!CoreIR::elem(v->name, allStreams) && !CoreIR::elem(v->name, hwVars)) {
+        //hwVars.push_back(v->name);
+      //}
+    //}
 
     void addVar(const std::string& name) {
-      if (!CoreIR::elem(name, hwVars)) {
+      if (!CoreIR::elem(name, hwVars) && !CoreIR::elem(name, defined)) {
         hwVars.push_back(name);
       }
     }
@@ -2391,8 +2399,33 @@ class HWVarExtractor : public IRGraphVisitor {
     }
 };
 
+class DefinedVarExtractor : public IRGraphVisitor {
+  public:
+    std::set<std::string> defined;
+
+    void visit(const LetStmt* let) {
+      defined.insert(let->name);
+      IRGraphVisitor::visit(let);
+    }
+
+    void visit(const Let* let) {
+      defined.insert(let->name);
+      IRGraphVisitor::visit(let);
+    }
+
+    // TODO: Add stencil calls
+};
+
+std::set<std::string> getDefinedVars(const For* f) {
+  DefinedVarExtractor ex;
+  f->accept(&ex);
+  return ex.defined;
+}
+
 vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
+  std::set<std::string> vars = getDefinedVars(lp);
   HWVarExtractor ex;
+  ex.defined = vars;
   ex.f = &f;
   lp->accept(&ex);
   return ex.hwVars;
@@ -2482,23 +2515,23 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     }
     //internal_assert(false) << "Stopping here to let Dillon view stream info\n";
     
-    cout << "Stencil info" << endl;
+    //cout << "Stencil info" << endl;
     StencilInfo info = scl.info;
-    cout << "Dispatches" << endl;
-    for (auto ds : info.streamDispatches) {
-      cout << ds.first << endl;
-      for (auto r : ds.second) {
-        cout << "\t" << r << endl;
-      }
-    }
+    //cout << "Dispatches" << endl;
+    //for (auto ds : info.streamDispatches) {
+      //cout << ds.first << endl;
+      //for (auto r : ds.second) {
+        //cout << "\t" << r << endl;
+      //}
+    //}
 
-    cout << "Stencils" << endl;
-    for (auto ds : info.stencilRealizations) {
-      cout << ds.first << endl;
-      for (auto r : ds.second) {
-        cout << "\t" << r << endl;
-      }
-    }
+    //cout << "Stencils" << endl;
+    //for (auto ds : info.stencilRealizations) {
+      //cout << ds.first << endl;
+      //for (auto r : ds.second) {
+        //cout << "\t" << r << endl;
+      //}
+    //}
 
 
     // TODO: Connect the different loop kernels using the structure contained
