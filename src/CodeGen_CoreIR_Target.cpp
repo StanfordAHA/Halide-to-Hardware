@@ -1030,14 +1030,11 @@ class InstructionCollector : public IRGraphVisitor {
         auto a = codegen(p->args[i]);
         internal_assert(a != nullptr) << " provide arg is null?\n";
         operands.push_back(a);
-        //p->args[i].accept(this);
       }
-      //IRGraphVisitor::visit(p);
       auto ist = newI(); 
       ist->name = "provide";
       ist->operands = operands;
       pushInstr(ist);
-      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -1059,10 +1056,12 @@ class InstructionCollector : public IRGraphVisitor {
         return;
       }
 
+      cout << "Creating hwinstruction variable " << v->name << " that is not currently in vars" << endl;
       IRGraphVisitor::visit(v);
       auto ist = newI();
       ist->name = v->name;
       ist->tp = HWINSTR_TP_VAR;
+      vars[v->name] = ist;
 
       lastValue = ist;
     }
