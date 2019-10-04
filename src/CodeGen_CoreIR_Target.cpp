@@ -2382,13 +2382,16 @@ class HWVarExtractor : public IRGraphVisitor {
     std::set<std::string> defined;
     HWFunction* f;
 
-    //void visit(const Variable* v) {
+    void visit(const Variable* v) {
+      if (starts_with(v->name, "_")) {
+        addVar(v->name);
+      }
       //auto allStreams = allStreamNames(*f);
 
       //if (!CoreIR::elem(v->name, allStreams) && !CoreIR::elem(v->name, hwVars)) {
         //hwVars.push_back(v->name);
       //}
-    //}
+    }
 
     void addVar(const std::string& name) {
       if (!CoreIR::elem(name, hwVars) && !CoreIR::elem(name, defined)) {
