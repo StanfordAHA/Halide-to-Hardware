@@ -891,6 +891,24 @@ bool isInnermostLoop(const For* f) {
   return !c.foundSubLoop;
 }
 
+class LetEraser : public IRMutator {
+
+  public:
+
+    Stmt visit(const LetStmt* let) {
+      auto newBody = this->mutate(let->body);
+      return newBody;
+    }
+
+    Stmt visit(const For* f) {
+      if (isInnermostLoop(f)) {
+        return f;
+      } else {
+        return IRMutator::visit(f);
+      }
+    }
+};
+
 class LetPusher : public IRMutator {
   public:
 
@@ -2399,12 +2417,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   if (!is_header()) {
 
     LetPusher pusher;
-    //stmt.accept(&pusher);
-
     stmt = pusher.mutate(stmt);
     cout << "After let pushing..." << endl;
     cout << stmt << endl;
 
+    LetEraser letEraser;
+    stmt = letEraser.mutate(stmt);
+
+    cout << "After let erasure..." << endl;
+    cout << stmt << endl;
     internal_assert(false) << "Stopping here for dillon to view\n";
 
     StoreCollector stCollector;
