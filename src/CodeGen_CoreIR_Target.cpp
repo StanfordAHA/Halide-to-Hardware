@@ -488,9 +488,10 @@ void loadHalideLib(CoreIR::Context* context) {
         auto m = def->getModule();
         auto r = m->getGenArgs().at("nrows")->get<int>();
         auto cls = m->getGenArgs().at("ncols")->get<int>();
-        auto chans = m->getGenArgs().at("channels")->get<int>();
-        //cout << "r = " << r << endl;
-        //cout << "cls = " << cls << endl;
+        auto chans = m->getGenArgs().at("nchannels")->get<int>();
+        cout << "row = " << r << endl;
+        cout << "col = " << cls << endl;
+        cout << "chn = " << chans << endl;
         auto w = m->getGenArgs().at("width")->get<int>();
         for (int i = 0; i < r; i++) {
         for (int j = 0; j < cls; j++) {
@@ -547,6 +548,7 @@ void loadHalideLib(CoreIR::Context* context) {
             def->connect(def->sel("self")->sel("new_val"), self->sel("out")->sel(j)->sel(i));
           } else {
             //def->connect(self->sel("in_stencil")->sel(i)->sel(j), self->sel("out")->sel(i)->sel(j));
+            // TODO: Fix this mismatch?
             def->connect(self->sel("in_stencil")->sel(i)->sel(j), self->sel("out")->sel(j)->sel(i));
           }
         }
@@ -568,9 +570,8 @@ void loadHalideLib(CoreIR::Context* context) {
         auto nRows = args.at("nrows")->get<int>();
         auto nCols = args.at("ncols")->get<int>();
         auto nChans = args.at("nchannels")->get<int>();
+        
         auto newR = args.at("r")->get<int>();
-
-        //cout << "Got r from create stencil = " << newR << endl;
         auto newC = args.at("c")->get<int>();
         auto newB = args.at("b")->get<int>();
 
@@ -581,7 +582,7 @@ void loadHalideLib(CoreIR::Context* context) {
           if ((i == newR) && (j == newC) && (b == newB)) {
             def->connect(def->sel("self")->sel("new_val"), self->sel("out")->sel(b)->sel(j)->sel(i));
           } else {
-            def->connect(self->sel("in_stencil")->sel(i)->sel(j)->sel(b), self->sel("out")->sel(j)->sel(i)->sel(b));
+            def->connect(self->sel("in_stencil")->sel(b)->sel(j)->sel(i), self->sel("out")->sel(b)->sel(j)->sel(i));
           }
           }
         }
