@@ -2391,20 +2391,38 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
+    HWFunction* f;
 
-    void visit(const LetStmt* l) {
-      hwVars.push_back(l->name);
-      IRGraphVisitor::visit(l);
+    void visit(const Variable* v) {
+      auto allStreams = allStreamNames(*f);
+      if (!CoreIR::elem(v->name, allStreams) && !CoreIR::elem(v->name, hwVars)) {
+        hwVars.push_back(v->name);
+      }
     }
+
+    void addVar(const std::string& name) {
+      if (!CoreIR::elem(name, hwVars)) {
+        hwVars.push_back(name);
+      }
+    }
+
+    //void visit(const LetStmt* l) {
+      //addVar(l->name);
+      ////hwVars.push_back(l->name);
+      //IRGraphVisitor::visit(l);
+    //}
+
     void visit(const For* lp) {
-      hwVars.push_back(lp->name);
+      addVar(lp->name);
+      //hwVars.push_back(lp->name);
 
       IRGraphVisitor::visit(lp);
     }
 };
 
-vector<std::string> extractHardwareVars(const For* lp) {
+vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
   HWVarExtractor ex;
+  ex.f = &f;
   lp->accept(&ex);
   return ex.hwVars;
 }
@@ -2524,8 +2542,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       cout << "Original body.." << endl;
       cout << lp->body << endl;
 
-      auto hwVars = extractHardwareVars(lp);
       HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
+      auto hwVars = extractHardwareVars(lp, f);
+      cout << "All hardware vars.." << endl;
+      for (auto hv : hwVars) {
+        cout << "\t" << hv << endl;
+      }
       f.controlVars = hwVars;
       auto& body = f.body;
 
