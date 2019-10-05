@@ -43,7 +43,8 @@ void small_conv_3_3_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+  int tileSize = 4;
+  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
 
   conv.update()
@@ -52,6 +53,14 @@ void small_conv_3_3_test() {
   conv.linebuffer();
 
   hw_input.stream_to_accelerator();
+
+  Target t;
+  t = t.with_feature(Target::Feature::CoreIR);
+  auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
+
+  cout << "Module = " << endl;
+  cout << halideMod << endl;
+
 }
 
 void pointwise_add_test() {
