@@ -44,9 +44,23 @@ void pointwise_test() {
       cout << "Error: Could not load json for unit test!" << endl;
       context->die();
     }
-    context->runPasses({"rungenerators", "flattentypes", "flatten"});
+    context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
     CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
+    cout << "Module..." << endl;
+    m->print();
     SimulatorState state(m);
+
+    state.setValue("self.in_en", BitVector(1, 1));
+    state.setValue("self.in_arg_0_0_0", BitVector(16, 123));
+    
+    state.resetCircuit();
+    cout << "Starting to execute" << endl;
+
+    state.exeCombinational();
+
+    assert(state.getBitVec("self.out_0_0") == BitVec(16, 123 + 10));
+    assert(state.getBitVec("self.valid") == BitVec(1, 1));
+
     deleteContext(context);
 
     cout << "Test passed!" << endl;
