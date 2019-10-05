@@ -54,6 +54,14 @@ void small_conv_3_3_test() {
 
   hw_input.stream_to_accelerator();
 
+  // What I would like:
+  // Be able to run either the CPU implementation or the mixed coreir / cpu
+  // implementation on any given function
+  // OR for simple tests:
+  // Be able to run the entire thing in coreir and just check equivalence at the end
+  //
+  // I also want to be able to run just coreir synthesis on individual kernels with
+  // different settings for hardware parameters (operation latencies / IIs)
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
   auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
