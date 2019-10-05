@@ -1,4 +1,5 @@
 #include "coreir.h"
+#include "coreir/simulator/interpreter.h"
 
 #include "Halide.h"
 
@@ -39,8 +40,16 @@ void pointwise_test() {
     hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
 
     Context* context = newContext();
-
+    if (!loadFromFile(context, "./conv_3_3_app.json")) {
+      cout << "Error: Could not load json for unit test!" << endl;
+      context->die();
+    }
+    context->runPasses({"rungenerators", "flattentypes", "flatten"});
+    CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
+    SimulatorState state(m);
     deleteContext(context);
+
+    cout << "Test passed!" << endl;
 }
 
 int main(int argc, char **argv) {
