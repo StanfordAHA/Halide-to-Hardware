@@ -1,5 +1,7 @@
 #include "coreir.h"
 #include "coreir/simulator/interpreter.h"
+#include "coreir/libs/commonlib.h"
+#include "coreir/libs/float.h"
 
 #include "Halide.h"
 
@@ -11,6 +13,31 @@ using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
+
+CoreIR::Context* hwContext() {
+  CoreIR::Context* context = newContext();
+  CoreIRLoadLibrary_commonlib(context);
+  CoreIRLoadLibrary_float(context);
+  return context;
+}
+
+CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  Target t;
+  t = t.with_feature(Target::Feature::CoreIR);
+  hwOutput.compile_to_coreir(name, args, fName, t);
+  //hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
+
+  //Context* context = newContext();
+  if (!loadFromFile(context, "./conv_3_3_app.json")) {
+    cout << "Error: Could not load json for unit test!" << endl;
+    context->die();
+  }
+  context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
+  CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
+  cout << "Module..." << endl;
+  m->print();
+  return m;
+}
 
 void small_conv_3_3_test() {
   ImageParam input(type_of<uint8_t>(), 2);
@@ -54,39 +81,28 @@ void small_conv_3_3_test() {
 
   hw_input.stream_to_accelerator();
 
-  // What I would like:
-  // Be able to run either the CPU implementation or the mixed coreir / cpu
-  // implementation on any given function
-  // OR for simple tests:
-  // Be able to run the entire thing in coreir and just check equivalence at the end
-  //
-  // I also want to be able to run just coreir synthesis on individual kernels with
-  // different settings for hardware parameters (operation latencies / IIs)
-  Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
-  auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
-
-  cout << "Module = " << endl;
-  cout << halideMod << endl;
-
-}
-
-CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
-  Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
-  hwOutput.compile_to_coreir(name, args, fName, t);
-  //hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
-
+  auto context = hwContext();
   //Context* context = newContext();
-  if (!loadFromFile(context, "./conv_3_3_app.json")) {
-    cout << "Error: Could not load json for unit test!" << endl;
-    context->die();
-  }
-  context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
-  CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
-  cout << "Module..." << endl;
-  m->print();
-  return m;
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  SimulatorState state(m);
+
+  deleteContext(context);
+  //// What I would like:
+  //// Be able to run either the CPU implementation or the mixed coreir / cpu
+  //// implementation on any given function
+  //// OR for simple tests:
+  //// Be able to run the entire thing in coreir and just check equivalence at the end
+  ////
+  //// I also want to be able to run just coreir synthesis on individual kernels with
+  //// different settings for hardware parameters (operation latencies / IIs)
+  //Target t;
+  //t = t.with_feature(Target::Feature::CoreIR);
+  //auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
+
+  //cout << "Module = " << endl;
+  //cout << halideMod << endl;
+
 }
 
 void pointwise_add_test() {
