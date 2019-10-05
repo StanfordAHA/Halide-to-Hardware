@@ -1,3 +1,4 @@
+#include "coreir.h"
 
 #include "Halide.h"
 
@@ -33,28 +34,9 @@ void pointwise_test() {
     
     hwInput.stream_to_accelerator();
     
-    //cout << "Loop nest" << endl;
-    //brighter.print_loop_nest();
-    //auto m = brighter.compile_to_module({input}, "brighter");
-    //cout << "Module..." << endl;
-    //cout << m << endl;
-
     Target t;
     t = t.with_feature(Target::Feature::CoreIR);
     hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
-
-
-  //Input<Buffer<uint8_t>>  input{"input", 2};
-  //Output<Buffer<uint8_t>> output{"output", 2};
-  
-  //Var x, y;
-  //Halide::Func gradient;
-  //gradient(x, y) = input(x, y) + 10;
-
-  //Halide::Buffer<uint16_t> in(4, 4);
-
-  //Halide::Buffer<uint16_t> out(4, 4);
-  //out = gradient.realize(out.width(), out.height());;
 }
 
 int main(int argc, char **argv) {
