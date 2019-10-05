@@ -86,6 +86,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
              const vector<Argument> &args, const LinkageType linkage_type,
              const vector<IRMutator *> &custom_passes) {
 
+  std::cout << "Starting lowering..." << std::endl;
+  std::cout << "Target = " << t << std::endl;
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
 
@@ -193,6 +195,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
     if (t.has_feature(Target::CoreIRHLS) || t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
+
+      std::cout << "Now we are doing HLS specific optimizations" << std::endl;
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';

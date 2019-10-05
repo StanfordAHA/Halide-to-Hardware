@@ -4,6 +4,7 @@
 #include "halide_image_io.h"
 #include <stdio.h>
 #include <iostream>
+//#include "IRPrinter.h"
 
 using namespace Halide;
 using namespace Halide::Tools;
@@ -11,22 +12,36 @@ using namespace std;
 
 void pointwise_test() {
 
-    Func brighter;
     Var x, y;
     Var xo, yo, xi, yi;
 
     ImageParam input(type_of<uint8_t>(), 2);
 
-    brighter(x, y) = input(x, y) + 10;
+    Func hwInput("hw_input");
+    Func hwOutput("hw_output");
+    Func brighter("brighter");
+    
+    hwInput(x, y) = input(x, y);
+    brighter(x, y) = hwInput(x, y) + 10;
+    hwOutput(x, y) = brighter(x, y);
 
-    //brighter.compile_to_static_library("cpu_brighter", {input}, "brighter");
+    hwInput.compute_root();
+    hwOutput.compute_root();
 
-    //input.compute_root();
-    brighter.tile(x, y, xo, yo, xi, yi, 4, 4).hw_accelerate(xi, xo);
-    cout << "Loop nest" << endl;
-    brighter.print_loop_nest();
+    hwOutput.tile(x, y, xo, yo, xi, yi, 4, 4).hw_accelerate(xi, xo);
+    brighter.linebuffer();
+    
+    hwInput.stream_to_accelerator();
+    
+    //cout << "Loop nest" << endl;
+    //brighter.print_loop_nest();
+    //auto m = brighter.compile_to_module({input}, "brighter");
+    //cout << "Module..." << endl;
+    //cout << m << endl;
 
-    brighter.compile_to_coreir("coreir_brighter", {input}, "brighter");
+    Target t;
+    t = t.with_feature(Target::Feature::CoreIR);
+    hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
 
 
   //Input<Buffer<uint8_t>>  input{"input", 2};
