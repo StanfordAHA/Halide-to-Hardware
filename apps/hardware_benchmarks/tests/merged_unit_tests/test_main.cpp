@@ -71,6 +71,24 @@ void small_conv_3_3_test() {
 
 }
 
+CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  Target t;
+  t = t.with_feature(Target::Feature::CoreIR);
+  hwOutput.compile_to_coreir(name, args, fName, t);
+  //hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
+
+  //Context* context = newContext();
+  if (!loadFromFile(context, "./conv_3_3_app.json")) {
+    cout << "Error: Could not load json for unit test!" << endl;
+    context->die();
+  }
+  context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
+  CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
+  cout << "Module..." << endl;
+  m->print();
+  return m;
+}
+
 void pointwise_add_test() {
 
     Var x, y;
@@ -94,19 +112,9 @@ void pointwise_add_test() {
     
     hwInput.stream_to_accelerator();
     
-    Target t;
-    t = t.with_feature(Target::Feature::CoreIR);
-    hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
-
     Context* context = newContext();
-    if (!loadFromFile(context, "./conv_3_3_app.json")) {
-      cout << "Error: Could not load json for unit test!" << endl;
-      context->die();
-    }
-    context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
-    CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
-    cout << "Module..." << endl;
-    m->print();
+    vector<Argument> args{input};
+    auto m = buildModule(context, "coreir_brighter", args, "brighter", hwOutput);
     SimulatorState state(m);
 
     state.setValue("self.in_en", BitVector(1, 1));
