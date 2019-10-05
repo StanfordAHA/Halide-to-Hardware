@@ -5,8 +5,8 @@
 #include "halide_image_io.h"
 #include <stdio.h>
 #include <iostream>
-//#include "IRPrinter.h"
 
+using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
@@ -37,6 +37,10 @@ void pointwise_test() {
     Target t;
     t = t.with_feature(Target::Feature::CoreIR);
     hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
+
+    Context* context = newContext();
+
+    deleteContext(context);
 }
 
 int main(int argc, char **argv) {
