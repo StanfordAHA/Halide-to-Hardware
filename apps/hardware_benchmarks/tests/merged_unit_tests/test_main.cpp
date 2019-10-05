@@ -5,36 +5,41 @@
 #include <stdio.h>
 #include <iostream>
 
+using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
 
+void pointwise_test() {
+  Halide::Buffer<uint16_t> in(4, 4);
+
+  Var x, y;
+  Halide::Func gradient;
+  gradient(x, y) = in(x, y) + 10;
+
+  Halide::Buffer<uint16_t> out(4, 4);
+  out = gradient.realize(out.width(), out.height());;
+}
+
 int main(int argc, char **argv) {
 
-    Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
-    cout << "Input rows = " << input.height() << endl;
+  pointwise_test();
 
-    Halide::Func gradient;
-    Halide::Var x, y;
-    Halide::Expr e = x + y;
+  Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
+  cout << "Input rows = " << input.height() << endl;
 
-    gradient(x, y) = e;
+  Halide::Var x, y, c;
+  auto value = input(x, y, c);
 
-    Halide::Buffer<int32_t> output = gradient.realize(800, 600);
+  Halide::Func gradient;
 
-    for (int j = 0; j < output.height(); j++) {
-        for (int i = 0; i < output.width(); i++) {
-            // We can access a pixel of an Buffer object using similar
-            // syntax to defining and using functions.
-            if (output(i, j) != i + j) {
-                printf("Something went wrong!\n"
-                       "Pixel %d, %d was supposed to be %d, but instead it's %d\n",
-                       i, j, i+j, output(i, j));
-                return -1;
-            }
-        }
-    }
+  gradient(x, y, c) = value + 10;
 
-    printf("All tests passed!\n");
+  Halide::Buffer<uint8_t> output =
+    gradient.realize(input.width(), input.height(), input.channels());
 
-    return 0;
+  save_image(output, "brighter_halide_coreir.png");
+
+  printf("All tests passed!\n");
+
+  return 0;
 }
