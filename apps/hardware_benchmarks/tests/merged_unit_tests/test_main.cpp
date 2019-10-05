@@ -19,10 +19,16 @@ void pointwise_test() {
 
     brighter(x, y) = input(x, y) + 10;
 
-    brighter.compile_to_static_library("cpu_brighter", {input}, "brighter");
+    //brighter.compile_to_static_library("cpu_brighter", {input}, "brighter");
 
-    brighter.tile(x, y, xo, yo, xi, yi, 2, 2).hw_accelerate(xi, yi);
+    //input.compute_root();
+    brighter.tile(x, y, xo, yo, xi, yi, 4, 4).hw_accelerate(xi, xo);
+    cout << "Loop nest" << endl;
+    brighter.print_loop_nest();
+
     brighter.compile_to_coreir("coreir_brighter", {input}, "brighter");
+
+
   //Input<Buffer<uint8_t>>  input{"input", 2};
   //Output<Buffer<uint8_t>> output{"output", 2};
   
@@ -40,22 +46,22 @@ int main(int argc, char **argv) {
 
   pointwise_test();
 
-  Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
-  cout << "Input rows = " << input.height() << endl;
+  //Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
+  //cout << "Input rows = " << input.height() << endl;
 
-  Halide::Var x, y, c;
-  auto value = input(x, y, c);
+  //Halide::Var x, y, c;
+  //auto value = input(x, y, c);
 
-  Halide::Func gradient;
+  //Halide::Func gradient;
 
-  gradient(x, y, c) = value + 10;
+  //gradient(x, y, c) = value + 10;
 
-  Halide::Buffer<uint8_t> output =
-    gradient.realize(input.width(), input.height(), input.channels());
+  //Halide::Buffer<uint8_t> output =
+    //gradient.realize(input.width(), input.height(), input.channels());
 
-  save_image(output, "brighter_halide_coreir.png");
+  //save_image(output, "brighter_halide_coreir.png");
 
-  printf("All tests passed!\n");
+  //printf("All tests passed!\n");
 
   return 0;
 }
