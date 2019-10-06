@@ -115,6 +115,53 @@ class CoordinateVector {
 
 };
 
+bool hasClock(CoreIR::Module* m) {
+  for (auto f : m->getType()->getRecord()) {
+    if (isClockOrNestedClockType(f.second, m->getContext()->Named("coreir.clkIn"))) {
+      cout << "Found clock" << endl;
+      return true;
+    }
+  }
+  return false;
+}
+template<typename T>
+void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+  
+  SimulatorState state(m);
+  state.setValue(inputName, BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  if (hasClock(m)) {
+    state.setClock("self.clk", 0, 1);
+  }
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
+
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+}
+template<typename T>
+void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+  runHWKernel("self.in_arg_0_0_0", m, hwInputBuf, outputBuf);
+}
+
 CoreIR::Context* hwContext() {
   CoreIR::Context* context = newContext();
   CoreIRLoadLibrary_commonlib(context);
@@ -235,41 +282,8 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
     cout << endl;
   }
 
-  assert(false);
 }
 
-template<typename T>
-void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
-  std::string inputName = "self.in_arg_1_0_0";
-  
-  SimulatorState state(m);
-  state.setValue(inputName, BitVector(16, 0));
-  state.setValue("self.in_en", BitVector(1, 0));
-  state.setClock("self.clk", 0, 1);
-  state.setValue("self.reset", BitVector(1, 1));
-
-  state.resetCircuit();
-
-  state.setValue("self.reset", BitVector(1, 0));
-
-  int maxCycles = 100;
-  int cycles = 0;
-
-  std::string outputName = "self.out_0_0";
-  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
-  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
-  while (cycles < maxCycles && !readIdx.allDone()) {
-    cout << "Read index = " << readIdx.coordString() << endl;
-    cout << "Cycles     = " << cycles << endl;
-
-    run_for_cycle(writeIdx, readIdx,
-        hwInputBuf, outputBuf,
-        inputName, outputName,
-        state);
-    cycles++;
-  }
-}
 
 template<typename T>
 void printBuffer(T& inputBuf, std::ostream& out) {
@@ -370,8 +384,8 @@ void clamped_grad_x_test() {
 }
 
 void clamp_test() {
-  ImageParam input(type_of<uint16_t>(), 2);
-  ImageParam output(type_of<uint16_t>(), 2);
+  ImageParam input(type_of<int16_t>(), 2);
+  ImageParam output(type_of<int16_t>(), 2);
 
   Var x("x"), y("y");
 
@@ -379,39 +393,48 @@ void clamp_test() {
 
   Func hw_input, hw_output, clamped;
   hw_input(x, y) = input(x, y);
-  clamped(x, y) = clamp(hw_input(x, y), cast<uint16_t>(-255), cast<uint16_t>(255));
+  clamped(x, y) = clamp(hw_input(x, y), cast<int16_t>(-255), cast<int16_t>(255));
 
-  hw_output(x, y) = clamped(x, y);
-
-  hw_output(x, y) = cast<uint16_t>(clamped(x, y));
-  output(x, y) = hw_output(x,y);
+  hw_output(x, y) = cast<int16_t>(clamped(x, y));
+  output(x, y) = hw_output(x, y);
 
   // Create common elements of the CPU and hardware schedule
   hw_input.compute_root();
   hw_output.compute_root();
 
-  assert(false);
-
-   ////Creating input data
-  //Halide::Buffer<uint16_t> inputBuf(16, 16);
-  //Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
-  //Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
-  //for (int i = 0; i < inputBuf.height(); i++) {
-    //for (int j = 0; j < inputBuf.width(); j++) {
-      //inputBuf(i, j) = rand() % 255;
-      //hwInputBuf(i, j, 0) = inputBuf(i, j);
-    //}
-  //}
+   // Creating input data
+  Halide::Buffer<int16_t> inputBuf(2, 2);
+  Halide::Runtime::Buffer<int16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<int16_t> outputBuf(2, 2, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = rand();
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
 
    //Creating CPU reference output
-  //Halide::Buffer<uint16_t> cpuOutput(4, 4);
-  //ParamMap rParams;
-  //rParams.set(input, inputBuf);
-  //Target t;
-  //hw_output.realize(cpuOutput, t, rParams);
+  Halide::Buffer<int16_t> cpuOutput(2, 2);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
 
-  //compare_buffers(outputBuf, cpuOutput);
-  cout << GREEN << "Harris test passed" << RESET << endl;
+  // Create HW schedule
+  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2).hw_accelerate(xi, xo);
+  clamped.linebuffer();
+  hw_input.stream_to_accelerator();
+
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
+
+  runHWKernel(m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  cout << GREEN << "Clamp test passed" << RESET << endl;
 }
 
 void small_harris_test() {
