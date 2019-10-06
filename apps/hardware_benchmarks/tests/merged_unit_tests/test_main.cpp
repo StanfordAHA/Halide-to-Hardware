@@ -275,7 +275,7 @@ template<typename T>
 void printBuffer(T& inputBuf, std::ostream& out) {
   for (int i = inputBuf.top(); i < inputBuf.bottom(); i++) {
     for (int j = inputBuf.left(); j < inputBuf.right(); j++) {
-      out << inputBuf(i, j) << " ";
+      out << inputBuf(j, i) << " ";
     }
     out << endl;
   }
@@ -326,7 +326,7 @@ void clamped_grad_x_test() {
 
   {
     Halide::Buffer<uint16_t> paddingOut(4, 4);
-    paddingOut.set_min(-2, -2);
+    paddingOut.set_min(-3, -3);
     cout << "Padding y range = " << paddingOut.bottom() << ", " << paddingOut.top() << endl;
     ParamMap rParams;
     rParams.set(input, inputBuf);
