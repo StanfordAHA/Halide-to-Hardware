@@ -260,7 +260,6 @@ void small_harris_test() {
 
   // calculate Cim
   // int scale = (1 << (Ksize - 1)) * blockSize
-  // ??
   Func cim;
   Expr det = lgxx8*lgyy8 - lgxy8*lgxy8;
   Expr trace = lgxx8 + lgyy8;
