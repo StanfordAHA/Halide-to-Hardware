@@ -181,7 +181,10 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
     //coreir_img_writer.write(output_value);
 
-    output(x,y,c) = output_value;
+    const int xr = readIdx.coord("x");
+    const int yr = readIdx.coord("y");
+    const int cr = readIdx.coord("c");
+    output(xr, yr, cr) = output_value;
     //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
     readIdx.increment();
   }
