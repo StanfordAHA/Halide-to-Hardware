@@ -203,8 +203,8 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
 void small_cascade_test() {
 
-  ImageParam input(type_of<uint8_t>(), 2);
-  ImageParam output(type_of<uint8_t>(), 2);
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
 
   Var x("x"), y("y");
 
@@ -213,9 +213,11 @@ void small_cascade_test() {
   RDom r(0, 3,
       0, 3);
 
+  RDom r0(0, 3,
+      0, 3);
   kernel(x,y) = 0;
   kernel(0,0) = 1;      kernel(0,1) = 2;      kernel(0,2) = 1;
-  kernel(1,0) = 2;      kernel(1,1) = 4;      kernel(1,2) = 2;
+  kernel(1,0) = 2;      kernel(1,1) = 4;      kernel(1,2) = 3;
   kernel(2,0) = 1;      kernel(2,1) = 2;      kernel(2,2) = 1;
 
   conv1(x, y) = 0;
@@ -223,31 +225,41 @@ void small_cascade_test() {
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
   conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
-  conv2(x, y)  += kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
+  
+  //conv2(x, y) = conv1(x, y);
+  conv2(x, y)  += kernel(r0.x, r0.y) * conv1(x + r0.x, y + r0.y);
+  //conv1(x, y) + 10;
+  //kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
+  //conv2(x, y) = conv1(x, y);
+  
+  kernel.compute_root();
 
   Func hw_output("hw_output");
-  hw_output(x, y) = cast<uint8_t>(conv2(x, y));
+  hw_output(x, y) = cast<uint16_t>(conv2(x, y));
+  // cast<uint8_t>((conv1(x, y)));
+    //cast<uint8_t>(12); //cast<uint8_t>(conv2(x, y));
   output(x, y) = hw_output(x,y);
 
-  Var xi,yi, xo,yo;
+  //Var xi,yi, xo,yo;
 
   hw_input.compute_root();
   hw_output.compute_root();
 
   // Creating input data
-  Halide::Buffer<uint8_t> inputBuf(8, 8);
-  Halide::Runtime::Buffer<uint8_t> hwInputBuf(8, 8, 1);
+  Halide::Buffer<uint16_t> inputBuf(8, 8);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(8, 8, 1);
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
-      for (int b = 0; b < 1; b++) {
-        inputBuf(i, j, b) = 10;
-        hwInputBuf(i, j, b) = inputBuf(i, j, b);
-      }
+      inputBuf(i, j) = 11;
+      //for (int b = 0; b < 1; b++) {
+        //inputBuf(i, j, b) = 11;
+        //hwInputBuf(i, j, b) = inputBuf(i, j, b);
+      //}
     }
   }
  
   // Creating CPU reference output
-  Halide::Buffer<uint8_t> cpuOutput(4, 4);
+  Halide::Buffer<uint16_t> cpuOutput(4, 4);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
@@ -260,23 +272,23 @@ void small_cascade_test() {
     cout << endl;
   }
 
-  int tileSize = 8;
-  hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
-    .hw_accelerate(xi, xo);
+  //int tileSize = 8;
+  //hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
+    //.hw_accelerate(xi, xo);
 
-  kernel.compute_at(hw_output, xo);
+  //kernel.compute_at(hw_output, xo);
 
-  conv1.update()
-    .unroll(r.x)
-    .unroll(r.y);
-  conv1.linebuffer();
+  //conv1.update()
+    //.unroll(r.x)
+    //.unroll(r.y);
+  //conv1.linebuffer();
 
-  conv2.update()
-    .unroll(r.x)
-    .unroll(r.y);
-  conv2.linebuffer();
+  //conv2.update()
+    //.unroll(r.x)
+    //.unroll(r.y);
+  //conv2.linebuffer();
 
-  hw_input.stream_to_accelerator();
+  //hw_input.stream_to_accelerator();
   cout << GREEN << "Cascade test passed" << RESET << endl;
 }
 
@@ -449,8 +461,8 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  pointwise_add_test();
-  small_conv_3_3_test();
+  //pointwise_add_test();
+  //small_conv_3_3_test();
   small_cascade_test();
 
   //Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
