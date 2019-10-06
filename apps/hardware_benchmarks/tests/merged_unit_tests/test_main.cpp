@@ -242,12 +242,26 @@ void small_conv_3_3_test() {
 
   // Creating CPU output
   Halide::Buffer<uint8_t> inputBuf(4, 4);
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      for (int b = 0; b < 1; b++) {
+        inputBuf(i, j, b) = 12;
+      }
+    }
+  }
   Halide::Buffer<uint8_t> outputBuf(2, 2);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   //rParams.set(output, outputBuf);
   Target t;
   hw_output.realize(outputBuf, t, rParams);
+  cout << "After realizing..." << endl;
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
+      cout << (int) outputBuf(i, j) << " ";
+    }
+    cout << endl;
+  }
   //Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
   
   //Halide::Runtime::Buffer<uint8_t> inputBuf(4, 4, 1);
