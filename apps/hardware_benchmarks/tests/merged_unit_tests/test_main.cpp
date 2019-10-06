@@ -110,6 +110,7 @@ class CoordinateVector {
     }
 
 };
+
 CoreIR::Context* hwContext() {
   CoreIR::Context* context = newContext();
   CoreIRLoadLibrary_commonlib(context);
@@ -260,14 +261,24 @@ void small_conv_3_3_test() {
   int cycles = 0;
   
   Halide::Runtime::Buffer<uint8_t> inputBuf(4, 4, 1);
+  Buffer<uint8_t> paramBuf(4, 4, 1);
+  Buffer<uint8_t> outParamBuf(2, 2, 1);
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       for (int b = 0; b < 1; b++) {
         inputBuf(i, j, b) = 12;
+        paramBuf(i, j, b) = 12;
       }
     }
   }
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+
+  ParamMap rParams;
+  rParams.set(input, paramBuf);
+  rParams.set(output, outParamBuf);
+  Target t;
+  Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
+  //inputBuf.height(), inputBuf.width(), inputBuf.channels());
  
   std::string inputName = "self.in_arg_0_0_0";
   std::string outputName = "self.out_0_0";
