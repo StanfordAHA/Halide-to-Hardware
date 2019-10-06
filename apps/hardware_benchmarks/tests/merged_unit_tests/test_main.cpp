@@ -201,6 +201,175 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   state.exeSequential();
 }
 
+void small_harris_test() {
+
+  int blockSize = 3;
+
+  // k is a sensitivity parameter for detecting corners.
+  // k should vary from 0.04 to 0.15 according to literature.
+  int shiftk = 4; // equiv to k = 0.0625
+
+  // Threshold for cornerness measure.
+  int threshold = 1;
+  // Build the app
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Var xi,yi, xo,yo;
+
+  Func padded16, padded;
+  padded16(x, y) = input(x + 3, y + 3);
+
+  // Sobel filter
+  Func grad_x_unclamp, grad_y_unclamp, grad_x, grad_y;
+  grad_x_unclamp(x, y) = cast<int16_t>(-padded16(x - 1, y - 1) + padded16(x + 1, y - 1)
+      -2*padded16(x - 1, y) + 2*padded16(x + 1, y)
+      -padded16(x-1, y+1) + padded16(x + 1, y + 1));
+
+  grad_y_unclamp(x, y) = cast<int16_t>(padded16(x - 1, y + 1) - padded16(x - 1, y - 1) +
+      2*padded16(x, y + 1) - 2*padded16(x, y - 1) + 
+      padded16(x + 1, y + 1) - padded16(x + 1, y - 1));
+
+  grad_x(x, y) = clamp(grad_x_unclamp(x, y), -255, 255);
+  grad_y(x, y) = clamp(grad_y_unclamp(x, y), -255, 255);
+
+  // Product of gradients
+  Func grad_xx, grad_yy, grad_xy;
+  grad_xx(x, y) = grad_x(x, y) * grad_x(x, y);
+  grad_yy(x, y) = grad_y(x, y) * grad_y(x, y);
+  grad_xy(x, y) = grad_x(x, y) * grad_y(x, y);
+
+  // Shift gradients
+  Func lxx, lyy, lxy;
+  lxx(x, y) = grad_xx(x, y) >> 7;
+  lyy(x, y) = grad_yy(x, y) >> 7;
+  lxy(x, y) = grad_xy(x, y) >> 7;
+
+  // Box filter
+  Func lgxx, lgyy, lgxy;
+  RDom box(-blockSize / 2, blockSize, -blockSize/2, blockSize);
+  lgxx(x, y) += lxx(x + box.x, y + box.y);
+  lgyy(x, y) += lyy(x + box.x, y + box.y);
+  lgxy(x, y) += lxy(x + box.x, y + box.y);
+
+  Expr lgxx8 = lgxx(x, y) >> 6;
+  Expr lgyy8 = lgyy(x, y) >> 6;
+  Expr lgxy8 = lgxy(x, y) >> 6;
+
+  // calculate Cim
+  // int scale = (1 << (Ksize - 1)) * blockSize
+  // ??
+  Func cim;
+  Expr det = lgxx8*lgyy8 - lgxy8*lgxy8;
+  Expr trace = lgxx8 + lgyy8;
+  cim(x, y) = det - (trace*trace >> shiftk);
+
+  // Perform non-maximal suppression
+  Func hw_output("hw_output");
+  Expr is_max = cim(x, y) > cim(x - 1, y - 1) && cim(x, y) > cim(x, y - 1) &&
+    cim(x, y) > cim(x + 1, y - 1) && cim(x, y) > cim(x - 1, y) &&
+    cim(x, y) > cim(x + 1, y) && cim(x, y) > cim(x - 1, y  + 1) &&
+    cim(x, y) > cim(x, y + 1) && cim(x, y) > cim(x + 1, y + 1);
+  hw_output(x, y) = cast<uint16_t>(select(is_max && (cim(x, y) >= threshold), 255, 0));
+  output(x, y) = hw_output(x,y);
+
+  // Create common elements of the CPU and hardware schedule
+
+  //hw_input.compute_root();
+  hw_output.compute_root();
+
+  // Creating input data
+  Halide::Buffer<uint16_t> inputBuf(16, 16);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = rand() % 255;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+ 
+  // Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  cout << "CPU output..." << endl;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      cout << (int) cpuOutput(i, j) << " ";
+    }
+    cout << endl;
+  }
+
+  ////int tileSize = 8;
+  //hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
+    //.hw_accelerate(xi, xo);
+
+  //conv1.update()
+    //.unroll(r.x)
+    //.unroll(r.y);
+  //conv1.linebuffer();
+
+  //conv2.update()
+    //.unroll(r0.x)
+    //.unroll(r0.y);
+  //conv2.linebuffer();
+
+  //hw_input.stream_to_accelerator();
+  
+  //auto context = hwContext();
+  //vector<Argument> args{input};
+  //auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
+  ////cout << "Module = " << endl;
+  //m->print();
+
+  //SimulatorState state(m);
+  //state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  //state.setValue("self.in_en", BitVector(1, 0));
+  //state.setClock("self.clk", 0, 1);
+  //state.setValue("self.reset", BitVector(1, 1));
+
+  //state.resetCircuit();
+
+  //state.setValue("self.reset", BitVector(1, 0));
+
+  //int maxCycles = 100;
+  //int cycles = 0;
+
+  //std::string inputName = "self.in_arg_0_0_0";
+  //std::string outputName = "self.out_0_0";
+  //CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  //CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  //while (cycles < maxCycles && !readIdx.allDone()) {
+    //cout << "Read index = " << readIdx.coordString() << endl;
+    //cout << "Cycles     = " << cycles << endl;
+
+    //run_for_cycle(writeIdx, readIdx,
+        //hwInputBuf, outputBuf,
+        //inputName, outputName,
+        //state);
+    //cycles++;
+  //}
+
+  //cout << "final buffer" << endl;
+  //for (int i = 0; i < outputBuf.height(); i++) {
+    //for (int j = 0; j < outputBuf.width(); j++) {
+      //for (int b = 0; b < outputBuf.channels(); b++) {
+        ////cout << (int) outputBuf(i, j, b) << " ";
+        ////cout << (int) cpuOutput(i, j, b) << " ";
+        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      //}
+    //}
+    //cout << endl;
+  //}
+  //cout << GREEN << "Harris test passed" << RESET << endl;
+}
+
 void small_cascade_test() {
 
   ImageParam input(type_of<uint16_t>(), 2);
@@ -284,7 +453,7 @@ void small_cascade_test() {
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_cascade", args, "cascade", hw_output);
-  cout << "Module = " << endl;
+  //cout << "Module = " << endl;
   m->print();
 
   SimulatorState state(m);
@@ -320,8 +489,8 @@ void small_cascade_test() {
   for (int i = 0; i < outputBuf.height(); i++) {
     for (int j = 0; j < outputBuf.width(); j++) {
       for (int b = 0; b < outputBuf.channels(); b++) {
-        cout << (int) outputBuf(i, j, b) << " ";
-        cout << (int) cpuOutput(i, j, b) << " ";
+        //cout << (int) outputBuf(i, j, b) << " ";
+        //cout << (int) cpuOutput(i, j, b) << " ";
         assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
       }
     }
@@ -502,23 +671,7 @@ int main(int argc, char **argv) {
   pointwise_add_test();
   small_conv_3_3_test();
   small_cascade_test();
-
-  //Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
-  //cout << "Input rows = " << input.height() << endl;
-
-  //Halide::Var x, y, c;
-  //auto value = input(x, y, c);
-
-  //Halide::Func gradient;
-
-  //gradient(x, y, c) = value + 10;
-
-  //Halide::Buffer<uint8_t> output =
-    //gradient.realize(input.width(), input.height(), input.channels());
-
-  //save_image(output, "brighter_halide_coreir.png");
-
-  //printf("All tests passed!\n");
+  small_harris_test();
 
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
