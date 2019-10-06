@@ -14,6 +14,102 @@ using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
 
+template<typename T>
+class CoordinateVector {
+  public:
+
+    std::vector<T> values;
+    std::vector<std::string> names;
+    std::vector<T> bounds;
+
+    bool finished;
+
+    CoordinateVector(vector<std::string> names_, vector<T> bounds_) : names(names_), bounds(bounds_), finished(false) {
+      values.resize(names.size());
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        values[i] = 0;
+      }
+    }
+
+    CoordinateVector(vector<std::string>& names_, vector<T>& bounds_) : names(names_), bounds(bounds_), finished(false) {
+      values.resize(names.size());
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        values[i] = 0;
+      }
+    }
+
+    int coord(const std::string& str) {
+      for (int i = 0; i < (int) names.size(); i++) {
+        auto cN = names[i];
+        if (cN == str) {
+          return values[i];
+        }
+      }
+
+      assert(false);
+    }
+
+    std::string coordString() const {
+      std::string str = "{";
+      for (int i = 0; i < ((int) bounds.size()); i++) {
+        str += std::to_string(values[i]) + " : " + std::to_string(bounds[i]);
+        if (i < ((int) bounds.size()) - 1) {
+          str += ", ";
+        }
+      }
+      str += "}";
+      return str;
+    }
+    bool allLowerAtMax(const int level) const {
+      if (level == ((int) bounds.size()) - 1) {
+        return true;
+      }
+
+      for (int i = level + 1; i < (int) bounds.size(); i++) {
+        if (!atMax(i)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    bool atMax(const int level) const {
+      bool atM = bounds[level] == values[level];
+      //cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
+      return atM;
+    }
+
+    bool allAtMax() const {
+      return atMax(0) && allLowerAtMax(0);
+    }
+
+    bool allDone() const {
+      return finished && atMax(0) && allLowerAtMax(0);
+    }
+    
+    void increment() {
+      if (allAtMax() && !allDone()) {
+        finished = true;
+      }
+
+      if (allDone()) {
+        return;
+      }
+
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        if (allLowerAtMax(i)) {
+          values[i]++;
+
+          for (int j = i + 1; j < (int) bounds.size(); j++) {
+            values[j] = 0;
+          }
+          break;
+        }
+      }
+    }
+
+};
 CoreIR::Context* hwContext() {
   CoreIR::Context* context = newContext();
   CoreIRLoadLibrary_commonlib(context);
@@ -37,6 +133,65 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   cout << "Module..." << endl;
   m->print();
   return m;
+}
+
+template<typename T>
+void run_for_cycle(CoordinateVector<int>& writeIdx,
+    CoordinateVector<int>& readIdx,
+
+    Halide::Runtime::Buffer<T> input,
+    Halide::Runtime::Buffer<T> output,
+    string input_name,
+    string output_name,
+
+    CoreIR::SimulatorState& state
+    ) {
+
+  const int x = writeIdx.coord("x");
+  const int y = writeIdx.coord("y");
+  const int c = writeIdx.coord("c");
+
+  if (!writeIdx.allDone()) {
+
+    state.setValue("self.in_en", BitVector(1, true));
+
+    state.setValue(input_name, BitVector(16, input(x,y,c)));
+    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+    std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+
+    writeIdx.increment();
+  } else {
+    state.setValue("self.in_en", BitVector(1, false));
+  }
+  // propogate to all wires
+  state.exeCombinational();
+
+  // read output wire
+  //std::cout << "using valid\n";
+  bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+  //std::cout << "got my valid\n";
+  //cout << "output_bv_n = " << output_bv_n << endl;
+  if (valid_value) {
+    auto output_bv = state.getBitVec(output_name);
+
+    std::cout << "this one is valid = " << output_bv.to_type<int>() << endl;
+    // bitcast to float if it is a float
+    T output_value;
+    output_value = output_bv.to_type<T>();
+
+    //coreir_img_writer.write(output_value);
+
+    output(x,y,c) = output_value;
+    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+    readIdx.increment();
+  }
+
+
+  //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+  //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+
+  // give another rising edge (execute seq)
+  state.exeSequential();
 }
 
 void small_conv_3_3_test() {
@@ -85,17 +240,61 @@ void small_conv_3_3_test() {
   //Context* context = newContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
-  SimulatorState state(m);
+  cout << "Module = " << endl;
+  m->print();
 
+  SimulatorState state(m);
+  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  state.setClock("self.clk", 0, 1);
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
+  
+  Halide::Runtime::Buffer<uint8_t> inputBuf(4, 4, 1);
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      for (int b = 0; b < 1; b++) {
+        inputBuf(i, j, b) = 12;
+      }
+    }
+  }
+  Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+ 
+  std::string inputName = "self.in_arg_0_0_0";
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {inputBuf.height() - 1, inputBuf.width() - 1, inputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+
+    run_for_cycle(writeIdx, readIdx,
+        inputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+
+  cout << "final buffer" << endl;
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
+      for (int b = 0; b < 1; b++) {
+        cout << (int) outputBuf(i, j, b) << " ";
+      }
+    }
+    cout << endl;
+  }
   deleteContext(context);
-  //// What I would like:
-  //// Be able to run either the CPU implementation or the mixed coreir / cpu
-  //// implementation on any given function
-  //// OR for simple tests:
-  //// Be able to run the entire thing in coreir and just check equivalence at the end
-  ////
-  //// I also want to be able to run just coreir synthesis on individual kernels with
-  //// different settings for hardware parameters (operation latencies / IIs)
+ 
+  cout << "Conv 3x3 test passed" << endl;
   //Target t;
   //t = t.with_feature(Target::Feature::CoreIR);
   //auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
