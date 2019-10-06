@@ -240,7 +240,7 @@ void small_conv_3_3_test() {
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       for (int b = 0; b < 1; b++) {
-        inputBuf(i, j, b) = 12;
+        inputBuf(i, j, b) = i + j*2;
         hwInputBuf(i, j, b) = inputBuf(i, j, b);
       }
     }

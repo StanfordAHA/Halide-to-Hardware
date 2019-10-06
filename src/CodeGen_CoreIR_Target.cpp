@@ -519,6 +519,7 @@ void loadHalideLib(CoreIR::Context* context) {
         auto col = args.at("c")->get<int>();
 
         def->connect(def->sel("self")->sel("in")->sel(col)->sel(row), def->sel("self")->sel("out"));
+        //def->connect(def->sel("self")->sel("in")->sel(0)->sel(row), def->sel("self")->sel("out"));
         });
   }
 
