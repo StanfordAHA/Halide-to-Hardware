@@ -229,94 +229,102 @@ void small_conv_3_3_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  int tileSize = 4;
-  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
-    .hw_accelerate(xi, xo);
+  //int tileSize = 4;
+  //hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
+    //.hw_accelerate(xi, xo);
 
-  conv.update()
-    .unroll(r.x, 3)
-    .unroll(r.y, 3);
-  conv.linebuffer();
+  //conv.update()
+    //.unroll(r.x, 3)
+    //.unroll(r.y, 3);
+  //conv.linebuffer();
 
-  hw_input.stream_to_accelerator();
+  //hw_input.stream_to_accelerator();
 
   // Creating CPU output
-
-  Halide::Runtime::Buffer<uint8_t> inputBuf(4, 4, 1);
-  Buffer<uint8_t> paramBuf(4, 4, 1);
-  Buffer<uint8_t> outParamBuf(2, 2, 1);
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      for (int b = 0; b < 1; b++) {
-        inputBuf(i, j, b) = 12;
-        paramBuf(i, j, b) = 12;
-      }
-    }
-  }
-  Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+  Halide::Buffer<uint8_t> inputBuf(4, 4);
+  Halide::Buffer<uint8_t> outputBuf(2, 2);
   ParamMap rParams;
-  rParams.set(input, paramBuf);
-  rParams.set(output, outParamBuf);
+  rParams.set(input, inputBuf);
+  //rParams.set(output, outputBuf);
   Target t;
-  Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
-
-  assert(false);
-  auto context = hwContext();
-  //Context* context = newContext();
-  vector<Argument> args{input};
-  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
-  cout << "Module = " << endl;
-  m->print();
-
-  SimulatorState state(m);
-  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
-  state.setValue("self.in_en", BitVector(1, 0));
-  state.setClock("self.clk", 0, 1);
-  state.setValue("self.reset", BitVector(1, 1));
-
-  state.resetCircuit();
-
-  state.setValue("self.reset", BitVector(1, 0));
-
-  int maxCycles = 100;
-  int cycles = 0;
+  hw_output.realize(outputBuf, t, rParams);
+  //Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
   
-
-  std::string inputName = "self.in_arg_0_0_0";
-  std::string outputName = "self.out_0_0";
-  CoordinateVector<int> writeIdx({"y", "x", "c"}, {inputBuf.height() - 1, inputBuf.width() - 1, inputBuf.channels() - 1});
-  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
-  while (cycles < maxCycles && !readIdx.allDone()) {
-    cout << "Read index = " << readIdx.coordString() << endl;
-    cout << "Cycles     = " << cycles << endl;
-
-
-    run_for_cycle(writeIdx, readIdx,
-        inputBuf, outputBuf,
-        inputName, outputName,
-        state);
-    cycles++;
-  }
-
-  cout << "final buffer" << endl;
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2; j++) {
-      for (int b = 0; b < 1; b++) {
-        cout << (int) outputBuf(i, j, b) << " ";
-      }
-    }
-    cout << endl;
-  }
-  deleteContext(context);
- 
-  cout << "Conv 3x3 test passed" << endl;
+  //Halide::Runtime::Buffer<uint8_t> inputBuf(4, 4, 1);
+  //Buffer<uint8_t> paramBuf(4, 4, 1);
+  //Buffer<uint8_t> outParamBuf(2, 2, 1);
+  //for (int i = 0; i < 4; i++) {
+    //for (int j = 0; j < 4; j++) {
+      //for (int b = 0; b < 1; b++) {
+        //inputBuf(i, j, b) = 12;
+        //paramBuf(i, j, b) = 12;
+      //}
+    //}
+  //}
+  //Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+  //ParamMap rParams;
+  //rParams.set(input, paramBuf);
+  //rParams.set(output, outParamBuf);
   //Target t;
-  //t = t.with_feature(Target::Feature::CoreIR);
-  //auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
+  //Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
 
+  //assert(false);
+  //auto context = hwContext();
+  ////Context* context = newContext();
+  //vector<Argument> args{input};
+  //auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
   //cout << "Module = " << endl;
-  //cout << halideMod << endl;
+  //m->print();
+
+  //SimulatorState state(m);
+  //state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  //state.setValue("self.in_en", BitVector(1, 0));
+  //state.setClock("self.clk", 0, 1);
+  //state.setValue("self.reset", BitVector(1, 1));
+
+  //state.resetCircuit();
+
+  //state.setValue("self.reset", BitVector(1, 0));
+
+  //int maxCycles = 100;
+  //int cycles = 0;
+  
+
+  //std::string inputName = "self.in_arg_0_0_0";
+  //std::string outputName = "self.out_0_0";
+  //CoordinateVector<int> writeIdx({"y", "x", "c"}, {inputBuf.height() - 1, inputBuf.width() - 1, inputBuf.channels() - 1});
+  //CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  //while (cycles < maxCycles && !readIdx.allDone()) {
+    //cout << "Read index = " << readIdx.coordString() << endl;
+    //cout << "Cycles     = " << cycles << endl;
+
+
+    //run_for_cycle(writeIdx, readIdx,
+        //inputBuf, outputBuf,
+        //inputName, outputName,
+        //state);
+    //cycles++;
+  //}
+
+  //cout << "final buffer" << endl;
+  //for (int i = 0; i < 2; i++) {
+    //for (int j = 0; j < 2; j++) {
+      //for (int b = 0; b < 1; b++) {
+        //cout << (int) outputBuf(i, j, b) << " ";
+      //}
+    //}
+    //cout << endl;
+  //}
+  //deleteContext(context);
+ 
+  //cout << "Conv 3x3 test passed" << endl;
+  ////Target t;
+  ////t = t.with_feature(Target::Feature::CoreIR);
+  ////auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
+
+  ////cout << "Module = " << endl;
+  ////cout << halideMod << endl;
 
 }
 
