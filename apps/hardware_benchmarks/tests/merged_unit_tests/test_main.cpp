@@ -369,6 +369,51 @@ void clamped_grad_x_test() {
   cout << GREEN << "Harris test passed" << RESET << endl;
 }
 
+void clamp_test() {
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Var xi,yi, xo,yo;
+
+  Func hw_input, hw_output, clamped;
+  hw_input(x, y) = input(x, y);
+  clamped(x, y) = clamp(hw_input(x, y), cast<uint16_t>(-255), cast<uint16_t>(255));
+
+  hw_output(x, y) = clamped(x, y);
+
+  hw_output(x, y) = cast<uint16_t>(clamped(x, y));
+  output(x, y) = hw_output(x,y);
+
+  // Create common elements of the CPU and hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  assert(false);
+
+   ////Creating input data
+  //Halide::Buffer<uint16_t> inputBuf(16, 16);
+  //Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  //Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
+  //for (int i = 0; i < inputBuf.height(); i++) {
+    //for (int j = 0; j < inputBuf.width(); j++) {
+      //inputBuf(i, j) = rand() % 255;
+      //hwInputBuf(i, j, 0) = inputBuf(i, j);
+    //}
+  //}
+
+   //Creating CPU reference output
+  //Halide::Buffer<uint16_t> cpuOutput(4, 4);
+  //ParamMap rParams;
+  //rParams.set(input, inputBuf);
+  //Target t;
+  //hw_output.realize(cpuOutput, t, rParams);
+
+  //compare_buffers(outputBuf, cpuOutput);
+  cout << GREEN << "Harris test passed" << RESET << endl;
+}
+
 void small_harris_test() {
 
   int blockSize = 3;
@@ -642,7 +687,7 @@ void small_cascade_test() {
     cycles++;
   }
 
-  cout << "final buffer" << endl;
+  //cout << "final buffer" << endl;
   for (int i = 0; i < outputBuf.height(); i++) {
     for (int j = 0; j < outputBuf.width(); j++) {
       for (int b = 0; b < outputBuf.channels(); b++) {
@@ -825,11 +870,12 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  clamped_grad_x_test();
+  clamp_test();
+  //clamped_grad_x_test();
   pointwise_add_test();
   small_conv_3_3_test();
   small_cascade_test();
-  small_harris_test();
+  //small_harris_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
