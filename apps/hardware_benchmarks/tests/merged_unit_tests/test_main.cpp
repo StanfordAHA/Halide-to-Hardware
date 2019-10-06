@@ -201,6 +201,21 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   state.exeSequential();
 }
 
+template<typename T>
+void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& cpuOutput) {
+  //cout << "final buffer" << endl;
+  //for (int i = 0; i < outputBuf.height(); i++) {
+    //for (int j = 0; j < outputBuf.width(); j++) {
+      //for (int b = 0; b < outputBuf.channels(); b++) {
+        ////cout << (int) outputBuf(i, j, b) << " ";
+        ////cout << (int) cpuOutput(i, j, b) << " ";
+        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      //}
+    //}
+    //cout << endl;
+  //}
+}
+
 void small_harris_test() {
 
   int blockSize = 3;
