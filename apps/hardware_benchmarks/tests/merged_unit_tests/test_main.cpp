@@ -208,6 +208,8 @@ void small_cascade_test() {
 
   Var x("x"), y("y");
 
+  Var xi,yi, xo,yo;
+  
   Func kernel("kernel");
   Func conv1("conv1"), conv2("conv2");
   RDom r(0, 3,
@@ -225,22 +227,13 @@ void small_cascade_test() {
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
   conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
-  
-  //conv2(x, y) = conv1(x, y);
   conv2(x, y)  += kernel(r0.x, r0.y) * conv1(x + r0.x, y + r0.y);
-  //conv1(x, y) + 10;
-  //kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
-  //conv2(x, y) = conv1(x, y);
   
   kernel.compute_root();
 
   Func hw_output("hw_output");
   hw_output(x, y) = cast<uint16_t>(conv2(x, y));
-  // cast<uint8_t>((conv1(x, y)));
-    //cast<uint8_t>(12); //cast<uint8_t>(conv2(x, y));
   output(x, y) = hw_output(x,y);
-
-  //Var xi,yi, xo,yo;
 
   hw_input.compute_root();
   hw_output.compute_root();
@@ -248,13 +241,11 @@ void small_cascade_test() {
   // Creating input data
   Halide::Buffer<uint16_t> inputBuf(8, 8);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(8, 8, 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
       inputBuf(i, j) = 11;
-      //for (int b = 0; b < 1; b++) {
-        //inputBuf(i, j, b) = 11;
-        //hwInputBuf(i, j, b) = inputBuf(i, j, b);
-      //}
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
   }
  
@@ -273,22 +264,69 @@ void small_cascade_test() {
   }
 
   //int tileSize = 8;
-  //hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
-    //.hw_accelerate(xi, xo);
+  hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
+    .hw_accelerate(xi, xo);
 
-  //kernel.compute_at(hw_output, xo);
+  kernel.compute_at(hw_output, xo);
 
-  //conv1.update()
-    //.unroll(r.x)
-    //.unroll(r.y);
-  //conv1.linebuffer();
+  conv1.update()
+    .unroll(r.x)
+    .unroll(r.y);
+  conv1.linebuffer();
 
-  //conv2.update()
-    //.unroll(r.x)
-    //.unroll(r.y);
-  //conv2.linebuffer();
+  conv2.update()
+    .unroll(r0.x)
+    .unroll(r0.y);
+  conv2.linebuffer();
 
-  //hw_input.stream_to_accelerator();
+  hw_input.stream_to_accelerator();
+  
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_cascade", args, "cascade", hw_output);
+  cout << "Module = " << endl;
+  m->print();
+
+  SimulatorState state(m);
+  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  state.setClock("self.clk", 0, 1);
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
+
+  std::string inputName = "self.in_arg_0_0_0";
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+
+  cout << "final buffer" << endl;
+  for (int i = 0; i < outputBuf.height(); i++) {
+    for (int j = 0; j < outputBuf.width(); j++) {
+      for (int b = 0; b < outputBuf.channels(); b++) {
+        cout << (int) outputBuf(i, j, b) << " ";
+        cout << (int) cpuOutput(i, j, b) << " ";
+        assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      }
+    }
+    cout << endl;
+  }
   cout << GREEN << "Cascade test passed" << RESET << endl;
 }
 
@@ -461,8 +499,8 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //pointwise_add_test();
-  //small_conv_3_3_test();
+  pointwise_add_test();
+  small_conv_3_3_test();
   small_cascade_test();
 
   //Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
