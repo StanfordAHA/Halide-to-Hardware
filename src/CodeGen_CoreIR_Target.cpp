@@ -2776,6 +2776,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (size_t i = 0; i < args.size(); i++) {
       string arg_name = "arg_" + std::to_string(i);
       string arg_name_real = args[i].name;
+      cout << "Arg " << i << " has name " << arg_name_real << endl;
       //coreirSanitize(args[i].name);
 
       inputAliases[arg_name_real] = arg_name;
@@ -2847,6 +2848,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     CoreIR::Type* topType = design_type;
     CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+    cout << "Before creating definition.." << endl;
+    topMod->print();
     auto def = topMod->newModuleDef();
 
     std::map<const For*, CoreIR::Instance*> kernels;

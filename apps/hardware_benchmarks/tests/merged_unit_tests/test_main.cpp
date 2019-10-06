@@ -203,12 +203,12 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
 template<typename T>
 void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& cpuOutput) {
-  cout << "final buffer" << endl;
+  cout << "Comparing buffers..." << endl;
   for (int i = 0; i < outputBuf.height(); i++) {
     for (int j = 0; j < outputBuf.width(); j++) {
       for (int b = 0; b < outputBuf.channels(); b++) {
-        //cout << (int) outputBuf(i, j, b) << " ";
-        //cout << (int) cpuOutput(i, j, b) << " ";
+        cout << (int) outputBuf(i, j, b) << " ";
+        cout << (int) cpuOutput(i, j, b) << " ";
         assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
       }
     }
@@ -218,8 +218,10 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
 
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+  std::string inputName = "self.in_arg_1_0_0";
+  
   SimulatorState state(m);
-  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue(inputName, BitVector(16, 0));
   state.setValue("self.in_en", BitVector(1, 0));
   state.setClock("self.clk", 0, 1);
   state.setValue("self.reset", BitVector(1, 1));
@@ -231,7 +233,6 @@ void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Hali
   int maxCycles = 100;
   int cycles = 0;
 
-  std::string inputName = "self.in_arg_0_0_0";
   std::string outputName = "self.out_0_0";
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
   CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
@@ -260,12 +261,13 @@ void clamped_grad_x_test() {
 
   Func hw_input("hw_input");
   hw_input(x, y) = input(x, y);
-
+  Func padded16;
+  padded16(x, y) = hw_input(x + 3, y + 3);
   // Sobel filter
   Func grad_x_unclamp, grad_x;
-  grad_x_unclamp(x, y) = cast<int16_t>(-hw_input(x - 1, y - 1) + hw_input(x + 1, y - 1)
-      -2*hw_input(x - 1, y) + 2*hw_input(x + 1, y)
-      -hw_input(x-1, y+1) + hw_input(x + 1, y + 1));
+  grad_x_unclamp(x, y) = cast<int16_t>(-padded16(x - 1, y - 1) + padded16(x + 1, y - 1)
+      -2*padded16(x - 1, y) + 2*padded16(x + 1, y)
+      -padded16(x-1, y+1) + padded16(x + 1, y + 1));
 
   grad_x(x, y) = clamp(grad_x_unclamp(x, y), -255, 255);
 
@@ -303,6 +305,9 @@ void clamped_grad_x_test() {
   }
 
   // Hardware schedule
+  padded16.compute_root();
+  int tileSize = 16;
+  hw_output.tile(x, y, xo, yo, xi, yi, tileSize, tileSize).accelerate({padded16}, xi, xo);
   hw_input.stream_to_accelerator();
   grad_x_unclamp.linebuffer();
   grad_x.linebuffer();
