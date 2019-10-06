@@ -14,6 +14,10 @@ using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
 
+std::string GREEN = "\033[32m";
+std::string RED = "\033[31m";
+std::string RESET = "\033[0m";
+
 template<typename T>
 class CoordinateVector {
   public:
@@ -407,5 +411,6 @@ int main(int argc, char **argv) {
 
   //printf("All tests passed!\n");
 
+  cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
 }
