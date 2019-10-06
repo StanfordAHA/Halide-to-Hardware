@@ -948,6 +948,7 @@ void pointwise_add_test() {
 int main(int argc, char **argv) {
 
   shiftRight_test();
+  assert(false);
   clamp_test();
   //clamped_grad_x_test();
   pointwise_add_test();
