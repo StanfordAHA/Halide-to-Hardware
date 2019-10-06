@@ -178,7 +178,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   if (valid_value) {
     auto output_bv = state.getBitVec(output_name);
 
-    std::cout << "this one is valid = " << output_bv.to_type<int>() << endl;
+    std::cout << "this one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
     // bitcast to float if it is a float
     T output_value;
     output_value = output_bv.to_type<T>();
@@ -209,11 +209,13 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
       for (int b = 0; b < outputBuf.channels(); b++) {
         cout << (int) outputBuf(i, j, b) << " ";
         cout << (int) cpuOutput(i, j, b) << " ";
-        assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
       }
     }
     cout << endl;
   }
+
+  assert(false);
 }
 
 template<typename T>
@@ -249,6 +251,7 @@ void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Hali
   }
 }
 
+// TODO: Add test of clamping? 
 void clamped_grad_x_test() {
 
   // Build the app

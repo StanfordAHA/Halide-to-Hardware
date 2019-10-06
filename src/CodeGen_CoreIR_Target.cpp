@@ -1835,6 +1835,8 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       if (op->tp == HWINSTR_TP_CONST) {
         int width = op->constWidth;
         int value = stoi(op->constValue);
+        BitVector constVal = BitVector(width, value);
+        cout << "Constant value for operand " << op->compactString() << " in instruction " << *instr << " is = " << constVal << ", as int = " << constVal.to_type<int>() << endl;
         auto cInst = def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
         instrValues[op] = cInst->sel("out");
