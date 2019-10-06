@@ -322,18 +322,19 @@ void small_conv_3_3_test() {
     cycles++;
   }
 
-  //cout << "final buffer" << endl;
-  //for (int i = 0; i < 2; i++) {
-    //for (int j = 0; j < 2; j++) {
-      //for (int b = 0; b < 1; b++) {
-        //cout << (int) outputBuf(i, j, b) << " ";
-      //}
-    //}
-    //cout << endl;
-  //}
-  //deleteContext(context);
+  cout << "final buffer" << endl;
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
+      for (int b = 0; b < 1; b++) {
+        cout << (int) outputBuf(i, j, b) << " ";
+        assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      }
+    }
+    cout << endl;
+  }
+  deleteContext(context);
  
-  //cout << "Conv 3x3 test passed" << endl;
+  cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
   ////Target t;
   ////t = t.with_feature(Target::Feature::CoreIR);
   ////auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
