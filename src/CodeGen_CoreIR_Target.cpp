@@ -1825,6 +1825,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = cS->sel("out");
         unitMapping[instr] = cS;
+      } else if (name == "ashr") {
+        auto shr = def->addInstance("ashr" + std::to_string(defStage), "coreir.ashr", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = shr->sel("out");
+        unitMapping[instr] = shr;
       } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
@@ -1969,6 +1973,10 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
       } else if (starts_with(instr->name, "init_stencil")) {
         // No inputs
+      } else if (instr->name == "ashr") {
+
+        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
+        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
       } else {
         internal_assert(false) << "no wiring procedure for " << *instr << "\n";
       }
@@ -2448,6 +2456,38 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
   }
 }
 
+void divToShift(HWFunction& f) {
+  std::set<HWInstr*> toErase;
+  std::map<HWInstr*, HWInstr*> replacements;
+  for (auto instr : f.body) {
+    if (isCall("div", instr)) {
+      cout << "Found div" << endl;
+      if (isConstant(instr->getOperand(1))) {
+        cout << "\tDividing by constant = " << instr->getOperand(1)->compactString() << endl;
+        auto constVal = instr->getOperand(1)->toInt();
+        if (CoreIR::isPower2(constVal)) {
+          cout << "\t\tand it is a power of 2" << endl;
+          int value = std::ceil(std::log2(constVal));
+          cout << "\t\tpower of 2 = " << value << endl;
+          auto shrInstr = f.newI();
+          shrInstr->name = "ashr";
+          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
+          replacements[instr] = shrInstr;
+        }
+      }
+    }
+  }
+
+  for (auto r : replacements) {
+    insertAt(r.first, r.second, f.body);
+    replaceAllUsesWith(r.first, r.second, f.body);
+    toErase.insert(r.first);
+  }
+
+  for (auto i : toErase) {
+    CoreIR::remove(i, f.body);
+  }
+}
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
   std::vector<std::set<CoreIR::Wireable*> > components;
@@ -2716,6 +2756,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       valueConvertProvides(scl.info, f);
       valueConvertStreamReads(scl.info, f);
       removeWriteStreamArgs(scl.info, f);
+      divToShift(f);
       cout << "After stream read conversion..." << endl;
       for (auto instr : body) {
         cout << "\t\t\t" << *instr << endl;
