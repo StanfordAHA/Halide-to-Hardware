@@ -273,8 +273,8 @@ void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Hali
 
 template<typename T>
 void printBuffer(T& inputBuf, std::ostream& out) {
-  for (int i = 0; i < inputBuf.height(); i++) {
-    for (int j = 0; j < inputBuf.width(); j++) {
+  for (int i = inputBuf.top(); i < inputBuf.bottom(); i++) {
+    for (int j = inputBuf.left(); j < inputBuf.right(); j++) {
       out << inputBuf(i, j) << " ";
     }
     out << endl;
@@ -295,6 +295,7 @@ void clamped_grad_x_test() {
   Func hw_input("hw_input");
   hw_input(x, y) = input(x, y);
   Func padded16;
+  padded16(x, y) = cast<uint16_t>(0);
   padded16(x, y) = hw_input(x + 3, y + 3);
   // Sobel filter
   Func grad_x_unclamp, grad_x;
@@ -323,19 +324,29 @@ void clamped_grad_x_test() {
     }
   }
 
+  {
+    Halide::Buffer<uint16_t> paddingOut(4, 4);
+    paddingOut.set_min(-2, -2);
+    cout << "Padding y range = " << paddingOut.bottom() << ", " << paddingOut.top() << endl;
+    ParamMap rParams;
+    rParams.set(input, inputBuf);
+    Target t;
+    padded16.realize(paddingOut, t, rParams);
+
+    cout << "Original" << endl;
+    printBuffer(inputBuf, cout);
+
+    cout << "Padded" << endl;
+    printBuffer(paddingOut, cout);
+  }
+  assert(false);
+  
   // Creating CPU reference output
   Halide::Buffer<uint16_t> cpuOutput(4, 4);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  //cout << "CPU output..." << endl;
-  //for (int i = 0; i < 4; i++) {
-    //for (int j = 0; j < 4; j++) {
-      //cout << (int) cpuOutput(i, j) << " ";
-    //}
-    //cout << endl;
-  //}
 
   // Hardware schedule
   padded16.compute_root();
@@ -349,13 +360,13 @@ void clamped_grad_x_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
 
- runHWKernel(m, hwInputBuf, outputBuf);
+  runHWKernel(m, hwInputBuf, outputBuf);
   cout << "Input buf" << endl;
   printBuffer(inputBuf, cout);
- 
- compare_buffers(outputBuf, cpuOutput);
 
- cout << GREEN << "Harris test passed" << RESET << endl;
+  compare_buffers(outputBuf, cpuOutput);
+
+  cout << GREEN << "Harris test passed" << RESET << endl;
 }
 
 void small_harris_test() {
