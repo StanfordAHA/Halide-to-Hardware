@@ -234,7 +234,34 @@ void small_cascade_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  hw_output.tile(x,y, xo,yo, xi,yi, 64-4, 64-4)
+  // Creating input data
+  Halide::Buffer<uint8_t> inputBuf(8, 8);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(8, 8, 1);
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      for (int b = 0; b < 1; b++) {
+        inputBuf(i, j, b) = 10;
+        hwInputBuf(i, j, b) = inputBuf(i, j, b);
+      }
+    }
+  }
+ 
+  // Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  cout << "CPU output..." << endl;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      cout << (int) cpuOutput(i, j) << " ";
+    }
+    cout << endl;
+  }
+
+  int tileSize = 8;
+  hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
     .hw_accelerate(xi, xo);
 
   kernel.compute_at(hw_output, xo);
