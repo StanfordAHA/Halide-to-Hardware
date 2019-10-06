@@ -204,12 +204,32 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 template<typename T>
 void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& cpuOutput) {
   cout << "Comparing buffers..." << endl;
+  cout << "Hardware output" << endl;
   for (int i = 0; i < outputBuf.height(); i++) {
     for (int j = 0; j < outputBuf.width(); j++) {
       for (int b = 0; b < outputBuf.channels(); b++) {
         cout << (int) outputBuf(i, j, b) << " ";
+      }
+    }
+    cout << endl;
+  }
+  cout << endl;
+  cout << "CPU Output" << endl;
+  for (int i = 0; i < outputBuf.height(); i++) {
+    for (int j = 0; j < outputBuf.width(); j++) {
+      for (int b = 0; b < outputBuf.channels(); b++) {
         cout << (int) cpuOutput(i, j, b) << " ";
-        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      }
+    }
+    cout << endl;
+  }
+
+  for (int i = 0; i < outputBuf.height(); i++) {
+    for (int j = 0; j < outputBuf.width(); j++) {
+      for (int b = 0; b < outputBuf.channels(); b++) {
+        //cout << (int) outputBuf(i, j, b) << " ";
+        //cout << (int) cpuOutput(i, j, b) << " ";
+        assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
       }
     }
     cout << endl;
@@ -251,6 +271,16 @@ void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Hali
   }
 }
 
+template<typename T>
+void printBuffer(T& inputBuf, std::ostream& out) {
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      out << inputBuf(i, j) << " ";
+    }
+    out << endl;
+  }
+}
+
 // TODO: Add test of clamping? 
 void clamped_grad_x_test() {
 
@@ -283,29 +313,29 @@ void clamped_grad_x_test() {
   hw_output.compute_root();
 
   // Creating input data
-  Halide::Buffer<uint16_t> inputBuf(16, 16);
+  Halide::Buffer<uint16_t> inputBuf(32, 32);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
-  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(16, 16, 1);
   for (int i = 0; i < inputBuf.height(); i++) {
     for (int j = 0; j < inputBuf.width(); j++) {
       inputBuf(i, j) = rand() % 255;
       hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint16_t> cpuOutput(4, 4);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  cout << "CPU output..." << endl;
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      cout << (int) cpuOutput(i, j) << " ";
-    }
-    cout << endl;
-  }
+  //cout << "CPU output..." << endl;
+  //for (int i = 0; i < 4; i++) {
+    //for (int j = 0; j < 4; j++) {
+      //cout << (int) cpuOutput(i, j) << " ";
+    //}
+    //cout << endl;
+  //}
 
   // Hardware schedule
   padded16.compute_root();
@@ -320,6 +350,9 @@ void clamped_grad_x_test() {
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
 
  runHWKernel(m, hwInputBuf, outputBuf);
+  cout << "Input buf" << endl;
+  printBuffer(inputBuf, cout);
+ 
  compare_buffers(outputBuf, cpuOutput);
 
  cout << GREEN << "Harris test passed" << RESET << endl;
