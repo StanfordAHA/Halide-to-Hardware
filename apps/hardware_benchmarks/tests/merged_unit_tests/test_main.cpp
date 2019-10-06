@@ -126,7 +126,6 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
   hwOutput.compile_to_coreir(name, args, fName, t);
-  //hwOutput.compile_to_coreir("coreir_brighter", {input}, "brighter", t);
 
   //Context* context = newContext();
   if (!loadFromFile(context, "./conv_3_3_app.json")) {
@@ -202,6 +201,58 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   state.exeSequential();
 }
 
+void small_cascade_test() {
+
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Func kernel("kernel");
+  Func conv1("conv1"), conv2("conv2");
+  RDom r(0, 3,
+      0, 3);
+
+  kernel(x,y) = 0;
+  kernel(0,0) = 1;      kernel(0,1) = 2;      kernel(0,2) = 1;
+  kernel(1,0) = 2;      kernel(1,1) = 4;      kernel(1,2) = 2;
+  kernel(2,0) = 1;      kernel(2,1) = 2;      kernel(2,2) = 1;
+
+  conv1(x, y) = 0;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+  conv2(x, y)  += kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(conv2(x, y));
+  output(x, y) = hw_output(x,y);
+
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.tile(x,y, xo,yo, xi,yi, 64-4, 64-4)
+    .hw_accelerate(xi, xo);
+
+  kernel.compute_at(hw_output, xo);
+
+  conv1.update()
+    .unroll(r.x)
+    .unroll(r.y);
+  conv1.linebuffer();
+
+  conv2.update()
+    .unroll(r.x)
+    .unroll(r.y);
+  conv2.linebuffer();
+
+  hw_input.stream_to_accelerator();
+  cout << GREEN << "Cascade test passed" << RESET << endl;
+}
+
 void small_conv_3_3_test() {
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 2);
@@ -233,7 +284,6 @@ void small_conv_3_3_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-
   // Creating input data
   Halide::Buffer<uint8_t> inputBuf(4, 4);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(4, 4, 1);
@@ -252,25 +302,15 @@ void small_conv_3_3_test() {
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  cout << "CPU output..." << endl;
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2; j++) {
-      cout << (int) cpuOutput(i, j) << " ";
-    }
-    cout << endl;
-  }
+  //cout << "CPU output..." << endl;
+  //for (int i = 0; i < 2; i++) {
+    //for (int j = 0; j < 2; j++) {
+      //cout << (int) cpuOutput(i, j) << " ";
+    //}
+    //cout << endl;
+  //}
   
-  //Buffer<uint8_t> paramBuf(4, 4, 1);
-  //Buffer<uint8_t> outParamBuf(2, 2, 1);
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  //ParamMap rParams;
-  //rParams.set(input, paramBuf);
-  //rParams.set(output, outParamBuf);
-  //Target t;
-  //Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
-
-  //assert(false);
-
   
   int tileSize = 4;
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
@@ -285,7 +325,6 @@ void small_conv_3_3_test() {
 
   // Generate CoreIR
   auto context = hwContext();
-  //Context* context = newContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
   cout << "Module = " << endl;
@@ -335,13 +374,6 @@ void small_conv_3_3_test() {
   deleteContext(context);
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
-  ////Target t;
-  ////t = t.with_feature(Target::Feature::CoreIR);
-  ////auto halideMod = hw_output.compile_to_module({input}, "coreir_brighter", t);
-
-  ////cout << "Module = " << endl;
-  ////cout << halideMod << endl;
-
 }
 
 void pointwise_add_test() {
@@ -392,6 +424,8 @@ int main(int argc, char **argv) {
 
   pointwise_add_test();
   small_conv_3_3_test();
+  small_cascade_test();
+
   //Halide::Buffer<uint8_t> input = load_image("../../../../tutorial/images/rgb.png");
   //cout << "Input rows = " << input.height() << endl;
 
