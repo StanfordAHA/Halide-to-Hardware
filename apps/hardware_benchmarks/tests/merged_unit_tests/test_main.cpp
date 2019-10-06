@@ -203,17 +203,118 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
 template<typename T>
 void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& cpuOutput) {
-  //cout << "final buffer" << endl;
-  //for (int i = 0; i < outputBuf.height(); i++) {
-    //for (int j = 0; j < outputBuf.width(); j++) {
-      //for (int b = 0; b < outputBuf.channels(); b++) {
-        ////cout << (int) outputBuf(i, j, b) << " ";
-        ////cout << (int) cpuOutput(i, j, b) << " ";
-        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
-      //}
-    //}
-    //cout << endl;
-  //}
+  cout << "final buffer" << endl;
+  for (int i = 0; i < outputBuf.height(); i++) {
+    for (int j = 0; j < outputBuf.width(); j++) {
+      for (int b = 0; b < outputBuf.channels(); b++) {
+        //cout << (int) outputBuf(i, j, b) << " ";
+        //cout << (int) cpuOutput(i, j, b) << " ";
+        assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      }
+    }
+    cout << endl;
+  }
+}
+
+template<typename T>
+void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+  SimulatorState state(m);
+  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  state.setClock("self.clk", 0, 1);
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
+
+  std::string inputName = "self.in_arg_0_0_0";
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+}
+
+void clamped_grad_x_test() {
+
+  // Build the app
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Var xi,yi, xo,yo;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = input(x, y);
+
+  // Sobel filter
+  Func grad_x_unclamp, grad_x;
+  grad_x_unclamp(x, y) = cast<int16_t>(-hw_input(x - 1, y - 1) + hw_input(x + 1, y - 1)
+      -2*hw_input(x - 1, y) + 2*hw_input(x + 1, y)
+      -hw_input(x-1, y+1) + hw_input(x + 1, y + 1));
+
+  grad_x(x, y) = clamp(grad_x_unclamp(x, y), -255, 255);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint16_t>(grad_x(x, y));
+  output(x, y) = hw_output(x,y);
+
+  // Create common elements of the CPU and hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  // Creating input data
+  Halide::Buffer<uint16_t> inputBuf(16, 16);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = rand() % 255;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+ 
+  // Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  cout << "CPU output..." << endl;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      cout << (int) cpuOutput(i, j) << " ";
+    }
+    cout << endl;
+  }
+
+  // Hardware schedule
+  hw_input.stream_to_accelerator();
+  grad_x_unclamp.linebuffer();
+  grad_x.linebuffer();
+  
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
+
+ runHWKernel(m, hwInputBuf, outputBuf);
+ compare_buffers(outputBuf, cpuOutput);
+
+ cout << GREEN << "Harris test passed" << RESET << endl;
 }
 
 void small_harris_test() {
@@ -370,18 +471,8 @@ void small_harris_test() {
     //cycles++;
   //}
 
-  //cout << "final buffer" << endl;
-  //for (int i = 0; i < outputBuf.height(); i++) {
-    //for (int j = 0; j < outputBuf.width(); j++) {
-      //for (int b = 0; b < outputBuf.channels(); b++) {
-        ////cout << (int) outputBuf(i, j, b) << " ";
-        ////cout << (int) cpuOutput(i, j, b) << " ";
-        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
-      //}
-    //}
-    //cout << endl;
-  //}
-  //cout << GREEN << "Harris test passed" << RESET << endl;
+ compare_buffers(outputBuf, cpuOutput);
+ cout << GREEN << "Harris test passed" << RESET << endl;
 }
 
 void small_cascade_test() {
@@ -682,11 +773,12 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
+  clamped_grad_x_test();
   pointwise_add_test();
   small_conv_3_3_test();
   small_cascade_test();
   small_harris_test();
-
+  
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
 }
