@@ -233,53 +233,36 @@ void small_conv_3_3_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  //int tileSize = 4;
-  //hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
-    //.hw_accelerate(xi, xo);
 
-  //conv.update()
-    //.unroll(r.x, 3)
-    //.unroll(r.y, 3);
-  //conv.linebuffer();
-
-  //hw_input.stream_to_accelerator();
-
-  // Creating CPU output
+  // Creating input data
   Halide::Buffer<uint8_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(4, 4, 1);
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       for (int b = 0; b < 1; b++) {
         inputBuf(i, j, b) = 12;
+        hwInputBuf(i, j, b) = inputBuf(i, j, b);
       }
     }
   }
-  Halide::Buffer<uint8_t> outputBuf(2, 2);
+ 
+  // Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(2, 2);
   ParamMap rParams;
   rParams.set(input, inputBuf);
-  //rParams.set(output, outputBuf);
   Target t;
-  hw_output.realize(outputBuf, t, rParams);
-  cout << "After realizing..." << endl;
+  hw_output.realize(cpuOutput, t, rParams);
+  cout << "CPU output..." << endl;
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 2; j++) {
-      cout << (int) outputBuf(i, j) << " ";
+      cout << (int) cpuOutput(i, j) << " ";
     }
     cout << endl;
   }
-  //Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
   
-  //Halide::Runtime::Buffer<uint8_t> inputBuf(4, 4, 1);
   //Buffer<uint8_t> paramBuf(4, 4, 1);
   //Buffer<uint8_t> outParamBuf(2, 2, 1);
-  //for (int i = 0; i < 4; i++) {
-    //for (int j = 0; j < 4; j++) {
-      //for (int b = 0; b < 1; b++) {
-        //inputBuf(i, j, b) = 12;
-        //paramBuf(i, j, b) = 12;
-      //}
-    //}
-  //}
-  //Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
   //ParamMap rParams;
   //rParams.set(input, paramBuf);
   //rParams.set(output, outParamBuf);
@@ -287,43 +270,57 @@ void small_conv_3_3_test() {
   //Buffer<uint8_t> cpuOut = hw_output.realize(t, rParams);
 
   //assert(false);
-  //auto context = hwContext();
-  ////Context* context = newContext();
-  //vector<Argument> args{input};
-  //auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
-  //cout << "Module = " << endl;
-  //m->print();
 
-  //SimulatorState state(m);
-  //state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
-  //state.setValue("self.in_en", BitVector(1, 0));
-  //state.setClock("self.clk", 0, 1);
-  //state.setValue("self.reset", BitVector(1, 1));
+  
+  int tileSize = 4;
+  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
+    .hw_accelerate(xi, xo);
 
-  //state.resetCircuit();
+  conv.update()
+    .unroll(r.x, 3)
+    .unroll(r.y, 3);
+  conv.linebuffer();
 
-  //state.setValue("self.reset", BitVector(1, 0));
+  hw_input.stream_to_accelerator();
 
-  //int maxCycles = 100;
-  //int cycles = 0;
+  // Generate CoreIR
+  auto context = hwContext();
+  //Context* context = newContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  cout << "Module = " << endl;
+  m->print();
+
+  SimulatorState state(m);
+  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  state.setClock("self.clk", 0, 1);
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
   
 
-  //std::string inputName = "self.in_arg_0_0_0";
-  //std::string outputName = "self.out_0_0";
-  //CoordinateVector<int> writeIdx({"y", "x", "c"}, {inputBuf.height() - 1, inputBuf.width() - 1, inputBuf.channels() - 1});
-  //CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  std::string inputName = "self.in_arg_0_0_0";
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
   
-  //while (cycles < maxCycles && !readIdx.allDone()) {
-    //cout << "Read index = " << readIdx.coordString() << endl;
-    //cout << "Cycles     = " << cycles << endl;
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
 
 
-    //run_for_cycle(writeIdx, readIdx,
-        //inputBuf, outputBuf,
-        //inputName, outputName,
-        //state);
-    //cycles++;
-  //}
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
 
   //cout << "final buffer" << endl;
   //for (int i = 0; i < 2; i++) {
