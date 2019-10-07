@@ -2668,11 +2668,21 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   string varName = "clamped_x___scan_dim_0";
   string xName = "x_var_counter";
   CoreIR::Wireable* counter_inst = def->addInstance(xName, "commonlib.counter", args);
-  cout << "x name counter = " << CoreIR::toString(*counter_inst) << endl;
 
   auto self = def->sel("self");
   def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
   def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+
+
+  CoreIR::Values argsY = {{"width",CoreIR::Const::make(c, width)},
+    {"min",CoreIR::Const::make(c, min_value)},
+    {"max",CoreIR::Const::make(c, max_value)},
+    {"inc",CoreIR::Const::make(c, inc_value)}};
+
+  string yName = "y_var_counter";
+  CoreIR::Wireable* y_counter_inst = def->addInstance(yName, "commonlib.counter", argsY);
+  def->connect(y_counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+  def->connect(y_counter_inst->sel("en"), def->sel("self")->sel("in_en"));
 
   for (auto var : vars) {
     int width = 16;
