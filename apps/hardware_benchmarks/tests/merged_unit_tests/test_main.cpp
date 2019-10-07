@@ -1008,7 +1008,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  control_path_test();
+  //control_path_test();
   //assert(false);
   shiftRight_test();
   clamp_test();
