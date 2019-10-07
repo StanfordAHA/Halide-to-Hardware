@@ -2926,12 +2926,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     auto def = topMod->newModuleDef();
 
     std::map<const For*, CoreIR::Instance*> kernels;
+    std::map<const For*, CoreIR::Instance*> controlPaths;
     for (auto k : kernelModules) {
       auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
       kernels[k.first] = kI;
 
       KernelControlPath cpM = map_get(k.first, kernelControlPaths);
       auto controlPath = def->addInstance("control_path_module" + k.second->getName(), cpM.m);
+      controlPaths[k.first] = controlPath;
       def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
       for (auto v : cpM.controlVars) {
         auto vn = coreirSanitize(v);
@@ -3123,12 +3125,13 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       }
 
       cout << "Done connecting inputMap" << endl;
-
       auto fKernel = map_find(f.first, kernels);
+      auto cPaths = map_find(f.first, controlPaths);
       if (allEnables.size() == 0) {
         // Do nothing
       } else if (allEnables.size() == 1) {
         def->connect(allEnables[0], fKernel->sel("in_en"));
+        def->connect(allEnables[0], cPaths->sel("in_en"));
       } else {
         auto v0 = allEnables[0];
         for (int i = 1; i < (int) allEnables.size(); i++) {
@@ -3139,6 +3142,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         }
 
         def->connect(fKernel->sel("in_en"), v0);
+        def->connect(cPaths->sel("in_en"), v0);
       }
 
       cout << "Done setting enables" << endl;
