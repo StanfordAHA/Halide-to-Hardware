@@ -2669,7 +2669,7 @@ class KernelControlPath {
     CoreIR::Module* m;
 };
 
-KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp) {
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
@@ -2878,7 +2878,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       CoreIR::Module* m = moduleForKernel(scl.info, f);
       kernelModules[lp] = m;
-      auto cp = controlPathForKernel(context, scl.info, f);
+      auto cp = controlPathForKernel(context, scl.info, f, lp);
       cout << "Control path is..." << endl;
       cp.m->print();
       kernelControlPaths[lp] = cp;
