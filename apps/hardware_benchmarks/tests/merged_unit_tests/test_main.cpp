@@ -1061,7 +1061,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //control_path_test();
+  control_path_test();
   //assert(false);
   mod2_test();
   shiftRight_test();
