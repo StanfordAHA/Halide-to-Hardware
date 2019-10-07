@@ -297,8 +297,6 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
 
 }
 
-
-// TODO: Add test of clamping? 
 void clamped_grad_x_test() {
 
   // Build the app
@@ -1008,7 +1006,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  control_path_test();
+  //control_path_test();
   //assert(false);
   shiftRight_test();
   clamp_test();

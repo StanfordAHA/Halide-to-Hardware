@@ -3149,9 +3149,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       auto cPaths = map_find(f.first, controlPaths);
       if (allEnables.size() == 0) {
         // Do nothing
-        //auto c1 = def->addInstance(fKernel->getName() + "_const_valid", "corebit.const", {{"value", COREMK()}})
-        //def->connect(fKernel->sel("in_en"), c1);
-        //def->connect(cPaths->sel("in_en"), c1);
+        auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
+        def->connect(fKernel->sel("in_en"), c1->sel("out"));
+        def->connect(cPaths->sel("in_en"), c1->sel("out"));
       } else if (allEnables.size() == 1) {
         def->connect(allEnables[0], fKernel->sel("in_en"));
         def->connect(allEnables[0], cPaths->sel("in_en"));
