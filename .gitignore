@@ -96,3 +96,5 @@ tutorial/pipeline*
 *.ll
 
 *.cmake
+CMakeCache.txt
+CMakeFiles/*
