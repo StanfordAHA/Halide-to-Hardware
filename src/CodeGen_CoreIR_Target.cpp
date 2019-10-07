@@ -2457,6 +2457,39 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
   }
 }
 
+// TODO: Add modulus to shift conversion
+void modToShift(HWFunction& f) {
+  std::set<HWInstr*> toErase;
+  std::map<HWInstr*, HWInstr*> replacements;
+  for (auto instr : f.body) {
+    if (isCall("mod", instr)) {
+      cout << "Found mod" << endl;
+      if (isConstant(instr->getOperand(1))) {
+        cout << "\tMod by constant = " << instr->getOperand(1)->compactString() << endl;
+        auto constVal = instr->getOperand(1)->toInt();
+        if (CoreIR::isPower2(constVal)) {
+          cout << "\t\tand it is a power of 2" << endl;
+          int value = std::ceil(std::log2(constVal));
+          cout << "\t\tpower of 2 = " << value << endl;
+          auto shrInstr = f.newI();
+          shrInstr->name = "and";
+          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1)};
+          replacements[instr] = shrInstr;
+        }
+      }
+    }
+  }
+
+  for (auto r : replacements) {
+    insertAt(r.first, r.second, f.body);
+    replaceAllUsesWith(r.first, r.second, f.body);
+    toErase.insert(r.first);
+  }
+
+  for (auto i : toErase) {
+    CoreIR::remove(i, f.body);
+  }
+}
 void divToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   std::map<HWInstr*, HWInstr*> replacements;
