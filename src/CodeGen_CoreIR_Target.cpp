@@ -2662,9 +2662,21 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
 
   controlPath->setDef(def);
 
+  int width = 16;
+  int min_value = 0;
+  int max_value = 4;
+  int inc_value = 1;
+  CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+    {"min",CoreIR::Const::make(c, min_value)},
+    {"max",CoreIR::Const::make(c, max_value)},
+    {"inc",CoreIR::Const::make(c, inc_value)}};
+
+  string xName = "x_var_counter";
+  CoreIR::Wireable* counter_inst = def->addInstance(xName, "commonlib.counter", args);
+  cout << "x name counter = " << CoreIR::toString(*counter_inst) << endl;
+  def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
   cp.m = controlPath;
   return cp;
-  //return controlPath;
 }
 
 // add new design
