@@ -2624,7 +2624,15 @@ vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
   return ex.hwVars;
 }
 
-CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+class KernelControlPath {
+  public:
+    std::vector<std::string> controlVars;
+    CoreIR::Module* m;
+};
+
+//CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+  KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}};
@@ -2640,10 +2648,13 @@ CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFu
   }
 
   for (auto var : vars) {
+    cp.controlVars.push_back(coreirSanitize(var->compactString()));
     tps.push_back({coreirSanitize(var->compactString()), c->BitIn()});
   }
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
-  return controlPath;
+  cp.m = controlPath;
+  return cp;
+  //return controlPath;
 }
 
 // add new design
@@ -2755,7 +2766,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     int kernelN = 0;
 
     std::map<const For*, CoreIR::Module*> kernelModules;
-    std::map<const For*, CoreIR::Module*> kernelControlPaths;
+    //std::map<const For*, CoreIR::Module*> kernelControlPaths;
+    std::map<const For*, KernelControlPath> kernelControlPaths;
     std::map<const For*, HWFunction> functions;
     for (const For* lp : extractor.loops) {
       cout << "\t\tLOOP" << endl;
@@ -2785,7 +2797,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       kernelModules[lp] = m;
       auto cp = controlPathForKernel(context, scl.info, f);
       cout << "Control path is..." << endl;
-      cp->print();
+      cp.m->print();
       kernelControlPaths[lp] = cp;
       functions[lp] = f;
 
