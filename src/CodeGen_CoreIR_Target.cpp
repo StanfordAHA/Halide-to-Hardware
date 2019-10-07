@@ -2634,7 +2634,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
-  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}};
+  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   std::set<HWInstr*> vars;
   for (auto instr : f.body) {
     for (auto op : instr->operands) {
@@ -2675,6 +2675,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   CoreIR::Wireable* counter_inst = def->addInstance(xName, "commonlib.counter", args);
   cout << "x name counter = " << CoreIR::toString(*counter_inst) << endl;
   def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+  def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
   cp.m = controlPath;
   return cp;
 }
@@ -2931,6 +2932,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       KernelControlPath cpM = map_get(k.first, kernelControlPaths);
       auto controlPath = def->addInstance("control_path_module" + k.second->getName(), cpM.m);
+      def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
       for (auto v : cpM.controlVars) {
         auto vn = coreirSanitize(v);
         def->connect(controlPath->sel(vn), kI->sel(vn));
