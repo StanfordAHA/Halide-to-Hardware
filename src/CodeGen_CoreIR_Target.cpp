@@ -1670,6 +1670,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = adder->sel("out");
         unitMapping[instr] = adder;
+      } else if (name == "and_bv") {
+        auto adder = def->addInstance("and_bv_" + std::to_string(defStage), "coreir.and", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = adder->sel("out");
+        unitMapping[instr] = adder;
+
       } else if (name == "mul") {
         auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
@@ -1935,7 +1940,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
       if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
           (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and") || (instr->name == "mod") ||
-          (instr->name == "eq") || (instr->name == "neq")) {
+          (instr->name == "eq") || (instr->name == "neq") || (instr->name == "and_bv")) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
 
@@ -2457,7 +2462,6 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
   }
 }
 
-// TODO: Add modulus to shift conversion
 void modToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   std::map<HWInstr*, HWInstr*> replacements;
@@ -2471,9 +2475,11 @@ void modToShift(HWFunction& f) {
           cout << "\t\tand it is a power of 2" << endl;
           int value = std::ceil(std::log2(constVal));
           cout << "\t\tpower of 2 = " << value << endl;
+          internal_assert(value > 0);
+          // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI();
-          shrInstr->name = "and";
-          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1)};
+          shrInstr->name = "and_bv";
+          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
           replacements[instr] = shrInstr;
         }
       }
@@ -2864,6 +2870,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       valueConvertStreamReads(scl.info, f);
       removeWriteStreamArgs(scl.info, f);
       divToShift(f);
+      modToShift(f);
       cout << "After stream read conversion..." << endl;
       for (auto instr : body) {
         cout << "\t\t\t" << *instr << endl;
