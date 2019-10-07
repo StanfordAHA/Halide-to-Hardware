@@ -883,7 +883,7 @@ uint num_bits(uint N) {
 
 class NestExtractor : public IRGraphVisitor {
   public:
-    vector<const For*> loops;
+    std::vector<const For*> loops;
 
     bool inFor;
 
@@ -2671,7 +2671,7 @@ class KernelControlPath {
 
 class ForInfo {
   public:
-    std::string& name;
+    std::string name;
     int start;
     int end;
     int inc;
@@ -2688,6 +2688,15 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     LoopNestInfo info;
 
 
+    void visit(const For* lp) {
+      ForInfo forInfo;
+      forInfo.name = lp->name;
+      info.loops.push_back(forInfo);
+
+      if (!isInnermostLoop(lp)) {
+        IRGraphVisitor::visit(lp);
+      }
+    }
 };
 
 KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp) {
