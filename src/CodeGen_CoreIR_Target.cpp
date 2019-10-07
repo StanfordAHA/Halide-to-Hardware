@@ -2669,7 +2669,32 @@ class KernelControlPath {
     CoreIR::Module* m;
 };
 
+class ForInfo {
+  public:
+    std::string& name;
+    int start;
+    int end;
+    int inc;
+};
+
+class LoopNestInfo {
+  public:
+    std::vector<ForInfo> loops;
+};
+
+class LoopNestInfoCollector : public IRGraphVisitor {
+  public:
+
+    LoopNestInfo info;
+
+
+};
+
 KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp) {
+  LoopNestInfoCollector cl;
+  lp->accept(&cl);
+  LoopNestInfo loopInfo = cl.info;
+
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
