@@ -1987,7 +1987,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, HWFunction& f) {
   auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
-  tps = {{"reset", context->BitIn()}};
+  tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
   std::set<string> inStreams;
   std::set<string> outStreams;
   for (auto instr : instrs) {
@@ -2630,8 +2630,21 @@ vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
 
 CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
   auto globalNs = c->getNamespace("global");
-  CoreIR::Type* tp = c->Record({});
-  CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", tp);
+  //CoreIR::Type* tp = c->Record({{"reset", c->BitIn()}});
+  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}};
+  std::set<HWInstr*> vars;
+  for (auto instr : f.body) {
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_VAR) {
+        vars.insert(op);
+      }
+    }
+  }
+
+  for (auto var : vars) {
+    tps.push_back({coreirSanitize(var->compactString()), c->BitIn()});
+  }
+  CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
   return controlPath;
 }
 
@@ -2773,6 +2786,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       CoreIR::Module* m = moduleForKernel(scl.info, f);
       kernelModules[lp] = m;
       auto cp = controlPathForKernel(context, scl.info, f);
+      cout << "Control path is..." << endl;
+      cp->print();
       kernelControlPaths[lp] = cp;
       functions[lp] = f;
 
