@@ -2997,7 +2997,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
           internal_assert(CoreIR::contains_key(inName, inputAliases));
           string coreirName = CoreIR::map_find(inName, inputAliases);
+          cout << "Name for " << inName << " = " << coreirName << endl;
           def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
+          cout << "Connected " << inName << " to linebuffer" << endl;
           def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
           foundInput = true;
           break;
@@ -3077,7 +3079,22 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
             // Assume that this must be a top-level input
             auto self = def->sel("self");
             // TODO: Use hardware input map
-            inputMap[inPort] = self->sel("in")->sel("arg_0");
+            cout << "Trying to find default producer for " << CoreIR::toString(*inPort) << " in " << CoreIR::toString(*(self->sel("in"))) << endl;
+
+            auto selTp = self->sel("in")->getType();
+            internal_assert(CoreIR::isa<CoreIR::RecordType>(selTp)) << "select self.in must be a record\n";
+            auto rtp = static_cast<CoreIR::RecordType*>(selTp);
+            auto recs = rtp->getFields();
+            internal_assert(recs.size() > 0);
+
+            //internal_assert(self->sel("in")->getSelects().size() > 0) << "no selects in " << CoreIR::toString(*(self->sel("in"))) << "\n";
+
+            auto argSel = self->sel("in")->sel(*begin(recs));
+
+            //auto argSel = std::begin(self->sel("in")->getSelects())->first;
+            inputMap[inPort] = argSel;
+             //self->sel("in")->sel(argSel);
+            //self->sel("in")->sel(argStr);
             allEnables.push_back(self->sel("in_en"));
             //internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
           }
