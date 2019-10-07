@@ -705,6 +705,8 @@ void small_harris_test() {
 
 void small_cascade_test() {
 
+  cout << "Starting cascade test" << endl;
+
   ImageParam input(type_of<uint16_t>(), 2);
   ImageParam output(type_of<uint16_t>(), 2);
 
@@ -998,7 +1000,7 @@ void pointwise_add_test() {
 
     deleteContext(context);
 
-    cout << "Test passed!" << endl;
+    cout << GREEN << "Pointwise add passed!" << RESET << endl;
 }
 
 int main(int argc, char **argv) {
