@@ -437,9 +437,65 @@ void control_path_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "Control path test passed" << RESET << endl;
 }
 
+void control_path_xy_test() {
+  ImageParam input(type_of<int16_t>(), 2);
+  ImageParam output(type_of<int16_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Var xi,yi, xo,yo;
+
+  Func hw_input, hw_output, clamped;
+  hw_input(x, y) = input(x, y);
+  clamped(x, y) = select(x % 2 == 0, select(y % 2 == 0, hw_input(x, y), hw_input(x, y) + 1),
+      select(y % 2 == 0, hw_input(x, y) + 2, hw_input(x, y) + 3));
+
+  hw_output(x, y) = cast<int16_t>(clamped(x, y));
+  output(x, y) = hw_output(x, y);
+
+  // Create common elements of the CPU and hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+   // Creating input data
+   int nRows = 4;
+   int nCols = 2;
+  Halide::Buffer<int16_t> inputBuf(nCols, nRows);
+  Halide::Runtime::Buffer<int16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<int16_t> outputBuf(inputBuf.width(), inputBuf.height(), 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(j, i) = 0;
+      hwInputBuf(j, i, 0) = inputBuf(j, i);
+    }
+  }
+
+   //Creating CPU reference output
+  Halide::Buffer<int16_t> cpuOutput(outputBuf.width(), outputBuf.height());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  // Create HW schedule
+  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2).hw_accelerate(xi, xo);
+  clamped.linebuffer();
+  hw_input.stream_to_accelerator();
+
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
+
+  runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  cout << GREEN << "Control path xy test passed" << RESET << endl;
+}
 void mod2_test() {
   ImageParam input(type_of<int16_t>(), 2);
   ImageParam output(type_of<int16_t>(), 2);
@@ -1062,6 +1118,7 @@ void pointwise_add_test() {
 int main(int argc, char **argv) {
 
   control_path_test();
+  control_path_xy_test();
   //assert(false);
   mod2_test();
   shiftRight_test();
