@@ -440,6 +440,59 @@ void control_path_test() {
   cout << GREEN << "Clamp test passed" << RESET << endl;
 }
 
+void mod2_test() {
+  ImageParam input(type_of<int16_t>(), 2);
+  ImageParam output(type_of<int16_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Var xi,yi, xo,yo;
+
+  Func hw_input, hw_output, clamped;
+  hw_input(x, y) = input(x, y);
+  clamped(x, y) = hw_input(x, y) % 2;
+
+  hw_output(x, y) = cast<int16_t>(clamped(x, y));
+  output(x, y) = hw_output(x, y);
+
+  // Create common elements of the CPU and hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+   // Creating input data
+  Halide::Buffer<int16_t> inputBuf(2, 2);
+  Halide::Runtime::Buffer<int16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<int16_t> outputBuf(2, 2, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = i + j;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+   //Creating CPU reference output
+  Halide::Buffer<int16_t> cpuOutput(2, 2);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  // Create HW schedule
+  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2).hw_accelerate(xi, xo);
+  clamped.linebuffer();
+  hw_input.stream_to_accelerator();
+
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
+
+  runHWKernel(m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  cout << GREEN << "Clamp test passed" << RESET << endl;
+}
 void shiftRight_test() {
   ImageParam input(type_of<int16_t>(), 2);
   ImageParam output(type_of<int16_t>(), 2);
@@ -1010,6 +1063,7 @@ int main(int argc, char **argv) {
 
   //control_path_test();
   //assert(false);
+  mod2_test();
   shiftRight_test();
   clamp_test();
   //clamped_grad_x_test();
