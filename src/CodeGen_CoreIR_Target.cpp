@@ -2630,7 +2630,6 @@ class KernelControlPath {
     CoreIR::Module* m;
 };
 
-//CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
 KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
@@ -2917,6 +2916,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     for (auto k : kernelModules) {
       auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
       kernels[k.first] = kI;
+
+      KernelControlPath cpM = map_get(k.first, kernelControlPaths);
+      auto controlPath = def->addInstance("control_path_module" + k.second->getName(), cpM.m);
+      for (auto v : cpM.controlVars) {
+        auto vn = coreirSanitize(v);
+        def->connect(controlPath->sel(vn), kI->sel(vn));
+      }
+
     }
 
     std::map<string, CoreIR::Instance*> linebufferResults;

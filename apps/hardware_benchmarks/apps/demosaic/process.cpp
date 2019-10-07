@@ -29,7 +29,8 @@ int main(int argc, char **argv) {
                                               },
                                               {"coreir",
                                                   [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
-                                                                                      "self.in_arg_0_0_0", "self.out_0_0"); }
+                                                                                      "self.in_arg_3_0_0", "self.out_2_0_0"); }
+                                                                                      //"self.in_arg_0_0_0", "self.out_0_0"); }
                                               }
 
                                             });
