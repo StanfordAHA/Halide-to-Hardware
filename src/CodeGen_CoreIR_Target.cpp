@@ -2658,7 +2658,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
 
   int width = 16;
   int min_value = 0;
-  int max_value = 4;
+  int max_value = 16;
   int inc_value = 1;
   CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
     {"min",CoreIR::Const::make(c, min_value)},

@@ -404,18 +404,20 @@ void control_path_test() {
   hw_output.compute_root();
 
    // Creating input data
-  Halide::Buffer<int16_t> inputBuf(2, 2);
-  Halide::Runtime::Buffer<int16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
-  Halide::Runtime::Buffer<int16_t> outputBuf(2, 2, 1);
+   int nRows = 4;
+   int nCols = 2;
+  Halide::Buffer<int16_t> inputBuf(nCols, nRows);
+  Halide::Runtime::Buffer<int16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<int16_t> outputBuf(inputBuf.width(), inputBuf.height(), 1);
   for (int i = 0; i < inputBuf.height(); i++) {
     for (int j = 0; j < inputBuf.width(); j++) {
-      inputBuf(i, j) = 0;
-      hwInputBuf(i, j, 0) = inputBuf(i, j);
+      inputBuf(j, i) = 0;
+      hwInputBuf(j, i, 0) = inputBuf(j, i);
     }
   }
 
    //Creating CPU reference output
-  Halide::Buffer<int16_t> cpuOutput(2, 2);
+  Halide::Buffer<int16_t> cpuOutput(outputBuf.width(), outputBuf.height());
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
