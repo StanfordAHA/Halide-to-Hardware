@@ -2648,10 +2648,21 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   }
 
   for (auto var : vars) {
+    int width = 16;
     cp.controlVars.push_back(coreirSanitize(var->compactString()));
-    tps.push_back({coreirSanitize(var->compactString()), c->BitIn()});
+    tps.push_back({coreirSanitize(var->compactString()), c->Bit()->Arr(width)});
   }
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
+
+  auto def = controlPath->newModuleDef();
+  for (auto var : vars) {
+    int width = 16;
+    auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
+    def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
+  }
+
+  controlPath->setDef(def);
+
   cp.m = controlPath;
   return cp;
   //return controlPath;
