@@ -983,12 +983,14 @@ void pointwise_add_test() {
     auto m = buildModule(context, "coreir_brighter", args, "brighter", hwOutput);
     SimulatorState state(m);
 
+    state.setValue("self.reset", BitVector(1, 1));
     state.setValue("self.in_en", BitVector(1, 1));
     state.setValue("self.in_arg_0_0_0", BitVector(16, 123));
     
     state.resetCircuit();
     cout << "Starting to execute" << endl;
 
+    state.setValue("self.reset", BitVector(1, 0));
     state.exeCombinational();
 
     assert(state.getBitVec("self.out_0_0") == BitVec(16, 123 + 10));
@@ -1001,8 +1003,8 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  control_path_test();
-  assert(false);
+  //control_path_test();
+  //assert(false);
   shiftRight_test();
   clamp_test();
   //clamped_grad_x_test();

@@ -2654,13 +2654,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
 
   auto def = controlPath->newModuleDef();
-  for (auto var : vars) {
-    int width = 16;
-    auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
-    def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
-  }
 
-  controlPath->setDef(def);
 
   int width = 16;
   int min_value = 0;
@@ -2671,11 +2665,27 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     {"max",CoreIR::Const::make(c, max_value)},
     {"inc",CoreIR::Const::make(c, inc_value)}};
 
+  string varName = "clamped_x___scan_dim_0";
   string xName = "x_var_counter";
   CoreIR::Wireable* counter_inst = def->addInstance(xName, "commonlib.counter", args);
   cout << "x name counter = " << CoreIR::toString(*counter_inst) << endl;
+
+  auto self = def->sel("self");
   def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
   def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+
+  for (auto var : vars) {
+    int width = 16;
+    auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
+    if (varName == coreirSanitize(var->name) && self->canSel(varName)) {
+      def->connect(counter_inst->sel("out"), self->sel(varName));
+    } else {
+      def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
+    }
+  }
+  
+  controlPath->setDef(def);
+  
   cp.m = controlPath;
   return cp;
 }
