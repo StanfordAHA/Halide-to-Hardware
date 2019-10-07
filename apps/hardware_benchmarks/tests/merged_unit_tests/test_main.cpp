@@ -19,6 +19,17 @@ std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
 template<typename T>
+void printBuffer(T& inputBuf, std::ostream& out) {
+  cout << "Top = " << inputBuf.top() << ", bot = " << inputBuf.bottom() << ", height = " << inputBuf.height() << endl;
+  for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
+    for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
+      out << inputBuf(j, i) << " ";
+    }
+    out << endl;
+  }
+}
+
+template<typename T>
 class CoordinateVector {
   public:
 
@@ -252,24 +263,26 @@ template<typename T>
 void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& cpuOutput) {
   cout << "Comparing buffers..." << endl;
   cout << "Hardware output" << endl;
-  for (int i = 0; i < outputBuf.height(); i++) {
-    for (int j = 0; j < outputBuf.width(); j++) {
-      for (int b = 0; b < outputBuf.channels(); b++) {
-        cout << (int) outputBuf(i, j, b) << " ";
-      }
-    }
-    cout << endl;
-  }
+  printBuffer(outputBuf, cout);
+  //for (int i = 0; i < outputBuf.height(); i++) {
+    //for (int j = 0; j < outputBuf.width(); j++) {
+      //for (int b = 0; b < outputBuf.channels(); b++) {
+        //cout << (int) outputBuf(i, j, b) << " ";
+      //}
+    //}
+    //cout << endl;
+  //}
   cout << endl;
   cout << "CPU Output" << endl;
-  for (int i = 0; i < outputBuf.height(); i++) {
-    for (int j = 0; j < outputBuf.width(); j++) {
-      for (int b = 0; b < outputBuf.channels(); b++) {
-        cout << (int) cpuOutput(i, j, b) << " ";
-      }
-    }
-    cout << endl;
-  }
+  printBuffer(cpuOutput, cout);
+  //for (int i = 0; i < outputBuf.height(); i++) {
+    //for (int j = 0; j < outputBuf.width(); j++) {
+      //for (int b = 0; b < outputBuf.channels(); b++) {
+        //cout << (int) cpuOutput(i, j, b) << " ";
+      //}
+    //}
+    //cout << endl;
+  //}
 
   for (int i = 0; i < outputBuf.height(); i++) {
     for (int j = 0; j < outputBuf.width(); j++) {
@@ -284,16 +297,6 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
 
 }
 
-
-template<typename T>
-void printBuffer(T& inputBuf, std::ostream& out) {
-  for (int i = inputBuf.top(); i < inputBuf.bottom(); i++) {
-    for (int j = inputBuf.left(); j < inputBuf.right(); j++) {
-      out << inputBuf(j, i) << " ";
-    }
-    out << endl;
-  }
-}
 
 // TODO: Add test of clamping? 
 void clamped_grad_x_test() {
