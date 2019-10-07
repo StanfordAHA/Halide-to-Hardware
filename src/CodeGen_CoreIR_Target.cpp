@@ -34,6 +34,7 @@ using std::ofstream;
 using std::cout;
 
 using CoreIR::map_find;
+using CoreIR::elem;
 using CoreIR::contains_key;
 namespace {
 
@@ -2569,11 +2570,6 @@ class HWVarExtractor : public IRGraphVisitor {
       if (starts_with(v->name, "_")) {
         addVar(v->name);
       }
-      //auto allStreams = allStreamNames(*f);
-
-      //if (!CoreIR::elem(v->name, allStreams) && !CoreIR::elem(v->name, hwVars)) {
-        //hwVars.push_back(v->name);
-      //}
     }
 
     void addVar(const std::string& name) {
@@ -2629,14 +2625,16 @@ vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
 }
 
 CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+  std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
-  //CoreIR::Type* tp = c->Record({{"reset", c->BitIn()}});
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}};
   std::set<HWInstr*> vars;
   for (auto instr : f.body) {
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_VAR) {
-        vars.insert(op);
+        if (!elem(op->name, streamNames)) {
+          vars.insert(op);
+        }
       }
     }
   }
