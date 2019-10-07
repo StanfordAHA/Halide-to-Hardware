@@ -2628,6 +2628,13 @@ vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
   return ex.hwVars;
 }
 
+CoreIR::Module* controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+  auto globalNs = c->getNamespace("global");
+  CoreIR::Type* tp = c->Record({});
+  CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", tp);
+  return controlPath;
+}
+
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
@@ -2737,6 +2744,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     int kernelN = 0;
 
     std::map<const For*, CoreIR::Module*> kernelModules;
+    std::map<const For*, CoreIR::Module*> kernelControlPaths;
     std::map<const For*, HWFunction> functions;
     for (const For* lp : extractor.loops) {
       cout << "\t\tLOOP" << endl;
@@ -2764,9 +2772,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       CoreIR::Module* m = moduleForKernel(scl.info, f);
       kernelModules[lp] = m;
+      auto cp = controlPathForKernel(context, scl.info, f);
+      kernelControlPaths[lp] = cp;
       functions[lp] = f;
-      //cout << "Module for kernel..." << endl;
-      //m->print();
 
       context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
       removeUnconnectedInstances(m->getDef());
