@@ -29,6 +29,7 @@ void printBuffer(T& inputBuf, std::ostream& out) {
     }
   } else {
     for (int c = 0; c < inputBuf.channels(); c++) {
+      out << "------------------------------------------" << endl;
       out << "Channel " << c << endl;
       out << "------------------------------------------" << endl;
       for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
@@ -314,12 +315,19 @@ void multi_channel_conv_test() {
   ImageParam output(type_of<uint16_t>(), 3);
 
   Var x("x"), y("y"), z("z");
-  Var xi,yi, xo,yo;
+  Var xi,yi,zi, xo,yo,zo;
+
+  Func kernel("kernel");
+  kernel(x) = 0;
+  kernel(0) = 0;
+  kernel(1) = 1;
+  kernel(2) = 2;
 
   Func conv("conv");
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
-  conv(x, y, z) = hw_input(x, y) + z;
+  //conv(x, y, z) = hw_input(x, y) + z;
+  conv(x, y, z) = hw_input(x, y) + kernel(z);
   
   Func hw_output("hw_output");
   hw_output(x, y, z) = cast<uint16_t>(conv(x, y, z));
@@ -349,7 +357,29 @@ void multi_channel_conv_test() {
 
   cout << "CPU output" << endl;
   printBuffer(cpuOutput, cout);
-  assert(false);
+  
+  // Hardware schedule
+  int tileSize = 8;
+  hw_output.bound(z, 0, 3);
+  conv.bound(z, 0, 3);
+
+  hw_output.reorder(z, x, y).tile(x, y, xo, yo, xi, yi, tileSize, tileSize).
+    unroll(z).
+    hw_accelerate(xi, xo);
+  //conv.unroll(z, 3);
+  hw_input.stream_to_accelerator();
+
+  cout << "Loop nest.." << endl;
+  hw_output.print_loop_nest();
+  
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "mc_conv_coreir", args, "mc_conv", hw_output);
+
+  runHWKernel(m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
+
+  cout << GREEN << "Multi channel conv test passed" << RESET << endl;
 }
 
 void clamped_grad_x_test() {
