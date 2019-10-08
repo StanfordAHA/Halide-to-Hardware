@@ -2672,9 +2672,8 @@ class KernelControlPath {
 class ForInfo {
   public:
     std::string name;
-    int start;
-    int end;
-    int inc;
+    int min;
+    int extent;
 };
 
 class LoopNestInfo {
@@ -2691,6 +2690,8 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     void visit(const For* lp) {
       ForInfo forInfo;
       forInfo.name = lp->name;
+      forInfo.min = getConstInt(lp->min);
+      forInfo.extent = getConstInt(lp->extent);
       info.loops.push_back(forInfo);
 
       if (!isInnermostLoop(lp)) {
@@ -2703,6 +2704,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   LoopNestInfoCollector cl;
   lp->accept(&cl);
   LoopNestInfo loopInfo = cl.info;
+  cout << "# of levels in loop = " << loopInfo.loops.size() << endl;
 
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
