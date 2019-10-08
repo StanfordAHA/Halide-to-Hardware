@@ -59,6 +59,13 @@ class Point {
       assert(false);
     }
 
+    Point<T> appendDim(const std::string& name, const int i) {
+      Point<T> fresh = *this;
+      fresh.names.push_back(name);
+      fresh.values.push_back(i);
+      return fresh;
+    }
+
 };
 
 template<typename T>
@@ -137,11 +144,26 @@ class CoordinateVector {
     }
 
     std::vector<Point<T> > allPoints(const std::vector<Point<T> >& startingPts, const int i) const {
-      return {};
+      assert(i < ((int) values.size()));
+
+      std::vector<Point<T> > newPoints;
+      for (auto pt : startingPts) {
+        // TODO: Change b = 0 to intervalStart(i)
+        for (int b = 0; b < intervalEnd(i); b++) {
+          newPoints.push_back(pt.appendDim(names[i], b));
+        }
+      }
+
+      if (i == ((int) values.size()) - 1) {
+        return newPoints;
+      }
+
+      auto finalPoints = allPoints(newPoints, i + 1);
+      return finalPoints;
     }
 
     std::vector<Point<T> > currentWindow() const {
-      std::vector<Point<T> > window;
+      std::vector<Point<T> > window{{}};
       auto finalWindow = allPoints(window, 0);
       return window;
     }
