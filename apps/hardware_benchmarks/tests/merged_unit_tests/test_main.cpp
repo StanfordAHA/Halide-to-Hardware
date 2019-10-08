@@ -69,6 +69,22 @@ class CoordinateVector {
       }
     }
 
+    int indexOf(const std::string& name) {
+      for (int i = 0; i < (int) names.size(); i++) {
+        auto cN = names[i];
+        if (cN == name) {
+          return i;
+        }
+      }
+
+      assert(false);
+    }
+
+    void setIncrement(const std::string& name, const int inc) {
+      int val = indexOf(name);
+      increments[val] = inc;
+    }
+
     int coord(const std::string& str) {
       for (int i = 0; i < (int) names.size(); i++) {
         auto cN = names[i];
@@ -83,7 +99,7 @@ class CoordinateVector {
     std::string coordString() const {
       std::string str = "{";
       for (int i = 0; i < ((int) bounds.size()); i++) {
-        str += std::to_string(values[i]) + " : " + std::to_string(bounds[i]);
+        str += std::to_string(values[i]) + ", " + std::to_string(values[i] + increments[i] - 1) + " : " + std::to_string(bounds[i]);
         if (i < ((int) bounds.size()) - 1) {
           str += ", ";
         }
@@ -122,7 +138,7 @@ class CoordinateVector {
  
     void increment(const int index) {
       assert(index < ((int) values.size()));
-      values[index] += increments[index];
+      values[index] = std::min(bounds[index], values[index] + increments[index]);
     }
 
     void increment() {
@@ -201,7 +217,21 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
     cout << "Error: Either input or output is not 2d" << endl;
     cout << "Input is 2d = " << is2D(hwInputBuf) << endl;
     cout << "Output is 2d = " << is2D(outputBuf) << endl;
+
+    CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+    CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+    readIdx.setIncrement("c", 3);
+
+    cout << "Dummy reads..." << endl;
+    while (!readIdx.allDone()) {
+      cout << "Read" << endl;
+      cout << readIdx.coordString() << endl;
+      readIdx.increment();
+    }
     // Now: Handle output being 2D. How? First: Need to figure out channels
+    // Create index structure that inclues z increments
+    // Actually: Maybe the user should pass in the index structure which
+    // says how applications will be scheduled?
     assert(false);
   }
 }
@@ -1225,7 +1255,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //multi_channel_conv_test();
+  multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
