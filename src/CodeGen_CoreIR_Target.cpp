@@ -2704,6 +2704,28 @@ CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const
   return def->addInstance(name, "coreir.const", {{"width", COREMK(def->getContext(), width)}}, {{"value", COREMK(def->getContext(), BitVector(width, val))}});
 }
 
+CoreIR::Wireable* andVals(CoreIR::ModuleDef* def, CoreIR::Wireable* a, CoreIR::Wireable* b) {
+  auto c = def->getContext();
+  auto ad = def->addInstance("and_all", "corebit.and");
+  def->connect(ad->sel("in0"), a);
+  def->connect(ad->sel("in1"), b);
+
+  return ad->sel("out");
+}
+
+CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wireable*>& vals) {
+  CoreIR::Wireable* val = nullptr;
+  if (vals.size() == 0) {
+    return def->addInstance("and_all", "corebit.const", {{"value", COREMK(def->getContext(), true)}});
+  }
+
+  val = vals[0];
+  for (int i = 1; i < ((int) vals.size()) - 1; i++) {
+    val = andVals(def, val, vals[i]);
+  }
+  return val;
+}
+
 KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp) {
   LoopNestInfoCollector cl;
   lp->accept(&cl);
@@ -2759,12 +2781,14 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     loopVarNames.insert(l.name);
     string varName = coreirSanitize(l.name);
     CoreIR::Wireable* counter_inst = def->addInstance(varName, "commonlib.counter", args);
+    loopLevelCounters.push_back(counter_inst);
+
     // If this loop variable is actually used in the kernel then connect it to the outside world
     if (self->canSel(varName)) {
       def->connect(counter_inst->sel("out"), self->sel(varName));
     }
     def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
-    def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+    //def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
 
     auto maxValConst = mkConst(def, varName + "_max_value", width, max_value);
     auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
@@ -2774,6 +2798,21 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     levelAtMax.push_back(atMax);
 
   }
+
+  internal_assert(levelAtMax.size() == loopLevelCounters.size());
+
+  cout << "Wiring up counter enables" << endl;
+
+  for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
+    vector<CoreIR::Wireable*> below;
+    for (int j = i + 1; j < (int) loopLevelCounters.size(); j++) {
+      below.push_back(levelAtMax[j]->sel("out"));
+    }
+    CoreIR::Wireable* shouldInc = andList(def, below);
+    def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
+     //shouldInc->sel("out"));
+  }
+  def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
   //int min_value = 0;
   //int max_value = 16;
