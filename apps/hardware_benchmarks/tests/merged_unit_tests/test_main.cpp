@@ -49,13 +49,16 @@ class CoordinateVector {
     std::vector<T> values;
     std::vector<std::string> names;
     std::vector<T> bounds;
+    std::vector<T> increments;
 
     bool finished;
 
     CoordinateVector(vector<std::string> names_, vector<T> bounds_) : names(names_), bounds(bounds_), finished(false) {
       values.resize(names.size());
+      increments.resize(names.size());
       for (int i = 0; i < (int) bounds.size(); i++) {
         values[i] = 0;
+        increments[i] = 1;
       }
     }
 
@@ -88,6 +91,7 @@ class CoordinateVector {
       str += "}";
       return str;
     }
+    
     bool allLowerAtMax(const int level) const {
       if (level == ((int) bounds.size()) - 1) {
         return true;
@@ -115,7 +119,12 @@ class CoordinateVector {
     bool allDone() const {
       return finished && atMax(0) && allLowerAtMax(0);
     }
-    
+ 
+    void increment(const int index) {
+      assert(index < ((int) values.size()));
+      values[i] += increments[i];
+    }
+
     void increment() {
       if (allAtMax() && !allDone()) {
         finished = true;
@@ -127,7 +136,8 @@ class CoordinateVector {
 
       for (int i = 0; i < (int) bounds.size(); i++) {
         if (allLowerAtMax(i)) {
-          values[i]++;
+          increment(i);
+          //values[i]++;
 
           for (int j = i + 1; j < (int) bounds.size(); j++) {
             values[j] = 0;
@@ -156,41 +166,42 @@ bool is2D(T& buf) {
 
 template<typename T>
 void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
- 
+
   if (is2D(hwInputBuf) && is2D(outputBuf)) {
-  SimulatorState state(m);
-  state.setValue(inputName, BitVector(16, 0));
-  state.setValue("self.in_en", BitVector(1, 0));
-  if (hasClock(m)) {
-    state.setClock("self.clk", 0, 1);
-  }
-  state.setValue("self.reset", BitVector(1, 1));
+    SimulatorState state(m);
+    state.setValue(inputName, BitVector(16, 0));
+    state.setValue("self.in_en", BitVector(1, 0));
+    if (hasClock(m)) {
+      state.setClock("self.clk", 0, 1);
+    }
+    state.setValue("self.reset", BitVector(1, 1));
 
-  state.resetCircuit();
+    state.resetCircuit();
 
-  state.setValue("self.reset", BitVector(1, 0));
+    state.setValue("self.reset", BitVector(1, 0));
 
-  int maxCycles = 100;
-  int cycles = 0;
+    int maxCycles = 100;
+    int cycles = 0;
 
-  std::string outputName = "self.out_0_0";
-  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
-  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
-  while (cycles < maxCycles && !readIdx.allDone()) {
-    cout << "Read index = " << readIdx.coordString() << endl;
-    cout << "Cycles     = " << cycles << endl;
+    std::string outputName = "self.out_0_0";
+    CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+    CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
 
-    run_for_cycle(writeIdx, readIdx,
-        hwInputBuf, outputBuf,
-        inputName, outputName,
-        state);
-    cycles++;
-  }
+    while (cycles < maxCycles && !readIdx.allDone()) {
+      cout << "Read index = " << readIdx.coordString() << endl;
+      cout << "Cycles     = " << cycles << endl;
+
+      run_for_cycle(writeIdx, readIdx,
+          hwInputBuf, outputBuf,
+          inputName, outputName,
+          state);
+      cycles++;
+    }
   } else {
     cout << "Error: Either input or output is not 2d" << endl;
     cout << "Input is 2d = " << is2D(hwInputBuf) << endl;
     cout << "Output is 2d = " << is2D(outputBuf) << endl;
+    // Now: Handle output being 2D. How? First: Need to figure out channels
     assert(false);
   }
 }
@@ -242,7 +253,6 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   if (!writeIdx.allDone()) {
 
     state.setValue("self.in_en", BitVector(1, true));
-
     state.setValue(input_name, BitVector(16, input(x,y,c)));
     //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
     std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
