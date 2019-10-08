@@ -2700,6 +2700,10 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
+CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const int width, const int val) {
+  return def->addInstance(name, "coreir.const", {{"width", COREMK(def->getContext(), width)}}, {{"value", COREMK(def->getContext(), BitVector(width, val))}});
+}
+
 KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp) {
   LoopNestInfoCollector cl;
   lp->accept(&cl);
@@ -2739,6 +2743,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   // - Each level in the nest increments when all levels below it are at their max?
   // - Each level resets when it reaches its max? (but maybe this is default counter behavior?)
   std::vector<CoreIR::Wireable*> loopLevelCounters;
+  std::vector<CoreIR::Wireable*> levelAtMax;
   std::set<std::string> loopVarNames;
   auto self = def->sel("self");
   for (auto l : loopInfo.loops) {
@@ -2760,6 +2765,14 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     }
     def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
     def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+
+    auto maxValConst = mkConst(def, varName + "_max_value", width, max_value);
+    auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
+    def->connect(atMax->sel("in0"), maxValConst->sel("out"));
+    def->connect(atMax->sel("in1"), counter_inst->sel("out"));
+
+    levelAtMax.push_back(atMax);
+
   }
 
   //int min_value = 0;
