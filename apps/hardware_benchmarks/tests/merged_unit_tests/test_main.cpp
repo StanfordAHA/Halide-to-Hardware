@@ -20,12 +20,23 @@ std::string RESET = "\033[0m";
 
 template<typename T>
 void printBuffer(T& inputBuf, std::ostream& out) {
-  cout << "Top = " << inputBuf.top() << ", bot = " << inputBuf.bottom() << ", height = " << inputBuf.height() << endl;
-  for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
-    for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
-      out << inputBuf(j, i) << " ";
+  if (inputBuf.dimensions() <= 2 || inputBuf.channels() == 1) {
+    for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
+      for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
+        out << inputBuf(j, i) << " ";
+      }
+      out << endl;
     }
-    out << endl;
+  } else {
+    for (int c = 0; c < inputBuf.channels(); c++) {
+      cout << "Channel " << c << endl;
+      for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
+        for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
+          out << inputBuf(j, i, c) << " ";
+        }
+        out << endl;
+      }
+    }
   }
 }
 
@@ -295,6 +306,49 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
     cout << endl;
   }
 
+}
+
+void multi_channel_conv_test() {
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 3);
+
+  Var x("x"), y("y"), z("z");
+  Var xi,yi, xo,yo;
+
+  Func conv("conv");
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  conv(x, y, z) = hw_input(x, y) + z;
+  
+  Func hw_output("hw_output");
+  hw_output(x, y, z) = cast<uint16_t>(conv(x, y, z));
+  output(x, y, z) = hw_output(x, y, z);
+
+  // Create common elements of the CPU and hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  // Creating input data
+  Halide::Buffer<uint16_t> inputBuf(8, 8);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 3);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = rand() % 255;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+  //Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  cout << "CPU output" << endl;
+  printBuffer(cpuOutput, cout);
+  assert(false);
 }
 
 void clamped_grad_x_test() {
@@ -1117,6 +1171,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
+  multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
