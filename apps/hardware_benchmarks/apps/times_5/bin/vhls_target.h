@@ -8,8 +8,8 @@
 #include "Stencil.h"
 
 void vhls_target(
-hls::stream<AxiPackedStencil<uint16_t, 10, 1> > &arg_0,
-hls::stream<AxiPackedStencil<uint16_t, 10, 1> > &arg_1);
+hls::stream<AxiPackedStencil<uint16_t, 1, 1> > &arg_0,
+hls::stream<AxiPackedStencil<uint16_t, 1, 1> > &arg_1);
 
 #endif
 
