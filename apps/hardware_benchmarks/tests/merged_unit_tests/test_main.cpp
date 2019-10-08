@@ -29,7 +29,8 @@ void printBuffer(T& inputBuf, std::ostream& out) {
     }
   } else {
     for (int c = 0; c < inputBuf.channels(); c++) {
-      cout << "Channel " << c << endl;
+      out << "Channel " << c << endl;
+      out << "------------------------------------------" << endl;
       for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
         for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
           out << inputBuf(j, i, c) << " ";
