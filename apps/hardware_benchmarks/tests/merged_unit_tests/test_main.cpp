@@ -148,9 +148,16 @@ bool hasClock(CoreIR::Module* m) {
   }
   return false;
 }
+
+template<typename T>
+bool is2D(T& buf) {
+  return (buf.dimensions() == 2) || (buf.dimensions() == 3 && buf.channels() == 1);
+}
+
 template<typename T>
 void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
-  
+ 
+  if (is2D(hwInputBuf) && is2D(outputBuf)) {
   SimulatorState state(m);
   state.setValue(inputName, BitVector(16, 0));
   state.setValue("self.in_en", BitVector(1, 0));
@@ -179,6 +186,12 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
         inputName, outputName,
         state);
     cycles++;
+  }
+  } else {
+    cout << "Error: Either input or output is not 2d" << endl;
+    cout << "Input is 2d = " << is2D(hwInputBuf) << endl;
+    cout << "Output is 2d = " << is2D(outputBuf) << endl;
+    assert(false);
   }
 }
 template<typename T>

@@ -2867,6 +2867,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
   if (!is_header()) {
 
+    cout << "All args" << endl;
+    for (auto a : args) {
+      cout << "\t" << a.name << endl;
+    }
     LetPusher pusher;
     stmt = pusher.mutate(stmt);
     cout << "After let pushing..." << endl;

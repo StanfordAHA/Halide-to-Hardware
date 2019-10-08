@@ -69,7 +69,8 @@ public:
         output.bound(c, 0, 3);
             
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) ||
+            get_target().has_feature(Target::HLS)) {
           hw_input.compute_root();
           hw_output.compute_root();
           
