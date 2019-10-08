@@ -3113,7 +3113,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       kernels[k.first] = kI;
 
       KernelControlPath cpM = map_get(k.first, kernelControlPaths);
-      auto controlPath = def->addInstance("control_path_module" + k.second->getName(), cpM.m);
+      auto controlPath = def->addInstance("control_path_module_" + k.second->getName(), cpM.m);
       controlPaths[k.first] = controlPath;
       def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
       for (auto v : cpM.controlVars) {
