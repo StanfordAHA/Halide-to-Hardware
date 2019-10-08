@@ -2704,7 +2704,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   LoopNestInfoCollector cl;
   lp->accept(&cl);
   LoopNestInfo loopInfo = cl.info;
-  cout << "# of levels in loop = " << loopInfo.loops.size() << endl;
+  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
 
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
@@ -2732,39 +2732,72 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
 
 
   int width = 16;
-  int min_value = 0;
-  int max_value = 16;
-  int inc_value = 1;
-  CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
-    {"min",CoreIR::Const::make(c, min_value)},
-    {"max",CoreIR::Const::make(c, max_value)},
-    {"inc",CoreIR::Const::make(c, inc_value)}};
 
-  string varName = "clamped_x___scan_dim_0";
-  string xName = "x_var_counter";
-  CoreIR::Wireable* counter_inst = def->addInstance(xName, "commonlib.counter", args);
-
+  // What is the right way to create this control path?
+  // - Counter for each loop index variable
+  // - Connect reset to counter reset, and connect the counter out to the control output
+  // - Each level in the nest increments when all levels below it are at their max?
+  // - Each level resets when it reaches its max? (but maybe this is default counter behavior?)
+  std::vector<CoreIR::Wireable*> loopLevelCounters;
+  std::set<std::string> loopVarNames;
   auto self = def->sel("self");
-  def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
-  def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+  for (auto l : loopInfo.loops) {
+    int min_value = l.min;
+    int max_value = min_value + l.extent - 1;
+    int inc_value = 1;
+
+    CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+      {"min",CoreIR::Const::make(c, min_value)},
+      {"max",CoreIR::Const::make(c, max_value)},
+      {"inc",CoreIR::Const::make(c, inc_value)}};
+
+    loopVarNames.insert(l.name);
+    string varName = coreirSanitize(l.name);
+    CoreIR::Wireable* counter_inst = def->addInstance(varName, "commonlib.counter", args);
+    // If this loop variable is actually used in the kernel then connect it to the outside world
+    if (self->canSel(varName)) {
+      def->connect(counter_inst->sel("out"), self->sel(varName));
+    }
+    def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+    def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+  }
+
+  //int min_value = 0;
+  //int max_value = 16;
+  //int inc_value = 1;
+  //CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+    //{"min",CoreIR::Const::make(c, min_value)},
+    //{"max",CoreIR::Const::make(c, max_value)},
+    //{"inc",CoreIR::Const::make(c, inc_value)}};
+
+  //string varName = "clamped_x___scan_dim_0";
+  //string xName = "x_var_counter";
+  //CoreIR::Wireable* counter_inst = def->addInstance(xName, "commonlib.counter", args);
+
+  //auto self = def->sel("self");
+  //def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+  //def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
 
 
-  CoreIR::Values argsY = {{"width",CoreIR::Const::make(c, width)},
-    {"min",CoreIR::Const::make(c, min_value)},
-    {"max",CoreIR::Const::make(c, max_value)},
-    {"inc",CoreIR::Const::make(c, inc_value)}};
+  //CoreIR::Values argsY = {{"width",CoreIR::Const::make(c, width)},
+    //{"min",CoreIR::Const::make(c, min_value)},
+    //{"max",CoreIR::Const::make(c, max_value)},
+    //{"inc",CoreIR::Const::make(c, inc_value)}};
 
-  string yName = "y_var_counter";
-  CoreIR::Wireable* y_counter_inst = def->addInstance(yName, "commonlib.counter", argsY);
-  def->connect(y_counter_inst->sel("reset"), def->sel("self")->sel("reset"));
-  def->connect(y_counter_inst->sel("en"), def->sel("self")->sel("in_en"));
+  //string yName = "y_var_counter";
+  //CoreIR::Wireable* y_counter_inst = def->addInstance(yName, "commonlib.counter", argsY);
+  //def->connect(y_counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+  //def->connect(y_counter_inst->sel("en"), def->sel("self")->sel("in_en"));
 
   for (auto var : vars) {
     int width = 16;
-    auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
-    if (varName == coreirSanitize(var->name) && self->canSel(varName)) {
-      def->connect(counter_inst->sel("out"), self->sel(varName));
+    if (elem(var->name, loopVarNames)) {
+
+      // Do nothing
+      //if (varName == coreirSanitize(var->name) && self->canSel(varName)) {
+      //def->connect(counter_inst->sel("out"), self->sel(varName));
     } else {
+      auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
       def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
     }
   }
