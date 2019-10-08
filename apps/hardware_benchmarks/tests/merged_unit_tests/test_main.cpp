@@ -85,7 +85,7 @@ class CoordinateVector {
       increments[val] = inc;
     }
 
-    int coord(const std::string& str) {
+    int coord(const std::string& str) const {
       for (int i = 0; i < (int) names.size(); i++) {
         auto cN = names[i];
         if (cN == str) {
@@ -96,10 +96,19 @@ class CoordinateVector {
       assert(false);
     }
 
+    int intervalEnd(const std::string& name) const {
+      int ind = indexOf(name);
+      return intervalEnd(ind);
+    }
+
+    int intervalEnd(const int ind) const {
+      return std::min(values[ind] + increments[ind] - 1, bounds[ind]);
+    }
+
     std::string coordString() const {
       std::string str = "{";
       for (int i = 0; i < ((int) bounds.size()); i++) {
-        str += std::to_string(values[i]) + ", " + std::to_string(values[i] + increments[i] - 1) + " : " + std::to_string(bounds[i]);
+        str += std::to_string(values[i]) + ", " + std::to_string(intervalEnd(i)) + " : " + std::to_string(bounds[i]);
         if (i < ((int) bounds.size()) - 1) {
           str += ", ";
         }
@@ -123,9 +132,10 @@ class CoordinateVector {
     }
 
     bool atMax(const int level) const {
-      bool atM = bounds[level] == values[level];
-      //cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
-      return atM;
+      return intervalEnd(level) == bounds[level];
+      //bool atM = bounds[level] == values[level];
+      ////cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
+      //return atM;
     }
 
     bool allAtMax() const {
@@ -1255,7 +1265,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  multi_channel_conv_test();
+  //multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
