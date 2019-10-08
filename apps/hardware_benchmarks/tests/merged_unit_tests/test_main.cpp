@@ -69,6 +69,19 @@ class Point {
 };
 
 template<typename T>
+std::ostream& operator<<(std::ostream& out, const Point<T>& pt) {
+  out << "(";
+  for (int i = 0; i < (int) pt.values.size(); i++) {
+    out << pt.values[i];
+    if (i < ((int) pt.values.size()) - 1) {
+      out << ", ";
+    }
+  }
+  out << ")";
+  return out;
+}
+
+template<typename T>
 class CoordinateVector {
   public:
 
@@ -144,16 +157,17 @@ class CoordinateVector {
     }
 
     std::vector<Point<T> > allPoints(const std::vector<Point<T> >& startingPts, const int i) const {
+      assert(startingPts.size() > 0);
       assert(i < ((int) values.size()));
 
       std::vector<Point<T> > newPoints;
       for (auto pt : startingPts) {
-        // TODO: Change b = 0 to intervalStart(i)
-        for (int b = 0; b < intervalEnd(i); b++) {
+        for (int b = values[i]; b <= intervalEnd(i); b++) {
           newPoints.push_back(pt.appendDim(names[i], b));
         }
       }
 
+      cout << "Newpoints at " << i << " has size " << newPoints.size() << endl;
       if (i == ((int) values.size()) - 1) {
         return newPoints;
       }
@@ -164,8 +178,9 @@ class CoordinateVector {
 
     std::vector<Point<T> > currentWindow() const {
       std::vector<Point<T> > window{{}};
+      assert(window.size() == 1);
       auto finalWindow = allPoints(window, 0);
-      return window;
+      return finalWindow;
     }
     
     bool allLowerAtMax(const int level) const {
@@ -383,14 +398,21 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
   // read output wire
   bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-  
+
+  cout << "Read window with " << readIdx.currentWindow().size() << " points..." << endl;
+  for (auto point : readIdx.currentWindow()) {
+    assert(point.numDims() > 0);
+    cout << "\tReading output data for point " << point << endl;
+  }
   if (valid_value) {
 
     for (auto point : readIdx.currentWindow()) {
+      assert(point.numDims() > 0);
+      cout << "\tReading output data for point " << point << endl;
       auto output_bv = state.getBitVec(outputForCoord(point));
       T output_value;
       output_value = output_bv.to_type<T>();
-      std::cout << "this one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
+      std::cout << "\tthis one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
 
       //const int xr = readIdx.coord("x");
       //const int yr = readIdx.coord("y");
