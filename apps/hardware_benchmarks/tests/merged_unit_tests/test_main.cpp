@@ -122,7 +122,7 @@ class CoordinateVector {
  
     void increment(const int index) {
       assert(index < ((int) values.size()));
-      values[i] += increments[i];
+      values[index] += increments[index];
     }
 
     void increment() {
@@ -1225,7 +1225,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  multi_channel_conv_test();
+  //multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
