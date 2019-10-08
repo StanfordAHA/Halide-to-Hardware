@@ -190,11 +190,8 @@ bool is2D(T& buf) {
   return (buf.dimensions() == 2) || (buf.dimensions() == 3 && buf.channels() == 1);
 }
 
-template<typename T>
-void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+void resetSim(const std::string& inputName, CoreIR::Module* m, SimulatorState& state) {
 
-  if (is2D(hwInputBuf) && is2D(outputBuf)) {
-    SimulatorState state(m);
     state.setValue(inputName, BitVector(16, 0));
     state.setValue("self.in_en", BitVector(1, 0));
     if (hasClock(m)) {
@@ -205,45 +202,69 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
     state.resetCircuit();
 
     state.setValue("self.reset", BitVector(1, 0));
+}
 
-    int maxCycles = 100;
-    int cycles = 0;
+template<typename T>
+void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
 
-    std::string outputName = "self.out_0_0";
-    CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
-    CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  SimulatorState state(m);
+  resetSim(inputName, m, state);
 
-    while (cycles < maxCycles && !readIdx.allDone()) {
-      cout << "Read index = " << readIdx.coordString() << endl;
-      cout << "Cycles     = " << cycles << endl;
+  assert(is2D(hwInputBuf));
 
-      run_for_cycle(writeIdx, readIdx,
-          hwInputBuf, outputBuf,
-          inputName, outputName,
-          state);
-      cycles++;
-    }
-  } else {
-    cout << "Error: Either input or output is not 2d" << endl;
-    cout << "Input is 2d = " << is2D(hwInputBuf) << endl;
-    cout << "Output is 2d = " << is2D(outputBuf) << endl;
+  int maxCycles = 100;
+  int cycles = 0;
 
-    CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
-    CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  if (!is2D(outputBuf)) {
     readIdx.setIncrement("c", 3);
-
-    cout << "Dummy reads..." << endl;
-    while (!readIdx.allDone()) {
-      cout << "Read" << endl;
-      cout << readIdx.coordString() << endl;
-      readIdx.increment();
-    }
-    // Now: Handle output being 2D. How? First: Need to figure out channels
-    // Create index structure that inclues z increments
-    // Actually: Maybe the user should pass in the index structure which
-    // says how applications will be scheduled?
-    assert(false);
   }
+
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+
+    //if (is2D(hwInputBuf) && is2D(outputBuf)) {
+
+    //while (cycles < maxCycles && !readIdx.allDone()) {
+      //cout << "Read index = " << readIdx.coordString() << endl;
+      //cout << "Cycles     = " << cycles << endl;
+
+      //run_for_cycle(writeIdx, readIdx,
+          //hwInputBuf, outputBuf,
+          //inputName, outputName,
+          //state);
+      //cycles++;
+    //}
+  //} else {
+    //cout << "Error: Either input or output is not 2d" << endl;
+    //cout << "Input is 2d = " << is2D(hwInputBuf) << endl;
+    //cout << "Output is 2d = " << is2D(outputBuf) << endl;
+
+    //CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+    //CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+    //readIdx.setIncrement("c", 3);
+
+    //cout << "Dummy reads..." << endl;
+    //while (!readIdx.allDone()) {
+      //cout << "Read" << endl;
+      //cout << readIdx.coordString() << endl;
+      //// for each nd point in the current window:
+      //// find the corresponding circuit output and print it?
+      //// need a map from: window positions to output names?
+      //readIdx.increment();
+    //}
+    //assert(false);
+  //}
 }
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
@@ -305,25 +326,18 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   state.exeCombinational();
 
   // read output wire
-  //std::cout << "using valid\n";
   bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-  //std::cout << "got my valid\n";
-  //cout << "output_bv_n = " << output_bv_n << endl;
+  
   if (valid_value) {
     auto output_bv = state.getBitVec(output_name);
-
-    std::cout << "this one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
-    // bitcast to float if it is a float
     T output_value;
     output_value = output_bv.to_type<T>();
-
-    //coreir_img_writer.write(output_value);
+    std::cout << "this one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
 
     const int xr = readIdx.coord("x");
     const int yr = readIdx.coord("y");
     const int cr = readIdx.coord("c");
     output(xr, yr, cr) = output_value;
-    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
     readIdx.increment();
   }
 
