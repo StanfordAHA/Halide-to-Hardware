@@ -108,7 +108,7 @@ class CoordinateVector {
     std::string coordString() const {
       std::string str = "{";
       for (int i = 0; i < ((int) bounds.size()); i++) {
-        str += std::to_string(values[i]) + ", " + std::to_string(intervalEnd(i)) + " : " + std::to_string(bounds[i]);
+        str += "[" + std::to_string(values[i]) + ", " + std::to_string(intervalEnd(i)) + "] : " + std::to_string(bounds[i]);
         if (i < ((int) bounds.size()) - 1) {
           str += ", ";
         }
@@ -1265,7 +1265,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //multi_channel_conv_test();
+  multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
