@@ -48,9 +48,25 @@ class Point {
     std::vector<T> values;
     std::vector<std::string> names;
 
+    std::vector<std::string> dimensionNames() const { return names; }
+
     int numDims() { return values.size(); }
 
-    int coord(const std::string& name) {
+    void setCoord(const std::string& name, const T& newVal) {
+      auto ind = indexOf(name);
+      values[ind] = newVal;
+    }
+
+    int indexOf(const std::string& name) const {
+      for (int i = 0; i < names.size(); i++) {
+        if (names[i] == name) {
+          return i;
+        }
+      }
+      assert(false);
+    }
+
+    int coord(const std::string& name) const {
       for (int i = 0; i < names.size(); i++) {
         if (names[i] == name) {
           return values[i];
@@ -108,7 +124,7 @@ class CoordinateVector {
       }
     }
 
-    int indexOf(const std::string& name) {
+    int indexOf(const std::string& name) const {
       for (int i = 0; i < (int) names.size(); i++) {
         auto cN = names[i];
         if (cN == name) {
@@ -176,6 +192,32 @@ class CoordinateVector {
       return finalPoints;
     }
 
+    int intervalMin(const std::string& name) const {
+      return values[indexOf(name)];
+    }
+
+    int intervalWidth(const std::string& name) const {
+      return increments[indexOf(name)];
+    }
+    
+    Point<T> relativeWindowPosition(const Point<T>& pt) const {
+      Point<T> rel = pt;
+      for (auto dim : pt.dimensionNames()) {
+        rel.setCoord(dim, pt.coord(dim) % intervalWidth(dim));
+      }
+      return rel;
+    }
+
+    std::vector<Point<T> > currentWindowRelative() const {
+      auto window = currentWindow();
+      vector<Point<T> > relWindow;
+      for (auto pt : window) {
+        relWindow.push_back(relativeWindowPosition(pt));
+      }
+
+      return relWindow;
+    }
+    
     std::vector<Point<T> > currentWindow() const {
       std::vector<Point<T> > window{{}};
       assert(window.size() == 1);
@@ -363,7 +405,10 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
 
 template<typename T>
 std::string outputForCoord(Point<T>& point) {
-  return "self." + std::string("out_0_0");
+  assert(point.coord("x") == 0);
+  assert(point.coord("y") == 0);
+
+  return "self." + std::string("out_") + std::to_string(point.coord("c")) + std::string("_0_0");
 }
 
 template<typename T>
@@ -399,8 +444,8 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   // read output wire
   bool valid_value = state.getBitVec("self.valid").to_type<bool>();
 
-  cout << "Read window with " << readIdx.currentWindow().size() << " points..." << endl;
-  for (auto point : readIdx.currentWindow()) {
+  cout << "Read window with " << readIdx.currentWindowRelative().size() << " points..." << endl;
+  for (auto point : readIdx.currentWindowRelative()) {
     assert(point.numDims() > 0);
     cout << "\tReading output data for point " << point << endl;
   }
@@ -409,7 +454,9 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     for (auto point : readIdx.currentWindow()) {
       assert(point.numDims() > 0);
       cout << "\tReading output data for point " << point << endl;
-      auto output_bv = state.getBitVec(outputForCoord(point));
+      cout << "\t\trelative position in window = " << readIdx.relativeWindowPosition(point) << endl;
+      auto windowPos = readIdx.relativeWindowPosition(point);
+      auto output_bv = state.getBitVec(outputForCoord(windowPos));
       T output_value;
       output_value = output_bv.to_type<T>();
       std::cout << "\tthis one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
@@ -439,31 +486,17 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
   cout << "Comparing buffers..." << endl;
   cout << "Hardware output" << endl;
   printBuffer(outputBuf, cout);
-  //for (int i = 0; i < outputBuf.height(); i++) {
-    //for (int j = 0; j < outputBuf.width(); j++) {
-      //for (int b = 0; b < outputBuf.channels(); b++) {
-        //cout << (int) outputBuf(i, j, b) << " ";
-      //}
-    //}
-    //cout << endl;
-  //}
+  
   cout << endl;
   cout << "CPU Output" << endl;
   printBuffer(cpuOutput, cout);
-  //for (int i = 0; i < outputBuf.height(); i++) {
-    //for (int j = 0; j < outputBuf.width(); j++) {
-      //for (int b = 0; b < outputBuf.channels(); b++) {
-        //cout << (int) cpuOutput(i, j, b) << " ";
-      //}
-    //}
-    //cout << endl;
-  //}
 
-  for (int i = 0; i < outputBuf.height(); i++) {
-    for (int j = 0; j < outputBuf.width(); j++) {
+  for (int i = 0; i < outputBuf.width(); i++) {
+    for (int j = 0; j < outputBuf.height(); j++) {
       for (int b = 0; b < outputBuf.channels(); b++) {
-        //cout << (int) outputBuf(i, j, b) << " ";
-        //cout << (int) cpuOutput(i, j, b) << " ";
+        if (outputBuf(i, j, b) != cpuOutput(i, j, b)) {
+          cout << "Error: Buffers do not match at " << i << ", " << j << ", " << b << endl;
+        }
         assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
       }
     }
@@ -1364,7 +1397,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //multi_channel_conv_test();
+  multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
