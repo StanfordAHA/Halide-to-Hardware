@@ -405,10 +405,11 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
 
 template<typename T>
 std::string outputForCoord(Point<T>& point) {
-  assert(point.coord("x") == 0);
-  assert(point.coord("y") == 0);
+  return "self.out_0_0";
+  //assert(point.coord("x") == 0);
+  //assert(point.coord("y") == 0);
 
-  return "self." + std::string("out_") + std::to_string(point.coord("c")) + std::string("_0_0");
+  //return "self." + std::string("out_") + std::to_string(point.coord("c")) + std::string("_0_0");
 }
 
 template<typename T>
@@ -1397,7 +1398,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  multi_channel_conv_test();
+  //multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);
