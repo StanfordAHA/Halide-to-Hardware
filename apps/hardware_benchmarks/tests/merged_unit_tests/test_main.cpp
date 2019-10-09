@@ -341,38 +341,6 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
     cycles++;
   }
 
-    //if (is2D(hwInputBuf) && is2D(outputBuf)) {
-
-    //while (cycles < maxCycles && !readIdx.allDone()) {
-      //cout << "Read index = " << readIdx.coordString() << endl;
-      //cout << "Cycles     = " << cycles << endl;
-
-      //run_for_cycle(writeIdx, readIdx,
-          //hwInputBuf, outputBuf,
-          //inputName, outputName,
-          //state);
-      //cycles++;
-    //}
-  //} else {
-    //cout << "Error: Either input or output is not 2d" << endl;
-    //cout << "Input is 2d = " << is2D(hwInputBuf) << endl;
-    //cout << "Output is 2d = " << is2D(outputBuf) << endl;
-
-    //CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
-    //CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-    //readIdx.setIncrement("c", 3);
-
-    //cout << "Dummy reads..." << endl;
-    //while (!readIdx.allDone()) {
-      //cout << "Read" << endl;
-      //cout << readIdx.coordString() << endl;
-      //// for each nd point in the current window:
-      //// find the corresponding circuit output and print it?
-      //// need a map from: window positions to output names?
-      //readIdx.increment();
-    //}
-    //assert(false);
-  //}
 }
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
@@ -515,6 +483,100 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
 
 }
 
+void small_demosaic_test() {
+
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 3);
+
+  Var x("x"), y("y"), c("c");
+  Var xi,yi,zi, xo,yo,zo;
+
+  Func hw_input;
+  hw_input(x,y) = cast<uint16_t>(input(x+1,y+1));
+
+  // common patterns: average of four surrounding pixels
+  Func neswNeighbors, diagNeighbors;
+  // Should this actually be /4 outside of the hw input?
+  neswNeighbors(x, y) = (hw_input(x-1, y)   + hw_input(x+1, y) +
+      hw_input(x,   y-1) + hw_input(x,   y+1)/4);
+  diagNeighbors(x, y) = (hw_input(x-1, y-1) + hw_input(x+1, y-1) +
+      hw_input(x-1, y+1) + hw_input(x+1, y+1)/4);
+
+  // common patterns: average of two adjacent pixels
+  Func vNeighbors, hNeighbors;
+  vNeighbors(x, y) = (hw_input(x, y-1) + hw_input(x, y+1))/2;
+  hNeighbors(x, y) = (hw_input(x-1, y) + hw_input(x+1, y))/2;
+
+  int phase = 0;
+
+  // output pixels depending on image layout.
+  // Generally, image looks like
+  //    R G R G R G R G
+  //    G B G B G B G B
+  //    R G R G R G R G
+  //    G B G B G B G B
+  Func green, red, blue;
+  green(x, y) = select((y % 2) == (phase / 2),
+      select((x % 2) == (phase % 2), neswNeighbors(x, y), hw_input(x, y)), // First row, RG
+      select((x % 2) == (phase % 2), hw_input(x, y),      neswNeighbors(x, y))); // Second row, GB
+
+  red(x, y) = select((y % 2) == (phase / 2),
+      select((x % 2) == (phase % 2), hw_input(x, y),   hNeighbors(x, y)), // First row, RG
+      select((x % 2) == (phase % 2), vNeighbors(x, y), diagNeighbors(x, y))); // Second row, GB
+
+  blue(x, y) = select((y % 2) == (phase / 2),
+      select((x % 2) == (phase % 2), diagNeighbors(x, y), vNeighbors(x, y)), // First row, RG
+      select((x % 2) == (phase % 2), hNeighbors(x, y),    hw_input(x, y))); // Second row, GB
+
+  // output all channels
+  Func demosaic, hw_output;
+  demosaic(x,y,c) = cast<uint16_t>(select(c == 0, red(x, y),
+        c == 1, green(x, y),
+        blue(x, y)));
+
+  hw_output(x,y,c) = demosaic(x,y,c);
+  output(x,y,c) = hw_output(x,y,c);
+
+  // Schedule common
+  demosaic.bound(c, 0, 3);
+  hw_output.bound(c, 0, 3);
+  //output.bound(c, 0, 3);
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  Halide::Buffer<uint16_t> inputBuf(5, 5);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width(), inputBuf.height(), 3);
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      inputBuf(i, j) = rand() % 255;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+  //Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  cout << "CPU output" << endl;
+  printBuffer(cpuOutput, cout);
+
+  // Hardware schedule
+  
+  hw_output.tile(x, y, xo, yo, xi, yi, 8, 8)
+    .reorder(c, xi, yi, xo, yo);
+
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
+  hw_output.unroll(c);
+
+  cout << GREEN << "Demosaic test passed" << RESET << endl;
+}
+
 void multi_channel_conv_test() {
   ImageParam input(type_of<uint16_t>(), 2);
   ImageParam output(type_of<uint16_t>(), 3);
@@ -531,9 +593,7 @@ void multi_channel_conv_test() {
   Func conv("conv");
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
-  //conv(x, y, z) = hw_input(x, y) + z;
   conv(x, y, z) = hw_input(x, y) + kernel(z);
-  //conv(x, y, z) = hw_input(x, y);
   
   Func hw_output("hw_output");
   hw_output(x, y, z) = cast<uint16_t>(conv(x, y, z));
@@ -1411,6 +1471,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
+  small_demosaic_test();
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
