@@ -532,8 +532,8 @@ void multi_channel_conv_test() {
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
   //conv(x, y, z) = hw_input(x, y) + z;
-  //conv(x, y, z) = hw_input(x, y) + kernel(z);
-  conv(x, y, z) = hw_input(x, y);
+  conv(x, y, z) = hw_input(x, y) + kernel(z);
+  //conv(x, y, z) = hw_input(x, y);
   
   Func hw_output("hw_output");
   hw_output(x, y, z) = cast<uint16_t>(conv(x, y, z));
