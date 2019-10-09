@@ -404,8 +404,12 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
 }
 
 template<typename T>
-std::string outputForCoord(Point<T>& point) {
-  //return "self.out_0_0";
+std::string outputForCoord2D(Point<T>& point) {
+  return "self.out_0_0";
+}
+
+template<typename T>
+std::string outputForCoord3D(Point<T>& point) {
   assert(point.coord("x") == 0);
   assert(point.coord("y") == 0);
 
@@ -457,7 +461,12 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
       cout << "\tReading output data for point " << point << endl;
       cout << "\t\trelative position in window = " << readIdx.relativeWindowPosition(point) << endl;
       auto windowPos = readIdx.relativeWindowPosition(point);
-      auto output_bv = state.getBitVec(outputForCoord(windowPos));
+      BitVector output_bv;
+      if (!is2D(output)) {
+        output_bv = state.getBitVec(outputForCoord3D(windowPos));
+      } else {
+        output_bv = state.getBitVec(outputForCoord2D(windowPos));
+      }
       T output_value;
       output_value = output_bv.to_type<T>();
       std::cout << "\tthis one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
