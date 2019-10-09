@@ -103,7 +103,9 @@ public:
           //                another copy stage as the memory tiles
           hw_input.store_root().compute_root();
           hw_input.in().store_at(output, x_host).compute_at(output,x_gb);
+//            .tag_as(global_buffer);
           hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
+//            .tag_as(host_dram);
 
           // Unroll the computation loops to duplicate hardware
           conv.update()

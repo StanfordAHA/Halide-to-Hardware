@@ -368,8 +368,8 @@ bool can_use_rom(Stmt s, string allocname) {
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
-    //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-    srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+//srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,
@@ -514,7 +514,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
 
     //context->runPasses({"rungenerators", "removewires"});
     context->runPasses({"rungenerators","flatten","removewires"});
-    //context->runPasses({"verifyconnectivity-onlyinputs-noclkrst"},{"global","commonlib","memory","mantle"});
+    context->runPasses({"verifyconnectivity --onlyinputs --noclkrst"},{"global","commonlib","memory","mantle"});
     //context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
     cout << "Validating json" << endl;
@@ -2426,7 +2426,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"stride",CoreIR::Const::make(context,stride_type)}};
 
   //CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["abstract_unified_buffer"], aub_args);
-  def->addInstance("abstract_" + ub_name, gens["abstract_unified_buffer"], aub_args);
+  //def->addInstance("abstract_" + ub_name, gens["abstract_unified_buffer"], aub_args);
+  if (false) {
+    (void) aub_args;
+  }
 
   
   // calculate parameters for coreir hwbuffer generator
@@ -2671,6 +2674,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     def->addInstance(ub_name + "_reset", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
     def->connect({ub_name + "_reset", "out"}, {ub_name, "reset"});
   }
+  
+  def->addInstance(ub_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+  def->connect({ub_name + "_flush", "out"}, {ub_name, "flush"});
 
   CoreIR::Wireable* ub_in_wire = get_wire(ub_in_name, op->args[0]);
 
@@ -2781,6 +2787,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
     CoreIR::Wireable* lb_wen = def->addInstance(lb_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
     def->connect(lb_wen->sel("out"), coreir_lb->sel("wen"));
   }
+  def->addInstance(lb_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+  def->connect({lb_name + "_flush", "out"}, {lb_name, "flush"});
+
+  
   //hw_wire_set[lb_out_name] = coreir_lb->sel("out");
 
 }
@@ -2939,6 +2949,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   vector<int> stencil_steps(num_of_demensions);
   vector<int> store_extents(num_of_demensions);
 
+  stream << "// unpacking dispatch\n";
   internal_assert(op->args.size() >= num_of_demensions*3 + 2);
   for (size_t i = 0; i < num_of_demensions; i++) {
     stencil_sizes[i] = *as_const_int(op->args[i*3 + 2]);
@@ -2953,6 +2964,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   vector<vector<int> > consumer_offsets(num_of_consumers);
   vector<vector<int> > consumer_extents(num_of_consumers);
 
+  stream << "// going through consumers\n";
   internal_assert(op->args.size() >= num_of_demensions*3 + 3 + num_of_consumers*(2 + 2*num_of_demensions));
   for (size_t i = 0; i < num_of_consumers; i++) {
     const StringImm *string_imm = op->args[num_of_demensions*3 + 3 + (2 + 2*num_of_demensions)*i].as<StringImm>();
@@ -2975,6 +2987,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   internal_assert(stencils.contains(stream_name));
   Stencil_Type stream_type = stencils.get(stream_name);
 
+  stream << "// doing dispatch opt\n";
   // Optimization. if there is only one consumer and its fifo depth is zero
   // , use C++ reference for the consumer stream
   if (num_of_consumers == 1 && consumer_fifo_depth[0] == 0) {
