@@ -405,11 +405,11 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
 
 template<typename T>
 std::string outputForCoord(Point<T>& point) {
-  return "self.out_0_0";
-  //assert(point.coord("x") == 0);
-  //assert(point.coord("y") == 0);
+  //return "self.out_0_0";
+  assert(point.coord("x") == 0);
+  assert(point.coord("y") == 0);
 
-  //return "self." + std::string("out_") + std::to_string(point.coord("c")) + std::string("_0_0");
+  return "self." + std::string("out_") + std::to_string(point.coord("c")) + std::string("_0_0");
 }
 
 template<typename T>
@@ -523,7 +523,8 @@ void multi_channel_conv_test() {
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
   //conv(x, y, z) = hw_input(x, y) + z;
-  conv(x, y, z) = hw_input(x, y) + kernel(z);
+  //conv(x, y, z) = hw_input(x, y) + kernel(z);
+  conv(x, y, z) = hw_input(x, y);
   
   Func hw_output("hw_output");
   hw_output(x, y, z) = cast<uint16_t>(conv(x, y, z));
@@ -1398,7 +1399,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //multi_channel_conv_test();
+  multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
   //assert(false);

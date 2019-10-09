@@ -36,6 +36,7 @@ using std::cout;
 using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
+
 namespace {
 
 template<typename K, typename V>
