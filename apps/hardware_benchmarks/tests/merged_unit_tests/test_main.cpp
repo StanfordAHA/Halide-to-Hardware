@@ -535,11 +535,11 @@ void multi_channel_conv_test() {
   hw_output.compute_root();
 
   // Creating input data
-  Halide::Buffer<uint16_t> inputBuf(8, 8);
-  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
-  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 3);
-  for (int i = 0; i < inputBuf.height(); i++) {
-    for (int j = 0; j < inputBuf.width(); j++) {
+  Halide::Buffer<uint16_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width(), inputBuf.height(), 3);
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
       inputBuf(i, j) = rand() % 255;
       hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
@@ -574,6 +574,9 @@ void multi_channel_conv_test() {
   auto m = buildModule(context, "mc_conv_coreir", args, "mc_conv", hw_output);
 
   runHWKernel(m, hwInputBuf, outputBuf);
+
+  cout << "Input buffer" << endl;
+  printBuffer(hwInputBuf, cout);
   compare_buffers(outputBuf, cpuOutput);
 
   cout << GREEN << "Multi channel conv test passed" << RESET << endl;
