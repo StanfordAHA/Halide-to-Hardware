@@ -183,7 +183,7 @@ class CoordinateVector {
         }
       }
 
-      cout << "Newpoints at " << i << " has size " << newPoints.size() << endl;
+      //cout << "Newpoints at " << i << " has size " << newPoints.size() << endl;
       if (i == ((int) values.size()) - 1) {
         return newPoints;
       }
@@ -1471,7 +1471,7 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  small_demosaic_test();
+  //small_demosaic_test();
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
