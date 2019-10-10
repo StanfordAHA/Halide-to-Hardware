@@ -75,6 +75,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
      << "Output Block: " << output_block_box << std::endl
      << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl
      << "Output Min Pos:\n " << output_min_pos << std::endl
+     << "streaming loops:\n " << buffer.streaming_loops << std::endl
      << "is_inline=" << buffer.is_inlined << std::endl
      << "is_output=" << buffer.is_output << std::endl;
 
@@ -1552,6 +1553,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
               << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
     std::cout << "Final buffer:\n" << hwbuffer_pair.second << std::endl;
+    hwbuffer_pair.second.streaming_loops = xcel->streaming_loop_levels;
   }
 
 }

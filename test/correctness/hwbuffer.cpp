@@ -30,6 +30,12 @@ void h_assert(bool condition, const string msg="") {
     }
 }
 
+void check_param(const string paramname, Expr param1, Expr param2) {
+  std::ostringstream debug_stream;
+  debug_stream << paramname << " not correct: " << param1 << " vs ref=" << param2;
+  h_assert(is_one(simplify(param1 == param2)), debug_stream.str());
+}
+
 std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
                                       const vector<Argument> &args) {
 
@@ -140,24 +146,34 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
 
 int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   h_assert(hwbuffer.name == ref.name, "wrong name for hwbuffer: " + hwbuffer.name + " vs ref=" + ref.name);
+  //h_assert(hwbuffer.store_level == ref.store_level,
+  //             hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
+  //h_assert(hwbuffer.compute_level == ref.compute_level,
+  //         hwbuffer.name + " has the wrong compute level: " + hwbuffer.compute_level + " vs ref=" + ref.compute_level);
+
+  h_assert(hwbuffer.streaming_loops.size() == ref.streaming_loops.size(), hwbuffer.name + " has a differing number of streaming loops");
+  for (size_t i=0; i<hwbuffer.streaming_loops.size(); ++i) {
+    h_assert(hwbuffer.streaming_loops.at(i) == ref.streaming_loops.at(i),
+             hwbuffer.name + " has the wrong streaming loop"  + to_string(i) + " name: " + hwbuffer.streaming_loops.at(i));
+  }
+
+  //h_assert(hwbuffer.consumer_buffers.size() == ref.consumer_buffers.size(),
+  //         hwbuffer.name + " has a different number of consumer buffers");
+  // iterate over all keys in the consumer map
+
   h_assert(hwbuffer.dims.size() == ref.dims.size(), "doesn't have correct num of dims");
-
-  std::ostringstream debug_stream;
-  debug_stream << hwbuffer.name << " dim0 not correct: " << hwbuffer.dims.at(0).logical_size << " vs ref=" << ref.dims.at(0).logical_size;
-  //h_assert(is_one(simplify(hwbuffer.dims.at(0).logical_size   == ref.dims.at(0).logical_size  )), debug_stream.str());
-  //h_assert(is_one(simplify(hwbuffer.dims.at(1).logical_size   == ref.dims.at(1).logical_size  )), "dim1 not correct");
-
-  debug_stream.str(""); debug_stream.clear();
-  debug_stream << hwbuffer.name << " output dim0 not correct: " << hwbuffer.dims.at(0).output_stencil << " vs ref=" << ref.dims.at(0).output_stencil;
-  h_assert(is_one(simplify(hwbuffer.dims.at(0).output_stencil == ref.dims.at(0).output_stencil)), debug_stream.str());
-  h_assert(is_one(simplify(hwbuffer.dims.at(0).output_stencil == ref.dims.at(0).output_stencil)), "output stencil dim0 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(1).output_stencil == ref.dims.at(1).output_stencil)), "output stencil dim1 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(0).output_block   == ref.dims.at(0).output_block  )), "output block dim0 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(1).output_block   == ref.dims.at(1).output_block  )), "output block dim1 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(0).input_chunk    == ref.dims.at(0).input_chunk   )), "input stencil dim0 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(1).input_chunk    == ref.dims.at(1).input_chunk   )), "input stencil dim1 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(0).input_block    == ref.dims.at(0).input_block   )), "input block dim0 is not correct");
-  h_assert(is_one(simplify(hwbuffer.dims.at(1).input_block    == ref.dims.at(1).input_block   )), "input block dim1 is not correct");
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param("output stencil dim" + to_string(i), hwbuffer.dims.at(i).output_stencil, ref.dims.at(i).output_stencil);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param("output block dim" + to_string(i), hwbuffer.dims.at(i).output_block, ref.dims.at(i).output_block);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param("input chunk dim" + to_string(i), hwbuffer.dims.at(i).input_chunk, ref.dims.at(i).input_chunk);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param("input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
+  }
 
   return 0;
 }
@@ -211,10 +227,17 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                       {ksize, ksize}, {ksize, ksize},
                                       {1, 1}, {1, 1});
+    vector<string> loops;
+    vector<string> loopvars = {"y.yo", "y.yi", "x.xi"};
+    for (auto loopvar : loopvars) {
+      loops.emplace_back("hw_output" + suffix + ".s0." + loopvar);
+    }
     HWBuffer ref_hwbuffer = HWBuffer("hw_input" + suffix,
-                                     dims,
+                                     dims, loops,
                                      false, false);
+    std::cout << input_hwbuffer << std::endl;
     int output_value = check_hwbuffer_params(input_hwbuffer, ref_hwbuffer);
+
 
     return output_value;
 }
@@ -309,9 +332,14 @@ int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
       auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                         {ksize, ksize}, {ksize, ksize},
                                         {1, 1}, {1, 1});
-
+      vector<string> loops;
+      vector<string> loopvars = {"y.yo", "y.yi", "x.xi"};
+      for (auto loopvar : loopvars) {
+        loops.emplace_back("hw_output" + suffix + ".s0." + loopvar);
+      }
+      
       HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name,
-                                       dims,
+                                       dims, loops,
                                        false, false);
       int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
       if (output_value != 0) { return output_value; }
