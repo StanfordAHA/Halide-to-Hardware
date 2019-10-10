@@ -545,7 +545,7 @@ void small_demosaic_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  Halide::Buffer<uint16_t> inputBuf(5, 5);
+  Halide::Buffer<uint16_t> inputBuf(9, 9);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width() - 2, inputBuf.height() - 2, 3);
   for (int i = 0; i < inputBuf.width(); i++) {
@@ -576,12 +576,23 @@ void small_demosaic_test() {
 
   auto context = hwContext();
   vector<Argument> args{input};
-  auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
 
-  runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
-  cout << "Input buffer" << endl;
-  printBuffer(hwInputBuf, cout);
-  compare_buffers(outputBuf, cpuOutput);
+  {
+    Target t;
+    t = t.with_feature(Target::Feature::CoreIR);
+    auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
+    cout << "Compiled to module" << endl;
+    cout << mod << endl;
+  }
+
+  assert(false);
+
+  //auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
+
+  //runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
+  //cout << "Input buffer" << endl;
+  //printBuffer(hwInputBuf, cout);
+  //compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Demosaic test passed" << RESET << endl;
 }
@@ -1481,6 +1492,8 @@ void pointwise_add_test() {
 int main(int argc, char **argv) {
 
   small_demosaic_test();
+
+
   assert(false);
   multi_channel_conv_test();
   control_path_test();
