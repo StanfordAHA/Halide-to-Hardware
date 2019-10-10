@@ -505,6 +505,11 @@ class CodeGen_SoC_Test : public CodeGen_C {
         inHWRegion = false;
       }
 
+    //~CodeGen_SoC_Test() {
+      //CodeGen_C::~CodeGen_C();
+      //stream.flush();
+    //}
+
     void compileForCGRA(const Halide::Module& input) {
       stream << "// CGRA Specific wrapper code" << endl;
       stream << "#include \"cgra_wrapper.h\"" << endl;
@@ -512,43 +517,49 @@ class CodeGen_SoC_Test : public CodeGen_C {
       CodeGen_SoC_Test::compile(input);
     }
 
-    void visit(const Provide* p) {
-      stream << "// Found a provide, must be start of something hardware related!" << endl;
-    }
+    //void visit(const Provide* p) {
+      //stream << "// Found a provide, must be start of something hardware related!" << endl;
+    //}
 
-    void visit(const Call* c) {
-      if (c->name == "stream_subimage") {
+    //void visit(const Call* c) {
+      //if (c->name == "stream_subimage") {
 
-        stream << "// Call to stream_subimage, we need to do commands here?..." << endl;
-        const StringImm *direction = c->args[0].as<StringImm>();
-        if (direction->value == "buffer_to_stream") {
-          stream << "accelerator.subimage_to_stream();" << endl;
-        } else {
-          assert(direction->value == "stream_to_buffer");
-          stream << "accelerator.stream_to_subimage();" << endl;
-        }
-      } else {
-        CodeGen_C::visit(c);
-      }
-    }
+        //stream << "// Call to stream_subimage, we need to do commands here?..." << endl;
+        //const StringImm *direction = c->args[0].as<StringImm>();
+        //if (direction->value == "buffer_to_stream") {
+          //stream << "accelerator.subimage_to_stream();" << endl;
+        //} else {
+          //assert(direction->value == "stream_to_buffer");
+          //stream << "accelerator.stream_to_subimage();" << endl;
+        //}
+      //} else {
+        //CodeGen_C::visit(c);
+      //}
+    //}
 
-    void visit(const ProducerConsumer* p) {
-      if (inHWRegion && p->is_producer) {
-        stream << "// Should generate CoreIR for produce: " << p->name << endl;
-        // Generate coreir module for this statement...
-      } else {
-        CodeGen_C::visit(p);
-      }
-    }
+    //void visit(const ProducerConsumer* p) {
+      //if (inHWRegion && p->is_producer) {
+        //stream << "// Should generate CoreIR for produce: " << p->name << endl;
+        //// Generate coreir module for this statement...
+      //} else {
+        //CodeGen_C::visit(p);
+      //}
+    //}
 
-    void visit(const Evaluate* op) {
-      if (inHWRegion) {
-        stream << "// Evaluating... = " << op->value << endl;
-        op->value.accept(this);
-      } else {
-        CodeGen_C::visit(op);
-      }
-    }
+    //void visit(const Evaluate* op) {
+      //if (inHWRegion) {
+        //stream << "// Evaluating... = " << op->value << endl;
+        //op->value.accept(this);
+      //} else {
+        //CodeGen_C::visit(op);
+      //}
+    //}
+
+    //void visit(const For* f) {
+      //stream << "// Entering for loop" << endl;
+      //CodeGen_C::visit(f);
+      //stream << "// Leaving for loop" << endl;
+    //}
     
     void visit(const Realize* p) {
 
@@ -676,6 +687,7 @@ void small_demosaic_test() {
     ofstream outFile("demosaic_soc_mini.cpp");
     CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
     testPrinter.compileForCGRA(mod);
+    outFile.close();
 
     cout << "Done with compiling for CGRA" << endl;
 
