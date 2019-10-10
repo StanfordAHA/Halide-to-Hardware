@@ -564,24 +564,22 @@ class CodeGen_SoC_Test : public CodeGen_C {
    
     void visit(const Realize* p) {
 
-      stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
-      stream << "CGRAWrapper accelerator;" << std::endl;
+      //stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
+      //stream << "CGRAWrapper accelerator;" << std::endl;
       
-      
-      //bool justEntered = inHWRegion == false;
-      //if (!inHWRegion) {
-        //stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
-        //stream << "CGRAWrapper accelerator;" << std::endl;
-        ////inHWRegion = true;
-        //return;
-      //}
+      bool justEntered = inHWRegion == false;
+      if (justEntered) {
+        stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
+        stream << "CGRAWrapper accelerator;" << std::endl;
+        inHWRegion = true;
+      }
 
-      //p->body.accept(this);
+      p->body.accept(this);
 
-      //if (justEntered) {
-        //stream << "// Done with hardware region" << endl;
-        //inHWRegion = false;
-      //}
+      if (justEntered) {
+        stream << "// Done with hardware region" << endl;
+        inHWRegion = false;
+      }
     }
 };
 void small_demosaic_test() {
@@ -694,7 +692,7 @@ void small_demosaic_test() {
       cout.flush();
     }
     cout << "Done with compiling for CGRA" << endl;
-    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp -lHalide -L ../../../../bin");
+    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp cgra_wrapper.cpp -lHalide -L ../../../../bin");
     runCmd("./a.out");
   }
 
