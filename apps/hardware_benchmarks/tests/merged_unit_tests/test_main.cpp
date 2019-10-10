@@ -511,7 +511,15 @@ class CodeGen_SoC_Test : public CodeGen_C {
 
     void visit(const Call* c) {
       if (c->name == "stream_subimage") {
+
         stream << "// Call to stream_subimage, we need to do commands here?..." << endl;
+        const StringImm *direction = c->args[0].as<StringImm>();
+        if (direction->value == "buffer_to_stream") {
+          stream << "accelerator.subimage_to_stream()" << endl;
+        } else {
+          assert(direction->value == "stream_to_buffer");
+          stream << "accelerator.stream_to_subimage()" << endl;
+        }
       } else {
         CodeGen_C::visit(c);
       }
@@ -529,6 +537,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
     void visit(const Evaluate* op) {
       if (inHWRegion) {
         stream << "// Evaluating... = " << op->value << endl;
+        op->value.accept(this);
       } else {
         CodeGen_C::visit(op);
       }
@@ -536,6 +545,10 @@ class CodeGen_SoC_Test : public CodeGen_C {
     
     void visit(const Realize* p) {
       stream << "// Found a realize of " << p->name << ", must be start of something hardware related!" << endl;
+
+      if (!inHWRegion) {
+        stream << "CGRAWrapper accelerator;" << std::endl;
+      }
       inHWRegion = true;
       p->body.accept(this);
     }

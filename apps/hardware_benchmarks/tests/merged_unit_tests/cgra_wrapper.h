@@ -126,3 +126,11 @@ void *halide_malloc(void *user_context, size_t x) {
 void halide_free(void *user_context, void *ptr) {
   free(ptr);
 }
+
+// CGRA Specific code
+class CGRAWrapper {
+  public:
+
+    void subimage_to_stream();
+    void stream_to_subimage();
+};
