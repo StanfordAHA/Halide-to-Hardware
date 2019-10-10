@@ -499,6 +499,12 @@ class CodeGen_SoC_Test : public CodeGen_C {
         inHWRegion = false;
       }
 
+    void compileForCGRA(const Halide::Module& input) {
+      stream << "// CGRA Specific wrapper code" << endl;
+      stream << "#include \"cgra_wrapper.h\"" << endl;
+      stream << endl;
+      CodeGen_SoC_Test::compile(input);
+    }
     void visit(const Provide* p) {
       stream << "// Found a provide, must be start of something hardware related!" << endl;
     }
@@ -637,7 +643,7 @@ void small_demosaic_test() {
 
     ofstream outFile("demosaic_soc_mini.cpp");
     CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
-    testPrinter.compile(mod);
+    testPrinter.compileForCGRA(mod);
   }
 
   assert(false);
