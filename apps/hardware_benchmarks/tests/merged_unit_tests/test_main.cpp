@@ -482,7 +482,17 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
   }
 
 }
+using namespace Halide::Internal;
 
+class CodeGen_SoC_Test : public CodeGen_C {
+  public:
+
+    CodeGen_SoC_Test(std::ostream &dest,
+              Target target,
+              OutputKind output_kind = CImplementation,
+              const std::string &include_guard = "") :
+      CodeGen_C(dest, target, output_kind, include_guard) {}
+};
 void small_demosaic_test() {
 
   ImageParam input(type_of<uint16_t>(), 2);
@@ -583,6 +593,9 @@ void small_demosaic_test() {
     auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
     cout << "Compiled to module" << endl;
     cout << mod << endl;
+
+    CodeGen_SoC_Test testPrinter(cout, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+    testPrinter.compile(mod);
   }
 
   assert(false);
