@@ -94,3 +94,23 @@ int halide_error_host_is_null(void *user_context, const char *func_name) {
 void halide_error(void *user_context, const char *) {
   assert(false);
 }
+
+
+void *halide_malloc(void *user_context, size_t x) {
+  return malloc(x);
+    //// Allocate enough space for aligning the pointer we return.
+    //const size_t alignment = halide_malloc_alignment();
+    //void *orig = malloc(x + alignment);
+    //if (orig == NULL) {
+        //// Will result in a failed assertion and a call to halide_error
+        //return NULL;
+    //}
+    //// We want to store the original pointer prior to the pointer we return.
+    //void *ptr = (void *)(((size_t)orig + alignment + sizeof(void*) - 1) & ~(alignment - 1));
+    //((void **)ptr)[-1] = orig;
+    //return ptr;
+}
+
+void halide_free(void *user_context, void *ptr) {
+  free(ptr);
+}
