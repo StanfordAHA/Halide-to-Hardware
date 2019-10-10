@@ -505,16 +505,17 @@ class CodeGen_SoC_Test : public CodeGen_C {
         inHWRegion = false;
       }
 
-    //~CodeGen_SoC_Test() {
-      //CodeGen_C::~CodeGen_C();
-      //stream.flush();
-    //}
+    ~CodeGen_SoC_Test() {
+      std::cout << "Calling destructor for printer" << endl;
+      CodeGen_C::~CodeGen_C();
+    }
 
     void compileForCGRA(const Halide::Module& input) {
       stream << "// CGRA Specific wrapper code" << endl;
       stream << "#include \"cgra_wrapper.h\"" << endl;
       stream << endl;
       CodeGen_SoC_Test::compile(input);
+      stream.flush();
     }
 
     //void visit(const Provide* p) {
@@ -560,28 +561,32 @@ class CodeGen_SoC_Test : public CodeGen_C {
       //CodeGen_C::visit(f);
       //stream << "// Leaving for loop" << endl;
     //}
-    
+   
     void visit(const Realize* p) {
 
-      stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
-      stream << "CGRAWrapper accelerator;" << std::endl;
-      
-      
-      //bool justEntered = inHWRegion == false;
-      //if (!inHWRegion) {
-        //stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
-        //stream << "CGRAWrapper accelerator;" << std::endl;
-        ////inHWRegion = true;
-        //return;
-      //}
-
-      //p->body.accept(this);
-
-      //if (justEntered) {
-        //stream << "// Done with hardware region" << endl;
-        //inHWRegion = false;
-      //}
     }
+
+    //void visit(const Realize* p) {
+
+      //stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
+      //stream << "CGRAWrapper accelerator;" << std::endl;
+      
+      
+      ////bool justEntered = inHWRegion == false;
+      ////if (!inHWRegion) {
+        ////stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
+        ////stream << "CGRAWrapper accelerator;" << std::endl;
+        //////inHWRegion = true;
+        ////return;
+      ////}
+
+      ////p->body.accept(this);
+
+      ////if (justEntered) {
+        ////stream << "// Done with hardware region" << endl;
+        ////inHWRegion = false;
+      ////}
+    //}
 };
 void small_demosaic_test() {
 
@@ -678,24 +683,26 @@ void small_demosaic_test() {
   vector<Argument> args{input};
 
   {
-    Target t;
-    t = t.with_feature(Target::Feature::CoreIR);
-    auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
-    cout << "Compiled to module" << endl;
-    cout << mod << endl;
 
-    ofstream outFile("demosaic_soc_mini.cpp");
-    CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
-    testPrinter.compileForCGRA(mod);
-    outFile.close();
-
+    {
+      Target t;
+      t = t.with_feature(Target::Feature::CoreIR);
+      auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
+      cout << "Compiled to module" << endl;
+      cout << mod << endl;
+      ofstream outFile("demosaic_soc_mini.cpp");
+      //CodeGen_SoC_Test testPrinter(cout, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      testPrinter.compileForCGRA(mod);
+      //outFile.close();
+      cout.flush();
+    }
     cout << "Done with compiling for CGRA" << endl;
-
     runCmd("clang++ -std=c++11 demosaic_soc_run.cpp -lHalide -L ../../../../bin");
     runCmd("./a.out");
   }
 
-  assert(false);
+  //assert(false);
 
   //auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
 
