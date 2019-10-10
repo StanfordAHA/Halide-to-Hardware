@@ -492,6 +492,14 @@ class CodeGen_SoC_Test : public CodeGen_C {
               OutputKind output_kind = CImplementation,
               const std::string &include_guard = "") :
       CodeGen_C(dest, target, output_kind, include_guard) {}
+
+    void visit(const Provide* p) {
+      stream << "// Found a provide, must be start of something hardware related!" << endl;
+    }
+    
+    void visit(const Realize* p) {
+      stream << "// Found a provide, must be start of something hardware related!" << endl;
+    }
 };
 void small_demosaic_test() {
 
