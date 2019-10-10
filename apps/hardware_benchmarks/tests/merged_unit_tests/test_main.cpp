@@ -20,6 +20,12 @@ std::string GREEN = "\033[32m";
 std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
+void runCmd(const std::string& cmd) {
+  cout << "Running command: " << cmd << endl;
+  int res = system(cmd.c_str());
+  assert(res == 0);
+}
+
 template<typename T>
 void printBuffer(T& inputBuf, std::ostream& out) {
   if (inputBuf.dimensions() <= 2 || inputBuf.channels() == 1) {
@@ -515,10 +521,10 @@ class CodeGen_SoC_Test : public CodeGen_C {
         stream << "// Call to stream_subimage, we need to do commands here?..." << endl;
         const StringImm *direction = c->args[0].as<StringImm>();
         if (direction->value == "buffer_to_stream") {
-          stream << "accelerator.subimage_to_stream()" << endl;
+          stream << "accelerator.subimage_to_stream();" << endl;
         } else {
           assert(direction->value == "stream_to_buffer");
-          stream << "accelerator.stream_to_subimage()" << endl;
+          stream << "accelerator.stream_to_subimage();" << endl;
         }
       } else {
         CodeGen_C::visit(c);
@@ -548,9 +554,14 @@ class CodeGen_SoC_Test : public CodeGen_C {
 
       if (!inHWRegion) {
         stream << "CGRAWrapper accelerator;" << std::endl;
+        inHWRegion = true;
       }
-      inHWRegion = true;
       p->body.accept(this);
+
+      if (inHWRegion) {
+        stream << "// Done with hardware region" << endl;
+        inHWRegion = false;
+      }
     }
 };
 void small_demosaic_test() {
@@ -657,6 +668,9 @@ void small_demosaic_test() {
     ofstream outFile("demosaic_soc_mini.cpp");
     CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
     testPrinter.compileForCGRA(mod);
+
+    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp -lHalide -L ../../../../bin");
+    runCmd("./a.out");
   }
 
   assert(false);
