@@ -498,9 +498,9 @@ void small_demosaic_test() {
   Func neswNeighbors, diagNeighbors;
   // Should this actually be /4 outside of the hw input?
   neswNeighbors(x, y) = (hw_input(x-1, y)   + hw_input(x+1, y) +
-      hw_input(x,   y-1) + hw_input(x,   y+1)/4);
+      hw_input(x,   y-1) + hw_input(x,   y+1)) / 4;
   diagNeighbors(x, y) = (hw_input(x-1, y-1) + hw_input(x+1, y-1) +
-      hw_input(x-1, y+1) + hw_input(x+1, y+1)/4);
+      hw_input(x-1, y+1) + hw_input(x+1, y+1)) / 4;
 
   // common patterns: average of two adjacent pixels
   Func vNeighbors, hNeighbors;
@@ -547,7 +547,7 @@ void small_demosaic_test() {
 
   Halide::Buffer<uint16_t> inputBuf(5, 5);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width(), inputBuf.height(), 3);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width() - 2, inputBuf.height() - 2, 3);
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
       inputBuf(i, j) = rand() % 255;
@@ -574,6 +574,15 @@ void small_demosaic_test() {
   hw_output.hw_accelerate(xi, xo);
   hw_output.unroll(c);
 
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
+
+  runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
+  cout << "Input buffer" << endl;
+  printBuffer(hwInputBuf, cout);
+  compare_buffers(outputBuf, cpuOutput);
+  
   cout << GREEN << "Demosaic test passed" << RESET << endl;
 }
 
@@ -1471,7 +1480,8 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //small_demosaic_test();
+  small_demosaic_test();
+  assert(false);
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
