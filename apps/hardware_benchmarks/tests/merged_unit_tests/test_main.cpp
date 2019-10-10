@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <iostream>
 
+#include <fstream>
+
 using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
@@ -487,18 +489,49 @@ using namespace Halide::Internal;
 class CodeGen_SoC_Test : public CodeGen_C {
   public:
 
+    bool inHWRegion;
+
     CodeGen_SoC_Test(std::ostream &dest,
               Target target,
               OutputKind output_kind = CImplementation,
               const std::string &include_guard = "") :
-      CodeGen_C(dest, target, output_kind, include_guard) {}
+      CodeGen_C(dest, target, output_kind, include_guard) {
+        inHWRegion = false;
+      }
 
     void visit(const Provide* p) {
       stream << "// Found a provide, must be start of something hardware related!" << endl;
     }
+
+    void visit(const Call* c) {
+      if (c->name == "stream_subimage") {
+        stream << "// Call to stream_subimage, we need to do commands here?..." << endl;
+      } else {
+        CodeGen_C::visit(c);
+      }
+    }
+
+    void visit(const ProducerConsumer* p) {
+      if (inHWRegion && p->is_producer) {
+        stream << "// Should generate CoreIR for produce: " << p->name << endl;
+        // Generate coreir module for this statement...
+      } else {
+        CodeGen_C::visit(p);
+      }
+    }
+
+    void visit(const Evaluate* op) {
+      if (inHWRegion) {
+        stream << "// Evaluating... = " << op->value << endl;
+      } else {
+        CodeGen_C::visit(op);
+      }
+    }
     
     void visit(const Realize* p) {
-      stream << "// Found a provide, must be start of something hardware related!" << endl;
+      stream << "// Found a realize of " << p->name << ", must be start of something hardware related!" << endl;
+      inHWRegion = true;
+      p->body.accept(this);
     }
 };
 void small_demosaic_test() {
@@ -602,7 +635,8 @@ void small_demosaic_test() {
     cout << "Compiled to module" << endl;
     cout << mod << endl;
 
-    CodeGen_SoC_Test testPrinter(cout, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+    ofstream outFile("demosaic_soc_mini.cpp");
+    CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
     testPrinter.compile(mod);
   }
 
