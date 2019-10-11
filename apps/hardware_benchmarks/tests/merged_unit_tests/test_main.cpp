@@ -506,7 +506,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
       }
 
     ~CodeGen_SoC_Test() {
-      std::cout << "Calling destructor for printer" << endl;
+      //std::cout << "Calling destructor for printer" << endl;
       CodeGen_C::~CodeGen_C();
     }
 
@@ -527,12 +527,25 @@ class CodeGen_SoC_Test : public CodeGen_C {
 
         stream << "// Call to stream_subimage, we need to do commands here?..." << endl;
         const StringImm *direction = c->args[0].as<StringImm>();
+
+        string a1 = print_expr(c->args[1]);
+        //string a2 = print_expr(c->args[2]);
+        //string a3 = print_expr(c->args[3]);
+        
         if (direction->value == "buffer_to_stream") {
-          stream << "accelerator.subimage_to_stream();" << endl;
+          stream << "accelerator.subimage_to_stream(";
         } else {
           assert(direction->value == "stream_to_buffer");
-          stream << "accelerator.stream_to_subimage();" << endl;
+          stream << "accelerator.stream_to_subimage(";
         }
+        
+        //stream << a1 << ", " << a2 << ", " << a3;
+        stream << a1;
+        for (size_t i = 4; i < c->args.size(); i++) {
+            stream << ", " << print_expr(c->args[i]);
+        }
+
+        stream << ");" << endl;
       } else {
         CodeGen_C::visit(c);
       }
@@ -561,7 +574,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
       CodeGen_C::visit(f);
       stream << "// Leaving for loop" << endl;
     }
-   
+
     void visit(const Realize* p) {
 
       //stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;

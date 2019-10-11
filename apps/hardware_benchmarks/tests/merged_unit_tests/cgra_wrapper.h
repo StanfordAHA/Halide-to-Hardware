@@ -4,6 +4,8 @@
 //
 // p
 //
+struct halide_buffer_t;
+
 void halide_error_bad_type(void *user_context, const char*) {
   assert(false);
 }
@@ -128,6 +130,12 @@ void *halide_malloc(void *user_context, size_t x) {
 void halide_free(void *user_context, void *ptr) {
   free(ptr);
 }
+
+template<typename T>
+void *_halide_buffer_get_host(T& tp) {
+    return (void*) (&tp);
+}
+
 
 // CGRA Specific code
 class CGRAWrapper {
