@@ -141,6 +141,6 @@ void *_halide_buffer_get_host(T& tp) {
 class CGRAWrapper {
   public:
 
-    void subimage_to_stream();
-    void stream_to_subimage();
+    void subimage_to_stream(halide_buffer_t* buf);
+    void stream_to_subimage(halide_buffer_t* buf);
 };
