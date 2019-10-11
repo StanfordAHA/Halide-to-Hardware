@@ -367,7 +367,6 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   t = t.with_feature(Target::Feature::CoreIR);
   hwOutput.compile_to_coreir(name, args, fName, t);
 
-  //Context* context = newContext();
   if (!loadFromFile(context, "./conv_3_3_app.json")) {
     cout << "Error: Could not load json for unit test!" << endl;
     context->die();
@@ -531,7 +530,8 @@ class CodeGen_SoC_Test : public CodeGen_C {
         string a1 = print_expr(c->args[1]);
         //string a2 = print_expr(c->args[2]);
         //string a3 = print_expr(c->args[3]);
-        
+
+        string val = print_expr(c->args[3].as<Call>()->args[0]);
         if (direction->value == "buffer_to_stream") {
           stream << "accelerator.subimage_to_stream(";
         } else {
@@ -705,7 +705,7 @@ void small_demosaic_test() {
       cout.flush();
     }
     cout << "Done with compiling for CGRA" << endl;
-    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp cgra_wrapper.cpp -lHalide -L ../../../../bin");
+    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -L ../../../../bin");
     runCmd("./a.out");
   }
 

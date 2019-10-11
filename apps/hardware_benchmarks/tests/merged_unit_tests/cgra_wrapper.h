@@ -6,9 +6,9 @@
 //
 struct halide_buffer_t;
 
-void halide_error_bad_type(void *user_context, const char*) {
-  assert(false);
-}
+//void halide_error_bad_type(void *user_context, const char*) {
+  //assert(false);
+//}
 
 int halide_error_explicit_bounds_too_small(void *user_context, const char *func_name, const char *var_name,
                                                       int min_bound, int max_bound, int min_required, int max_required) {
@@ -141,6 +141,15 @@ void *_halide_buffer_get_host(T& tp) {
 class CGRAWrapper {
   public:
 
-    void subimage_to_stream(halide_buffer_t* buf);
-    void stream_to_subimage(halide_buffer_t* buf);
+    void subimage_to_stream(halide_buffer_t* buf,
+        int stride_0 = 1, int subimage_extend_0 = 1,
+        int stride_1 = 1, int subimage_extend_1 = 1,
+        int stride_2 = 1, int subimage_extend_2 = 1,
+        int stride_3 = 1, int subimage_extend_3 = 1);
+
+    void stream_to_subimage(halide_buffer_t* buf,
+        int stride_0 = 1, int subimage_extend_0 = 1,
+        int stride_1 = 1, int subimage_extend_1 = 1,
+        int stride_2 = 1, int subimage_extend_2 = 1,
+        int stride_3 = 1, int subimage_extend_3 = 1);
 };

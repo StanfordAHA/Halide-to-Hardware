@@ -1,4 +1,4 @@
-#include "demosaic_soc_mini.cpp"
+#include "demosaic_soc_mini.h"
 
 #include <iostream>
 
