@@ -78,8 +78,10 @@ struct HWBuffer {
 
   HWBuffer(std::string name, std::vector<BufferDimSize> dims, bool is_inlined, bool is_output) :
     name(name), dims(dims), is_inlined(is_inlined), is_output(is_output) { };
-  HWBuffer(std::string name, std::vector<BufferDimSize> dims, std::vector<std::string> loops, bool is_inlined, bool is_output) :
-    name(name), store_level(loops.front()), compute_level(loops.back()),
+  HWBuffer(std::string name, std::vector<BufferDimSize> dims, std::vector<std::string> loops,
+           int store_index, int compute_index, bool is_inlined, bool is_output) :
+    name(name), store_level(store_index < 0 ? "" : loops[store_index]),
+    compute_level(compute_index < 0 ? "" : loops[compute_index]),
     dims(dims), is_inlined(is_inlined), is_output(is_output) {
     loops.erase(loops.begin());
     streaming_loops = loops;

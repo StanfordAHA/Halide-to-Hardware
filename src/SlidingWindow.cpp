@@ -422,14 +422,14 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
 
     void visit(const For *op) override {
         debug(3) << " Doing sliding window analysis over loop: " << op->name << "\n";
-        std::cout << " Doing sliding window analysis over loop: " << op->name << "\n";
+        //std::cout << " Doing sliding window analysis over loop: " << op->name << "\n";
 
         Stmt new_body = op->body;
         new_body.accept(this);
 
         if (op->for_type == ForType::Serial ||
             op->for_type == ForType::Unrolled) {
-            std::cout << "searching for sliding window for " << func.name() << " using loop " << op->name << std::endl;
+          //std::cout << "searching for sliding window for " << func.name() << " using loop " << op->name << std::endl;
             SlidingWindowOnFunctionAndLoop sliding_window_mutator = SlidingWindowOnFunctionAndLoop(func, op->name, op->min);
             sliding_window_mutator.mutate(op->body);
 
@@ -490,7 +490,7 @@ class SlidingWindow : public IRMutator2 {
         Stmt new_body = op->body;
 
         debug(3) << "Doing sliding window analysis on realization of " << op->name << "\n";
-        std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
+        //std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
 
         new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
 

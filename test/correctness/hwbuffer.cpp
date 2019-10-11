@@ -146,10 +146,12 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
 
 int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   h_assert(hwbuffer.name == ref.name, "wrong name for hwbuffer: " + hwbuffer.name + " vs ref=" + ref.name);
-  //h_assert(hwbuffer.store_level == ref.store_level,
-  //             hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
-  //h_assert(hwbuffer.compute_level == ref.compute_level,
-  //         hwbuffer.name + " has the wrong compute level: " + hwbuffer.compute_level + " vs ref=" + ref.compute_level);
+  //std::cout << "loop is " << hwbuffer.store_looplevel.lock() << " and " << hwbuffer.compute_looplevel.lock() << std::endl;
+  std::cout << "loop has compute " << hwbuffer.compute_looplevel.lock() << std::endl;
+  h_assert(hwbuffer.store_level == ref.store_level,
+           hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
+  h_assert(hwbuffer.compute_level == ref.compute_level,
+           hwbuffer.name + " has the wrong compute level: " + hwbuffer.compute_level + " vs ref=" + ref.compute_level);
 
   h_assert(hwbuffer.streaming_loops.size() == ref.streaming_loops.size(), hwbuffer.name + " has a differing number of streaming loops");
   for (size_t i=0; i<hwbuffer.streaming_loops.size(); ++i) {
@@ -207,6 +209,8 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
       .unroll(r.y, ksize);
 
     conv.linebuffer();
+    conv.store_at(hw_output, xo)
+      .compute_at(hw_output, xi);
 
     hw_input.stream_to_accelerator();
     kernel.compute_at(hw_output, xo);
@@ -232,9 +236,9 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     for (auto loopvar : loopvars) {
       loops.emplace_back("hw_output" + suffix + ".s0." + loopvar);
     }
-    HWBuffer ref_hwbuffer = HWBuffer("hw_input" + suffix,
-                                     dims, loops,
-                                     false, false);
+    HWBuffer ref_hwbuffer = HWBuffer("hw_input" + suffix, dims,
+                                     loops, -1, 2,
+                                     false, true);
     std::cout << input_hwbuffer << std::endl;
     int output_value = check_hwbuffer_params(input_hwbuffer, ref_hwbuffer);
 
@@ -333,13 +337,19 @@ int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
                                         {ksize, ksize}, {ksize, ksize},
                                         {1, 1}, {1, 1});
       vector<string> loops;
-      vector<string> loopvars = {"y.yo", "y.yi", "x.xi"};
+      vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
       for (auto loopvar : loopvars) {
-        loops.emplace_back("hw_output" + suffix + ".s0." + loopvar);
+        if (i == 0) {
+          loops.emplace_back("hw_output" + suffix + loopvar.substr(0));
+        } else {
+          loops.emplace_back("hw_output" + suffix + loopvar);
+        }
       }
-      
-      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name,
-                                       dims, loops,
+      int store_index = i==0 ? 0 : 0;
+      int compute_index = 2;
+
+      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims,
+                                       loops, store_index, compute_index,
                                        false, false);
       int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
       if (output_value != 0) { return output_value; }
@@ -357,14 +367,14 @@ int main(int argc, char **argv) {
     printf("Running conv hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
 
-    //if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
+    if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(2, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(5, 64) != 0) { return -1; }
     //
     //if (conv_hwbuffer_test(3, 16) != 0) { return -1; }
-    if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
+    if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
 
     printf("Running conv chain hwbuffer tests\n");
     printf("    checking hwbuffers...\n");

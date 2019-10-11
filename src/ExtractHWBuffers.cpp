@@ -277,8 +277,8 @@ class CountBufferUsers : public IRVisitor {
       // look at the writers (writer ports)
       if (provide_at_level(op->body, var)) {
         auto box_write = box_provided(op->body, var);
-        std::cout << "writers inside pc " << op->name << std::endl;
-        std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
+        //std::cout << "writers inside pc " << op->name << std::endl;
+        //std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
 
         std::cout << "HWBuffer Parameter: writer ports - "
                   << "box extent=[";
@@ -298,8 +298,8 @@ class CountBufferUsers : public IRVisitor {
       // look at the readers (reader ports, read address gen)
       if (call_at_level(op->body, var)) {
         auto box_read = box_required(op->body, var);
-        std::cout << "readers inside pc " << op->name << std::endl;
-        std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
+        //std::cout << "readers inside pc " << op->name << std::endl;
+        //std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
         //std::cout << Stmt(op->body) << std::endl;
         std::cout << "HWBuffer Parameter: reader ports - "
                   << "box extent=[";
@@ -331,11 +331,11 @@ class CountBufferUsers : public IRVisitor {
       auto interval = box_read;
       for (size_t dim=0; dim<interval.size(); ++dim) {
         auto assertstmt = AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope)));
-        std::cout << "min pos in dim " << dim << ":" << assertstmt;
+        //std::cout << "min pos in dim " << dim << ":" << assertstmt;
       }
     } else if (!is_parallelized(op)) {
       current_for->body = for_stmt;
-      std::cout << "added for loop: " << op->name << std::endl;
+      //std::cout << "added for loop: " << op->name << std::endl;
     }
     current_for = const_cast<For *>(for_stmt.as<For>());
 
@@ -344,8 +344,8 @@ class CountBufferUsers : public IRVisitor {
     // look at the writers (writer ports)
     if (provide_at_level(op->body, var) && !is_parallelized(op)) {
       auto box_write = box_provided(op->body, var);
-      std::cout << "writers inside loop " << op->name << std::endl;
-      std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
+      //std::cout << "writers inside loop " << op->name << std::endl;
+      //std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
 
       std::cout << "HWBuffer Parameter: writer ports - "
                 << "box extent=[";
@@ -365,8 +365,8 @@ class CountBufferUsers : public IRVisitor {
     // look at the readers (reader ports, read address gen)
     if (call_at_level(op->body, var) && !is_parallelized(op)) {
       auto box_read = box_required(op->body, var);
-      std::cout << "readers inside loop " << op->name << std::endl;
-      std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
+      //std::cout << "readers inside loop " << op->name << std::endl;
+      //std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
       //std::cout << Stmt(op->body) << std::endl;
       std::cout << "HWBuffer Parameter: reader ports - "
                 << "box extent=[";
@@ -428,7 +428,7 @@ class FindVarStride : public IRVisitor {
   void visit(const Call *op) {
     if (op->name == varname) {
       in_var = true;
-      std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
+      // std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
       IRVisitor::visit(op);
       in_var = false;
     } else {
@@ -499,9 +499,9 @@ class ReplaceForBounds : public IRMutator2 {
     //if (true) {
       //ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       scope.push(op->name, simplify(expand_expr(op->value, scope)));
-      std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
+      //std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
     } else {
-      std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
+      //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
     }
     return IRMutator2::visit(op);
   }
@@ -515,7 +515,7 @@ class ReplaceForBounds : public IRMutator2 {
       auto new_min = scope.get(op->name + ".min");
       auto new_max = scope.get(op->name + ".max");
       if (!new_min.same_as(min)) {
-        std::cout << op->name << " replaced this min from " << min << " to " << new_min << std::endl;
+        //std::cout << op->name << " replaced this min from " << min << " to " << new_min << std::endl;
         min = new_min;
         min = 0;
         //extent = simplify(extent - new_min);
@@ -531,11 +531,11 @@ class ReplaceForBounds : public IRMutator2 {
         return_stmt = LetStmt::make(op->name + ".loop_min", 0, return_stmt);
         return return_stmt;
       } else {
-        std::cout << op->name << " same replaced this min from " << min << " to " << new_min << std::endl;
+        //std::cout << op->name << " same replaced this min from " << min << " to " << new_min << std::endl;
       }
       
     } else {
-      std::cout << "couldn't find for loop " << op->name + ".min\n";
+      //std::cout << "couldn't find for loop " << op->name + ".min\n";
     }
 
 
@@ -578,9 +578,9 @@ class FindOutputStencil : public IRVisitor {
     stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
     stride_map[varname].is_inverse = fvs.is_div;
     
-    std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
-              << " stride_map[" << varname << "]=" << stride_map[varname].stride << std::endl;
-    std::cout << op->body << std::endl;
+    //std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
+    //          << " stride_map[" << varname << "]=" << stride_map[varname].stride << std::endl;
+    //std::cout << op->body << std::endl;
 
 
     if (op->name == compute_level) {
@@ -589,7 +589,7 @@ class FindOutputStencil : public IRVisitor {
       ReplaceForBounds rfb;
       Stmt new_body = rfb.mutate(op->body);
 
-      std::cout << Stmt(new_body);
+      //std::cout << Stmt(new_body);
 
       //if (scope.contains(op->name + ".min")) {
       //  std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
@@ -645,7 +645,7 @@ public:
   Function func;
   FindOutputStencil(string v, Function func, string cl) :
     var(v), compute_level(cl), found_stencil(false), func(func) {
-    std::cout << "looking to find " << v << " output stencil where compute_level=" << compute_level << std::endl;
+    //std::cout << "looking to find " << v << " output stencil where compute_level=" << compute_level << std::endl;
   }
 };
 
@@ -662,7 +662,7 @@ class FindInputStencil : public IRVisitor {
   }
 
   void visit(const For *op) override {
-    std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
+    //std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     if (op->name == compute_level) {
       //std::cout << op->body << std::endl;
@@ -670,17 +670,17 @@ class FindInputStencil : public IRVisitor {
       auto interval = box_write;
       input_chunk_box = vector<Expr>(interval.size());
 
-      std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
+      //std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
       // save the bounds values in scope
       //Scope<Expr> stencil_bounds;
-      std::cout << "doing findinputstencil for " << var << " " << stencil_bounds << std::endl;
-      std::cout << op->body << std::endl;
+      //std::cout << "doing findinputstencil for " << var << " " << stencil_bounds << std::endl;
+      //std::cout << op->body << std::endl;
       if (func.name() == var) {
         for (size_t i = 0; i < box_write.size(); i++) {
           string stage_name = func.name() + ".s0." + func.args()[i];
           stencil_bounds.push(stage_name + ".min", box_write[i].min);
           stencil_bounds.push(stage_name + ".max", box_write[i].max);
-          std::cout << "this is stage: " << stage_name << " " << stencil_bounds << std::endl;
+          //std::cout << "this is stage: " << stage_name << " " << stencil_bounds << std::endl;
         }
       }
 
@@ -756,7 +756,7 @@ class HWBuffers : public IRMutator2 {
     }
 
     Stmt visit(const Realize *op) override {
-      std::cout << "checking hwbuffers in realize " << op->name << std::endl;
+        //std::cout << "checking hwbuffers in realize " << op->name << std::endl;
         // Find the args for this function
         map<string, Function>::const_iterator iter = env.find(op->name);
 
@@ -792,7 +792,7 @@ class HWBuffers : public IRMutator2 {
           compute_locked.is_inlined() ? "inlined" :
           compute_locked.var().name();
         string compute_level = sched.compute_level().func() + "." + compute_varname;
-        std::cout << "func " << op->name << " has store=" << store_locked.to_string()
+        std::cout << "looking at loops, func " << op->name << " has store=" << store_locked.to_string()
                   << "  compute=" << compute_locked.to_string() << std::endl;
           
         if (sched.compute_level() == sched.store_level()) {
@@ -805,8 +805,8 @@ class HWBuffers : public IRMutator2 {
           new_body = mutate(new_body);
           
           std::string for_namer = first_for_name(new_body);
-          std::cout << op->name << " sliding output=" << sliding_stencil_map.at(for_namer).output_stencil_box
-                    << " input=" << sliding_stencil_map.at(for_namer).input_chunk_box << std::endl;
+          //std::cout << op->name << " sliding output=" << sliding_stencil_map.at(for_namer).output_stencil_box
+          //          << " input=" << sliding_stencil_map.at(for_namer).input_chunk_box << std::endl;
           
           auto boxes_write = boxes_provided(new_body);
           for (auto box_entry : boxes_write) {
@@ -874,8 +874,9 @@ class HWBuffers : public IRMutator2 {
           std::string for_name = first_for_name(new_body);
           HWBuffer hwbuffer(output_block_box.size(), sliding_stencil_map.at(for_name));
           hwbuffer.name = op->name;
-          hwbuffer.compute_level = func_compute_level;
+          hwbuffer.compute_level = compute_locked.to_string();//func_compute_level;
           hwbuffer.compute_looplevel = sched.compute_level();
+          hwbuffer.store_level = store_locked.to_string();//func_store_level;
           hwbuffer.store_looplevel = sched.store_level();
 
           LoopLevel store_l = sched.store_level();
@@ -918,8 +919,9 @@ class HWBuffers : public IRMutator2 {
           Stmt new_body = op->body;
 
           auto func_compute_level = xcel_compute_level;
+          std::cout << op->name << " compute level " << func_compute_level << std::endl;
 
-          std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
+          //std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
 
           // use sliding window to get stencil sizes
           // Parameters 1 and 2
@@ -935,7 +937,7 @@ class HWBuffers : public IRMutator2 {
           auto output_stencil_box = fos.output_stencil_box;
 
           CountBufferUsers counter(op->name);
-          std::cout << "looking for those access patterns for buffer named: " << op->name << new_body;
+          //std::cout << "looking for those access patterns for buffer named: " << op->name << new_body;
           new_body.accept(&counter);
           
           // Parameters 3, 4, 5
@@ -969,6 +971,8 @@ class HWBuffers : public IRMutator2 {
           std::string for_name = first_for_name(new_body);
           HWBuffer hwbuffer(total_buffer_box.size(), sliding_stencil_map.at(for_name));//(sliding_stencil_map.at(for_name).input_chunk_box.size());
           hwbuffer.name = op->name;
+          hwbuffer.compute_level = compute_locked.to_string();//func_compute_level;
+          hwbuffer.store_level = store_locked.to_string();//func_store_level;
 
           hwbuffer.stride_map = fos.stride_map;
           std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
@@ -1367,7 +1371,7 @@ void set_opt_params(HWXcel *xcel,
       std::cout << "the output stencil of " << hwbuffer.name << " from " << consumer_buffer.name
                 << " at " << hwbuffer.compute_level
                 << " is " << fos.output_stencil_box << std::endl;
-      std::cout << consumer_buffer.my_stmt;
+      //std::cout << consumer_buffer.my_stmt;
       
       //FindInputStencil fis(consumer.name, cur_func, hwbuffer.compute_level);
       FindInputStencil fis(consumer.name, cur_func, func_compute_level, stencil_bounds);
@@ -1554,6 +1558,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
               << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
     std::cout << "Final buffer:\n" << hwbuffer_pair.second << std::endl;
     hwbuffer_pair.second.streaming_loops = xcel->streaming_loop_levels;
+    hwbuffer_pair.second.compute_level = xcel->streaming_loop_levels.back();
   }
 
 }
