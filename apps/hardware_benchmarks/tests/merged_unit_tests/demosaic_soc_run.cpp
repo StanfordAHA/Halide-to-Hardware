@@ -11,7 +11,8 @@ int main() {
   //halide_buffer_t input;
   //halide_buffer_t output;
 
-  Halide::Runtime::Buffer<uint16_t> input(10, 10), output(8, 8, 3);
+  //Halide::Runtime::Buffer<uint16_t> input(10, 10), output(8, 8, 3);
+  Halide::Runtime::Buffer<uint16_t> input(200, 200), output(200 - 8, 200 - 8, 3);
   cout << "Starting demosaic" << endl;
   hw_demosaic(input, output);
   //hw_demosaic(&input, &output);

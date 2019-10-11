@@ -583,6 +583,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
       bool justEntered = inHWRegion == false;
       if (justEntered) {
         stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
+        stream << "std::cout << \"Computing output tile with accelerator\" << std::endl;\n";
         stream << "CGRAWrapper accelerator;" << std::endl;
         inHWRegion = true;
       }
@@ -657,9 +658,9 @@ void small_demosaic_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  Halide::Buffer<uint16_t> inputBuf(9, 9);
+  Halide::Buffer<uint16_t> inputBuf(200, 200);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width() - 2, inputBuf.height() - 2, 3);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width() - 8, inputBuf.height() - 8, 3);
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
       inputBuf(i, j) = rand() % 255;
@@ -682,8 +683,8 @@ void small_demosaic_test() {
   hw_output.tile(x, y, xo, yo, xi, yi, 8, 8)
     .reorder(c, xi, yi, xo, yo);
 
-  hw_input.stream_to_accelerator();
-  hw_output.hw_accelerate(xi, xo);
+  //hw_input.stream_to_accelerator();
+  //hw_output.hw_accelerate(xi, xo);
   hw_output.unroll(c);
 
   auto context = hwContext();

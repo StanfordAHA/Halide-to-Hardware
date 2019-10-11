@@ -33,8 +33,11 @@ int halide_error_bad_dimensions(void *user_context, const char *func_name,
 int halide_error_access_out_of_bounds(void *user_context, const char *func_name,
                                              int dimension, int min_touched, int max_touched,
                                              int min_valid, int max_valid) {
-  assert(false);
-  return 0;
+  std::cerr << "Error (Access out of bounds): in " << func_name << ", dimension: " << dimension << ", min_touched = " << min_touched << " " <<
+    "max_touched = " << max_touched << " " << 
+    "min_valid = " << min_valid << " " <<
+    "max_valid = " << max_valid << std::endl;
+  return -1;
 }
 int halide_error_buffer_allocation_too_large(void *user_context, const char *buffer_name,
                                                     uint64_t allocation_size, uint64_t max_size) {
@@ -111,23 +114,29 @@ void halide_error(void *user_context, const char *) {
   assert(false);
 }
 
+static inline size_t halide_malloc_alignment() {
+  return 64;
+}
 
 void *halide_malloc(void *user_context, size_t x) {
-  return malloc(x);
-    //// Allocate enough space for aligning the pointer we return.
-    //const size_t alignment = halide_malloc_alignment();
-    //void *orig = malloc(x + alignment);
-    //if (orig == NULL) {
-        //// Will result in a failed assertion and a call to halide_error
-        //return NULL;
-    //}
-    //// We want to store the original pointer prior to the pointer we return.
-    //void *ptr = (void *)(((size_t)orig + alignment + sizeof(void*) - 1) & ~(alignment - 1));
-    //((void **)ptr)[-1] = orig;
-    //return ptr;
+  std::cout << "Mallocing: " << x << std::endl;
+  //return malloc(x);
+  
+  // Allocate enough space for aligning the pointer we return.
+  const size_t alignment = halide_malloc_alignment();
+  void *orig = malloc(x + alignment);
+  if (orig == NULL) {
+    // Will result in a failed assertion and a call to halide_error
+    return NULL;
+  }
+  // We want to store the original pointer prior to the pointer we return.
+  void *ptr = (void *)(((size_t)orig + alignment + sizeof(void*) - 1) & ~(alignment - 1));
+  ((void **)ptr)[-1] = orig;
+  return ptr;
 }
 
 void halide_free(void *user_context, void *ptr) {
+  std::cout << "Freeing pointer: " << ptr << std::endl;
   free(ptr);
 }
 
