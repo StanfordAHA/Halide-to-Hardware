@@ -1,6 +1,6 @@
 #pragma once
 
-#include "coreir/simulator/interpreter.h"
+#include "coreir.h"
 #include "coreir/simulator/interpreter.h"
 
 // Dummy file

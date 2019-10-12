@@ -262,33 +262,9 @@ class CoordinateVector {
 
 };
 
-bool hasClock(CoreIR::Module* m) {
-  for (auto f : m->getType()->getRecord()) {
-    if (isClockOrNestedClockType(f.second, m->getContext()->Named("coreir.clkIn"))) {
-      cout << "Found clock" << endl;
-      return true;
-    }
-  }
-  return false;
-}
-
 template<typename T>
 bool is2D(T& buf) {
   return (buf.dimensions() == 2) || (buf.dimensions() == 3 && buf.channels() == 1);
-}
-
-void resetSim(const std::string& inputName, CoreIR::Module* m, SimulatorState& state) {
-
-    state.setValue(inputName, BitVector(16, 0));
-    state.setValue("self.in_en", BitVector(1, 0));
-    if (hasClock(m)) {
-      state.setClock("self.clk", 0, 1);
-    }
-    state.setValue("self.reset", BitVector(1, 1));
-
-    state.resetCircuit();
-
-    state.setValue("self.reset", BitVector(1, 0));
 }
 
 template<typename T>
