@@ -4,11 +4,29 @@
 
 #include "cgra_wrapper.h"
 
+#include "coreir/libs/commonlib.h"
+#include "coreir/libs/float.h"
+using namespace std;
+
 CGRAWrapper::CGRAWrapper() {
   c = CoreIR::newContext();
+
+  CoreIRLoadLibrary_commonlib(c);
+  CoreIRLoadLibrary_float(c);
+  if (!loadFromFile(c, "./conv_3_3_app.json")) {
+    cout << "Error: Could not load json for CGRA accelerator!" << endl;
+    c->die();
+  }
+  c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
+  m = c->getNamespace("global")->getModule("DesignTop");
+  cout << "Module..." << endl;
+  m->print();
+  state = new CoreIR::SimulatorState(m);
+  cout << "Initialized simulator..." << endl;
 }
 
 CGRAWrapper::~CGRAWrapper() {
+  delete state;
   CoreIR::deleteContext(c);
 }
 

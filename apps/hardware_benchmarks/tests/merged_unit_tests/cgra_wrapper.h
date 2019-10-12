@@ -156,6 +156,9 @@ class CGRAWrapper {
   public:
 
     CoreIR::Context* c;
+    CoreIR::Module* m;
+    CoreIR::SimulatorState* state;
+
     CGRAWrapper();
     ~CGRAWrapper();
 
