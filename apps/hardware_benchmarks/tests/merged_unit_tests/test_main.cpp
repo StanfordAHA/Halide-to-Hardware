@@ -652,8 +652,8 @@ void small_demosaic_test() {
   hw_output.tile(x, y, xo, yo, xi, yi, 8, 8)
     .reorder(c, xi, yi, xo, yo);
 
-  //hw_input.stream_to_accelerator();
-  //hw_output.hw_accelerate(xi, xo);
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
   hw_output.unroll(c);
 
   auto context = hwContext();
