@@ -140,10 +140,11 @@ void halide_free(void *user_context, void *ptr) {
   free(ptr);
 }
 
-template<typename T>
-void *_halide_buffer_get_host(T& tp) {
-    return (void*) (&tp);
-}
+//template<typename T>
+//void *_halide_buffer_get_host(T& tp) {
+  //return tp->
+    //return (void*) (&tp);
+//}
 
 
 // CGRA Specific code
