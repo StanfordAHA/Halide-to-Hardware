@@ -10,6 +10,7 @@
 #include <iostream>
 
 #include <fstream>
+#include "test_utils.h"
 
 using namespace CoreIR;
 using namespace Halide;
@@ -19,36 +20,6 @@ using namespace std;
 std::string GREEN = "\033[32m";
 std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
-
-void runCmd(const std::string& cmd) {
-  cout << "Running command: " << cmd << endl;
-  int res = system(cmd.c_str());
-  assert(res == 0);
-}
-
-template<typename T>
-void printBuffer(T& inputBuf, std::ostream& out) {
-  if (inputBuf.dimensions() <= 2 || inputBuf.channels() == 1) {
-    for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
-      for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
-        out << inputBuf(j, i) << " ";
-      }
-      out << endl;
-    }
-  } else {
-    for (int c = 0; c < inputBuf.channels(); c++) {
-      out << "------------------------------------------" << endl;
-      out << "Channel " << c << endl;
-      out << "------------------------------------------" << endl;
-      for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
-        for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
-          out << inputBuf(j, i, c) << " ";
-        }
-        out << endl;
-      }
-    }
-  }
-}
 
 template<typename T>
 class Point {
@@ -660,10 +631,12 @@ void small_demosaic_test() {
 
   Halide::Buffer<uint16_t> inputBuf(200, 200);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width() - 8, inputBuf.height() - 8, 3);
+  //Halide::Runtime::Buffer<uint16_t> outputBuf(inputBuf.width() - 8, inputBuf.height() - 8, 3);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(10, 10, 3);
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
-      inputBuf(i, j) = rand() % 255;
+      //inputBuf(i, j) = rand() % 255;
+      inputBuf(i, j) = 23;
       hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
   }
@@ -675,10 +648,6 @@ void small_demosaic_test() {
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
 
-  cout << "CPU output" << endl;
-  printBuffer(cpuOutput, cout);
-
-  // Hardware schedule
   
   hw_output.tile(x, y, xo, yo, xi, yi, 8, 8)
     .reorder(c, xi, yi, xo, yo);
@@ -731,6 +700,10 @@ void small_demosaic_test() {
     runCmd("./a.out");
 
     cout << "Ran executable" << endl;
+
+
+    cout << "CPU output" << endl;
+    printBuffer(cpuOutput, cout);
   }
 
   //assert(false);
