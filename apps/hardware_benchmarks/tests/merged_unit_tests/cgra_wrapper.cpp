@@ -73,7 +73,7 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t offset,
   }
 }
 
-void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t offset,
+void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t subImageOffset,
     int stride_0, int subimage_extent_0,
     int stride_1, int subimage_extent_1,
     int stride_2, int subimage_extent_2,
@@ -91,7 +91,8 @@ void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t offset,
     for (int j = 0; j < subimage_extent_1; j++) {
       for (int k = 0; k < subimage_extent_2; k++) {
         for (int m = 0; m < subimage_extent_3; m++) {
-          int offset = stride_0 * i +
+          int offset = subImageOffset + 
+            stride_0 * i +
             stride_1 * j + 
             stride_2 * k + 
             stride_3 * m;
