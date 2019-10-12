@@ -698,16 +698,33 @@ void small_demosaic_test() {
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
       cout << "Compiled to module" << endl;
       cout << mod << endl;
-      ofstream outFile("demosaic_soc_mini.cpp");
-      //CodeGen_SoC_Test testPrinter(cout, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
-      CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      ofstream outFile("demosaic_soc_mini_c.c");
+      CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CImplementation);
       testPrinter.compileForCGRA(mod);
-      //outFile.close();
-      cout.flush();
+      
+      ofstream outFileH("demosaic_soc_mini_c.h");
+      CodeGen_SoC_Test testPrinterH(outFileH, t, CodeGen_C::OutputKind::CHeader);
+      testPrinterH.compile(mod);
     }
     cout << "Done with compiling for CGRA" << endl;
-    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -L ../../../../bin");
+    runCmd("clang demosaic_soc_run_c.c demosaic_soc_mini_c.c cgra_wrapper_c.c -lHalide -L ../../../../bin");
     runCmd("./a.out");
+    //{
+      //Target t;
+      //t = t.with_feature(Target::Feature::CoreIR);
+      //auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
+      //cout << "Compiled to module" << endl;
+      //cout << mod << endl;
+      //ofstream outFile("demosaic_soc_mini.cpp");
+      ////CodeGen_SoC_Test testPrinter(cout, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      //CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      //testPrinter.compileForCGRA(mod);
+      ////outFile.close();
+      //cout.flush();
+    //}
+    //cout << "Done with compiling for CGRA" << endl;
+    //runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -L ../../../../bin");
+    //runCmd("./a.out");
   }
 
   //assert(false);
