@@ -4,6 +4,14 @@
 
 #include "cgra_wrapper.h"
 
+CGRAWrapper::CGRAWrapper() {
+  c = CoreIR::newContext();
+}
+
+CGRAWrapper::~CGRAWrapper() {
+  CoreIR::deleteContext(c);
+}
+
 void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf,
     int stride_0, int subimage_extend_0,
     int stride_1, int subimage_extend_1,

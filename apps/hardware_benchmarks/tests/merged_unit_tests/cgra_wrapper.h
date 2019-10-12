@@ -1,5 +1,8 @@
 #pragma once
 
+#include "coreir/simulator/interpreter.h"
+#include "coreir/simulator/interpreter.h"
+
 // Dummy file
 //
 // p
@@ -151,6 +154,10 @@ void halide_free(void *user_context, void *ptr) {
 // CGRA Specific code
 class CGRAWrapper {
   public:
+
+    CoreIR::Context* c;
+    CGRAWrapper();
+    ~CGRAWrapper();
 
     void subimage_to_stream(halide_buffer_t* buf,
         int stride_0 = 1, int subimage_extend_0 = 1,
