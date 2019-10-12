@@ -158,6 +158,7 @@ class CGRAWrapper {
     CoreIR::Context* c;
     CoreIR::Module* m;
     CoreIR::SimulatorState* state;
+    std::vector<uint16_t> pixelOutputs;
 
     CGRAWrapper();
     ~CGRAWrapper();
