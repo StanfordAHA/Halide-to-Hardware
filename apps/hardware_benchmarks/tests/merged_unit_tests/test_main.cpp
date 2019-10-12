@@ -727,7 +727,10 @@ void small_demosaic_test() {
     }
     cout << "Done with compiling for CGRA" << endl;
     runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -L ../../../../bin");
+    cout << "Compiled c++ executable..." << endl;
     runCmd("./a.out");
+
+    cout << "Ran executable" << endl;
   }
 
   //assert(false);

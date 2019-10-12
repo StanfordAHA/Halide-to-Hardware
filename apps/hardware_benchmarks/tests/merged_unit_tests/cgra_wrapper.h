@@ -137,7 +137,8 @@ void *halide_malloc(void *user_context, size_t x) {
 
 void halide_free(void *user_context, void *ptr) {
   std::cout << "Freeing pointer: " << ptr << std::endl;
-  free(ptr);
+  free(((void**)ptr)[-1]);
+  //free(ptr);
 }
 
 //template<typename T>
