@@ -478,7 +478,14 @@ class CodeGen_SoC_Test : public CodeGen_C {
         //string a2 = print_expr(c->args[2]);
         //string a3 = print_expr(c->args[3]);
 
-        string val = print_expr(c->args[3].as<Call>()->args[0]);
+        cout << "args->[3] = " << c->args[3] << endl;
+        cout << "args->[3]->args[0] = " << c->args[3].as<Call>()->args[0] << endl;
+        string offset = print_expr(c->args[3].as<Call>()->args[0].as<Load>()->index);
+        cout << "offset = " << offset << endl;
+        //assert(false);
+        //string val = print_expr(c->args[3].as<Call>()->args[0]);
+        //cout << "Offset value = " << val << endl;
+
         if (direction->value == "buffer_to_stream") {
           stream << "accelerator.subimage_to_stream(";
         } else {
@@ -487,7 +494,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
         }
         
         //stream << a1 << ", " << a2 << ", " << a3;
-        stream << a1;
+        stream << a1 << ", " << offset;
         for (size_t i = 4; i < c->args.size(); i++) {
             stream << ", " << print_expr(c->args[i]);
         }

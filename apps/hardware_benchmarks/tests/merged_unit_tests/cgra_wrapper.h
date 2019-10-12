@@ -163,13 +163,13 @@ class CGRAWrapper {
     CGRAWrapper();
     ~CGRAWrapper();
 
-    void subimage_to_stream(halide_buffer_t* buf,
+    void subimage_to_stream(halide_buffer_t* buf, int32_t offset,
         int stride_0 = 1, int subimage_extend_0 = 1,
         int stride_1 = 1, int subimage_extend_1 = 1,
         int stride_2 = 1, int subimage_extend_2 = 1,
         int stride_3 = 1, int subimage_extend_3 = 1);
 
-    void stream_to_subimage(halide_buffer_t* buf,
+    void stream_to_subimage(halide_buffer_t* buf, int32_t offset,
         int stride_0 = 1, int subimage_extend_0 = 1,
         int stride_1 = 1, int subimage_extend_1 = 1,
         int stride_2 = 1, int subimage_extend_2 = 1,

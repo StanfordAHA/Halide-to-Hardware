@@ -43,7 +43,7 @@ CGRAWrapper::~CGRAWrapper() {
 // Q: How do we start to stream from buffer? Note that this function must
 // write to the simulator and read out and buffer its data to a temporary
 // buffer in order to save it
-void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf,
+void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t offset,
     int stride_0, int subimage_extent_0,
     int stride_1, int subimage_extent_1,
     int stride_2, int subimage_extent_2,
@@ -73,7 +73,7 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf,
   }
 }
 
-void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf,
+void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t offset,
     int stride_0, int subimage_extent_0,
     int stride_1, int subimage_extent_1,
     int stride_2, int subimage_extent_2,
