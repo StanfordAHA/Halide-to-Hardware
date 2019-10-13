@@ -61,6 +61,9 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t subImageOffse
       subimage_extent_0 - 1,
       subimage_extent_2 - 1});
 
+  pixelOutputs.clear();
+  assert(pixelOutputs.size() == 0);
+
   uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(buf);
   while (!writeIdx.allDone()) {
     cout << "Write index = " << writeIdx.coordString() << endl;
@@ -101,9 +104,6 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t subImageOffse
 
     writeIdx.increment();
   }
-
-  pixelOutputs.clear();
-  assert(pixelOutputs.size() == 0);
 
   //for (int i = 0; i < subimage_extent_0; i++) {
     //for (int j = 0; j < subimage_extent_1; j++) {
