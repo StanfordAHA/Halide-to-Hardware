@@ -163,6 +163,18 @@ class CGRAWrapper {
     CGRAWrapper();
     ~CGRAWrapper();
 
+    void produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOffset,
+        int src_stride_0, int src_subimage_extend_0,
+        int src_stride_1, int src_subimage_extend_1,
+        int src_stride_2, int src_subimage_extend_2,
+        int src_stride_3, int src_subimage_extend_3,
+        
+        halide_buffer_t* destBuf, int32_t destOffset,
+        int dest_stride_0, int dest_subimage_extend_0,
+        int dest_stride_1, int dest_subimage_extend_1,
+        int dest_stride_2, int dest_subimage_extend_2,
+        int dest_stride_3, int dest_subimage_extend_3);
+    
     void subimage_to_stream(halide_buffer_t* buf, int32_t offset,
         int stride_0 = 1, int subimage_extend_0 = 1,
         int stride_1 = 1, int subimage_extend_1 = 1,

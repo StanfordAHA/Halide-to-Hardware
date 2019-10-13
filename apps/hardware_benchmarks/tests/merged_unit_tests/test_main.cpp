@@ -201,19 +201,40 @@ class AcceleratorCallConsolidator : public IRMutator {
         auto streamToImage = accelCalls[1];
 
         vector<Expr> args;
-        for (auto arg : imageToStream->args) {
-          args.push_back(arg);
+        //for (auto arg : imageToStream->args) {
+        for (uint i = 1; i < imageToStream->args.size(); i++) {
+          args.push_back(imageToStream->args[i]);
         }
-        for (auto arg : streamToImage->args) {
-          args.push_back(arg);
+        // add padding
+        int numDims = (((int) imageToStream->args.size()) - 1 - 2) / 2;
+        numDims = 4 - numDims;
+        cout << "num dims in arg list = " << numDims << endl;
+        for (int i = 0; i < numDims; i++) {
+          args.push_back(IntImm::make(Int(32), 1));
+          args.push_back(IntImm::make(Int(32), 1));
         }
+        
+        {
+          for (uint i = 1; i < streamToImage->args.size(); i++) {
+            args.push_back(streamToImage->args[i]);
+          }
+          int numDims = (((int) streamToImage->args.size()) - 1 - 2) / 2;
+          numDims = 4 - numDims;
+          cout << "num dims in arg list = " << numDims << endl;
+          for (int i = 0; i < numDims; i++) {
+            args.push_back(IntImm::make(Int(32), 1));
+            args.push_back(IntImm::make(Int(32), 1));
+          }
+        }        
         auto accelCall = Call::make(Handle(), "call_accelerator", args, Call::CallType::ExternCPlusPlus);
         auto eval = Evaluate::make(accelCall);
-        auto newBody = Block::make(eval, p->body);
-        Stmt newPc = ProducerConsumer::make(p->name + "accel", p->is_producer, newBody);
+        auto newBody = Block::make(eval, p);
+        return newBody;
+        //auto newBody = Block::make(eval, p->body);
+        //Stmt newPc = ProducerConsumer::make(p->name + ".accel", p->is_producer, newBody);
 
-        cout << "New pc = " << newPc << endl;
-        return newPc;
+        //cout << "New pc = " << newPc << endl;
+        //return newPc;
         //p;
       } else {
         return IRMutator::visit(p);
@@ -311,7 +332,23 @@ class CodeGen_SoC_Test : public CodeGen_C {
         }
 
         stream << ");" << endl;
-      } else {
+      } else if (c->name == "call_accelerator") {
+        stream << "// Call accelerator..." << endl;
+
+        // # args = 2*( call_name + buf_name + buf_offset + strides )
+        string sourceBuffer = print_expr(c->args[1]);
+        string sourceOffset = print_expr(c->args[3].as<Call>()->args[0].as<Load>()->index);
+
+        string destBuffer = print_expr(c->args[6]);
+        
+        stream << "accelerator.produce_subimage(";
+        stream << sourceBuffer << ", " << sourceOffset;
+        for (size_t i = 4; i < c->args.size(); i++) {
+            stream << ", " << print_expr(c->args[i]);
+        }
+        stream << ");" << endl;
+
+      }else {
         CodeGen_C::visit(c);
       }
     }
@@ -491,7 +528,7 @@ void small_demosaic_test() {
 
       cout << "Compiled to module" << endl;
       cout << mod << endl;
-      assert(false);
+      //assert(false);
       ofstream outFile("demosaic_soc_mini.cpp");
       CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
       testPrinter.compileForCGRA(mod);
