@@ -85,19 +85,6 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
 }
 
 template<typename T>
-std::string outputForCoord2D(Point<T>& point) {
-  return "self.out_0_0";
-}
-
-template<typename T>
-std::string outputForCoord3D(Point<T>& point) {
-  assert(point.coord("x") == 0);
-  assert(point.coord("y") == 0);
-
-  return "self." + std::string("out_") + std::to_string(point.coord("c")) + std::string("_0_0");
-}
-
-template<typename T>
 void run_for_cycle(CoordinateVector<int>& writeIdx,
     CoordinateVector<int>& readIdx,
 

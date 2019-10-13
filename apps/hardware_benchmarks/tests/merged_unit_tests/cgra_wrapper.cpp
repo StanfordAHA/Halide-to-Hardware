@@ -61,30 +61,58 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t subImageOffse
       subimage_extent_0 - 1,
       subimage_extent_2 - 1});
 
+  uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(buf);
   while (!writeIdx.allDone()) {
     cout << "Write index = " << writeIdx.coordString() << endl;
+    auto i = writeIdx.coord("x");
+    auto j = writeIdx.coord("y");
+    auto k = writeIdx.coord("c");
+    // TODO: Replace with 4th dimension stride when that comes up
+    auto m = 1;
+
+    int offset = subImageOffset + 
+      stride_0 * i +
+      stride_1 * j + 
+      stride_2 * k + 
+      stride_3 * m;
+    uint16_t nextInPixel = hostBuf[offset];
+
+    string input_name = "self.in_arg_0_0_0";
+    cout << "Next pixel = " << nextInPixel << endl;
+    state->setValue("self.in_en", BitVector(1, true));
+    state->setValue(input_name, BitVector(16, nextInPixel));
+    state->exeCombinational();
+
+
+    bool valid_value = state->getBitVec("self.valid").to_type<bool>();
+    if (valid_value) {
+
+      auto output_bv = state->getBitVec("self.out_0_0");
+      int output_value;
+      output_value = output_bv.to_type<int>();
+      cout << "\tOutput value = " << output_value << endl;
+    }
+    
+    pixelOutputs.push_back(23);
+    pixelOutputs.push_back(23);
+    pixelOutputs.push_back(23);
+
+    state->exeSequential();
+
     writeIdx.increment();
   }
 
   pixelOutputs.clear();
   assert(pixelOutputs.size() == 0);
 
-  for (int i = 0; i < subimage_extent_0; i++) {
-    for (int j = 0; j < subimage_extent_1; j++) {
-      for (int k = 0; k < subimage_extent_2; k++) {
-        for (int m = 0; m < subimage_extent_3; m++) {
-          int offset = subImageOffset + 
-            stride_0 * i +
-            stride_1 * j + 
-            stride_2 * k + 
-            stride_3 * m;
-          pixelOutputs.push_back(23);
-          pixelOutputs.push_back(23);
-          pixelOutputs.push_back(23);
-        }
-      }
-    }
-  }
+  //for (int i = 0; i < subimage_extent_0; i++) {
+    //for (int j = 0; j < subimage_extent_1; j++) {
+      //for (int k = 0; k < subimage_extent_2; k++) {
+        //for (int m = 0; m < subimage_extent_3; m++) {
+        //}
+      //}
+    //}
+  //}
 }
 
 void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t subImageOffset,
