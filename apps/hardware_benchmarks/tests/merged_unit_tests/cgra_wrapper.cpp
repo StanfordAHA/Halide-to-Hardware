@@ -205,12 +205,22 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       int output_value;
       output_value = output_bv.to_type<int>();
       cout << "\tOutput value = " << output_value << endl;
+
+      uint16_t* db = (uint16_t*) _halide_buffer_get_host(destBuf);
+      auto x = readIdx.coord("x");
+      auto y = readIdx.coord("y");
+      auto c = readIdx.coord("c");
+      auto m = 1;
+
+      int destOffset = destOffset +
+        dest_stride_0 * y +
+        dest_stride_1 * x +
+        dest_stride_2 * c +
+        dest_stride_3 * m;
+      db[destOffset] = output_value;
+      readIdx.increment();
     }
     
-    pixelOutputs.push_back(23);
-    pixelOutputs.push_back(23);
-    pixelOutputs.push_back(23);
-
     state->exeSequential();
 
     writeIdx.increment();
