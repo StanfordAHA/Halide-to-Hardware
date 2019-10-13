@@ -494,7 +494,7 @@ void offset_window_test() {
     printBuffer(cpuOutput, cout);
   }
 
-  assert(false);
+  //assert(false);
 
   //auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
 
@@ -1564,10 +1564,10 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  offset_window_test();  
-  assert(false);
+  //offset_window_test();  
+  //assert(false);
 
-  small_demosaic_test();
+  //small_demosaic_test();
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
