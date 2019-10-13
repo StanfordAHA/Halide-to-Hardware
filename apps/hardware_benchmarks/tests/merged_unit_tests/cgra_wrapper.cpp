@@ -105,14 +105,6 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t subImageOffse
     writeIdx.increment();
   }
 
-  //for (int i = 0; i < subimage_extent_0; i++) {
-    //for (int j = 0; j < subimage_extent_1; j++) {
-      //for (int k = 0; k < subimage_extent_2; k++) {
-        //for (int m = 0; m < subimage_extent_3; m++) {
-        //}
-      //}
-    //}
-  //}
 }
 
 void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t subImageOffset,
@@ -150,3 +142,18 @@ void CGRAWrapper::stream_to_subimage(halide_buffer_t* buf, int32_t subImageOffse
   cout << "pixels  = " << pixelOutputs.size() << endl;
   //assert(nextPix == ((int) pixelOutputs.size()));
 }
+
+void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOffset,
+        int src_stride_0, int src_subimage_extend_0,
+        int src_stride_1, int src_subimage_extend_1,
+        int src_stride_2, int src_subimage_extend_2,
+        int src_stride_3, int src_subimage_extend_3,
+        
+        halide_buffer_t* destBuf, int32_t destOffset,
+        int dest_stride_0, int dest_subimage_extend_0,
+        int dest_stride_1, int dest_subimage_extend_1,
+        int dest_stride_2, int dest_subimage_extend_2,
+        int dest_stride_3, int dest_subimage_extend_3) {
+
+}
+
