@@ -43,13 +43,13 @@ CGRAWrapper::~CGRAWrapper() {
 // Q: How do we start to stream from buffer? Note that this function must
 // write to the simulator and read out and buffer its data to a temporary
 // buffer in order to save it
-void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t offset,
+void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t subImageOffset,
     int stride_0, int subimage_extent_0,
     int stride_1, int subimage_extent_1,
     int stride_2, int subimage_extent_2,
     int stride_3, int subimage_extent_3) {
 
-  cout << "subimage to stream on buffer with extents..." << endl;
+  cout << "subimage to stream on buffer at offset " << subImageOffset << " with extents..." << endl;
   cout << "\t" << subimage_extent_0 << endl;
   cout << "\t" << subimage_extent_1 << endl;
   cout << "\t" << subimage_extent_2 << endl;
@@ -58,12 +58,15 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t offset,
   pixelOutputs.clear();
   assert(pixelOutputs.size() == 0);
 
-  // TODO: Perform dummy computation where we just write the value 23 to
-  // every pixel of the storage buffer and then write it back out?
   for (int i = 0; i < subimage_extent_0; i++) {
     for (int j = 0; j < subimage_extent_1; j++) {
       for (int k = 0; k < subimage_extent_2; k++) {
         for (int m = 0; m < subimage_extent_3; m++) {
+          int offset = subImageOffset + 
+            stride_0 * i +
+            stride_1 * j + 
+            stride_2 * k + 
+            stride_3 * m;
           pixelOutputs.push_back(23);
           pixelOutputs.push_back(23);
           pixelOutputs.push_back(23);
