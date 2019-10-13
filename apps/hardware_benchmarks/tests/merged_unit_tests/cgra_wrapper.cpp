@@ -31,7 +31,7 @@ CGRAWrapper::CGRAWrapper() {
   cout << "Module..." << endl;
   m->print();
   state = new CoreIR::SimulatorState(m);
-  resetSim("self.in_arg_3_0_0", m, *state);
+  resetSim("self.in_arg_0_0_0", m, *state);
   cout << "Initialized simulator..." << endl;
 }
 

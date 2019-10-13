@@ -22,48 +22,6 @@ std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
 template<typename T>
-class Point {
-  public:
-    std::vector<T> values;
-    std::vector<std::string> names;
-
-    std::vector<std::string> dimensionNames() const { return names; }
-
-    int numDims() { return values.size(); }
-
-    void setCoord(const std::string& name, const T& newVal) {
-      auto ind = indexOf(name);
-      values[ind] = newVal;
-    }
-
-    int indexOf(const std::string& name) const {
-      for (int i = 0; i < names.size(); i++) {
-        if (names[i] == name) {
-          return i;
-        }
-      }
-      assert(false);
-    }
-
-    int coord(const std::string& name) const {
-      for (int i = 0; i < names.size(); i++) {
-        if (names[i] == name) {
-          return values[i];
-        }
-      }
-      assert(false);
-    }
-
-    Point<T> appendDim(const std::string& name, const int i) {
-      Point<T> fresh = *this;
-      fresh.names.push_back(name);
-      fresh.values.push_back(i);
-      return fresh;
-    }
-
-};
-
-template<typename T>
 std::ostream& operator<<(std::ostream& out, const Point<T>& pt) {
   out << "(";
   for (int i = 0; i < (int) pt.values.size(); i++) {
@@ -1599,7 +1557,7 @@ int main(int argc, char **argv) {
   small_demosaic_test();
 
 
-  //assert(false);
+  assert(false);
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
