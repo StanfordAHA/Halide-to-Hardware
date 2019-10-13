@@ -184,6 +184,71 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
 }
 using namespace Halide::Internal;
 
+class AcceleratorCallConsolidator : public IRMutator {
+  public:
+    std::vector<const Call*> accelCalls;
+    bool inHWRegion;
+    
+    Stmt visit(const ProducerConsumer* p) {
+      if (inHWRegion && p->is_producer) {
+        // Consolidate calls in to one larger call
+        cout << "Accelerator calls...." << endl;
+        for (auto c : accelCalls) {
+          cout << "\t" << "Call" << endl;
+        }
+        assert(accelCalls.size() == 2);
+        auto imageToStream = accelCalls[0];
+        auto streamToImage = accelCalls[1];
+
+        vector<Expr> args;
+        for (auto arg : imageToStream->args) {
+          args.push_back(arg);
+        }
+        for (auto arg : streamToImage->args) {
+          args.push_back(arg);
+        }
+        auto accelCall = Call::make(Handle(), "call_accelerator", args, Call::CallType::ExternCPlusPlus);
+        auto eval = Evaluate::make(accelCall);
+        auto newBody = Block::make(eval, p->body);
+        Stmt newPc = ProducerConsumer::make(p->name + "accel", p->is_producer, newBody);
+
+        cout << "New pc = " << newPc << endl;
+        return newPc;
+        //p;
+      } else {
+        return IRMutator::visit(p);
+      }
+    }
+    
+    Stmt visit(const Realize* p) {
+
+      cout << "Visiting realize " << p->name << endl;
+
+      bool justEntered = inHWRegion == false;
+      if (justEntered) {
+        inHWRegion = true;
+      }
+
+      auto res = IRMutator::visit(p);
+      //auto res = p->body.accept(this);
+
+      if (justEntered) {
+        inHWRegion = false;
+      }
+
+      return res;
+    }
+
+    Expr visit(const Call* c) {
+      cout << "Visiting call " << c->name << endl;
+      if (c->name == "stream_subimage") {
+        accelCalls.push_back(c);
+      }
+      cout << "Done with call" << endl;
+      return c;
+    }
+};
+
 class CodeGen_SoC_Test : public CodeGen_C {
   public:
 
@@ -409,11 +474,24 @@ void small_demosaic_test() {
     //runCmd("./a.out");
     
     {
+
+
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
+
+
+      for (auto& f : mod.functions()) {
+        AcceleratorCallConsolidator cons;
+        cout << "Starting consolidate of calls" << endl;
+        f.body = cons.mutate(f.body);
+        cout << "Consolidated calls for " << f.body << endl;
+        //f.body.accept(&cons);
+      }
+
       cout << "Compiled to module" << endl;
       cout << mod << endl;
+      assert(false);
       ofstream outFile("demosaic_soc_mini.cpp");
       CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
       testPrinter.compileForCGRA(mod);
