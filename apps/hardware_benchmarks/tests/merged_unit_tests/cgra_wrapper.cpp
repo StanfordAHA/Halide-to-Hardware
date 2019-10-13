@@ -155,11 +155,11 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
         int dest_stride_2, int dest_subimage_extent_2,
         int dest_stride_3, int dest_subimage_extent_3) {
 
-  //cout << "subimage to stream on buffer at offset " << subImageOffset << " with extents..." << endl;
-  //cout << "\t" << subimage_extent_0 << endl;
-  //cout << "\t" << subimage_extent_1 << endl;
-  //cout << "\t" << subimage_extent_2 << endl;
-  //cout << "\t" << subimage_extent_3 << endl;
+  cout << "subimage to stream on buffer at offset " << destOffset << " with extents..." << endl;
+  cout << "\t" << dest_subimage_extent_0 << endl;
+  cout << "\t" << dest_subimage_extent_1 << endl;
+  cout << "\t" << dest_subimage_extent_2 << endl;
+  cout << "\t" << dest_subimage_extent_3 << endl;
 
   assert(src_stride_3 == 1 && src_subimage_extent_3 == 1);
   assert(dest_stride_3 == 1 && dest_subimage_extent_3 == 1);
@@ -176,27 +176,31 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
   assert(pixelOutputs.size() == 0);
 
   uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(sourceBuf);
-  while (!writeIdx.allDone()) {
+  while (!readIdx.allDone()) {
     cout << "Write index = " << writeIdx.coordString() << endl;
     auto i = writeIdx.coord("x");
     auto j = writeIdx.coord("y");
     auto k = writeIdx.coord("c");
     // TODO: Replace with 4th dimension stride when that comes up
-    auto m = 1;
+    auto m = 0;
 
     int offset = sourceOffset + 
       src_stride_0 * i +
       src_stride_1 * j + 
       src_stride_2 * k + 
       src_stride_3 * m;
-    uint16_t nextInPixel = hostBuf[offset];
 
-    string input_name = "self.in_arg_0_0_0";
-    cout << "Next pixel = " << nextInPixel << endl;
-    state->setValue("self.in_en", BitVector(1, true));
-    state->setValue(input_name, BitVector(16, nextInPixel));
+
+    if (!writeIdx.allDone()) {
+      uint16_t nextInPixel = hostBuf[offset];
+      string input_name = "self.in_arg_0_0_0";
+      cout << "Next pixel = " << nextInPixel << endl;
+      state->setValue("self.in_en", BitVector(1, true));
+      state->setValue(input_name, BitVector(16, nextInPixel));
+    } else {
+      state->setValue("self.in_en", BitVector(1, false));
+    }
     state->exeCombinational();
-
 
     bool valid_value = state->getBitVec("self.valid").to_type<bool>();
     if (valid_value) {
@@ -210,14 +214,19 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       auto x = readIdx.coord("x");
       auto y = readIdx.coord("y");
       auto c = readIdx.coord("c");
-      auto m = 1;
+      auto m = 0;
 
-      int destOffset = destOffset +
+      cout << "Reading pixel " << x << ", " << y << ", " << c << endl;
+
+      int dOffset = destOffset +
         dest_stride_0 * y +
         dest_stride_1 * x +
         dest_stride_2 * c +
         dest_stride_3 * m;
-      db[destOffset] = output_value;
+      cout << "Dest offset " << dOffset << endl;
+      db[dOffset] = output_value;
+
+      cout << "Set output at offset " << dOffset << endl;
       readIdx.increment();
     }
     

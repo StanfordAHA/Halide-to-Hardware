@@ -201,7 +201,6 @@ class AcceleratorCallConsolidator : public IRMutator {
         auto streamToImage = accelCalls[1];
 
         vector<Expr> args;
-        //for (auto arg : imageToStream->args) {
         for (uint i = 1; i < imageToStream->args.size(); i++) {
           args.push_back(imageToStream->args[i]);
         }
@@ -422,6 +421,87 @@ class CodeGen_SoC_Test : public CodeGen_C {
       }
     }
 };
+
+void offset_window_test() {
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
+
+  Var x("x"), y("y"), c("c");
+  Var xi,yi,zi, xo,yo,zo;
+
+  Func hw_input, hw_output;
+  hw_input(x, y) = cast<uint16_t>(input(x+1,y+1));
+  hw_output(x, y) = hw_input(x, y);
+  output(x, y) = hw_output(x, y);
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  Halide::Buffer<uint16_t> inputBuf(15, 15);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(8, 8);
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      inputBuf(i, j) = j*inputBuf.width() + i;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+  //Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(outputBuf.width(), outputBuf.height());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  
+  hw_output.tile(x, y, xo, yo, xi, yi, 8, 8);
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
+
+  auto context = hwContext();
+  vector<Argument> args{input};
+
+  {
+    {
+      Target t;
+      t = t.with_feature(Target::Feature::CoreIR);
+      auto mod = hw_output.compile_to_module(args, "hw_output", t);
+
+      for (auto& f : mod.functions()) {
+        AcceleratorCallConsolidator cons;
+        f.body = cons.mutate(f.body);
+      }
+
+      cout << "Compiled to module" << endl;
+      cout << mod << endl;
+      ofstream outFile("offset_soc_mini.cpp");
+      CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      testPrinter.compileForCGRA(mod);
+      
+      cout << "Compiled cpp code" << endl;
+    }
+    cout << "Done with compiling for CGRA" << endl;
+    runCmd("clang++ -std=c++11 offset_soc_run.cpp offset_soc_mini.cpp cgra_wrapper.cpp -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+    cout << "Compiled c++ executable..." << endl;
+    runCmd("./a.out");
+
+    cout << "Ran executable" << endl;
+    cout << "CPU output" << endl;
+    printBuffer(cpuOutput, cout);
+  }
+
+  assert(false);
+
+  //auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
+
+  //runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
+  //cout << "Input buffer" << endl;
+  //printBuffer(hwInputBuf, cout);
+  //compare_buffers(outputBuf, cpuOutput);
+  
+  cout << GREEN << "Small offset test passed" << RESET << endl;
+}
 void small_demosaic_test() {
 
   ImageParam input(type_of<uint16_t>(), 2);
@@ -1481,10 +1561,10 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  small_demosaic_test();
-
-
+  offset_window_test();  
   assert(false);
+
+  small_demosaic_test();
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
