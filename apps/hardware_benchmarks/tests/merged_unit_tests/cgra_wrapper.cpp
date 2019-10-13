@@ -161,6 +161,12 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
   cout << "\t" << dest_subimage_extent_2 << endl;
   cout << "\t" << dest_subimage_extent_3 << endl;
 
+  cout << "dest strides..." << endl;
+  cout << "\t" << dest_stride_0 << endl;
+  cout << "\t" << dest_stride_1 << endl;
+  cout << "\t" << dest_stride_2 << endl;
+  cout << "\t" << dest_stride_3 << endl;
+
   assert(src_stride_3 == 1 && src_subimage_extent_3 == 1);
   assert(dest_stride_3 == 1 && dest_subimage_extent_3 == 1);
 
@@ -219,8 +225,8 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       cout << "Reading pixel " << x << ", " << y << ", " << c << endl;
 
       int dOffset = destOffset +
-        dest_stride_0 * y +
-        dest_stride_1 * x +
+        dest_stride_0 * x +
+        dest_stride_1 * y +
         dest_stride_2 * c +
         dest_stride_3 * m;
       cout << "Dest offset " << dOffset << endl;
