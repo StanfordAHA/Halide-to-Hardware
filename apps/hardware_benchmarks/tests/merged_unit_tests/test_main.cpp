@@ -458,9 +458,12 @@ void offset_window_test() {
   hw_output.tile(x, y, xo, yo, xi, yi, 8, 8);
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
-
+ 
   auto context = hwContext();
   vector<Argument> args{input};
+  //auto m = buildModule(context, "hw_offset_window", args, "offset_window", hw_output);
+  //assert(false);
+  //coreir::module* buildmodule(coreir::context* context, const std::string& name, std::vector<argument>& args, const std::string& fname, func& hwoutput) {
 
   {
     {
