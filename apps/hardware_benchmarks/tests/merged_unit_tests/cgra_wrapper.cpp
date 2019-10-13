@@ -55,6 +55,17 @@ void CGRAWrapper::subimage_to_stream(halide_buffer_t* buf, int32_t subImageOffse
   cout << "\t" << subimage_extent_2 << endl;
   cout << "\t" << subimage_extent_3 << endl;
 
+  assert(stride_3 == 1 && subimage_extent_3 == 1);
+
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {subimage_extent_1 - 1,
+      subimage_extent_0 - 1,
+      subimage_extent_2 - 1});
+
+  while (!writeIdx.allDone()) {
+    cout << "Write index = " << writeIdx.coordString() << endl;
+    writeIdx.increment();
+  }
+
   pixelOutputs.clear();
   assert(pixelOutputs.size() == 0);
 
