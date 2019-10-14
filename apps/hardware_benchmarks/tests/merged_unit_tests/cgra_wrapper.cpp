@@ -63,16 +63,18 @@ CGRAWrapper::CGRAWrapper() {
     cout << "Field = " << field << endl;
     if (starts_with(field, "in_arg_")) {
       inArgs.push_back(field);
+    } else if (starts_with(field, "out_")) {
+      outArgs.push_back(field);
     }
   }
 
   cout << "Size of inArgs = " << inArgs.size() << endl;
+  cout << "Size of outArgs = " << outArgs.size() << endl;
   assert(inArgs.size() == 1);
   inputName = "self." + inArgs[0];
 
   //assert(false);
   state = new CoreIR::SimulatorState(m);
-  //resetSim("self.in_arg_0_0_0", m, *state);
   resetSim(inputName, m, *state);
   cout << "Initialized simulator..." << endl;
 }
@@ -219,6 +221,8 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
   CoordinateVector<int> readIdx({"y", "x", "c"}, {dest_subimage_extent_1 - 1,
       dest_subimage_extent_0 - 1,
       dest_subimage_extent_2 - 1});
+  // TODO: Replace with real increment value
+  readIdx.setIncrement("c", outArgs.size());
 
   pixelOutputs.clear();
   assert(pixelOutputs.size() == 0);
@@ -226,6 +230,7 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
   uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(sourceBuf);
   while (!readIdx.allDone()) {
     cout << "Write index = " << writeIdx.coordString() << endl;
+    cout << "Read index  = " << readIdx.coordString() << endl;
     auto i = writeIdx.coord("x");
     auto j = writeIdx.coord("y");
     auto k = writeIdx.coord("c");
@@ -241,20 +246,24 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
 
     if (!writeIdx.allDone()) {
       uint16_t nextInPixel = hostBuf[offset];
-      //string input_name = "self.in_arg_0_0_0";
       cout << "Next pixel = " << nextInPixel << endl;
       state->setValue("self.in_en", BitVector(1, true));
-      //state->setValue(input_name, BitVector(16, nextInPixel));
       state->setValue(inputName, BitVector(16, nextInPixel));
     } else {
       state->setValue("self.in_en", BitVector(1, false));
     }
     state->exeCombinational();
 
+    // We really need the extent of each cube, the stride of each cube
+    // and the increment at which data is read. 
     bool valid_value = state->getBitVec("self.valid").to_type<bool>();
     if (valid_value) {
 
-      auto output_bv = state->getBitVec("self.out_0_0");
+      // For now what can I do to get the two examples I have running?
+      assert(outArgs.size() > 0);
+      string outArgName = "self." + outArgs[0];
+      //auto output_bv = state->getBitVec("self.out_0_0");
+      auto output_bv = state->getBitVec(outArgName);
       int output_value;
       output_value = output_bv.to_type<int>();
       cout << "\tOutput value = " << output_value << endl;

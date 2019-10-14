@@ -139,10 +139,6 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
       output_value = output_bv.to_type<T>();
       std::cout << "\tthis one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
 
-      //const int xr = readIdx.coord("x");
-      //const int yr = readIdx.coord("y");
-      //const int cr = readIdx.coord("c");
-      
       const int xr = point.coord("x");
       const int yr = point.coord("y");
       const int cr = point.coord("c");
@@ -594,7 +590,7 @@ void small_demosaic_test() {
   hw_output.realize(cpuOutput, t, rParams);
 
   
-  hw_output.tile(x, y, xo, yo, xi, yi, 8, 8)
+  hw_output.tile(x, y, xo, yo, xi, yi, 10, 10)
     .reorder(c, xi, yi, xo, yo);
 
   hw_input.stream_to_accelerator();

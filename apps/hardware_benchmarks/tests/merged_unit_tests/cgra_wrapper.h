@@ -160,6 +160,7 @@ class CGRAWrapper {
     CoreIR::SimulatorState* state;
     std::vector<uint16_t> pixelOutputs;
     std::string inputName;
+    std::vector<std::string> outArgs;
 
     CGRAWrapper();
     ~CGRAWrapper();
