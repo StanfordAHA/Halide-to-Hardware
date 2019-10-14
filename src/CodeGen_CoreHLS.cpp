@@ -1729,10 +1729,13 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f) {
+CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
   auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
+  StencilInfoCollector lpInfo;
+  lp->accept(&lpInfo);
+
   std::set<string> inStreams;
   std::set<string> outStreams;
   for (auto instr : instrs) {
@@ -1794,6 +1797,10 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   // and create a "hwinstruction input" function and output function
   // inside HWInstruction that will tell the RTL elaborator how to
   // build an instance of the instruction
+  // PROBLEM: Arguments to the hwfunction that are used to create
+  // the design show up after the virtual instruction set is created
+  // so I need to move virtual instructions construction below stream
+  // type creation
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(f.name, design_type);
   auto def = design->newModuleDef();
@@ -2750,7 +2757,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         cout << "\t\t\t" << *instr << endl;
       }
 
-      CoreIR::Module* m = moduleForKernel(context, scl.info, f);
+      CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
       kernelModules[lp] = m;
       auto cp = controlPathForKernel(context, scl.info, f, lp);
       cout << "Control path is..." << endl;
