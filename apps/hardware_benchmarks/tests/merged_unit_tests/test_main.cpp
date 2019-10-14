@@ -496,8 +496,12 @@ void offset_window_test() {
     runCmd("./a.out");
 
     cout << "Ran executable" << endl;
+    Halide::Runtime::Buffer<uint16_t> cppRes = load_image("offset.pgm");
+    cout << "C++ res from pgm..." << endl;
+    printBuffer(cppRes, cout);
     cout << "CPU output" << endl;
     printBuffer(cpuOutput, cout);
+    compare_buffers(cppRes, cpuOutput);
   }
 
   //assert(false);
@@ -507,7 +511,6 @@ void offset_window_test() {
   //runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
   //cout << "Input buffer" << endl;
   //printBuffer(hwInputBuf, cout);
-  //compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Small offset test passed" << RESET << endl;
 }
