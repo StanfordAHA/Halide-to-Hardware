@@ -201,10 +201,11 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
 
     if (!writeIdx.allDone()) {
       uint16_t nextInPixel = hostBuf[offset];
-      string input_name = "self.in_arg_0_0_0";
+      //string input_name = "self.in_arg_0_0_0";
       cout << "Next pixel = " << nextInPixel << endl;
       state->setValue("self.in_en", BitVector(1, true));
-      state->setValue(input_name, BitVector(16, nextInPixel));
+      //state->setValue(input_name, BitVector(16, nextInPixel));
+      state->setValue(inputName, BitVector(16, nextInPixel));
     } else {
       state->setValue("self.in_en", BitVector(1, false));
     }
