@@ -39,6 +39,18 @@ using CoreIR::contains_key;
 
 namespace {
 
+  int func_id_const_value(const Expr e) {
+    if (const IntImm* e_int = e.as<IntImm>()) {
+      return e_int->value;
+
+    } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+      return e_uint->value;
+
+    } else {
+      return -1;
+    }
+  }
+  
 template<typename K, typename V>
 V map_get(const K& k, const std::map<K, V>& m) {
   internal_assert(contains_key(k, m));
@@ -2866,13 +2878,12 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   return cp;
 }
 
-// add new design
-void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
-                                                         const string &name,
-                                                         const vector<CoreIR_Argument> &args) {
+void createCoreIRForStmt(CoreIR::Context* context,
+    Stmt stmt,
+    const std::string& name,
+    const vector<CoreIR_Argument>& args) {
 
-  if (!is_header()) {
-
+  int bitwidth = 16;
     cout << "All args" << endl;
     for (auto a : args) {
       cout << "\t" << a.name << endl;
@@ -3049,29 +3060,29 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       if (args[i].is_stencil) {
         CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
 
-        internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
-            args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
-        allocations.push(args[i].name, {args[i].stencil_type.elemType});
-        stencils.push(args[i].name, args[i].stencil_type);
+        //internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
+            //args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
+        //allocations.push(args[i].name, {args[i].stencil_type.elemType});
+        //stencils.push(args[i].name, args[i].stencil_type);
 
         vector<uint> indices;
         for(const auto &range : stype.bounds) {
           internal_assert(is_const(range.extent));
-          indices.push_back(id_const_value(range.extent));
+          indices.push_back(func_id_const_value(range.extent));
         }
 
-        if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        if (args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
           // add as the outputrg
           uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
           if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
           for (uint i=0; i<indices.size(); ++i) {
             output_type = output_type->Arr(indices[i]);
           }
-          hw_output_set.insert(arg_name);
+          //hw_output_set.insert(arg_name);
           output_name = "out";
           output_name_real = coreirSanitize(args[i].name);
 
-        } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        } else if (!args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
           // add another input
           uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
           CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
@@ -3112,6 +3123,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         });
 
     CoreIR::Type* topType = design_type;
+    auto global_ns = context->getNamespace("global");
     CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
     cout << "Before creating definition.." << endl;
     topMod->print();
@@ -3186,7 +3198,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         {"image_type", CoreIR::Const::make(context,image_type)},
         {"has_valid",CoreIR::Const::make(context,true)}};
 
-      CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+      //CoreIR::Instance* coreir_lb = def->addInstance(lb_name, gens["linebuffer"], lb_args);
+      CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "commonlib.linebuffer", lb_args);
       def->connect(coreir_lb->sel("reset"), def->sel("self")->sel("reset"));
       linebufferResults[outName] = coreir_lb;
       linebufferInputs[inName] = coreir_lb;
@@ -3356,7 +3369,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       context->die();
     }
 
+}
 
+// add new design
+void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
+                                                         const string &name,
+                                                         const vector<CoreIR_Argument> &args) {
+
+  if (!is_header()) {
+    createCoreIRForStmt(context, stmt, name, args);
   }
   return;
 
