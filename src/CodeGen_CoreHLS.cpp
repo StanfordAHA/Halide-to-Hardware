@@ -481,8 +481,6 @@ void loadHalideLib(CoreIR::Context* context) {
 
   CoreIR::TypeGen* romTg = hns->newTypeGen("ROM", romParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
-      //auto nr = args.at("width")->get<int>();
-      //auto nc = args.at("depth")->get<int>();
       int addrWidth = 16;
       auto nports = args.at("nports")->get<int>();
       return c->Record({{"raddrs", c->BitIn()->Arr(addrWidth)->Arr(nports)}});
@@ -1401,6 +1399,8 @@ std::string coreirSanitize(const std::string& str) {
   for (auto c : str) {
     if (c == '.') {
       san += "_";
+    } else if (c == '\"') {
+      san += "_q_";
     } else {
       san += c;
     }
@@ -2039,11 +2039,12 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   // each load is going to get its own port, which will be indicated by an argument?
   // And then that will allow loads and stores to different regions
   auto def = f.getDef();
+  auto context = def->getContext();
 
   for (auto m : romLoads) {
     cout << "\tTo rom: " << m.first << endl;
-    CoreIR::Values vals;
-    auto rom = def->addInstance(m.first, "halidehw.ROM", vals);
+    CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, 16)}, {"nports", COREMK(context, m.second.size())}};
+    auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals);
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
     }
