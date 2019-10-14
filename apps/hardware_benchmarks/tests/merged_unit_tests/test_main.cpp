@@ -464,8 +464,6 @@ void offset_window_test() {
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_offset_window", args, "offset_window", hw_output);
-  //assert(false);
-  //coreir::module* buildmodule(coreir::context* context, const std::string& name, std::vector<argument>& args, const std::string& fname, func& hwoutput) {
 
   {
     {
@@ -605,34 +603,12 @@ void small_demosaic_test() {
 
   auto context = hwContext();
   vector<Argument> args{input};
-
+  auto m = buildModule(context, "hw_demosaic", args, "demosaic", hw_output);
   {
-
-    //{
-      //Target t;
-      //t = t.with_feature(Target::Feature::CoreIR);
-      //auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
-      //cout << "Compiled to module" << endl;
-      //cout << mod << endl;
-      //ofstream outFile("demosaic_soc_mini_c.c");
-      //CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CImplementation);
-      //testPrinter.compileForCGRA(mod);
-
-      ////ofstream outFileH("demosaic_soc_mini_c.h");
-      ////CodeGen_SoC_Test testPrinterH(outFileH, t, CodeGen_C::OutputKind::CHeader);
-      ////testPrinterH.compile(mod);
-    //}
-    //cout << "Done with compiling for CGRA" << endl;
-    //runCmd("clang demosaic_soc_run.c demosaic_soc_mini_c.c cgra_wrapper_c.c -lHalide -L ../../../../bin");
-    //runCmd("./a.out");
-    
     {
-
-
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
-
 
       for (auto& f : mod.functions()) {
         AcceleratorCallConsolidator cons;
@@ -650,10 +626,6 @@ void small_demosaic_test() {
       testPrinter.compileForCGRA(mod);
       
       cout << "Compiled cpp code" << endl;
-      
-      //ofstream headerFile("demosaic_soc_mini.h");
-      //CodeGen_SoC_Test headerPrinter(headerFile, t, CodeGen_C::OutputKind::CHeader);
-      //headerPrinter.compile(mod);
     }
     cout << "Done with compiling for CGRA" << endl;
     runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
@@ -1574,9 +1546,9 @@ void pointwise_add_test() {
 int main(int argc, char **argv) {
 
   offset_window_test();  
-  assert(false);
+  //assert(false);
 
-  //small_demosaic_test();
+  small_demosaic_test();
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
