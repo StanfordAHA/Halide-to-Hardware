@@ -2372,7 +2372,7 @@ class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
     std::set<std::string> defined;
-    HWFunction* f;
+    //HWFunction* f;
 
     void visit(const Variable* v) {
       if (starts_with(v->name, "_")) {
@@ -2427,7 +2427,7 @@ vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
   std::set<std::string> vars = getDefinedVars(lp);
   HWVarExtractor ex;
   ex.defined = vars;
-  ex.f = &f;
+  //ex.f = &f;
   lp->accept(&ex);
   return ex.hwVars;
 }
