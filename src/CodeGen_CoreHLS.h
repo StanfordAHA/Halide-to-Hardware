@@ -82,8 +82,9 @@ class HWFunction {
     int uniqueNum;
     std::vector<HWInstr*> body;
     std::vector<std::string> controlVars;
+    CoreIR::Module* mod;
 
-    HWFunction() : uniqueNum(0) {}
+    HWFunction() : uniqueNum(0), mod(nullptr) {}
 
     HWInstr* newConst(const int width, const int value) {
       auto ist = newI();

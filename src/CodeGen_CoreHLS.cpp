@@ -1798,6 +1798,7 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   auto design = global_ns->newModuleDecl(f.name, design_type);
   auto def = design->newModuleDef();
   auto self = def->sel("self");
+  f.mod = design;
 
   HWLoopSchedule sched;
   sched.body = instrs;
@@ -1939,7 +1940,7 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
   // a latency (eventually), a port which is the output of the instruction, and an identifier for
   // the module which it will be bound to, and a procedure for wiring up the operands of the
   // instruction to names of ports on the target module
-  internal_assert(false) << "Stopping here so dillon can view loads\n";
+  //internal_assert(false) << "Stopping here so dillon can view loads\n";
 }
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
