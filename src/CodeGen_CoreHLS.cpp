@@ -1787,15 +1787,16 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   tps.push_back({"in_en", context->BitIn()});
   tps.push_back({"valid", context->Bit()});
   CoreIR::Type* design_type = context->Record(tps);
-  
+ 
+  // TODO: Build moduledef when the HWFunction is initialized
+  // then add modules for pre-bound operations to the hardware
+  // and create a "hwinstruction input" function and output function
+  // inside HWInstruction that will tell the RTL elaborator how to
+  // build an instance of the instruction
   auto global_ns = context->getNamespace("global");
-  //design = global_ns->newModuleDecl(f.name, design_type);
   auto design = global_ns->newModuleDecl(f.name, design_type);
-  //def = design->newModuleDef();
   auto def = design->newModuleDef();
-  //self = def->sel("self");
   auto self = def->sel("self");
-
 
   HWLoopSchedule sched;
   sched.body = instrs;
@@ -1931,7 +1932,13 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
       cout << "\t\t" << *ld << endl;
     }
   }
-  internal_assert(false) << "Stopping loads so dillon can view\n";
+
+  // Now: Need to add code to HWInstr that will allow use to bind a specific functional unit to it
+  // A given instruction needs to have a hardware module associated with it by name, and needs to have
+  // a latency (eventually), a port which is the output of the instruction, and an identifier for
+  // the module which it will be bound to, and a procedure for wiring up the operands of the
+  // instruction to names of ports on the target module
+  internal_assert(false) << "Stopping here so dillon can view loads\n";
 }
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
@@ -2741,7 +2748,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         cout << "\t\t\t" << *instr << endl;
       }
 
-      //CoreIR::Module* m = moduleForKernel(scl.info, f);
       CoreIR::Module* m = moduleForKernel(context, scl.info, f);
       kernelModules[lp] = m;
       auto cp = controlPathForKernel(context, scl.info, f, lp);
