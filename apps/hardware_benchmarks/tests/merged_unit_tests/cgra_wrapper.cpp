@@ -17,8 +17,33 @@ extern "C" {
 uint8_t* _halide_buffer_get_host(const halide_buffer_t* buf);
 }
 
+bool starts_with(const string &str, const string &prefix) {
+    if (str.size() < prefix.size()) return false;
+    for (size_t i = 0; i < prefix.size(); i++) {
+        if (str[i] != prefix[i]) return false;
+    }
+    return true;
+}
+
+bool ends_with(const string &str, const string &suffix) {
+    if (str.size() < suffix.size()) return false;
+    size_t off = str.size() - suffix.size();
+    for (size_t i = 0; i < suffix.size(); i++) {
+        if (str[off+i] != suffix[i]) return false;
+    }
+    return true;
+}
+
+string replace_all(const string &str, const string &find, const string &replace) {
+    size_t pos = 0;
+    string result = str;
+    while ((pos = result.find(find, pos)) != string::npos) {
+        result.replace(pos, find.length(), replace);
+        pos += replace.length();
+    }
+    return result;
+}
 CGRAWrapper::CGRAWrapper() {
-  inputName = "self.in_arg_0_0_0";
   c = CoreIR::newContext();
 
   CoreIRLoadLibrary_commonlib(c);
@@ -31,6 +56,21 @@ CGRAWrapper::CGRAWrapper() {
   m = c->getNamespace("global")->getModule("DesignTop");
   cout << "Module..." << endl;
   m->print();
+  // Set input name
+  auto rtp = m->getType();
+  vector<string> inArgs;
+  for (auto field : rtp->getFields()) {
+    cout << "Field = " << field << endl;
+    if (starts_with(field, "in_arg_")) {
+      inArgs.push_back(field);
+    }
+  }
+
+  cout << "Size of inArgs = " << inArgs.size() << endl;
+  assert(inArgs.size() == 1);
+  inputName = "self." + inArgs[0];
+
+  //assert(false);
   state = new CoreIR::SimulatorState(m);
   //resetSim("self.in_arg_0_0_0", m, *state);
   resetSim(inputName, m, *state);

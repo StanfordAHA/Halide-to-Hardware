@@ -638,15 +638,6 @@ void small_demosaic_test() {
     cout << "CPU output" << endl;
     printBuffer(cpuOutput, cout);
   }
-
-  //assert(false);
-
-  //auto m = buildModule(context, "demosaic_coreir", args, "demosaic", hw_output);
-
-  //runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
-  //cout << "Input buffer" << endl;
-  //printBuffer(hwInputBuf, cout);
-  //compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Demosaic test passed" << RESET << endl;
 }
