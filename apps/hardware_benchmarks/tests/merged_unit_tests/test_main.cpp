@@ -188,11 +188,13 @@ class AcceleratorCallConsolidator : public IRMutator {
   public:
     std::vector<const Call*> accelCalls;
     bool inHWRegion;
-    
+
+    AcceleratorCallConsolidator() : inHWRegion(false) {}
+  
     Stmt visit(const ProducerConsumer* p) {
       if (inHWRegion && p->is_producer) {
         // Consolidate calls in to one larger call
-        cout << "Accelerator calls...." << endl;
+        cout << "Accelerator calls above " << p->name << "...." << endl;
         for (auto c : accelCalls) {
           cout << "\t" << "Call" << endl;
         }
@@ -471,7 +473,11 @@ void offset_window_test() {
       t = t.with_feature(Target::Feature::CoreIR);
       auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
+      cout << "Module before consolidation..." << endl;
+      cout << mod << endl;
+
       for (auto& f : mod.functions()) {
+        cout << "Consolidating function" << f << endl;
         AcceleratorCallConsolidator cons;
         f.body = cons.mutate(f.body);
       }
@@ -1564,8 +1570,8 @@ void pointwise_add_test() {
 
 int main(int argc, char **argv) {
 
-  //offset_window_test();  
-  //assert(false);
+  offset_window_test();  
+  assert(false);
 
   //small_demosaic_test();
   multi_channel_conv_test();
