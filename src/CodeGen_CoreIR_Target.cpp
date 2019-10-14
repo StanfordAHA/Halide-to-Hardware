@@ -1991,7 +1991,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(StencilInfo& info, HWFunction& f) {
+CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
   auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
@@ -3002,7 +3002,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         cout << "\t\t\t" << *instr << endl;
       }
 
-      CoreIR::Module* m = moduleForKernel(scl.info, f);
+      //CoreIR::Module* m = moduleForKernel(scl.info, f);
+      CoreIR::Module* m = moduleForKernel(context, scl.info, f);
       kernelModules[lp] = m;
       auto cp = controlPathForKernel(context, scl.info, f, lp);
       cout << "Control path is..." << endl;
