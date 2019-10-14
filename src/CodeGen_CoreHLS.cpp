@@ -17,7 +17,6 @@
 #include "Float16.h"
 #include "IRPrinter.h"
 
-#include "coreir.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
 #include "coreir/simulator/interpreter.h"
