@@ -1894,31 +1894,13 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
         lastStoreToLoc->constWidth = 16;
         lastStoreToLoc->constValue = std::to_string(newValue);
         constLoads.push_back(instr);
-        //}
-
-        // Try to find last store to location
-        //HWInstr* lastStoreToLoc = nullptr;
-        //for (int lastStorePos = pos; lastStorePos >= 0; lastStorePos--) {
-        //HWInstr* lastI = body[lastStorePos];
-        //if (isStore(lastI)) {
-        ////cout << "Found store " << *lastI << endl;
-        //if (*(lastI->operands[0]) == *(instr->operands[0])) {
-        ////cout << "Store " << *lastI << " to same RAM as " << *instr << endl;
-        //if (*(lastI->operands[3]) == *location) {
-        //lastStoreToLoc = lastI;
-        //break;
-        //}
-        //}
-        //}
-        //}
 
         if (lastStoreToLoc) {
           loadsToConstants[instr] = lastStoreToLoc;
-          //lastStoreToLoc->operands[2];
         }
+      }
     }
   }
-}
   pos++;
 
   //cout << "# of const loads = " << constLoads.size() << endl;
@@ -1932,6 +1914,24 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
   }
 
   CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
+
+  cout << "Allocate ROMs..." << endl;
+  std::map<std::string, vector<HWInstr*> > romLoads;
+  for (auto instr : body) {
+    if (isCall("load", instr)) {
+      cout << "Found load..." << *instr << endl;
+      romLoads[instr->getOperand(0)->compactString()].push_back(instr);
+    }
+  }
+
+  cout << "All loads..." << endl;
+  for (auto m : romLoads) {
+    cout << "\tTo rom: " << m.first << endl;
+    for (auto ld : m.second) {
+      cout << "\t\t" << *ld << endl;
+    }
+  }
+  internal_assert(false) << "Stopping loads so dillon can view\n";
 }
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
