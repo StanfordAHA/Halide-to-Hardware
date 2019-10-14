@@ -18,6 +18,7 @@ uint8_t* _halide_buffer_get_host(const halide_buffer_t* buf);
 }
 
 CGRAWrapper::CGRAWrapper() {
+  inputName = "self.in_arg_0_0_0";
   c = CoreIR::newContext();
 
   CoreIRLoadLibrary_commonlib(c);
@@ -31,7 +32,8 @@ CGRAWrapper::CGRAWrapper() {
   cout << "Module..." << endl;
   m->print();
   state = new CoreIR::SimulatorState(m);
-  resetSim("self.in_arg_0_0_0", m, *state);
+  //resetSim("self.in_arg_0_0_0", m, *state);
+  resetSim(inputName, m, *state);
   cout << "Initialized simulator..." << endl;
 }
 
