@@ -2878,7 +2878,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   return cp;
 }
 
-void createCoreIRForStmt(CoreIR::Context* context,
+CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     Stmt stmt,
     const std::string& name,
     const vector<CoreIR_Argument>& args) {
@@ -3059,11 +3059,6 @@ void createCoreIRForStmt(CoreIR::Context* context,
 
       if (args[i].is_stencil) {
         CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
-
-        //internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
-            //args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
-        //allocations.push(args[i].name, {args[i].stencil_type.elemType});
-        //stencils.push(args[i].name, args[i].stencil_type);
 
         vector<uint> indices;
         for(const auto &range : stype.bounds) {
@@ -3369,6 +3364,7 @@ void createCoreIRForStmt(CoreIR::Context* context,
       context->die();
     }
 
+    return topMod;
 }
 
 // add new design
