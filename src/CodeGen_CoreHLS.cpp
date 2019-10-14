@@ -1584,7 +1584,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         int width = op->constWidth;
         int value = stoi(op->constValue);
         BitVector constVal = BitVector(width, value);
-        cout << "Constant value for operand " << op->compactString() << " in instruction " << *instr << " is = " << constVal << ", as int = " << constVal.to_type<int>() << endl;
+        //cout << "Constant value for operand " << op->compactString() << " in instruction " << *instr << " is = " << constVal << ", as int = " << constVal.to_type<int>() << endl;
         auto cInst = def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
         instrValues[op] = cInst->sel("out");
@@ -1594,7 +1594,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
           continue;
         }
         pipeVars.insert(name);
-        cout << "Finding argument value for " << name << endl;
+        //cout << "Finding argument value for " << name << endl;
         auto self = def->sel("self");
         auto val = self->sel(coreirSanitize(name));
 
@@ -2208,14 +2208,14 @@ void modToShift(HWFunction& f) {
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : f.body) {
     if (isCall("mod", instr)) {
-      cout << "Found mod" << endl;
+      //cout << "Found mod" << endl;
       if (isConstant(instr->getOperand(1))) {
-        cout << "\tMod by constant = " << instr->getOperand(1)->compactString() << endl;
+        //cout << "\tMod by constant = " << instr->getOperand(1)->compactString() << endl;
         auto constVal = instr->getOperand(1)->toInt();
         if (CoreIR::isPower2(constVal)) {
-          cout << "\t\tand it is a power of 2" << endl;
+          //cout << "\t\tand it is a power of 2" << endl;
           int value = std::ceil(std::log2(constVal));
-          cout << "\t\tpower of 2 = " << value << endl;
+          //cout << "\t\tpower of 2 = " << value << endl;
           internal_assert(value > 0);
           // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI();
@@ -2242,14 +2242,14 @@ void divToShift(HWFunction& f) {
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : f.body) {
     if (isCall("div", instr)) {
-      cout << "Found div" << endl;
+      //cout << "Found div" << endl;
       if (isConstant(instr->getOperand(1))) {
-        cout << "\tDividing by constant = " << instr->getOperand(1)->compactString() << endl;
+        //cout << "\tDividing by constant = " << instr->getOperand(1)->compactString() << endl;
         auto constVal = instr->getOperand(1)->toInt();
         if (CoreIR::isPower2(constVal)) {
-          cout << "\t\tand it is a power of 2" << endl;
+          //cout << "\t\tand it is a power of 2" << endl;
           int value = std::ceil(std::log2(constVal));
-          cout << "\t\tpower of 2 = " << value << endl;
+          //cout << "\t\tpower of 2 = " << value << endl;
           auto shrInstr = f.newI();
           shrInstr->name = "ashr";
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
