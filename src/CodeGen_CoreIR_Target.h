@@ -208,7 +208,7 @@ class StencilInfo {
         ~CodeGen_CoreIR_C();
 
         //CoreIR::Module* moduleForKernel(StencilInfo& info, HWFunction& f);
-        CoreIR::Module* moduleForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f);
+        //CoreIR::Module* moduleForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f);
         //CoreIR::Module* moduleForKernel(StencilInfo& info, std::vector<HWInstr*>& instrs, int kernelNo);
         void set_output_path(std::string pathname) {
           output_base_path = pathname;

@@ -1991,7 +1991,9 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+//CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f) {
+  
+CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f) {
   auto& instrs = f.body;
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
@@ -2052,9 +2054,12 @@ CoreIR::Module* CodeGen_CoreIR_Target::CodeGen_CoreIR_C::moduleForKernel(CoreIR:
   CoreIR::Type* design_type = context->Record(tps);
   
   auto global_ns = context->getNamespace("global");
-  design = global_ns->newModuleDecl(f.name, design_type);
-  def = design->newModuleDef();
-  self = def->sel("self");
+  //design = global_ns->newModuleDecl(f.name, design_type);
+  auto design = global_ns->newModuleDecl(f.name, design_type);
+  //def = design->newModuleDef();
+  auto def = design->newModuleDef();
+  //self = def->sel("self");
+  auto self = def->sel("self");
 
 
   HWLoopSchedule sched;
