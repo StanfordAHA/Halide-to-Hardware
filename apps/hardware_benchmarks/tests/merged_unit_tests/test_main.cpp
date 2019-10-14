@@ -624,15 +624,17 @@ void small_demosaic_test() {
       cout << "Compiled cpp code" << endl;
     }
     cout << "Done with compiling for CGRA" << endl;
-    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+    //runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+    runCmd("clang++ -std=c++11 demosaic_soc_run.cpp demosaic_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
     cout << "Compiled c++ executable..." << endl;
     runCmd("./a.out");
 
     cout << "Ran executable" << endl;
-
-
+    Halide::Runtime::Buffer<uint16_t> cppRes = load_image("demosaic.ppm");
     cout << "CPU output" << endl;
     printBuffer(cpuOutput, cout);
+
+    compare_buffers(cppRes, cpuOutput);
   }
   
   cout << GREEN << "Demosaic test passed" << RESET << endl;
@@ -1536,7 +1538,7 @@ int main(int argc, char **argv) {
   //assert(false);
 
   small_demosaic_test();
-  assert(false);
+  //assert(false);
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();

@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "HalideBuffer.h"
+#include "halide_image_io.h"
 
 using namespace std;
 
@@ -31,6 +32,7 @@ int main() {
 
   cout << "C++ Output..." << endl;
   printBuffer(output, cout);
+  Halide::Tools::save_image(output, "demosaic.ppm");
   cout << "Done" << endl;
   return 0;
 }

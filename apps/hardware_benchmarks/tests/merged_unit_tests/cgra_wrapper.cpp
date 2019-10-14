@@ -243,7 +243,6 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       src_stride_2 * k + 
       src_stride_3 * m;
 
-
     if (!writeIdx.allDone()) {
       uint16_t nextInPixel = hostBuf[offset];
       cout << "Next pixel = " << nextInPixel << endl;
@@ -262,7 +261,6 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       // For now what can I do to get the two examples I have running?
       assert(outArgs.size() > 0);
       string outArgName = "self." + outArgs[0];
-      //auto output_bv = state->getBitVec("self.out_0_0");
       auto output_bv = state->getBitVec(outArgName);
       int output_value;
       output_value = output_bv.to_type<int>();
@@ -276,15 +274,25 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
 
       cout << "Reading pixel " << x << ", " << y << ", " << c << endl;
 
-      int dOffset = destOffset +
-        dest_stride_0 * x +
-        dest_stride_1 * y +
-        dest_stride_2 * c +
-        dest_stride_3 * m;
-      cout << "Dest offset " << dOffset << endl;
-      db[dOffset] = output_value;
+      // TODO: Replace with real window traversal
+      for (int i = 0; i < (int) outArgs.size(); i++) {
+        int dOffset = destOffset +
+          dest_stride_0 * x +
+          dest_stride_1 * y +
+          dest_stride_2 * (c + i) +
+          dest_stride_3 * m;
+        cout << "Dest offset " << dOffset << endl;
+        db[dOffset] = output_value;
+      }
+      //int dOffset = destOffset +
+        //dest_stride_0 * x +
+        //dest_stride_1 * y +
+        //dest_stride_2 * c +
+        //dest_stride_3 * m;
+      //cout << "Dest offset " << dOffset << endl;
+      //db[dOffset] = output_value;
 
-      cout << "Set output at offset " << dOffset << endl;
+      //cout << "Set output at offset " << dOffset << endl;
       readIdx.increment();
     }
     
