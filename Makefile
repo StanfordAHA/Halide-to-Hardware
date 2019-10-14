@@ -386,6 +386,7 @@ SOURCE_FILES = \
   Closure.cpp \
   CodeGen_ARM.cpp \
   CodeGen_C.cpp \
+	CodeGen_CoreHLS.cpp \
   CodeGen_CoreIR_Base.cpp \
   CodeGen_CoreIR_Target.cpp \
   CodeGen_CoreIR_Testbench.cpp \
