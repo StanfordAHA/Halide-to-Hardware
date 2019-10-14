@@ -1191,7 +1191,6 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest) {
 
   InstructionCollector collector;
-  perfectNest->accept(&collector);
   collector.f.name = name;
   
   auto design_type = moduleTypeForKernel(context, info, perfectNest);
@@ -1200,6 +1199,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
+  perfectNest->accept(&collector);
 
   //return collector.f.body;
   return collector.f;
