@@ -39,6 +39,72 @@ using CoreIR::contains_key;
 
 namespace {
 
+class HWVarExtractor : public IRGraphVisitor {
+  public:
+    vector<std::string> hwVars;
+    std::set<std::string> defined;
+    //HWFunction* f;
+
+    void visit(const Variable* v) {
+      if (starts_with(v->name, "_")) {
+        addVar(v->name);
+      }
+    }
+
+    void addVar(const std::string& name) {
+      if (!CoreIR::elem(name, hwVars) && !CoreIR::elem(name, defined)) {
+        hwVars.push_back(name);
+      }
+    }
+
+    //void visit(const LetStmt* l) {
+      //addVar(l->name);
+      ////hwVars.push_back(l->name);
+      //IRGraphVisitor::visit(l);
+    //}
+
+    void visit(const For* lp) {
+      addVar(lp->name);
+      //hwVars.push_back(lp->name);
+
+      IRGraphVisitor::visit(lp);
+    }
+};
+
+class DefinedVarExtractor : public IRGraphVisitor {
+  public:
+    std::set<std::string> defined;
+
+    void visit(const LetStmt* let) {
+      defined.insert(let->name);
+      IRGraphVisitor::visit(let);
+    }
+
+    void visit(const Let* let) {
+      defined.insert(let->name);
+      IRGraphVisitor::visit(let);
+    }
+
+    // TODO: Add stencil calls
+};
+
+std::set<std::string> getDefinedVars(const For* f) {
+  DefinedVarExtractor ex;
+  f->accept(&ex);
+  return ex.defined;
+}
+
+vector<std::string> extractHardwareVars(const For* lp) {
+  std::set<std::string> vars = getDefinedVars(lp);
+  HWVarExtractor ex;
+  ex.defined = vars;
+  //ex.f = &f;
+  lp->accept(&ex);
+  return ex.hwVars;
+}
+
+  //vector<std::string> extractHardwareVars(const For* lp);
+
   int func_id_const_value(const Expr e) {
     if (const IntImm* e_int = e.as<IntImm>()) {
       return e_int->value;
@@ -1119,11 +1185,22 @@ class InstructionCollector : public IRGraphVisitor {
 
 //vector<HWInstr*> buildHWBody(const For* perfectNest) {
 
-HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp);
+
+//HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
+HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest) {
 
   InstructionCollector collector;
   perfectNest->accept(&collector);
   collector.f.name = name;
+  
+  auto design_type = moduleTypeForKernel(context, info, perfectNest);
+  auto global_ns = context->getNamespace("global");
+  auto design = global_ns->newModuleDecl(collector.f.name, design_type);
+  auto def = design->newModuleDef();
+  design->setDef(def);
+  collector.f.mod = design;
+
   //return collector.f.body;
   return collector.f;
 }
@@ -1729,7 +1806,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
+//CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
@@ -1755,7 +1833,8 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, H
     //}
   //}
 
-  for (auto v : f.controlVars) {
+  //for (auto v : f.controlVars) {
+  for (auto v : extractHardwareVars(lp)) {
     string vName = coreirSanitize(v);
     tps.push_back({vName, context->BitIn()->Arr(16)});
   }
@@ -1803,21 +1882,15 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, H
 
 CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
   auto& instrs = f.body;
-  auto design_type = moduleTypeForKernel(context, info, f, lp);
-  // TODO: Build moduledef when the HWFunction is initialized
-  // then add modules for pre-bound operations to the hardware
-  // and create a "hwinstruction input" function and output function
-  // inside HWInstruction that will tell the RTL elaborator how to
-  // build an instance of the instruction
-  // PROBLEM: Arguments to the hwfunction that are used to create
-  // the design show up after the virtual instruction set is created
-  // so I need to move virtual instructions construction below stream
-  // type creation
-  auto global_ns = context->getNamespace("global");
-  auto design = global_ns->newModuleDecl(f.name, design_type);
-  auto def = design->newModuleDef();
+  //f.mod = design;
+  internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
+
+  auto design = f.mod;
+  auto def = design->getDef();
+  internal_assert(def != nullptr) << "module definition is null!\n";
   auto self = def->sel("self");
-  f.mod = design;
+
+  cout << "Creating schedule" << endl;
 
   HWLoopSchedule sched;
   sched.body = instrs;
@@ -2368,71 +2441,6 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   }
 }
 
-class HWVarExtractor : public IRGraphVisitor {
-  public:
-    vector<std::string> hwVars;
-    std::set<std::string> defined;
-    //HWFunction* f;
-
-    void visit(const Variable* v) {
-      if (starts_with(v->name, "_")) {
-        addVar(v->name);
-      }
-    }
-
-    void addVar(const std::string& name) {
-      if (!CoreIR::elem(name, hwVars) && !CoreIR::elem(name, defined)) {
-        hwVars.push_back(name);
-      }
-    }
-
-    //void visit(const LetStmt* l) {
-      //addVar(l->name);
-      ////hwVars.push_back(l->name);
-      //IRGraphVisitor::visit(l);
-    //}
-
-    void visit(const For* lp) {
-      addVar(lp->name);
-      //hwVars.push_back(lp->name);
-
-      IRGraphVisitor::visit(lp);
-    }
-};
-
-class DefinedVarExtractor : public IRGraphVisitor {
-  public:
-    std::set<std::string> defined;
-
-    void visit(const LetStmt* let) {
-      defined.insert(let->name);
-      IRGraphVisitor::visit(let);
-    }
-
-    void visit(const Let* let) {
-      defined.insert(let->name);
-      IRGraphVisitor::visit(let);
-    }
-
-    // TODO: Add stencil calls
-};
-
-std::set<std::string> getDefinedVars(const For* f) {
-  DefinedVarExtractor ex;
-  f->accept(&ex);
-  return ex.defined;
-}
-
-//vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
-vector<std::string> extractHardwareVars(const For* lp) {
-  std::set<std::string> vars = getDefinedVars(lp);
-  HWVarExtractor ex;
-  ex.defined = vars;
-  //ex.f = &f;
-  lp->accept(&ex);
-  return ex.hwVars;
-}
-
 class KernelControlPath {
   public:
     std::vector<std::string> controlVars;
@@ -2750,7 +2758,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       cout << "Original body.." << endl;
       cout << lp->body << endl;
 
-      HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
+      HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp);
       //auto hwVars = extractHardwareVars(lp, f);
       auto hwVars = extractHardwareVars(lp);
       cout << "All hardware vars.." << endl;
@@ -2772,6 +2780,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
 
       CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
+      cout << "Created module for kernel.." << endl;
       kernelModules[lp] = m;
       auto cp = controlPathForKernel(context, scl.info, f, lp);
       cout << "Control path is..." << endl;
