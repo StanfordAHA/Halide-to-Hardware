@@ -1536,6 +1536,7 @@ int main(int argc, char **argv) {
   //assert(false);
 
   small_demosaic_test();
+  assert(false);
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
