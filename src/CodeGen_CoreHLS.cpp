@@ -471,6 +471,7 @@ void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
   CoreIR::Params widthParams{{"width", context->Int()}};
+  CoreIR::Params romParams{{"width", context->Int()}, {"depth", context->Int()}, {"nports", context->Int()}};
   CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
   CoreIR::Params widthDimParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()}};
   CoreIR::Params stencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()},
@@ -478,6 +479,17 @@ void loadHalideLib(CoreIR::Context* context) {
   CoreIR::Params stencilReadParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()},
     {"r", context->Int()}, {"c", context->Int()}, {"b", context->Int()}};
 
+  CoreIR::TypeGen* romTg = hns->newTypeGen("ROM", romParams,
+      [](CoreIR::Context* c, CoreIR::Values args) {
+      //auto nr = args.at("width")->get<int>();
+      //auto nc = args.at("depth")->get<int>();
+      int addrWidth = 16;
+      auto nports = args.at("nports")->get<int>();
+      return c->Record({{"raddrs", c->BitIn()->Arr(addrWidth)->Arr(nports)}});
+      });
+  auto romGen = hns->newGeneratorDecl("ROM", romTg, romParams);
+
+  
   CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthDimParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
       auto nr = args.at("nrows")->get<int>();
@@ -1971,7 +1983,9 @@ void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr
   }
 }
 
-void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
+//void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
+void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
+  auto& body = f.body;
   vector<HWInstr*> constLoads;
   std::map<HWInstr*, HWInstr*> loadsToConstants;
   int pos = 0;
@@ -2020,19 +2034,30 @@ void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
   }
 
   cout << "All loads..." << endl;
+  // Now: Here I want to create a new instance inside the moduledef which
+  // will represent the ram, and it will have a generator based on the number of different loads
+  // each load is going to get its own port, which will be indicated by an argument?
+  // And then that will allow loads and stores to different regions
+  auto def = f.getDef();
+
   for (auto m : romLoads) {
     cout << "\tTo rom: " << m.first << endl;
+    CoreIR::Values vals;
+    auto rom = def->addInstance(m.first, "halidehw.ROM", vals);
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
     }
   }
+
 
   // Now: Need to add code to HWInstr that will allow use to bind a specific functional unit to it
   // A given instruction needs to have a hardware module associated with it by name, and needs to have
   // a latency (eventually), a port which is the output of the instruction, and an identifier for
   // the module which it will be bound to, and a procedure for wiring up the operands of the
   // instruction to names of ports on the target module
-  //internal_assert(false) << "Stopping here so dillon can view loads\n";
+  cout << "Module def..." << endl;
+  f.mod->print();
+  internal_assert(false) << "Stopping here so dillon can view loads\n";
 }
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
@@ -2768,7 +2793,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       f.controlVars = hwVars;
       auto& body = f.body;
 
-      removeBadStores(stCollector, body);
+      removeBadStores(stCollector, f);
       valueConvertProvides(scl.info, f);
       valueConvertStreamReads(scl.info, f);
       removeWriteStreamArgs(scl.info, f);

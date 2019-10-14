@@ -86,6 +86,12 @@ class HWFunction {
 
     HWFunction() : uniqueNum(0), mod(nullptr) {}
 
+    CoreIR::ModuleDef* getDef() const {
+      auto def = mod->getDef();
+      internal_assert(def != nullptr) << "module def is null\n";
+      return def;
+    }
+
     HWInstr* newConst(const int width, const int value) {
       auto ist = newI();
       ist->tp = HWINSTR_TP_CONST;
