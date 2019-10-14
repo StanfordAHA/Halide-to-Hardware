@@ -2423,7 +2423,8 @@ std::set<std::string> getDefinedVars(const For* f) {
   return ex.defined;
 }
 
-vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
+//vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
+vector<std::string> extractHardwareVars(const For* lp) {
   std::set<std::string> vars = getDefinedVars(lp);
   HWVarExtractor ex;
   ex.defined = vars;
@@ -2750,7 +2751,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       cout << lp->body << endl;
 
       HWFunction f = buildHWBody("compute_kernel_" + std::to_string(kernelN), lp);
-      auto hwVars = extractHardwareVars(lp, f);
+      //auto hwVars = extractHardwareVars(lp, f);
+      auto hwVars = extractHardwareVars(lp);
       cout << "All hardware vars.." << endl;
       for (auto hv : hwVars) {
         cout << "\t" << hv << endl;
