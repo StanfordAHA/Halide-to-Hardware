@@ -491,7 +491,7 @@ void offset_window_test() {
       cout << "Compiled cpp code" << endl;
     }
     cout << "Done with compiling for CGRA" << endl;
-    runCmd("clang++ -std=c++11 offset_soc_run.cpp offset_soc_mini.cpp cgra_wrapper.cpp -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+    runCmd("clang++ -std=c++11 offset_soc_run.cpp offset_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
     cout << "Compiled c++ executable..." << endl;
     runCmd("./a.out");
 
