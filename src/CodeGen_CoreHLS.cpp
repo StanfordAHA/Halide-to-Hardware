@@ -609,8 +609,8 @@ void loadHalideLib(CoreIR::Context* context) {
 }
 
 
-int inst_bitwidth(int input_bitwidth) {
-  // FIXME: properly create bitwidths 1, 8, 16, 32
+int c_inst_bitwidth(int input_bitwidth) {
+   //FIXME: properly create bitwidths 1, 8, 16, 32
   if (input_bitwidth == 1) {
     return 1;
   } else {
@@ -2791,7 +2791,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
         if (args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
           // add as the outputrg
-          uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
+          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
           if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
           for (uint i=0; i<indices.size(); ++i) {
             output_type = output_type->Arr(indices[i]);
@@ -2802,7 +2802,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
         } else if (!args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
           // add another input
-          uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
+          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
           CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
           for (uint i=0; i<indices.size(); ++i) {
             input_type = input_type->Arr(indices[i]);
@@ -2811,7 +2811,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
         } else {
           // add another array of taps (configuration changes infrequently)
-          uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
+          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
           CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
           for (uint i=0; i<indices.size(); ++i) {
             tap_type = tap_type->Arr(indices[i]);
@@ -2823,7 +2823,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
       } else {
         // add another tap (single value)
-        uint in_bitwidth = inst_bitwidth(args[i].scalar_type.bits());
+        uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
         CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
         tap_types[arg_name] = tap_type;
       }
@@ -3090,31 +3090,31 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     return topMod;
 }
 
-float id_fconst_value(const Expr e) {
-  if (const FloatImm* e_float = e.as<FloatImm>()) {
-    return e_float->value;
+//float id_fconst_value(const Expr e) {
+  //if (const FloatImm* e_float = e.as<FloatImm>()) {
+    //return e_float->value;
 
-  } else {
-    //internal_error << "invalid constant expr\n";
-    return -1;
-  }
-}
+  //} else {
+    ////internal_error << "invalid constant expr\n";
+    //return -1;
+  //}
+//}
 
-int get_const_bitwidth(const Expr e) {
-  if (const IntImm* e_int = e.as<IntImm>()) {
-    return e_int->type.bits();
+//int get_const_bitwidth(const Expr e) {
+  //if (const IntImm* e_int = e.as<IntImm>()) {
+    //return e_int->type.bits();
       
-  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-    return e_uint->type.bits();
+  //} else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    //return e_uint->type.bits();
 
-  } else if (const FloatImm* e_float = e.as<FloatImm>()) {
-    return e_float->type.bits();
+  //} else if (const FloatImm* e_float = e.as<FloatImm>()) {
+    //return e_float->type.bits();
     
-  } else {
-    internal_error << "invalid constant expr\n";
-    return -1;
-  }
-}
+  //} else {
+    //internal_error << "invalid constant expr\n";
+    //return -1;
+  //}
+//}
 
 }
 }

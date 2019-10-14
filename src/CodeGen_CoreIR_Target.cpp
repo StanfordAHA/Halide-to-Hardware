@@ -2389,98 +2389,98 @@ uint num_bits(uint N) {
   //}
 //}
 
-std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
-  std::set<CoreIR::Wireable*> allC;
-  for (auto c : w->getConnectedWireables()) {
-    allC.insert(c);
-  }
+//std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
+  //std::set<CoreIR::Wireable*> allC;
+  //for (auto c : w->getConnectedWireables()) {
+    //allC.insert(c);
+  //}
 
-  for (auto r : w->getSelects()) {
-    for (auto wc : allConnectedWireables(r.second)) {
-      allC.insert(wc);
-    }
-  }
-  return allC;
-}
+  //for (auto r : w->getSelects()) {
+    //for (auto wc : allConnectedWireables(r.second)) {
+      //allC.insert(wc);
+    //}
+  //}
+  //return allC;
+//}
 
-std::set<CoreIR::Wireable*> allOutputConnections(CoreIR::Wireable* w) {
-  auto allConnections = allConnectedWireables(w);
+//std::set<CoreIR::Wireable*> allOutputConnections(CoreIR::Wireable* w) {
+  //auto allConnections = allConnectedWireables(w);
 
-  std::set<CoreIR::Wireable*> outConnections;
-  for (auto w : allConnections) {
-    CoreIR::Type* tp = w->getType();
-    if (tp->hasInput()) {
-      outConnections.insert(w);
-    }
-  }
-  return outConnections;
-}
+  //std::set<CoreIR::Wireable*> outConnections;
+  //for (auto w : allConnections) {
+    //CoreIR::Type* tp = w->getType();
+    //if (tp->hasInput()) {
+      //outConnections.insert(w);
+    //}
+  //}
+  //return outConnections;
+//}
 
-CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
-  if (CoreIR::isa<CoreIR::Instance>(w)) {
-    return w;
-  }
+//CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
+  //if (CoreIR::isa<CoreIR::Instance>(w)) {
+    //return w;
+  //}
 
-  if (CoreIR::isa<CoreIR::Interface>(w)) {
-    return w;
-  }
+  //if (CoreIR::isa<CoreIR::Interface>(w)) {
+    //return w;
+  //}
 
-  //cout << "Getting base of " << CoreIR::toString(*w) << endl;
+  ////cout << "Getting base of " << CoreIR::toString(*w) << endl;
 
-  internal_assert(CoreIR::isa<CoreIR::Select>(w));
-  auto s = static_cast<CoreIR::Select*>(w);
-  return getBase(s->getParent());
-}
+  //internal_assert(CoreIR::isa<CoreIR::Select>(w));
+  //auto s = static_cast<CoreIR::Select*>(w);
+  //return getBase(s->getParent());
+//}
 
-CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wireable*>& alreadyDone) {
-  std::set<CoreIR::Instance*> instances;
-  for (auto d : alreadyDone) {
-    CoreIR::Wireable* base = getBase(d);
-    if (CoreIR::isa<CoreIR::Instance>(base)) {
-      instances.insert(static_cast<CoreIR::Instance*>(base));
-    }
-  }
-  //cout << "Getting next instance" << endl;
-  for (auto inst : def->getInstances()) {
-    auto instV = inst.second;
-    //cout << "Checking instance " << instV->getInstname() << endl;
-    if (!CoreIR::elem(instV, instances)) {
-      return instV;
-    }
-  }
+//CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wireable*>& alreadyDone) {
+  //std::set<CoreIR::Instance*> instances;
+  //for (auto d : alreadyDone) {
+    //CoreIR::Wireable* base = getBase(d);
+    //if (CoreIR::isa<CoreIR::Instance>(base)) {
+      //instances.insert(static_cast<CoreIR::Instance*>(base));
+    //}
+  //}
+  ////cout << "Getting next instance" << endl;
+  //for (auto inst : def->getInstances()) {
+    //auto instV = inst.second;
+    ////cout << "Checking instance " << instV->getInstname() << endl;
+    //if (!CoreIR::elem(instV, instances)) {
+      //return instV;
+    //}
+  //}
 
-  return nullptr;
-}
+  //return nullptr;
+//}
 
-void removeUnusedInstances(CoreIR::ModuleDef* def) {
-  bool foundUnused = true;
-  while (foundUnused) {
-    foundUnused = false;
+//void removeUnusedInstances(CoreIR::ModuleDef* def) {
+  //bool foundUnused = true;
+  //while (foundUnused) {
+    //foundUnused = false;
 
-    //cout << "Finding unused instances" << endl;
-    CoreIR::Instance* unused = nullptr;
-    for (auto instV : def->getInstances()) {
-      auto inst = instV.second;
-      //cout << "All connections for " << CoreIR::toString(*inst) << endl;
-      //for (auto c : allConnectedWireables(inst)) {
-        //cout << "\t" << CoreIR::toString(*c) << endl;
+    ////cout << "Finding unused instances" << endl;
+    //CoreIR::Instance* unused = nullptr;
+    //for (auto instV : def->getInstances()) {
+      //auto inst = instV.second;
+      ////cout << "All connections for " << CoreIR::toString(*inst) << endl;
+      ////for (auto c : allConnectedWireables(inst)) {
+        ////cout << "\t" << CoreIR::toString(*c) << endl;
+      ////}
+      //auto allOutputs = allOutputConnections(inst);
+      ////cout << CoreIR::toString(*inst) << " has " << allOutputs.size() << " output connections" << endl;
+
+      //if (allOutputs.size() == 0) {
+        //foundUnused = true;
+        //unused = inst;
+        //break;
       //}
-      auto allOutputs = allOutputConnections(inst);
-      //cout << CoreIR::toString(*inst) << " has " << allOutputs.size() << " output connections" << endl;
+    //}
 
-      if (allOutputs.size() == 0) {
-        foundUnused = true;
-        unused = inst;
-        break;
-      }
-    }
-
-    if (foundUnused) {
-      def->disconnect(unused);
-      def->removeInstance(unused);
-    }
-  }
-}
+    //if (foundUnused) {
+      //def->disconnect(unused);
+      //def->removeInstance(unused);
+    //}
+  //}
+//}
 
 //void modToShift(HWFunction& f) {
   //std::set<HWInstr*> toErase;
@@ -2668,20 +2668,20 @@ class DefinedVarExtractor : public IRGraphVisitor {
     // TODO: Add stencil calls
 };
 
-std::set<std::string> getDefinedVars(const For* f) {
-  DefinedVarExtractor ex;
-  f->accept(&ex);
-  return ex.defined;
-}
+//std::set<std::string> getDefinedVars(const For* f) {
+  //DefinedVarExtractor ex;
+  //f->accept(&ex);
+  //return ex.defined;
+//}
 
-vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
-  std::set<std::string> vars = getDefinedVars(lp);
-  HWVarExtractor ex;
-  ex.defined = vars;
-  ex.f = &f;
-  lp->accept(&ex);
-  return ex.hwVars;
-}
+//vector<std::string> extractHardwareVars(const For* lp, HWFunction& f) {
+  //std::set<std::string> vars = getDefinedVars(lp);
+  //HWVarExtractor ex;
+  //ex.defined = vars;
+  //ex.f = &f;
+  //lp->accept(&ex);
+  //return ex.hwVars;
+//}
 
 //class KernelControlPath {
   //public:
