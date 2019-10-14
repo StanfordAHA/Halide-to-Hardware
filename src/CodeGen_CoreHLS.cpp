@@ -1738,15 +1738,22 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
 
   std::set<string> inStreams;
   std::set<string> outStreams;
-  for (auto instr : instrs) {
-    if (isCall("rd_stream", instr)) {
-      inStreams.insert(instr->operands[0]->compactString());
-    }
 
-    if (isStreamWrite(instr)) {
-      outStreams.insert(instr->operands[0]->compactString());
-    }
+  for (auto v : lpInfo.info.streamReads) {
+    inStreams.insert(v.first);
   }
+  for (auto v : lpInfo.info.streamWrites) {
+    outStreams.insert(v.first);
+  }
+  //for (auto instr : instrs) {
+    //if (isCall("rd_stream", instr)) {
+      //inStreams.insert(instr->operands[0]->compactString());
+    //}
+
+    //if (isStreamWrite(instr)) {
+      //outStreams.insert(instr->operands[0]->compactString());
+    //}
+  //}
 
   for (auto v : f.controlVars) {
     string vName = coreirSanitize(v);
