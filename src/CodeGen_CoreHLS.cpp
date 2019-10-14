@@ -1729,8 +1729,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
-  auto& instrs = f.body;
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
+
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
   StencilInfoCollector lpInfo;
@@ -1798,7 +1798,12 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   tps.push_back({"in_en", context->BitIn()});
   tps.push_back({"valid", context->Bit()});
   CoreIR::Type* design_type = context->Record(tps);
- 
+  return design_type;
+}
+
+CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
+  auto& instrs = f.body;
+  auto design_type = moduleTypeForKernel(context, info, f, lp);
   // TODO: Build moduledef when the HWFunction is initialized
   // then add modules for pre-bound operations to the hardware
   // and create a "hwinstruction input" function and output function
