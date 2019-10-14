@@ -1740,6 +1740,7 @@ void pointwise_add_test() {
     Func apply_curve(Func input, Func curve) {
       // copied from FCam
 
+      Var x, y;
       Func hw_output("hw_output");
       Expr in_val = clamp(input(x, y, c), 0, 1023);
       //hw_output(c, x, y) = select(input(x, y, c) < 0, 0,
