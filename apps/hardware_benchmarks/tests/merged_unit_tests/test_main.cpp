@@ -577,7 +577,8 @@ void small_demosaic_test() {
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
       //inputBuf(i, j) = rand() % 255;
-      inputBuf(i, j) = 23;
+      //inputBuf(i, j) = 23;
+      inputBuf(i, j) = i + j;
       hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
   }

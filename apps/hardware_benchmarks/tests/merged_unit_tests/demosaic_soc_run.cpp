@@ -14,7 +14,8 @@ int main() {
   Halide::Runtime::Buffer<uint16_t> input(200, 200), output(10, 10, 3);
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
-      input(x, y) = 23;
+      input(x, y) = y + x;
+      //input(x, y) = 0;
     }
   }
 
