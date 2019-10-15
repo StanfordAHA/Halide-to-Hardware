@@ -777,29 +777,6 @@ class HWLoopSchedule {
     int II;
 
     std::map<HWInstr*, std::string> unitMapping;
-
-    // Annoying things
-    // 1. Hierarchical types in coreir
-    // 2. Not sure if I want one record type per stream argument, or multiple ports for arguments
-    // 3. Not sure if I want to change provides on stencils in to value producers or keep them as stores
-    // 4. I dont want a bunch of special cases in hw instructions, I want them to be stateful or stateless
-
-    // Q: What to do about provide instructions?
-    // A: What is the problem there?
-    //    Normal values just need to be set to
-    //    their value in one pipeline stage, but then need
-    //    to be used in many. stencils that are the subject
-    //    of provide ops may be defined in several places
-    //    and then used in several places. Though I suppose
-    //    I could create the first instance of it as an
-    //    undefined value, then set it later. That way
-    //    I would not have to deal with implicitly set values
-    //    in each provide operation.
-    //
-    // Also: Need a mapping from stages in the pipeline
-    // to value locations in registers?
-    // And we need a mapping from stream names in the
-    // code to arguments?
 };
 
 class InnermostLoopChecker : public IRGraphVisitor {
@@ -1450,7 +1427,7 @@ class UnitMapping {
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
 
-    std::map<HWInstr*, int> productionStages;
+    //std::map<HWInstr*, int> productionStages;
     std::map<HWInstr*, std::map<int, CoreIR::Instance*> > pipelineRegisters;
 
     std::vector<HWInstr*> body;
@@ -1748,7 +1725,6 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         instrValues[op] = val;
         
         if (val->getType()->isOutput()) {
-          //m.productionStages[op] = 0;
           m.setStartTime(op, 0);
           m.setEndTime(op, 0);
 
@@ -1811,13 +1787,12 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   return m;
 }
 
+// TODO: Update schedule so that instructions have a start and an end time
 void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
   assert(sched.II == 1);
 
   UnitMapping m = createUnitMapping(info, context, sched, def);
   auto& unitMapping = m.unitMapping;
-  //auto& instrValues = m.instrValues;
-  //auto& stencilRanges = m.stencilRanges;
 
   cout << "Building connections inside each cycle\n";
   for (int i = 0; i < (int) sched.stages.size(); i++) {
