@@ -2066,9 +2066,11 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
     }
   }
 
+  internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n" << endl;
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
   for (auto instr : f.body) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
+    internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
   }
   //cout << "Total schedule time = " << sched.getLatency() << endl;
   //sched.stages.push_back({});
