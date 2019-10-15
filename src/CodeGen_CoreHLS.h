@@ -27,6 +27,7 @@ class HWInstr {
     int uniqueNum;
     HWInstrTp tp;
     CoreIR::Module* opType;
+    CoreIR::Instance* unit;
     
     bool preBound;
     std::string boundTargetName;
@@ -108,6 +109,9 @@ class HWFunction {
       return in;
     }
 };
+
+
+void insertAt(HWInstr* instr, HWInstr* refresh, std::vector<HWInstr*>& body);
 
 typedef std::pair<std::string, std::string> StreamWriteInfo;
 typedef std::pair<std::string, std::string> StreamReadInfo;

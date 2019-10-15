@@ -1983,6 +1983,24 @@ void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr
   }
 }
 
+void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
+  auto& body = f.body;
+  //cout << "# of const loads = " << constLoads.size() << endl;
+  for (auto ldNewVal : loadsToConstants) {
+    //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
+    if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
+      insertAt(ldNewVal.first, ldNewVal.second, f.body);
+    }
+    replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
+  }
+
+  for (auto ldNewVal : loadsToConstants) {
+    CoreIR::remove(ldNewVal.first, body);
+  }
+
+  CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
+}
+
 //void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   auto& body = f.body;
@@ -2012,17 +2030,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   }
   pos++;
 
-  //cout << "# of const loads = " << constLoads.size() << endl;
-  for (auto ldNewVal : loadsToConstants) {
-    //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
-    replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
-  }
-
-  for (auto ldNewVal : loadsToConstants) {
-    CoreIR::remove(ldNewVal.first, body);
-  }
-
-  CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
+  replaceAll(loadsToConstants, f);
 
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
@@ -2041,15 +2049,24 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   auto def = f.getDef();
   auto context = def->getContext();
 
+  std::map<HWInstr*, HWInstr*> loadsToReplacements;
   for (auto m : romLoads) {
     cout << "\tTo rom: " << m.first << endl;
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, 16)}, {"nports", COREMK(context, m.second.size())}};
     auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals);
+    int portNo = 0;
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
+      auto rLoad = f.newI();
+      rLoad->operands.push_back(f.newConst(32, portNo));
+      for (size_t i = 1; i < ld->operands.size(); i++) {
+        rLoad->operands.push_back(ld->getOperand(i));
+      }
+      rLoad->unit = rom;
     }
   }
 
+  replaceAll(loadsToReplacements, f);
 
   // Now: Need to add code to HWInstr that will allow use to bind a specific functional unit to it
   // A given instruction needs to have a hardware module associated with it by name, and needs to have
@@ -2058,7 +2075,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   // instruction to names of ports on the target module
   cout << "Module def..." << endl;
   f.mod->print();
-  internal_assert(false) << "Stopping here so dillon can view loads\n";
+  //internal_assert(false) << "Stopping here so dillon can view loads\n";
 }
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
