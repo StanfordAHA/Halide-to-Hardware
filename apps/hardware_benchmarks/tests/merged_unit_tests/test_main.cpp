@@ -1611,7 +1611,8 @@ int main(int argc, char **argv) {
   //    by the subimages placement in the array. Somehow the camera pipeline schedule avoids this
   //    though.
   //camera_pipeline_test();
-  //rom_read_test();
+  rom_read_test();
+  assert(false);
   offset_window_test();  
   //assert(false);
 
