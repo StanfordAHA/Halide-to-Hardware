@@ -1076,7 +1076,7 @@ void rom_read_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
 
-  runHWKernel(m, hwInputBuf, outputBuf);
+  runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
