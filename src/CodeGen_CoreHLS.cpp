@@ -819,7 +819,7 @@ class HWLoopSchedule {
           nStages = es.second;
         }
       }
-      return nStages;
+      return nStages + 1;
     }
 
     int getEndTime(HWInstr* instr) {
@@ -1574,10 +1574,15 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   int defStage = 0;
 
   UnitMapping m;
+  m.startStages = sched.startStages;
+  m.endStages = sched.endStages;
+  
   m.body = sched.body;
   auto& unitMapping = m.unitMapping;
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
+ 
+  cout << "Creating unit mapping" << endl;
   
   std::set<std::string> pipeVars;
   for (auto instr : sched.body) {
@@ -1762,6 +1767,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
 
+    cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
@@ -1790,16 +1796,21 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
 
           //for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
           for (int stage = 0; stage < (int) sched.numStages(); stage++) {
+            //internal_assert(contains_key(op, m.pipelineRegisters)) << "no pipeline register for " << *op << "\n";
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
 
           // Need to decide how to map pipeline stage numbers? Maybe start from stage 1?
           //for (int stage = 0; stage < ((int) sched.stages.size()) - 1; stage++) {
-          for (int stage = 0; stage < sched.numStages(); stage++) {
+          for (int stage = 0; stage < sched.numStages() - 1; stage++) {
+            cout << "stage = " << stage << endl;
             if (stage == 0) {
-              def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), instrValues[op]);
+              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              //def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), instrValues[op]);
+              def->connect(prg->sel("in"), instrValues[op]);
             } else {
-              def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
+              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
             }
           }
         }
@@ -1808,10 +1819,9 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
     defStage++;
   }
  
+    cout << "Done wiring up constants" << endl;
   
   int uNum = 0;
-  m.startStages = sched.startStages;
-  m.endStages = sched.endStages;
   //for (int i = 0; i < (int) sched.stages.size(); i++) {
   for (int i = 0; i < sched.numStages(); i++) {
     //auto& stg = sched.stages[i];
@@ -2066,7 +2076,15 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
     }
   }
 
-  internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n" << endl;
+  cout << "Final Schedule" << endl;
+  for (int i = 0; i < sched.numStages(); i++) {
+    cout << "Stage " << i << endl;
+    for (auto instr : sched.instructionsStartingInStage(i)) {
+      cout << "\tstart: " << *instr << endl;
+    }
+  }
+
+  internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
   for (auto instr : f.body) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
