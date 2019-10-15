@@ -780,7 +780,7 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
 class HWLoopSchedule {
   public:
     vector<HWInstr*> body;
-    vector<vector<HWInstr*> > stages;
+    //vector<vector<HWInstr*> > stages;
     int II;
 
     std::map<HWInstr*, std::string> unitMapping;
@@ -788,11 +788,47 @@ class HWLoopSchedule {
     std::map<HWInstr*, int> endStages;
     std::map<HWInstr*, int> startStages;
 
+    bool isScheduled(HWInstr* instr) const {
+      return contains_key(instr, endStages) && contains_key(instr, startStages);
+    }
+
+    std::set<HWInstr*> instructionsStartingInStage(const int stage) const {
+      std::set<HWInstr*> instr;
+      for (auto i : startStages) {
+        if (i.second == stage) {
+          instr.insert(i.first);
+        }
+      }
+      return instr;
+    }
+
+    std::set<HWInstr*> instructionsEndingInStage(const int stage) const {
+      std::set<HWInstr*> instr;
+      for (auto i : endStages) {
+        if (i.second == stage) {
+          instr.insert(i.first);
+        }
+      }
+      return instr;
+    }
+
+    int numStages() const {
+      int nStages = 0;
+      for (auto es : endStages) {
+        if (es.second >= nStages) {
+          nStages = es.second;
+        }
+      }
+      return nStages;
+    }
+
     int getEndTime(HWInstr* instr) {
+      internal_assert(isScheduled(instr)) << " getting end time of unscheduled instruction: " << *instr << "\n";
       return map_get(instr, endStages);
     }
 
     int getStartTime(HWInstr* instr) {
+      internal_assert(isScheduled(instr)) << " getting start time of unscheduled instruction: " << *instr << "\n";
       return map_get(instr, startStages);
     }
 
@@ -1446,10 +1482,10 @@ std::string coreirSanitize(const std::string& str) {
 
 class UnitMapping {
   protected:
+  public:
     std::map<HWInstr*, int> startStages;
     std::map<HWInstr*, int> endStages;
 
-  public:
     std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
@@ -1508,11 +1544,8 @@ class UnitMapping {
       //}
 
       int producedStage = getEndTime(arg1);
-      //internal_assert(CoreIR::contains_key(arg1, productionStages)) << *arg1 << " is not produced at any stage of the pipeline\n";
-      //int producedStage = CoreIR::map_find(arg1, productionStages);
 
       internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      //if (stageNo == CoreIR::map_find(arg1, productionStages)) {
       if (stageNo == producedStage) {
         return CoreIR::map_find(arg1, instrValues);
       } else {
@@ -1755,12 +1788,14 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
           m.setStartTime(op, 0);
           m.setEndTime(op, 0);
 
-          for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
+          //for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
+          for (int stage = 0; stage < (int) sched.numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
 
           // Need to decide how to map pipeline stage numbers? Maybe start from stage 1?
-          for (int stage = 0; stage < ((int) sched.stages.size()) - 1; stage++) {
+          //for (int stage = 0; stage < ((int) sched.stages.size()) - 1; stage++) {
+          for (int stage = 0; stage < sched.numStages(); stage++) {
             if (stage == 0) {
               def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), instrValues[op]);
             } else {
@@ -1772,14 +1807,18 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
     }
     defStage++;
   }
-  
+ 
   
   int uNum = 0;
-  for (int i = 0; i < (int) sched.stages.size(); i++) {
-    auto& stg = sched.stages[i];
+  m.startStages = sched.startStages;
+  m.endStages = sched.endStages;
+  //for (int i = 0; i < (int) sched.stages.size(); i++) {
+  for (int i = 0; i < sched.numStages(); i++) {
+    //auto& stg = sched.stages[i];
+    auto stg = sched.instructionsEndingInStage(i);
 
+    // TODO: Remove this code to prevent misuse of start / end times,
     for (auto instr : stg) {
-      //m.productionStages[instr] = i;
       m.setStartTime(instr, i);
       m.setEndTime(instr, i);
     }
@@ -1796,13 +1835,13 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   for (auto instr : sched.body) {
     if (m.hasOutput(instr)) {
       auto fstVal = CoreIR::map_find(instr, m.instrValues);
-      //int prodStage = CoreIR::map_find(instr, m.productionStages);
       int prodStage = m.getEndTime(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
       //auto lastReg = m.pipelineRegisters[instr][prodStage];
       //def->connect(lastReg->sel("in"), fstVal);
-      for (int i = prodStage + 1; i < (int) sched.stages.size(); i++) {
+      //for (int i = prodStage + 1; i < (int) sched.stages.size(); i++) {
+      for (int i = prodStage + 1; i < sched.numStages(); i++) {
         CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
         def->connect(pipeReg->sel("in"), lastReg);
          //lastReg->sel("out"));
@@ -1822,10 +1861,11 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   auto& unitMapping = m.unitMapping;
 
   cout << "Building connections inside each cycle\n";
-  for (int i = 0; i < (int) sched.stages.size(); i++) {
-
+  //for (int i = 0; i < (int) sched.stages.size(); i++) {
+  for (int i = 0; i < sched.numStages(); i++) {
     int stageNo = i;
-    auto& instrsInStage = sched.stages[i];
+    //auto& instrsInStage = sched.stages[i];
+    auto instrsInStage = sched.instructionsStartingInStage(i);
     for (auto instr : instrsInStage) {
       internal_assert(CoreIR::contains_key(instr, unitMapping));
       CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
@@ -2025,6 +2065,11 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
       }
     }
   }
+
+  internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
+  for (auto instr : f.body) {
+    internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
+  }
   //cout << "Total schedule time = " << sched.getLatency() << endl;
   //sched.stages.push_back({});
   //for (auto instr : f.body) {
@@ -2046,7 +2091,8 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
 
   cout << "Creating schedule" << endl;
   auto sched = asapSchedule(f);
-  int nStages = sched.stages.size();
+  //int nStages = sched.stages.size();
+  int nStages = sched.numStages();
   cout << "Number of stages = " << nStages << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
   for (int i = 0; i < nStages - 1; i++) {
@@ -2057,7 +2103,8 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   }
   def->connect(inEn, self->sel("valid"));
 
-  cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
+  //cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
+  cout << "# of stages in loop schedule = " << sched.numStages() << endl;
   emitCoreIR(info, context, sched, def);
 
   design->setDef(def);
