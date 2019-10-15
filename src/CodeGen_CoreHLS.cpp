@@ -2119,6 +2119,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
       cout << "\t\t" << *ld << endl;
       auto rLoad = f.newI();
       rLoad->name = "load";
+      rLoad->latency = 1;
       rLoad->operands.push_back(f.newConst(32, portNo));
       for (size_t i = 1; i < ld->operands.size(); i++) {
         rLoad->operands.push_back(ld->getOperand(i));

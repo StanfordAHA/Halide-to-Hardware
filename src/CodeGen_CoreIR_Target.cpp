@@ -3375,7 +3375,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const vector<CoreIR_Argument> &args) {
 
   if (!is_header()) {
-    createCoreIRForStmt(context, stmt, name, args);
+    design = createCoreIRForStmt(context, stmt, name, args);
+    def = design->getDef();
+    global_ns = context->getNamespace("global");
   }
   return;
 

@@ -47,7 +47,7 @@ class HWInstr {
 
     CoreIR::Type* resType;
 
-    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), predicate(nullptr), resType(nullptr) {}
+    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), latency(0), predicate(nullptr), resType(nullptr) {}
 
     CoreIR::Instance* getUnit() const {
       internal_assert(unit != nullptr) << "unit is null in HWInstr\n";
@@ -99,6 +99,7 @@ class HWFunction {
 
     HWInstr* newConst(const int width, const int value) {
       auto ist = newI();
+      ist->latency = 0;
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = width;
       ist->constValue = std::to_string(value);
