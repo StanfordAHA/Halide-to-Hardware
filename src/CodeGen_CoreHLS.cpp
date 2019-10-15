@@ -1441,6 +1441,10 @@ std::string coreirSanitize(const std::string& str) {
 }
 
 class UnitMapping {
+  protected:
+    std::map<HWInstr*, int> startStages;
+    std::map<HWInstr*, int> endStages;
+
   public:
     std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
@@ -1450,6 +1454,22 @@ class UnitMapping {
     std::map<HWInstr*, std::map<int, CoreIR::Instance*> > pipelineRegisters;
 
     std::vector<HWInstr*> body;
+
+    int getEndTime(HWInstr* instr) {
+      return map_get(instr, endStages);
+    }
+
+    int getStartTime(HWInstr* instr) {
+      return map_get(instr, startStages);
+    }
+
+    void setStartTime(HWInstr* instr, const int stage) {
+      startStages[instr] = stage;
+    }
+
+    void setEndTime(HWInstr* instr, const int stage) {
+      endStages[instr] = stage;
+    }
 
     bool hasOutput(HWInstr* const arg) const {
       return CoreIR::contains_key(arg, instrValues);
@@ -1483,12 +1503,13 @@ class UnitMapping {
         //return CoreIR::map_find(arg1, instrValues);
       //}
 
-      internal_assert(CoreIR::contains_key(arg1, productionStages)) << *arg1 << " is not produced at any stage of the pipeline\n";
-
-      int producedStage = CoreIR::map_find(arg1, productionStages);
+      int producedStage = getEndTime(arg1);
+      //internal_assert(CoreIR::contains_key(arg1, productionStages)) << *arg1 << " is not produced at any stage of the pipeline\n";
+      //int producedStage = CoreIR::map_find(arg1, productionStages);
 
       internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      if (stageNo == CoreIR::map_find(arg1, productionStages)) {
+      //if (stageNo == CoreIR::map_find(arg1, productionStages)) {
+      if (stageNo == producedStage) {
         return CoreIR::map_find(arg1, instrValues);
       } else {
         internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
@@ -1727,7 +1748,9 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         instrValues[op] = val;
         
         if (val->getType()->isOutput()) {
-          m.productionStages[op] = 0;
+          //m.productionStages[op] = 0;
+          m.setStartTime(op, 0);
+          m.setEndTime(op, 0);
 
           for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
@@ -1753,7 +1776,9 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
     auto& stg = sched.stages[i];
 
     for (auto instr : stg) {
-      m.productionStages[instr] = i;
+      //m.productionStages[instr] = i;
+      m.setStartTime(instr, i);
+      m.setEndTime(instr, i);
     }
 
     for (auto instr : m.body) {
@@ -1768,7 +1793,8 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   for (auto instr : sched.body) {
     if (m.hasOutput(instr)) {
       auto fstVal = CoreIR::map_find(instr, m.instrValues);
-      int prodStage = CoreIR::map_find(instr, m.productionStages);
+      //int prodStage = CoreIR::map_find(instr, m.productionStages);
+      int prodStage = m.getEndTime(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
       //auto lastReg = m.pipelineRegisters[instr][prodStage];
