@@ -482,8 +482,9 @@ void loadHalideLib(CoreIR::Context* context) {
   CoreIR::TypeGen* romTg = hns->newTypeGen("ROM", romParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
       int addrWidth = 16;
+      int dataWidth = args.at("width")->get<int>();
       auto nports = args.at("nports")->get<int>();
-      return c->Record({{"raddrs", c->BitIn()->Arr(addrWidth)->Arr(nports)}});
+      return c->Record({{"raddrs", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)}});
       });
   auto romGen = hns->newGeneratorDecl("ROM", romTg, romParams);
 
@@ -1663,7 +1664,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto shr = def->addInstance("ashr" + std::to_string(defStage), "coreir.ashr", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = shr->sel("out");
         unitMapping[instr] = shr;
-      } else {
+      } else if (name == "load") {
+        int portNo = instr->getOperand(0)->toInt();
+        unitMapping[instr] = instr->getUnit();
+        instrValues[instr] = instr->getUnit()->sel("rdata")->sel(portNo);
+      }else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
     }
