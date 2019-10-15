@@ -1373,7 +1373,7 @@ vector<int> getStencilDims(const std::string& name, StencilInfo& info) {
     vector<string> rz = CoreIR::map_find(name, info.stencilRealizations);
     internal_assert(rz.size() % 2 == 0);
     vector<int> dims;
-    for (int i = 0; i < rz.size() / 2; i++) {
+    for (int i = 0; i < (int) (rz.size() / 2); i++) {
       string min = rz[2*i];
       string ext = rz[2*i + 1];
       dims.push_back(stoi(min));
@@ -2037,6 +2037,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   auto& body = f.body;
   vector<HWInstr*> constLoads;
   std::map<HWInstr*, HWInstr*> loadsToConstants;
+  std::map<string, std::map<int, int> > storedValues;
   int pos = 0;
   for (auto instr : body) {
     if (isLoad(instr)) {
@@ -2055,6 +2056,8 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
 
         if (lastStoreToLoc) {
           loadsToConstants[instr] = lastStoreToLoc;
+          storedValues[instr->getOperand(0)->compactString()][location->toInt()] =
+            newValue;
         }
       }
     }
