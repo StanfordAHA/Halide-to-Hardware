@@ -2110,7 +2110,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
       int val = map_get(i, values);
       romVals["init"].emplace_back(val);
     }
-    CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals.size())}, {"nports", COREMK(context, m.second.size())}};
+    CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
     auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals, {{"init", COREMK(context, romVals)}});
     int portNo = 0;
     for (auto ld : m.second) {
