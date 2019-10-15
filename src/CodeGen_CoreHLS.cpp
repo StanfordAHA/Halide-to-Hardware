@@ -22,6 +22,8 @@
 #include "coreir/libs/float.h"
 #include "coreir/simulator/interpreter.h"
 
+#define COREMK(ctx, v) CoreIR::Const::make((ctx), (v))
+
 namespace Halide {
 namespace Internal {
 
@@ -484,12 +486,29 @@ void loadHalideLib(CoreIR::Context* context) {
       int addrWidth = 16;
       int dataWidth = args.at("width")->get<int>();
       auto nports = args.at("nports")->get<int>();
-      return c->Record({{"reset", c->BitIn()}, {"clk", c->Named("coreir.clkIn")}, {"raddr", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)}});
+      return c->Record({{"reset", c->BitIn()}, {"clk", c->Named("coreir.clkIn")}, {"raddr", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)},
+          {"ren", c->BitIn()->Arr(nports)}});
       });
   auto romGen = hns->newGeneratorDecl("ROM", romTg, romParams);
 
   romGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
-      // TODO: Create rom wiring code
+      auto self = def->sel("self");
+      int width = args.at("width")->get<int>();
+      int depth = args.at("depth")->get<int>();
+      int nports = args.at("nports")->get<int>();
+      Json vals;
+      for (int i = 0; i < depth; i++) {
+      vals["init"].emplace_back(i);
+      }
+      for (int i = 0; i < nports; i++) {
+      auto romBank = def->addInstance("rom_bank_" + std::to_string(i), "memory.rom2",
+          {{"width", COREMK(c, width)}, {"depth", COREMK(c, depth)}},
+          {{"init", COREMK(c, vals)}});
+      def->connect(romBank->sel("raddr"), self->sel("raddr")->sel(i));
+      def->connect(romBank->sel("rdata"), self->sel("rdata")->sel(i));
+      def->connect(romBank->sel("ren"), self->sel("ren")->sel(i));
+      def->connect(romBank->sel("clk"), self->sel("clk"));
+      }
       });
 
   
@@ -1237,7 +1256,7 @@ class StencilInfoCollector : public IRGraphVisitor {
         cout << "\t# dims = " << op->args[1] << "\n";
 
         vector<string> dinfo;
-        for (int i = 1; i  < op->args.size(); i++) {
+        for (int i = 1; i  < (int) op->args.size(); i++) {
           Expr e = op->args[i];
           ostringstream ss;
           ss << e;
@@ -1397,7 +1416,6 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   //internal_assert(false) << "No stream dims for " << str << "\n";
 }
 
-#define COREMK(ctx, v) CoreIR::Const::make((ctx), (v))
 
 std::string coreirSanitize(const std::string& str) {
   string san = "";
@@ -1823,6 +1841,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       } else if (instr->name == "load") {
         int portNo = instr->getOperand(0)->toInt();
         def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
+        def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst", "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
       } else {
         internal_assert(false) << "no wiring procedure for " << *instr << "\n";
       }
@@ -2540,7 +2559,7 @@ CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const
 }
 
 CoreIR::Wireable* andVals(CoreIR::ModuleDef* def, CoreIR::Wireable* a, CoreIR::Wireable* b) {
-  auto c = def->getContext();
+  //auto c = def->getContext();
   auto ad = def->addInstance("and_all", "corebit.and");
   def->connect(ad->sel("in0"), a);
   def->connect(ad->sel("in1"), b);
