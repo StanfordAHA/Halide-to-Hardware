@@ -170,9 +170,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
 
     for (auto stage : inlined_stages) {
-      //std::cout << "found stage: " << stage.name << std::endl;
+      std::cout << "found stage: " << stage.name << std::endl;
       for (auto map_entry : stage.bounds) {
-        //std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
+        std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
       }
     }
     

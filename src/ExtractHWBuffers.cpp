@@ -794,7 +794,10 @@ class HWBuffers : public IRMutator2 {
         string compute_level = sched.compute_level().func() + "." + compute_varname;
         std::cout << "looking at loops, func " << op->name << " has store=" << store_locked.to_string()
                   << "  compute=" << compute_locked.to_string() << std::endl;
-          
+
+
+        std::cout << "Encountered realize " << op->name << " with body:\n" << op->body << std::endl;
+        
         if (sched.compute_level() == sched.store_level()) {
           std::cout << op->name << " has compute=store level\n";
           //std::cout << op->body << std::endl;
@@ -889,6 +892,11 @@ class HWBuffers : public IRMutator2 {
           for (size_t i = 0; i < output_block_box.size(); ++i) {
             hwbuffer.dims.at(i).logical_min = Expr(0); // FIXMEyikes
             hwbuffer.dims[i].logical_size = box.at(i);
+            //Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
+            //hwbuffer.dims.at(i).logical_size = extent;
+            //std::cout << hwbuffer.name << " has a logical size at " << i << " of " << extent << std::endl;
+            //hwbuffer.dims[i].logical_size = simplify(boxes_read.at(op->name)[i].max - boxes_write.at(op->name)[i].min + 1);
+
             //hwbuffer.dims[i].input_chunk = box.at(i);
             hwbuffer.dims[i].input_chunk = input_block_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
