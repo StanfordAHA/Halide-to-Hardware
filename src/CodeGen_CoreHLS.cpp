@@ -490,20 +490,29 @@ void loadHalideLib(CoreIR::Context* context) {
           {"ren", c->BitIn()->Arr(nports)}});
       });
   auto romGen = hns->newGeneratorDecl("ROM", romTg, romParams);
+  auto romGenModParamFun = [](CoreIR::Context* c, CoreIR::Values genargs) {
+    CoreIR::Params modparams;
+    CoreIR::Values defaultargs;
+    modparams["init"] = CoreIR::JsonType::make(c);
+    return std::pair<CoreIR::Params, CoreIR::Values>(modparams, defaultargs);
+  };
+  romGen->setModParamsGen(romGenModParamFun);
 
   romGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
       auto self = def->sel("self");
       int width = args.at("width")->get<int>();
       int depth = args.at("depth")->get<int>();
       int nports = args.at("nports")->get<int>();
-      Json vals;
-      for (int i = 0; i < depth; i++) {
-      vals["init"].emplace_back(i);
-      }
+
+      auto vals = def->getModule()->getArg("init");
+      //Json vals;
+      //for (int i = 0; i < depth; i++) {
+      //vals["init"].emplace_back(i);
+      //}
       for (int i = 0; i < nports; i++) {
       auto romBank = def->addInstance("rom_bank_" + std::to_string(i), "memory.rom2",
           {{"width", COREMK(c, width)}, {"depth", COREMK(c, depth)}},
-          {{"init", COREMK(c, vals)}});
+          {{"init", vals}});
       def->connect(romBank->sel("raddr"), self->sel("raddr")->sel(i));
       def->connect(romBank->sel("rdata"), self->sel("rdata")->sel(i));
       def->connect(romBank->sel("ren"), self->sel("ren")->sel(i));
@@ -2032,12 +2041,11 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
 }
 
-//void removeBadStores(StoreCollector& storeCollector, vector<HWInstr*>& body) {
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   auto& body = f.body;
   vector<HWInstr*> constLoads;
   std::map<HWInstr*, HWInstr*> loadsToConstants;
-  std::map<string, std::map<int, int> > storedValues;
+  //std::map<string, std::map<int, int> > storedValues;
   int pos = 0;
   for (auto instr : body) {
     if (isLoad(instr)) {
@@ -2056,8 +2064,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
 
         if (lastStoreToLoc) {
           loadsToConstants[instr] = lastStoreToLoc;
-          storedValues[instr->getOperand(0)->compactString()][location->toInt()] =
-            newValue;
         }
       }
     }
@@ -2066,6 +2072,13 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
 
   replaceAll(loadsToConstants, f);
 
+  //cout << "Stored Values.." << endl;
+  //for (auto m : storedValues) {
+    //cout << "\t" << m.first << " has values" << endl;
+    //for (auto v : m.second) {
+      //cout << "\t\t[" << v.first << "] = " << v.second << endl;
+    //}
+  //}
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
   for (auto instr : body) {
@@ -2086,8 +2099,19 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   std::map<HWInstr*, HWInstr*> loadsToReplacements;
   for (auto m : romLoads) {
     cout << "\tTo rom: " << m.first << endl;
-    CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, 16)}, {"nports", COREMK(context, m.second.size())}};
-    auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals);
+    cout << "StoredValues = " << storeCollector.constStores << endl;
+    //auto values = map_get("\"" + (m.first) + "\"", storeCollector.constStores);
+    string curveName = m.first.substr(1, m.first.size() - 2);
+    cout << "Getting value for " << curveName << endl;
+    auto values = map_get(curveName, storeCollector.constStores);
+    Json romVals;
+    for (int i = 0; i < values.size(); i++) {
+      cout << "Getting " << i << " from " << values << endl;
+      int val = map_get(i, values);
+      romVals["init"].emplace_back(val);
+    }
+    CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals.size())}, {"nports", COREMK(context, m.second.size())}};
+    auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals, {{"init", COREMK(context, romVals)}});
     int portNo = 0;
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
