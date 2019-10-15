@@ -484,9 +484,13 @@ void loadHalideLib(CoreIR::Context* context) {
       int addrWidth = 16;
       int dataWidth = args.at("width")->get<int>();
       auto nports = args.at("nports")->get<int>();
-      return c->Record({{"raddr", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)}});
+      return c->Record({{"reset", c->BitIn()}, {"clk", c->Named("coreir.clkIn")}, {"raddr", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)}});
       });
   auto romGen = hns->newGeneratorDecl("ROM", romTg, romParams);
+
+  romGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+      // TODO: Create rom wiring code
+      });
 
   
   CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthDimParams,
