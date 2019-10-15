@@ -119,6 +119,11 @@ vector<std::string> extractHardwareVars(const For* lp) {
     }
   }
   
+template<typename K>
+bool subset(K& a, K& b) {
+  return CoreIR::intersection(a, b).size() == a.size();
+}
+
 template<typename K, typename V>
 V map_get(const K& k, const std::map<K, V>& m) {
   internal_assert(contains_key(k, m));
@@ -1370,6 +1375,7 @@ vector<int> getStencilDims(const std::string& name, StencilInfo& info) {
   }
 
   internal_assert(false) << "No stencil dimensions for " << name << "\n";
+  return {};
 }
 
 
@@ -1933,6 +1939,64 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
   return design_type;
 }
 
+std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
+  std::set<HWInstr*> instrs;
+  for (auto i : instr->operands) {
+    if (i->tp == HWINSTR_TP_INSTR) {
+      instrs.insert(i);
+    }
+  }
+  return instrs;
+}
+
+HWLoopSchedule asapSchedule(HWFunction& f) {
+  //HWLoopSchedule sched;
+  //sched.body = f.body;
+  ////instrs;
+  //// TODO: Actually compute this later on
+  //sched.II = 1;
+
+  //std::map<HWInstr*, int> activeToTimeRemaining;
+  //std::set<HWInstr*> finished;
+  //std::set<HWInstr*> remaining(begin(f.body), end(f.body));
+
+  //int currentTime = 0;
+  //while (remaining.size() > 0) {
+    //bool foundNextInstr = false;
+    //for (auto toSchedule : remaining) {
+      //std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
+      //if (subset(deps, finished)) {
+        //sched.setStartTime(toSchedule, currentTime);
+        //foundNextInstr = true;
+        //break;
+      //}
+    //}
+
+    //if (!foundNextInstr) {
+      //std::set<HWInstr*> doneThisCycle;
+      //for (auto& instr : activeToTimeRemaining) {
+        //activeToTimeRemaining[instr.first]--;
+        //if (activeToTimeRemaining[instr.first] == 0) {
+          //doneThisCycle.insert(instr.first);
+        //}
+      //}
+
+      //for (auto instr : doneThisCycle) {
+        //activeToTimeRemaining.erase(instr);
+        //finished.insert(instr);
+      //}
+      //currentTime++;
+    //}
+  //}
+  //cout << "Total schedule time = " << sched.getLatency() << endl;
+  ////sched.stages.push_back({});
+  ////for (auto instr : instrs) {
+    ////sched.stages[0].push_back(instr);
+  ////}
+
+  //return sched;
+}
+
 CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
   auto& instrs = f.body;
   //f.mod = design;
@@ -1944,16 +2008,7 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   auto self = def->sel("self");
 
   cout << "Creating schedule" << endl;
-
-  HWLoopSchedule sched;
-  sched.body = instrs;
-  sched.II = 1;
-  sched.stages.push_back({});
-  for (auto instr : instrs) {
-    sched.stages[0].push_back(instr);
-    //sched.stages.push_back({instr});
-  }
-
+  auto sched = asapSchedule(f);
   int nStages = sched.stages.size();
   cout << "Number of stages = " << nStages << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
@@ -2048,6 +2103,9 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   std::map<HWInstr*, HWInstr*> loadsToConstants;
   //std::map<string, std::map<int, int> > storedValues;
   int pos = 0;
+  for (auto instr : body) {
+    if (isLoad(instr)) {
+      auto location = instr->operands[2];
   for (auto instr : body) {
     if (isLoad(instr)) {
       auto location = instr->operands[2];
@@ -3259,7 +3317,4 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //return -1;
   //}
 //}
-
-}
-}
 
