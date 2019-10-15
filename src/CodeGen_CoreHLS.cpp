@@ -484,7 +484,7 @@ void loadHalideLib(CoreIR::Context* context) {
       int addrWidth = 16;
       int dataWidth = args.at("width")->get<int>();
       auto nports = args.at("nports")->get<int>();
-      return c->Record({{"raddrs", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)}});
+      return c->Record({{"raddr", c->BitIn()->Arr(addrWidth)->Arr(nports)}, {"rdata", c->Bit()->Arr(dataWidth)->Arr(nports)}});
       });
   auto romGen = hns->newGeneratorDecl("ROM", romTg, romParams);
 
@@ -1816,6 +1816,9 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
         def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
         def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
+      } else if (instr->name == "load") {
+        int portNo = instr->getOperand(0)->toInt();
+        def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
       } else {
         internal_assert(false) << "no wiring procedure for " << *instr << "\n";
       }
