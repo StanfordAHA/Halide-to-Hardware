@@ -218,7 +218,9 @@ std::ostream& operator<<(std::ostream& out, const std::map<K, V>& strs) {
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& strs) {
+template<typename T>
+//std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& strs) {
+std::ostream& operator<<(std::ostream& out, const std::vector<T>& strs) {
   out << "{";
   for (auto str : strs) {
     out << str << ", ";
@@ -782,6 +784,25 @@ class HWLoopSchedule {
     int II;
 
     std::map<HWInstr*, std::string> unitMapping;
+
+    std::map<HWInstr*, int> endStages;
+    std::map<HWInstr*, int> startStages;
+
+    int getEndTime(HWInstr* instr) {
+      return map_get(instr, endStages);
+    }
+
+    int getStartTime(HWInstr* instr) {
+      return map_get(instr, startStages);
+    }
+
+    void setStartTime(HWInstr* instr, const int stage) {
+      startStages[instr] = stage;
+    }
+
+    void setEndTime(HWInstr* instr, const int stage) {
+      endStages[instr] = stage;
+    }
 };
 
 class InnermostLoopChecker : public IRGraphVisitor {
@@ -1950,51 +1971,67 @@ std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
 }
 
 HWLoopSchedule asapSchedule(HWFunction& f) {
-  //HWLoopSchedule sched;
-  //sched.body = f.body;
-  ////instrs;
-  //// TODO: Actually compute this later on
-  //sched.II = 1;
+  HWLoopSchedule sched;
+  sched.body = f.body;
+  //instrs;
+  // TODO: Actually compute this later on
+  sched.II = 1;
 
-  //std::map<HWInstr*, int> activeToTimeRemaining;
-  //std::set<HWInstr*> finished;
-  //std::set<HWInstr*> remaining(begin(f.body), end(f.body));
+  std::map<HWInstr*, int> activeToTimeRemaining;
+  std::set<HWInstr*> finished;
+  std::set<HWInstr*> remaining(begin(f.body), end(f.body));
 
-  //int currentTime = 0;
-  //while (remaining.size() > 0) {
-    //bool foundNextInstr = false;
-    //for (auto toSchedule : remaining) {
-      //std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
-      //if (subset(deps, finished)) {
-        //sched.setStartTime(toSchedule, currentTime);
-        //foundNextInstr = true;
-        //break;
-      //}
-    //}
+  int currentTime = 0;
+  while (remaining.size() > 0) {
+    cout << "Current time = " << currentTime << endl;
+    cout << "\t# Finished = " << finished.size() << endl;
+    cout << "\tActive = " << activeToTimeRemaining << endl;
+    bool foundNextInstr = false;
+    for (auto toSchedule : remaining) {
+      std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
+      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      if (subset(deps, finished)) {
+        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        sched.setStartTime(toSchedule, currentTime);
+        if (toSchedule->latency == 0) {
+          sched.setEndTime(toSchedule, currentTime);
+          finished.insert(toSchedule);
+          cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
+        } else {
+          activeToTimeRemaining[toSchedule] = toSchedule->latency;
+        }
+        remaining.erase(toSchedule);
+        foundNextInstr = true;
+        break;
+      }
+    }
 
-    //if (!foundNextInstr) {
-      //std::set<HWInstr*> doneThisCycle;
-      //for (auto& instr : activeToTimeRemaining) {
-        //activeToTimeRemaining[instr.first]--;
-        //if (activeToTimeRemaining[instr.first] == 0) {
-          //doneThisCycle.insert(instr.first);
-        //}
-      //}
+    if (!foundNextInstr) {
+      currentTime++;
+      std::set<HWInstr*> doneThisCycle;
+      for (auto& instr : activeToTimeRemaining) {
+        activeToTimeRemaining[instr.first]--;
+        if (activeToTimeRemaining[instr.first] == 0) {
+          sched.setEndTime(instr.first, currentTime);
+          finished.insert(instr.first);
+          doneThisCycle.insert(instr.first);
+        } else {
+        }
+      }
 
-      //for (auto instr : doneThisCycle) {
-        //activeToTimeRemaining.erase(instr);
-        //finished.insert(instr);
-      //}
-      //currentTime++;
-    //}
-  //}
+      for (auto instr : doneThisCycle) {
+        activeToTimeRemaining.erase(instr);
+        finished.insert(instr);
+      }
+    }
+  }
   //cout << "Total schedule time = " << sched.getLatency() << endl;
-  ////sched.stages.push_back({});
-  ////for (auto instr : instrs) {
-    ////sched.stages[0].push_back(instr);
-  ////}
+  //sched.stages.push_back({});
+  //for (auto instr : f.body) {
+    //sched.stages[0].push_back(instr);
+  //}
 
-  //return sched;
+  return sched;
 }
 
 CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
@@ -2106,28 +2143,30 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   for (auto instr : body) {
     if (isLoad(instr)) {
       auto location = instr->operands[2];
-  for (auto instr : body) {
-    if (isLoad(instr)) {
-      auto location = instr->operands[2];
-      //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
-      if (isConstant(location)) {
-        cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
-        int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
+      for (auto instr : body) {
+        if (isLoad(instr)) {
+          auto location = instr->operands[2];
+          //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
+          if (isConstant(location)) {
+            cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
+            int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
 
-        cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
-        HWInstr* lastStoreToLoc = new HWInstr();
-        lastStoreToLoc->tp = HWINSTR_TP_CONST;
-        lastStoreToLoc->constWidth = 16;
-        lastStoreToLoc->constValue = std::to_string(newValue);
-        constLoads.push_back(instr);
+            cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
+            HWInstr* lastStoreToLoc = new HWInstr();
+            lastStoreToLoc->tp = HWINSTR_TP_CONST;
+            lastStoreToLoc->constWidth = 16;
+            lastStoreToLoc->constValue = std::to_string(newValue);
+            constLoads.push_back(instr);
 
-        if (lastStoreToLoc) {
-          loadsToConstants[instr] = lastStoreToLoc;
+            if (lastStoreToLoc) {
+              loadsToConstants[instr] = lastStoreToLoc;
+            }
+          }
         }
       }
+      pos++;
     }
   }
-  pos++;
 
   replaceAll(loadsToConstants, f);
 
@@ -3317,4 +3356,5 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //return -1;
   //}
 //}
-
+}
+}
