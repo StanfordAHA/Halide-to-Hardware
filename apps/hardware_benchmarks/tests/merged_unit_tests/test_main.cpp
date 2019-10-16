@@ -1823,7 +1823,9 @@ void camera_pipeline_test() {
   }
 
   //hw_output(x, y, c) = 0;
-  hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
+  //hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
+  hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
+  //curve(clamp(color_corrected(x, y, c), 0, 1023));
   hw_output.bound(c, 0, 3);
   
   Halide::Buffer<uint8_t> inputBuf(8, 8);
