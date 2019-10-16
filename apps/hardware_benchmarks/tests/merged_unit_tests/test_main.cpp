@@ -1839,6 +1839,8 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   cout << "Ran executable" << endl;
 }
 
+// How can we check if this thing handles different dimensions / orders?
+// Maybe start with a simple app run on the SoC that uses different variable orders?
 void camera_pipeline_test() {
 
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -1868,9 +1870,6 @@ void camera_pipeline_test() {
 
   //hw_output(x, y, c) = 0;
   hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
-  //hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
-  //curve(clamp(color_corrected(x, y, c), 0, 1023));
-  //hw_output(x, y, c) = cast<uint8_t>(demosaicked(x, y, c));
   hw_output.bound(c, 0, 3);
   
   Halide::Buffer<uint8_t> inputBuf(8, 8);
@@ -1884,15 +1883,6 @@ void camera_pipeline_test() {
   }
 
   Halide::Buffer<uint8_t> cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
-  ////Creating CPU reference output
-  //Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
-  //ParamMap rParams;
-  //rParams.set(input, inputBuf);
-  //Target t;
-  //hw_output.realize(cpuOutput, t, rParams);
-
-  cout << "CPU Output..." << endl;
-  printBuffer(cpuOutput, cout);
 
   // Hardware schedule
   hw_input.compute_root();
