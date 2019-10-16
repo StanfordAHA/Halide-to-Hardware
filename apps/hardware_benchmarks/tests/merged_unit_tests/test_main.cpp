@@ -1717,6 +1717,33 @@ Func color_correct(Func input) {
   return corrected;
 }
 
+void curve_lookup_test() {
+  Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  float gamma = 1.0;
+  float contrast = 1.0;
+
+  Func hw_input, hw_output;
+  hw_input(x, y) = input(x, y);
+
+  Func curve;
+  {
+    Expr xf = x/1024.0f;
+    Expr g = pow(xf, 1.0f/gamma);
+    Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
+    Expr a = 2.0f - 2.0f*b;
+    Expr val = select(g > 0.5f,
+        1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
+        a*g*g + b*g);
+    curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
+  }
+
+  // Why 1023 when the max width is 2^8?
+  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
+}
+
 void camera_pipeline_test() {
 
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -1870,6 +1897,7 @@ int main(int argc, char **argv) {
 
   accel_interface_test();
   //assert(false);
+  curve_lookup_test();
   camera_pipeline_test();
   assert(false);
   rom_read_test();
