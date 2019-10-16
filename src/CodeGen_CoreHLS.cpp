@@ -3034,7 +3034,8 @@ class AcceleratorInterface {
     string output_name;
 };
 
-//CoreIR::Type* topLevelType(CoreIR::Context* context,
+// How much of this do I need in order to build a test rig that
+// can handle multi-dimensional outputs and inputs
 AcceleratorInterface topLevelType(CoreIR::Context* context,
       const std::vector<CoreIR_Argument>& args) {
 
@@ -3135,26 +3136,41 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     const std::string& name,
     const vector<CoreIR_Argument>& args) {
 
+  cout << "All args" << endl;
+  for (auto a : args) {
+    cout << "\t" << a.name << endl;
+  }
+ 
+  // Build top level interface
+  AcceleratorInterface ifc = topLevelType(context, args);
+  auto inputAliases = ifc.inputAliases;
+  auto output_name_real = ifc.output_name_real;
+  auto output_name = ifc.output_name;
+  auto topType = ifc.designType;
+  auto global_ns = context->getNamespace("global");
+  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+  cout << "Before creating definition.." << endl;
+  topMod->print();
+
+  // Rest of the code builds the definition of this module, first by
+  // creating RTL for each loop kernel, and then by wiring up these
+  // kernels in to a full design
   int bitwidth = 16;
-    cout << "All args" << endl;
-    for (auto a : args) {
-      cout << "\t" << a.name << endl;
-    }
-    LetPusher pusher;
-    stmt = pusher.mutate(stmt);
-    cout << "After let pushing..." << endl;
-    cout << stmt << endl;
+  LetPusher pusher;
+  stmt = pusher.mutate(stmt);
+  cout << "After let pushing..." << endl;
+  cout << stmt << endl;
 
-    LetEraser letEraser;
-    stmt = letEraser.mutate(stmt);
+  LetEraser letEraser;
+  stmt = letEraser.mutate(stmt);
 
-    cout << "After let erasure..." << endl;
-    cout << stmt << endl;
-    //internal_assert(false) << "Stopping here for dillon to view\n";
+  cout << "After let erasure..." << endl;
+  cout << stmt << endl;
+  //internal_assert(false) << "Stopping here for dillon to view\n";
 
-    StoreCollector stCollector;
-    stmt.accept(&stCollector);
-    printCollectedStores(stCollector);
+  StoreCollector stCollector;
+  stmt.accept(&stCollector);
+  printCollectedStores(stCollector);
 
     cout << "Emitting kernel for " << name << endl;
     cout << "\tStmt is = " << endl;
@@ -3222,17 +3238,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }    
 
     cout << "Done creating kernels..." << endl;
-    //CoreIR::Type* topType = design_type;
-    //CoreIR::Type* topType = topLevelType(context, args);
-    AcceleratorInterface ifc = topLevelType(context, args);
-    auto inputAliases = ifc.inputAliases;
-    auto output_name_real = ifc.output_name_real;
-    auto output_name = ifc.output_name;
-    auto topType = ifc.designType;
-    auto global_ns = context->getNamespace("global");
-    CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
-    cout << "Before creating definition.." << endl;
-    topMod->print();
     auto def = topMod->newModuleDef();
 
     std::map<const For*, CoreIR::Instance*> kernels;
