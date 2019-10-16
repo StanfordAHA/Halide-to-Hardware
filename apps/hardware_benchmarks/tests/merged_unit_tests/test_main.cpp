@@ -1620,8 +1620,6 @@ void accel_interface_test() {
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
       hwInputBuf(i, j, 0) = i + j*inputBuf.width();
-      //hwInputBuf(i, j, 0) = 10;
-      //rand() % 255;
       inputBuf(i, j) = hwInputBuf(i, j);
     }
   }
@@ -1660,12 +1658,59 @@ void accel_interface_test() {
   string inS = "hw_input.stencil.stream";
   string outS = "hw_output.stencil.stream";
   string accelName = "self.in_" + aliasMap[inS].get<string>() + "_0_0";
-  //assert(false);
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
 
   cout << GREEN << "Accelerator interface test passed" << RESET << endl;
+}
+
+Func hot_pixel_suppression(Func input) {
+  Var x, y;
+  Func denoised("denoised");
+  Expr max_value = max(max(input(x-2, y), input(x+2, y)),
+      max(input(x, y-2), input(x, y+2)));
+  Expr min_value = min(min(input(x-2, y), input(x+2, y)),
+      min(input(x, y-2), input(x, y+2)));
+
+  denoised(x, y) = clamp(input(x,y), min_value, max_value);
+  return denoised;
+}
+
+void camera_pipeline_test() {
+
+  Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
+  int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
+    {-38,  159, -21, -2541},
+    {-8, -73,  228, -2008}};
+
+
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 3);
+
+  float gamma = 1.0;
+  float contrast = 1.0;
+
+
+  Func hw_input, hw_output, denoised, demosaicked, color_corrected;
+  hw_input(x, y) = input(x + 3, y + 3);
+  denoised = hot_pixel_suppression(hw_input);
+
+  Func curve;
+  {
+    Expr xf = x/1024.0f;
+    Expr g = pow(xf, 1.0f/gamma);
+    Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
+    Expr a = 2.0f - 2.0f*b;
+    Expr val = select(g > 0.5f,
+        1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
+        a*g*g + b*g);
+    curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
+  }
+
+  hw_output(x, y, c) = 0;
+
+  hw_output.bound(c, 0, 3);
 }
 
 // Now what do I want to do?
@@ -1704,18 +1749,11 @@ void accel_interface_test() {
 // 5. Lots of copy-paste needed to get camera pipeline in to this file
 // 6. I need to change output signature of code generator in order to
 //    get argument binding working
-//
-// Maybe: Start by moving accelerator test stuff (point, coordinatevector, etc) over to a new file in Halide source,
-// change COREHLS to emit module and argumentinfo, and then just print out the extra info
-//
-// Longer term: Halide load / store statements should just be bound to streaming memories in scheduling
-// and that should happen at the same time that compute is scheduled.
 int main(int argc, char **argv) {
 
   accel_interface_test();
-  cout << "Need to add an example that checks unusual outputs on 2d -> 3d" << endl;
-  assert(false);
-  //camera_pipeline_test();
+  //assert(false);
+  camera_pipeline_test();
   rom_read_test();
   //assert(false);
   offset_window_test();  
