@@ -3057,7 +3057,9 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
       string arg_name_real = args[i].name;
       cout << "Arg " << i << " has name " << arg_name_real << endl;
 
-      inputAliases[arg_name_real] = arg_name;
+      if (!(args[i].is_output)) {
+        inputAliases[arg_name_real] = arg_name;
+      }
 
       if (args[i].is_stencil) {
         CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
@@ -3163,6 +3165,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   auto& oname = aliasInfo["outName"];
   oname[output_name_real] = output_name;
+
+  auto& ranges = aliasInfo["ranges"];
+  for (auto arg : args) {
+    if (arg.is_stencil) {
+      string name = arg.name;
+      auto& val = ranges[name];
+      auto ranges = arg.stencil_type.bounds;
+      for (auto r : ranges) {
+        val.emplace_back(getConstInt(r.min));
+        val.emplace_back(getConstInt(r.extent));
+      }
+    }
+  }
   //ofstream interfaceInfo(name + "_accel_interface_info.json");
   ofstream interfaceInfo("accel_interface_info.json");
   interfaceInfo << aliasInfo;

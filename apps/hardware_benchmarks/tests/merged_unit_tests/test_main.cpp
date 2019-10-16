@@ -104,7 +104,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
     state.setValue("self.in_en", BitVector(1, true));
     state.setValue(input_name, BitVector(16, input(x,y,c)));
-    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+    std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
     //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
 
     writeIdx.increment();
@@ -131,6 +131,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
       auto windowPos = readIdx.relativeWindowPosition(point);
       BitVector output_bv;
       if (!is2D(output)) {
+        cout << "Output for " << windowPos << " = " << outputForCoord3D(windowPos) << endl;
         output_bv = state.getBitVec(outputForCoord3D(windowPos));
       } else {
         output_bv = state.getBitVec(outputForCoord2D(windowPos));
@@ -1604,7 +1605,7 @@ void accel_interface_test() {
   Var xi,yi,zi, xo,yo,zo;
 
   Func hw_input, hw_output;
-  hw_input(x,y) = cast<uint16_t>(input(x+1,y+1));
+  hw_input(x,y) = input(x, y);
   hw_output(x,y,c) = cast<uint16_t>(hw_input(x, y) + c);
   output(x,y,c) = hw_output(x,y,c);
 
@@ -1613,12 +1614,12 @@ void accel_interface_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  Halide::Buffer<uint16_t> inputBuf(20, 20);
+  Halide::Buffer<uint16_t> inputBuf(2, 2);
   Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   Halide::Runtime::Buffer<uint16_t> outputBuf(2, 2, 3);
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
-      hwInputBuf(i, j, 0) = i + j;
+      hwInputBuf(i, j, 0) = i + j*inputBuf.width();
       //hwInputBuf(i, j, 0) = 10;
       //rand() % 255;
       inputBuf(i, j) = hwInputBuf(i, j);
@@ -1712,6 +1713,7 @@ void accel_interface_test() {
 int main(int argc, char **argv) {
 
   accel_interface_test();
+  cout << "Need to add an example that checks unusual outputs on 2d -> 3d" << endl;
   assert(false);
   //camera_pipeline_test();
   rom_read_test();
