@@ -2348,6 +2348,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
       }
       rLoad->unit = rom;
       loadsToReplacements[ld] = rLoad;
+      portNo++;
     }
   }
 
