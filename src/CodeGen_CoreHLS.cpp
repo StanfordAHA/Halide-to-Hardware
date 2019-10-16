@@ -2967,6 +2967,20 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   return cp;
 }
 
+void printCollectedStores(StoreCollector& stCollector) {
+    for (auto s : stCollector.stores) {
+      cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
+    }
+
+    for (auto s : stCollector.constStores) {
+      cout << "Constant stores to " << s.first << endl;
+      for (auto sc : s.second) {
+        cout << "\t[" << sc.first << "] = " << sc.second << endl;
+      }
+    }
+}
+// Now: Need to print out arguments and their info, actually use the arguments to form
+// the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     Stmt stmt,
     const std::string& name,
@@ -2991,18 +3005,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     StoreCollector stCollector;
     stmt.accept(&stCollector);
-    for (auto s : stCollector.stores) {
-      cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
-    }
-
-    for (auto s : stCollector.constStores) {
-      cout << "Constant stores to " << s.first << endl;
-      for (auto sc : s.second) {
-        cout << "\t[" << sc.first << "] = " << sc.second << endl;
-      }
-    }
-
-    //internal_assert(false) << "Stopping here for dillon to view\n";
+    printCollectedStores(stCollector);
 
     cout << "Emitting kernel for " << name << endl;
     cout << "\tStmt is = " << endl;
