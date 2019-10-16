@@ -1596,20 +1596,50 @@ void pointwise_add_test() {
     cout << GREEN << "Pointwise add passed!" << RESET << endl;
 }
 
+// Now what do I want to do?
+// Goal: Get camera pipeline running
+// 
+// Problems: Adding new tests with info about how
+// the data is streamed to the accelerator is becoming very
+// annoying. I would like to have the accelerator code generator
+// emit a mapping from arguments to their streaming policy
+//
+// Problem: Retiming between kernels
+//
+// Problem: Related to first, we need to pass in parameters
+// such as subimage offsets to the kernel
+//
+// Next step: Get camera pipeline copied in to this test file
+// and try to get it running on CPU?
+//
+// Q: Is there a simpler way to test argument bundling before
+// going to full-blown camera pipeline?
+// Q: What is the format of argument bundling? Do we need to
+// say what arguments are passed in, how long they are set
+// for on the CGRA wire, and if it is a subimage the order
+// of variables, binding of names in coreir interface to 
+// subcubes of the image, and how the place in the subcube
+// is incremented as you progress through the image
+//
+// A lot of intersecting issues here:
+// 1. Camera pipeline is a large app compared to what I've done
+// 2. Harris and camera pipeline are tested through different infrastructure
+//    than this unit test suite
+// 3. Names in current codegen are used in Jeffs test infrastructure
+//    (but that can be changed as a parameter), so maybe not such a big deal
+// 4. I want to get cross-kernel balancing working and add hardware
+//    timing libraries to the kernel generator
+// 5. Lots of copy-paste needed to get camera pipeline in to this file
+// 6. I need to change output signature of code generator in order to
+//    get argument binding working
+//
+// Maybe: Start by moving accelerator test stuff (point, coordinatevector, etc) over to a new file in Halide source,
+// change COREHLS to emit module and argumentinfo, and then just print out the extra info
+//
+// Longer term: Halide load / store statements should just be bound to streaming memories in scheduling
+// and that should happen at the same time that compute is scheduled.
 int main(int argc, char **argv) {
 
-  // Now there are two problems that need to be fixed:
-  // 1. The compiler output for coreir needs to return a mapping from
-  //    names on the coreir interface to values in the halide program,
-  //    and if the value is some sort of stream we need to know the dimensions
-  //    and the increment of that stream in each index
-  // 2. The other problem is that to handle camera pipeline we need to be able
-  //    to handle RAMs inside of kernel functions, which requires handling hardware
-  //    instructions that have already been bound to a coreir module. The other problem
-  //    we have is that it turns out to be surprisingly hard to generate a ROM in Halide.
-  //    The Halide code produces arrays that are built with variable value offsets determined
-  //    by the subimages placement in the array. Somehow the camera pipeline schedule avoids this
-  //    though.
   //camera_pipeline_test();
   rom_read_test();
   //assert(false);
