@@ -45,7 +45,6 @@ class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
     std::set<std::string> defined;
-    //HWFunction* f;
 
     void visit(const Variable* v) {
       if (starts_with(v->name, "_")) {
@@ -971,7 +970,6 @@ class InstructionCollector : public IRGraphVisitor {
       auto operand = codegen(c->value);
       ist->operands = {operand};
       pushInstr(ist);
-      //instrs.push_back(ist);
       lastValue = ist;
     }
 
@@ -1748,12 +1746,27 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
         internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
 
-        int selRow = instr->getOperand(1)->toInt();
-        int selCol = instr->getOperand(2)->toInt();
-        auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
-        //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
-        instrValues[instr] = cS->sel("out");
-        unitMapping[instr] = cS;
+        if (dimRanges.size() == 2) {
+          int selRow = instr->getOperand(1)->toInt();
+          int selCol = instr->getOperand(2)->toInt();
+          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = cS->sel("out");
+          unitMapping[instr] = cS;
+        } else {
+          internal_assert(dimRanges.size() == 3);
+          
+          int selRow = instr->getOperand(1)->toInt();
+          int selCol = instr->getOperand(2)->toInt();
+          int selChan = instr->getOperand(3)->toInt();
+          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
+              "halidehw.stencil_read_3",
+              {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
+              {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
+          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
+          instrValues[instr] = cS->sel("out");
+          unitMapping[instr] = cS;
+        }
       } else if (name == "ashr") {
         auto shr = def->addInstance("ashr" + std::to_string(defStage), "coreir.ashr", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = shr->sel("out");
