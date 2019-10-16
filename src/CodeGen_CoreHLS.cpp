@@ -3151,6 +3151,18 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
   cout << "Before creating definition.." << endl;
   topMod->print();
+  // Maybe what I should do is build a json file here which
+  // stores the alias maps as well as the stencil types
+  // and then use that to build a test case which automatically
+  // wraps up the input and output types?
+  Json aliasInfo;
+  auto& a = aliasInfo["aliasMap"];
+  for (auto al : ifc.inputAliases) {
+    a[al.first] = al.second;
+  }
+  ofstream interfaceInfo(name + "_accel_interface_info.json");
+  interfaceInfo << aliasInfo;
+  interfaceInfo.close();
 
   // Rest of the code builds the definition of this module, first by
   // creating RTL for each loop kernel, and then by wiring up these
