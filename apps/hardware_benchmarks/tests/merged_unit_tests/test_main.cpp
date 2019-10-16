@@ -1691,14 +1691,35 @@ Func demosaic(Func input) {
   return demosaicked;
 }
 
-void camera_pipeline_test() {
+Func color_correct(Func input) {
+  Var x("x"), y("y"), c("c");
+  Expr ir = cast<int32_t>(input(x, y, 0));
+  Expr ig = cast<int32_t>(input(x, y, 1));
+  Expr ib = cast<int32_t>(input(x, y, 2));
 
-  Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
   int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
     {-38,  159, -21, -2541},
     {-8, -73,  228, -2008}};
 
+  Expr r = matrix[0][3] + matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
+  Expr g = matrix[1][3] + matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
+  Expr b = matrix[2][3] + matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
 
+  r = cast<int16_t>(r/256);
+  g = cast<int16_t>(g/256);
+  b = cast<int16_t>(b/256);
+
+  Func corrected;
+  corrected(x, y, c) = select(c == 0, r,
+      c == 1, g,
+      b);
+
+  return corrected;
+}
+
+void camera_pipeline_test() {
+
+  Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 3);
 
@@ -1709,6 +1730,7 @@ void camera_pipeline_test() {
   hw_input(x, y) = input(x + 3, y + 3);
   denoised = hot_pixel_suppression(hw_input);
   demosaicked = demosaic(denoised);
+  color_corrected = color_correct(demosaicked);
 
   Func curve;
   {
@@ -1722,8 +1744,8 @@ void camera_pipeline_test() {
     curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
   }
 
-  hw_output(x, y, c) = 0;
-
+  //hw_output(x, y, c) = 0;
+  hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
   hw_output.bound(c, 0, 3);
 }
 
