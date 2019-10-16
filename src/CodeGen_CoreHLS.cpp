@@ -482,6 +482,7 @@ void loadHalideLib(CoreIR::Context* context) {
   CoreIR::Params romParams{{"width", context->Int()}, {"depth", context->Int()}, {"nports", context->Int()}};
   CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
   CoreIR::Params widthDimParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()}};
+  //CoreIR::Params stencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()},
   CoreIR::Params stencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()},
     {"r", context->Int()}, {"c", context->Int()}};
   CoreIR::Params stencilReadParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()},
@@ -652,6 +653,25 @@ void loadHalideLib(CoreIR::Context* context) {
         });
   }
 
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("stencil_read_3", stencilReadParams3,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto nb = args.at("nchannels")->get<int>();
+        auto width = args.at("width")->get<int>();
+        return c->Record({{"in", c->BitIn()->Arr(width)->Arr(nr)->Arr(nc)->Arr(nb)}, {"out", c->Bit()->Arr(width)}});
+        });
+    auto readStencil = hns->newGeneratorDecl("stencil_read_3", ws, stencilReadParams3);
+    readStencil->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto row = args.at("r")->get<int>();
+        auto col = args.at("c")->get<int>();
+        auto chan = args.at("b")->get<int>();
+
+        def->connect(def->sel("self")->sel("in")->sel(chan)->sel(col)->sel(row), def->sel("self")->sel("out"));
+        //def->connect(def->sel("self")->sel("in")->sel(0)->sel(row), def->sel("self")->sel("out"));
+        });
+  }
 
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil", stencilReadParams,
