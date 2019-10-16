@@ -3023,6 +3023,111 @@ void printCollectedStores(StoreCollector& stCollector) {
       }
     }
 }
+
+class AcceleratorInterface {
+  public:
+    CoreIR::Type* designType;
+
+    std::map<std::string, std::string> inputAliases;
+    std::map<std::string, std::string> outputAliases;
+    string output_name_real;
+    string output_name;
+};
+
+//CoreIR::Type* topLevelType(CoreIR::Context* context,
+AcceleratorInterface topLevelType(CoreIR::Context* context,
+      const std::vector<CoreIR_Argument>& args) {
+
+    uint num_inouts = 0;
+
+    // Keep track of the inputs, output, and taps for this module
+    std::vector<std::pair<string, CoreIR::Type*>> input_types;
+    std::map<string, CoreIR::Type*> tap_types;
+    CoreIR::Type* output_type = context->Bit();
+
+    AcceleratorInterface interface;
+    string output_name = "";
+    string output_name_real = "";
+    std::map<std::string, std::string> inputAliases;
+    std::map<std::string, std::string> outputAliases;
+    
+    for (size_t i = 0; i < args.size(); i++) {
+      string arg_name = "arg_" + std::to_string(i);
+      string arg_name_real = args[i].name;
+      cout << "Arg " << i << " has name " << arg_name_real << endl;
+
+      inputAliases[arg_name_real] = arg_name;
+
+      if (args[i].is_stencil) {
+        CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+
+        vector<uint> indices;
+        for(const auto &range : stype.bounds) {
+          internal_assert(is_const(range.extent));
+          indices.push_back(func_id_const_value(range.extent));
+        }
+
+        if (args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
+          // add as the outputrg
+          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
+          for (uint i=0; i<indices.size(); ++i) {
+            output_type = output_type->Arr(indices[i]);
+          }
+          //hw_output_set.insert(arg_name);
+          output_name = "out";
+          output_name_real = coreirSanitize(args[i].name);
+
+        } else if (!args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
+          // add another input
+          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+          for (uint i=0; i<indices.size(); ++i) {
+            input_type = input_type->Arr(indices[i]);
+          }
+          input_types.push_back({arg_name, input_type});
+
+        } else {
+          // add another array of taps (configuration changes infrequently)
+          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
+          for (uint i=0; i<indices.size(); ++i) {
+            tap_type = tap_type->Arr(indices[i]);
+          }
+          tap_types[args[i].name] = tap_type;
+        }
+
+        num_inouts++;
+
+      } else {
+        // add another tap (single value)
+        uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
+        CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
+        tap_types[arg_name] = tap_type;
+      }
+
+    }
+
+    CoreIR::Type* design_type;
+
+    design_type = context->Record({
+        {"in", context->Record(input_types)},
+        {"reset", context->BitIn()},
+        {output_name, output_type},
+        {"valid", context->Bit()},
+        {"in_en", context->BitIn()}
+        });
+
+    interface.output_name_real = output_name_real;
+    interface.output_name = output_name;
+    interface.inputAliases = inputAliases;
+    interface.outputAliases = outputAliases;
+    interface.designType = design_type;
+
+    return interface;
+    //return design_type;
+}
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -3117,86 +3222,13 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }    
 
     cout << "Done creating kernels..." << endl;
-    uint num_inouts = 0;
-
-    // Keep track of the inputs, output, and taps for this module
-    std::vector<std::pair<string, CoreIR::Type*>> input_types;
-    std::map<string, CoreIR::Type*> tap_types;
-    CoreIR::Type* output_type = context->Bit();
-
-    std::map<std::string, std::string> inputAliases;
-    std::map<std::string, std::string> outputAliases;
-    string output_name = "";
-    string output_name_real = "";
-    for (size_t i = 0; i < args.size(); i++) {
-      string arg_name = "arg_" + std::to_string(i);
-      string arg_name_real = args[i].name;
-      cout << "Arg " << i << " has name " << arg_name_real << endl;
-      //coreirSanitize(args[i].name);
-
-      inputAliases[arg_name_real] = arg_name;
-
-      if (args[i].is_stencil) {
-        CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
-
-        vector<uint> indices;
-        for(const auto &range : stype.bounds) {
-          internal_assert(is_const(range.extent));
-          indices.push_back(func_id_const_value(range.extent));
-        }
-
-        if (args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
-          // add as the outputrg
-          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
-          for (uint i=0; i<indices.size(); ++i) {
-            output_type = output_type->Arr(indices[i]);
-          }
-          //hw_output_set.insert(arg_name);
-          output_name = "out";
-          output_name_real = coreirSanitize(args[i].name);
-
-        } else if (!args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
-          // add another input
-          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
-          for (uint i=0; i<indices.size(); ++i) {
-            input_type = input_type->Arr(indices[i]);
-          }
-          input_types.push_back({arg_name, input_type});
-
-        } else {
-          // add another array of taps (configuration changes infrequently)
-          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
-          for (uint i=0; i<indices.size(); ++i) {
-            tap_type = tap_type->Arr(indices[i]);
-          }
-          tap_types[args[i].name] = tap_type;
-        }
-
-        num_inouts++;
-
-      } else {
-        // add another tap (single value)
-        uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
-        CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
-        tap_types[arg_name] = tap_type;
-      }
-
-    }
-
-    CoreIR::Type* design_type;
-
-    design_type = context->Record({
-        {"in", context->Record(input_types)},
-        {"reset", context->BitIn()},
-        {output_name, output_type},
-        {"valid", context->Bit()},
-        {"in_en", context->BitIn()}
-        });
-
-    CoreIR::Type* topType = design_type;
+    //CoreIR::Type* topType = design_type;
+    //CoreIR::Type* topType = topLevelType(context, args);
+    AcceleratorInterface ifc = topLevelType(context, args);
+    auto inputAliases = ifc.inputAliases;
+    auto output_name_real = ifc.output_name_real;
+    auto output_name = ifc.output_name;
+    auto topType = ifc.designType;
     auto global_ns = context->getNamespace("global");
     CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
     cout << "Before creating definition.." << endl;
