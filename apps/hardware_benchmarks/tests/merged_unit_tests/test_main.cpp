@@ -1791,7 +1791,7 @@ void curve_lookup_test() {
   compare_buffers(outputBuf, cpuOutput);
 
   cout << GREEN << "Curve lookup test passed" << RESET << endl;
-  assert(false);
+  //assert(false);
 }
 
 void camera_pipeline_test() {
@@ -1818,7 +1818,8 @@ void camera_pipeline_test() {
     Expr val = select(g > 0.5f,
         1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
         a*g*g + b*g);
-    curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
+    //curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
+    curve(x) = cast<uint8_t>(10);
   }
 
   //hw_output(x, y, c) = 0;
