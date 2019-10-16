@@ -22,8 +22,8 @@ std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
 template<typename T>
-Halide::Buffer<T> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Buffer<T>& outputBuf) {
-  Halide::Buffer<uint16_t> cpuOutput(outputBuf.width(), outputBuf.height());
+Halide::Buffer<T> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+  Halide::Buffer<T> cpuOutput(outputBuf.width(), outputBuf.height());
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
@@ -1751,16 +1751,12 @@ void curve_lookup_test() {
   }
 
   // Why 1023 when the max width is 2^8?
-  //hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
-  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, 1023));
-
-
+  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
 
   int tileSize = 4;
   // TODO: Extract to template function
   Halide::Buffer<uint8_t> inputBuf(tileSize, tileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
       hwInputBuf(i, j, 0) = i + j*inputBuf.width();
@@ -1768,13 +1764,8 @@ void curve_lookup_test() {
     }
   }
 
-  //Creating CPU reference output
-  // TODO: Extract to template function
-  Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height());
-  ParamMap rParams;
-  rParams.set(input, inputBuf);
-  Target t;
-  hw_output.realize(cpuOutput, t, rParams);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
   printBuffer(cpuOutput, cout);
   // Hardware schedule
@@ -1794,6 +1785,12 @@ void curve_lookup_test() {
 
   cout << "Module..." << endl;
   cout << m << endl;
+
+  string accelName = "self.in_arg_0_0_0";
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
+
+  cout << GREEN << "Curve lookup test passed" << RESET << endl;
   assert(false);
 }
 
