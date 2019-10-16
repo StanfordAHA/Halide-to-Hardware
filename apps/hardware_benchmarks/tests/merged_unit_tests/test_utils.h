@@ -44,7 +44,7 @@ void printBuffer(T& inputBuf, std::ostream& out) {
   if (inputBuf.dimensions() <= 2 || inputBuf.channels() == 1) {
     for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
       for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
-        out << inputBuf(j, i) << " ";
+        out << (int) inputBuf(j, i) << " ";
       }
       out << std::endl;
     }
@@ -55,7 +55,7 @@ void printBuffer(T& inputBuf, std::ostream& out) {
       out << "------------------------------------------" << std::endl;
       for (int i = inputBuf.top(); i <= inputBuf.bottom(); i++) {
         for (int j = inputBuf.left(); j <= inputBuf.right(); j++) {
-          out << inputBuf(j, i, c) << " ";
+          out << (int) inputBuf(j, i, c) << " ";
         }
         out << std::endl;
       }

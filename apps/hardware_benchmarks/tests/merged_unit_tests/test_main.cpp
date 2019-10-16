@@ -1747,6 +1747,26 @@ void camera_pipeline_test() {
   //hw_output(x, y, c) = 0;
   hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
   hw_output.bound(c, 0, 3);
+  
+  Halide::Buffer<uint8_t> inputBuf(8, 8);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 3);
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      hwInputBuf(i, j, 0) = i + j*inputBuf.width();
+      inputBuf(i, j) = hwInputBuf(i, j);
+    }
+  }
+
+  //Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  cout << "CPU Output..." << endl;
+  printBuffer(cpuOutput, cout);
 }
 
 // Now what do I want to do?
@@ -1790,6 +1810,7 @@ int main(int argc, char **argv) {
   accel_interface_test();
   //assert(false);
   camera_pipeline_test();
+  assert(false);
   rom_read_test();
   //assert(false);
   offset_window_test();  
