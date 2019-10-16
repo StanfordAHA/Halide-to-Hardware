@@ -1825,6 +1825,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   runCmd("clang++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
   cout << "Compiled c++ executable..." << endl;
   runCmd("./a.out");
+  cout << "Ran executable" << endl;
 }
 
 void camera_pipeline_test() {
@@ -1902,13 +1903,11 @@ void camera_pipeline_test() {
 
   vector<Argument> args{input};
   runSoC(hw_output, args, "camera_pipeline");
-
-  cout << "Ran executable" << endl;
   Halide::Runtime::Buffer<uint8_t> cppRes = load_image("camera_pipeline.ppm");
-  cout << "C++ res from pgm..." << endl;
-  printBuffer(cppRes, cout);
-  cout << "CPU output" << endl;
-  printBuffer(cpuOutput, cout);
+  //cout << "C++ res from pgm..." << endl;
+  //printBuffer(cppRes, cout);
+  //cout << "CPU output" << endl;
+  //printBuffer(cpuOutput, cout);
   compare_buffers(cppRes, cpuOutput);
   cout << GREEN << "Camera pipeline test passed" << RESET << endl;
 }
