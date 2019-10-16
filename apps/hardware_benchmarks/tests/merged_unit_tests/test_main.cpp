@@ -1612,7 +1612,7 @@ int main(int argc, char **argv) {
   //    though.
   //camera_pipeline_test();
   rom_read_test();
-  assert(false);
+  //assert(false);
   offset_window_test();  
   //assert(false);
 
