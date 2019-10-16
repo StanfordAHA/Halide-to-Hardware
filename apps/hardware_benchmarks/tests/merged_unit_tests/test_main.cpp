@@ -1677,6 +1677,20 @@ Func hot_pixel_suppression(Func input) {
   return denoised;
 }
 
+Func demosaic(Func input) {
+  Var x("x"), y("y"), c("c");
+  Func r, g, b;
+  // Fake demosaic
+  r(x, y) = input(x - 1, y + 1);
+  g(x, y) = input(x, y);
+  b(x, y) = (input(x - 1, y + 1) + input(x, y)) / 2;
+  Func demosaicked("demosaicked");
+  demosaicked(x, y, c) = select(c == 0, r(x, y),
+      c == 1, g(x, y),
+      b(x, y));
+  return demosaicked;
+}
+
 void camera_pipeline_test() {
 
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -1691,10 +1705,10 @@ void camera_pipeline_test() {
   float gamma = 1.0;
   float contrast = 1.0;
 
-
   Func hw_input, hw_output, denoised, demosaicked, color_corrected;
   hw_input(x, y) = input(x + 3, y + 3);
   denoised = hot_pixel_suppression(hw_input);
+  demosaicked = demosaic(denoised);
 
   Func curve;
   {
