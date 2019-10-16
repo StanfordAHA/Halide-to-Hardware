@@ -1772,7 +1772,8 @@ void camera_pipeline_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2);
+  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2)
+    .reorder(c, xi, yi, xo, yo);
 
   denoised.linebuffer()
     .unroll(x).unroll(y);
@@ -1780,15 +1781,53 @@ void camera_pipeline_test() {
     .unroll(c).unroll(x).unroll(y);
 
   curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-
   hw_output.accelerate({hw_input}, xi, xo, {});
-  //hw_output.unroll(c).unroll(xi, 2);
   hw_output.unroll(c);
-
+  
   cout << "After hw schedule..." << endl;
   hw_output.print_loop_nest();
-  assert(false);
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
 
+  {
+    {
+      Target t;
+      t = t.with_feature(Target::Feature::CoreIR);
+      auto mod = hw_output.compile_to_module(args, "hw_output", t);
+
+      cout << "Module before consolidation..." << endl;
+      cout << mod << endl;
+
+      for (auto& f : mod.functions()) {
+        cout << "Consolidating function" << f << endl;
+        AcceleratorCallConsolidator cons;
+        f.body = cons.mutate(f.body);
+      }
+
+      cout << "Compiled to module" << endl;
+      cout << mod << endl;
+      ofstream outFile("camera_pipeline_soc_mini.cpp");
+      CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+      testPrinter.compileForCGRA(mod);
+      
+      cout << "Compiled cpp code" << endl;
+    }
+    cout << "Done with compiling for CGRA" << endl;
+    runCmd("clang++ -std=c++11 camera_pipeline_soc_run.cpp camera_pipeline_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+    cout << "Compiled c++ executable..." << endl;
+    runCmd("./a.out");
+
+    cout << "Ran executable" << endl;
+    Halide::Runtime::Buffer<uint8_t> cppRes = load_image("offset.pgm");
+    cout << "C++ res from pgm..." << endl;
+    printBuffer(cppRes, cout);
+    cout << "CPU output" << endl;
+    printBuffer(cpuOutput, cout);
+    compare_buffers(cppRes, cpuOutput);
+  
+    assert(false);
+  }
 }
 
 // Now what do I want to do?
