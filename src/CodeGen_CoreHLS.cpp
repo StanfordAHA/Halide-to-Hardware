@@ -2967,6 +2967,50 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   return cp;
 }
 
+void inferStreamTypes(StencilInfoCollector& scl) {
+    cout << "----- Stream info" << endl;
+    cout << "------------ Stream reads" << endl;
+    for (auto streamRead : scl.info.streamReadCalls) {
+      cout << "\tReads from " << streamRead.first << endl;
+      vector<std::string> newParams = {};
+      for (auto c : streamRead.second) {
+        cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamReadCallRealizations[c] << endl;
+        newParams = scl.info.streamReadCallRealizations[c];
+      }
+
+      if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
+        scl.info.streamParams[streamRead.first] = newParams;
+      }
+
+      auto oldParams = scl.info.streamParams[streamRead.first];
+      internal_assert(oldParams == newParams);
+    }
+    
+    cout << "------------ Stream writes" << endl;
+    for (auto streamRead : scl.info.streamWriteCalls) {
+      cout << "\tWrites from " << streamRead.first << endl;
+      vector<std::string> newParams = {};
+      for (auto c : streamRead.second) {
+        cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamWriteCallRealizations[c] << endl;
+        newParams = scl.info.streamWriteCallRealizations[c];
+      }
+
+      if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
+        scl.info.streamParams[streamRead.first] = newParams;
+      }
+
+      auto oldParams = scl.info.streamParams[streamRead.first];
+      internal_assert(oldParams == newParams);
+    }
+
+    cout << "-------------- Inferred stream parameters..." << endl;
+    for (auto sp : scl.info.streamParams) {
+      cout << "\t" << sp.first << " " << sp.second << endl;
+    }
+    //internal_assert(false) << "Stopping here to let Dillon view stream info\n";
+    
+}
+
 void printCollectedStores(StoreCollector& stCollector) {
     for (auto s : stCollector.stores) {
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
@@ -3016,68 +3060,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     StencilInfoCollector scl;
     stmt.accept(&scl);
 
-    cout << "----- Stream info" << endl;
-    cout << "------------ Stream reads" << endl;
-    for (auto streamRead : scl.info.streamReadCalls) {
-      cout << "\tReads from " << streamRead.first << endl;
-      vector<std::string> newParams = {};
-      for (auto c : streamRead.second) {
-        cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamReadCallRealizations[c] << endl;
-        newParams = scl.info.streamReadCallRealizations[c];
-      }
-
-      if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
-        scl.info.streamParams[streamRead.first] = newParams;
-      }
-
-      auto oldParams = scl.info.streamParams[streamRead.first];
-      internal_assert(oldParams == newParams);
-    }
-    
-    cout << "------------ Stream writes" << endl;
-    for (auto streamRead : scl.info.streamWriteCalls) {
-      cout << "\tWrites from " << streamRead.first << endl;
-      vector<std::string> newParams = {};
-      for (auto c : streamRead.second) {
-        cout << "\t\t" << c->args[0] << ", " << c->args[1] << ": has dims: " << scl.info.streamWriteCallRealizations[c] << endl;
-        newParams = scl.info.streamWriteCallRealizations[c];
-      }
-
-      if (!CoreIR::contains_key(streamRead.first, scl.info.streamParams)) {
-        scl.info.streamParams[streamRead.first] = newParams;
-      }
-
-      auto oldParams = scl.info.streamParams[streamRead.first];
-      internal_assert(oldParams == newParams);
-    }
-
-    cout << "-------------- Inferred stream parameters..." << endl;
-    for (auto sp : scl.info.streamParams) {
-      cout << "\t" << sp.first << " " << sp.second << endl;
-    }
-    //internal_assert(false) << "Stopping here to let Dillon view stream info\n";
-    
+    inferStreamTypes(scl);
     //cout << "Stencil info" << endl;
     StencilInfo info = scl.info;
-    //cout << "Dispatches" << endl;
-    //for (auto ds : info.streamDispatches) {
-      //cout << ds.first << endl;
-      //for (auto r : ds.second) {
-        //cout << "\t" << r << endl;
-      //}
-    //}
 
-    //cout << "Stencils" << endl;
-    //for (auto ds : info.stencilRealizations) {
-      //cout << ds.first << endl;
-      //for (auto r : ds.second) {
-        //cout << "\t" << r << endl;
-      //}
-    //}
-
-
-    // TODO: Connect the different loop kernels using the structure contained
-    // in stream in / stream out?
     cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
     int kernelN = 0;
 
