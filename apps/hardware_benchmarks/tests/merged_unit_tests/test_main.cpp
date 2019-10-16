@@ -23,12 +23,23 @@ std::string RESET = "\033[0m";
 
 template<typename T>
 Halide::Buffer<T> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
-  Halide::Buffer<T> cpuOutput(outputBuf.width(), outputBuf.height());
-  ParamMap rParams;
-  rParams.set(input, inputBuf);
-  Target t;
-  hw_output.realize(cpuOutput, t, rParams);
-  return cpuOutput;
+  if (outputBuf.dimensions() == 3) {
+    Halide::Buffer<T> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+    ParamMap rParams;
+    rParams.set(input, inputBuf);
+    Target t;
+    hw_output.realize(cpuOutput, t, rParams);
+    return cpuOutput;
+  } else {
+    assert(outputBuf.dimensions() == 2);
+    
+    Halide::Buffer<T> cpuOutput(outputBuf.width(), outputBuf.height());
+    ParamMap rParams;
+    rParams.set(input, inputBuf);
+    Target t;
+    hw_output.realize(cpuOutput, t, rParams);
+    return cpuOutput;
+  }
 }
 
 template<typename T>
@@ -1872,12 +1883,13 @@ void camera_pipeline_test() {
     }
   }
 
-  //Creating CPU reference output
-  Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
-  ParamMap rParams;
-  rParams.set(input, inputBuf);
-  Target t;
-  hw_output.realize(cpuOutput, t, rParams);
+  Halide::Buffer<uint8_t> cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+  ////Creating CPU reference output
+  //Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+  //ParamMap rParams;
+  //rParams.set(input, inputBuf);
+  //Target t;
+  //hw_output.realize(cpuOutput, t, rParams);
 
   cout << "CPU Output..." << endl;
   printBuffer(cpuOutput, cout);
@@ -1904,10 +1916,6 @@ void camera_pipeline_test() {
   vector<Argument> args{input};
   runSoC(hw_output, args, "camera_pipeline");
   Halide::Runtime::Buffer<uint8_t> cppRes = load_image("camera_pipeline.ppm");
-  //cout << "C++ res from pgm..." << endl;
-  //printBuffer(cppRes, cout);
-  //cout << "CPU output" << endl;
-  //printBuffer(cpuOutput, cout);
   compare_buffers(cppRes, cpuOutput);
   cout << GREEN << "Camera pipeline test passed" << RESET << endl;
 }
