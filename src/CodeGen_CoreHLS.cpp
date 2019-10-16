@@ -1928,7 +1928,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
       } else if (instr->name == "load") {
         int portNo = instr->getOperand(0)->toInt();
         def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
-        def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst", "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
+        def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
       } else {
         internal_assert(false) << "no wiring procedure for " << *instr << "\n";
       }
