@@ -1794,6 +1794,39 @@ void curve_lookup_test() {
   //assert(false);
 }
 
+void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
+  auto context = hwContext();
+  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
+
+  // Note: You cannot remove this scope bracket bc CodeGen_C (which CodeGen_SoC_Test inherits from)
+  // does some stream output in its destructor
+  {
+    Target t;
+    t = t.with_feature(Target::Feature::CoreIR);
+    auto mod = hw_output.compile_to_module(args, "hw_output", t);
+
+    cout << "Module before consolidation..." << endl;
+    cout << mod << endl;
+
+    for (auto& f : mod.functions()) {
+      cout << "Consolidating function" << f << endl;
+      AcceleratorCallConsolidator cons;
+      f.body = cons.mutate(f.body);
+    }
+
+    cout << "Compiled to module" << endl;
+    cout << mod << endl;
+    ofstream outFile(name + "_soc_mini.cpp");
+    CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+    testPrinter.compileForCGRA(mod);
+  }
+  cout << "Compiled cpp code" << endl;
+  cout << "Done with compiling for CGRA" << endl;
+  runCmd("clang++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+  cout << "Compiled c++ executable..." << endl;
+  runCmd("./a.out");
+}
+
 void camera_pipeline_test() {
 
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -1866,48 +1899,18 @@ void camera_pipeline_test() {
   
   cout << "After hw schedule..." << endl;
   hw_output.print_loop_nest();
-  auto context = hwContext();
+
   vector<Argument> args{input};
-  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
+  runSoC(hw_output, args, "camera_pipeline");
 
-  {
-    {
-      Target t;
-      t = t.with_feature(Target::Feature::CoreIR);
-      auto mod = hw_output.compile_to_module(args, "hw_output", t);
-
-      cout << "Module before consolidation..." << endl;
-      cout << mod << endl;
-
-      for (auto& f : mod.functions()) {
-        cout << "Consolidating function" << f << endl;
-        AcceleratorCallConsolidator cons;
-        f.body = cons.mutate(f.body);
-      }
-
-      cout << "Compiled to module" << endl;
-      cout << mod << endl;
-      ofstream outFile("camera_pipeline_soc_mini.cpp");
-      CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
-      testPrinter.compileForCGRA(mod);
-      
-      cout << "Compiled cpp code" << endl;
-    }
-    cout << "Done with compiling for CGRA" << endl;
-    runCmd("clang++ -std=c++11 camera_pipeline_soc_run.cpp camera_pipeline_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
-    cout << "Compiled c++ executable..." << endl;
-    runCmd("./a.out");
-
-    cout << "Ran executable" << endl;
-    Halide::Runtime::Buffer<uint8_t> cppRes = load_image("camera_pipeline.ppm");
-    cout << "C++ res from pgm..." << endl;
-    printBuffer(cppRes, cout);
-    cout << "CPU output" << endl;
-    printBuffer(cpuOutput, cout);
-    compare_buffers(cppRes, cpuOutput);
-  
-    assert(false);
-  }
+  cout << "Ran executable" << endl;
+  Halide::Runtime::Buffer<uint8_t> cppRes = load_image("camera_pipeline.ppm");
+  cout << "C++ res from pgm..." << endl;
+  printBuffer(cppRes, cout);
+  cout << "CPU output" << endl;
+  printBuffer(cpuOutput, cout);
+  compare_buffers(cppRes, cpuOutput);
+  cout << GREEN << "Camera pipeline test passed" << RESET << endl;
 }
 
 // Now what do I want to do?
@@ -1952,7 +1955,7 @@ int main(int argc, char **argv) {
   accel_interface_test();
   //assert(false);
   curve_lookup_test();
-  //camera_pipeline_test();
+  camera_pipeline_test();
   //assert(false);
   rom_read_test();
   //assert(false);
