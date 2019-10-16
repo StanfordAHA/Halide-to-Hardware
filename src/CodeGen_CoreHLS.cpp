@@ -540,6 +540,20 @@ void loadHalideLib(CoreIR::Context* context) {
       def->connect("self.in", "self.out");
       });
 
+  {
+    CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream_3", widthDimParams3,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto nb = args.at("nchannels")->get<int>();
+        auto w = args.at("width")->get<int>();
+        return c->Record({{"in", c->BitIn()->Arr(w)->Arr(nr)->Arr(nc)->Arr(nb)}, {"out", c->Bit()->Arr(w)->Arr(nr)->Arr(nc)->Arr(nb)}});
+        });
+    auto rdStreamGen = hns->newGeneratorDecl("rd_stream_3", tg, widthDimParams3);
+    rdStreamGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        def->connect("self.in", "self.out");
+        });
+  }
 
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("write_stream", widthDimParams,
@@ -1681,18 +1695,29 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         unitMapping[instr] = cs;
       } else if (name == "rd_stream") {
         auto dims = getStreamDims(instr->operands[0]->name, info);
+
         cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
         for (auto d : dims) {
           cout << "Dim = " << d << endl;
         }
 
         vector<int> dimRanges = getDimRanges(dims);
-        stencilRanges[instr] = dimRanges;
-        auto rdStrm = def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
+        if (dimRanges.size() == 2) {
+          stencilRanges[instr] = dimRanges;
+          auto rdStrm = def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}});
 
-        auto res = rdStrm->sel("out");
-        instrValues[instr] = res;
-        unitMapping[instr] = rdStrm;
+          auto res = rdStrm->sel("out");
+          instrValues[instr] = res;
+          unitMapping[instr] = rdStrm;
+        } else {
+          internal_assert(dimRanges.size() == 3);
+          stencilRanges[instr] = dimRanges;
+          auto rdStrm = def->addInstance("rd_stream_" + std::to_string(defStage), "halidehw.rd_stream_3", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", CoreIR::Const::make(context, dimRanges[0])}, {"ncols", CoreIR::Const::make(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])}});
+
+          auto res = rdStrm->sel("out");
+          instrValues[instr] = res;
+          unitMapping[instr] = rdStrm;
+        }
       } else if (name == "write_stream") {
 
         internal_assert(instr->operandTypes.size() > 1);
