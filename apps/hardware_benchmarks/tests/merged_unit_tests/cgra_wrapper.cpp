@@ -261,6 +261,7 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       // For now what can I do to get the two examples I have running?
       assert(outArgs.size() > 0);
       string outArgName = "self." + outArgs[0];
+      cout << "OutArgName = " << outArgName << endl;
       auto output_bv = state->getBitVec(outArgName);
       int output_value;
       output_value = output_bv.to_type<int>();

@@ -1819,7 +1819,7 @@ void camera_pipeline_test() {
     runCmd("./a.out");
 
     cout << "Ran executable" << endl;
-    Halide::Runtime::Buffer<uint8_t> cppRes = load_image("offset.pgm");
+    Halide::Runtime::Buffer<uint8_t> cppRes = load_image("camera_pipeline.ppm");
     cout << "C++ res from pgm..." << endl;
     printBuffer(cppRes, cout);
     cout << "CPU output" << endl;
