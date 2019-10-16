@@ -1952,8 +1952,8 @@ int main(int argc, char **argv) {
   accel_interface_test();
   //assert(false);
   curve_lookup_test();
-  camera_pipeline_test();
-  assert(false);
+  //camera_pipeline_test();
+  //assert(false);
   rom_read_test();
   //assert(false);
   offset_window_test();  
