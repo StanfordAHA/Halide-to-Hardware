@@ -205,7 +205,7 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     output.bound(y, 0, imgsize);
     hw_output.compute_root();
           
-    hw_output.tile(x,y, xo,yo, xi,yi, imgsize/2, imgsize/2)
+    hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
       .hw_accelerate(xi, xo);
 
     hw_input.compute_at(conv, x).store_at(hw_output, xo);
@@ -233,7 +233,7 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     std::cout << "done with hwbuffer creation\n";
 
     //// Create ref buffer and check the hardware buffers
-    int ref_logsize = imgsize/2 + ksize - 1;
+    int ref_logsize = imgsize + ksize - 1;
     auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                       {ksize, ksize}, {ksize, ksize},
                                       {1, 1}, {1, 1});
@@ -252,13 +252,12 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     return output_value;
 }
 
-
-int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
+int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize) {
     std::string suffix = "_";
     for (auto ksize : ksizes) {
       suffix += to_string(ksize) + "_";
     }
-    suffix += to_string(imgsize);
+    suffix += to_string(imgsize) + "_" + to_string(tilesize);
 
     size_t num_conv = ksizes.size();
     Func kernel[num_conv];
@@ -294,7 +293,7 @@ int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
     output.bound(y, 0, imgsize);
     hw_output.compute_root();
           
-    hw_output.tile(x,y, xo,yo, xi,yi, imgsize/2, imgsize/2)
+    hw_output.tile(x,y, xo,yo, xi,yi, tilesize, tilesize)
       .hw_accelerate(xi, xo);
 
     hw_input.store_at(hw_output, xo).compute_at(conv[0], x);
@@ -331,7 +330,7 @@ int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
       h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
       auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
       
-      int ref_logsize = imgsize/2;
+      int ref_logsize = tilesize;
       for (size_t j=i; j<num_conv; ++j) {
         ref_logsize += ksizes.at(j) - 1;
       }
@@ -361,6 +360,13 @@ int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
     return 0;
 }
 
+int tiled_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize) {
+  return general_pipeline_hwbuffer_test(ksizes, imgsize, tilesize);
+}
+
+int pipeline_hwbuffer_test(vector<int> ksizes, int imgsize) {
+  return general_pipeline_hwbuffer_test(ksizes, imgsize, imgsize);
+}
 
 
 }  // namespace
@@ -384,6 +390,7 @@ int main(int argc, char **argv) {
 
     if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
+    if (tiled_pipeline_hwbuffer_test({7, 5, 2}, 64, 32) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({3, 1}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }

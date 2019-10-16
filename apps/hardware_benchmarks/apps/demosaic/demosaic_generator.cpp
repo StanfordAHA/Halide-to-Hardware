@@ -28,13 +28,13 @@ public:
         // common patterns: average of four surrounding pixels
         Func neswNeighbors, diagNeighbors;
         neswNeighbors(x, y) = (hw_input(x-1, y)   + hw_input(x+1, y) +
-                               hw_input(x,   y-1) + hw_input(x,   y+1)/4);
+                               hw_input(x,   y-1) + hw_input(x,   y+1)) / 4;
         diagNeighbors(x, y) = (hw_input(x-1, y-1) + hw_input(x+1, y-1) +
-                               hw_input(x-1, y+1) + hw_input(x+1, y+1)/4);
+                               hw_input(x-1, y+1) + hw_input(x+1, y+1)) / 4;
         //neswNeighbors(x, y) = (hw_input(x,  y+1) + hw_input(x+2, y+1) +
-        //                       hw_input(x+1,y)   + hw_input(x+1, y+2)/4);
+        //                       hw_input(x+1,y)   + hw_input(x+1, y+2)) / 4;
         //diagNeighbors(x, y) = (hw_input(x,  y)   + hw_input(x+2, y) +
-        //                       hw_input(x,  y+2) + hw_input(x+2, y+2)/4);
+        //                       hw_input(x,  y+2) + hw_input(x+2, y+2)) / 4;
 
         // common patterns: average of two adjacent pixels
         Func vNeighbors, hNeighbors;
