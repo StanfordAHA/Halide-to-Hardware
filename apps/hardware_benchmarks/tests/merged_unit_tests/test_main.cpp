@@ -1742,6 +1742,28 @@ void curve_lookup_test() {
 
   // Why 1023 when the max width is 2^8?
   hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
+
+
+  int tileSize = 20;
+  Halide::Buffer<uint8_t> inputBuf(tileSize, tileSize);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      hwInputBuf(i, j, 0) = i + j*inputBuf.width();
+      inputBuf(i, j) = hwInputBuf(i, j);
+    }
+  }
+
+  //Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  printBuffer(cpuOutput, cout);
+  assert(false);
 }
 
 void camera_pipeline_test() {
