@@ -1596,6 +1596,62 @@ void pointwise_add_test() {
     cout << GREEN << "Pointwise add passed!" << RESET << endl;
 }
 
+void accel_interface_test() {
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 3);
+
+  Var x("x"), y("y"), c("c");
+  Var xi,yi,zi, xo,yo,zo;
+
+  Func hw_input, hw_output;
+  hw_input(x,y) = cast<uint16_t>(input(x+1,y+1));
+  hw_output(x,y,c) = cast<uint16_t>(hw_input(x, y) + c);
+  output(x,y,c) = hw_output(x,y,c);
+
+  // Schedule common
+  hw_output.bound(c, 0, 3);
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  Halide::Buffer<uint16_t> inputBuf(20, 20);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(2, 2, 3);
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      hwInputBuf(i, j, 0) = rand() % 255;
+    }
+  }
+
+  //Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  hw_output.tile(x, y, xo, yo, xi, yi, 10, 10)
+    .reorder(c, xi, yi, xo, yo);
+
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
+  hw_output.unroll(c);
+
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "accel_coreir", args, "accel", hw_output);
+
+  json j;
+  ifstream inFile("accel_interface_info.json");
+  inFile >> j;
+  cout << "JSON..." << endl;
+  cout << j << endl;
+  assert(false);
+
+  //runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  //compare_buffers(outputBuf, cpuOutput);
+
+  //cout << GREEN << "Accelerator interface test passed" << RESET << endl;
+}
+
 // Now what do I want to do?
 // Goal: Get camera pipeline running
 // 
@@ -1640,6 +1696,7 @@ void pointwise_add_test() {
 // and that should happen at the same time that compute is scheduled.
 int main(int argc, char **argv) {
 
+  accel_interface_test();
   //camera_pipeline_test();
   rom_read_test();
   //assert(false);
