@@ -1767,6 +1767,28 @@ void camera_pipeline_test() {
 
   cout << "CPU Output..." << endl;
   printBuffer(cpuOutput, cout);
+
+  // Hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2);
+
+  denoised.linebuffer()
+    .unroll(x).unroll(y);
+  demosaicked.linebuffer()
+    .unroll(c).unroll(x).unroll(y);
+
+  curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+
+  hw_output.accelerate({hw_input}, xi, xo, {});
+  //hw_output.unroll(c).unroll(xi, 2);
+  hw_output.unroll(c);
+
+  cout << "After hw schedule..." << endl;
+  hw_output.print_loop_nest();
+  assert(false);
+
 }
 
 // Now what do I want to do?
