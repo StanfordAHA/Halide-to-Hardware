@@ -3160,6 +3160,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto al : ifc.inputAliases) {
     a[al.first] = al.second;
   }
+
+  auto& oname = aliasInfo["outName"];
+  oname[output_name_real] = output_name;
   //ofstream interfaceInfo(name + "_accel_interface_info.json");
   ofstream interfaceInfo("accel_interface_info.json");
   interfaceInfo << aliasInfo;

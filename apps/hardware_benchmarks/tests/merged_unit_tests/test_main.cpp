@@ -1644,6 +1644,16 @@ void accel_interface_test() {
   inFile >> j;
   cout << "JSON..." << endl;
   cout << j << endl;
+
+  auto aliasMap = j["aliasMap"];
+  cout << "Alias map = " << aliasMap << endl;
+
+  cout << "Json elems" << endl;
+  for (auto elem : j) {
+    cout << "\t" << elem << endl;
+  }
+  string inS = "hw_input.stencil.stream";
+  string outS = "hw_output.stencil.stream";
   assert(false);
 
   //runHWKernel(accelName, m, hwInputBuf, outputBuf);
@@ -1701,14 +1711,10 @@ int main(int argc, char **argv) {
   rom_read_test();
   //assert(false);
   offset_window_test();  
-  //assert(false);
-
   small_demosaic_test();
-  //assert(false);
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
-  //assert(false);
   mod2_test();
   shiftRight_test();
   clamp_test();
