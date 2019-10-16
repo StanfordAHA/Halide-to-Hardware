@@ -1818,14 +1818,14 @@ void camera_pipeline_test() {
     Expr val = select(g > 0.5f,
         1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
         a*g*g + b*g);
-    //curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
-    curve(x) = cast<uint8_t>(10);
+    curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
   }
 
   //hw_output(x, y, c) = 0;
-  //hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
-  hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
+  hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
+  //hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
   //curve(clamp(color_corrected(x, y, c), 0, 1023));
+  //hw_output(x, y, c) = cast<uint8_t>(demosaicked(x, y, c));
   hw_output.bound(c, 0, 3);
   
   Halide::Buffer<uint8_t> inputBuf(8, 8);
