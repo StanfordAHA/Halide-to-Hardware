@@ -1618,7 +1618,10 @@ void accel_interface_test() {
   Halide::Runtime::Buffer<uint16_t> outputBuf(2, 2, 3);
   for (int i = 0; i < inputBuf.width(); i++) {
     for (int j = 0; j < inputBuf.height(); j++) {
-      hwInputBuf(i, j, 0) = rand() % 255;
+      hwInputBuf(i, j, 0) = i + j;
+      //hwInputBuf(i, j, 0) = 10;
+      //rand() % 255;
+      inputBuf(i, j) = hwInputBuf(i, j);
     }
   }
 
@@ -1628,9 +1631,10 @@ void accel_interface_test() {
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
+
+  // Creating tiles
   hw_output.tile(x, y, xo, yo, xi, yi, 10, 10)
     .reorder(c, xi, yi, xo, yo);
-
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
   hw_output.unroll(c);
@@ -1654,12 +1658,13 @@ void accel_interface_test() {
   }
   string inS = "hw_input.stencil.stream";
   string outS = "hw_output.stencil.stream";
-  assert(false);
+  string accelName = "self.in_" + aliasMap[inS].get<string>() + "_0_0";
+  //assert(false);
 
-  //runHWKernel(accelName, m, hwInputBuf, outputBuf);
-  //compare_buffers(outputBuf, cpuOutput);
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
 
-  //cout << GREEN << "Accelerator interface test passed" << RESET << endl;
+  cout << GREEN << "Accelerator interface test passed" << RESET << endl;
 }
 
 // Now what do I want to do?
@@ -1707,6 +1712,7 @@ void accel_interface_test() {
 int main(int argc, char **argv) {
 
   accel_interface_test();
+  assert(false);
   //camera_pipeline_test();
   rom_read_test();
   //assert(false);
