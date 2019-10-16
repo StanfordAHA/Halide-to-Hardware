@@ -22,6 +22,16 @@ std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
 template<typename T>
+Halide::Buffer<T> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Buffer<T>& outputBuf) {
+  Halide::Buffer<uint16_t> cpuOutput(outputBuf.width(), outputBuf.height());
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  return cpuOutput;
+}
+
+template<typename T>
 bool is2D(T& buf) {
   return (buf.dimensions() == 2) || (buf.dimensions() == 3 && buf.channels() == 1);
 }
@@ -1741,10 +1751,13 @@ void curve_lookup_test() {
   }
 
   // Why 1023 when the max width is 2^8?
-  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
+  //hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
+  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, 1023));
 
 
-  int tileSize = 20;
+
+  int tileSize = 4;
+  // TODO: Extract to template function
   Halide::Buffer<uint8_t> inputBuf(tileSize, tileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
@@ -1756,6 +1769,7 @@ void curve_lookup_test() {
   }
 
   //Creating CPU reference output
+  // TODO: Extract to template function
   Halide::Buffer<uint8_t> cpuOutput(outputBuf.width(), outputBuf.height());
   ParamMap rParams;
   rParams.set(input, inputBuf);
@@ -1763,6 +1777,23 @@ void curve_lookup_test() {
   hw_output.realize(cpuOutput, t, rParams);
 
   printBuffer(cpuOutput, cout);
+  // Hardware schedule
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.tile(x, y, xo, yo, xi, yi, tileSize, tileSize);
+
+  curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+  hw_output.accelerate({hw_input}, xi, xo, {});
+  
+  cout << "After hw schedule..." << endl;
+  hw_output.print_loop_nest();
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
+
+  cout << "Module..." << endl;
+  cout << m << endl;
   assert(false);
 }
 
@@ -1917,6 +1948,7 @@ void camera_pipeline_test() {
 //    get argument binding working
 int main(int argc, char **argv) {
 
+  //assert(false);
   accel_interface_test();
   //assert(false);
   curve_lookup_test();
@@ -1929,11 +1961,11 @@ int main(int argc, char **argv) {
   multi_channel_conv_test();
   control_path_test();
   control_path_xy_test();
+  pointwise_add_test();
   mod2_test();
   shiftRight_test();
   clamp_test();
   //clamped_grad_x_test();
-  pointwise_add_test();
   small_conv_3_3_test();
   small_cascade_test();
   //small_harris_test();
