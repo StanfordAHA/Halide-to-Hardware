@@ -2,6 +2,7 @@
 
 #include "coreir.h"
 #include "coreir/simulator/interpreter.h"
+#include "test_utils.h"
 
 // Dummy file
 //
@@ -161,6 +162,7 @@ class CGRAWrapper {
     std::vector<uint16_t> pixelOutputs;
     std::string inputName;
     std::vector<std::string> outArgs;
+    std::map<std::string, Point<int> > outArgLocations;
 
     CGRAWrapper();
     ~CGRAWrapper();

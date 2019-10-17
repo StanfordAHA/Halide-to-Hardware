@@ -58,6 +58,8 @@ CGRAWrapper::CGRAWrapper() {
   m->print();
   // Set input name
   auto rtp = m->getType();
+
+  // TODO: Need to create a map from outArgs to points that represent offsets
   vector<string> inArgs;
   for (auto field : rtp->getFields()) {
     cout << "Field = " << field << endl;
@@ -65,6 +67,7 @@ CGRAWrapper::CGRAWrapper() {
       inArgs.push_back(field);
     } else if (starts_with(field, "out_")) {
       outArgs.push_back(field);
+      outArgLocations[field] = Point<int>{{0, 0, 0}, {"x", "y", "c"}};
     }
   }
 
@@ -282,16 +285,9 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
           dest_stride_1 * y +
           dest_stride_2 * (c + i) +
           dest_stride_3 * m;
-        cout << "Dest offset " << dOffset << endl;
+        cout << "\tDest offset " << dOffset << " set to value " << output_value << endl;
         db[dOffset] = output_value;
       }
-      //int dOffset = destOffset +
-        //dest_stride_0 * x +
-        //dest_stride_1 * y +
-        //dest_stride_2 * c +
-        //dest_stride_3 * m;
-      //cout << "Dest offset " << dOffset << endl;
-      //db[dOffset] = output_value;
 
       //cout << "Set output at offset " << dOffset << endl;
       readIdx.increment();
