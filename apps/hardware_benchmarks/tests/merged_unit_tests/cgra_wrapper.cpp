@@ -211,7 +211,6 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       // For now what can I do to get the two examples I have running?
       assert(outArgs.size() > 0);
 
-      OutElemType* db = (OutElemType*) _halide_buffer_get_host(destBuf);
       auto x = readIdx.coord("x");
       auto y = readIdx.coord("y");
       auto c = readIdx.coord("c");
@@ -235,7 +234,17 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
           dest_stride_2 * (c + i) +
           dest_stride_3 * m;
         cout << "\tDest offset " << dOffset << " set to value " << output_value << endl;
-        db[dOffset] = output_value;
+        
+       
+        assert(destBits == 16 || destBits == 8);
+        if (destBits == 8) {
+          uint8_t* db = (uint8_t*) _halide_buffer_get_host(destBuf);
+          db[dOffset] = output_value;
+        } else {
+          assert(destBits == 16);
+          uint16_t* db = (uint16_t*) _halide_buffer_get_host(destBuf);
+          db[dOffset] = output_value;
+        }
       }
 
       //cout << "Set output at offset " << dOffset << endl;
