@@ -119,9 +119,6 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
         int dest_stride_2, int dest_subimage_extent_2,
         int dest_stride_3, int dest_subimage_extent_3) {
 
-  typedef uint8_t InElemType;
-  typedef uint8_t OutElemType;
-
   uint32_t sourceElemType = _halide_buffer_get_type(sourceBuf);
   uint32_t destElemType = _halide_buffer_get_type(destBuf);
 
