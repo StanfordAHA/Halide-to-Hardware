@@ -1687,6 +1687,13 @@ void accel_soc_test() {
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
   // Hardware schedule
+  hw_output.tile(x, y, xo, yo, xi, yi, 2, 2)
+    .reorder(c, xi, yi, xo, yo);
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
+  hw_output.unroll(c);
+ 
+  // Run on SoC
   vector<Argument> args{input};
   runSoC(hw_output, args, "accel_soc");
 
