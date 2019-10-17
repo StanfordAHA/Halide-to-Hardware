@@ -1763,14 +1763,19 @@ void accel_interface_test() {
 
   auto aliasMap = j["aliasMap"];
   cout << "Alias map = " << aliasMap << endl;
+  assert(aliasMap.size() == 1);
 
-  cout << "Json elems" << endl;
-  for (auto elem : j) {
-    cout << "\t" << elem << endl;
-  }
-  string inS = "hw_input.stencil.stream";
+  //cout << "Json elems" << endl;
+  //for (auto elem : j) {
+    //cout << "\t" << elem << endl;
+  //}
+  //string inS = "hw_input.stencil.stream";
+  string inS = begin(aliasMap)->get<string>();
+  cout << "inS = " << inS << endl;
+  //assert(false);
   string outS = "hw_output.stencil.stream";
-  string accelName = "self.in_" + aliasMap[inS].get<string>() + "_0_0";
+  //string accelName = "self.in_" + aliasMap[inS].get<string>() + "_0_0";
+  string accelName = "self.in_" + inS + "_0_0";
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
@@ -2046,8 +2051,8 @@ void camera_pipeline_test() {
 int main(int argc, char **argv) {
 
   hot_pixel_suppression_test();
-  camera_pipeline_test();
-  assert(false);
+  //camera_pipeline_test();
+  //assert(false);
   accel_interface_test();
   accel_soc_test();
   //assert(false);

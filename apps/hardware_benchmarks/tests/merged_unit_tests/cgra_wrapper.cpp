@@ -280,7 +280,7 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       // TODO: Replace with real window traversal
       for (auto argPt : outArgLocations) {
         string outArgName = "self." + argPt.first;
-        cout << "OutArgName = " << outArgName << endl;
+        cout << "OutArgName = " << outArgName << ", location = " << argPt.second << endl;
         auto output_bv = state->getBitVec(outArgName);
         int output_value;
         output_value = output_bv.to_type<int>();
