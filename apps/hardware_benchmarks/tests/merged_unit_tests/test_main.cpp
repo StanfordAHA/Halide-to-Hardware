@@ -2006,7 +2006,7 @@ int main(int argc, char **argv) {
   accel_soc_test();
   //assert(false);
   curve_lookup_test();
-  camera_pipeline_test();
+  //camera_pipeline_test();
   //assert(false);
   rom_read_test();
   //assert(false);
