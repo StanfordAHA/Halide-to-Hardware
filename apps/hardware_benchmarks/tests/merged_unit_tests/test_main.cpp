@@ -1813,11 +1813,11 @@ Func demosaic(Func input) {
 
 Func color_correct(Func input) {
   Var x("x"), y("y"), c("c");
-  Expr ir = cast<int32_t>(input(x, y, 0));
-  Expr ig = cast<int32_t>(input(x, y, 1));
-  Expr ib = cast<int32_t>(input(x, y, 2));
+  Expr ir = cast<int16_t>(input(x, y, 0));
+  Expr ig = cast<int16_t>(input(x, y, 1));
+  Expr ib = cast<int16_t>(input(x, y, 2));
 
-  int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
+  int16_t matrix[3][4] = {{ 200, -44,  17, -3900},
     {-38,  159, -21, -2541},
     {-8, -73,  228, -2008}};
 
@@ -1971,8 +1971,11 @@ void camera_pipeline_test() {
   }
 
   //hw_output(x, y, c) = 0;
-  //hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
-  hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
+  hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
+  //hw_output(x, y, c) = curve(clamp(cast<uint8_t>(color_corrected(x, y, c)), 0, cast<uint8_t>(1023)));
+  //
+  // Note: Passes one unit test
+  //hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
   //curve(clamp(color_corrected(x, y, c), 0, 1023));
   hw_output.bound(c, 0, 3);
   
