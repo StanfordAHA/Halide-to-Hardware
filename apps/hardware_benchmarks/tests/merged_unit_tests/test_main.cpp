@@ -1653,6 +1653,12 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
     ofstream outFile(name + "_soc_mini.cpp");
     CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
     testPrinter.compileForCGRA(mod);
+
+    ofstream headerOut(name + "_soc_mini.h");
+    headerOut << "extern \"C\" {\n";
+    headerOut << "\tint hw_output(struct halide_buffer_t *_input_buffer, struct halide_buffer_t *_hw_output_buffer);\n";
+    headerOut << "}\n";
+    headerOut.close();
   }
   cout << "Compiled cpp code" << endl;
   cout << "Done with compiling for CGRA" << endl;
@@ -1888,9 +1894,45 @@ void curve_lookup_test() {
   compare_buffers(outputBuf, cpuOutput);
 
   cout << GREEN << "Curve lookup test passed" << RESET << endl;
-  //assert(false);
 }
 
+
+void hot_pixel_suppression_test() {
+  Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  Func hw_input, hw_output, denoised;
+  hw_input(x, y) = input(x + 3, y + 3);
+  denoised = hot_pixel_suppression(hw_input);
+  hw_output(x, y) = denoised(x, y);
+
+  hw_output.compute_root();
+  hw_input.compute_root();
+
+  int outTileSize = 2;
+  Halide::Buffer<uint8_t> inputBuf(8, 8);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPattern2D(inputBuf, hwInputBuf);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
+  // Hardware schedule
+  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
+    .reorder(xi, yi, xo, yo);
+  hw_input.stream_to_accelerator();
+  denoised.linebuffer();
+  //unroll(x).unroll(y);
+  hw_output.hw_accelerate(xi, xo);
+ 
+  vector<Argument> args{input};
+  runSoC(hw_output, args, "hot_pixel_suppression");
+
+  Halide::Runtime::Buffer<uint8_t> cppRes = load_image("hot_pixel_suppression.pgm");
+  compare_buffers(cppRes, cpuOutput);
+  
+  cout << GREEN << "Hot pixel suppression test passed" << RESET << endl;
+}
 
 // How can we check if this thing handles different dimensions / orders?
 // Maybe start with a simple app run on the SoC that uses different variable orders?
@@ -1900,9 +1942,6 @@ void camera_pipeline_test() {
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 3);
 
-  float gamma = 1.0;
-  float contrast = 1.0;
-
   Func hw_input, hw_output, denoised, demosaicked, color_corrected;
   hw_input(x, y) = input(x + 3, y + 3);
   denoised = hot_pixel_suppression(hw_input);
@@ -1911,6 +1950,9 @@ void camera_pipeline_test() {
 
   Func curve;
   {
+    float gamma = 1.0;
+    float contrast = 1.0;
+
     Expr xf = x/1024.0f;
     Expr g = pow(xf, 1.0f/gamma);
     Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
@@ -2006,6 +2048,7 @@ int main(int argc, char **argv) {
   accel_soc_test();
   //assert(false);
   curve_lookup_test();
+  hot_pixel_suppression_test();
   //camera_pipeline_test();
   //assert(false);
   rom_read_test();
