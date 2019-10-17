@@ -1779,7 +1779,7 @@ void accel_interface_test() {
 }
 
 Func hot_pixel_suppression(Func input) {
-  Var x, y;
+  Var x("x"), y("y");
   Func denoised("denoised");
   Expr max_value = max(max(input(x-2, y), input(x+2, y)),
       max(input(x, y-2), input(x, y+2)));
