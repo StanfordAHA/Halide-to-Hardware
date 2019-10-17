@@ -98,3 +98,4 @@ tutorial/pipeline*
 *.cmake
 CMakeCache.txt
 CMakeFiles/*
+apps/*_soc_mini.cpp
