@@ -1941,8 +1941,6 @@ void hot_pixel_suppression_test() {
   cout << GREEN << "Hot pixel suppression test passed" << RESET << endl;
 }
 
-// How can we check if this thing handles different dimensions / orders?
-// Maybe start with a simple app run on the SoC that uses different variable orders?
 void camera_pipeline_test() {
 
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
