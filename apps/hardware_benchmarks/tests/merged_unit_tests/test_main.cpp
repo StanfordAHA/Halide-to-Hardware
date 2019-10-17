@@ -2045,12 +2045,12 @@ void camera_pipeline_test() {
 //    get argument binding working
 int main(int argc, char **argv) {
 
-  //assert(false);
+  hot_pixel_suppression_test();
+  assert(false);
   accel_interface_test();
   accel_soc_test();
   //assert(false);
   curve_lookup_test();
-  hot_pixel_suppression_test();
   //camera_pipeline_test();
   //assert(false);
   rom_read_test();

@@ -204,6 +204,9 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
         int dest_stride_2, int dest_subimage_extent_2,
         int dest_stride_3, int dest_subimage_extent_3) {
 
+  typedef uint8_t InElemType;
+  typedef uint8_t OutElemType;
+
   cout << "subimage to stream on buffer at offset " << destOffset << " with extents..." << endl;
   cout << "\t" << dest_subimage_extent_0 << endl;
   cout << "\t" << dest_subimage_extent_1 << endl;
@@ -232,7 +235,7 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
   pixelOutputs.clear();
   assert(pixelOutputs.size() == 0);
 
-  uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(sourceBuf);
+  InElemType* hostBuf = (InElemType*) _halide_buffer_get_host(sourceBuf);
   while (!readIdx.allDone()) {
     cout << "Write index = " << writeIdx.coordString() << endl;
     cout << "Read index  = " << readIdx.coordString() << endl;
@@ -249,7 +252,7 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       src_stride_3 * m;
 
     if (!writeIdx.allDone()) {
-      uint16_t nextInPixel = hostBuf[offset];
+      InElemType nextInPixel = hostBuf[offset];
       cout << "Next pixel = " << nextInPixel << endl;
       state->setValue("self.in_en", BitVector(1, true));
       state->setValue(inputName, BitVector(16, nextInPixel));
@@ -265,14 +268,8 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
 
       // For now what can I do to get the two examples I have running?
       assert(outArgs.size() > 0);
-      //string outArgName = "self." + outArgs[0];
-      //cout << "OutArgName = " << outArgName << endl;
-      //auto output_bv = state->getBitVec(outArgName);
-      //int output_value;
-      //output_value = output_bv.to_type<int>();
-      //cout << "\tOutput value = " << output_value << endl;
 
-      uint16_t* db = (uint16_t*) _halide_buffer_get_host(destBuf);
+      OutElemType* db = (OutElemType*) _halide_buffer_get_host(destBuf);
       auto x = readIdx.coord("x");
       auto y = readIdx.coord("y");
       auto c = readIdx.coord("c");
@@ -281,7 +278,6 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       //cout << "Reading pixel " << x << ", " << y << ", " << c << endl;
 
       // TODO: Replace with real window traversal
-      //for (int i = 0; i < (int) outArgs.size(); i++) {
       for (auto argPt : outArgLocations) {
         string outArgName = "self." + argPt.first;
         cout << "OutArgName = " << outArgName << endl;
