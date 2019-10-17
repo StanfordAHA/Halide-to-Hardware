@@ -1860,7 +1860,6 @@ void curve_lookup_test() {
     curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
   }
 
-  // Why 1023 when the max width is 2^8?
   hw_output(x, y) = curve(clamp(hw_input(x, y), 0, cast<uint8_t>(1023)));
 
   int tileSize = 4;
@@ -1969,9 +1968,15 @@ void camera_pipeline_test() {
   }
 
   //hw_output(x, y, c) = 0;
-  hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
+  //hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 1023));
+  //hw_output(x, y, c) = curve(clamp(color_corrected(x, y, c), 0, 255));
   //hw_output(x, y, c) = curve(clamp(cast<uint8_t>(color_corrected(x, y, c)), 0, cast<uint8_t>(1023)));
-  //
+
+  Func hw_output_8;
+  hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
+  hw_output(x, y, c) = curve(hw_output_8(x, y, c));
+  // Note: Passes one unit test
+  //hw_output(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
   // Note: Passes one unit test
   //hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
   //curve(clamp(color_corrected(x, y, c), 0, 1023));
