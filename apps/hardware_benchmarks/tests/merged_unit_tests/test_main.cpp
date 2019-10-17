@@ -1786,9 +1786,9 @@ Func hot_pixel_suppression(Func input) {
   Expr min_value = min(min(input(x-2, y), input(x+2, y)),
       min(input(x, y-2), input(x, y+2)));
 
-  //denoised(x, y) = clamp(input(x,y), min_value, max_value);
+  denoised(x, y) = clamp(input(x,y), min_value, max_value);
   //denoised(x, y) = input(x, y);
-  denoised(x, y) = clamp(input(x,y), 5, 200);
+  //denoised(x, y) = clamp(input(x,y), 5, 200);
   return denoised;
 }
 
@@ -2046,12 +2046,12 @@ void camera_pipeline_test() {
 int main(int argc, char **argv) {
 
   hot_pixel_suppression_test();
+  camera_pipeline_test();
   assert(false);
   accel_interface_test();
   accel_soc_test();
   //assert(false);
   curve_lookup_test();
-  //camera_pipeline_test();
   //assert(false);
   rom_read_test();
   //assert(false);
