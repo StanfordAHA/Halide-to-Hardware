@@ -61,13 +61,15 @@ CGRAWrapper::CGRAWrapper() {
 
   // TODO: Need to create a map from outArgs to points that represent offsets
   vector<string> inArgs;
+  int cIndex = 0;
   for (auto field : rtp->getFields()) {
     cout << "Field = " << field << endl;
     if (starts_with(field, "in_arg_")) {
       inArgs.push_back(field);
     } else if (starts_with(field, "out_")) {
       outArgs.push_back(field);
-      outArgLocations[field] = Point<int>{{0, 0, 0}, {"x", "y", "c"}};
+      outArgLocations[field] = Point<int>{{0, 0, cIndex}, {"x", "y", "c"}};
+      cIndex++;
     }
   }
 
@@ -263,12 +265,12 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
 
       // For now what can I do to get the two examples I have running?
       assert(outArgs.size() > 0);
-      string outArgName = "self." + outArgs[0];
-      cout << "OutArgName = " << outArgName << endl;
-      auto output_bv = state->getBitVec(outArgName);
-      int output_value;
-      output_value = output_bv.to_type<int>();
-      cout << "\tOutput value = " << output_value << endl;
+      //string outArgName = "self." + outArgs[0];
+      //cout << "OutArgName = " << outArgName << endl;
+      //auto output_bv = state->getBitVec(outArgName);
+      //int output_value;
+      //output_value = output_bv.to_type<int>();
+      //cout << "\tOutput value = " << output_value << endl;
 
       uint16_t* db = (uint16_t*) _halide_buffer_get_host(destBuf);
       auto x = readIdx.coord("x");
@@ -276,10 +278,19 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       auto c = readIdx.coord("c");
       auto m = 0;
 
-      cout << "Reading pixel " << x << ", " << y << ", " << c << endl;
+      //cout << "Reading pixel " << x << ", " << y << ", " << c << endl;
 
       // TODO: Replace with real window traversal
-      for (int i = 0; i < (int) outArgs.size(); i++) {
+      //for (int i = 0; i < (int) outArgs.size(); i++) {
+      for (auto argPt : outArgLocations) {
+        string outArgName = "self." + argPt.first;
+        cout << "OutArgName = " << outArgName << endl;
+        auto output_bv = state->getBitVec(outArgName);
+        int output_value;
+        output_value = output_bv.to_type<int>();
+        cout << "\tOutput value = " << output_value << endl;
+
+        int i = argPt.second.coord("c");
         int dOffset = destOffset +
           dest_stride_0 * x +
           dest_stride_1 * y +
