@@ -1701,7 +1701,7 @@ void accel_soc_test() {
   compare_buffers(cppRes, cpuOutput);
   
   cout << GREEN << "Accel soc test passed" << RESET << endl;
-  assert(false);
+  //assert(false);
 }
 
 void accel_interface_test() {
