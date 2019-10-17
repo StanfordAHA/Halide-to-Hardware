@@ -1787,7 +1787,8 @@ Func hot_pixel_suppression(Func input) {
       min(input(x, y-2), input(x, y+2)));
 
   //denoised(x, y) = clamp(input(x,y), min_value, max_value);
-  denoised(x, y) = input(x, y);
+  //denoised(x, y) = input(x, y);
+  denoised(x, y) = clamp(input(x,y), 5, 200);
   return denoised;
 }
 
