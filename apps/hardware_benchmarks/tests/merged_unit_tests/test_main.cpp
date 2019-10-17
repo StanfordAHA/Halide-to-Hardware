@@ -1618,6 +1618,85 @@ void pointwise_add_test() {
     cout << GREEN << "Pointwise add passed!" << RESET << endl;
 }
 
+template<typename T0, typename T1>
+void indexTestPattern2D(T0& inputBuf, T1& hwInputBuf) {
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      hwInputBuf(i, j, 0) = i + j*inputBuf.width();
+      inputBuf(i, j) = hwInputBuf(i, j);
+    }
+  }
+}
+
+void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
+  auto context = hwContext();
+  auto m = buildModule(context, name + "_coreir", args, name, hw_output);
+
+  // Note: You cannot remove this scope bracket bc CodeGen_C (which CodeGen_SoC_Test inherits from)
+  // does some stream output in its destructor
+  {
+    Target t;
+    t = t.with_feature(Target::Feature::CoreIR);
+    auto mod = hw_output.compile_to_module(args, "hw_output", t);
+
+    cout << "Module before consolidation..." << endl;
+    cout << mod << endl;
+
+    for (auto& f : mod.functions()) {
+      cout << "Consolidating function" << f << endl;
+      AcceleratorCallConsolidator cons;
+      f.body = cons.mutate(f.body);
+    }
+
+    cout << "Compiled to module" << endl;
+    cout << mod << endl;
+    ofstream outFile(name + "_soc_mini.cpp");
+    CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
+    testPrinter.compileForCGRA(mod);
+  }
+  cout << "Compiled cpp code" << endl;
+  cout << "Done with compiling for CGRA" << endl;
+  runCmd("clang++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+  cout << "Compiled c++ executable..." << endl;
+  runCmd("./a.out");
+  cout << "Ran executable" << endl;
+}
+
+void accel_soc_test() {
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 3);
+
+  Var x("x"), y("y"), c("c");
+  Var xi,yi,zi, xo,yo,zo;
+
+  Func hw_input, hw_output;
+  hw_input(x,y) = input(x, y);
+  hw_output(x,y,c) = cast<uint16_t>(hw_input(x, y) + c);
+  output(x,y,c) = hw_output(x,y,c);
+
+  // Schedule common
+  hw_output.bound(c, 0, 3);
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  Halide::Buffer<uint16_t> inputBuf(2, 2);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPattern2D(inputBuf, hwInputBuf);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(2, 2, 3);
+
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
+  // Hardware schedule
+  vector<Argument> args{input};
+  runSoC(hw_output, args, "accel_soc");
+
+  Halide::Runtime::Buffer<uint16_t> cppRes = load_image("accel_soc.ppm");
+  compare_buffers(cppRes, cpuOutput);
+  
+  cout << GREEN << "Accel soc test passed" << RESET << endl;
+  assert(false);
+}
+
 void accel_interface_test() {
   ImageParam input(type_of<uint16_t>(), 2);
   ImageParam output(type_of<uint16_t>(), 3);
@@ -1805,39 +1884,6 @@ void curve_lookup_test() {
   //assert(false);
 }
 
-void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
-  auto context = hwContext();
-  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
-
-  // Note: You cannot remove this scope bracket bc CodeGen_C (which CodeGen_SoC_Test inherits from)
-  // does some stream output in its destructor
-  {
-    Target t;
-    t = t.with_feature(Target::Feature::CoreIR);
-    auto mod = hw_output.compile_to_module(args, "hw_output", t);
-
-    cout << "Module before consolidation..." << endl;
-    cout << mod << endl;
-
-    for (auto& f : mod.functions()) {
-      cout << "Consolidating function" << f << endl;
-      AcceleratorCallConsolidator cons;
-      f.body = cons.mutate(f.body);
-    }
-
-    cout << "Compiled to module" << endl;
-    cout << mod << endl;
-    ofstream outFile(name + "_soc_mini.cpp");
-    CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
-    testPrinter.compileForCGRA(mod);
-  }
-  cout << "Compiled cpp code" << endl;
-  cout << "Done with compiling for CGRA" << endl;
-  runCmd("clang++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
-  cout << "Compiled c++ executable..." << endl;
-  runCmd("./a.out");
-  cout << "Ran executable" << endl;
-}
 
 // How can we check if this thing handles different dimensions / orders?
 // Maybe start with a simple app run on the SoC that uses different variable orders?
@@ -1950,6 +1996,7 @@ int main(int argc, char **argv) {
 
   //assert(false);
   accel_interface_test();
+  accel_soc_test();
   //assert(false);
   curve_lookup_test();
   camera_pipeline_test();
