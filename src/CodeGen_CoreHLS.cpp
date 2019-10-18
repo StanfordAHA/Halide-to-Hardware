@@ -3186,7 +3186,7 @@ class AppGraph {
       std::string str = "";
       str += "---- App graph info\n";
       for (auto v : allVertices()) {
-        str += "\t-- Vertex: " + CoreIR::toString(v) + "\n";
+        str += "\t-- Vertex: " + CoreIR::toString(*v) + "\n";
         for (auto inEdge : appGraph.inEdges(getVdisc(v))) {
           str += "\t\t" + getLabel(inEdge).toString() + "\n";
         }

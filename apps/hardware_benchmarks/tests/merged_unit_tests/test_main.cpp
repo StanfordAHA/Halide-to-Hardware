@@ -2092,7 +2092,7 @@ void simple_unsharp_test() {
 // such as subimage offsets to the kernel
 int main(int argc, char **argv) {
 
-  //simple_unsharp_test();
+  simple_unsharp_test();
   hot_pixel_suppression_test();
   //camera_pipeline_test();
   //assert(false);
