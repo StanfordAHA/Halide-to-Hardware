@@ -131,6 +131,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
     writeIdx.increment();
   } else {
+    cout << "Writes to accelerator done, now just processing output" << endl;
     state.setValue("self.in_en", BitVector(1, false));
     state.setValue(input_name, BitVector(16, 0));
   }
@@ -143,21 +144,22 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   //cout << "Read window with " << readIdx.currentWindowRelative().size() << " points..." << endl;
   for (auto point : readIdx.currentWindowRelative()) {
     assert(point.numDims() > 0);
-    //cout << "\tReading output data for point " << point << endl;
   }
+  
   if (valid_value) {
-
+    cout << "\tOutput window is valid" << endl;
     for (auto point : readIdx.currentWindow()) {
       assert(point.numDims() > 0);
-      //cout << "\tReading output data for point " << point << endl;
-      //cout << "\t\trelative position in window = " << readIdx.relativeWindowPosition(point) << endl;
       auto windowPos = readIdx.relativeWindowPosition(point);
+      cout << "\t\tReadIndex                   = " << readIdx.coordString() << endl;
+      cout << "\t\tRelative position in window = " << windowPos << endl;
       BitVector output_bv;
       if (!is2D(output)) {
-        //cout << "Output for " << windowPos << " = " << outputForCoord3D(windowPos) << endl;
         output_bv = state.getBitVec(outputForCoord3D(windowPos));
       } else {
+        cout << "\t\t2D Output coord for " << windowPos << " = " << outputForCoord3D(windowPos) << endl;
         output_bv = state.getBitVec(outputForCoord2D(windowPos));
+        cout << "\t\t2D Output bv = "  << output_bv << endl;
       }
       T output_value;
       output_value = output_bv.to_type<T>();
@@ -1975,6 +1977,89 @@ void camera_pipeline_test() {
   cout << GREEN << "Camera pipeline test passed" << RESET << endl;
 }
 
+void double_unsharp_test() {
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Func kernel("kernel");
+  Func blurred("blurred"), blurred1("blurred1");
+  Func diff("diff");
+  RDom r(0, 3,
+      0, 3);
+
+  kernel(x,y) = 1;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  
+  blurred(x, y) = 0;
+  blurred(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+  
+  blurred1(x, y) = 0;
+  blurred1(x, y)  += kernel(r.x, r.y) * blurred(x + r.x, y + r.y);
+
+  diff(x, y) = hw_input(x, y) - blurred1(x, y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(diff(x, y));
+  output(x, y) = hw_output(x,y);
+
+  Var xi, yi, xo, yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  // Hardware schedule
+  int outTileSize = 4;
+  Halide::Buffer<uint8_t> inputBuf(outTileSize + 4, outTileSize + 4);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
+  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
+    .reorder(xi, yi, xo, yo);
+
+  // Unrolling by xi or r.x / r.y causes an error, but I dont understand
+  // why this is the case. Unrolling in x / y unrolls the outermost loop,
+  // but not the inner loops. What is the relationship between the outer loop
+  // that computes blur(x, y) = 0 and the use of kernel to accumulate blur values?
+  blurred.linebuffer().update().unroll(r.x).unroll(r.y);
+  blurred1.linebuffer().update().unroll(r.x).unroll(r.y);
+  diff.linebuffer();
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
+  
+  hw_output.print_loop_nest();
+  
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "hw_double_unsharp", args, "double_unsharp", hw_output);
+
+  json j;
+  ifstream inFile("accel_interface_info.json");
+  inFile >> j;
+  cout << "JSON..." << endl;
+  cout << j << endl;
+
+  auto aliasMap = j["aliasMap"];
+  cout << "Alias map = " << aliasMap << endl;
+  assert(aliasMap.size() == 1);
+
+  string inS = begin(aliasMap)->get<string>();
+  cout << "inS = " << inS << endl;
+  string outS = "hw_output.stencil.stream";
+  string accelName = "self.in_" + inS + "_0_0";
+
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
+  
+  cout << GREEN << "Double unsharp test passed" << RESET << endl;
+  assert(false);
+}
+
 void simple_unsharp_test() {
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 2);
@@ -2051,7 +2136,6 @@ void simple_unsharp_test() {
   compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
-  //assert(false);
 }
 
 // Now what do I want to do?
@@ -2069,6 +2153,7 @@ void simple_unsharp_test() {
 int main(int argc, char **argv) {
 
   simple_unsharp_test();
+  double_unsharp_test();
   hot_pixel_suppression_test();
   //camera_pipeline_test();
   //assert(false);
