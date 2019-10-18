@@ -3388,7 +3388,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   int kernelN = 0;
 
   std::map<const For*, CoreIR::Module*> kernelModules;
-  //std::map<const For*, CoreIR::Module*> kernelControlPaths;
   std::map<const For*, KernelControlPath> kernelControlPaths;
   std::map<const For*, HWFunction> functions;
   for (const For* lp : extractor.loops) {
@@ -3442,6 +3441,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
   std::map<const For*, CoreIR::Instance*> controlPaths;
+  std::map<Instance*, CoreIR::Instance*> kernelToControlPath;
   for (auto k : kernelModules) {
     auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
     kernels[k.first] = kI;
@@ -3454,6 +3454,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       auto vn = coreirSanitize(v);
       def->connect(controlPath->sel(vn), kI->sel(vn));
     }
+    kernelToControlPath[kI] = controlPath;
 
   }
 
@@ -3657,8 +3658,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     cout << "Done connecting inputMap" << endl;
     //auto fKernel = map_find(f.first, kernels);
-    auto cPaths = map_find(f.first, controlPaths);
-    def->connect(cPaths->sel("in_en"), andList(def, allEnables));
+    //auto cPaths = map_find(f.first, controlPaths);
+    //def->connect(cPaths->sel("in_en"), andList(def, allEnables));
     //if (allEnables.size() == 0) {
       //// Do nothing
       //auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
@@ -3705,7 +3706,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
       Wireable* inEnable = v->sel("in_en");
       //andList(allEnables);
-      def->connect(inEnable, andList(def, allEnables));
+      auto wEn = andList(def, allEnables);
+      def->connect(inEnable, wEn);
+      def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
     }
   }
 
