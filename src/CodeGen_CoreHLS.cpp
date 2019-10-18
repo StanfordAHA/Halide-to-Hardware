@@ -2819,7 +2819,7 @@ CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const
 
 CoreIR::Wireable* andVals(CoreIR::ModuleDef* def, CoreIR::Wireable* a, CoreIR::Wireable* b) {
   //auto c = def->getContext();
-  auto ad = def->addInstance("and_all", "corebit.and");
+  auto ad = def->addInstance("and_all_" + def->getContext()->getUnique(), "corebit.and");
   def->connect(ad->sel("in0"), a);
   def->connect(ad->sel("in1"), b);
 
@@ -2829,7 +2829,7 @@ CoreIR::Wireable* andVals(CoreIR::ModuleDef* def, CoreIR::Wireable* a, CoreIR::W
 CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wireable*>& vals) {
   CoreIR::Wireable* val = nullptr;
   if (vals.size() == 0) {
-    return def->addInstance("and_all", "corebit.const", {{"value", COREMK(def->getContext(), true)}});
+    return def->addInstance("and_all_" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(def->getContext(), true)}})->sel("out");
   }
 
   val = vals[0];
@@ -3107,6 +3107,23 @@ class AppGraph {
     std::map<CoreIR::Wireable*, vdisc> values;
     std::map<edisc, KernelEdge> edgeLabels;
 
+    std::vector<Wireable*> allInputValids(CoreIR::Wireable* w) const {
+      vector<Wireable*> ens;
+      auto v = map_get(w, values);
+      for (auto inEdge : appGraph.inEdges(v)) {
+        ens.push_back(map_get(inEdge, edgeLabels).valid);
+      }
+      return ens;
+    }
+
+    std::vector<Wireable*> allVertices() const {
+      vector<Wireable*> wVerts;
+      for (auto v : appGraph.getVerts()) {
+        wVerts.push_back(appGraph.getNode(v));
+      }
+      return wVerts;
+    }
+
     bool destIsSelf(KernelEdge& e) {
       auto destBase = getBase(e.dataDest);
       if (isa<Interface>(destBase)) {
@@ -3152,6 +3169,15 @@ class AppGraph {
       return vd;
     }
 };
+
+bool isComputeKernel(CoreIR::Wireable* v) {
+  auto b = getBase(v);
+  if (!isa<Instance>(b)) {
+    return false;
+  }
+
+  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b));
+}
 
 void printCollectedStores(StoreCollector& stCollector) {
     for (auto s : stCollector.stores) {
@@ -3558,6 +3584,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
         e.dataDest = inPort;
         e.en = map_find(f.first, kernels)->sel("in_en");
+
         auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
         appGraph.addEdgeLabel(ed, e);
 
@@ -3611,6 +3638,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           KernelEdge e;
           e.dataSrc = argSel;
           e.valid = self->sel("in_en");
+
           e.dataDest = inPort;
           e.en = map_find(f.first, kernels)->sel("in_en");
 
@@ -3628,34 +3656,34 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //}
 
     cout << "Done connecting inputMap" << endl;
-    auto fKernel = map_find(f.first, kernels);
+    //auto fKernel = map_find(f.first, kernels);
     auto cPaths = map_find(f.first, controlPaths);
-    if (allEnables.size() == 0) {
-      // Do nothing
-      auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
-      def->connect(fKernel->sel("in_en"), c1->sel("out"));
-      def->connect(cPaths->sel("in_en"), c1->sel("out"));
-    } else if (allEnables.size() == 1) {
-      def->connect(allEnables[0], fKernel->sel("in_en"));
-      def->connect(allEnables[0], cPaths->sel("in_en"));
-    } else {
-      auto v0 = allEnables[0];
-      for (int i = 1; i < (int) allEnables.size(); i++) {
-        auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
-        def->connect(and0->sel("in0"), v0);
-        def->connect(and0->sel("in1"), allEnables[i]);
-        v0 = and0->sel("out");
-      }
+    def->connect(cPaths->sel("in_en"), andList(def, allEnables));
+    //if (allEnables.size() == 0) {
+      //// Do nothing
+      //auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
+      ////def->connect(fKernel->sel("in_en"), c1->sel("out"));
+      //def->connect(cPaths->sel("in_en"), c1->sel("out"));
+    //} else if (allEnables.size() == 1) {
+      ////def->connect(allEnables[0], fKernel->sel("in_en"));
+      //def->connect(allEnables[0], cPaths->sel("in_en"));
+    //} else {
+      //auto v0 = allEnables[0];
+      //for (int i = 1; i < (int) allEnables.size(); i++) {
+        //auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
+        //def->connect(and0->sel("in0"), v0);
+        //def->connect(and0->sel("in1"), allEnables[i]);
+        //v0 = and0->sel("out");
+      //}
 
-      def->connect(fKernel->sel("in_en"), v0);
-      def->connect(cPaths->sel("in_en"), v0);
-    }
+      ////def->connect(fKernel->sel("in_en"), v0);
+      //def->connect(cPaths->sel("in_en"), v0);
+    //}
 
     cout << "Done setting enables" << endl;
   }
 
   cout << "Setting data sigals on compute kernels" << endl;
-  // TODO: Create a mapping from control paths to enable signals
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
     if (appGraph.destIsLinebuffer(e)) {
@@ -3666,10 +3694,24 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //def->connect(e.en, e.valid);
   }
 
+  cout << "Wiring up function input valids" << endl;
+  for (auto v : appGraph.allVertices()) {
+    if (isComputeKernel(v)) {
+      vector<Wireable*> allEnables =
+        appGraph.allInputValids(v);
+      cout << "\tEnables for " << CoreIR::toString(*v) << endl;
+      for (auto e : allEnables) {
+        cout << "\t\t" << CoreIR::toString(*e) << endl;
+      }
+      Wireable* inEnable = v->sel("in_en");
+      //andList(allEnables);
+      def->connect(inEnable, andList(def, allEnables));
+    }
+  }
+
   cout << "Setting definition of topMod..." << endl;
 
   topMod->setDef(def);
-
 
   cout << "Top module" << endl;
   topMod->print();
