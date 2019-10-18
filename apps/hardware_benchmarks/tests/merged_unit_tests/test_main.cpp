@@ -1765,16 +1765,9 @@ void accel_interface_test() {
   cout << "Alias map = " << aliasMap << endl;
   assert(aliasMap.size() == 1);
 
-  //cout << "Json elems" << endl;
-  //for (auto elem : j) {
-    //cout << "\t" << elem << endl;
-  //}
-  //string inS = "hw_input.stencil.stream";
   string inS = begin(aliasMap)->get<string>();
   cout << "inS = " << inS << endl;
-  //assert(false);
   string outS = "hw_output.stencil.stream";
-  //string accelName = "self.in_" + aliasMap[inS].get<string>() + "_0_0";
   string accelName = "self.in_" + inS + "_0_0";
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
@@ -2056,6 +2049,12 @@ void simple_unsharp_test() {
 
   // Hardware schedule
   int outTileSize = 4;
+  Halide::Buffer<uint8_t> inputBuf(outTileSize + 2, outTileSize + 2);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPattern2D(inputBuf, hwInputBuf);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
     .reorder(xi, yi, xo, yo);
   // Unrolling by xi or r.x / r.y causes an error, but I dont understand
@@ -2066,16 +2065,33 @@ void simple_unsharp_test() {
   diff.linebuffer();
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
-
   
   hw_output.print_loop_nest();
   
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_simple_unsharp", args, "simple_unsharp", hw_output);
-  assert(false);
 
+  json j;
+  ifstream inFile("accel_interface_info.json");
+  inFile >> j;
+  cout << "JSON..." << endl;
+  cout << j << endl;
+
+  auto aliasMap = j["aliasMap"];
+  cout << "Alias map = " << aliasMap << endl;
+  assert(aliasMap.size() == 1);
+
+  string inS = begin(aliasMap)->get<string>();
+  cout << "inS = " << inS << endl;
+  string outS = "hw_output.stencil.stream";
+  string accelName = "self.in_" + inS + "_0_0";
+
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
+  
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
+  assert(false);
 }
 
 // Now what do I want to do?

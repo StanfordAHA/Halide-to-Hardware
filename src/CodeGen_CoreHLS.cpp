@@ -3712,6 +3712,22 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   cout << "Application graph..." << endl;
   cout << appGraph.toString() << endl;
 
+  // Now: What is the next step for delay insertion?
+  // - Check if all nodes have fan in 0, if so then continue.
+  // - Otherwise: Create a map from all connections to ILP
+  //   variables for delays, and then add equivalence constraints
+  //   to guarantee that all paths to the same position have the same
+  //   delay, and minimize the total amount of buffering needed.
+  //   Note: Linebuffers will cause (NROWS - 1)*NCOLS + (NCOLS - 1) delay
+  //   and for now all kernels will be assumed to cause delay 0
+  // Idea: Maybe just start with a graph traversal to check distance to all
+  // paths?
+  auto topSort = topologicalSort(appGraph.appGraph);
+  cout << "Sorted nodes..." << endl;
+  for (auto v : topSort) {
+    cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
+  }
+
   cout << "Setting data sigals on compute kernels" << endl;
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
