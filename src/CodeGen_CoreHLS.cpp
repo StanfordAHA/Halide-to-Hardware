@@ -3396,6 +3396,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     auto vd = appGraph.addVertex(def->sel("self")->sel(output_name));
     values[def->sel("self")->sel(output_name)] = vd;
 
+    auto self = def->sel("self");
     for (auto in : linebufferInputs) {
       string inName = in.first;
       auto lb = in.second;
@@ -3406,8 +3407,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
           internal_assert(CoreIR::contains_key(inName, inputAliases));
           string coreirName = CoreIR::map_find(inName, inputAliases);
-          def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
-          def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
+          KernelEdge e;
+          e.dataDest = lb->sel("in");
+          e.en = lb->sel("wen");
+
+          e.dataSrc = self->sel("in")->sel(coreirName);
+          e.valid = self->sel("in_en");
+
+          def->connect(e.dataDest, e.dataSrc);
+          def->connect(e.en, e.valid);
+
+          //def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
+          //def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
+          
           foundInput = true;
 
           break;
