@@ -35,6 +35,7 @@ using std::ostringstream;
 using std::ofstream;
 using std::cout;
 
+using CoreIR::vdisc;
 using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
@@ -3360,6 +3361,23 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
     CoreIR::DirectedGraph<CoreIR::Wireable*, std::string> appGraph;
+    std::map<CoreIR::Wireable*, vdisc> values;
+    for (auto in : linebufferInputs) {
+      string inName = in.first;
+      auto lb = in.second;
+      auto gv = appGraph.addVertex(lb);
+      values[lb] = gv;
+    }
+
+    for (auto arg : args) {
+      if (arg.is_stencil && !arg.is_output) {
+        string coreirName = CoreIR::map_find(arg.name, inputAliases);
+        auto s = def->sel("self")->sel("in")->sel(coreirName);
+        auto vd = appGraph.addVertex(s);
+        values[s] = vd;
+      }
+    }
+
     for (auto in : linebufferInputs) {
       string inName = in.first;
       auto lb = in.second;
@@ -3374,7 +3392,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
           foundInput = true;
 
-          appGraph.addVertex(lb);
           appGraph.addVertex(def->sel("self")->sel("in")->sel(coreirName));
           break;
         }
@@ -3388,6 +3405,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
               def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
               def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
               foundInput = true;
+
+              appGraph.addVertex(map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
               break;
             }
           }
