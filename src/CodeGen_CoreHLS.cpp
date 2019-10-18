@@ -3094,6 +3094,14 @@ class AppGraph {
     std::map<CoreIR::Wireable*, vdisc> values;
     std::map<edisc, KernelEdge> edgeLabels;
 
+    std::vector<KernelEdge> allEdges() const {
+      std::vector<KernelEdge> eds;
+      for (auto el : edgeLabels) {
+        eds.push_back(el.second);
+      }
+      return eds;
+    }
+
     edisc addEdge(CoreIR::Wireable* src, CoreIR::Wireable* dest) {
       auto v = map_get(src, values);
       auto d = map_get(dest, values);
@@ -3441,8 +3449,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           auto ed = appGraph.addEdge(lb, e.dataSrc);
           appGraph.addEdgeLabel(ed, e);
 
-          def->connect(e.dataDest, e.dataSrc);
-          def->connect(e.en, e.valid);
+          //def->connect(e.dataDest, e.dataSrc);
+          //def->connect(e.en, e.valid);
 
           //def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
           //def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
@@ -3468,8 +3476,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
               auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
               appGraph.addEdgeLabel(ed, e);
               
-              def->connect(e.dataDest, e.dataSrc);
-              def->connect(e.en, e.valid);
+              //def->connect(e.dataDest, e.dataSrc);
+              //def->connect(e.en, e.valid);
             
               //def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
               //def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
@@ -3504,8 +3512,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           auto ed = appGraph.addEdge(map_find(f.first, kernels), e.dataDest);
           appGraph.addEdgeLabel(ed, e);
 
-          def->connect(e.dataDest, e.dataSrc);
-          def->connect(e.en, e.valid);
+          //def->connect(e.dataDest, e.dataSrc);
+          //def->connect(e.en, e.valid);
 
           //def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
           //def->connect(map_find(f.first, kernels)->sel("valid"), def->sel("self")->sel("valid"));
@@ -3516,6 +3524,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
     }
     internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
+
+    for (auto e : appGraph.allEdges()) {
+      def->connect(e.dataDest, e.dataSrc);
+      def->connect(e.en, e.valid);
+    }
 
     // Wiring up function inputs
     for (auto f : functions) {
