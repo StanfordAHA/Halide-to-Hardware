@@ -3503,11 +3503,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
   internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
-  for (auto e : appGraph.allEdges()) {
-    def->connect(e.dataDest, e.dataSrc);
-    def->connect(e.en, e.valid);
-  }
-
   // Wiring up function inputs
   for (auto f : functions) {
     // Collect a map from input names to output wireables?
@@ -3524,6 +3519,13 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         inputMap[inPort] = lb->sel("out");
         allEnables.push_back(lb->sel("valid"));
 
+        KernelEdge e;
+        e.dataSrc = lb->sel("out");
+        e.valid = lb->sel("valid");
+
+        e.dataDest = inPort;
+        e.en = map_find(f.first, kernels)->sel("in_en");
+
       } else {
         // The input is a top-level module input?
         bool foundProducer = false;
@@ -3535,6 +3537,14 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
               allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
 
               foundProducer = true;
+
+              KernelEdge e;
+              e.dataSrc = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
+              e.valid = map_get(otherF.first, kernels)->sel("valid");
+
+              e.dataDest = inPort;
+              e.en = map_find(f.first, kernels)->sel("in_en");
+              
               break;
             }
           }
@@ -3595,6 +3605,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }
 
     cout << "Done setting enables" << endl;
+  }
+
+  for (auto e : appGraph.allEdges()) {
+    def->connect(e.dataDest, e.dataSrc);
+    def->connect(e.en, e.valid);
   }
 
   cout << "Setting definition of topMod..." << endl;
