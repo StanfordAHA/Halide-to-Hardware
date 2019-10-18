@@ -36,6 +36,7 @@ using std::ofstream;
 using std::cout;
 
 using CoreIR::vdisc;
+using CoreIR::edisc;
 using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
@@ -3091,6 +3092,18 @@ class AppGraph {
   public:
     CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
     std::map<CoreIR::Wireable*, vdisc> values;
+    std::map<edisc, KernelEdge> edgeLabels;
+
+    edisc addEdge(CoreIR::Wireable* src, CoreIR::Wireable* dest) {
+      auto v = map_get(src, values);
+      auto d = map_get(dest, values);
+      auto ed = appGraph.addEdge(v, d);
+      return ed;
+    }
+
+    void addEdgeLabel(edisc ed, KernelEdge& e) {
+      edgeLabels[ed] = e;
+    }
 
     vdisc addVertex(CoreIR::Wireable* w) {
       auto vd = appGraph.addVertex(w);
@@ -3424,6 +3437,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
           e.dataSrc = self->sel("in")->sel(coreirName);
           e.valid = self->sel("in_en");
+
+          auto ed = appGraph.addEdge(lb, e.dataSrc);
+          appGraph.addEdgeLabel(ed, e);
 
           def->connect(e.dataDest, e.dataSrc);
           def->connect(e.en, e.valid);
