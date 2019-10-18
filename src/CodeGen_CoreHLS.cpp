@@ -3569,6 +3569,12 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
           inputMap[inPort] = argSel;
           allEnables.push_back(self->sel("in_en"));
+
+          KernelEdge e;
+          e.dataSrc = argSel;
+          e.valid = self->sel("in_en");
+          e.dataDest = inPort;
+          e.en = map_find(f.first, kernels)->sel("in_en");
         }
       }
     }
