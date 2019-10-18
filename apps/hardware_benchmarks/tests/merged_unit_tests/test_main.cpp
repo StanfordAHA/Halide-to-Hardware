@@ -132,6 +132,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     writeIdx.increment();
   } else {
     state.setValue("self.in_en", BitVector(1, false));
+    state.setValue(input_name, BitVector(16, 0));
   }
   // propogate to all wires
   state.exeCombinational();
@@ -2050,7 +2051,7 @@ void simple_unsharp_test() {
   compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
-  assert(false);
+  //assert(false);
 }
 
 // Now what do I want to do?
