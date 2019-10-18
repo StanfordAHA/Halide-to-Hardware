@@ -3359,6 +3359,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     std::map<string, CoreIR::Instance*> linebufferInputs;
     createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
+    // Next: Create a graph whose nodes are compute kernels, linebuffers, or top level ins / outs
+    // and form edges between them labeled with valid signals
+    //
+    // Then: Use this graph as an input to a data structure that computes buffering for
+    // kernels
     // Create inter-kernel connections
     // Q: What is a good intermediate representation?
     // A: Nodes (linebuffers or kernels) with a map from names to inputs / outputs
@@ -3401,6 +3406,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       internal_assert(foundInput) << "Could not find input for " << inName << "\n";
     }
 
+    // Wire up top module outputs
     bool foundOut = false;
     // Wire up output
     for (auto f : functions) {
@@ -3453,7 +3459,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           if (!foundProducer) {
             // Assume that this must be a top-level input
             auto self = def->sel("self");
-            // TODO: Use hardware input map
             cout << "Trying to find default producer for " << CoreIR::toString(*inPort) << " in " << CoreIR::toString(*(self->sel("in"))) << endl;
 
             auto selTp = self->sel("in")->getType();
@@ -3462,16 +3467,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
             auto recs = rtp->getFields();
             internal_assert(recs.size() > 0);
 
-            //internal_assert(self->sel("in")->getSelects().size() > 0) << "no selects in " << CoreIR::toString(*(self->sel("in"))) << "\n";
-
             auto argSel = self->sel("in")->sel(*begin(recs));
 
-            //auto argSel = std::begin(self->sel("in")->getSelects())->first;
             inputMap[inPort] = argSel;
-             //self->sel("in")->sel(argSel);
-            //self->sel("in")->sel(argStr);
             allEnables.push_back(self->sel("in_en"));
-            //internal_assert(foundProducer) << "Could not find producer for " << input->name << "\n";
           }
         }
       }
