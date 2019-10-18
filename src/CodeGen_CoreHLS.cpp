@@ -2832,6 +2832,10 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
     return def->addInstance("and_all_" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(def->getContext(), true)}})->sel("out");
   }
 
+  if (vals.size() == 1) {
+    return vals[0];
+  }
+
   val = vals[0];
   for (int i = 1; i < ((int) vals.size()) - 1; i++) {
     val = andVals(def, val, vals[i]);
@@ -3825,7 +3829,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     } else if (appGraph.destIsSelf(e)) {
       def->connect(e.en, e.valid);
     }
-    //def->connect(e.en, e.valid);
   }
 
   cout << "Wiring up function input valids" << endl;
@@ -3838,7 +3841,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         cout << "\t\t" << CoreIR::toString(*e) << endl;
       }
       Wireable* inEnable = v->sel("in_en");
-      //andList(allEnables);
       auto wEn = andList(def, allEnables);
       def->connect(inEnable, wEn);
       def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
