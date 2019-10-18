@@ -2021,6 +2021,63 @@ void camera_pipeline_test() {
   cout << GREEN << "Camera pipeline test passed" << RESET << endl;
 }
 
+void simple_unsharp_test() {
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Func kernel("kernel");
+  Func blurred("blurred");
+  Func diff("diff");
+  RDom r(0, 3,
+      0, 3);
+
+  kernel(x,y) = 0;
+  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+
+  blurred(x, y) = 0;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  blurred(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+  diff(x, y) = hw_input(x, y) - blurred(x, y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(diff(x, y));
+  output(x, y) = hw_output(x,y);
+
+  Var xi, yi, xo, yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  // Hardware schedule
+  int outTileSize = 4;
+  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
+    .reorder(xi, yi, xo, yo);
+  // Unrolling by xi or r.x / r.y causes an error, but I dont understand
+  // why this is the case. Unrolling in x / y unrolls the outermost loop,
+  // but not the inner loops. What is the relationship between the outer loop
+  // that computes blur(x, y) = 0 and the use of kernel to accumulate blur values?
+  blurred.linebuffer().update().unroll(r.x).unroll(r.y);
+  diff.linebuffer();
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
+
+  
+  hw_output.print_loop_nest();
+  
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "hw_simple_unsharp", args, "simple_unsharp", hw_output);
+  assert(false);
+
+  cout << GREEN << "Simple unsharp test passed" << RESET << endl;
+}
+
 // Now what do I want to do?
 // Goal: Get camera pipeline running
 // 
@@ -2033,32 +2090,9 @@ void camera_pipeline_test() {
 //
 // Problem: Related to first, we need to pass in parameters
 // such as subimage offsets to the kernel
-//
-// Next step: Get camera pipeline copied in to this test file
-// and try to get it running on CPU?
-//
-// Q: Is there a simpler way to test argument bundling before
-// going to full-blown camera pipeline?
-// Q: What is the format of argument bundling? Do we need to
-// say what arguments are passed in, how long they are set
-// for on the CGRA wire, and if it is a subimage the order
-// of variables, binding of names in coreir interface to 
-// subcubes of the image, and how the place in the subcube
-// is incremented as you progress through the image
-//
-// A lot of intersecting issues here:
-// 1. Camera pipeline is a large app compared to what I've done
-// 2. Harris and camera pipeline are tested through different infrastructure
-//    than this unit test suite
-// 3. Names in current codegen are used in Jeffs test infrastructure
-//    (but that can be changed as a parameter), so maybe not such a big deal
-// 4. I want to get cross-kernel balancing working and add hardware
-//    timing libraries to the kernel generator
-// 5. Lots of copy-paste needed to get camera pipeline in to this file
-// 6. I need to change output signature of code generator in order to
-//    get argument binding working
 int main(int argc, char **argv) {
 
+  simple_unsharp_test();
   hot_pixel_suppression_test();
   camera_pipeline_test();
   //assert(false);
