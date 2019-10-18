@@ -36,6 +36,7 @@ using std::ofstream;
 using std::cout;
 
 using CoreIR::vdisc;
+using CoreIR::Interface;
 using CoreIR::Instance;
 using CoreIR::isa;
 using CoreIR::Wireable;
@@ -3106,14 +3107,21 @@ class AppGraph {
     std::map<CoreIR::Wireable*, vdisc> values;
     std::map<edisc, KernelEdge> edgeLabels;
 
+    bool destIsSelf(KernelEdge& e) {
+      auto destBase = getBase(e.dataDest);
+      if (isa<Interface>(destBase)) {
+        return true;
+      }
+
+      return false;
+    }
+
     bool destIsLinebuffer(KernelEdge& e) {
       cout << "Getting base of " << CoreIR::toString(e.dataDest) << endl;
       auto destBase = getBase(e.dataDest);
       if (isa<Instance>(destBase)) {
         auto instBase = static_cast<CoreIR::Instance*>(destBase);
         return fromGenerator("commonlib.linebuffer", instBase);
-        //cout << "Long name of inst modref = " << instBase->getModuleRef()->getLongName() << endl;
-        //return instBase->getModuleRef()->getLongName() == "commonlib.linebuffer";
       }
 
       return false;
@@ -3651,6 +3659,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
     if (appGraph.destIsLinebuffer(e)) {
+      def->connect(e.en, e.valid);
+    } else if (appGraph.destIsSelf(e)) {
       def->connect(e.en, e.valid);
     }
     //def->connect(e.en, e.valid);
