@@ -3431,8 +3431,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         for (auto f : functions) {
           for (auto output : outputStreams(f.second)) {
             if (coreirSanitize(output->name) == coreirSanitize(inName)) {
-              def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
-              def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
+              KernelEdge e;
+              e.dataDest = lb->sel("in");
+              e.en = lb->sel("wen");
+
+              e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
+              e.valid = map_find(f.first, kernels)->sel("valid");
+
+              def->connect(e.dataDest, e.dataSrc);
+              def->connect(e.en, e.valid);
+            
+              //def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
+              //def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
+
               foundInput = true;
 
               break;
@@ -3453,8 +3464,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     for (auto f : functions) {
       for (auto out : outputStreams(f.second)) {
         if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
-          def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
-          def->connect(map_find(f.first, kernels)->sel("valid"), def->sel("self")->sel("valid"));
+          KernelEdge e;
+          e.dataDest = self->sel(output_name);
+          e.en = self->sel("valid");
+
+          e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(out->name));
+          e.valid = map_find(f.first, kernels)->sel("valid");
+
+          def->connect(e.dataDest, e.dataSrc);
+          def->connect(e.en, e.valid);
+
+          //def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
+          //def->connect(map_find(f.first, kernels)->sel("valid"), def->sel("self")->sel("valid"));
+
           foundOut = true;
           break;
         }
@@ -3462,6 +3484,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }
     internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
+    // Wiring up function inputs
     for (auto f : functions) {
       // Collect a map from input names to output wireables?
       // And together all inputs?
