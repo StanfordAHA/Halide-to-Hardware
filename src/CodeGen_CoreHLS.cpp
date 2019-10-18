@@ -3359,6 +3359,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     std::map<string, CoreIR::Instance*> linebufferInputs;
     createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
+    CoreIR::DirectedGraph<CoreIR::Instance*, std::string> appGraph;
     // Next: Create a graph whose nodes are compute kernels, linebuffers, or top level ins / outs
     // and form edges between them labeled with valid signals
     //
