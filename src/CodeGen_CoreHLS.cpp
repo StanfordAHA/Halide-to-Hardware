@@ -2097,20 +2097,20 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 
   int currentTime = 0;
   while (remaining.size() > 0) {
-    cout << "Current time = " << currentTime << endl;
-    cout << "\t# Finished = " << finished.size() << endl;
-    cout << "\tActive = " << activeToTimeRemaining << endl;
+    //cout << "Current time = " << currentTime << endl;
+    //cout << "\t# Finished = " << finished.size() << endl;
+    //cout << "\tActive = " << activeToTimeRemaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
       std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
-      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      //cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
-        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        //cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
         sched.setStartTime(toSchedule, currentTime);
         if (toSchedule->latency == 0) {
           sched.setEndTime(toSchedule, currentTime);
           finished.insert(toSchedule);
-          cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
+          //cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
         } else {
           activeToTimeRemaining[toSchedule] = toSchedule->latency;
         }

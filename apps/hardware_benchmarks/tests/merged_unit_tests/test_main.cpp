@@ -124,8 +124,9 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   if (!writeIdx.allDone()) {
 
     state.setValue("self.in_en", BitVector(1, true));
+    //state.setValue("self.in_en", BitVector(1, false));
     state.setValue(input_name, BitVector(16, input(x,y,c)));
-    std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+    std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (int) input(x, y, c) << endl;
     //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
 
     writeIdx.increment();
@@ -138,28 +139,28 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   // read output wire
   bool valid_value = state.getBitVec("self.valid").to_type<bool>();
 
-  cout << "Read window with " << readIdx.currentWindowRelative().size() << " points..." << endl;
+  //cout << "Read window with " << readIdx.currentWindowRelative().size() << " points..." << endl;
   for (auto point : readIdx.currentWindowRelative()) {
     assert(point.numDims() > 0);
-    cout << "\tReading output data for point " << point << endl;
+    //cout << "\tReading output data for point " << point << endl;
   }
   if (valid_value) {
 
     for (auto point : readIdx.currentWindow()) {
       assert(point.numDims() > 0);
-      cout << "\tReading output data for point " << point << endl;
-      cout << "\t\trelative position in window = " << readIdx.relativeWindowPosition(point) << endl;
+      //cout << "\tReading output data for point " << point << endl;
+      //cout << "\t\trelative position in window = " << readIdx.relativeWindowPosition(point) << endl;
       auto windowPos = readIdx.relativeWindowPosition(point);
       BitVector output_bv;
       if (!is2D(output)) {
-        cout << "Output for " << windowPos << " = " << outputForCoord3D(windowPos) << endl;
+        //cout << "Output for " << windowPos << " = " << outputForCoord3D(windowPos) << endl;
         output_bv = state.getBitVec(outputForCoord3D(windowPos));
       } else {
         output_bv = state.getBitVec(outputForCoord2D(windowPos));
       }
       T output_value;
       output_value = output_bv.to_type<T>();
-      std::cout << "\tthis one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
+      //std::cout << "\tthis one is valid = " << output_bv << ", int = " << output_bv.to_type<int>() << endl;
 
       const int xr = point.coord("x");
       const int yr = point.coord("y");
@@ -1263,57 +1264,6 @@ void small_harris_test() {
     cout << endl;
   }
 
-  ////int tileSize = 8;
-  //hw_output.tile(x,y, xo,yo, xi,yi, 8-4, 8-4)
-    //.hw_accelerate(xi, xo);
-
-  //conv1.update()
-    //.unroll(r.x)
-    //.unroll(r.y);
-  //conv1.linebuffer();
-
-  //conv2.update()
-    //.unroll(r0.x)
-    //.unroll(r0.y);
-  //conv2.linebuffer();
-
-  //hw_input.stream_to_accelerator();
-  
-  //auto context = hwContext();
-  //vector<Argument> args{input};
-  //auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
-  ////cout << "Module = " << endl;
-  //m->print();
-
-  //SimulatorState state(m);
-  //state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
-  //state.setValue("self.in_en", BitVector(1, 0));
-  //state.setClock("self.clk", 0, 1);
-  //state.setValue("self.reset", BitVector(1, 1));
-
-  //state.resetCircuit();
-
-  //state.setValue("self.reset", BitVector(1, 0));
-
-  //int maxCycles = 100;
-  //int cycles = 0;
-
-  //std::string inputName = "self.in_arg_0_0_0";
-  //std::string outputName = "self.out_0_0";
-  //CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
-  //CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
-  //while (cycles < maxCycles && !readIdx.allDone()) {
-    //cout << "Read index = " << readIdx.coordString() << endl;
-    //cout << "Cycles     = " << cycles << endl;
-
-    //run_for_cycle(writeIdx, readIdx,
-        //hwInputBuf, outputBuf,
-        //inputName, outputName,
-        //state);
-    //cycles++;
-  //}
-
  compare_buffers(outputBuf, cpuOutput);
  cout << GREEN << "Harris test passed" << RESET << endl;
 }
@@ -1616,6 +1566,16 @@ void pointwise_add_test() {
     deleteContext(context);
 
     cout << GREEN << "Pointwise add passed!" << RESET << endl;
+}
+
+template<typename T0, typename T1>
+void indexTestPatternRandom(T0& inputBuf, T1& hwInputBuf) {
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      hwInputBuf(i, j, 0) = rand() % 255;
+      inputBuf(i, j) = hwInputBuf(i, j);
+    }
+  }
 }
 
 template<typename T0, typename T1>
@@ -2026,16 +1986,14 @@ void simple_unsharp_test() {
   RDom r(0, 3,
       0, 3);
 
-  kernel(x,y) = 0;
-  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
-  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
-  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
-
-  blurred(x, y) = 0;
+  kernel(x,y) = 1;
 
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
+  
+  blurred(x, y) = 0;
   blurred(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+  
   diff(x, y) = hw_input(x, y) - blurred(x, y);
 
   Func hw_output("hw_output");
@@ -2048,15 +2006,16 @@ void simple_unsharp_test() {
   hw_output.compute_root();
 
   // Hardware schedule
-  int outTileSize = 4;
+  int outTileSize = 8;
   Halide::Buffer<uint8_t> inputBuf(outTileSize + 2, outTileSize + 2);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  indexTestPattern2D(inputBuf, hwInputBuf);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
     .reorder(xi, yi, xo, yo);
+
   // Unrolling by xi or r.x / r.y causes an error, but I dont understand
   // why this is the case. Unrolling in x / y unrolls the outermost loop,
   // but not the inner loops. What is the relationship between the outer loop
