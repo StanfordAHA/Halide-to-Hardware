@@ -3312,327 +3312,305 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   stmt.accept(&stCollector);
   printCollectedStores(stCollector);
 
-    cout << "Emitting kernel for " << name << endl;
-    cout << "\tStmt is = " << endl;
-    cout << stmt << endl;
-    NestExtractor extractor;
-    stmt.accept(&extractor);
+  cout << "Emitting kernel for " << name << endl;
+  cout << "\tStmt is = " << endl;
+  cout << stmt << endl;
+  NestExtractor extractor;
+  stmt.accept(&extractor);
 
-    StencilInfoCollector scl;
-    stmt.accept(&scl);
+  StencilInfoCollector scl;
+  stmt.accept(&scl);
 
-    inferStreamTypes(scl);
-    //cout << "Stencil info" << endl;
-    StencilInfo info = scl.info;
+  inferStreamTypes(scl);
+  //cout << "Stencil info" << endl;
+  StencilInfo info = scl.info;
 
-    cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
-    int kernelN = 0;
+  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
+  int kernelN = 0;
 
-    std::map<const For*, CoreIR::Module*> kernelModules;
-    //std::map<const For*, CoreIR::Module*> kernelControlPaths;
-    std::map<const For*, KernelControlPath> kernelControlPaths;
-    std::map<const For*, HWFunction> functions;
-    for (const For* lp : extractor.loops) {
-      cout << "\t\tLOOP" << endl;
-      cout << "Original body.." << endl;
-      cout << lp->body << endl;
+  std::map<const For*, CoreIR::Module*> kernelModules;
+  //std::map<const For*, CoreIR::Module*> kernelControlPaths;
+  std::map<const For*, KernelControlPath> kernelControlPaths;
+  std::map<const For*, HWFunction> functions;
+  for (const For* lp : extractor.loops) {
+    cout << "\t\tLOOP" << endl;
+    cout << "Original body.." << endl;
+    cout << lp->body << endl;
 
-      HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp);
-      //auto hwVars = extractHardwareVars(lp, f);
-      auto hwVars = extractHardwareVars(lp);
-      cout << "All hardware vars.." << endl;
-      for (auto hv : hwVars) {
-        cout << "\t" << hv << endl;
-      }
-      f.controlVars = hwVars;
-      auto& body = f.body;
+    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp);
+    //auto hwVars = extractHardwareVars(lp, f);
+    auto hwVars = extractHardwareVars(lp);
+    cout << "All hardware vars.." << endl;
+    for (auto hv : hwVars) {
+      cout << "\t" << hv << endl;
+    }
+    f.controlVars = hwVars;
+    auto& body = f.body;
 
-      removeBadStores(stCollector, f);
-      valueConvertProvides(scl.info, f);
-      valueConvertStreamReads(scl.info, f);
-      removeWriteStreamArgs(scl.info, f);
-      divToShift(f);
-      modToShift(f);
-      cout << "After stream read conversion..." << endl;
-      for (auto instr : body) {
-        cout << "\t\t\t" << *instr << endl;
-      }
-
-      CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
-      cout << "Created module for kernel.." << endl;
-      kernelModules[lp] = m;
-      auto cp = controlPathForKernel(context, scl.info, f, lp);
-      cout << "Control path is..." << endl;
-      cp.m->print();
-      kernelControlPaths[lp] = cp;
-      functions[lp] = f;
-
-      context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
-      removeUnconnectedInstances(m->getDef());
-      removeUnusedInstances(m->getDef());
-
-      cout << "Module after optimization" << endl;
-      m->print();
-
-      kernelN++;
-    }    
-
-    cout << "Done creating kernels..." << endl;
-    auto def = topMod->newModuleDef();
-
-    // Connects up all control paths in the design
-    std::map<const For*, CoreIR::Instance*> kernels;
-    std::map<const For*, CoreIR::Instance*> controlPaths;
-    for (auto k : kernelModules) {
-      auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
-      kernels[k.first] = kI;
-
-      KernelControlPath cpM = map_get(k.first, kernelControlPaths);
-      auto controlPath = def->addInstance("control_path_module_" + k.second->getName(), cpM.m);
-      controlPaths[k.first] = controlPath;
-      def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
-      for (auto v : cpM.controlVars) {
-        auto vn = coreirSanitize(v);
-        def->connect(controlPath->sel(vn), kI->sel(vn));
-      }
-
+    removeBadStores(stCollector, f);
+    valueConvertProvides(scl.info, f);
+    valueConvertStreamReads(scl.info, f);
+    removeWriteStreamArgs(scl.info, f);
+    divToShift(f);
+    modToShift(f);
+    cout << "After stream read conversion..." << endl;
+    for (auto instr : body) {
+      cout << "\t\t\t" << *instr << endl;
     }
 
-    // Creates all linebuffers
-    std::map<string, CoreIR::Instance*> linebufferResults;
-    std::map<string, CoreIR::Instance*> linebufferInputs;
-    createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
+    CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
+    cout << "Created module for kernel.." << endl;
+    kernelModules[lp] = m;
+    auto cp = controlPathForKernel(context, scl.info, f, lp);
+    cout << "Control path is..." << endl;
+    cp.m->print();
+    kernelControlPaths[lp] = cp;
+    functions[lp] = f;
 
-    AppGraph appGraph;
-    for (auto in : linebufferInputs) {
-      string inName = in.first;
-      auto lb = in.second;
-      auto gv = appGraph.addVertex(lb);
-      //values[lb] = gv;
+    context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
+    removeUnconnectedInstances(m->getDef());
+    removeUnusedInstances(m->getDef());
+
+    cout << "Module after optimization" << endl;
+    m->print();
+
+    kernelN++;
+  }    
+
+  cout << "Done creating kernels..." << endl;
+  auto def = topMod->newModuleDef();
+
+  // Connects up all control paths in the design
+  std::map<const For*, CoreIR::Instance*> kernels;
+  std::map<const For*, CoreIR::Instance*> controlPaths;
+  for (auto k : kernelModules) {
+    auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
+    kernels[k.first] = kI;
+
+    KernelControlPath cpM = map_get(k.first, kernelControlPaths);
+    auto controlPath = def->addInstance("control_path_module_" + k.second->getName(), cpM.m);
+    controlPaths[k.first] = controlPath;
+    def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
+    for (auto v : cpM.controlVars) {
+      auto vn = coreirSanitize(v);
+      def->connect(controlPath->sel(vn), kI->sel(vn));
     }
 
-    for (auto arg : args) {
-      if (arg.is_stencil && !arg.is_output) {
-        string coreirName = CoreIR::map_find(arg.name, inputAliases);
-        auto s = def->sel("self")->sel("in")->sel(coreirName);
-        auto vd = appGraph.addVertex(s);
-        //values[s] = vd;
+  }
+
+  // Creates all linebuffers
+  std::map<string, CoreIR::Instance*> linebufferResults;
+  std::map<string, CoreIR::Instance*> linebufferInputs;
+  createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
+
+  AppGraph appGraph;
+  for (auto in : linebufferInputs) {
+    string inName = in.first;
+    auto lb = in.second;
+    appGraph.addVertex(lb);
+  }
+
+  for (auto arg : args) {
+    if (arg.is_stencil && !arg.is_output) {
+      string coreirName = CoreIR::map_find(arg.name, inputAliases);
+      auto s = def->sel("self")->sel("in")->sel(coreirName);
+      appGraph.addVertex(s);
+    }
+  }
+
+  for (auto f : functions) {
+    appGraph.addVertex(map_find(f.first, kernels));
+  }
+
+  appGraph.addVertex(def->sel("self")->sel(output_name));
+
+  auto self = def->sel("self");
+  for (auto in : linebufferInputs) {
+    string inName = in.first;
+    auto lb = in.second;
+
+    bool foundInput = false;
+    for (auto v : args) {
+      if (coreirSanitize(v.name) == coreirSanitize(inName)) {
+
+        internal_assert(CoreIR::contains_key(inName, inputAliases));
+        string coreirName = CoreIR::map_find(inName, inputAliases);
+        KernelEdge e;
+        e.dataDest = lb->sel("in");
+        e.en = lb->sel("wen");
+
+        e.dataSrc = self->sel("in")->sel(coreirName);
+        e.valid = self->sel("in_en");
+
+        auto ed = appGraph.addEdge(lb, e.dataSrc);
+        appGraph.addEdgeLabel(ed, e);
+
+        foundInput = true;
+
+        break;
       }
     }
 
-    for (auto f : functions) {
-      auto vd = appGraph.addVertex(map_find(f.first, kernels));
-      //values[map_find(f.first, kernels)] = vd;
-    }
+    // Could not find an input for this linebuffer in module inputs
+    if (!foundInput) {
+      for (auto f : functions) {
+        for (auto output : outputStreams(f.second)) {
+          if (coreirSanitize(output->name) == coreirSanitize(inName)) {
+            KernelEdge e;
+            e.dataDest = lb->sel("in");
+            e.en = lb->sel("wen");
 
-    auto vd = appGraph.addVertex(def->sel("self")->sel(output_name));
-    //values[def->sel("self")->sel(output_name)] = vd;
+            e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
+            e.valid = map_find(f.first, kernels)->sel("valid");
 
-    auto self = def->sel("self");
-    for (auto in : linebufferInputs) {
-      string inName = in.first;
-      auto lb = in.second;
+            auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
+            appGraph.addEdgeLabel(ed, e);
 
-      bool foundInput = false;
-      for (auto v : args) {
-        if (coreirSanitize(v.name) == coreirSanitize(inName)) {
+            foundInput = true;
 
-          internal_assert(CoreIR::contains_key(inName, inputAliases));
-          string coreirName = CoreIR::map_find(inName, inputAliases);
-          KernelEdge e;
-          e.dataDest = lb->sel("in");
-          e.en = lb->sel("wen");
-
-          e.dataSrc = self->sel("in")->sel(coreirName);
-          e.valid = self->sel("in_en");
-
-          auto ed = appGraph.addEdge(lb, e.dataSrc);
-          appGraph.addEdgeLabel(ed, e);
-
-          //def->connect(e.dataDest, e.dataSrc);
-          //def->connect(e.en, e.valid);
-
-          //def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
-          //def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
-          
-          foundInput = true;
-
-          break;
-        }
-      }
-
-      // Could not find an input for this linebuffer in module inputs
-      if (!foundInput) {
-        for (auto f : functions) {
-          for (auto output : outputStreams(f.second)) {
-            if (coreirSanitize(output->name) == coreirSanitize(inName)) {
-              KernelEdge e;
-              e.dataDest = lb->sel("in");
-              e.en = lb->sel("wen");
-
-              e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
-              e.valid = map_find(f.first, kernels)->sel("valid");
-
-              auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
-              appGraph.addEdgeLabel(ed, e);
-              
-              //def->connect(e.dataDest, e.dataSrc);
-              //def->connect(e.en, e.valid);
-            
-              //def->connect(lb->sel("in"), map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
-              //def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
-
-              foundInput = true;
-
-              break;
-            }
-          }
-
-          if (foundInput) {
             break;
           }
         }
-      }
-      internal_assert(foundInput) << "Could not find input for " << inName << "\n";
-    }
 
-    // Wire up top module outputs
-    bool foundOut = false;
-    // Wire up output
-    for (auto f : functions) {
-      for (auto out : outputStreams(f.second)) {
-        if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
-          KernelEdge e;
-          e.dataDest = self->sel(output_name);
-          e.en = self->sel("valid");
-
-          e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(out->name));
-          e.valid = map_find(f.first, kernels)->sel("valid");
-
-          auto ed = appGraph.addEdge(map_find(f.first, kernels), e.dataDest);
-          appGraph.addEdgeLabel(ed, e);
-
-          //def->connect(e.dataDest, e.dataSrc);
-          //def->connect(e.en, e.valid);
-
-          //def->connect(map_find(f.first, kernels)->sel(coreirSanitize(out->name)), def->sel("self")->sel(output_name));
-          //def->connect(map_find(f.first, kernels)->sel("valid"), def->sel("self")->sel("valid"));
-
-          foundOut = true;
+        if (foundInput) {
           break;
         }
       }
     }
-    internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
+    internal_assert(foundInput) << "Could not find input for " << inName << "\n";
+  }
 
-    for (auto e : appGraph.allEdges()) {
-      def->connect(e.dataDest, e.dataSrc);
-      def->connect(e.en, e.valid);
+  // Wire up top module outputs
+  bool foundOut = false;
+  // Wire up output
+  for (auto f : functions) {
+    for (auto out : outputStreams(f.second)) {
+      if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
+        KernelEdge e;
+        e.dataDest = self->sel(output_name);
+        e.en = self->sel("valid");
+
+        e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(out->name));
+        e.valid = map_find(f.first, kernels)->sel("valid");
+
+        auto ed = appGraph.addEdge(map_find(f.first, kernels), e.dataDest);
+        appGraph.addEdgeLabel(ed, e);
+
+        foundOut = true;
+        break;
+      }
     }
+  }
+  internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
-    // Wiring up function inputs
-    for (auto f : functions) {
-      // Collect a map from input names to output wireables?
-      // And together all inputs?
-      //
-      std::map<CoreIR::Wireable*, CoreIR::Wireable*> inputMap;
-      std::vector<CoreIR::Wireable*> allEnables;
-      for (auto input : inputStreams(f.second)) {
-        cout << "Function " << f.second.name << " has input " << *input << endl;
-        CoreIR::Wireable* inPort = map_get(f.first, kernels)->sel(coreirSanitize(input->name));
+  for (auto e : appGraph.allEdges()) {
+    def->connect(e.dataDest, e.dataSrc);
+    def->connect(e.en, e.valid);
+  }
 
-        if (CoreIR::contains_key(input->name, linebufferResults)) {
-          auto lb = linebufferResults[input->name];
-          inputMap[inPort] = lb->sel("out");
-          allEnables.push_back(lb->sel("valid"));
+  // Wiring up function inputs
+  for (auto f : functions) {
+    // Collect a map from input names to output wireables?
+    // And together all inputs?
+    //
+    std::map<CoreIR::Wireable*, CoreIR::Wireable*> inputMap;
+    std::vector<CoreIR::Wireable*> allEnables;
+    for (auto input : inputStreams(f.second)) {
+      cout << "Function " << f.second.name << " has input " << *input << endl;
+      CoreIR::Wireable* inPort = map_get(f.first, kernels)->sel(coreirSanitize(input->name));
 
-        } else {
-          // The input is a top-level module input?
-          bool foundProducer = false;
-          for (auto otherF : functions) {
-            for (auto output : outputStreams(otherF.second)) {
-              if (output->name == input->name) {
-                cout << input->name << " is produced by " << otherF.second.name << endl;
-                inputMap[inPort] = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
-                allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
+      if (CoreIR::contains_key(input->name, linebufferResults)) {
+        auto lb = linebufferResults[input->name];
+        inputMap[inPort] = lb->sel("out");
+        allEnables.push_back(lb->sel("valid"));
 
-                foundProducer = true;
-                break;
-              }
-            }
+      } else {
+        // The input is a top-level module input?
+        bool foundProducer = false;
+        for (auto otherF : functions) {
+          for (auto output : outputStreams(otherF.second)) {
+            if (output->name == input->name) {
+              cout << input->name << " is produced by " << otherF.second.name << endl;
+              inputMap[inPort] = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
+              allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
 
-            if (foundProducer) {
+              foundProducer = true;
               break;
             }
           }
 
-          if (!foundProducer) {
-            // Assume that this must be a top-level input
-            auto self = def->sel("self");
-            cout << "Trying to find default producer for " << CoreIR::toString(*inPort) << " in " << CoreIR::toString(*(self->sel("in"))) << endl;
-
-            auto selTp = self->sel("in")->getType();
-            internal_assert(CoreIR::isa<CoreIR::RecordType>(selTp)) << "select self.in must be a record\n";
-            auto rtp = static_cast<CoreIR::RecordType*>(selTp);
-            auto recs = rtp->getFields();
-            internal_assert(recs.size() > 0);
-
-            auto argSel = self->sel("in")->sel(*begin(recs));
-
-            inputMap[inPort] = argSel;
-            allEnables.push_back(self->sel("in_en"));
+          if (foundProducer) {
+            break;
           }
         }
-      }
 
-      cout << "Done getting function inputs..." << endl;
+        if (!foundProducer) {
+          // Assume that this must be a top-level input
+          auto self = def->sel("self");
+          cout << "Trying to find default producer for " << CoreIR::toString(*inPort) << " in " << CoreIR::toString(*(self->sel("in"))) << endl;
 
-      // Actually connect sources to enables
-      for (auto in : inputMap) {
-        def->connect(in.first, in.second);
-      }
+          auto selTp = self->sel("in")->getType();
+          internal_assert(CoreIR::isa<CoreIR::RecordType>(selTp)) << "select self.in must be a record\n";
+          auto rtp = static_cast<CoreIR::RecordType*>(selTp);
+          auto recs = rtp->getFields();
+          internal_assert(recs.size() > 0);
 
-      cout << "Done connecting inputMap" << endl;
-      auto fKernel = map_find(f.first, kernels);
-      auto cPaths = map_find(f.first, controlPaths);
-      if (allEnables.size() == 0) {
-        // Do nothing
-        auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
-        def->connect(fKernel->sel("in_en"), c1->sel("out"));
-        def->connect(cPaths->sel("in_en"), c1->sel("out"));
-      } else if (allEnables.size() == 1) {
-        def->connect(allEnables[0], fKernel->sel("in_en"));
-        def->connect(allEnables[0], cPaths->sel("in_en"));
-      } else {
-        auto v0 = allEnables[0];
-        for (int i = 1; i < (int) allEnables.size(); i++) {
-          auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
-          def->connect(and0->sel("in0"), v0);
-          def->connect(and0->sel("in1"), allEnables[i]);
-          v0 = and0->sel("out");
+          auto argSel = self->sel("in")->sel(*begin(recs));
+
+          inputMap[inPort] = argSel;
+          allEnables.push_back(self->sel("in_en"));
         }
+      }
+    }
 
-        def->connect(fKernel->sel("in_en"), v0);
-        def->connect(cPaths->sel("in_en"), v0);
+    cout << "Done getting function inputs..." << endl;
+
+    // Actually connect sources to enables
+    for (auto in : inputMap) {
+      def->connect(in.first, in.second);
+    }
+
+    cout << "Done connecting inputMap" << endl;
+    auto fKernel = map_find(f.first, kernels);
+    auto cPaths = map_find(f.first, controlPaths);
+    if (allEnables.size() == 0) {
+      // Do nothing
+      auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
+      def->connect(fKernel->sel("in_en"), c1->sel("out"));
+      def->connect(cPaths->sel("in_en"), c1->sel("out"));
+    } else if (allEnables.size() == 1) {
+      def->connect(allEnables[0], fKernel->sel("in_en"));
+      def->connect(allEnables[0], cPaths->sel("in_en"));
+    } else {
+      auto v0 = allEnables[0];
+      for (int i = 1; i < (int) allEnables.size(); i++) {
+        auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
+        def->connect(and0->sel("in0"), v0);
+        def->connect(and0->sel("in1"), allEnables[i]);
+        v0 = and0->sel("out");
       }
 
-      cout << "Done setting enables" << endl;
+      def->connect(fKernel->sel("in_en"), v0);
+      def->connect(cPaths->sel("in_en"), v0);
     }
 
-    cout << "Setting definition of topMod..." << endl;
+    cout << "Done setting enables" << endl;
+  }
 
-    topMod->setDef(def);
+  cout << "Setting definition of topMod..." << endl;
+
+  topMod->setDef(def);
 
 
-    cout << "Top module" << endl;
-    topMod->print();
+  cout << "Top module" << endl;
+  topMod->print();
 
-    if (!saveToFile(global_ns, "conv_3_3_app.json")) {
-      cout << "Could not save global namespace" << endl;
-      context->die();
-    }
+  if (!saveToFile(global_ns, "conv_3_3_app.json")) {
+    cout << "Could not save global namespace" << endl;
+    context->die();
+  }
 
-    return topMod;
+  return topMod;
 }
 
 }
