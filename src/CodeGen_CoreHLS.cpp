@@ -3090,6 +3090,11 @@ class KernelEdge {
 
     CoreIR::Wireable* dataDest;
     CoreIR::Wireable* en;
+
+    std::string toString() const {
+      return CoreIR::toString(*dataSrc) + " : " + CoreIR::toString(*valid) + " -> " +
+        CoreIR::toString(*dataDest) + " : " + CoreIR::toString(*en);
+    }
 };
 
 bool fromGenerator(const std::string& genName, Instance* inst) {
@@ -3167,6 +3172,26 @@ class AppGraph {
       auto vd = appGraph.addVertex(w);
       values[w] = vd;
       return vd;
+    }
+
+    KernelEdge getLabel(const edisc ed) {
+      return map_get(ed, edgeLabels);
+    }
+
+    vdisc getVdisc(CoreIR::Wireable* w) const {
+      return map_get(w, values);
+    }
+
+    std::string toString() {
+      std::string str = "";
+      str += "---- App graph info\n";
+      for (auto v : allVertices()) {
+        str += "\t-- Vertex: " + CoreIR::toString(v) + "\n";
+        for (auto inEdge : appGraph.inEdges(getVdisc(v))) {
+          str += "\t\t" + getLabel(inEdge).toString() + "\n";
+        }
+      }
+      return str;
     }
 };
 
@@ -3683,6 +3708,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     cout << "Done setting enables" << endl;
   }
+
+  cout << "Application graph..." << endl;
+  cout << appGraph.toString() << endl;
 
   cout << "Setting data sigals on compute kernels" << endl;
   for (auto e : appGraph.allEdges()) {
