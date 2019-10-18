@@ -3077,6 +3077,16 @@ void createLinebuffers(CoreIR::Context* context,
     }
 }
 
+class KernelEdge {
+  public:
+
+    CoreIR::Wireable* dataSrc;
+    CoreIR::Wireable* valid;
+
+    CoreIR::Wireable* dataDest;
+    CoreIR::Wireable* en;
+};
+
 void printCollectedStores(StoreCollector& stCollector) {
     for (auto s : stCollector.stores) {
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
@@ -3360,7 +3370,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     std::map<string, CoreIR::Instance*> linebufferInputs;
     createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
-    CoreIR::DirectedGraph<CoreIR::Wireable*, std::string> appGraph;
+    CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
     std::map<CoreIR::Wireable*, vdisc> values;
     for (auto in : linebufferInputs) {
       string inName = in.first;
@@ -3378,6 +3388,14 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
     }
 
+    for (auto f : functions) {
+      auto vd = appGraph.addVertex(map_find(f.first, kernels));
+      values[map_find(f.first, kernels)] = vd;
+    }
+
+    auto vd = appGraph.addVertex(def->sel("self")->sel(output_name));
+    values[def->sel("self")->sel(output_name)] = vd;
+
     for (auto in : linebufferInputs) {
       string inName = in.first;
       auto lb = in.second;
@@ -3392,7 +3410,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
           foundInput = true;
 
-          appGraph.addVertex(def->sel("self")->sel("in")->sel(coreirName));
           break;
         }
       }
@@ -3406,7 +3423,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
               def->connect(lb->sel("wen"), map_find(f.first, kernels)->sel("valid")); 
               foundInput = true;
 
-              appGraph.addVertex(map_find(f.first, kernels)->sel(coreirSanitize(output->name)));
               break;
             }
           }
@@ -3538,30 +3554,5 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     return topMod;
 }
 
-//float id_fconst_value(const Expr e) {
-  //if (const FloatImm* e_float = e.as<FloatImm>()) {
-    //return e_float->value;
-
-  //} else {
-    ////internal_error << "invalid constant expr\n";
-    //return -1;
-  //}
-//}
-
-//int get_const_bitwidth(const Expr e) {
-  //if (const IntImm* e_int = e.as<IntImm>()) {
-    //return e_int->type.bits();
-      
-  //} else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-    //return e_uint->type.bits();
-
-  //} else if (const FloatImm* e_float = e.as<FloatImm>()) {
-    //return e_float->type.bits();
-    
-  //} else {
-    //internal_error << "invalid constant expr\n";
-    //return -1;
-  //}
-//}
 }
 }
