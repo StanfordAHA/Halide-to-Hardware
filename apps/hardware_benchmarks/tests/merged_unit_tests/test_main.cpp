@@ -1974,7 +1974,8 @@ void camera_pipeline_test() {
 
   Func hw_output_8;
   hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
-  hw_output(x, y, c) = curve(hw_output_8(x, y, c));
+  hw_output(x, y, c) = hw_output_8(x, y, c);
+  //hw_output(x, y, c) = curve(hw_output_8(x, y, c));
   // Note: Passes one unit test
   //hw_output(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
   // Note: Passes one unit test
