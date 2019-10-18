@@ -3087,6 +3087,18 @@ class KernelEdge {
     CoreIR::Wireable* en;
 };
 
+class AppGraph {
+  public:
+    CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
+    std::map<CoreIR::Wireable*, vdisc> values;
+
+    vdisc addVertex(CoreIR::Wireable* w) {
+      auto vd = appGraph.addVertex(w);
+      values[w] = vd;
+      return vd;
+    }
+};
+
 void printCollectedStores(StoreCollector& stCollector) {
     for (auto s : stCollector.stores) {
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
@@ -3370,13 +3382,12 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     std::map<string, CoreIR::Instance*> linebufferInputs;
     createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
-    CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
-    std::map<CoreIR::Wireable*, vdisc> values;
+    AppGraph appGraph;
     for (auto in : linebufferInputs) {
       string inName = in.first;
       auto lb = in.second;
       auto gv = appGraph.addVertex(lb);
-      values[lb] = gv;
+      //values[lb] = gv;
     }
 
     for (auto arg : args) {
@@ -3384,17 +3395,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         string coreirName = CoreIR::map_find(arg.name, inputAliases);
         auto s = def->sel("self")->sel("in")->sel(coreirName);
         auto vd = appGraph.addVertex(s);
-        values[s] = vd;
+        //values[s] = vd;
       }
     }
 
     for (auto f : functions) {
       auto vd = appGraph.addVertex(map_find(f.first, kernels));
-      values[map_find(f.first, kernels)] = vd;
+      //values[map_find(f.first, kernels)] = vd;
     }
 
     auto vd = appGraph.addVertex(def->sel("self")->sel(output_name));
-    values[def->sel("self")->sel(output_name)] = vd;
+    //values[def->sel("self")->sel(output_name)] = vd;
 
     auto self = def->sel("self");
     for (auto in : linebufferInputs) {
