@@ -3589,41 +3589,43 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     cout << "Done getting function inputs..." << endl;
 
-    //// Actually connect sources to enables
+    // Actually connect sources to enables
     //for (auto in : inputMap) {
       //def->connect(in.first, in.second);
     //}
 
-    //cout << "Done connecting inputMap" << endl;
-    //auto fKernel = map_find(f.first, kernels);
-    //auto cPaths = map_find(f.first, controlPaths);
-    //if (allEnables.size() == 0) {
-      //// Do nothing
-      //auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
-      //def->connect(fKernel->sel("in_en"), c1->sel("out"));
-      //def->connect(cPaths->sel("in_en"), c1->sel("out"));
-    //} else if (allEnables.size() == 1) {
-      //def->connect(allEnables[0], fKernel->sel("in_en"));
-      //def->connect(allEnables[0], cPaths->sel("in_en"));
-    //} else {
-      //auto v0 = allEnables[0];
-      //for (int i = 1; i < (int) allEnables.size(); i++) {
-        //auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
-        //def->connect(and0->sel("in0"), v0);
-        //def->connect(and0->sel("in1"), allEnables[i]);
-        //v0 = and0->sel("out");
-      //}
+    cout << "Done connecting inputMap" << endl;
+    auto fKernel = map_find(f.first, kernels);
+    auto cPaths = map_find(f.first, controlPaths);
+    if (allEnables.size() == 0) {
+      // Do nothing
+      auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
+      def->connect(fKernel->sel("in_en"), c1->sel("out"));
+      def->connect(cPaths->sel("in_en"), c1->sel("out"));
+    } else if (allEnables.size() == 1) {
+      def->connect(allEnables[0], fKernel->sel("in_en"));
+      def->connect(allEnables[0], cPaths->sel("in_en"));
+    } else {
+      auto v0 = allEnables[0];
+      for (int i = 1; i < (int) allEnables.size(); i++) {
+        auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
+        def->connect(and0->sel("in0"), v0);
+        def->connect(and0->sel("in1"), allEnables[i]);
+        v0 = and0->sel("out");
+      }
 
-      //def->connect(fKernel->sel("in_en"), v0);
-      //def->connect(cPaths->sel("in_en"), v0);
-    //}
+      def->connect(fKernel->sel("in_en"), v0);
+      def->connect(cPaths->sel("in_en"), v0);
+    }
 
-    //cout << "Done setting enables" << endl;
+    cout << "Done setting enables" << endl;
   }
 
+  cout << "Setting data sigals on compute kernels" << endl;
+  // TODO: Create a mapping from control paths to enable signals
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
-    def->connect(e.en, e.valid);
+    //def->connect(e.en, e.valid);
   }
 
   cout << "Setting definition of topMod..." << endl;
