@@ -3204,6 +3204,26 @@ bool isComputeKernel(CoreIR::Wireable* v) {
   return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b));
 }
 
+bool isLinebuffer(Wireable* destBase) {
+  if (isa<Instance>(destBase)) {
+    auto instBase = static_cast<CoreIR::Instance*>(destBase);
+    return fromGenerator("commonlib.linebuffer", instBase);
+  }
+
+  return false;
+}
+
+int cycleDelay(edisc e, AppGraph& appGraph) {
+  vdisc srcV = appGraph.appGraph.source(e);
+  auto srcWire = getBase(appGraph.appGraph.getNode(srcV));
+  // TODO: Insert real delay computation here
+  if (isLinebuffer(srcWire)) {
+    return 10;
+  } else {
+    return 0;
+  }
+}
+
 void printCollectedStores(StoreCollector& stCollector) {
     for (auto s : stCollector.stores) {
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
@@ -3726,6 +3746,75 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   cout << "Sorted nodes..." << endl;
   for (auto v : topSort) {
     cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
+  }
+  
+  std::map<vdisc, int> nodesToDelays;
+  std::map<edisc, int> extraDelaysNeeded;
+  for (auto v : topSort) {
+    vector<edisc> inEdges = appGraph.appGraph.inEdges(v);
+
+    //vector<pair<vdisc, int> > inDistances;
+
+    //map<edisc, int> incomingDelays;
+    int maxDist = 0;
+    vdisc maxDistVert;
+    edisc maxEdge;
+    //bool foundMax = false;
+    for (auto e : inEdges) {
+      auto srcVert = appGraph.appGraph.source(e);
+      int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph);
+
+      //incomingDelays[srcVert] = distToSrc;
+      if (distToSrc >= maxDist) {
+        maxDist = distToSrc;
+        maxDistVert = srcVert;
+        maxEdge = e;
+        //foundMax = true;
+      }
+      
+    }
+
+    bool allDelaysSame = true;
+    if (inEdges.size() == 0) {
+      // All delays are trivially the same
+    } else {
+      for (size_t i = 0; i < inEdges.size() - 1; i++) {
+        auto srcVert = appGraph.appGraph.source(inEdges[i]);
+        int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(inEdges[i], appGraph);
+        
+        auto srcVert1 = appGraph.appGraph.source(inEdges[i + 1]);
+        int distToSrc1 = map_get(srcVert1, nodesToDelays) + cycleDelay(inEdges[i + 1], appGraph);
+        if (distToSrc != distToSrc1) {
+          allDelaysSame = false;
+          break;
+        }
+      }
+    }
+
+    if (allDelaysSame) {
+      for (auto e : inEdges) {
+        extraDelaysNeeded[e] = 0;
+      }
+    } else {
+      for (auto e : inEdges) {
+        if (e == maxEdge) {
+          extraDelaysNeeded[e] = 0;
+        } else {
+          auto srcVert = appGraph.appGraph.source(e);
+          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph);
+          int filler = maxDist - distToSrc;
+          extraDelaysNeeded[e] = filler;
+        }
+      }
+    }
+
+    nodesToDelays[v] = maxDist;
+  }
+
+  internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
+
+  for (auto n : extraDelaysNeeded) {
+    internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
   }
 
   cout << "Setting data sigals on compute kernels" << endl;
