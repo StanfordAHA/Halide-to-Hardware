@@ -36,6 +36,9 @@ using std::ofstream;
 using std::cout;
 
 using CoreIR::vdisc;
+using CoreIR::Instance;
+using CoreIR::isa;
+using CoreIR::Wireable;
 using CoreIR::edisc;
 using CoreIR::map_find;
 using CoreIR::elem;
@@ -3088,11 +3091,33 @@ class KernelEdge {
     CoreIR::Wireable* en;
 };
 
+bool fromGenerator(const std::string& genName, Instance* inst) {
+  if (!inst->getModuleRef()->isGenerated()) {
+    return false;
+  }
+
+  auto gen = inst->getModuleRef()->getGenerator();
+  return gen->getRefName() == genName;
+}
+
 class AppGraph {
   public:
     CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
     std::map<CoreIR::Wireable*, vdisc> values;
     std::map<edisc, KernelEdge> edgeLabels;
+
+    bool destIsLinebuffer(KernelEdge& e) {
+      cout << "Getting base of " << CoreIR::toString(e.dataDest) << endl;
+      auto destBase = getBase(e.dataDest);
+      if (isa<Instance>(destBase)) {
+        auto instBase = static_cast<CoreIR::Instance*>(destBase);
+        return fromGenerator("commonlib.linebuffer", instBase);
+        //cout << "Long name of inst modref = " << instBase->getModuleRef()->getLongName() << endl;
+        //return instBase->getModuleRef()->getLongName() == "commonlib.linebuffer";
+      }
+
+      return false;
+    }
 
     std::vector<KernelEdge> allEdges() const {
       std::vector<KernelEdge> eds;
@@ -3442,7 +3467,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         e.dataSrc = self->sel("in")->sel(coreirName);
         e.valid = self->sel("in_en");
 
-        auto ed = appGraph.addEdge(lb, e.dataSrc);
+        auto ed = appGraph.addEdge(e.dataSrc, lb);
         appGraph.addEdgeLabel(ed, e);
 
         foundInput = true;
@@ -3463,7 +3488,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
             e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
             e.valid = map_find(f.first, kernels)->sel("valid");
 
-            auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
+            auto ed = appGraph.addEdge(map_find(f.first, kernels), lb);
             appGraph.addEdgeLabel(ed, e);
 
             foundInput = true;
@@ -3625,6 +3650,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   // TODO: Create a mapping from control paths to enable signals
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
+    if (appGraph.destIsLinebuffer(e)) {
+      def->connect(e.en, e.valid);
+    }
     //def->connect(e.en, e.valid);
   }
 
