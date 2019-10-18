@@ -3465,6 +3465,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
               e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
               e.valid = map_find(f.first, kernels)->sel("valid");
 
+              auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
+              appGraph.addEdgeLabel(ed, e);
+              
               def->connect(e.dataDest, e.dataSrc);
               def->connect(e.en, e.valid);
             
@@ -3497,6 +3500,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
           e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(out->name));
           e.valid = map_find(f.first, kernels)->sel("valid");
+
+          auto ed = appGraph.addEdge(map_find(f.first, kernels), e.dataDest);
+          appGraph.addEdgeLabel(ed, e);
 
           def->connect(e.dataDest, e.dataSrc);
           def->connect(e.en, e.valid);
