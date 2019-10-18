@@ -796,7 +796,7 @@ class HWBuffers : public IRMutator2 {
                   << "  compute=" << compute_locked.to_string() << std::endl;
 
 
-        std::cout << "Encountered realize " << op->name << " with body:\n" << op->body << std::endl;
+        //std::cout << "Encountered realize " << op->name << " with body:\n" << op->body << std::endl;
         
         if (sched.compute_level() == sched.store_level()) {
           std::cout << op->name << " has compute=store level\n";
@@ -813,11 +813,11 @@ class HWBuffers : public IRMutator2 {
           
           auto boxes_write = boxes_provided(new_body);
           for (auto box_entry : boxes_write) {
-            std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+            //std::cout << "Box writer found for " << box_entry.first << " with box " << box_entry.second << std::endl;
           }
           auto boxes_read = boxes_required(new_body);
           for (auto box_entry : boxes_read) {
-            std::cout << "Box reader found for " << box_entry.first << " with box " << box_entry.second << std::endl;
+            //std::cout << "Box reader found for " << box_entry.first << " with box " << box_entry.second << std::endl;
           }
 
           // extent is the same for total buffer box, input chunk, and output stencil for double buffer
