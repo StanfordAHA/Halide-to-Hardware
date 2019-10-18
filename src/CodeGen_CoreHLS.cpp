@@ -3359,15 +3359,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     std::map<string, CoreIR::Instance*> linebufferInputs;
     createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
-    CoreIR::DirectedGraph<CoreIR::Instance*, std::string> appGraph;
-    // Next: Create a graph whose nodes are compute kernels, linebuffers, or top level ins / outs
-    // and form edges between them labeled with valid signals
-    //
-    // Then: Use this graph as an input to a data structure that computes buffering for
-    // kernels
-    // Create inter-kernel connections
-    // Q: What is a good intermediate representation?
-    // A: Nodes (linebuffers or kernels) with a map from names to inputs / outputs
+    CoreIR::DirectedGraph<CoreIR::Wireable*, std::string> appGraph;
     for (auto in : linebufferInputs) {
       string inName = in.first;
       auto lb = in.second;
@@ -3378,11 +3370,12 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
           internal_assert(CoreIR::contains_key(inName, inputAliases));
           string coreirName = CoreIR::map_find(inName, inputAliases);
-          cout << "Name for " << inName << " = " << coreirName << endl;
           def->connect(lb->sel("in"), def->sel("self")->sel("in")->sel(coreirName));
-          cout << "Connected " << inName << " to linebuffer" << endl;
           def->connect(lb->sel("wen"), def->sel("self")->sel("in_en"));
           foundInput = true;
+
+          appGraph.addVertex(lb);
+          appGraph.addVertex(def->sel("self")->sel("in")->sel(coreirName));
           break;
         }
       }
