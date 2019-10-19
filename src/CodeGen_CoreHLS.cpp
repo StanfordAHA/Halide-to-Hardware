@@ -485,28 +485,29 @@ bool can_use_rom(Stmt s, string allocname) {
 void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
-  // TODO: Replace with "type" instead of width"
-  CoreIR::Params srParams{{"width", context->Int()}, {"delay", context->Int()}};
+  CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}, {"delay", context->Int()}};
   CoreIR::TypeGen* srTg = hns->newTypeGen("shift_register", srParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
-      auto width = args.at("width")->get<int>();
-      return c->Record({{"reset", c->BitIn()}, {"clk", c->Named("coreir.clkIn")}, {"in_data", c->BitIn()->Arr(width)},
+      auto t = args.at("type")->get<CoreIR::Type*>();
+      return c->Record({
+          {"clk", c->Named("coreir.clkIn")},
+          {"in_data", t->getFlipped()},
           {"in_en", c->BitIn()},
-          {"out_data", c->Bit()->Arr(width)},
+          {"out_data", t},
           {"valid", c->Bit()}
           });
       });
   auto srGen = hns->newGeneratorDecl("shift_register", srTg, srParams);
   srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
       auto self = def->sel("self");
-      int width = args.at("width")->get<int>();
+      CoreIR::Type* type = args.at("type")->get<CoreIR::Type*>();
       int delay = args.at("delay")->get<int>();
 
       Wireable* inData = self->sel("in_data");
       Wireable* inEn = self->sel("in_en");
 
       for (int i = 0; i < delay; i++) {
-        auto delayReg = def->addInstance("delay_reg_" + std::to_string(i), "coreir.reg", {{"width", COREMK(c, width)}});
+        auto delayReg = def->addInstance("delay_reg_" + std::to_string(i), "commonlib.reg_array", {{"type", COREMK(c, type)}});
         def->connect(delayReg->sel("clk"), self->sel("clk"));
         def->connect(delayReg->sel("in"), inData);
 
@@ -3878,7 +3879,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto n : extraDelaysNeeded) {
     auto delay = def->addInstance("delay_" + context->getUnique(),
         "halidehw.shift_register",
-        {{"width", COREMK(context, 16)}, {"delay", COREMK(context, n.second)}});
+        {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
     cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
     delays[n.first] = delay;
   }
