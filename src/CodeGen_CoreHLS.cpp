@@ -3914,15 +3914,15 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     delayedGraph.addVertex(w.first);
   }
 
-  //map<edisc, Instance*> delays;
+  map<edisc, Instance*> edgeDelays;
   for (auto n : extraDelaysNeeded) {
     if (n.second != 0) {
       auto delay = def->addInstance("delay_" + context->getUnique(),
           "halidehw.shift_register",
           {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
       cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
-      delayedGraph.appGraph.addVertex(delay);
-      //delays[n.first] = delay;
+      delayedGraph.addVertex(delay);
+      edgeDelays[n.first] = delay;
     }
   }
 
@@ -3949,23 +3949,32 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       KernelEdge labelCopy;
       labelCopy = origEdge;
 
-      //cout << "Starting to create edge replacement" << endl;
-      //cout << "Replacing base in " << CoreIR::toString(*(origEdge.dataSrc)) << " with " << CoreIR::toString(*newSrc) << endl;
-      //labelCopy.dataSrc = replaceBase(origEdge.dataSrc, newSrc);
-
-      //cout << "Replaced edge data src" << endl;
-      //labelCopy.valid = replaceBase(origEdge.valid, newSrc);
-
-      //cout << "Done with src replacement" << endl;
-
-      //labelCopy.dataDest = replaceBase(origEdge.dataDest, newDst);
-      //labelCopy.en = replaceBase(origEdge.en, newDst);
-
-      //cout << "Done replaceing bases" << endl;
       delayedGraph.addEdgeLabel(newEdge, labelCopy);
     } else {
-      // Insert 2 new edges: src -> delay, delay -> dst
-      internal_assert(false) << "No support for adding delays yet\n";
+      cout << "Finding delay for " << e << endl;
+      Wireable* newD = map_find(e, edgeDelays);
+      cout << "Found delay for " << e << endl;
+
+      auto s2d = delayedGraph.addEdge(newSrc, newD);
+      auto d2d = delayedGraph.addEdge(newD, newDst);
+
+      cout << "Added new edges" << endl;
+
+      KernelEdge srcToDelay;
+      KernelEdge delayToDst;
+      
+      srcToDelay.dataSrc = origEdge.dataSrc;
+      srcToDelay.valid = origEdge.valid;
+      srcToDelay.dataDest = newD->sel("in_data");
+      srcToDelay.en = newD->sel("in_en");
+
+      delayToDst.dataSrc = newD->sel("out_data");
+      delayToDst.valid = newD->sel("valid");
+      delayToDst.dataDest = origEdge.dataDest;
+      delayToDst.en = origEdge.en;
+
+      delayedGraph.addEdgeLabel(s2d, srcToDelay);
+      delayedGraph.addEdgeLabel(d2d, delayToDst);
     }
   }
 
