@@ -31,6 +31,7 @@ using std::ostream;
 using std::endl;
 using std::string;
 using std::vector;
+using std::map;
 using std::ostringstream;
 using std::ofstream;
 using std::cout;
@@ -484,11 +485,46 @@ bool can_use_rom(Stmt s, string allocname) {
 void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
+  // TODO: Replace with "type" instead of width"
+  CoreIR::Params srParams{{"width", context->Int()}, {"delay", context->Int()}};
+  CoreIR::TypeGen* srTg = hns->newTypeGen("shift_register", srParams,
+      [](CoreIR::Context* c, CoreIR::Values args) {
+      auto width = args.at("width")->get<int>();
+      return c->Record({{"reset", c->BitIn()}, {"clk", c->Named("coreir.clkIn")}, {"in_data", c->BitIn()->Arr(width)},
+          {"in_en", c->BitIn()},
+          {"out_data", c->Bit()->Arr(width)},
+          {"valid", c->Bit()}
+          });
+      });
+  auto srGen = hns->newGeneratorDecl("shift_register", srTg, srParams);
+  srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+      auto self = def->sel("self");
+      int width = args.at("width")->get<int>();
+      int delay = args.at("delay")->get<int>();
+
+      Wireable* inData = self->sel("in_data");
+      Wireable* inEn = self->sel("in_en");
+
+      for (int i = 0; i < delay; i++) {
+        auto delayReg = def->addInstance("delay_reg_" + std::to_string(i), "coreir.reg", {{"width", COREMK(c, width)}});
+        def->connect(delayReg->sel("clk"), self->sel("clk"));
+        def->connect(delayReg->sel("in"), inData);
+
+        inData = delayReg->sel("out");
+        auto validReg = def->addInstance("valid_reg_" + std::to_string(i), "corebit.reg");
+        def->connect(validReg->sel("in"), inEn);
+        def->connect(validReg->sel("clk"), self->sel("clk"));
+        inEn = validReg->sel("out");
+      }
+
+      def->connect(self->sel("out_data"), inData);
+      def->connect(self->sel("valid"), inEn);
+      });
+  
   CoreIR::Params widthParams{{"width", context->Int()}};
   CoreIR::Params romParams{{"width", context->Int()}, {"depth", context->Int()}, {"nports", context->Int()}};
   CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
   CoreIR::Params widthDimParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()}};
-  //CoreIR::Params stencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()},
   CoreIR::Params stencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()},
     {"r", context->Int()}, {"c", context->Int()}};
   CoreIR::Params stencilReadParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()},
@@ -518,10 +554,6 @@ void loadHalideLib(CoreIR::Context* context) {
       int nports = args.at("nports")->get<int>();
 
       auto vals = def->getModule()->getArg("init");
-      //Json vals;
-      //for (int i = 0; i < depth; i++) {
-      //vals["init"].emplace_back(i);
-      //}
       for (int i = 0; i < nports; i++) {
       auto romBank = def->addInstance("rom_bank_" + std::to_string(i), "memory.rom2",
           {{"width", COREMK(c, width)}, {"depth", COREMK(c, depth)}},
@@ -3154,13 +3186,6 @@ class AppGraph {
           return getBase(w)->sel("in_en");
         }
       }
-      //if (inEnables.size() == 0) {
-        ////internal_assert(isa<Instance>(w));
-        ////auto inst = static_cast<Instance*>(w);
-        //auto def = w->getContainer();
-        //internal_assert(def != nullptr);
-        //return def->addInstance("in_enable_" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(def->getContext(), true)}})->sel("out");
-      //}
 
       internal_assert(inEnables.size() == 1);
 
@@ -3849,24 +3874,35 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
 
   internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
+  map<edisc, Instance*> delays;
+  for (auto n : extraDelaysNeeded) {
+    auto delay = def->addInstance("delay_" + context->getUnique(),
+        "halidehw.shift_register",
+        {{"width", COREMK(context, 16)}, {"delay", COREMK(context, n.second)}});
+    cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
+    delays[n.first] = delay;
+  }
 
   // Now: Need to create new delay nodes for each kernel (if the kernel needs a delay)
   // TODO: Create delay data structure
   //       Compute real linebuffer delays
   //       Compute real kernel delays
   //       Do app graph modifications to insert new delay nodes
-  for (auto n : extraDelaysNeeded) {
-    internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
-  }
+  //AppGraph delayedGraph;
+  //for (auto w : appGraph.values) {
+    //delayedGraph.addVertex(w);
+  //}
+  //for (auto e : appGraph.appGraph.allEdges()) {
+    //auto v = appGraph.source(e);
+  //}
+
+  //for (auto n : extraDelaysNeeded) {
+    //internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
+  //}
 
   cout << "Setting data sigals on compute kernels" << endl;
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
-    //if (appGraph.destIsLinebuffer(e)) {
-      //def->connect(e.en, e.valid);
-    //} else if (appGraph.destIsSelf(e)) {
-      //def->connect(e.en, e.valid);
-    //}
   }
 
   cout << "Wiring up function input valids" << endl;
@@ -3877,32 +3913,24 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
     }
 
-    //if (isComputeKernel(v)) {
     vector<Wireable*> allEnables =
       appGraph.allInputValids(v);
 
-    //if (allEnables.size() > 0) {
-    //cout << "\tEnables for " << CoreIR::toString(*v) << endl;
-    //for (auto e : allEnables) {
-    //cout << "\t\t" << CoreIR::toString(*e) << endl;
-    //}
-    //Wireable* inEnable = v->sel("in_en");
     Wireable* inEnable = appGraph.inEnable(v);
     auto wEn = andList(def, allEnables);
-    //cout << "Result of anding enables = " << CoreIR::toString(*wEn) << endl;
     def->connect(inEnable, wEn);
 
     if (isComputeKernel(v)) {
       def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
     }
-    //}
-    //}
   }
 
+  
   cout << "Setting definition of topMod..." << endl;
 
   topMod->setDef(def);
 
+  context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
   cout << "Top module" << endl;
   topMod->print();
 

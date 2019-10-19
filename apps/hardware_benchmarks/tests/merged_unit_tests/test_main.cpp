@@ -2153,7 +2153,7 @@ void simple_unsharp_test() {
 int main(int argc, char **argv) {
 
   simple_unsharp_test();
-  //double_unsharp_test();
+  double_unsharp_test();
   hot_pixel_suppression_test();
   //camera_pipeline_test();
   //assert(false);
