@@ -3165,7 +3165,8 @@ bool isComputeKernel(CoreIR::Wireable* v) {
     return false;
   }
 
-  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b));
+  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
+    !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b));
 }
 
 bool isLinebuffer(Wireable* destBase) {
@@ -3917,9 +3918,12 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   map<edisc, Instance*> edgeDelays;
   for (auto n : extraDelaysNeeded) {
     if (n.second != 0) {
+      auto kEdge = appGraph.getLabel(n.first);
+
       auto delay = def->addInstance("delay_" + context->getUnique(),
           "halidehw.shift_register",
-          {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
+          //{{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, n.second)}});
+          {{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, 0)}});
       cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
       delayedGraph.addVertex(delay);
       edgeDelays[n.first] = delay;
