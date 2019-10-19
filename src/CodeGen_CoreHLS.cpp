@@ -3110,11 +3110,62 @@ bool fromGenerator(const std::string& genName, Instance* inst) {
   return gen->getRefName() == genName;
 }
 
+bool isComputeKernel(CoreIR::Wireable* v) {
+  auto b = getBase(v);
+  if (!isa<Instance>(b)) {
+    return false;
+  }
+
+  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b));
+}
+
+bool isLinebuffer(Wireable* destBase) {
+  if (isa<Instance>(destBase)) {
+    auto instBase = static_cast<CoreIR::Instance*>(destBase);
+    return fromGenerator("commonlib.linebuffer", instBase);
+  }
+
+  return false;
+}
+
 class AppGraph {
   public:
     CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
     std::map<CoreIR::Wireable*, vdisc> values;
     std::map<edisc, KernelEdge> edgeLabels;
+
+    bool hasInputs(Wireable* w) const {
+      return appGraph.inEdges(map_get(w, values)).size() > 0;
+    }
+
+    Wireable* inEnable(Wireable* w) const {
+      std::set<Wireable*> inEnables;
+      for (auto inEdge : appGraph.inEdges(map_get(w, values))) {
+        inEnables.insert(map_get(inEdge, edgeLabels).en);
+      }
+
+      cout << "In enables for " << CoreIR::toString(*w) << endl;
+      for (auto e : inEnables) {
+        cout << "\t" << CoreIR::toString(*e) << endl;
+      }
+
+      if (inEnables.size() == 0) {
+        if (isComputeKernel(getBase(w))) {
+          return getBase(w)->sel("in_en");
+        }
+      }
+      //if (inEnables.size() == 0) {
+        ////internal_assert(isa<Instance>(w));
+        ////auto inst = static_cast<Instance*>(w);
+        //auto def = w->getContainer();
+        //internal_assert(def != nullptr);
+        //return def->addInstance("in_enable_" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(def->getContext(), true)}})->sel("out");
+      //}
+
+      internal_assert(inEnables.size() == 1);
+
+      return *std::begin(inEnables);
+    }
 
     std::vector<Wireable*> allInputValids(CoreIR::Wireable* w) const {
       vector<Wireable*> ens;
@@ -3198,24 +3249,6 @@ class AppGraph {
       return str;
     }
 };
-
-bool isComputeKernel(CoreIR::Wireable* v) {
-  auto b = getBase(v);
-  if (!isa<Instance>(b)) {
-    return false;
-  }
-
-  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b));
-}
-
-bool isLinebuffer(Wireable* destBase) {
-  if (isa<Instance>(destBase)) {
-    auto instBase = static_cast<CoreIR::Instance*>(destBase);
-    return fromGenerator("commonlib.linebuffer", instBase);
-  }
-
-  return false;
-}
 
 int cycleDelay(edisc e, AppGraph& appGraph) {
   vdisc srcV = appGraph.appGraph.source(e);
@@ -3817,6 +3850,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
 
+  // Now: Need to create new delay nodes for each kernel (if the kernel needs a delay)
+  // TODO: Create delay data structure
+  //       Compute real linebuffer delays
+  //       Compute real kernel delays
+  //       Do app graph modifications to insert new delay nodes
   for (auto n : extraDelaysNeeded) {
     internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
   }
@@ -3824,28 +3862,41 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   cout << "Setting data sigals on compute kernels" << endl;
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
-    if (appGraph.destIsLinebuffer(e)) {
-      def->connect(e.en, e.valid);
-    } else if (appGraph.destIsSelf(e)) {
-      def->connect(e.en, e.valid);
-    }
+    //if (appGraph.destIsLinebuffer(e)) {
+      //def->connect(e.en, e.valid);
+    //} else if (appGraph.destIsSelf(e)) {
+      //def->connect(e.en, e.valid);
+    //}
   }
 
   cout << "Wiring up function input valids" << endl;
   for (auto v : appGraph.allVertices()) {
-    if (isComputeKernel(v)) {
-      vector<Wireable*> allEnables =
-        appGraph.allInputValids(v);
-      cout << "\tEnables for " << CoreIR::toString(*v) << endl;
-      for (auto e : allEnables) {
-        cout << "\t\t" << CoreIR::toString(*e) << endl;
+    if (!appGraph.hasInputs(v)) {
+      if (isa<Interface>(getBase(v))) {
+        continue;
       }
-      Wireable* inEnable = v->sel("in_en");
-      auto wEn = andList(def, allEnables);
-      cout << "Result of anding enables = " << CoreIR::toString(*wEn) << endl;
-      def->connect(inEnable, wEn);
+    }
+
+    //if (isComputeKernel(v)) {
+    vector<Wireable*> allEnables =
+      appGraph.allInputValids(v);
+
+    //if (allEnables.size() > 0) {
+    //cout << "\tEnables for " << CoreIR::toString(*v) << endl;
+    //for (auto e : allEnables) {
+    //cout << "\t\t" << CoreIR::toString(*e) << endl;
+    //}
+    //Wireable* inEnable = v->sel("in_en");
+    Wireable* inEnable = appGraph.inEnable(v);
+    auto wEn = andList(def, allEnables);
+    //cout << "Result of anding enables = " << CoreIR::toString(*wEn) << endl;
+    def->connect(inEnable, wEn);
+
+    if (isComputeKernel(v)) {
       def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
     }
+    //}
+    //}
   }
 
   cout << "Setting definition of topMod..." << endl;
