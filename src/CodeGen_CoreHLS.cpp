@@ -2837,7 +2837,7 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
   }
 
   val = vals[0];
-  for (int i = 1; i < ((int) vals.size()) - 1; i++) {
+  for (int i = 1; i < ((int) vals.size()); i++) {
     val = andVals(def, val, vals[i]);
   }
   return val;
@@ -3842,6 +3842,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
       Wireable* inEnable = v->sel("in_en");
       auto wEn = andList(def, allEnables);
+      cout << "Result of anding enables = " << CoreIR::toString(*wEn) << endl;
       def->connect(inEnable, wEn);
       def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
     }
