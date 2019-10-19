@@ -48,6 +48,10 @@ using CoreIR::contains_key;
 
 namespace {
 
+std::string coreStr(const Wireable* w) {
+  return CoreIR::toString(*w);
+}
+
 class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
@@ -3912,12 +3916,14 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   //map<edisc, Instance*> delays;
   for (auto n : extraDelaysNeeded) {
-    auto delay = def->addInstance("delay_" + context->getUnique(),
-        "halidehw.shift_register",
-        {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
-    cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
-    delayedGraph.appGraph.addVertex(delay);
-    //delays[n.first] = delay;
+    if (n.second != 0) {
+      auto delay = def->addInstance("delay_" + context->getUnique(),
+          "halidehw.shift_register",
+          {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
+      cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
+      delayedGraph.appGraph.addVertex(delay);
+      //delays[n.first] = delay;
+    }
   }
 
   // Now: For each edge in the original graph:
@@ -3959,7 +3965,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       delayedGraph.addEdgeLabel(newEdge, labelCopy);
     } else {
       // Insert 2 new edges: src -> delay, delay -> dst
-      //internal_assert(false) << "No support for adding delays yet\n";
+      internal_assert(false) << "No support for adding delays yet\n";
     }
   }
 
@@ -3967,6 +3973,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
   //}
 
+  appGraph = delayedGraph;
   cout << "Setting data sigals on compute kernels" << endl;
   for (auto e : appGraph.allEdges()) {
     def->connect(e.dataDest, e.dataSrc);
@@ -3974,20 +3981,27 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   cout << "Wiring up function input valids" << endl;
   for (auto v : appGraph.allVertices()) {
+    cout << "Wiring up valids for " << coreStr(v) << endl;
     if (!appGraph.hasInputs(v)) {
       if (isa<Interface>(getBase(v))) {
         continue;
       }
     }
 
+    cout << "Wiring up enables for " << coreStr(v) << endl;
+
     vector<Wireable*> allEnables =
       appGraph.allInputValids(v);
 
     Wireable* inEnable = appGraph.inEnable(v);
+
+    cout << "Creating and list for enables" << endl;
     auto wEn = andList(def, allEnables);
+    cout << "Connecting " << coreStr(inEnable) << " to " << coreStr(wEn) << endl;
     def->connect(inEnable, wEn);
 
     if (isComputeKernel(v)) {
+      cout << "Wiring up control path for compute kernel " << coreStr(v) << endl;
       def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
     }
   }
