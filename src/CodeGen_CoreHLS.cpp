@@ -2622,6 +2622,18 @@ CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
   return getBase(s->getParent());
 }
 
+Wireable* replaceBase(Wireable* toReplace, Wireable* newBase) {
+  auto b = getBase(toReplace);
+  if (b == toReplace) {
+    return newBase;
+  }
+
+  internal_assert(CoreIR::isa<CoreIR::Select>(toReplace));
+
+  auto s = static_cast<CoreIR::Select*>(toReplace);
+  return replaceBase(s->getParent(), newBase)->sel(s->getSelStr());
+}
+
 CoreIR::Instance* pickNextInstance(CoreIR::ModuleDef* def, std::set<CoreIR::Wireable*>& alreadyDone) {
   std::set<CoreIR::Instance*> instances;
   for (auto d : alreadyDone) {
@@ -3202,6 +3214,10 @@ class AppGraph {
       return ens;
     }
 
+    Wireable* getNode(vdisc v) const {
+      return appGraph.getNode(v);
+    }
+
     std::vector<Wireable*> allVertices() const {
       vector<Wireable*> wVerts;
       for (auto v : appGraph.getVerts()) {
@@ -3217,6 +3233,14 @@ class AppGraph {
       }
 
       return false;
+    }
+
+    Wireable* target(const edisc e) {
+      return appGraph.getNode(appGraph.target(e));
+    }
+    
+    Wireable* source(const edisc e) {
+      return appGraph.getNode(appGraph.source(e));
     }
 
     bool destIsLinebuffer(KernelEdge& e) {
@@ -3875,27 +3899,69 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
 
   internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
-  map<edisc, Instance*> delays;
-  for (auto n : extraDelaysNeeded) {
-    auto delay = def->addInstance("delay_" + context->getUnique(),
-        "halidehw.shift_register",
-        {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
-    cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
-    delays[n.first] = delay;
-  }
 
   // Now: Need to create new delay nodes for each kernel (if the kernel needs a delay)
   // TODO: Create delay data structure
   //       Compute real linebuffer delays
   //       Compute real kernel delays
   //       Do app graph modifications to insert new delay nodes
-  //AppGraph delayedGraph;
-  //for (auto w : appGraph.values) {
-    //delayedGraph.addVertex(w);
-  //}
-  //for (auto e : appGraph.appGraph.allEdges()) {
-    //auto v = appGraph.source(e);
-  //}
+  AppGraph delayedGraph;
+  for (auto w : appGraph.values) {
+    delayedGraph.addVertex(w.first);
+  }
+
+  //map<edisc, Instance*> delays;
+  for (auto n : extraDelaysNeeded) {
+    auto delay = def->addInstance("delay_" + context->getUnique(),
+        "halidehw.shift_register",
+        {{"type", COREMK(context, context->Bit()->Arr(16))}, {"delay", COREMK(context, n.second)}});
+    cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
+    delayedGraph.appGraph.addVertex(delay);
+    //delays[n.first] = delay;
+  }
+
+  // Now: For each edge in the original graph:
+  // If the edge needs a delay that is not zero:
+  // add an edge from current graph to delay, and
+  // from delay to next node
+  // Else: Copy the edge from appGraph to delayedGraph
+  for (auto e : appGraph.appGraph.getEdges()) {
+    int delay = map_get(e, extraDelaysNeeded);
+    auto origSrc = appGraph.source(e);
+    auto origDst = appGraph.target(e);
+    auto origEdge = appGraph.getLabel(e);
+
+    auto newSrcV = delayedGraph.getVdisc(origSrc);
+    auto newDstV = delayedGraph.getVdisc(origDst);
+    
+    auto newSrc = delayedGraph.getNode(newSrcV);
+    auto newDst = delayedGraph.getNode(newDstV);
+    
+    if (delay == 0) {
+      // Copy edge
+      auto newEdge = delayedGraph.addEdge(newSrc, newDst);
+      KernelEdge labelCopy;
+      labelCopy = origEdge;
+
+      //cout << "Starting to create edge replacement" << endl;
+      //cout << "Replacing base in " << CoreIR::toString(*(origEdge.dataSrc)) << " with " << CoreIR::toString(*newSrc) << endl;
+      //labelCopy.dataSrc = replaceBase(origEdge.dataSrc, newSrc);
+
+      //cout << "Replaced edge data src" << endl;
+      //labelCopy.valid = replaceBase(origEdge.valid, newSrc);
+
+      //cout << "Done with src replacement" << endl;
+
+      //labelCopy.dataDest = replaceBase(origEdge.dataDest, newDst);
+      //labelCopy.en = replaceBase(origEdge.en, newDst);
+
+      //cout << "Done replaceing bases" << endl;
+      delayedGraph.addEdgeLabel(newEdge, labelCopy);
+    } else {
+      // Insert 2 new edges: src -> delay, delay -> dst
+      //internal_assert(false) << "No support for adding delays yet\n";
+    }
+  }
 
   //for (auto n : extraDelaysNeeded) {
     //internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
