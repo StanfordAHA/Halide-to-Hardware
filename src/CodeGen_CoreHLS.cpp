@@ -3310,7 +3310,13 @@ int cycleDelay(edisc e, AppGraph& appGraph) {
   auto srcWire = getBase(appGraph.appGraph.getNode(srcV));
   // TODO: Insert real delay computation here
   if (isLinebuffer(srcWire)) {
-    return 10;
+    // TODO: Get the image type, then get the output type (ignore input type?)
+    // and then compute offsets from that
+    //internal_assert(false) << "need to compute linebuffer delay\n";
+    //return 10;
+    //return 16;
+    //return 14;
+    return 18;
   } else {
     return 0;
   }
@@ -3922,8 +3928,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
       auto delay = def->addInstance("delay_" + context->getUnique(),
           "halidehw.shift_register",
-          //{{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, n.second)}});
-          {{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, 0)}});
+          {{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, n.second)}});
+          //{{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, 0)}});
       cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
       delayedGraph.addVertex(delay);
       edgeDelays[n.first] = delay;
@@ -4024,6 +4030,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   topMod->setDef(def);
 
+  cout << "Top module before inlining" << endl;
+
+  topMod->print();
+  
   context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
   cout << "Top module" << endl;
   topMod->print();
