@@ -76,6 +76,8 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
     cycles++;
   }
 
+  assert(readIdx.allDone());
+
 }
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
@@ -2418,7 +2420,7 @@ void different_latency_kernels_test() {
 
 int main(int argc, char **argv) {
 
-  different_latency_kernels_test();
+  //different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);
   camera_pipeline_test();
