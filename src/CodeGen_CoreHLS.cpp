@@ -2201,7 +2201,7 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 }
 
 CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
-  auto& instrs = f.body;
+  //auto& instrs = f.body;
   //f.mod = design;
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
@@ -2310,7 +2310,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   int pos = 0;
   for (auto instr : body) {
     if (isLoad(instr)) {
-      auto location = instr->operands[2];
+      //auto location = instr->operands[2];
       for (auto instr : body) {
         if (isLoad(instr)) {
           auto location = instr->operands[2];
@@ -3872,54 +3872,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
     }
 
-    cout << "Done getting function inputs..." << endl;
-
-    // Actually connect sources to enables
-    //for (auto in : inputMap) {
-      //def->connect(in.first, in.second);
-    //}
-
-    cout << "Done connecting inputMap" << endl;
-    //auto fKernel = map_find(f.first, kernels);
-    //auto cPaths = map_find(f.first, controlPaths);
-    //def->connect(cPaths->sel("in_en"), andList(def, allEnables));
-    //if (allEnables.size() == 0) {
-      //// Do nothing
-      //auto c1 = def->addInstance(fKernel->getInstname() + "_const_valid", "corebit.const", {{"value", COREMK(context, true)}});
-      ////def->connect(fKernel->sel("in_en"), c1->sel("out"));
-      //def->connect(cPaths->sel("in_en"), c1->sel("out"));
-    //} else if (allEnables.size() == 1) {
-      ////def->connect(allEnables[0], fKernel->sel("in_en"));
-      //def->connect(allEnables[0], cPaths->sel("in_en"));
-    //} else {
-      //auto v0 = allEnables[0];
-      //for (int i = 1; i < (int) allEnables.size(); i++) {
-        //auto and0 = def->addInstance("v_and_" + fKernel->getInstname() + "_" + std::to_string(i), "corebit.and");
-        //def->connect(and0->sel("in0"), v0);
-        //def->connect(and0->sel("in1"), allEnables[i]);
-        //v0 = and0->sel("out");
-      //}
-
-      ////def->connect(fKernel->sel("in_en"), v0);
-      //def->connect(cPaths->sel("in_en"), v0);
-    //}
-
-    cout << "Done setting enables" << endl;
   }
 
   cout << "Application graph..." << endl;
   cout << appGraph.toString() << endl;
 
-  // Now: What is the next step for delay insertion?
-  // - Check if all nodes have fan in 0, if so then continue.
-  // - Otherwise: Create a map from all connections to ILP
-  //   variables for delays, and then add equivalence constraints
-  //   to guarantee that all paths to the same position have the same
-  //   delay, and minimize the total amount of buffering needed.
-  //   Note: Linebuffers will cause (NROWS - 1)*NCOLS + (NCOLS - 1) delay
-  //   and for now all kernels will be assumed to cause delay 0
-  // Idea: Maybe just start with a graph traversal to check distance to all
-  // paths?
   auto topSort = topologicalSort(appGraph.appGraph);
   cout << "Sorted nodes..." << endl;
   for (auto v : topSort) {
