@@ -2354,7 +2354,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     }
   }
 
-  cout << "All loads..." << endl;
+  //cout << "All loads..." << endl;
   // Now: Here I want to create a new instance inside the moduledef which
   // will represent the ram, and it will have a generator based on the number of different loads
   // each load is going to get its own port, which will be indicated by an argument?

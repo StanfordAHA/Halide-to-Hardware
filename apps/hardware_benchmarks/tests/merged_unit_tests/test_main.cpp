@@ -1805,37 +1805,19 @@ void curve_16_lookup_test() {
   hw_input(x, y) = input(x, y);
 
   Func curve;
-  {
-    Expr xf = x/1024.0f;
-    Expr g = pow(xf, 1.0f/gamma);
-    Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
-    Expr a = 2.0f - 2.0f*b;
-    Expr val = select(g > 0.5f,
-        1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
-        a*g*g + b*g);
-    curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
-  }
+  curve(x) = cast<uint8_t>(Expr(x));
 
-  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, 1023));
+  hw_output(x, y) = curve(clamp(cast<uint8_t>(hw_input(x, y)), 0, 255));
 
   int tileSize = 4;
-  // TODO: Extract to template function
   Halide::Buffer<int16_t> inputBuf(tileSize, tileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   indexTestPattern2D(inputBuf, hwInputBuf);
-  inputBuf(0, 0) = (int16_t) (1 << 12);
+  inputBuf(0, 0) = (int16_t) (1 << 12) | 1;
   hwInputBuf(0, 0, 0) = inputBuf(0, 0);
 
   inputBuf(1, 0) = -32;
   hwInputBuf(1, 0, 0) = inputBuf(1, 0);
-  
-  //for (int i = 0; i < inputBuf.width(); i++) {
-    //for (int j = 0; j < inputBuf.height(); j++) {
-      //hwInputBuf(i, j, 0) = i + j*inputBuf.width();
-      //inputBuf(i, j) = hwInputBuf(i, j);
-    //}
-  //}
-
   Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
@@ -2005,14 +1987,15 @@ void camera_pipeline_test() {
   //hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 10));
   // Note: This fails one unit test
   //hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 100));
-  hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 50));
+  //hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 50));
   //hw_output(x, y, c) = hw_output_8(x, y, c);
-  hw_output(x, y, c) = curve(hw_output_8(x, y, c));
+  //hw_output(x, y, c) = curve(hw_output_8(x, y, c));
   // Note: Passes one unit test
   //hw_output(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
   // Note: Passes one unit test
   //hw_output(x, y, c) = cast<uint8_t>(color_corrected(x, y, c));
   //curve(clamp(color_corrected(x, y, c), 0, 1023));
+  hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint8_t>(color_corrected(x, y, c)), 0, 255));
   hw_output.bound(c, 0, 3);
   
   Halide::Buffer<uint8_t> inputBuf(8, 8);
@@ -2230,7 +2213,7 @@ void simple_unsharp_test() {
 int main(int argc, char **argv) {
 
   curve_16_lookup_test();
-  assert(false);
+  //assert(false);
   camera_pipeline_test();
   double_unsharp_test();
   simple_unsharp_test();

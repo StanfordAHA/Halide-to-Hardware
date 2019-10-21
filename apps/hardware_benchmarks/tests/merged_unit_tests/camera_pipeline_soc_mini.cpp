@@ -2720,8 +2720,8 @@ int hw_output(struct halide_buffer_t *_input__2_buffer, struct halide_buffer_t *
     return halide_error_out_of_memory(_ucon);
    }
    HalideFreeHelper _hw_input__1_free(_ucon, _hw_input__1, halide_free);
-   halide_buffer_t b29;
-   struct halide_buffer_t *_845 = &b29;
+   halide_buffer_t b21;
+   struct halide_buffer_t *_845 = &b21;
    int32_t _846 = _587 + -3;
    int32_t _847 = _588 + 5;
    int32_t _848 = _590 + -2;
