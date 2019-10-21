@@ -2015,7 +2015,8 @@ void double_unsharp_test() {
   int outTileSize = 4;
   Halide::Buffer<uint8_t> inputBuf(outTileSize + 4, outTileSize + 4);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  indexTestPattern2D(inputBuf, hwInputBuf);
+  //indexTestPattern2D(inputBuf, hwInputBuf);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
@@ -2057,7 +2058,7 @@ void double_unsharp_test() {
   compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Double unsharp test passed" << RESET << endl;
-  assert(false);
+  //assert(false);
 }
 
 void simple_unsharp_test() {

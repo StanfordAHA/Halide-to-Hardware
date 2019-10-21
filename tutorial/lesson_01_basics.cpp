@@ -33,11 +33,17 @@ int main(int argc, char **argv) {
   Halide::Expr e = x + y + z;
 
   gradient(x, y, z) = e;
-  gradient.reorder(z, y, x).unroll(z, 3).unroll(x, 4);
+  gradient.bound(x, 0, 32);
+  gradient.bound(y, 0, 32);
+  gradient.bound(z, 0, 3);
+  gradient.reorder(z, y, x);
+  //.tile(x, y, xi, yi, xo, yo).unroll(z, 3);
+  //.unroll(x, 4);
 
   cout << "Loop nest..." << endl;
   gradient.print_loop_nest();
 
+  Halide::Buffer<int32_t> output = gradient.realize(32, 32, 3);
     //// This program defines a single-stage imaging pipeline that
     //// outputs a grayscale diagonal gradient.
 

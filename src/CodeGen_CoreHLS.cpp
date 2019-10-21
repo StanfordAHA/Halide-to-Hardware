@@ -3082,7 +3082,6 @@ void createLinebuffers(CoreIR::Context* context,
       string inName = lb[0];
       string outName = lb[1];
 
-
       string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
       vector<int> params;
       for (int i = 2; i < (int) lb.size(); i++) {
@@ -3305,7 +3304,50 @@ class AppGraph {
     }
 };
 
+//// production delay of the first output window which contains the coordinate coord
+//int productionDelay(Wireable* base, vector<int>& coordinates, AppGraph& appGraph) {
+  //// If base is self then the delay is the coordinate offset (with strides for image size)
+  //if (isa<Interface>(getBase(base))) {
+    //internal_assert(coordinates.size() == 2);
+    //// TODO: Add actual image stride info
+    //return coordinates[0]*8 + coordinates[1];
+  //}
+  //// If base is a kernel the production delay is kernelLatency + arrivalDelay(lastWindow)
+  //// If base is a linebuffer the production delay is warmupTime + linebufferoffset
+  //internal_assert(false) << "no support for " << coreStr(base) << " in productionDelay\n";
+//}
+
+//// For a given output pixel location, compute the last input location that will be needed
+//// to compute that output location
+//vector<int>
+//lastPixelInWorkingSetToCompute(Wireable* src, vector<int>& outputPix, AppGraph& appGraph) {
+  //// Inputs to the compute graph do not themselves have any inputs
+  //internal_assert(!isa<Interface>(getBase(src)));
+
+  //// If the source is a compute kernel find the input windows and compute the production
+  //// time of the last pixel in the input windows (accounting for already introduced delays)
+  //return {0, 0};
+
+  //// If the source is a linebuffer then find the window that contains outputPix, then
+  //// find the arrival time of the last pixel in that window
+  //return {0, 0};
+//}
+
+//// TODO: Add delay map as an argument?
+//int arrivalDelay(Wireable* src, vector<int>& coorindates, AppGraph& appGraph) {
+  //vector<int> lastPix = lastPixelInWorkingSetToCompute(src, coordinates, appGraph);
+  //return productionDelay(src, lastPix, appGraph);
+//}
+
+// Really: cycleDelay should wrap a function that computes
+// arrivalDelay(e, coordinate, appGrah), where coordinate is
+// the minimum value of the production window initially.
+// More?
 int cycleDelay(edisc e, AppGraph& appGraph) {
+  vector<int> pixel{0, 0};
+  Wireable* src = appGraph.source(e);
+  //return arrivalDelay(src, pixel, appGraph);
+
   vdisc srcV = appGraph.appGraph.source(e);
   auto srcWire = getBase(appGraph.appGraph.getNode(srcV));
   // TODO: Insert real delay computation here
@@ -3320,6 +3362,44 @@ int cycleDelay(edisc e, AppGraph& appGraph) {
   } else {
     return 0;
   }
+}
+
+void wireUpAppGraph(AppGraph& appGraph,
+    std::map<Instance*, CoreIR::Instance*>& kernelToControlPath,
+    CoreIR::ModuleDef* def) {
+
+  cout << "Setting data sigals on compute kernels" << endl;
+  for (auto e : appGraph.allEdges()) {
+    def->connect(e.dataDest, e.dataSrc);
+  }
+
+  cout << "Wiring up function input valids" << endl;
+  for (auto v : appGraph.allVertices()) {
+    cout << "Wiring up valids for " << coreStr(v) << endl;
+    if (!appGraph.hasInputs(v)) {
+      if (isa<Interface>(getBase(v))) {
+        continue;
+      }
+    }
+
+    cout << "Wiring up enables for " << coreStr(v) << endl;
+
+    vector<Wireable*> allEnables =
+      appGraph.allInputValids(v);
+
+    Wireable* inEnable = appGraph.inEnable(v);
+
+    cout << "Creating and list for enables" << endl;
+    auto wEn = andList(def, allEnables);
+    cout << "Connecting " << coreStr(inEnable) << " to " << coreStr(wEn) << endl;
+    def->connect(inEnable, wEn);
+
+    if (isComputeKernel(v)) {
+      cout << "Wiring up control path for compute kernel " << coreStr(v) << endl;
+      def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
+    }
+  }
+
 }
 
 void printCollectedStores(StoreCollector& stCollector) {
@@ -3851,8 +3931,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto v : topSort) {
     vector<edisc> inEdges = appGraph.appGraph.inEdges(v);
 
-    //vector<pair<vdisc, int> > inDistances;
-
     //map<edisc, int> incomingDelays;
     int maxDist = 0;
     vdisc maxDistVert;
@@ -3862,7 +3940,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       auto srcVert = appGraph.appGraph.source(e);
       int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph);
 
-      //incomingDelays[srcVert] = distToSrc;
       if (distToSrc >= maxDist) {
         maxDist = distToSrc;
         maxDistVert = srcVert;
@@ -3988,43 +4065,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }
   }
 
-  //for (auto n : extraDelaysNeeded) {
-    //internal_assert(n.second == 0) << "we do not yet support kernel balancing\n";
-  //}
-
   appGraph = delayedGraph;
-  cout << "Setting data sigals on compute kernels" << endl;
-  for (auto e : appGraph.allEdges()) {
-    def->connect(e.dataDest, e.dataSrc);
-  }
-
-  cout << "Wiring up function input valids" << endl;
-  for (auto v : appGraph.allVertices()) {
-    cout << "Wiring up valids for " << coreStr(v) << endl;
-    if (!appGraph.hasInputs(v)) {
-      if (isa<Interface>(getBase(v))) {
-        continue;
-      }
-    }
-
-    cout << "Wiring up enables for " << coreStr(v) << endl;
-
-    vector<Wireable*> allEnables =
-      appGraph.allInputValids(v);
-
-    Wireable* inEnable = appGraph.inEnable(v);
-
-    cout << "Creating and list for enables" << endl;
-    auto wEn = andList(def, allEnables);
-    cout << "Connecting " << coreStr(inEnable) << " to " << coreStr(wEn) << endl;
-    def->connect(inEnable, wEn);
-
-    if (isComputeKernel(v)) {
-      cout << "Wiring up control path for compute kernel " << coreStr(v) << endl;
-      def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
-    }
-  }
-
+  wireUpAppGraph(appGraph, kernelToControlPath, def);
   
   cout << "Setting definition of topMod..." << endl;
 
