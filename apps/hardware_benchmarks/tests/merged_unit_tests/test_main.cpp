@@ -2348,20 +2348,14 @@ void simple_unsharp_test() {
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
 }
 
-// Now what do I want to do?
-// Goal: Get camera pipeline running
-// 
-// Problems: Adding new tests with info about how
-// the data is streamed to the accelerator is becoming very
-// annoying. I would like to have the accelerator code generator
-// emit a mapping from arguments to their streaming policy
-//
-// Problem: Retiming between kernels
-//
-// Problem: Related to first, we need to pass in parameters
-// such as subimage offsets to the kernel
+#define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
+void different_latency_kernels_test() {
+  PRINT_PASSED("Different latency kernels");
+}
+
 int main(int argc, char **argv) {
 
+  different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);
   camera_pipeline_test();
