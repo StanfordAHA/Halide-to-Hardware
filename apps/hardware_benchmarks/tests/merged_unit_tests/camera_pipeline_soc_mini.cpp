@@ -2303,61 +2303,61 @@ extern "C" {
 
 int hw_output(struct halide_buffer_t *_input__2_buffer, struct halide_buffer_t *_hw_output__1_buffer) HALIDE_FUNCTION_ATTRS {
  void * const _ucon = nullptr;
- uint64_t _870 = (uint64_t)(_input__2_buffer);
- uint64_t _871 = (uint64_t)(0);
- bool _872 = _870 != _871;
- if (!_872)  {
-  int32_t _873 = halide_error_buffer_argument_is_null(_ucon, "input$2");
-  return _873;
+ uint64_t _576 = (uint64_t)(_input__2_buffer);
+ uint64_t _577 = (uint64_t)(0);
+ bool _578 = _576 != _577;
+ if (!_578)  {
+  int32_t _579 = halide_error_buffer_argument_is_null(_ucon, "input$2");
+  return _579;
  }
- uint64_t _874 = (uint64_t)(_hw_output__1_buffer);
- uint64_t _875 = (uint64_t)(0);
- bool _876 = _874 != _875;
- if (!_876)  {
-  int32_t _877 = halide_error_buffer_argument_is_null(_ucon, "hw_output$1");
-  return _877;
+ uint64_t _580 = (uint64_t)(_hw_output__1_buffer);
+ uint64_t _581 = (uint64_t)(0);
+ bool _582 = _580 != _581;
+ if (!_582)  {
+  int32_t _583 = halide_error_buffer_argument_is_null(_ucon, "hw_output$1");
+  return _583;
  }
- void *_878 = _halide_buffer_get_host(_hw_output__1_buffer);
- void * _hw_output__1 = _878;
- uint32_t _879 = _halide_buffer_get_type(_hw_output__1_buffer);
- int32_t _880 = _halide_buffer_get_dimensions(_hw_output__1_buffer);
- int32_t _881 = _halide_buffer_get_min(_hw_output__1_buffer, 0);
- int32_t _882 = _halide_buffer_get_extent(_hw_output__1_buffer, 0);
- int32_t _883 = _halide_buffer_get_stride(_hw_output__1_buffer, 0);
- int32_t _884 = _halide_buffer_get_min(_hw_output__1_buffer, 1);
- int32_t _885 = _halide_buffer_get_extent(_hw_output__1_buffer, 1);
- int32_t _886 = _halide_buffer_get_stride(_hw_output__1_buffer, 1);
- int32_t _887 = _halide_buffer_get_min(_hw_output__1_buffer, 2);
- int32_t _888 = _halide_buffer_get_extent(_hw_output__1_buffer, 2);
- int32_t _889 = _halide_buffer_get_stride(_hw_output__1_buffer, 2);
- void *_890 = _halide_buffer_get_host(_input__2_buffer);
- void * _input__2 = _890;
- uint32_t _891 = _halide_buffer_get_type(_input__2_buffer);
- int32_t _892 = _halide_buffer_get_dimensions(_input__2_buffer);
- int32_t _893 = _halide_buffer_get_min(_input__2_buffer, 0);
- int32_t _894 = _halide_buffer_get_extent(_input__2_buffer, 0);
- int32_t _895 = _halide_buffer_get_stride(_input__2_buffer, 0);
- int32_t _896 = _halide_buffer_get_min(_input__2_buffer, 1);
- int32_t _897 = _halide_buffer_get_extent(_input__2_buffer, 1);
- int32_t _898 = _halide_buffer_get_stride(_input__2_buffer, 1);
- int32_t _899 = ::halide_cpp_max(_885, 2);
- int32_t _900 = ::halide_cpp_max(_882, 2);
- int32_t _901 = _899 * _900;
- bool _902 = _halide_buffer_is_bounds_query(_hw_output__1_buffer);
- if (_902)
+ void *_584 = _halide_buffer_get_host(_hw_output__1_buffer);
+ void * _hw_output__1 = _584;
+ uint32_t _585 = _halide_buffer_get_type(_hw_output__1_buffer);
+ int32_t _586 = _halide_buffer_get_dimensions(_hw_output__1_buffer);
+ int32_t _587 = _halide_buffer_get_min(_hw_output__1_buffer, 0);
+ int32_t _588 = _halide_buffer_get_extent(_hw_output__1_buffer, 0);
+ int32_t _589 = _halide_buffer_get_stride(_hw_output__1_buffer, 0);
+ int32_t _590 = _halide_buffer_get_min(_hw_output__1_buffer, 1);
+ int32_t _591 = _halide_buffer_get_extent(_hw_output__1_buffer, 1);
+ int32_t _592 = _halide_buffer_get_stride(_hw_output__1_buffer, 1);
+ int32_t _593 = _halide_buffer_get_min(_hw_output__1_buffer, 2);
+ int32_t _594 = _halide_buffer_get_extent(_hw_output__1_buffer, 2);
+ int32_t _595 = _halide_buffer_get_stride(_hw_output__1_buffer, 2);
+ void *_596 = _halide_buffer_get_host(_input__2_buffer);
+ void * _input__2 = _596;
+ uint32_t _597 = _halide_buffer_get_type(_input__2_buffer);
+ int32_t _598 = _halide_buffer_get_dimensions(_input__2_buffer);
+ int32_t _599 = _halide_buffer_get_min(_input__2_buffer, 0);
+ int32_t _600 = _halide_buffer_get_extent(_input__2_buffer, 0);
+ int32_t _601 = _halide_buffer_get_stride(_input__2_buffer, 0);
+ int32_t _602 = _halide_buffer_get_min(_input__2_buffer, 1);
+ int32_t _603 = _halide_buffer_get_extent(_input__2_buffer, 1);
+ int32_t _604 = _halide_buffer_get_stride(_input__2_buffer, 1);
+ int32_t _605 = ::halide_cpp_max(_591, 2);
+ int32_t _606 = ::halide_cpp_max(_588, 2);
+ int32_t _607 = _605 * _606;
+ bool _608 = _halide_buffer_is_bounds_query(_hw_output__1_buffer);
+ if (_608)
  {
-  struct halide_dimension_t *_903 = _halide_buffer_get_shape(_hw_output__1_buffer);
-  uint64_t _904 = (uint64_t)(0);
-  void *_905 = (void *)(_904);
-  struct halide_device_interface_t *_906 = (struct halide_device_interface_t *)(_904);
-  int32_t _907 = ::halide_cpp_min(_882, 2);
-  int32_t _908 = _907 + _881;
-  int32_t _909 = _908 + -2;
-  int32_t _910 = ::halide_cpp_max(_882, 2);
-  int32_t _911 = ::halide_cpp_min(_885, 2);
-  int32_t _912 = _911 + _884;
-  int32_t _913 = _912 + -2;
-  int32_t _914 = ::halide_cpp_max(_885, 2);
+  struct halide_dimension_t *_609 = _halide_buffer_get_shape(_hw_output__1_buffer);
+  uint64_t _610 = (uint64_t)(0);
+  void *_611 = (void *)(_610);
+  struct halide_device_interface_t *_612 = (struct halide_device_interface_t *)(_610);
+  int32_t _613 = ::halide_cpp_min(_588, 2);
+  int32_t _614 = _613 + _587;
+  int32_t _615 = _614 + -2;
+  int32_t _616 = ::halide_cpp_max(_588, 2);
+  int32_t _617 = ::halide_cpp_min(_591, 2);
+  int32_t _618 = _617 + _590;
+  int32_t _619 = _618 + -2;
+  int32_t _620 = ::halide_cpp_max(_591, 2);
   struct {
    const int32_t f_0;
    const int32_t f_1;
@@ -2371,34 +2371,34 @@ int hw_output(struct halide_buffer_t *_input__2_buffer, struct halide_buffer_t *
    const int32_t f_9;
    const int32_t f_10;
    const int32_t f_11;
-  } s12 = {
-   _909,
-   _910,
+  } s8 = {
+   _615,
+   _616,
    1,
    0,
-   _913,
-   _914,
-   _910,
+   _619,
+   _620,
+   _616,
    0,
    0,
    3,
-   _901,
+   _607,
    0
   };
-  struct halide_dimension_t *_915 = (struct halide_dimension_t *)(&s12);
-  struct halide_buffer_t *_916 = _halide_buffer_init(_hw_output__1_buffer, _903, _905, _904, _906, 1, 8, 3, _915, _904);
-  (void)_916;
- } // if _902
- bool _917 = _halide_buffer_is_bounds_query(_input__2_buffer);
- if (_917)
+  struct halide_dimension_t *_621 = (struct halide_dimension_t *)(&s8);
+  struct halide_buffer_t *_622 = _halide_buffer_init(_hw_output__1_buffer, _609, _611, _610, _612, 1, 8, 3, _621, _610);
+  (void)_622;
+ } // if _608
+ bool _623 = _halide_buffer_is_bounds_query(_input__2_buffer);
+ if (_623)
  {
-  struct halide_dimension_t *_918 = _halide_buffer_get_shape(_input__2_buffer);
-  uint64_t _919 = (uint64_t)(0);
-  void *_920 = (void *)(_919);
-  struct halide_device_interface_t *_921 = (struct halide_device_interface_t *)(_919);
-  int32_t _922 = _882 + 5;
-  int32_t _923 = _884 + 1;
-  int32_t _924 = _885 + 5;
+  struct halide_dimension_t *_624 = _halide_buffer_get_shape(_input__2_buffer);
+  uint64_t _625 = (uint64_t)(0);
+  void *_626 = (void *)(_625);
+  struct halide_device_interface_t *_627 = (struct halide_device_interface_t *)(_625);
+  int32_t _628 = _588 + 5;
+  int32_t _629 = _590 + 1;
+  int32_t _630 = _591 + 5;
   struct {
    const int32_t f_0;
    const int32_t f_1;
@@ -2408,324 +2408,324 @@ int hw_output(struct halide_buffer_t *_input__2_buffer, struct halide_buffer_t *
    const int32_t f_5;
    const int32_t f_6;
    const int32_t f_7;
-  } s13 = {
-   _881,
-   _922,
+  } s9 = {
+   _587,
+   _628,
    1,
    0,
-   _923,
-   _924,
-   _922,
+   _629,
+   _630,
+   _628,
    0
   };
-  struct halide_dimension_t *_925 = (struct halide_dimension_t *)(&s13);
-  struct halide_buffer_t *_926 = _halide_buffer_init(_input__2_buffer, _918, _920, _919, _921, 1, 8, 2, _925, _919);
-  (void)_926;
- } // if _917
- bool _927 = _halide_buffer_is_bounds_query(_hw_output__1_buffer);
- bool _928 = _halide_buffer_is_bounds_query(_input__2_buffer);
- bool _929 = _927 || _928;
- bool _930 = !(_929);
- if (_930)
+  struct halide_dimension_t *_631 = (struct halide_dimension_t *)(&s9);
+  struct halide_buffer_t *_632 = _halide_buffer_init(_input__2_buffer, _624, _626, _625, _627, 1, 8, 2, _631, _625);
+  (void)_632;
+ } // if _623
+ bool _633 = _halide_buffer_is_bounds_query(_hw_output__1_buffer);
+ bool _634 = _halide_buffer_is_bounds_query(_input__2_buffer);
+ bool _635 = _633 || _634;
+ bool _636 = !(_635);
+ if (_636)
  {
-  uint32_t _931 = (uint32_t)(67585);
-  bool _932 = _879 == _931;
-  if (!_932)   {
-   uint32_t _933 = (uint32_t)(67585);
-   int32_t _934 = halide_error_bad_type(_ucon, "Output buffer hw_output$1", _879, _933);
-   return _934;
+  uint32_t _637 = (uint32_t)(67585);
+  bool _638 = _585 == _637;
+  if (!_638)   {
+   uint32_t _639 = (uint32_t)(67585);
+   int32_t _640 = halide_error_bad_type(_ucon, "Output buffer hw_output$1", _585, _639);
+   return _640;
   }
-  bool _935 = _880 == 3;
-  if (!_935)   {
-   int32_t _936 = halide_error_bad_dimensions(_ucon, "Output buffer hw_output$1", _880, 3);
-   return _936;
+  bool _641 = _586 == 3;
+  if (!_641)   {
+   int32_t _642 = halide_error_bad_dimensions(_ucon, "Output buffer hw_output$1", _586, 3);
+   return _642;
   }
-  uint32_t _937 = (uint32_t)(67585);
-  bool _938 = _891 == _937;
-  if (!_938)   {
-   uint32_t _939 = (uint32_t)(67585);
-   int32_t _940 = halide_error_bad_type(_ucon, "Input buffer input$2", _891, _939);
-   return _940;
+  uint32_t _643 = (uint32_t)(67585);
+  bool _644 = _597 == _643;
+  if (!_644)   {
+   uint32_t _645 = (uint32_t)(67585);
+   int32_t _646 = halide_error_bad_type(_ucon, "Input buffer input$2", _597, _645);
+   return _646;
   }
-  bool _941 = _892 == 2;
-  if (!_941)   {
-   int32_t _942 = halide_error_bad_dimensions(_ucon, "Input buffer input$2", _892, 2);
-   return _942;
+  bool _647 = _598 == 2;
+  if (!_647)   {
+   int32_t _648 = halide_error_bad_dimensions(_ucon, "Input buffer input$2", _598, 2);
+   return _648;
   }
-  bool _943 = 2 <= _882;
-  if (!_943)   {
-   int32_t _944 = ::halide_cpp_min(_882, 2);
-   int32_t _945 = _944 + _881;
-   int32_t _946 = _945 + -2;
-   int32_t _947 = _882 + _881;
-   int32_t _948 = _947 + -1;
-   int32_t _949 = halide_error_access_out_of_bounds(_ucon, "Output buffer hw_output$1", 0, _946, _948, _881, _948);
-   return _949;
+  bool _649 = 2 <= _588;
+  if (!_649)   {
+   int32_t _650 = ::halide_cpp_min(_588, 2);
+   int32_t _651 = _650 + _587;
+   int32_t _652 = _651 + -2;
+   int32_t _653 = _588 + _587;
+   int32_t _654 = _653 + -1;
+   int32_t _655 = halide_error_access_out_of_bounds(_ucon, "Output buffer hw_output$1", 0, _652, _654, _587, _654);
+   return _655;
   }
-  bool _950 = 2 <= _885;
-  if (!_950)   {
-   int32_t _951 = ::halide_cpp_min(_885, 2);
-   int32_t _952 = _951 + _884;
-   int32_t _953 = _952 + -2;
-   int32_t _954 = _885 + _884;
-   int32_t _955 = _954 + -1;
-   int32_t _956 = halide_error_access_out_of_bounds(_ucon, "Output buffer hw_output$1", 1, _953, _955, _884, _955);
-   return _956;
+  bool _656 = 2 <= _591;
+  if (!_656)   {
+   int32_t _657 = ::halide_cpp_min(_591, 2);
+   int32_t _658 = _657 + _590;
+   int32_t _659 = _658 + -2;
+   int32_t _660 = _591 + _590;
+   int32_t _661 = _660 + -1;
+   int32_t _662 = halide_error_access_out_of_bounds(_ucon, "Output buffer hw_output$1", 1, _659, _661, _590, _661);
+   return _662;
   }
-  bool _957 = _887 <= 0;
-  int32_t _958 = _888 + _887;
-  bool _959 = 3 <= _958;
-  bool _960 = _957 && _959;
-  if (!_960)   {
-   int32_t _961 = _888 + _887;
-   int32_t _962 = _961 + -1;
-   int32_t _963 = halide_error_access_out_of_bounds(_ucon, "Output buffer hw_output$1", 2, 0, 2, _887, _962);
-   return _963;
+  bool _663 = _593 <= 0;
+  int32_t _664 = _594 + _593;
+  bool _665 = 3 <= _664;
+  bool _666 = _663 && _665;
+  if (!_666)   {
+   int32_t _667 = _594 + _593;
+   int32_t _668 = _667 + -1;
+   int32_t _669 = halide_error_access_out_of_bounds(_ucon, "Output buffer hw_output$1", 2, 0, 2, _593, _668);
+   return _669;
   }
-  bool _964 = 0 <= _888;
-  if (!_964)   {
-   int32_t _965 = halide_error_buffer_extents_negative(_ucon, "Output buffer hw_output$1", 2, _888);
-   return _965;
+  bool _670 = 0 <= _594;
+  if (!_670)   {
+   int32_t _671 = halide_error_buffer_extents_negative(_ucon, "Output buffer hw_output$1", 2, _594);
+   return _671;
   }
-  bool _966 = _893 <= _881;
-  int32_t _967 = _882 + _881;
-  int32_t _968 = _967 + 5;
-  int32_t _969 = _894 + _893;
-  bool _970 = _968 <= _969;
-  bool _971 = _966 && _970;
-  if (!_971)   {
-   int32_t _972 = _882 + _881;
-   int32_t _973 = _972 + 4;
-   int32_t _974 = _894 + _893;
-   int32_t _975 = _974 + -1;
-   int32_t _976 = halide_error_access_out_of_bounds(_ucon, "Input buffer input$2", 0, _881, _973, _893, _975);
-   return _976;
+  bool _672 = _599 <= _587;
+  int32_t _673 = _588 + _587;
+  int32_t _674 = _673 + 5;
+  int32_t _675 = _600 + _599;
+  bool _676 = _674 <= _675;
+  bool _677 = _672 && _676;
+  if (!_677)   {
+   int32_t _678 = _588 + _587;
+   int32_t _679 = _678 + 4;
+   int32_t _680 = _600 + _599;
+   int32_t _681 = _680 + -1;
+   int32_t _682 = halide_error_access_out_of_bounds(_ucon, "Input buffer input$2", 0, _587, _679, _599, _681);
+   return _682;
   }
-  bool _977 = 0 <= _894;
-  if (!_977)   {
-   int32_t _978 = halide_error_buffer_extents_negative(_ucon, "Input buffer input$2", 0, _894);
-   return _978;
+  bool _683 = 0 <= _600;
+  if (!_683)   {
+   int32_t _684 = halide_error_buffer_extents_negative(_ucon, "Input buffer input$2", 0, _600);
+   return _684;
   }
-  int32_t _979 = _896 + -1;
-  bool _980 = _979 <= _884;
-  int32_t _981 = _885 + _884;
-  int32_t _982 = _981 + 6;
-  int32_t _983 = _897 + _896;
-  bool _984 = _982 <= _983;
-  bool _985 = _980 && _984;
-  if (!_985)   {
-   int32_t _986 = _884 + 1;
-   int32_t _987 = _885 + _884;
-   int32_t _988 = _987 + 5;
-   int32_t _989 = _897 + _896;
-   int32_t _990 = _989 + -1;
-   int32_t _991 = halide_error_access_out_of_bounds(_ucon, "Input buffer input$2", 1, _986, _988, _896, _990);
-   return _991;
+  int32_t _685 = _602 + -1;
+  bool _686 = _685 <= _590;
+  int32_t _687 = _591 + _590;
+  int32_t _688 = _687 + 6;
+  int32_t _689 = _603 + _602;
+  bool _690 = _688 <= _689;
+  bool _691 = _686 && _690;
+  if (!_691)   {
+   int32_t _692 = _590 + 1;
+   int32_t _693 = _591 + _590;
+   int32_t _694 = _693 + 5;
+   int32_t _695 = _603 + _602;
+   int32_t _696 = _695 + -1;
+   int32_t _697 = halide_error_access_out_of_bounds(_ucon, "Input buffer input$2", 1, _692, _694, _602, _696);
+   return _697;
   }
-  bool _992 = 0 <= _897;
-  if (!_992)   {
-   int32_t _993 = halide_error_buffer_extents_negative(_ucon, "Input buffer input$2", 1, _897);
-   return _993;
+  bool _698 = 0 <= _603;
+  if (!_698)   {
+   int32_t _699 = halide_error_buffer_extents_negative(_ucon, "Input buffer input$2", 1, _603);
+   return _699;
   }
-  bool _994 = _883 == 1;
-  if (!_994)   {
-   int32_t _995 = halide_error_constraint_violated(_ucon, "hw_output$1.stride.0", _883, "1", 1);
-   return _995;
+  bool _700 = _589 == 1;
+  if (!_700)   {
+   int32_t _701 = halide_error_constraint_violated(_ucon, "hw_output$1.stride.0", _589, "1", 1);
+   return _701;
   }
-  bool _996 = _895 == 1;
-  if (!_996)   {
-   int32_t _997 = halide_error_constraint_violated(_ucon, "input$2.stride.0", _895, "1", 1);
-   return _997;
+  bool _702 = _601 == 1;
+  if (!_702)   {
+   int32_t _703 = halide_error_constraint_violated(_ucon, "input$2.stride.0", _601, "1", 1);
+   return _703;
   }
-  int64_t _998 = (int64_t)(_882);
-  int64_t _999 = (int64_t)(_885);
-  int64_t _1000 = _998 * _999;
-  int64_t _1001 = (int64_t)(_888);
-  int64_t _1002 = _1000 * _1001;
-  int64_t _1003 = (int64_t)(_894);
-  int64_t _1004 = (int64_t)(_897);
-  int64_t _1005 = _1003 * _1004;
-  int64_t _1006 = (int64_t)(0);
-  int64_t _1007 = _1006 - _998;
-  bool _1008 = _998 > _1006;
-  int64_t _1009 = (int64_t)(_1008 ? _998 : _1007);
-  uint64_t _1010 = (uint64_t)(_1009);
-  uint64_t _1011 = _1010;
-  uint64_t _1012 = (uint64_t)(2147483647);
-  bool _1013 = _1011 <= _1012;
-  if (!_1013)   {
-   int64_t _1014 = (int64_t)(_882);
-   int64_t _1015 = (int64_t)(0);
-   int64_t _1016 = _1015 - _1014;
-   bool _1017 = _1014 > _1015;
-   int64_t _1018 = (int64_t)(_1017 ? _1014 : _1016);
-   uint64_t _1019 = (uint64_t)(_1018);
-   uint64_t _1020 = _1019;
-   uint64_t _1021 = (uint64_t)(2147483647);
-   int32_t _1022 = halide_error_buffer_allocation_too_large(_ucon, "hw_output$1", _1020, _1021);
-   return _1022;
+  int64_t _704 = (int64_t)(_588);
+  int64_t _705 = (int64_t)(_591);
+  int64_t _706 = _704 * _705;
+  int64_t _707 = (int64_t)(_594);
+  int64_t _708 = _706 * _707;
+  int64_t _709 = (int64_t)(_600);
+  int64_t _710 = (int64_t)(_603);
+  int64_t _711 = _709 * _710;
+  int64_t _712 = (int64_t)(0);
+  int64_t _713 = _712 - _704;
+  bool _714 = _704 > _712;
+  int64_t _715 = (int64_t)(_714 ? _704 : _713);
+  uint64_t _716 = (uint64_t)(_715);
+  uint64_t _717 = _716;
+  uint64_t _718 = (uint64_t)(2147483647);
+  bool _719 = _717 <= _718;
+  if (!_719)   {
+   int64_t _720 = (int64_t)(_588);
+   int64_t _721 = (int64_t)(0);
+   int64_t _722 = _721 - _720;
+   bool _723 = _720 > _721;
+   int64_t _724 = (int64_t)(_723 ? _720 : _722);
+   uint64_t _725 = (uint64_t)(_724);
+   uint64_t _726 = _725;
+   uint64_t _727 = (uint64_t)(2147483647);
+   int32_t _728 = halide_error_buffer_allocation_too_large(_ucon, "hw_output$1", _726, _727);
+   return _728;
   }
-  int64_t _1023 = (int64_t)(_885);
-  int64_t _1024 = (int64_t)(_886);
-  int64_t _1025 = _1023 * _1024;
-  int64_t _1026 = (int64_t)(0);
-  int64_t _1027 = _1026 - _1025;
-  bool _1028 = _1025 > _1026;
-  int64_t _1029 = (int64_t)(_1028 ? _1025 : _1027);
-  uint64_t _1030 = (uint64_t)(_1029);
-  uint64_t _1031 = _1030;
-  uint64_t _1032 = (uint64_t)(2147483647);
-  bool _1033 = _1031 <= _1032;
-  if (!_1033)   {
-   int64_t _1034 = (int64_t)(_885);
-   int64_t _1035 = (int64_t)(_886);
-   int64_t _1036 = _1034 * _1035;
-   int64_t _1037 = (int64_t)(0);
-   int64_t _1038 = _1037 - _1036;
-   bool _1039 = _1036 > _1037;
-   int64_t _1040 = (int64_t)(_1039 ? _1036 : _1038);
-   uint64_t _1041 = (uint64_t)(_1040);
-   uint64_t _1042 = _1041;
-   uint64_t _1043 = (uint64_t)(2147483647);
-   int32_t _1044 = halide_error_buffer_allocation_too_large(_ucon, "hw_output$1", _1042, _1043);
-   return _1044;
+  int64_t _729 = (int64_t)(_591);
+  int64_t _730 = (int64_t)(_592);
+  int64_t _731 = _729 * _730;
+  int64_t _732 = (int64_t)(0);
+  int64_t _733 = _732 - _731;
+  bool _734 = _731 > _732;
+  int64_t _735 = (int64_t)(_734 ? _731 : _733);
+  uint64_t _736 = (uint64_t)(_735);
+  uint64_t _737 = _736;
+  uint64_t _738 = (uint64_t)(2147483647);
+  bool _739 = _737 <= _738;
+  if (!_739)   {
+   int64_t _740 = (int64_t)(_591);
+   int64_t _741 = (int64_t)(_592);
+   int64_t _742 = _740 * _741;
+   int64_t _743 = (int64_t)(0);
+   int64_t _744 = _743 - _742;
+   bool _745 = _742 > _743;
+   int64_t _746 = (int64_t)(_745 ? _742 : _744);
+   uint64_t _747 = (uint64_t)(_746);
+   uint64_t _748 = _747;
+   uint64_t _749 = (uint64_t)(2147483647);
+   int32_t _750 = halide_error_buffer_allocation_too_large(_ucon, "hw_output$1", _748, _749);
+   return _750;
   }
-  int64_t _1045 = (int64_t)(2147483647);
-  bool _1046 = _1000 <= _1045;
-  if (!_1046)   {
-   int64_t _1047 = (int64_t)(2147483647);
-   int32_t _1048 = halide_error_buffer_extents_too_large(_ucon, "hw_output$1", _1000, _1047);
-   return _1048;
+  int64_t _751 = (int64_t)(2147483647);
+  bool _752 = _706 <= _751;
+  if (!_752)   {
+   int64_t _753 = (int64_t)(2147483647);
+   int32_t _754 = halide_error_buffer_extents_too_large(_ucon, "hw_output$1", _706, _753);
+   return _754;
   }
-  int64_t _1049 = (int64_t)(_888);
-  int64_t _1050 = (int64_t)(_889);
-  int64_t _1051 = _1049 * _1050;
-  int64_t _1052 = (int64_t)(0);
-  int64_t _1053 = _1052 - _1051;
-  bool _1054 = _1051 > _1052;
-  int64_t _1055 = (int64_t)(_1054 ? _1051 : _1053);
-  uint64_t _1056 = (uint64_t)(_1055);
-  uint64_t _1057 = _1056;
-  uint64_t _1058 = (uint64_t)(2147483647);
-  bool _1059 = _1057 <= _1058;
-  if (!_1059)   {
-   int64_t _1060 = (int64_t)(_888);
-   int64_t _1061 = (int64_t)(_889);
-   int64_t _1062 = _1060 * _1061;
-   int64_t _1063 = (int64_t)(0);
-   int64_t _1064 = _1063 - _1062;
-   bool _1065 = _1062 > _1063;
-   int64_t _1066 = (int64_t)(_1065 ? _1062 : _1064);
-   uint64_t _1067 = (uint64_t)(_1066);
-   uint64_t _1068 = _1067;
-   uint64_t _1069 = (uint64_t)(2147483647);
-   int32_t _1070 = halide_error_buffer_allocation_too_large(_ucon, "hw_output$1", _1068, _1069);
-   return _1070;
+  int64_t _755 = (int64_t)(_594);
+  int64_t _756 = (int64_t)(_595);
+  int64_t _757 = _755 * _756;
+  int64_t _758 = (int64_t)(0);
+  int64_t _759 = _758 - _757;
+  bool _760 = _757 > _758;
+  int64_t _761 = (int64_t)(_760 ? _757 : _759);
+  uint64_t _762 = (uint64_t)(_761);
+  uint64_t _763 = _762;
+  uint64_t _764 = (uint64_t)(2147483647);
+  bool _765 = _763 <= _764;
+  if (!_765)   {
+   int64_t _766 = (int64_t)(_594);
+   int64_t _767 = (int64_t)(_595);
+   int64_t _768 = _766 * _767;
+   int64_t _769 = (int64_t)(0);
+   int64_t _770 = _769 - _768;
+   bool _771 = _768 > _769;
+   int64_t _772 = (int64_t)(_771 ? _768 : _770);
+   uint64_t _773 = (uint64_t)(_772);
+   uint64_t _774 = _773;
+   uint64_t _775 = (uint64_t)(2147483647);
+   int32_t _776 = halide_error_buffer_allocation_too_large(_ucon, "hw_output$1", _774, _775);
+   return _776;
   }
-  int64_t _1071 = (int64_t)(2147483647);
-  bool _1072 = _1002 <= _1071;
-  if (!_1072)   {
-   int64_t _1073 = (int64_t)(2147483647);
-   int32_t _1074 = halide_error_buffer_extents_too_large(_ucon, "hw_output$1", _1002, _1073);
-   return _1074;
+  int64_t _777 = (int64_t)(2147483647);
+  bool _778 = _708 <= _777;
+  if (!_778)   {
+   int64_t _779 = (int64_t)(2147483647);
+   int32_t _780 = halide_error_buffer_extents_too_large(_ucon, "hw_output$1", _708, _779);
+   return _780;
   }
-  int64_t _1075 = (int64_t)(_894);
-  int64_t _1076 = (int64_t)(0);
-  int64_t _1077 = _1076 - _1075;
-  bool _1078 = _1075 > _1076;
-  int64_t _1079 = (int64_t)(_1078 ? _1075 : _1077);
-  uint64_t _1080 = (uint64_t)(_1079);
-  uint64_t _1081 = _1080;
-  uint64_t _1082 = (uint64_t)(2147483647);
-  bool _1083 = _1081 <= _1082;
-  if (!_1083)   {
-   int64_t _1084 = (int64_t)(_894);
-   int64_t _1085 = (int64_t)(0);
-   int64_t _1086 = _1085 - _1084;
-   bool _1087 = _1084 > _1085;
-   int64_t _1088 = (int64_t)(_1087 ? _1084 : _1086);
-   uint64_t _1089 = (uint64_t)(_1088);
-   uint64_t _1090 = _1089;
-   uint64_t _1091 = (uint64_t)(2147483647);
-   int32_t _1092 = halide_error_buffer_allocation_too_large(_ucon, "input$2", _1090, _1091);
-   return _1092;
+  int64_t _781 = (int64_t)(_600);
+  int64_t _782 = (int64_t)(0);
+  int64_t _783 = _782 - _781;
+  bool _784 = _781 > _782;
+  int64_t _785 = (int64_t)(_784 ? _781 : _783);
+  uint64_t _786 = (uint64_t)(_785);
+  uint64_t _787 = _786;
+  uint64_t _788 = (uint64_t)(2147483647);
+  bool _789 = _787 <= _788;
+  if (!_789)   {
+   int64_t _790 = (int64_t)(_600);
+   int64_t _791 = (int64_t)(0);
+   int64_t _792 = _791 - _790;
+   bool _793 = _790 > _791;
+   int64_t _794 = (int64_t)(_793 ? _790 : _792);
+   uint64_t _795 = (uint64_t)(_794);
+   uint64_t _796 = _795;
+   uint64_t _797 = (uint64_t)(2147483647);
+   int32_t _798 = halide_error_buffer_allocation_too_large(_ucon, "input$2", _796, _797);
+   return _798;
   }
-  int64_t _1093 = (int64_t)(_897);
-  int64_t _1094 = (int64_t)(_898);
-  int64_t _1095 = _1093 * _1094;
-  int64_t _1096 = (int64_t)(0);
-  int64_t _1097 = _1096 - _1095;
-  bool _1098 = _1095 > _1096;
-  int64_t _1099 = (int64_t)(_1098 ? _1095 : _1097);
-  uint64_t _1100 = (uint64_t)(_1099);
-  uint64_t _1101 = _1100;
-  uint64_t _1102 = (uint64_t)(2147483647);
-  bool _1103 = _1101 <= _1102;
-  if (!_1103)   {
-   int64_t _1104 = (int64_t)(_897);
-   int64_t _1105 = (int64_t)(_898);
-   int64_t _1106 = _1104 * _1105;
-   int64_t _1107 = (int64_t)(0);
-   int64_t _1108 = _1107 - _1106;
-   bool _1109 = _1106 > _1107;
-   int64_t _1110 = (int64_t)(_1109 ? _1106 : _1108);
-   uint64_t _1111 = (uint64_t)(_1110);
-   uint64_t _1112 = _1111;
-   uint64_t _1113 = (uint64_t)(2147483647);
-   int32_t _1114 = halide_error_buffer_allocation_too_large(_ucon, "input$2", _1112, _1113);
-   return _1114;
+  int64_t _799 = (int64_t)(_603);
+  int64_t _800 = (int64_t)(_604);
+  int64_t _801 = _799 * _800;
+  int64_t _802 = (int64_t)(0);
+  int64_t _803 = _802 - _801;
+  bool _804 = _801 > _802;
+  int64_t _805 = (int64_t)(_804 ? _801 : _803);
+  uint64_t _806 = (uint64_t)(_805);
+  uint64_t _807 = _806;
+  uint64_t _808 = (uint64_t)(2147483647);
+  bool _809 = _807 <= _808;
+  if (!_809)   {
+   int64_t _810 = (int64_t)(_603);
+   int64_t _811 = (int64_t)(_604);
+   int64_t _812 = _810 * _811;
+   int64_t _813 = (int64_t)(0);
+   int64_t _814 = _813 - _812;
+   bool _815 = _812 > _813;
+   int64_t _816 = (int64_t)(_815 ? _812 : _814);
+   uint64_t _817 = (uint64_t)(_816);
+   uint64_t _818 = _817;
+   uint64_t _819 = (uint64_t)(2147483647);
+   int32_t _820 = halide_error_buffer_allocation_too_large(_ucon, "input$2", _818, _819);
+   return _820;
   }
-  int64_t _1115 = (int64_t)(2147483647);
-  bool _1116 = _1005 <= _1115;
-  if (!_1116)   {
-   int64_t _1117 = (int64_t)(2147483647);
-   int32_t _1118 = halide_error_buffer_extents_too_large(_ucon, "input$2", _1005, _1117);
-   return _1118;
+  int64_t _821 = (int64_t)(2147483647);
+  bool _822 = _711 <= _821;
+  if (!_822)   {
+   int64_t _823 = (int64_t)(2147483647);
+   int32_t _824 = halide_error_buffer_extents_too_large(_ucon, "input$2", _711, _823);
+   return _824;
   }
-  uint64_t _1119 = (uint64_t)(0);
-  void *_1120 = (void *)(_1119);
-  bool _1121 = _hw_output__1 != _1120;
-  if (!_1121)   {
-   int32_t _1122 = halide_error_host_is_null(_ucon, "Output buffer hw_output$1");
-   return _1122;
+  uint64_t _825 = (uint64_t)(0);
+  void *_826 = (void *)(_825);
+  bool _827 = _hw_output__1 != _826;
+  if (!_827)   {
+   int32_t _828 = halide_error_host_is_null(_ucon, "Output buffer hw_output$1");
+   return _828;
   }
-  uint64_t _1123 = (uint64_t)(0);
-  void *_1124 = (void *)(_1123);
-  bool _1125 = _input__2 != _1124;
-  if (!_1125)   {
-   int32_t _1126 = halide_error_host_is_null(_ucon, "Input buffer input$2");
-   return _1126;
+  uint64_t _829 = (uint64_t)(0);
+  void *_830 = (void *)(_829);
+  bool _831 = _input__2 != _830;
+  if (!_831)   {
+   int32_t _832 = halide_error_host_is_null(_ucon, "Input buffer input$2");
+   return _832;
   }
-  int32_t _1127 = _885 + -1;
-  int32_t _1128 = _1127 >> 1;
-  int32_t _1129 = _1128 * 2;
-  int32_t _1130 = _885 + -2;
-  int32_t _1131 = ::halide_cpp_min(_1129, _1130);
-  int32_t _1132 = _1131 + -2;
-  int32_t _1133 = ::halide_cpp_max(_1132, _885);
+  int32_t _833 = _591 + -1;
+  int32_t _834 = _833 >> 1;
+  int32_t _835 = _834 * 2;
+  int32_t _836 = _591 + -2;
+  int32_t _837 = ::halide_cpp_min(_835, _836);
+  int32_t _838 = _837 + -2;
+  int32_t _839 = ::halide_cpp_max(_838, _591);
   {
-   int32_t _1134 = _882 + 5;
-   int64_t _1135 = _1134;
-   int32_t _1136 = _1133 + 5;
-   int64_t _1137 = _1135 * _1136;
-   if ((_1137 > ((int64_t(1) << 31) - 1)) || ((_1137 * sizeof(uint8_t )) > ((int64_t(1) << 31) - 1)))
+   int32_t _840 = _588 + 5;
+   int64_t _841 = _840;
+   int32_t _842 = _839 + 5;
+   int64_t _843 = _841 * _842;
+   if ((_843 > ((int64_t(1) << 31) - 1)) || ((_843 * sizeof(uint8_t )) > ((int64_t(1) << 31) - 1)))
    {
     halide_error(_ucon, "32-bit signed overflow computing size of allocation hw_input$1\n");
     return -1;
    } // overflow test hw_input$1
-   int64_t _1138 = _1137;
-   uint8_t *_hw_input__1 = (uint8_t  *)halide_malloc(_ucon, sizeof(uint8_t )*_1138);
+   int64_t _844 = _843;
+   uint8_t *_hw_input__1 = (uint8_t  *)halide_malloc(_ucon, sizeof(uint8_t )*_844);
    if (!_hw_input__1)
    {
     return halide_error_out_of_memory(_ucon);
    }
    HalideFreeHelper _hw_input__1_free(_ucon, _hw_input__1, halide_free);
-   halide_buffer_t b38;
-   struct halide_buffer_t *_1139 = &b38;
-   int32_t _1140 = _881 + -3;
-   int32_t _1141 = _882 + 5;
-   int32_t _1142 = _884 + -2;
-   int32_t _1143 = _1133 + 5;
+   halide_buffer_t b29;
+   struct halide_buffer_t *_845 = &b29;
+   int32_t _846 = _587 + -3;
+   int32_t _847 = _588 + 5;
+   int32_t _848 = _590 + -2;
+   int32_t _849 = _839 + 5;
    struct {
     const int32_t f_0;
     const int32_t f_1;
@@ -2735,19 +2735,19 @@ int hw_output(struct halide_buffer_t *_input__2_buffer, struct halide_buffer_t *
     const int32_t f_5;
     const int32_t f_6;
     const int32_t f_7;
-   } s14 = {
-    _1140,
-    _1141,
+   } s10 = {
+    _846,
+    _847,
     1,
     0,
-    _1142,
-    _1143,
-    _1141,
+    _848,
+    _849,
+    _847,
     0
    };
-   struct halide_dimension_t *_1144 = (struct halide_dimension_t *)(&s14);
-   uint64_t _1145 = (uint64_t)(0);
-   struct halide_device_interface_t *_1146 = (struct halide_device_interface_t *)(_1145);
+   struct halide_dimension_t *_850 = (struct halide_dimension_t *)(&s10);
+   uint64_t _851 = (uint64_t)(0);
+   struct halide_device_interface_t *_852 = (struct halide_device_interface_t *)(_851);
    struct {
     const int32_t f_0;
     const int32_t f_1;
@@ -2757,99 +2757,99 @@ int hw_output(struct halide_buffer_t *_input__2_buffer, struct halide_buffer_t *
     const int32_t f_5;
     const int32_t f_6;
     const int32_t f_7;
-   } s15 = {
-    _1140,
-    _1141,
+   } s11 = {
+    _846,
+    _847,
     1,
     0,
-    _1142,
-    _1143,
-    _1141,
+    _848,
+    _849,
+    _847,
     0
    };
-   struct halide_dimension_t *_1147 = (struct halide_dimension_t *)(&s15);
-   struct halide_buffer_t *_1148 = _halide_buffer_init(_1139, _1144, _hw_input__1, _1145, _1146, 1, 8, 2, _1147, _1145);
-   struct halide_buffer_t * _hw_input__1_buffer = _1148;
+   struct halide_dimension_t *_853 = (struct halide_dimension_t *)(&s11);
+   struct halide_buffer_t *_854 = _halide_buffer_init(_845, _850, _hw_input__1, _851, _852, 1, 8, 2, _853, _851);
+   struct halide_buffer_t * _hw_input__1_buffer = _854;
    // produce hw_input$1
-   int32_t _1149 = 3 - _881;
-   int32_t _1150 = 2 - _884;
-   int32_t _1151 = 3 - _896;
-   int32_t _1152 = _1151 * _898;
-   int32_t _1153 = _1152 - _893;
-   int32_t _1154 = _1153 + 3;
-   int32_t _1155 = _885 + 5;
+   int32_t _855 = 3 - _587;
+   int32_t _856 = 2 - _590;
+   int32_t _857 = 3 - _602;
+   int32_t _858 = _857 * _604;
+   int32_t _859 = _858 - _599;
+   int32_t _860 = _859 + 3;
+   int32_t _861 = _591 + 5;
 // Entering for loop
-   for (int _hw_input__1_s0_y = _1142; _hw_input__1_s0_y < _1142 + _1155; _hw_input__1_s0_y++)
+   for (int _hw_input__1_s0_y = _848; _hw_input__1_s0_y < _848 + _861; _hw_input__1_s0_y++)
    {
-    int32_t _1156 = _hw_input__1_s0_y + _1150;
-    int32_t _1157 = _1156 * _1141;
-    int32_t _1158 = _1157 + _1149;
-    int32_t _1159 = _hw_input__1_s0_y * _898;
-    int32_t _1160 = _1159 + _1154;
+    int32_t _862 = _hw_input__1_s0_y + _856;
+    int32_t _863 = _862 * _847;
+    int32_t _864 = _863 + _855;
+    int32_t _865 = _hw_input__1_s0_y * _604;
+    int32_t _866 = _865 + _860;
 // Entering for loop
-    for (int _hw_input__1_s0_x = _1140; _hw_input__1_s0_x < _1140 + _1141; _hw_input__1_s0_x++)
+    for (int _hw_input__1_s0_x = _846; _hw_input__1_s0_x < _846 + _847; _hw_input__1_s0_x++)
     {
-     int32_t _1161 = _hw_input__1_s0_x + _1160;
-     uint8_t _1162 = ((const uint8_t *)_input__2)[_1161];
-     int32_t _1163 = _hw_input__1_s0_x + _1158;
-     _hw_input__1[_1163] = _1162;
+     int32_t _867 = _hw_input__1_s0_x + _866;
+     uint8_t _868 = ((const uint8_t *)_input__2)[_867];
+     int32_t _869 = _hw_input__1_s0_x + _864;
+     _hw_input__1[_869] = _868;
     } // for _hw_input__1_s0_x
 // Leaving for loop
    } // for _hw_input__1_s0_y
 // Leaving for loop
    // consume hw_input$1
-   bool _1164 = 0 <= _887;
-   int32_t _1165 = _888 + _887;
-   bool _1166 = _1165 <= 3;
-   bool _1167 = _1164 && _1166;
-   if (!_1167)    {
-    int32_t _1168 = _888 + _887;
-    int32_t _1169 = _1168 + -1;
-    int32_t _1170 = halide_error_explicit_bounds_too_small(_ucon, "c", "hw_output$1", 0, 2, _887, _1169);
-    return _1170;
+   bool _870 = 0 <= _593;
+   int32_t _871 = _594 + _593;
+   bool _872 = _871 <= 3;
+   bool _873 = _870 && _872;
+   if (!_873)    {
+    int32_t _874 = _594 + _593;
+    int32_t _875 = _874 + -1;
+    int32_t _876 = halide_error_explicit_bounds_too_small(_ucon, "c", "hw_output$1", 0, 2, _593, _875);
+    return _876;
    }
    // produce hw_output$1
-   int32_t _1171 = _885 + 1;
-   int32_t _1172 = _1171 >> 1;
-   int32_t _1173 = _882 + 1;
-   int32_t _1174 = _1173 >> 1;
-   int32_t _1175 = _884 * _886;
-   int32_t _1176 = 0 - _1175;
-   int32_t _1177 = _882 * 2;
-   int32_t _1178 = -10 - _1177;
-   int32_t _1179 = _885 + -2;
-   int32_t _1180 = _882 + 5;
-   int32_t _1181 = _882 + -2;
+   int32_t _877 = _591 + 1;
+   int32_t _878 = _877 >> 1;
+   int32_t _879 = _588 + 1;
+   int32_t _880 = _879 >> 1;
+   int32_t _881 = _590 * _592;
+   int32_t _882 = 0 - _881;
+   int32_t _883 = _588 * 2;
+   int32_t _884 = -10 - _883;
+   int32_t _885 = _591 + -2;
+   int32_t _886 = _588 + 5;
+   int32_t _887 = _588 + -2;
 // Entering for loop
-   for (int _hw_output__1_s0_y_yo = 0; _hw_output__1_s0_y_yo < 0 + _1172; _hw_output__1_s0_y_yo++)
+   for (int _hw_output__1_s0_y_yo = 0; _hw_output__1_s0_y_yo < 0 + _878; _hw_output__1_s0_y_yo++)
    {
-    int32_t _1182 = _hw_output__1_s0_y_yo * 2;
-    int32_t _1183 = ::halide_cpp_min(_1182, _1179);
-    int32_t _1184 = _1183 + 2;
-    int32_t _1185 = _1184 * _1180;
-    int32_t _1186 = _1185 + _1178;
-    int32_t _1187 = _884 + _1183;
-    int32_t _1188 = _1187 * _886;
-    int32_t _1189 = _1188 + _1176;
+    int32_t _888 = _hw_output__1_s0_y_yo * 2;
+    int32_t _889 = ::halide_cpp_min(_888, _885);
+    int32_t _890 = _889 + 2;
+    int32_t _891 = _890 * _886;
+    int32_t _892 = _891 + _884;
+    int32_t _893 = _590 + _889;
+    int32_t _894 = _893 * _592;
+    int32_t _895 = _894 + _882;
 // Entering for loop
-    for (int _hw_output__1_s0_x_xo = 0; _hw_output__1_s0_x_xo < 0 + _1174; _hw_output__1_s0_x_xo++)
+    for (int _hw_output__1_s0_x_xo = 0; _hw_output__1_s0_x_xo < 0 + _880; _hw_output__1_s0_x_xo++)
     {
-     int32_t _1190 = _hw_output__1_s0_x_xo * 2;
-     int32_t _1191 = ::halide_cpp_min(_1190, _1181);
+     int32_t _896 = _hw_output__1_s0_x_xo * 2;
+     int32_t _897 = ::halide_cpp_min(_896, _887);
 // Found a realize of hw_input$1.stencil_update.stream, entering outermost hardware region
 std::cout << "Computing output tile with accelerator" << std::endl;
 CGRAWrapper accelerator;
-// Evaluating... = stream_subimage("buffer_to_stream", hw_input$1.buffer, hw_input$1.stencil_update.stream, _halide_buffer_get_host(hw_input$1[(_1191 + _1186)]), 1, 7, _1180, 7)
+// Evaluating... = stream_subimage("buffer_to_stream", hw_input$1.buffer, hw_input$1.stencil_update.stream, _halide_buffer_get_host(hw_input$1[(_897 + _892)]), 1, 7, _886, 7)
 // Call to stream_subimage, we need to do commands here?...
-     int32_t _1192 = _1191 + _1186;
-accelerator.subimage_to_stream(_hw_input__1_buffer, _1192, 1, 7, _1180, 7);
-// Evaluating... = stream_subimage("stream_to_buffer", hw_output$1.buffer, hw_output$1.stencil.stream, _halide_buffer_get_host(hw_output$1[(_1191 + _1189)]), 1, 2, _886, 2, _889, 3)
+     int32_t _898 = _897 + _892;
+accelerator.subimage_to_stream(_hw_input__1_buffer, _898, 1, 7, _886, 7);
+// Evaluating... = stream_subimage("stream_to_buffer", hw_output$1.buffer, hw_output$1.stencil.stream, _halide_buffer_get_host(hw_output$1[(_897 + _895)]), 1, 2, _592, 2, _595, 3)
 // Call to stream_subimage, we need to do commands here?...
-     int32_t _1193 = _1191 + _1189;
-accelerator.stream_to_subimage(_hw_output__1_buffer, _1193, 1, 2, _886, 2, _889, 3);
-// Evaluating... = call_accelerator(hw_input$1.buffer, hw_input$1.stencil_update.stream, _halide_buffer_get_host(hw_input$1[(_1191 + _1186)]), 1, 7, _1180, 7, 1, 1, 1, 1, hw_output$1.buffer, hw_output$1.stencil.stream, _halide_buffer_get_host(hw_output$1[(_1191 + _1189)]), 1, 2, _886, 2, _889, 3, 1, 1)
+     int32_t _899 = _897 + _895;
+accelerator.stream_to_subimage(_hw_output__1_buffer, _899, 1, 2, _592, 2, _595, 3);
+// Evaluating... = call_accelerator(hw_input$1.buffer, hw_input$1.stencil_update.stream, _halide_buffer_get_host(hw_input$1[(_897 + _892)]), 1, 7, _886, 7, 1, 1, 1, 1, hw_output$1.buffer, hw_output$1.stencil.stream, _halide_buffer_get_host(hw_output$1[(_897 + _895)]), 1, 2, _592, 2, _595, 3, 1, 1)
 // Call accelerator...
-accelerator.produce_subimage(_hw_input__1_buffer, _1192, 1, 7, _1180, 7, 1, 1, 1, 1, _hw_output__1_buffer, _1193, 1, 2, _886, 2, _889, 3, 1, 1);
+accelerator.produce_subimage(_hw_input__1_buffer, _898, 1, 7, _886, 7, 1, 1, 1, 1, _hw_output__1_buffer, _899, 1, 2, _592, 2, _595, 3, 1, 1);
 // Should generate CoreIR for produce: _hls_target.hw_output$1
 // Done with hardware region
     } // for _hw_output__1_s0_x_xo
@@ -2858,7 +2858,7 @@ accelerator.produce_subimage(_hw_input__1_buffer, _1192, 1, 7, _1180, 7, 1, 1, 1
 // Leaving for loop
    _hw_input__1_free.free();
   } // alloc _hw_input__1
- } // if _930
+ } // if _636
  return 0;
 }
 

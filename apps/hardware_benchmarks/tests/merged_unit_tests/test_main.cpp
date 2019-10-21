@@ -21,10 +21,10 @@ std::string GREEN = "\033[32m";
 std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
-template<typename T>
-Halide::Buffer<T> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
+template<typename T, typename OT>
+Halide::Buffer<OT> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Runtime::Buffer<OT>& outputBuf) {
   if (outputBuf.dimensions() == 3) {
-    Halide::Buffer<T> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
+    Halide::Buffer<OT> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
     ParamMap rParams;
     rParams.set(input, inputBuf);
     Target t;
@@ -33,7 +33,7 @@ Halide::Buffer<T> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T
   } else {
     assert(outputBuf.dimensions() == 2);
     
-    Halide::Buffer<T> cpuOutput(outputBuf.width(), outputBuf.height());
+    Halide::Buffer<OT> cpuOutput(outputBuf.width(), outputBuf.height());
     ParamMap rParams;
     rParams.set(input, inputBuf);
     Target t;
@@ -1793,6 +1793,76 @@ Func color_correct(Func input) {
   return corrected;
 }
 
+void curve_16_lookup_test() {
+  Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
+  ImageParam input(type_of<int16_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  float gamma = 1.0;
+  float contrast = 1.0;
+
+  Func hw_input, hw_output;
+  hw_input(x, y) = input(x, y);
+
+  Func curve;
+  {
+    Expr xf = x/1024.0f;
+    Expr g = pow(xf, 1.0f/gamma);
+    Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
+    Expr a = 2.0f - 2.0f*b;
+    Expr val = select(g > 0.5f,
+        1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
+        a*g*g + b*g);
+    curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
+  }
+
+  hw_output(x, y) = curve(clamp(hw_input(x, y), 0, 1023));
+
+  int tileSize = 4;
+  // TODO: Extract to template function
+  Halide::Buffer<int16_t> inputBuf(tileSize, tileSize);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPattern2D(inputBuf, hwInputBuf);
+  inputBuf(0, 0) = (int16_t) (1 << 12);
+  hwInputBuf(0, 0, 0) = inputBuf(0, 0);
+
+  inputBuf(1, 0) = -32;
+  hwInputBuf(1, 0, 0) = inputBuf(1, 0);
+  
+  //for (int i = 0; i < inputBuf.width(); i++) {
+    //for (int j = 0; j < inputBuf.height(); j++) {
+      //hwInputBuf(i, j, 0) = i + j*inputBuf.width();
+      //inputBuf(i, j) = hwInputBuf(i, j);
+    //}
+  //}
+
+  Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
+  printBuffer(cpuOutput, cout);
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.tile(x, y, xo, yo, xi, yi, tileSize, tileSize);
+
+  curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+  hw_output.accelerate({hw_input}, xi, xo, {});
+  
+  cout << "After hw schedule..." << endl;
+  hw_output.print_loop_nest();
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
+
+  cout << "Module..." << endl;
+  cout << m << endl;
+
+  string accelName = "self.in_arg_0_0_0";
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
+
+  cout << GREEN << "Curve lookup test passed" << RESET << endl;
+}
 void curve_lookup_test() {
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
   ImageParam input(type_of<uint8_t>(), 2);
@@ -1929,9 +1999,15 @@ void camera_pipeline_test() {
   //hw_output(x, y, c) = curve(clamp(cast<uint8_t>(color_corrected(x, y, c)), 0, cast<uint8_t>(1023)));
 
   Func hw_output_8;
-  hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
-  hw_output(x, y, c) = hw_output_8(x, y, c);
-  //hw_output(x, y, c) = curve(hw_output_8(x, y, c));
+  //hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
+  //
+  // Note: Passes unit test
+  //hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 10));
+  // Note: This fails one unit test
+  //hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 100));
+  hw_output_8(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 50));
+  //hw_output(x, y, c) = hw_output_8(x, y, c);
+  hw_output(x, y, c) = curve(hw_output_8(x, y, c));
   // Note: Passes one unit test
   //hw_output(x, y, c) = cast<uint8_t>(clamp(color_corrected(x, y, c), 0, 1023));
   // Note: Passes one unit test
@@ -2153,10 +2229,12 @@ void simple_unsharp_test() {
 // such as subimage offsets to the kernel
 int main(int argc, char **argv) {
 
+  curve_16_lookup_test();
+  assert(false);
+  camera_pipeline_test();
   double_unsharp_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
-  //camera_pipeline_test();
   //assert(false);
   accel_interface_test();
   accel_soc_test();

@@ -3336,12 +3336,49 @@ class AppGraph {
 
 // Compute the last working set that needs to arrive at a given node
 // before the output box result can be produced.
-// We ought to do this further up in Halide.
+// We ought to do this further up in Halide. Only used in inductive case
 Box lastWorkingSetChunk(CoreIR::Wireable* producerNode,
     const std::string& outputName,
     Box& result) {
 
+  if (isa<Interface>(getBase(producerNode))) {
+    // Return strided index of first element of result
+    internal_assert(false) << "No working set input to a top-level input!\n";
+  }
+
+  if (isComputeKernel(producerNode)) {
+    // TODO: Lookup latency of kernel in input map
+    int latency = 0;
+    return 
+  }
+
+  if (isLinebuffer(producerNode)) {
+    // Get dimensions of input image / output image
+    // Compute the warm up delay, then return arrivalTime of
+    // working set?
+    assert(false);
+  }
+
   assert(false);
+}
+
+// Assumes that result is evenly aligned with production times
+int productionDelay(CoreIR::Wireable* producerNode,
+    const std::string& outputName,
+    Box& result) {
+  if (isa<Interface>(getBase(producerNode))) {
+    // Return strided index of first element of result
+    assert(false);
+  }
+
+  Box lastWorkInput = lastWorkingSetChunk(producerNode, outputName, result);
+  Wireable* workingSetProducer = nullptr;
+  internal_assert(workingSetProducer != nullptr);
+  // Where does linebuffer specific logic go here?
+  return productionDelay(workingSetProducer, workingSetOutput, lastWorkInput);
+
+  cout << "Error: No production function for " << coreStr(producerNode) << endl;
+  internal_assert(false);
 }
 
 //// TODO: Add delay map as an argument?
