@@ -2420,7 +2420,7 @@ void different_latency_kernels_test() {
 
 int main(int argc, char **argv) {
 
-  //different_latency_kernels_test();
+  different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);
   camera_pipeline_test();

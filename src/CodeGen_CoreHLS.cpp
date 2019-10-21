@@ -915,6 +915,10 @@ class HWLoopSchedule {
     void setEndTime(HWInstr* instr, const int stage) {
       endStages[instr] = stage;
     }
+
+    int cycleLatency() const {
+      return numStages() - 1;
+    }
 };
 
 class InnermostLoopChecker : public IRGraphVisitor {
@@ -3410,7 +3414,7 @@ int productionDelay(CoreIR::Wireable* producerNode,
 // but maybe for now I should focus on the case where there is only one value being produced.
 // Q: What if a node has multiple inputs? Then the production of an output happens at
 // for all inputs . max(arrivalTime(workingSet(x, y)))
-int cycleDelay(edisc e, AppGraph& appGraph) {
+int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   vector<int> pixel{0, 0};
   Wireable* src = appGraph.source(e);
   //return arrivalDelay(src, pixel, appGraph);
@@ -3426,6 +3430,16 @@ int cycleDelay(edisc e, AppGraph& appGraph) {
     //return 16;
     //return 14;
     return 18;
+  } else if (isComputeKernel(src)) {
+    auto k = static_cast<Instance*>(src);
+    auto m = k->getModuleRef();
+    for (auto ck : computeKernels) {
+      if (ck.second.mod == m) {
+        return ck.second.sched.cycleLatency();
+      }
+    }
+
+    internal_assert(false) << "could not find compute kernel info for " << coreStr(k) << "\n";
   } else {
     return 0;
   }
@@ -3968,7 +3982,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //bool foundMax = false;
     for (auto e : inEdges) {
       auto srcVert = appGraph.appGraph.source(e);
-      int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph);
+      int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
 
       if (distToSrc >= maxDist) {
         maxDist = distToSrc;
@@ -3985,10 +3999,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     } else {
       for (size_t i = 0; i < inEdges.size() - 1; i++) {
         auto srcVert = appGraph.appGraph.source(inEdges[i]);
-        int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(inEdges[i], appGraph);
+        int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(inEdges[i], kernelModules, appGraph);
         
         auto srcVert1 = appGraph.appGraph.source(inEdges[i + 1]);
-        int distToSrc1 = map_get(srcVert1, nodesToDelays) + cycleDelay(inEdges[i + 1], appGraph);
+        int distToSrc1 = map_get(srcVert1, nodesToDelays) + cycleDelay(inEdges[i + 1], kernelModules, appGraph);
         if (distToSrc != distToSrc1) {
           allDelaysSame = false;
           break;
@@ -4006,7 +4020,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           extraDelaysNeeded[e] = 0;
         } else {
           auto srcVert = appGraph.appGraph.source(e);
-          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph);
+          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
           int filler = maxDist - distToSrc;
           extraDelaysNeeded[e] = filler;
         }
