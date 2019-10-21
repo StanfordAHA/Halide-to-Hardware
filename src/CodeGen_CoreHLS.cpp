@@ -2200,7 +2200,14 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
-CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
+class ComputeKernel {
+  public:
+    CoreIR::Module* mod;
+    HWLoopSchedule sched;
+};
+
+//CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
+ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
   //auto& instrs = f.body;
   //f.mod = design;
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
@@ -2229,7 +2236,7 @@ CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWF
   emitCoreIR(info, context, sched, def);
 
   design->setDef(def);
-  return design;
+  return {design, sched};
 }
 
 bool isLoad(HWInstr* instr) {
@@ -3670,7 +3677,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
 
-  std::map<const For*, CoreIR::Module*> kernelModules;
+  //std::map<const For*, CoreIR::Module*> kernelModules;
+  std::map<const For*, ComputeKernel> kernelModules;
+  std::map<Instance*, int> kernelLatencies;
   std::map<const For*, KernelControlPath> kernelControlPaths;
   std::map<const For*, HWFunction> functions;
   for (const For* lp : extractor.loops) {
@@ -3699,9 +3708,12 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       cout << "\t\t\t" << *instr << endl;
     }
 
-    CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
+    //CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
+    ComputeKernel compK = moduleForKernel(context, scl.info, f, lp);
+    auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
-    kernelModules[lp] = m;
+    //kernelModules[lp] = m;
+    kernelModules[lp] = compK;
     auto cp = controlPathForKernel(context, scl.info, f, lp);
     cout << "Control path is..." << endl;
     cp.m->print();
@@ -3726,11 +3738,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   std::map<const For*, CoreIR::Instance*> controlPaths;
   std::map<Instance*, CoreIR::Instance*> kernelToControlPath;
   for (auto k : kernelModules) {
-    auto kI = def->addInstance("compute_module_" + k.second->getName(), k.second);
+    auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
     kernels[k.first] = kI;
 
     KernelControlPath cpM = map_get(k.first, kernelControlPaths);
-    auto controlPath = def->addInstance("control_path_module_" + k.second->getName(), cpM.m);
+    auto controlPath = def->addInstance("control_path_module_" + k.second.mod->getName(), cpM.m);
     controlPaths[k.first] = controlPath;
     def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
     for (auto v : cpM.controlVars) {
