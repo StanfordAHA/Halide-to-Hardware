@@ -2350,6 +2350,24 @@ void simple_unsharp_test() {
 
 #define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
 void different_latency_kernels_test() {
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Func lut("lut");
+  Func translated("kernel");
+  Func brightened("brightened");
+  Func diff("diff");
+  Func hw_input("hw_input");
+  Func hw_output("hw_output");
+  
+  hw_input(x, y) = cast<uint8_t>(input(x, y));
+  lut(x) = cast<uint8_t>(Expr(x));
+  translated(x, y) = lut(hw_input(x, y));
+  brightened(x, y) = hw_input(x, y) + 10;
+  hw_output(x, y) = brightened(x, y);
+
   PRINT_PASSED("Different latency kernels");
 }
 
