@@ -2327,10 +2327,10 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
           auto location = instr->operands[2];
           //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
           if (isConstant(location)) {
-            cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
+            //cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
             int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
 
-            cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
+            //cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
             HWInstr* lastStoreToLoc = new HWInstr();
             lastStoreToLoc->tp = HWINSTR_TP_CONST;
             lastStoreToLoc->constWidth = 16;
@@ -2383,7 +2383,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     auto values = map_get(curveName, storeCollector.constStores);
     Json romVals;
     for (int i = 0; i < values.size(); i++) {
-      cout << "Getting " << i << " from " << values << endl;
+      //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
       romVals["init"].emplace_back(val);
       //romVals["init"].emplace_back(200);

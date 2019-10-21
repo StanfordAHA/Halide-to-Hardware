@@ -2372,8 +2372,8 @@ void different_latency_kernels_test() {
   int outTileSize = 5;
   Halide::Buffer<uint8_t> inputBuf(outTileSize, outTileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  //indexTestPatternRandom(inputBuf, hwInputBuf);
-  indexTestPattern2D(inputBuf, hwInputBuf);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
+  //indexTestPattern2D(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
