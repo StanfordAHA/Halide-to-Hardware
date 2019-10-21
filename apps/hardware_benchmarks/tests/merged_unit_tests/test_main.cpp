@@ -2349,6 +2349,7 @@ void simple_unsharp_test() {
 }
 
 #define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
+
 void different_latency_kernels_test() {
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 2);
@@ -2365,10 +2366,21 @@ void different_latency_kernels_test() {
   hw_input(x, y) = cast<uint8_t>(input(x, y));
   lut(x) = cast<uint8_t>(Expr(x));
   translated(x, y) = lut(hw_input(x, y));
-  brightened(x, y) = hw_input(x, y) + 10;
-  hw_output(x, y) = brightened(x, y);
+  brightened(x, y) = hw_input(x, y) * 3;
+  diff(x, y) = brightened(x, y) - translated(x, y);
+  hw_output(x, y) = diff(x, y);
 
+  int outTileSize = 5;
+  Halide::Buffer<uint8_t> inputBuf(outTileSize, outTileSize);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
+  printBuffer(cpuOutput, cout);
+  
   PRINT_PASSED("Different latency kernels");
+  assert(false);
 }
 
 int main(int argc, char **argv) {
