@@ -10,7 +10,7 @@ namespace {
 using namespace Halide;
 
 // Size of blur for gradients.
-int blockSize = 5;
+const int blockSize = 5;
   
 class UnsharpFilter : public Halide::Generator<UnsharpFilter> {
 public:

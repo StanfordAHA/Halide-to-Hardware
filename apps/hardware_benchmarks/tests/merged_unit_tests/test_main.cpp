@@ -2312,10 +2312,6 @@ void simple_unsharp_test() {
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
     .reorder(xi, yi, xo, yo);
 
-  // Unrolling by xi or r.x / r.y causes an error, but I dont understand
-  // why this is the case. Unrolling in x / y unrolls the outermost loop,
-  // but not the inner loops. What is the relationship between the outer loop
-  // that computes blur(x, y) = 0 and the use of kernel to accumulate blur values?
   blurred.linebuffer().update().unroll(r.x).unroll(r.y);
   diff.linebuffer();
   hw_input.stream_to_accelerator();
@@ -2355,6 +2351,7 @@ void different_latency_kernels_test() {
   ImageParam output(type_of<uint8_t>(), 2);
 
   Var x("x"), y("y");
+  Var xi, yi, xo, yo;
 
   Func lut("lut");
   Func translated("kernel");
@@ -2366,19 +2363,55 @@ void different_latency_kernels_test() {
   hw_input(x, y) = cast<uint8_t>(input(x, y));
   lut(x) = cast<uint8_t>(Expr(x));
   translated(x, y) = lut(hw_input(x, y));
-  brightened(x, y) = hw_input(x, y) * 3;
+  brightened(x, y) = hw_input(x, y) + 10;
   diff(x, y) = brightened(x, y) - translated(x, y);
   hw_output(x, y) = diff(x, y);
 
   int outTileSize = 5;
   Halide::Buffer<uint8_t> inputBuf(outTileSize, outTileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  indexTestPatternRandom(inputBuf, hwInputBuf);
+  //indexTestPatternRandom(inputBuf, hwInputBuf);
+  indexTestPattern2D(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
   printBuffer(cpuOutput, cout);
+  hw_output.compute_root();
+  hw_input.compute_root();
+ 
+  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
+    .reorder(xi, yi, xo, yo);
+
+  lut.compute_at(hw_output, xo).unroll(x);
+  translated.linebuffer();
+  brightened.linebuffer();
+  diff.linebuffer();
+  hw_input.stream_to_accelerator();
+  hw_output.hw_accelerate(xi, xo);
   
+  hw_output.print_loop_nest();
+  
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
+
+  json j;
+  ifstream inFile("accel_interface_info.json");
+  inFile >> j;
+  cout << "JSON..." << endl;
+  cout << j << endl;
+
+  auto aliasMap = j["aliasMap"];
+  cout << "Alias map = " << aliasMap << endl;
+  assert(aliasMap.size() == 1);
+
+  string inS = begin(aliasMap)->get<string>();
+  cout << "inS = " << inS << endl;
+  string outS = "hw_output.stencil.stream";
+  string accelName = "self.in_" + inS + "_0_0";
+
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  compare_buffers(outputBuf, cpuOutput);
   PRINT_PASSED("Different latency kernels");
   assert(false);
 }
