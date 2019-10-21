@@ -1678,7 +1678,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "absd") {
-        auto mul = def->addInstance("absd" + std::to_string(defStage), "commonlib.abs", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("absd" + std::to_string(defStage), "commonlib.absd", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       }else if (name == "mod") {
@@ -1983,13 +1983,13 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
       if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
           (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and") || (instr->name == "mod") ||
-          (instr->name == "eq") || (instr->name == "neq") || (instr->name == "and_bv")) {
+          (instr->name == "eq") || (instr->name == "neq") || (instr->name == "and_bv") || (instr->name == "absd")) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
 
         def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
         def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
-      } else if (instr->name == "cast" || (instr->name == "absd")) {
+      } else if (instr->name == "cast") {
         auto arg = instr->getOperand(0);
         //auto unit = CoreIR::map_find(instr, unitMapping);
         def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
