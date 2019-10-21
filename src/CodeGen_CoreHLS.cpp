@@ -3304,6 +3304,7 @@ class AppGraph {
     }
 };
 
+// What is simplest way to make progress?
 //// production delay of the first output window which contains the coordinate coord
 //int productionDelay(Wireable* base, vector<int>& coordinates, AppGraph& appGraph) {
   //// If base is self then the delay is the coordinate offset (with strides for image size)
@@ -3333,16 +3334,38 @@ class AppGraph {
   //return {0, 0};
 //}
 
+// Compute the last working set that needs to arrive at a given node
+// before the output box result can be produced.
+// We ought to do this further up in Halide.
+Box lastWorkingSetChunk(CoreIR::Wireable* producerNode,
+    const std::string& outputName,
+    Box& result) {
+
+  assert(false);
+}
+
 //// TODO: Add delay map as an argument?
 //int arrivalDelay(Wireable* src, vector<int>& coorindates, AppGraph& appGraph) {
   //vector<int> lastPix = lastPixelInWorkingSetToCompute(src, coordinates, appGraph);
   //return productionDelay(src, lastPix, appGraph);
 //}
-
+//
+// Most important thing: backwards map from prod(x, y) -> arrivalTime(workingset(x, y))
+// This problem looks a lot like the problems solved by the halide frontend, with box touched
+// and so on, but I cant just jump straight to that problem yet. Or can I?
+// Base case: at input prod(window(x0, y0)) == y0*ncols + x0
+// Inductive case: prod(window(x0, y0)) == max_inputs(arrivalTime(workingSet(x0, y0)))
+// Gap between last elem of working set and production of box is constant
+// Gap between first elem of working set and production of box is constant (or bounded?)
 // Really: cycleDelay should wrap a function that computes
 // arrivalDelay(e, coordinate, appGrah), where coordinate is
 // the minimum value of the production window initially.
 // More?
+// A litte confused by the choice to make the cycleDelay depend on an edge instead of a node.
+// Why did I do that? I suppose there could be more than one edge connecting the same two nodes,
+// but maybe for now I should focus on the case where there is only one value being produced.
+// Q: What if a node has multiple inputs? Then the production of an output happens at
+// for all inputs . max(arrivalTime(workingSet(x, y)))
 int cycleDelay(edisc e, AppGraph& appGraph) {
   vector<int> pixel{0, 0};
   Wireable* src = appGraph.source(e);
@@ -3882,7 +3905,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto v : topSort) {
     cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
   }
-  
+ 
+  // Map from nodes to the times at which first valid from that node is emitted
   std::map<vdisc, int> nodesToDelays;
   std::map<edisc, int> extraDelaysNeeded;
   for (auto v : topSort) {
