@@ -2364,11 +2364,11 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
 
   std::map<HWInstr*, HWInstr*> loadsToReplacements;
   for (auto m : romLoads) {
-    cout << "\tTo rom: " << m.first << endl;
-    cout << "StoredValues = " << storeCollector.constStores << endl;
+    //cout << "\tTo rom: " << m.first << endl;
+    //cout << "StoredValues = " << storeCollector.constStores << endl;
     //auto values = map_get("\"" + (m.first) + "\"", storeCollector.constStores);
     string curveName = m.first.substr(1, m.first.size() - 2);
-    cout << "Getting value for " << curveName << endl;
+    //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
     Json romVals;
     for (int i = 0; i < values.size(); i++) {
@@ -3341,23 +3341,23 @@ Box lastWorkingSetChunk(CoreIR::Wireable* producerNode,
     const std::string& outputName,
     Box& result) {
 
-  if (isa<Interface>(getBase(producerNode))) {
-    // Return strided index of first element of result
-    internal_assert(false) << "No working set input to a top-level input!\n";
-  }
+  //if (isa<Interface>(getBase(producerNode))) {
+    //// Return strided index of first element of result
+    //internal_assert(false) << "No working set input to a top-level input!\n";
+  //}
 
-  if (isComputeKernel(producerNode)) {
-    // TODO: Lookup latency of kernel in input map
-    int latency = 0;
-    return 
-  }
+  //if (isComputeKernel(producerNode)) {
+    //// TODO: Lookup latency of kernel in input map
+    //int latency = 0;
+    //return 
+  //}
 
-  if (isLinebuffer(producerNode)) {
-    // Get dimensions of input image / output image
-    // Compute the warm up delay, then return arrivalTime of
-    // working set?
-    assert(false);
-  }
+  //if (isLinebuffer(producerNode)) {
+    //// Get dimensions of input image / output image
+    //// Compute the warm up delay, then return arrivalTime of
+    //// working set?
+    //assert(false);
+  //}
 
   assert(false);
 }
@@ -3366,16 +3366,16 @@ Box lastWorkingSetChunk(CoreIR::Wireable* producerNode,
 int productionDelay(CoreIR::Wireable* producerNode,
     const std::string& outputName,
     Box& result) {
-  if (isa<Interface>(getBase(producerNode))) {
-    // Return strided index of first element of result
-    assert(false);
-  }
+  //if (isa<Interface>(getBase(producerNode))) {
+     ////Return strided index of first element of result
+    //assert(false);
+  //}
 
-  Box lastWorkInput = lastWorkingSetChunk(producerNode, outputName, result);
-  Wireable* workingSetProducer = nullptr;
-  internal_assert(workingSetProducer != nullptr);
-  // Where does linebuffer specific logic go here?
-  return productionDelay(workingSetProducer, workingSetOutput, lastWorkInput);
+  //Box lastWorkInput = lastWorkingSetChunk(producerNode, outputName, result);
+  //Wireable* workingSetProducer = nullptr;
+  //internal_assert(workingSetProducer != nullptr);
+   ////Where does linebuffer specific logic go here?
+  //return productionDelay(workingSetProducer, workingSetOutput, lastWorkInput);
 
   cout << "Error: No production function for " << coreStr(producerNode) << endl;
   internal_assert(false);
