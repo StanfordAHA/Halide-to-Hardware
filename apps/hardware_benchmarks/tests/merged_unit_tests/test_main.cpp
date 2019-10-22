@@ -78,6 +78,20 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
 
   assert(readIdx.allDone());
 
+  // Just to be sure, run for a few more cycles and check that no extra valids come out
+  const int NUM_BUFFER_CYCLES = 5;
+  int i = 0;
+  while (i < NUM_BUFFER_CYCLES) {
+
+    state.setValue("self.in_en", BitVector(1, false));
+    state.exeCombinational();
+    bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+    assert(!valid_value);
+    state.exeSequential();
+    i++;
+  }
+
+
 }
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
@@ -2415,7 +2429,7 @@ void different_latency_kernels_test() {
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
   PRINT_PASSED("Different latency kernels");
-  assert(false);
+  //assert(false);
 }
 
 int main(int argc, char **argv) {
