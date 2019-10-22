@@ -21,6 +21,25 @@ std::string GREEN = "\033[32m";
 std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
+std::string getInputAlias(const std::string& jsonFile) {
+  json j;
+  ifstream inFile(jsonFile);
+  //"accel_interface_info.json");
+  inFile >> j;
+  cout << "JSON..." << endl;
+  cout << j << endl;
+
+  auto aliasMap = j["aliasMap"];
+  cout << "Alias map = " << aliasMap << endl;
+  assert(aliasMap.size() == 1);
+
+  string inS = begin(aliasMap)->get<string>();
+  cout << "inS = " << inS << endl;
+  string outS = "hw_output.stencil.stream";
+  string accelName = "self.in_" + inS + "_0_0";
+  return accelName;
+}
+
 template<typename T, typename OT>
 Halide::Buffer<OT> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Runtime::Buffer<OT>& outputBuf) {
   if (outputBuf.dimensions() == 3) {
@@ -1734,20 +1753,21 @@ void accel_interface_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "accel_coreir", args, "accel", hw_output);
 
-  json j;
-  ifstream inFile("accel_interface_info.json");
-  inFile >> j;
-  cout << "JSON..." << endl;
-  cout << j << endl;
+  string accelName = getInputAlias("accel_interface_info.json");
+  //json j;
+  //ifstream inFile("accel_interface_info.json");
+  //inFile >> j;
+  //cout << "JSON..." << endl;
+  //cout << j << endl;
 
-  auto aliasMap = j["aliasMap"];
-  cout << "Alias map = " << aliasMap << endl;
-  assert(aliasMap.size() == 1);
+  //auto aliasMap = j["aliasMap"];
+  //cout << "Alias map = " << aliasMap << endl;
+  //assert(aliasMap.size() == 1);
 
-  string inS = begin(aliasMap)->get<string>();
-  cout << "inS = " << inS << endl;
-  string outS = "hw_output.stencil.stream";
-  string accelName = "self.in_" + inS + "_0_0";
+  //string inS = begin(aliasMap)->get<string>();
+  //cout << "inS = " << inS << endl;
+  //string outS = "hw_output.stencil.stream";
+  //string accelName = "self.in_" + inS + "_0_0";
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
@@ -2202,6 +2222,7 @@ void camera_pipeline_test() {
   cout << GREEN << "Camera pipeline test passed" << RESET << endl;
 }
 
+
 void double_unsharp_test() {
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 2);
@@ -2264,45 +2285,27 @@ void double_unsharp_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_double_unsharp", args, "double_unsharp", hw_output);
 
-  json j;
-  ifstream inFile("accel_interface_info.json");
-  inFile >> j;
-  cout << "JSON..." << endl;
-  cout << j << endl;
+  //json j;
+  //ifstream inFile("accel_interface_info.json");
+  //inFile >> j;
+  //cout << "JSON..." << endl;
+  //cout << j << endl;
 
-  auto aliasMap = j["aliasMap"];
-  cout << "Alias map = " << aliasMap << endl;
-  assert(aliasMap.size() == 1);
+  //auto aliasMap = j["aliasMap"];
+  //cout << "Alias map = " << aliasMap << endl;
+  //assert(aliasMap.size() == 1);
 
-  string inS = begin(aliasMap)->get<string>();
-  cout << "inS = " << inS << endl;
-  string outS = "hw_output.stencil.stream";
-  string accelName = "self.in_" + inS + "_0_0";
+  //string inS = begin(aliasMap)->get<string>();
+  //cout << "inS = " << inS << endl;
+  //string outS = "hw_output.stencil.stream";
+  //string accelName = "self.in_" + inS + "_0_0";
 
+  auto accelName = getInputAlias("accel_interface_info.json");
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
   
   cout << GREEN << "Double unsharp test passed" << RESET << endl;
   //assert(false);
-}
-
-std::string getInputAlias(const std::string& jsonFile) {
-  json j;
-  ifstream inFile(jsonFile);
-  //"accel_interface_info.json");
-  inFile >> j;
-  cout << "JSON..." << endl;
-  cout << j << endl;
-
-  auto aliasMap = j["aliasMap"];
-  cout << "Alias map = " << aliasMap << endl;
-  assert(aliasMap.size() == 1);
-
-  string inS = begin(aliasMap)->get<string>();
-  cout << "inS = " << inS << endl;
-  string outS = "hw_output.stencil.stream";
-  string accelName = "self.in_" + inS + "_0_0";
-  return accelName;
 }
 
 void simple_unsharp_test() {
@@ -2416,20 +2419,21 @@ void different_latency_kernels_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
 
-  json j;
-  ifstream inFile("accel_interface_info.json");
-  inFile >> j;
-  cout << "JSON..." << endl;
-  cout << j << endl;
+  string accelName = getInputAlias("accel_interface_info.json");
+  //json j;
+  //ifstream inFile("accel_interface_info.json");
+  //inFile >> j;
+  //cout << "JSON..." << endl;
+  //cout << j << endl;
 
-  auto aliasMap = j["aliasMap"];
-  cout << "Alias map = " << aliasMap << endl;
-  assert(aliasMap.size() == 1);
+  //auto aliasMap = j["aliasMap"];
+  //cout << "Alias map = " << aliasMap << endl;
+  //assert(aliasMap.size() == 1);
 
-  string inS = begin(aliasMap)->get<string>();
-  cout << "inS = " << inS << endl;
-  string outS = "hw_output.stencil.stream";
-  string accelName = "self.in_" + inS + "_0_0";
+  //string inS = begin(aliasMap)->get<string>();
+  //cout << "inS = " << inS << endl;
+  //string outS = "hw_output.stencil.stream";
+  //string accelName = "self.in_" + inS + "_0_0";
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
