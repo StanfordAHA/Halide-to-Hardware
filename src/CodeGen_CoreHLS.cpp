@@ -3483,6 +3483,10 @@ void wireUpAppGraph(AppGraph& appGraph,
 
 }
 
+std::map<const For*, HWFunction> mapFunctionsToCGRA(std::map<const For*, HWFunction>& functions) {
+  return functions;
+}
+
 void printCollectedStores(StoreCollector& stCollector) {
     for (auto s : stCollector.stores) {
       cout << "Store to " << s->name << " with value " << s->value << " at " << s->index << endl;
@@ -3722,16 +3726,27 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       cout << "\t\t\t" << *instr << endl;
     }
 
+    functions[lp] = f;
+
+    kernelN++;
+  }    
+
+  // For mapping: Re-structure the code so that every hwFunction is built before
+  // we do any re-mapping. Then pass the hardware functions in to a dummy function
+  // that will map each one and return a new mapping from loops to hardware functions
+
+  functions = mapFunctionsToCGRA(functions);
+  for (auto fp : functions) {
+    auto lp = fp.first;
+    HWFunction& f = fp.second;
     ComputeKernel compK = moduleForKernel(context, scl.info, f, lp);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
-    //kernelModules[lp] = m;
     kernelModules[lp] = compK;
     auto cp = controlPathForKernel(context, scl.info, f, lp);
     cout << "Control path is..." << endl;
     cp.m->print();
     kernelControlPaths[lp] = cp;
-    functions[lp] = f;
 
     context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
     removeUnconnectedInstances(m->getDef());
@@ -3739,13 +3754,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     cout << "Module after optimization" << endl;
     m->print();
-
-    kernelN++;
-  }    
-
-  // For mapping: Re-structure the code so that every hwFunction is built before
-  // we do any re-mapping. Then pass the hardware functions in to a dummy function
-  // that will map the code 
+  }
 
   cout << "Done creating kernels..." << endl;
   auto def = topMod->newModuleDef();
