@@ -3483,7 +3483,26 @@ void wireUpAppGraph(AppGraph& appGraph,
 
 }
 
+class MappedDAG {
+  public:
+    CoreIR::Module* mappedModule;
+    std::map<std::string, int> operationCycleLatencies;
+};
+
+// Right now this function is a no-op, eventually it will
+// serialize each un-mapped module to coreir json, call the
+// mapper for the CGRA to figure out the mappeddag and cycle latencies
+std::vector<MappedDAG> callHWMapper(std::vector<CoreIR::Module*>& unmappedModules) {
+  // TODO: Serialize unmapped
+  // TODO: Call python mapper on mapped file
+  // TODO: De-serialize resulting mapped coreir
+  return {};
+}
+
 std::map<const For*, HWFunction> mapFunctionsToCGRA(std::map<const For*, HWFunction>& functions) {
+  // TODO: Build map from strings to functions, create naive coreir for each function
+  // then emit that naive coreir to a json file, invoke the mapper, call the python code for
+  // the mapper, deserialize the mapper results from json, and return the mapped applications
   return functions;
 }
 
