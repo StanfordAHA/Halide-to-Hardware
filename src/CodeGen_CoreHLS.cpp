@@ -36,6 +36,7 @@ using std::ostringstream;
 using std::ofstream;
 using std::cout;
 
+using CoreIR::DirectedGraph;
 using CoreIR::vdisc;
 using CoreIR::Interface;
 using CoreIR::Instance;
@@ -2128,7 +2129,6 @@ std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
 HWLoopSchedule asapSchedule(HWFunction& f) {
   HWLoopSchedule sched;
   sched.body = f.body;
-  //instrs;
   // TODO: Actually compute this later on
   sched.II = 1;
 
@@ -2136,28 +2136,58 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   std::set<HWInstr*> finished;
   std::set<HWInstr*> remaining(begin(f.body), end(f.body));
 
+  DirectedGraph<HWInstr*, int> blockGraph;
+  map<HWInstr*, vdisc> iNodes;
+  for (auto instr : f.body) {
+    auto v = blockGraph.addVertex(instr);
+    iNodes[instr] = v;
+  }
+  for (auto instr : f.body) {
+    auto v = map_get(instr, iNodes);
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_INSTR) {
+        internal_assert(contains_key(op, iNodes)) << "No node for " << *op << ", which is a dependence of " << *instr << " in function body\n";
+        auto depV = map_get(op, iNodes);
+        blockGraph.addEdge(depV, v);
+      }
+    }
+  }
+
+  auto sortedNodes = topologicalSort(blockGraph);
+  cout << "Instruction sort..." << endl;
+  for (auto v : sortedNodes) {
+    cout << "\t" << *blockGraph.getNode(v) << endl;
+  }
+  //internal_assert(false);
   int currentTime = 0;
   while (remaining.size() > 0) {
-    //cout << "Current time = " << currentTime << endl;
-    //cout << "\t# Finished = " << finished.size() << endl;
-    //cout << "\tActive = " << activeToTimeRemaining << endl;
+    cout << "Current time = " << currentTime << endl;
+    cout << "\t# Finished = " << finished.size() << endl;
+    cout << "\tActive = " << activeToTimeRemaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
       std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
-      //cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
-        //cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
         sched.setStartTime(toSchedule, currentTime);
         if (toSchedule->latency == 0) {
           sched.setEndTime(toSchedule, currentTime);
           finished.insert(toSchedule);
-          //cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
+          cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
         } else {
           activeToTimeRemaining[toSchedule] = toSchedule->latency;
         }
         remaining.erase(toSchedule);
         foundNextInstr = true;
         break;
+      } else {
+        cout << "Unfinished deps..." << endl;
+        for (auto d : deps) {
+          if (!elem(d, finished)) {
+            cout << "\t" << *d << endl;
+          }
+        }
       }
     }
 
@@ -2210,6 +2240,13 @@ class ComputeKernel {
     HWLoopSchedule sched;
 };
 
+std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
+  out << "@" << f.name << endl;
+  for (auto instr : f.body) {
+    out << "\t" << *instr << endl;
+  }
+  return out;
+}
 //CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
 ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
   //auto& instrs = f.body;
@@ -2221,7 +2258,11 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   internal_assert(def != nullptr) << "module definition is null!\n";
   auto self = def->sel("self");
 
-  cout << "Creating schedule" << endl;
+  cout << "Creating schedule for loop" << endl;
+  cout << lp << endl;
+
+  cout << "Hardware function is..." << endl;
+  cout << f << endl;
   auto sched = asapSchedule(f);
   //int nStages = sched.stages.size();
   int nStages = sched.numStages();

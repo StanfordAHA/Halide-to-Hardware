@@ -78,7 +78,8 @@ public:
           output.tile(x, y, xo, yo, xi, yi, 480, 640).reorder(c, xi, yi, xo, yo);
 
           hw_output.tile(x, y, xo, yo, xi, yi, 480, 640).reorder(c, xi, yi, xo, yo);
-          blur_unnormalized.update().unroll(win.x).unroll(win.y);
+          blur_unnormalized.linebuffer()
+            .update().unroll(win.x).unroll(win.y);
 
           hw_output.accelerate({hw_input}, xi, xo);
           gray.linebuffer().fifo_depth(ratio, 20);
