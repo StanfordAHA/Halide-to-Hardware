@@ -103,7 +103,9 @@ apps/hardware_benchmarks/tests/merged_unit_tests/*_c.h
 apps/hardware_benchmarks/tests/merged_unit_tests/*_mini.cpp
 apps/hardware_benchmarks/tests/merged_unit_tests/*.pgm
 apps/hardware_benchmarks/tests/merged_unit_tests/*.ppm
-
+apps/hardware_benchmarks/tests/*/CMakeFiles/*
+apps/hardware_benchmarks/apps/*/CMakeFiles/*
+apps/hardware_benchmarks/apps/times_5/*
 run_tutorial_1.sh
 
 tutorial/hw_output
@@ -112,3 +114,17 @@ res.txt
 dhlog.txt
 
 *.bzl
+
+halide_config.make
+
+apps/hardware_benchmarks/tests/conv_1_2/generator
+apps/hardware_benchmarks/tests/merged_unit_tests/accel_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/accel_soc_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/brighter_halide_coreir.png
+apps/hardware_benchmarks/tests/merged_unit_tests/camer_pipe_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/camera_pipeline_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_brighter
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_cascade
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_conv_3_3
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_curve
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_harris
