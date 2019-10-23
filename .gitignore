@@ -63,7 +63,7 @@ tools/objc/*.mobileprovision
 *.sublime-project
 *.sublime-workspace
 
-apps/patchmatch
+/apps/patchmatch
 
 # app intermediates
 apps/*/*out*.png
@@ -98,4 +98,16 @@ tutorial/pipeline*
 *.cmake
 CMakeCache.txt
 CMakeFiles/*
-apps/*_soc_mini.cpp
+apps/hardware_benchmarks/tests/merged_unit_tests/*_c.cpp
+apps/hardware_benchmarks/tests/merged_unit_tests/*_mini.cpp
+apps/hardware_benchmarks/tests/merged_unit_tests/*.pgm
+apps/hardware_benchmarks/tests/merged_unit_tests/*.ppm
+
+run_tutorial_1.sh
+
+tutorial/hw_output
+
+res.txt
+dhlog.txt
+
+*.bzl
