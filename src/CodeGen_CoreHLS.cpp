@@ -3722,7 +3722,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       cout << "\t\t\t" << *instr << endl;
     }
 
-    //CoreIR::Module* m = moduleForKernel(context, scl.info, f, lp);
     ComputeKernel compK = moduleForKernel(context, scl.info, f, lp);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
@@ -3743,6 +3742,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     kernelN++;
   }    
+
+  // For mapping: Re-structure the code so that every hwFunction is built before
+  // we do any re-mapping. Then pass the hardware functions in to a dummy function
+  // that will map the code 
 
   cout << "Done creating kernels..." << endl;
   auto def = topMod->newModuleDef();
