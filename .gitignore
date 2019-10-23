@@ -98,7 +98,8 @@ tutorial/pipeline*
 *.cmake
 CMakeCache.txt
 CMakeFiles/*
-apps/hardware_benchmarks/tests/merged_unit_tests/*_c.cpp
+apps/hardware_benchmarks/tests/merged_unit_tests/*_c.c
+apps/hardware_benchmarks/tests/merged_unit_tests/*_c.h
 apps/hardware_benchmarks/tests/merged_unit_tests/*_mini.cpp
 apps/hardware_benchmarks/tests/merged_unit_tests/*.pgm
 apps/hardware_benchmarks/tests/merged_unit_tests/*.ppm

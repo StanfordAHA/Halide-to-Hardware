@@ -1,4 +1,4 @@
-source dhuff_settings.sh
+source mac_settings.sh
 make -j
 make install
 make distrib
