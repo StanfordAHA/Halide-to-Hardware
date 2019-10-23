@@ -106,6 +106,7 @@ apps/hardware_benchmarks/tests/merged_unit_tests/*.ppm
 apps/hardware_benchmarks/tests/*/CMakeFiles/*
 apps/hardware_benchmarks/apps/*/CMakeFiles/*
 apps/hardware_benchmarks/apps/times_5/*
+apps/hardware_benchmarks/apps/upsample_downsample/*
 run_tutorial_1.sh
 
 tutorial/hw_output
@@ -128,3 +129,10 @@ apps/hardware_benchmarks/tests/merged_unit_tests/coreir_cascade
 apps/hardware_benchmarks/tests/merged_unit_tests/coreir_conv_3_3
 apps/hardware_benchmarks/tests/merged_unit_tests/coreir_curve
 apps/hardware_benchmarks/tests/merged_unit_tests/coreir_harris
+
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_demosaic
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_different_latencies
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_double_unsharp
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_offset_window
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_simple_unsharp
+apps/hardware_benchmarks/tests/merged_unit_tests/mc_conv_coreir
