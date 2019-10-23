@@ -1377,11 +1377,11 @@ class StencilInfoCollector : public IRGraphVisitor {
     // So when a realization happens
 
     void visit(const Call* op) {
-      cout << "Stencil visiting call: " << op->name << endl;
+      //cout << "Stencil visiting call: " << op->name << endl;
       if (op->name == "dispatch_stream") {
-        cout << "Found dispatch" << endl;
-        cout << "\tName = " << op->args[0] << "\n";
-        cout << "\t# dims = " << op->args[1] << "\n";
+        //cout << "Found dispatch" << endl;
+        //cout << "\tName = " << op->args[0] << "\n";
+        //cout << "\t# dims = " << op->args[1] << "\n";
 
         vector<string> dinfo;
         for (int i = 1; i  < (int) op->args.size(); i++) {
@@ -1873,7 +1873,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
 
-    cout << "Wiring up constants" << endl;
+    //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
@@ -2154,27 +2154,27 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   }
 
   auto sortedNodes = topologicalSort(blockGraph);
-  cout << "Instruction sort..." << endl;
-  for (auto v : sortedNodes) {
-    cout << "\t" << *blockGraph.getNode(v) << endl;
-  }
+  //cout << "Instruction sort..." << endl;
+  //for (auto v : sortedNodes) {
+    //cout << "\t" << *blockGraph.getNode(v) << endl;
+  //}
   //internal_assert(false);
   int currentTime = 0;
   while (remaining.size() > 0) {
-    cout << "Current time = " << currentTime << endl;
-    cout << "\t# Finished = " << finished.size() << endl;
-    cout << "\tActive = " << activeToTimeRemaining << endl;
+    //cout << "Current time = " << currentTime << endl;
+    //cout << "\t# Finished = " << finished.size() << endl;
+    //cout << "\tActive = " << activeToTimeRemaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
       std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
-      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      //cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
-        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        //cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
         sched.setStartTime(toSchedule, currentTime);
         if (toSchedule->latency == 0) {
           sched.setEndTime(toSchedule, currentTime);
           finished.insert(toSchedule);
-          cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
+          //cout << "Finishing " << *toSchedule << " in time " << currentTime << endl;
         } else {
           activeToTimeRemaining[toSchedule] = toSchedule->latency;
         }
@@ -2182,12 +2182,12 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
         foundNextInstr = true;
         break;
       } else {
-        cout << "Unfinished deps..." << endl;
-        for (auto d : deps) {
-          if (!elem(d, finished)) {
-            cout << "\t" << *d << endl;
-          }
-        }
+        //cout << "Unfinished deps..." << endl;
+        //for (auto d : deps) {
+          //if (!elem(d, finished)) {
+            //cout << "\t" << *d << endl;
+          //}
+        //}
       }
     }
 
@@ -2259,12 +2259,10 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   auto self = def->sel("self");
 
   cout << "Creating schedule for loop" << endl;
-  cout << lp << endl;
 
   cout << "Hardware function is..." << endl;
   cout << f << endl;
   auto sched = asapSchedule(f);
-  //int nStages = sched.stages.size();
   int nStages = sched.numStages();
   cout << "Number of stages = " << nStages << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
@@ -2776,7 +2774,8 @@ void modToShift(HWFunction& f) {
 }
 void divToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
-  std::map<HWInstr*, HWInstr*> replacements;
+  //std::map<HWInstr*, HWInstr*> replacements;
+  std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
   for (auto instr : f.body) {
     if (isCall("div", instr)) {
       //cout << "Found div" << endl;
@@ -2790,12 +2789,14 @@ void divToShift(HWFunction& f) {
           auto shrInstr = f.newI();
           shrInstr->name = "ashr";
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
-          replacements[instr] = shrInstr;
+          replacements.push_back({instr, shrInstr});
+          //replacements[instr] = shrInstr;
         }
       }
     }
   }
 
+  CoreIR::reverse(replacements);
   for (auto r : replacements) {
     insertAt(r.first, r.second, f.body);
     replaceAllUsesWith(r.first, r.second, f.body);
