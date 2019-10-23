@@ -49,6 +49,49 @@ using CoreIR::contains_key;
 
 namespace {
 
+bool fromGenerator(const std::string& genName, Instance* inst) {
+  if (!inst->getModuleRef()->isGenerated()) {
+    return false;
+  }
+
+  auto gen = inst->getModuleRef()->getGenerator();
+  return gen->getRefName() == genName;
+}
+
+CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
+  if (CoreIR::isa<CoreIR::Instance>(w)) {
+    return w;
+  }
+
+  if (CoreIR::isa<CoreIR::Interface>(w)) {
+    return w;
+  }
+
+  //cout << "Getting base of " << CoreIR::toString(*w) << endl;
+
+  internal_assert(CoreIR::isa<CoreIR::Select>(w));
+  auto s = static_cast<CoreIR::Select*>(w);
+  return getBase(s->getParent());
+}
+
+bool isComputeKernel(CoreIR::Wireable* v) {
+  auto b = getBase(v);
+  if (!isa<Instance>(b)) {
+    return false;
+  }
+
+  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
+    !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b));
+}
+
+bool isLinebuffer(Wireable* destBase) {
+  if (isa<Instance>(destBase)) {
+    auto instBase = static_cast<CoreIR::Instance*>(destBase);
+    return fromGenerator("commonlib.linebuffer", instBase);
+  }
+
+  return false;
+}
 std::string coreStr(const Wireable* w) {
   return CoreIR::toString(*w);
 }
@@ -1867,8 +1910,13 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       } else if (name == "load") {
         int portNo = instr->getOperand(0)->toInt();
         unitMapping[instr] = instr->getUnit();
+        cout << "Connecting " << coreStr(instr->getUnit()) << " ROM rdata" << endl;
+        internal_assert(isa<CoreIR::Instance>(instr->getUnit()));
+        Instance* inst = static_cast<Instance*>(instr->getUnit());
+        internal_assert(fromGenerator("halidehw.ROM", inst));
         instrValues[instr] = instr->getUnit()->sel("rdata")->sel(portNo);
-      }else {
+        cout << "Done." << endl;
+      } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
     }
@@ -2660,22 +2708,6 @@ std::set<CoreIR::Wireable*> allOutputConnections(CoreIR::Wireable* w) {
   return outConnections;
 }
 
-CoreIR::Wireable* getBase(CoreIR::Wireable* const w) {
-  if (CoreIR::isa<CoreIR::Instance>(w)) {
-    return w;
-  }
-
-  if (CoreIR::isa<CoreIR::Interface>(w)) {
-    return w;
-  }
-
-  //cout << "Getting base of " << CoreIR::toString(*w) << endl;
-
-  internal_assert(CoreIR::isa<CoreIR::Select>(w));
-  auto s = static_cast<CoreIR::Select*>(w);
-  return getBase(s->getParent());
-}
-
 Wireable* replaceBase(Wireable* toReplace, Wireable* newBase) {
   auto b = getBase(toReplace);
   if (b == toReplace) {
@@ -3202,33 +3234,6 @@ class KernelEdge {
     }
 };
 
-bool fromGenerator(const std::string& genName, Instance* inst) {
-  if (!inst->getModuleRef()->isGenerated()) {
-    return false;
-  }
-
-  auto gen = inst->getModuleRef()->getGenerator();
-  return gen->getRefName() == genName;
-}
-
-bool isComputeKernel(CoreIR::Wireable* v) {
-  auto b = getBase(v);
-  if (!isa<Instance>(b)) {
-    return false;
-  }
-
-  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
-    !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b));
-}
-
-bool isLinebuffer(Wireable* destBase) {
-  if (isa<Instance>(destBase)) {
-    auto instBase = static_cast<CoreIR::Instance*>(destBase);
-    return fromGenerator("commonlib.linebuffer", instBase);
-  }
-
-  return false;
-}
 
 class AppGraph {
   public:
