@@ -3463,6 +3463,10 @@ int linebufferDelay(Wireable* ld) {
   return (numOutWindowCols(ld) - 1)*numInImageCols(ld) + (numOutWindowRows(ld) - 1);
 }
 
+int linebufferFilledSize(Wireable* ld) {
+  return linebufferDelay(ld);
+}
+
 // Or is this the time between production of the first output
 // and production of the ith output?
 //
@@ -3481,35 +3485,46 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
   internal_assert(isLinebuffer(producer));
   // Linebuffers outputIndexth production time is expressed as a function of
   // earlier production times
+  int delay = 0;
   if (outputIndex == 0) {
-    return linebufferDelay(producer);
+    delay = 0;
+    return 0;
+    //return linebufferDelay(producer);
+  } else if (outputIndex % numOutImageCols(producer) != 0) {
+    delay = relativeProductionTime(producer, outputIndex - 1, g) + 1;
+  } else {
+    delay = relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
   }
-
-  if (outputIndex % numOutImageCols(producer) != 0) {
-    return relativeProductionTime(producer, outputIndex - 1, g) + 1;
-  }
-
-  return relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
+  cout << "Delay for " << coreStr(producer) << "'s " << outputIndex << "(th) element = " << delay << endl;
+  return delay;
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
+
+  cout << "Getting production time of " << outputIndex << "th output of " << coreStr(producer) << endl;
   if (isa<Interface>(getBase(producer))) {
     return outputIndex;
   }
 
-  edisc srcEdge = firstInputEdge(producer, g);
-  //cout << "Got input edges" << endl;
-  int firstInputTime = arrivalTime(srcEdge, 0, g); 
-  // Production time of 0th output window of a linebuffer is?
-  // - First input arrival time + delay of the linebuffer + production offset
-  return firstInputTime + relativeProductionTime(producer, outputIndex, g);
+  if (isComputeKernel(getBase(producer))) {
+    // TODO: Add kernel latency
+    return 0 + arrivalTime(firstInputEdge(producer, g), outputIndex, g);
+  }
+
+  // If this is a linebuffer then the production time of outputIndex(th)
+  // window is: arrivalTime of (outIndex + buffersize)(th) input
+  // or: arrivaltime of buffersize(th) input (first output production)
+  // plus the offset from 
+
+  internal_assert(isLinebuffer(producer));
+  //return arrivalTime(firstInputEdge(producer, g), outputIndex + linebufferDelay(producer), g) + relativeProductionTime(producer, outputIndex, g);
+  return arrivalTime(firstInputEdge(producer, g), linebufferDelay(producer), g) + relativeProductionTime(producer, outputIndex, g);
 }
 
 // Time at which the ith value from inputSource reaches dest
 int arrivalTime(edisc e, const int index, AppGraph& g) {
   KernelEdge edgeLabel = g.getLabel(e);
   Wireable* inputSource = edgeLabel.dataSrc;
-  //Wireable* dest = edgeLabel.dataDest;
   if (contains_key(e, g.extraDelaysNeeded)) {
     internal_assert(contains_key(e, g.extraDelaysNeeded));
     return productionTime(getBase(inputSource), index, g) + map_get(e, g.extraDelaysNeeded);
@@ -3518,83 +3533,26 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
   }
 }
 
-
-// Compute the last working set that needs to arrive at a given node
-// before the output box result can be produced.
-// We ought to do this further up in Halide. Only used in inductive case
-Box lastWorkingSetChunk(CoreIR::Wireable* producerNode,
-    const std::string& outputName,
-    Box& result) {
-
-  //if (isa<Interface>(getBase(producerNode))) {
-    //// Return strided index of first element of result
-    //internal_assert(false) << "No working set input to a top-level input!\n";
-  //}
-
-  //if (isComputeKernel(producerNode)) {
-    //// TODO: Lookup latency of kernel in input map
-    //int latency = 0;
-    //return 
-  //}
-
-  //if (isLinebuffer(producerNode)) {
-    //// Get dimensions of input image / output image
-    //// Compute the warm up delay, then return arrivalTime of
-    //// working set?
-    //assert(false);
-  //}
-
-  assert(false);
-}
-
-// Assumes that result is evenly aligned with production times
-int productionDelay(CoreIR::Wireable* producerNode,
-    const std::string& outputName,
-    Box& result) {
-  //if (isa<Interface>(getBase(producerNode))) {
-     ////Return strided index of first element of result
-    //assert(false);
-  //}
-
-  //Box lastWorkInput = lastWorkingSetChunk(producerNode, outputName, result);
-  //Wireable* workingSetProducer = nullptr;
-  //internal_assert(workingSetProducer != nullptr);
-   ////Where does linebuffer specific logic go here?
-  //return productionDelay(workingSetProducer, workingSetOutput, lastWorkInput);
-
-  cout << "Error: No production function for " << coreStr(producerNode) << endl;
-  internal_assert(false);
-}
-
-//// TODO: Add delay map as an argument?
-//int arrivalDelay(Wireable* src, vector<int>& coorindates, AppGraph& appGraph) {
-  //vector<int> lastPix = lastPixelInWorkingSetToCompute(src, coordinates, appGraph);
-  //return productionDelay(src, lastPix, appGraph);
-//}
-//
-// Most important thing: backwards map from prod(x, y) -> arrivalTime(workingset(x, y))
-// This problem looks a lot like the problems solved by the halide frontend, with box touched
-// and so on, but I cant just jump straight to that problem yet. Or can I?
-// Base case: at input prod(window(x0, y0)) == y0*ncols + x0
-// Inductive case: prod(window(x0, y0)) == max_inputs(arrivalTime(workingSet(x0, y0)))
-// Gap between last elem of working set and production of box is constant
-// Gap between first elem of working set and production of box is constant (or bounded?)
-// Really: cycleDelay should wrap a function that computes
-// arrivalDelay(e, coordinate, appGrah), where coordinate is
-// the minimum value of the production window initially.
-// More?
-// A litte confused by the choice to make the cycleDelay depend on an edge instead of a node.
-// Why did I do that? I suppose there could be more than one edge connecting the same two nodes,
-// but maybe for now I should focus on the case where there is only one value being produced.
-// Q: What if a node has multiple inputs? Then the production of an output happens at
-// for all inputs . max(arrivalTime(workingSet(x, y)))
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
   cout << "Arrival time = " << aTime << endl;
 
+  auto lb = appGraph.source(e);
   if (isLinebuffer(appGraph.source(e))) {
-    cout << "Delay on " << coreStr(appGraph.source(e)) << " = " << linebufferDelay(appGraph.source(e)) << endl;
-    internal_assert(false) << "Found linebuffer\n";
+    int delay = linebufferDelay(appGraph.source(e));
+    cout << "Delay on " << coreStr(appGraph.source(e)) << " = " << delay << endl;
+    if (delay == 18) {
+      return delay;
+    } else {
+      // First output time of linebuffer is the arrival time of the productionth input
+      int val = arrivalTime(firstInputEdge(lb, appGraph), delay, appGraph);
+      int zDelay = arrivalTime(firstInputEdge(lb, appGraph), 0, appGraph);
+      int oneDelay = arrivalTime(firstInputEdge(lb, appGraph), 1, appGraph);
+      cout << "\tArrival time of " << 0 << "th input = " << zDelay << endl;
+      cout << "\tArrival time of " << 1 << "th input = " << oneDelay << endl;
+      cout << "\tArrival time of " << delay << "th input = " << val << endl;
+      internal_assert(false) << "Found linebuffer\n";
+    }
   }
 
   return aTime;
