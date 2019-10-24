@@ -3242,6 +3242,8 @@ class AppGraph {
     CoreIR::DirectedGraph<CoreIR::Wireable*, KernelEdge> appGraph;
     std::map<CoreIR::Wireable*, vdisc> values;
     std::map<edisc, KernelEdge> edgeLabels;
+    std::map<edisc, Instance*> edgeDelays;
+    std::map<edisc, int> extraDelaysNeeded;
 
     bool hasInputs(Wireable* w) const {
       return appGraph.inEdges(map_get(w, values)).size() > 0;
@@ -3362,13 +3364,18 @@ class AppGraph {
       }
       return str;
     }
+
+    std::vector<edisc> inEdges(Wireable* w) const {
+      return appGraph.inEdges(getVdisc(w));
+    }
 };
 
 int arrivalTime(edisc e, const int index, AppGraph& g);
 
-int edgeDelay(Wireable* src, Wireable* dest, AppGraph& g) {
-  internal_assert(false) << "Need to create edge delays\n";
-}
+//int edgeDelay(Wireable* src, Wireable* dest, AppGraph& g) {
+  //return 
+  //internal_assert(false) << "Need to create edge delays\n";
+//}
 
 edisc firstInputEdge(Wireable* producer, AppGraph& g) {
   internal_assert(false) << "Need to implement firstInputEdge\n";
@@ -3419,38 +3426,9 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
   KernelEdge edgeLabel = g.getLabel(e);
   Wireable* inputSource = edgeLabel.dataSrc;
   Wireable* dest = edgeLabel.dataDest;
-  return productionTime(inputSource, index, g) + edgeDelay(inputSource, dest, g);
+  return productionTime(inputSource, index, g) + map_get(e, g.extraDelaysNeeded);
 }
 
-// What is simplest way to make progress?
-//// production delay of the first output window which contains the coordinate coord
-//int productionDelay(Wireable* base, vector<int>& coordinates, AppGraph& appGraph) {
-  //// If base is self then the delay is the coordinate offset (with strides for image size)
-  //if (isa<Interface>(getBase(base))) {
-    //internal_assert(coordinates.size() == 2);
-    //// TODO: Add actual image stride info
-    //return coordinates[0]*8 + coordinates[1];
-  //}
-  //// If base is a kernel the production delay is kernelLatency + arrivalDelay(lastWindow)
-  //// If base is a linebuffer the production delay is warmupTime + linebufferoffset
-  //internal_assert(false) << "no support for " << coreStr(base) << " in productionDelay\n";
-//}
-
-//// For a given output pixel location, compute the last input location that will be needed
-//// to compute that output location
-//vector<int>
-//lastPixelInWorkingSetToCompute(Wireable* src, vector<int>& outputPix, AppGraph& appGraph) {
-  //// Inputs to the compute graph do not themselves have any inputs
-  //internal_assert(!isa<Interface>(getBase(src)));
-
-  //// If the source is a compute kernel find the input windows and compute the production
-  //// time of the last pixel in the input windows (accounting for already introduced delays)
-  //return {0, 0};
-
-  //// If the source is a linebuffer then find the window that contains outputPix, then
-  //// find the arrival time of the last pixel in that window
-  //return {0, 0};
-//}
 
 // Compute the last working set that needs to arrive at a given node
 // before the output box result can be produced.
@@ -4109,7 +4087,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
  
   // Map from nodes to the times at which first valid from that node is emitted
   std::map<vdisc, int> nodesToDelays;
-  std::map<edisc, int> extraDelaysNeeded;
+  //std::map<edisc, int> extraDelaysNeeded;
   for (auto v : topSort) {
     vector<edisc> inEdges = appGraph.appGraph.inEdges(v);
 
@@ -4150,17 +4128,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     if (allDelaysSame) {
       for (auto e : inEdges) {
-        extraDelaysNeeded[e] = 0;
+        appGraph.extraDelaysNeeded[e] = 0;
       }
     } else {
       for (auto e : inEdges) {
         if (e == maxEdge) {
-          extraDelaysNeeded[e] = 0;
+          appGraph.extraDelaysNeeded[e] = 0;
         } else {
           auto srcVert = appGraph.appGraph.source(e);
           int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
           int filler = maxDist - distToSrc;
-          extraDelaysNeeded[e] = filler;
+          appGraph.extraDelaysNeeded[e] = filler;
         }
       }
     }
@@ -4180,8 +4158,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     delayedGraph.addVertex(w.first);
   }
 
-  map<edisc, Instance*> edgeDelays;
-  for (auto n : extraDelaysNeeded) {
+  //map<edisc, Instance*> edgeDelays;
+  for (auto n : appGraph.extraDelaysNeeded) {
     if (n.second != 0) {
       auto kEdge = appGraph.getLabel(n.first);
 
@@ -4191,7 +4169,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           //{{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, 0)}});
       cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
       delayedGraph.addVertex(delay);
-      edgeDelays[n.first] = delay;
+      appGraph.edgeDelays[n.first] = delay;
     }
   }
 
@@ -4201,7 +4179,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   // from delay to next node
   // Else: Copy the edge from appGraph to delayedGraph
   for (auto e : appGraph.appGraph.getEdges()) {
-    int delay = map_get(e, extraDelaysNeeded);
+    int delay = map_get(e, appGraph.extraDelaysNeeded);
     auto origSrc = appGraph.source(e);
     auto origDst = appGraph.target(e);
     auto origEdge = appGraph.getLabel(e);
@@ -4221,7 +4199,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       delayedGraph.addEdgeLabel(newEdge, labelCopy);
     } else {
       cout << "Finding delay for " << e << endl;
-      Wireable* newD = map_find(e, edgeDelays);
+      Wireable* newD = map_find(e, appGraph.edgeDelays);
       cout << "Found delay for " << e << endl;
 
       auto s2d = delayedGraph.addEdge(newSrc, newD);
