@@ -1919,6 +1919,8 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       } else if (name == "load") {
         int portNo = instr->getOperand(0)->toInt();
         unitMapping[instr] = instr->getUnit();
+        cout << "Connecting " << *instr << endl;
+        internal_assert(instr->getUnit() != nullptr);
         cout << "Connecting " << coreStr(instr->getUnit()) << " ROM rdata" << endl;
         internal_assert(instr->getUnit() != nullptr);
         internal_assert(isa<CoreIR::Instance>(instr->getUnit()));
@@ -3913,7 +3915,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     cp.m->print();
     kernelControlPaths[lp] = cp;
 
-    context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
+    //context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
     removeUnconnectedInstances(m->getDef());
     removeUnusedInstances(m->getDef());
 
@@ -3921,6 +3923,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     m->print();
   }
 
+  context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
   cout << "Done creating kernels..." << endl;
   auto def = topMod->newModuleDef();
 
