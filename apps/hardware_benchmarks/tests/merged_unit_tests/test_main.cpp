@@ -2443,11 +2443,11 @@ void different_latency_kernels_test() {
 
 int main(int argc, char **argv) {
 
+  double_unsharp_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);
   camera_pipeline_test();
-  double_unsharp_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
   //assert(false);

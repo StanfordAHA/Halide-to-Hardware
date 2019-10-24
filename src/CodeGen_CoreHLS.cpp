@@ -3372,15 +3372,23 @@ class AppGraph {
 
 int arrivalTime(edisc e, const int index, AppGraph& g);
 
-//int edgeDelay(Wireable* src, Wireable* dest, AppGraph& g) {
-  //return 
-  //internal_assert(false) << "Need to create edge delays\n";
-//}
-
 edisc firstInputEdge(Wireable* producer, AppGraph& g) {
-  internal_assert(false) << "Need to implement firstInputEdge\n";
   internal_assert(g.inEdges(producer).size() > 0);
   return *std::begin(g.inEdges(producer));
+}
+
+int productionTime(Wireable* producer, const int outputIndex, AppGraph& g);
+
+int numOutImageCols(Wireable* ld) {
+  return -1;
+}
+
+int numInImageCols(Wireable* ld) {
+  return -1;
+}
+
+int linebufferDelay(Wireable* ld) {
+  return -1;
 }
 
 // Time between arrival of first input to producer and production of
@@ -3391,24 +3399,22 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
   }
   
   if (isComputeKernel(producer)) {
-    internal_assert(false) << "Need to add map from producers to latencies\n";
-    // return kernelLatency + firstInputTime;
-    return -1;
+    // TODO: Add producer latencies
+    return 0;
   }
 
   internal_assert(isLinebuffer(producer));
   // Linebuffers outputIndexth production time is expressed as a function of
   // earlier production times
   if (outputIndex == 0) {
-    // return linebufferDelay(producer) + arrivalTime(firstSource, producer, outputIndex);
+    return linebufferDelay(producer);
   }
 
-  // if (outputIndex % noutImgColss == 0) {
-  // return productionTime(producer, outputIndex - 1) + 1
-  // }
+  if (outputIndex % numOutImageCols(producer) != 0) {
+    return relativeProductionTime(producer, outputIndex - 1, g) + 1;
+  }
 
-  // return productionTime(producer, outputIndex - 1) + 1 + (inImageCols - outImageCols)
-  return -1;
+  return relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
@@ -3500,34 +3506,35 @@ int productionDelay(CoreIR::Wireable* producerNode,
 // Q: What if a node has multiple inputs? Then the production of an output happens at
 // for all inputs . max(arrivalTime(workingSet(x, y)))
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
-  vector<int> pixel{0, 0};
-  Wireable* src = appGraph.source(e);
-  //return arrivalDelay(src, pixel, appGraph);
+  return arrivalTime(e, 0, appGraph);
+  //vector<int> pixel{0, 0};
+  //Wireable* src = appGraph.source(e);
+  ////return arrivalDelay(src, pixel, appGraph);
 
-  vdisc srcV = appGraph.appGraph.source(e);
-  auto srcWire = getBase(appGraph.appGraph.getNode(srcV));
-  // TODO: Insert real delay computation here
-  if (isLinebuffer(srcWire)) {
-    // TODO: Get the image type, then get the output type (ignore input type?)
-    // and then compute offsets from that
-    //internal_assert(false) << "need to compute linebuffer delay\n";
-    //return 10;
-    //return 16;
-    //return 14;
-    return 18;
-  } else if (isComputeKernel(src)) {
-    auto k = static_cast<Instance*>(src);
-    auto m = k->getModuleRef();
-    for (auto ck : computeKernels) {
-      if (ck.second.mod == m) {
-        return ck.second.sched.cycleLatency();
-      }
-    }
+  //vdisc srcV = appGraph.appGraph.source(e);
+  //auto srcWire = getBase(appGraph.appGraph.getNode(srcV));
+  //// TODO: Insert real delay computation here
+  //if (isLinebuffer(srcWire)) {
+    //// TODO: Get the image type, then get the output type (ignore input type?)
+    //// and then compute offsets from that
+    ////internal_assert(false) << "need to compute linebuffer delay\n";
+    ////return 10;
+    ////return 16;
+    ////return 14;
+    //return 18;
+  //} else if (isComputeKernel(src)) {
+    //auto k = static_cast<Instance*>(src);
+    //auto m = k->getModuleRef();
+    //for (auto ck : computeKernels) {
+      //if (ck.second.mod == m) {
+        //return ck.second.sched.cycleLatency();
+      //}
+    //}
 
-    internal_assert(false) << "could not find compute kernel info for " << coreStr(k) << "\n";
-  } else {
-    return 0;
-  }
+    //internal_assert(false) << "could not find compute kernel info for " << coreStr(k) << "\n";
+  //} else {
+    //return 0;
+  //}
 }
 
 void wireUpAppGraph(AppGraph& appGraph,
