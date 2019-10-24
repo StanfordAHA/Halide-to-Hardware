@@ -3454,6 +3454,9 @@ int numInImageRows(Wireable* ld) {
   return arrayDims(param)[1];
 }
 
+int numOutImageRows(Wireable* ld) {
+  return numInImageRows(ld) - (numOutWindowRows(ld) - 1);
+}
 int numOutImageCols(Wireable* ld) {
   return numInImageCols(ld) - (numOutWindowCols(ld) - 1);
 }
@@ -3483,7 +3486,9 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
   }
 
   internal_assert(isLinebuffer(producer));
-  // Linebuffers outputIndexth production time is expressed as a function of
+  return outputIndex % numInImageCols(producer) + std::floor(outputIndex / numOutImageRows(producer))*numInImageCols(producer);
+
+ // Linebuffers outputIndexth production time is expressed as a function of
   // earlier production times
   int delay = 0;
   if (outputIndex == 0) {
@@ -3535,26 +3540,28 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
 
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
-  cout << "Arrival time = " << aTime << endl;
+  cout << "\tArrival time (aTime) = " << aTime << endl;
+  auto ed = appGraph.getLabel(e);
+  cout << "\tArrival time of th element of output " << coreStr(ed.dataSrc) << " arrives at " << coreStr(ed.dataDest) << " at time " << aTime << endl;
 
-  auto lb = appGraph.source(e);
-  if (isLinebuffer(appGraph.source(e))) {
-    int delay = linebufferDelay(appGraph.source(e));
-    cout << "Delay on " << coreStr(appGraph.source(e)) << " = " << delay << endl;
-    if (delay == 18) {
-      return delay;
-    } else {
-      // First output time of linebuffer is the arrival time of the productionth input
-      int val = arrivalTime(firstInputEdge(lb, appGraph), delay, appGraph);
-      int zDelay = arrivalTime(firstInputEdge(lb, appGraph), 0, appGraph);
-      int oneDelay = arrivalTime(firstInputEdge(lb, appGraph), 1, appGraph);
-      cout << "\tArrival time of " << 0 << "th input = " << zDelay << endl;
-      cout << "\tArrival time of " << 1 << "th input = " << oneDelay << endl;
-      cout << "\tArrival time of " << delay << "th input = " << val << endl;
-      //cout << "\tProduction time of " << 0 << "th output = " << productionTime()
-      //internal_assert(false) << "Found linebuffer\n";
-    }
-  }
+  //auto lb = appGraph.source(e);
+  //if (isLinebuffer(appGraph.source(e))) {
+    //int delay = linebufferDelay(appGraph.source(e));
+    //cout << "Delay on " << coreStr(appGraph.source(e)) << " = " << delay << endl;
+    //if (delay == 18) {
+      //return delay;
+    //} else {
+      //// First output time of linebuffer is the arrival time of the productionth input
+      //int val = arrivalTime(firstInputEdge(lb, appGraph), delay, appGraph);
+      //int zDelay = arrivalTime(firstInputEdge(lb, appGraph), 0, appGraph);
+      //int oneDelay = arrivalTime(firstInputEdge(lb, appGraph), 1, appGraph);
+      //cout << "\tArrival time of " << 0 << "th input = " << zDelay << endl;
+      //cout << "\tArrival time of " << 1 << "th input = " << oneDelay << endl;
+      //cout << "\tArrival time of " << delay << "th input = " << val << endl;
+      ////cout << "\tProduction time of " << 0 << "th output = " << productionTime()
+      ////internal_assert(false) << "Found linebuffer\n";
+    //}
+  //}
 
   return aTime;
   //vector<int> pixel{0, 0};
