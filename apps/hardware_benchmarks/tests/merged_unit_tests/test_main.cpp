@@ -43,6 +43,7 @@ std::string getInputAlias(const std::string& jsonFile) {
 template<typename T, typename OT>
 Halide::Buffer<OT> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<T>& inputBuf, Halide::Runtime::Buffer<OT>& outputBuf) {
   if (outputBuf.dimensions() == 3) {
+    cout << "Doing 3d realization... for " << outputBuf.channels() << " channels" << endl;
     Halide::Buffer<OT> cpuOutput(outputBuf.width(), outputBuf.height(), outputBuf.channels());
     ParamMap rParams;
     rParams.set(input, inputBuf);
@@ -1608,10 +1609,23 @@ void pointwise_add_test() {
 
 template<typename T0, typename T1>
 void indexTestPatternRandom(T0& inputBuf, T1& hwInputBuf) {
-  for (int i = 0; i < inputBuf.width(); i++) {
-    for (int j = 0; j < inputBuf.height(); j++) {
-      hwInputBuf(i, j, 0) = rand() % 255;
-      inputBuf(i, j) = hwInputBuf(i, j);
+
+  if (is2D(inputBuf)) {
+    for (int i = 0; i < inputBuf.width(); i++) {
+      for (int j = 0; j < inputBuf.height(); j++) {
+        hwInputBuf(i, j, 0) = rand() % 255;
+        inputBuf(i, j) = hwInputBuf(i, j);
+      }
+    }
+  } else {
+    assert(inputBuf.dimensions() == 3);
+    for (int i = 0; i < inputBuf.width(); i++) {
+      for (int j = 0; j < inputBuf.height(); j++) {
+        for (int b = 0; b < inputBuf.channels(); b++) {
+          hwInputBuf(i, j, b) = rand() % 255;
+          inputBuf(i, j, b) = hwInputBuf(i, j, b);
+        }
+      }
     }
   }
 }
@@ -2469,13 +2483,13 @@ void real_unsharp_test() {
 
   // create the input
   Func hw_input;
-  hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
+  hw_input(x, y, c) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
 
   // create a grayscale image
   Func gray;
-  gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(0, x, y))
-        + 150 * cast<uint16_t>(hw_input(1, x, y))
-        + 29 * cast<uint16_t>(hw_input(2, x, y))) >> 8);
+  gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(x, y, 0))
+        + 150 * cast<uint16_t>(hw_input(x, y, 1))
+        + 29 * cast<uint16_t>(hw_input(x, y, 1))) >> 8);
 
   // Use a 2D filter to blur the input
   Func blur_unnormalized, blur;
@@ -2493,12 +2507,26 @@ void real_unsharp_test() {
 
   // Use the ratio to sharpen the input image.
   Func hw_output;
-  hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
+  hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(x, y, c) / 32, 0, 255));
 
   hw_output.bound(c, 0, 3);
 
-  output(c, x, y) = hw_output(c, x, y);
+  output(x, y, c) = hw_output(x, y, c);
+  
+  int outTileSize = 5;
+  Halide::Buffer<uint8_t> inputBuf(outTileSize + 4, outTileSize + 4, 3);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 3);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
+  printBuffer(inputBuf, cout);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize, 3);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+
+  printBuffer(cpuOutput, cout);
+  hw_output.compute_root();
+  hw_input.compute_root();
+  
   PRINT_PASSED("Real unsharp");
+  assert(false);
 }
 
 int main(int argc, char **argv) {
