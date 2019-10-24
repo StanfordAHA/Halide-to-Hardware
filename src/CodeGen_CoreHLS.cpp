@@ -4180,11 +4180,13 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       // All delays are trivially the same
     } else {
       for (size_t i = 0; i < inEdges.size() - 1; i++) {
-        auto srcVert = appGraph.appGraph.source(inEdges[i]);
-        int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(inEdges[i], kernelModules, appGraph);
+        //auto srcVert = appGraph.appGraph.source(inEdges[i]);
+        //int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(inEdges[i], kernelModules, appGraph);
+        int distToSrc = cycleDelay(inEdges[i], kernelModules, appGraph);
         
-        auto srcVert1 = appGraph.appGraph.source(inEdges[i + 1]);
-        int distToSrc1 = map_get(srcVert1, nodesToDelays) + cycleDelay(inEdges[i + 1], kernelModules, appGraph);
+        //auto srcVert1 = appGraph.appGraph.source(inEdges[i + 1]);
+        //int distToSrc1 = map_get(srcVert1, nodesToDelays) + cycleDelay(inEdges[i + 1], kernelModules, appGraph);
+        int distToSrc1 = cycleDelay(inEdges[i + 1], kernelModules, appGraph);
         if (distToSrc != distToSrc1) {
           allDelaysSame = false;
           break;
@@ -4218,7 +4220,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         }
       }
 
-      internal_assert(false);
+      //internal_assert(false);
     }
 
     nodesToDelays[v] = maxDist;

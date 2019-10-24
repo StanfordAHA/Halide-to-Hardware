@@ -32,7 +32,7 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2).unroll(xi, 3).unroll(yi, 3)
+          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();
