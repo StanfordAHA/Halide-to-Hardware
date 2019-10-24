@@ -49,6 +49,11 @@ using CoreIR::contains_key;
 
 namespace {
 
+template<typename TOut, typename T>
+TOut* sc(T* p) {
+  return static_cast<TOut*>(p);
+}
+
 bool fromGenerator(const std::string& genName, Instance* inst) {
   if (!inst->getModuleRef()->isGenerated()) {
     return false;
@@ -93,6 +98,10 @@ bool isLinebuffer(Wireable* destBase) {
   return false;
 }
 std::string coreStr(const Wireable* w) {
+  return CoreIR::toString(*w);
+}
+
+std::string coreStr(const CoreIR::Type* w) {
   return CoreIR::toString(*w);
 }
 
@@ -3380,18 +3389,83 @@ edisc firstInputEdge(Wireable* producer, AppGraph& g) {
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g);
 
-int numOutImageCols(Wireable* ld) {
-  return -1;
+CoreIR::Values getGenArgs(Wireable* p) {
+  internal_assert(isa<Instance>(p));
+  auto inst = toInstance(p);
+  internal_assert(inst->getModuleRef()->isGenerated());
+  return inst->getModuleRef()->getGenArgs();
+}
+
+vector<int> arrayDims(CoreIR::Type* tp) {
+  internal_assert(isa<CoreIR::ArrayType>(tp));
+  auto arrTp = sc<CoreIR::ArrayType>(tp);
+  if (!isa<CoreIR::ArrayType>(arrTp->getElemType())) {
+    vector<int> dims;
+    dims.push_back(arrTp->getLen());
+    return dims;
+  } else {
+    auto tps = arrayDims(arrTp->getElemType());
+    tps.push_back(arrTp->getLen());
+    return tps;
+  }
+}
+
+vector<int> inImageDims(Wireable* ld) {
+  auto param = getGenArgs(ld).at("image_type")->get<CoreIR::Type*>();
+  //cout << "Image type = " << coreStr(param) << endl;
+  internal_assert(isa<CoreIR::ArrayType>(param));
+
+  vector<int> arrayLens = arrayDims(param);
+  vector<int> imgDims;
+  //cout << "Array types..." << endl;
+  //for (auto v : arrayLens) {
+    //cout << "\t" << v << endl;
+  //}
+
+  for (size_t i = 1; i < arrayLens.size(); i++) {
+    imgDims.push_back(arrayLens[i]);
+  }
+  return imgDims;
+}
+
+int numOutWindowRows(Wireable* ld) 
+{
+  auto param = getGenArgs(ld).at("output_type")->get<CoreIR::Type*>();
+  //cout << "Out image cols = " << coreStr(param) << endl;
+  return arrayDims(param)[1];
+}
+
+int numOutWindowCols(Wireable* ld) 
+{
+  auto param = getGenArgs(ld).at("output_type")->get<CoreIR::Type*>();
+  //cout << "Out image cols = " << coreStr(param) << endl;
+  return arrayDims(param)[2];
 }
 
 int numInImageCols(Wireable* ld) {
-  return -1;
+  auto param = getGenArgs(ld).at("image_type")->get<CoreIR::Type*>();
+  //cout << "Out image cols = " << coreStr(param) << endl;
+  return arrayDims(param)[2];
+}
+
+int numInImageRows(Wireable* ld) {
+  auto param = getGenArgs(ld).at("image_type")->get<CoreIR::Type*>();
+  //cout << "Out image cols = " << coreStr(param) << endl;
+  return arrayDims(param)[1];
+}
+
+int numOutImageCols(Wireable* ld) {
+  return numInImageCols(ld) - (numOutWindowCols(ld) - 1);
 }
 
 int linebufferDelay(Wireable* ld) {
-  return -1;
+  internal_assert(inImageDims(ld).size() == 2);
+  return (numOutWindowCols(ld) - 1)*numInImageCols(ld) + (numOutWindowRows(ld) - 1);
 }
 
+// Or is this the time between production of the first output
+// and production of the ith output?
+//
 // Time between arrival of first input to producer and production of
 // outputIndex
 int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
@@ -3424,7 +3498,10 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   }
 
   edisc srcEdge = firstInputEdge(producer, g);
+  //cout << "Got input edges" << endl;
   int firstInputTime = arrivalTime(srcEdge, 0, g); 
+  // Production time of 0th output window of a linebuffer is?
+  // - First input arrival time + delay of the linebuffer + production offset
   return firstInputTime + relativeProductionTime(producer, outputIndex, g);
 }
 
@@ -3433,7 +3510,12 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
   KernelEdge edgeLabel = g.getLabel(e);
   Wireable* inputSource = edgeLabel.dataSrc;
   //Wireable* dest = edgeLabel.dataDest;
-  return productionTime(inputSource, index, g) + map_get(e, g.extraDelaysNeeded);
+  if (contains_key(e, g.extraDelaysNeeded)) {
+    internal_assert(contains_key(e, g.extraDelaysNeeded));
+    return productionTime(getBase(inputSource), index, g) + map_get(e, g.extraDelaysNeeded);
+  } else {
+    return productionTime(getBase(inputSource), index, g);
+  }
 }
 
 
@@ -3507,7 +3589,15 @@ int productionDelay(CoreIR::Wireable* producerNode,
 // Q: What if a node has multiple inputs? Then the production of an output happens at
 // for all inputs . max(arrivalTime(workingSet(x, y)))
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
-  return arrivalTime(e, 0, appGraph);
+  int aTime = arrivalTime(e, 0, appGraph);
+  cout << "Arrival time = " << aTime << endl;
+
+  if (isLinebuffer(appGraph.source(e))) {
+    cout << "Delay on " << coreStr(appGraph.source(e)) << " = " << linebufferDelay(appGraph.source(e)) << endl;
+    internal_assert(false) << "Found linebuffer\n";
+  }
+
+  return aTime;
   //vector<int> pixel{0, 0};
   //Wireable* src = appGraph.source(e);
   ////return arrivalDelay(src, pixel, appGraph);
