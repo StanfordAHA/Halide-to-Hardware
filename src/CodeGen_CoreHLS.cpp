@@ -3253,7 +3253,8 @@ class AppGraph {
     std::map<edisc, KernelEdge> edgeLabels;
     std::map<edisc, Instance*> edgeDelays;
     std::map<edisc, int> extraDelaysNeeded;
-
+    std::map<const For*, ComputeKernel> kernelModules;
+    
     bool hasInputs(Wireable* w) const {
       return appGraph.inEdges(map_get(w, values)).size() > 0;
     }
@@ -3481,8 +3482,18 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
   }
   
   if (isComputeKernel(producer)) {
-    // TODO: Add producer latencies
-    return 0;
+    if (outputIndex == 0) {
+      for (auto k : g.kernelModules) {
+        if (k.second.mod == toInstance(producer)->getModuleRef()) {
+          return k.second.sched.cycleLatency();
+        }
+      }
+      internal_assert(false) << "No kernel module for " << coreStr(producer) << "\n";
+    } else {
+      return relativeProductionTime(producer, outputIndex - 1, g);
+    }
+    //// TODO: Add producer latencies
+    //return 0;
   }
 
   internal_assert(isLinebuffer(producer));
@@ -3512,8 +3523,13 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   }
 
   if (isComputeKernel(getBase(producer))) {
-    // TODO: Add kernel latency
-    return 0 + arrivalTime(firstInputEdge(producer, g), outputIndex, g);
+    for (auto k : g.kernelModules) {
+      if (k.second.mod == toInstance(producer)->getModuleRef()) {
+        return k.second.sched.cycleLatency() + arrivalTime(firstInputEdge(producer, g), outputIndex, g);
+      }
+    }
+    internal_assert(false) << "No kernel module for " << coreStr(producer) << "\n";
+    //return 0 + arrivalTime(firstInputEdge(producer, g), outputIndex, g);
   }
 
   // If this is a linebuffer then the production time of outputIndex(th)
@@ -3539,58 +3555,9 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
 
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
-  //cout << "\tArrival time (aTime) = " << aTime << endl;
   auto ed = appGraph.getLabel(e);
-  //cout << "\tArrival time of th element of output " << coreStr(ed.dataSrc) << " arrives at " << coreStr(ed.dataDest) << " at time " << aTime << endl;
-
-  //auto lb = appGraph.source(e);
-  //if (isLinebuffer(appGraph.source(e))) {
-    //int delay = linebufferDelay(appGraph.source(e));
-    //cout << "Delay on " << coreStr(appGraph.source(e)) << " = " << delay << endl;
-    //if (delay == 18) {
-      //return delay;
-    //} else {
-      //// First output time of linebuffer is the arrival time of the productionth input
-      //int val = arrivalTime(firstInputEdge(lb, appGraph), delay, appGraph);
-      //int zDelay = arrivalTime(firstInputEdge(lb, appGraph), 0, appGraph);
-      //int oneDelay = arrivalTime(firstInputEdge(lb, appGraph), 1, appGraph);
-      //cout << "\tArrival time of " << 0 << "th input = " << zDelay << endl;
-      //cout << "\tArrival time of " << 1 << "th input = " << oneDelay << endl;
-      //cout << "\tArrival time of " << delay << "th input = " << val << endl;
-      ////cout << "\tProduction time of " << 0 << "th output = " << productionTime()
-      ////internal_assert(false) << "Found linebuffer\n";
-    //}
-  //}
 
   return aTime;
-  //vector<int> pixel{0, 0};
-  //Wireable* src = appGraph.source(e);
-  ////return arrivalDelay(src, pixel, appGraph);
-
-  //vdisc srcV = appGraph.appGraph.source(e);
-  //auto srcWire = getBase(appGraph.appGraph.getNode(srcV));
-  //// TODO: Insert real delay computation here
-  //if (isLinebuffer(srcWire)) {
-    //// TODO: Get the image type, then get the output type (ignore input type?)
-    //// and then compute offsets from that
-    ////internal_assert(false) << "need to compute linebuffer delay\n";
-    ////return 10;
-    ////return 16;
-    ////return 14;
-    //return 18;
-  //} else if (isComputeKernel(src)) {
-    //auto k = static_cast<Instance*>(src);
-    //auto m = k->getModuleRef();
-    //for (auto ck : computeKernels) {
-      //if (ck.second.mod == m) {
-        //return ck.second.sched.cycleLatency();
-      //}
-    //}
-
-    //internal_assert(false) << "could not find compute kernel info for " << coreStr(k) << "\n";
-  //} else {
-    //return 0;
-  //}
 }
 
 void wireUpAppGraph(AppGraph& appGraph,
@@ -3953,6 +3920,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
 
   AppGraph appGraph;
+  appGraph.kernelModules = kernelModules;
   for (auto in : linebufferInputs) {
     string inName = in.first;
     auto lb = in.second;
@@ -4144,15 +4112,15 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   cout << appGraph.toString() << endl;
 
   auto topSort = topologicalSort(appGraph.appGraph);
-  cout << "Sorted nodes..." << endl;
-  for (auto v : topSort) {
-    auto w = appGraph.getNode(v);
-    if (!isa<Interface>(getBase(w))) {
-      cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
-      int delay = arrivalTime(firstInputEdge(appGraph.getNode(v), appGraph), 0, appGraph);
-      cout << "\tCycle delay to " << coreStr(w) << " = " << delay << endl;
-    }
-  }
+  //cout << "Sorted nodes..." << endl;
+  //for (auto v : topSort) {
+    //auto w = appGraph.getNode(v);
+    //if (!isa<Interface>(getBase(w))) {
+      //cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
+      //int delay = arrivalTime(firstInputEdge(appGraph.getNode(v), appGraph), 0, appGraph);
+      //cout << "\tCycle delay to " << coreStr(w) << " = " << delay << endl;
+    //}
+  //}
 
   //internal_assert(false) << "Stop here\n";
   // Map from nodes to the times at which first valid from that node is emitted
