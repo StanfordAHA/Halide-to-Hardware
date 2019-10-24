@@ -3364,6 +3364,62 @@ class AppGraph {
     }
 };
 
+int arrivalTime(edisc e, const int index, AppGraph& g);
+
+int edgeDelay(Wireable* src, Wireable* dest, AppGraph& g) {
+  internal_assert(false) << "Need to create edge delays\n";
+}
+
+edisc firstInputEdge(Wireable* producer, AppGraph& g) {
+  internal_assert(false) << "Need to implement firstInputEdge\n";
+}
+
+// Time between arrival of first input to producer and production of
+// outputIndex
+int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
+  if (isa<Interface>(producer)) {
+    return outputIndex;
+  }
+  
+  if (isComputeKernel(producer)) {
+    internal_assert(false) << "Need to add map from producers to latencies\n";
+    // return kernelLatency + firstInputTime;
+    return -1;
+  }
+
+  internal_assert(isLinebuffer(producer));
+  // Linebuffers outputIndexth production time is expressed as a function of
+  // earlier production times
+  if (outputIndex == 0) {
+    // return linebufferDelay(producer) + arrivalTime(firstSource, producer, outputIndex);
+  }
+
+  // if (outputIndex % noutImgColss == 0) {
+  // return productionTime(producer, outputIndex - 1) + 1
+  // }
+
+  // return productionTime(producer, outputIndex - 1) + 1 + (inImageCols - outImageCols)
+  return -1;
+}
+
+int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
+  if (isa<Interface>(producer)) {
+    return outputIndex;
+  }
+
+  edisc srcEdge = firstInputEdge(producer, g);
+  int firstInputTime = arrivalTime(srcEdge, 0, g); 
+  return firstInputTime + relativeProductionTime(producer, outputIndex, g);
+}
+
+// Time at which the ith value from inputSource reaches dest
+int arrivalTime(edisc e, const int index, AppGraph& g) {
+  KernelEdge edgeLabel = g.getLabel(e);
+  Wireable* inputSource = edgeLabel.dataSrc;
+  Wireable* dest = edgeLabel.dataDest;
+  return productionTime(inputSource, index, g) + edgeDelay(inputSource, dest, g);
+}
+
 // What is simplest way to make progress?
 //// production delay of the first output window which contains the coordinate coord
 //int productionDelay(Wireable* base, vector<int>& coordinates, AppGraph& appGraph) {
