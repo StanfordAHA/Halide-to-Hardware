@@ -2525,7 +2525,27 @@ void real_unsharp_test() {
   hw_output.compute_root();
   hw_input.compute_root();
   
+  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize);
+    //.reorder(xi, yi, xo, yo);
+  hw_output.unroll(c);  // hw output bound
+  
+  blur_unnormalized.linebuffer()
+    .update().unroll(win.x).unroll(win.y);
+  gray.linebuffer();
+  ratio.linebuffer();
+  
+  hw_output.hw_accelerate(xi, xo);
+  hw_input.stream_to_accelerator();
+  
+  hw_output.print_loop_nest();
+  
+  vector<Argument> args{input};
+  runSoC(hw_output, args, "unsharp");
+  Halide::Runtime::Buffer<uint8_t> cppRes = load_image("unsharp.ppm");
+  compare_buffers(cppRes, cpuOutput);
+  
   PRINT_PASSED("Real unsharp");
+
   assert(false);
 }
 
