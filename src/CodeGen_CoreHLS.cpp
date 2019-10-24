@@ -3372,6 +3372,8 @@ int edgeDelay(Wireable* src, Wireable* dest, AppGraph& g) {
 
 edisc firstInputEdge(Wireable* producer, AppGraph& g) {
   internal_assert(false) << "Need to implement firstInputEdge\n";
+  internal_assert(g.inEdges(producer).size() > 0);
+  return *std::begin(g.inEdges(producer));
 }
 
 // Time between arrival of first input to producer and production of
