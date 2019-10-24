@@ -2513,7 +2513,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   // instruction to names of ports on the target module
   cout << "Module def..." << endl;
   f.mod->print();
-  //internal_assert(false) << "Stopping here so dillon can view loads\n";
 }
 
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
@@ -3162,7 +3161,6 @@ void inferStreamTypes(StencilInfoCollector& scl) {
     for (auto sp : scl.info.streamParams) {
       cout << "\t" << sp.first << " " << sp.second << endl;
     }
-    //internal_assert(false) << "Stopping here to let Dillon view stream info\n";
     
 }
 
@@ -3382,7 +3380,7 @@ class AppGraph {
 int arrivalTime(edisc e, const int index, AppGraph& g);
 
 edisc firstInputEdge(Wireable* producer, AppGraph& g) {
-  cout << "Getting input edges for " << coreStr(producer) << endl;
+  //cout << "Getting input edges for " << coreStr(producer) << endl;
   internal_assert(g.inEdges(producer).size() > 0);
   return *std::begin(g.inEdges(producer));
 }
@@ -3486,7 +3484,7 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
   }
 
   internal_assert(isLinebuffer(producer));
-  return outputIndex % numInImageCols(producer) + std::floor(outputIndex / numOutImageRows(producer))*numInImageCols(producer);
+  //return outputIndex % numInImageCols(producer) + std::floor(outputIndex / numOutImageRows(producer))*numInImageCols(producer);
 
  // Linebuffers outputIndexth production time is expressed as a function of
   // earlier production times
@@ -3500,13 +3498,13 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
   } else {
     delay = relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
   }
-  cout << "Delay for " << coreStr(producer) << "'s " << outputIndex << "(th) element = " << delay << endl;
+  //cout << "Delay for " << coreStr(producer) << "'s " << outputIndex << "(th) element = " << delay << endl;
   return delay;
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
 
-  cout << "Getting production time of " << outputIndex << "th output of " << coreStr(producer) << endl;
+  //cout << "Getting production time of " << outputIndex << "th output of " << coreStr(producer) << endl;
   if (isa<Interface>(getBase(producer))) {
     return outputIndex;
   }
@@ -3522,7 +3520,6 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   // plus the offset from 
 
   internal_assert(isLinebuffer(producer));
-  //return arrivalTime(firstInputEdge(producer, g), outputIndex + linebufferDelay(producer), g) + relativeProductionTime(producer, outputIndex, g);
   return arrivalTime(firstInputEdge(producer, g), linebufferDelay(producer), g) + relativeProductionTime(producer, outputIndex, g);
 }
 
@@ -3540,9 +3537,9 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
 
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
-  cout << "\tArrival time (aTime) = " << aTime << endl;
+  //cout << "\tArrival time (aTime) = " << aTime << endl;
   auto ed = appGraph.getLabel(e);
-  cout << "\tArrival time of th element of output " << coreStr(ed.dataSrc) << " arrives at " << coreStr(ed.dataDest) << " at time " << aTime << endl;
+  //cout << "\tArrival time of th element of output " << coreStr(ed.dataSrc) << " arrives at " << coreStr(ed.dataDest) << " at time " << aTime << endl;
 
   //auto lb = appGraph.source(e);
   //if (isLinebuffer(appGraph.source(e))) {
@@ -4146,9 +4143,15 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   auto topSort = topologicalSort(appGraph.appGraph);
   cout << "Sorted nodes..." << endl;
   for (auto v : topSort) {
-    cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
+    auto w = appGraph.getNode(v);
+    if (!isa<Interface>(getBase(w))) {
+      cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
+      int delay = arrivalTime(firstInputEdge(appGraph.getNode(v), appGraph), 0, appGraph);
+      cout << "\tCycle delay to " << coreStr(w) << " = " << delay << endl;
+    }
   }
- 
+
+  //internal_assert(false) << "Stop here\n";
   // Map from nodes to the times at which first valid from that node is emitted
   std::map<vdisc, int> nodesToDelays;
   //std::map<edisc, int> extraDelaysNeeded;
@@ -4159,16 +4162,15 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     int maxDist = 0;
     vdisc maxDistVert;
     edisc maxEdge;
-    //bool foundMax = false;
     for (auto e : inEdges) {
       auto srcVert = appGraph.appGraph.source(e);
-      int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
+      //int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
+      int distToSrc = cycleDelay(e, kernelModules, appGraph);
 
       if (distToSrc >= maxDist) {
         maxDist = distToSrc;
         maxDistVert = srcVert;
         maxEdge = e;
-        //foundMax = true;
       }
       
     }
@@ -4195,16 +4197,28 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         appGraph.extraDelaysNeeded[e] = 0;
       }
     } else {
+      cout << "\tDifferent delays to " << coreStr(appGraph.getNode(v)) << endl;
+      for (auto e : inEdges) {
+        cout << "\t\t" << coreStr(appGraph.source(e)) << " -> " << cycleDelay(e, kernelModules, appGraph) << endl;
+      }
+      cout << "\tMax distance = " << maxDist << endl;
+
+      //internal_assert(false);
+     
+
       for (auto e : inEdges) {
         if (e == maxEdge) {
           appGraph.extraDelaysNeeded[e] = 0;
         } else {
           auto srcVert = appGraph.appGraph.source(e);
           int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
+          cout << "\t\tdistToSrc = " << distToSrc << endl;
           int filler = maxDist - distToSrc;
           appGraph.extraDelaysNeeded[e] = filler;
         }
       }
+
+      internal_assert(false);
     }
 
     nodesToDelays[v] = maxDist;
