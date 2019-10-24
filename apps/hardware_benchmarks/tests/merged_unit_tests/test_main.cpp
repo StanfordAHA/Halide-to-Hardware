@@ -2516,7 +2516,15 @@ void real_unsharp_test() {
   int outTileSize = 5;
   Halide::Buffer<uint8_t> inputBuf(outTileSize + 4, outTileSize + 4, 3);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 3);
-  indexTestPatternRandom(inputBuf, hwInputBuf);
+  for (int y = 0; y < inputBuf.height(); y++) {
+    for (int x = 0; x < inputBuf.width(); x++) {
+      for (int b = 0; b < inputBuf.channels(); b++) {
+        inputBuf(x, y, b) = x + y;
+        hwInputBuf(x, y, b) = inputBuf(x, y, b);
+      }
+    }
+  }
+  //indexTestPatternRandom(inputBuf, hwInputBuf);
   printBuffer(inputBuf, cout);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize, 3);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
@@ -2525,7 +2533,8 @@ void real_unsharp_test() {
   hw_output.compute_root();
   hw_input.compute_root();
   
-  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize);
+  hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize).
+    reorder(c, xi, yi, xo, yo);
     //.reorder(xi, yi, xo, yo);
   hw_output.unroll(c);  // hw output bound
   
