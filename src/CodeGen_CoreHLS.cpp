@@ -3373,6 +3373,7 @@ class AppGraph {
 int arrivalTime(edisc e, const int index, AppGraph& g);
 
 edisc firstInputEdge(Wireable* producer, AppGraph& g) {
+  cout << "Getting input edges for " << coreStr(producer) << endl;
   internal_assert(g.inEdges(producer).size() > 0);
   return *std::begin(g.inEdges(producer));
 }
@@ -3418,7 +3419,7 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
-  if (isa<Interface>(producer)) {
+  if (isa<Interface>(getBase(producer))) {
     return outputIndex;
   }
 
@@ -3431,7 +3432,7 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
 int arrivalTime(edisc e, const int index, AppGraph& g) {
   KernelEdge edgeLabel = g.getLabel(e);
   Wireable* inputSource = edgeLabel.dataSrc;
-  Wireable* dest = edgeLabel.dataDest;
+  //Wireable* dest = edgeLabel.dataDest;
   return productionTime(inputSource, index, g) + map_get(e, g.extraDelaysNeeded);
 }
 
