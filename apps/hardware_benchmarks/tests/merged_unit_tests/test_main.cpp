@@ -2441,8 +2441,69 @@ void different_latency_kernels_test() {
   //assert(false);
 }
 
+void real_unsharp_test() {
+  ImageParam input(type_of<uint8_t>(), 3);
+  ImageParam output(type_of<uint8_t>(), 3);
+
+  const int blockSize = 5;
+
+  Var c("c"), x("x"), y("y");
+  Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
+
+  // create the gaussian kernel
+  Func kernel_f;
+  float sigma = 1.5f;
+  kernel_f(x) = exp(-x*x/(2*sigma*sigma)) / (sqrtf(2*M_PI)*sigma);
+
+  // create a normalized set of 8bit weights
+  Func kernel;
+  Expr sum_kernel[blockSize];
+  for (int i=0; i<blockSize; ++i) {
+    if (i==0) {
+      sum_kernel[i] = kernel_f(i-blockSize/2);
+    } else {
+      sum_kernel[i] = kernel_f(i-blockSize/2) + sum_kernel[i-1];
+    }
+  }
+  kernel(x) = cast<uint16_t>(kernel_f(x) * 255 / sum_kernel[blockSize-1]);
+
+  // create the input
+  Func hw_input;
+  hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
+
+  // create a grayscale image
+  Func gray;
+  gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(0, x, y))
+        + 150 * cast<uint16_t>(hw_input(1, x, y))
+        + 29 * cast<uint16_t>(hw_input(2, x, y))) >> 8);
+
+  // Use a 2D filter to blur the input
+  Func blur_unnormalized, blur;
+  RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
+  blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * gray(x+win.x, y+win.y) );
+  blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
+
+  // sharpen the image by subtracting the blurred image
+  Func sharpen;
+  sharpen(x, y) = cast<uint8_t>(clamp(2 * cast<uint16_t>(gray(x, y)) - blur(x, y), 0, 255));
+
+  // find the ratio of sharpened and original image
+  Func ratio;
+  ratio(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(sharpen(x, y)) * 32 / max(gray(x, y), 1), 0, 255));
+
+  // Use the ratio to sharpen the input image.
+  Func hw_output;
+  hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
+
+  hw_output.bound(c, 0, 3);
+
+  output(c, x, y) = hw_output(c, x, y);
+  PRINT_PASSED("Real unsharp");
+}
+
 int main(int argc, char **argv) {
 
+  real_unsharp_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);
@@ -2453,11 +2514,8 @@ int main(int argc, char **argv) {
   //assert(false);
   accel_interface_test();
   accel_soc_test();
-  //assert(false);
   curve_lookup_test();
-  //assert(false);
   rom_read_test();
-  //assert(false);
   offset_window_test();  
   small_demosaic_test();
   multi_channel_conv_test();
