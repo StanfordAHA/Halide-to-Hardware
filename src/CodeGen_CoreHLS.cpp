@@ -1911,6 +1911,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         int portNo = instr->getOperand(0)->toInt();
         unitMapping[instr] = instr->getUnit();
         cout << "Connecting " << coreStr(instr->getUnit()) << " ROM rdata" << endl;
+        internal_assert(instr->getUnit() != nullptr);
         internal_assert(isa<CoreIR::Instance>(instr->getUnit()));
         Instance* inst = static_cast<Instance*>(instr->getUnit());
         internal_assert(fromGenerator("halidehw.ROM", inst));
@@ -2477,6 +2478,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
     auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals, {{"init", COREMK(context, romVals)}});
+    internal_assert(fromGenerator("halidehw.ROM", rom)) << "Did not produce a ROM in load optimization\n";
     int portNo = 0;
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
