@@ -2495,7 +2495,7 @@ void real_unsharp_test() {
   Func blur_unnormalized, blur;
   RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
   blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * gray(x+win.x, y+win.y) );
-  blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
+  blur(x, y) = blur_unnormalized(x, y) / 8;
 
   // sharpen the image by subtracting the blurred image
   Func sharpen;
