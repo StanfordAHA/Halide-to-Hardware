@@ -3551,7 +3551,8 @@ int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, App
       cout << "\tArrival time of " << 0 << "th input = " << zDelay << endl;
       cout << "\tArrival time of " << 1 << "th input = " << oneDelay << endl;
       cout << "\tArrival time of " << delay << "th input = " << val << endl;
-      internal_assert(false) << "Found linebuffer\n";
+      //cout << "\tProduction time of " << 0 << "th output = " << productionTime()
+      //internal_assert(false) << "Found linebuffer\n";
     }
   }
 
