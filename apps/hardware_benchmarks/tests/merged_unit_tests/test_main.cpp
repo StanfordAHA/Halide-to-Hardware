@@ -2508,7 +2508,9 @@ void real_unsharp_test() {
   // Use the ratio to sharpen the input image.
   Func hw_output;
   //hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(x, y, c) / 32, 0, 255));
-  hw_output(x, y, c) = cast<uint8_t>(hw_input(x, y, c));
+  // Note: Passes unit test;
+  //hw_output(x, y, c) = cast<uint8_t>(hw_input(x, y, c));
+  hw_output(x, y, c) = cast<uint8_t>(blur_unnormalized(x, y) + hw_input(x, y, c));
 
   hw_output.bound(c, 0, 3);
 
