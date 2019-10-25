@@ -2487,7 +2487,7 @@ void real_unsharp_test() {
 
   // create a grayscale image
   Func gray;
-  gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(x, y, 0))
+  gray(x, y) = cast<uint16_t>((77 * cast<uint16_t>(hw_input(x, y, 0))
         + 150 * cast<uint16_t>(hw_input(x, y, 1))
         + 29 * cast<uint16_t>(hw_input(x, y, 2))) >> 8);
 
@@ -2499,15 +2499,16 @@ void real_unsharp_test() {
 
   // sharpen the image by subtracting the blurred image
   Func sharpen;
-  sharpen(x, y) = cast<uint8_t>(clamp(2 * cast<uint16_t>(gray(x, y)) - blur(x, y), 0, 255));
+  sharpen(x, y) = cast<uint16_t>(clamp(2 * cast<uint16_t>(gray(x, y)) - blur(x, y), 0, 255));
 
   // find the ratio of sharpened and original image
   Func ratio;
-  ratio(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(sharpen(x, y)) * 32 / max(gray(x, y), 1), 0, 255));
+  ratio(x, y) = cast<uint16_t>(clamp(cast<uint16_t>(sharpen(x, y)) * 32 / max(gray(x, y), 1), 0, 255));
 
   // Use the ratio to sharpen the input image.
   Func hw_output;
-  hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(x, y, c) / 32, 0, 255));
+  //hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(x, y, c) / 32, 0, 255));
+  hw_output(x, y, c) = cast<uint8_t>(hw_input(x, y, c));
 
   hw_output.bound(c, 0, 3);
 
