@@ -4289,7 +4289,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   
   context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
   cout << "Top module" << endl;
-  topMod->print();
+  //topMod->print();
 
   if (!saveToFile(global_ns, "conv_3_3_app.json")) {
     cout << "Could not save global namespace" << endl;

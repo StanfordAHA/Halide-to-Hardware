@@ -2493,7 +2493,8 @@ void real_unsharp_test() {
 
   // Use a 2D filter to blur the input
   Func blur_unnormalized, blur;
-  RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
+  //RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
+  RDom win(0, blockSize, 0, blockSize);
   blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * gray(x+win.x, y+win.y) );
   blur(x, y) = blur_unnormalized(x, y) / 8;
 
@@ -2507,17 +2508,17 @@ void real_unsharp_test() {
 
   // Use the ratio to sharpen the input image.
   Func hw_output;
-  //hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(x, y, c) / 32, 0, 255));
+  hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(x, y, c) / 32, 0, 255));
   // Note: Passes unit test;
   //hw_output(x, y, c) = cast<uint8_t>(hw_input(x, y, c));
-  hw_output(x, y, c) = cast<uint8_t>(blur_unnormalized(x, y) + hw_input(x, y, c));
+  //hw_output(x, y, c) = cast<uint8_t>(blur_unnormalized(x, y) + hw_input(x, y, c));
 
   hw_output.bound(c, 0, 3);
 
   output(x, y, c) = hw_output(x, y, c);
   
   int outTileSize = 5;
-  Halide::Buffer<uint8_t> inputBuf(outTileSize + 4, outTileSize + 4, 3);
+  Halide::Buffer<uint8_t> inputBuf(outTileSize + blockSize + 1, outTileSize + blockSize + 1, 3);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 3);
   for (int y = 0; y < inputBuf.height(); y++) {
     for (int x = 0; x < inputBuf.width(); x++) {
