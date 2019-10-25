@@ -934,24 +934,19 @@ class StreamOpt : public IRMutator {
                 lets.push_back(make_pair(let->name, let->value));
             }
 
-            std::cout << "About to create body" << std::endl;
-            std::cout << body << std::endl;
             Stmt new_body = mutate(body);
 
-            std::cout << "Created body" << std::endl;
             //stmt = For::make(dag.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
             //new_body = ProducerConsumer::make("_hls_target." + dag.name, new_body, Stmt(), Evaluate::make(0));
             Stmt new_body_produce = ProducerConsumer::make_produce("_hls_target." + dag.name, new_body);
             Stmt new_body_consume = ProducerConsumer::make_consume("_hls_target." + dag.name, Evaluate::make(0));
             new_body = Block::make(new_body_produce, new_body_consume);
             
-            std::cout << "Adding declarations of inputs and output streams" << std::endl;
             // add declarations of inputs and output (external) streams outside the hardware pipeline IR
             vector<string> external_streams;
             external_streams.push_back(dag.name);
             external_streams.insert(external_streams.end(), dag.input_kernels.begin(), dag.input_kernels.end());
             for (const string &name : external_streams) {
-              std::cout << "Stream for " << name << std::endl;
                 const HWKernel kernel = dag.kernels.find(name)->second;
                 string stream_name = need_linebuffer(kernel) ?
                     kernel.name + ".stencil_update.stream" : kernel.name + ".stencil.stream";
@@ -986,7 +981,6 @@ class StreamOpt : public IRMutator {
                 new_body = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), Block::make(stream_subimg, new_body));
             }
 
-            std::cout << "Creating new_body" << std::endl;
             // Handle tap values
             new_body = TransformTapStencils(dag.taps).mutate(new_body);
 
