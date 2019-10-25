@@ -66,7 +66,7 @@ CGRAWrapper::CGRAWrapper() {
   for (auto field : rtp->getFields()) {
     cout << "Field = " << field << endl;
     if (starts_with(field, "in_arg_")) {
-      inArgs.push_back(field);
+      inArgs.push_back("self." + field);
       inArgLocations[field] = Point<int>{{0, 0, inCIndex}, {"x", "y", "c"}};
       inCIndex++;
     } else if (starts_with(field, "out_")) {
@@ -79,11 +79,12 @@ CGRAWrapper::CGRAWrapper() {
   cout << "Size of inArgs = " << inArgs.size() << endl;
   cout << "Size of outArgs = " << outArgs.size() << endl;
   assert(inArgs.size() == 1);
-  inputName = "self." + inArgs[0];
+  inputName = inArgs[0];
 
   //assert(false);
   state = new CoreIR::SimulatorState(m);
-  resetSim(inputName, m, *state);
+  //resetSim(inputName, m, *state);
+  resetSim(inArgs, m, *state);
   cout << "Initialized simulator..." << endl;
 }
 
@@ -165,6 +166,9 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
   while (!readIdx.allDone()) {
     cout << "Write index = " << writeIdx.coordString() << endl;
     cout << "Read index  = " << readIdx.coordString() << endl;
+    
+    if (!writeIdx.allDone()) {
+
     auto i = writeIdx.coord("x");
     auto j = writeIdx.coord("y");
     auto k = writeIdx.coord("c");
@@ -176,8 +180,6 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       src_stride_1 * j + 
       src_stride_2 * k + 
       src_stride_3 * m;
-
-    if (!writeIdx.allDone()) {
 
       assert(sourceBits == 8 || sourceBits == 16);
 
