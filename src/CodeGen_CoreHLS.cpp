@@ -4259,11 +4259,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         appGraph.extraDelaysNeeded[e] = 0;
       }
     } else {
-      cout << "\tDifferent delays to " << coreStr(appGraph.getNode(v)) << endl;
-      for (auto e : inEdges) {
-        cout << "\t\t" << coreStr(appGraph.source(e)) << " -> " << cycleDelay(e, kernelModules, appGraph) << endl;
-      }
-      cout << "\tMax distance = " << maxDist << endl;
+      //cout << "\tDifferent delays to " << coreStr(appGraph.getNode(v)) << endl;
+      //for (auto e : inEdges) {
+        //cout << "\t\t" << coreStr(appGraph.source(e)) << " -> " << cycleDelay(e, kernelModules, appGraph) << endl;
+      //}
+      //cout << "\tMax distance = " << maxDist << endl;
 
       //internal_assert(false);
      
@@ -4280,7 +4280,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         }
       }
 
-      //internal_assert(false);
     }
 
     nodesToDelays[v] = maxDist;
@@ -4289,7 +4288,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
 
   appGraph = insertDelays(appGraph);
-  //appGraph = delayedGraph;
   wireUpAppGraph(appGraph, kernelToControlPath, def);
   
   cout << "Setting definition of topMod..." << endl;
@@ -4300,7 +4298,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   topMod->print();
   
   context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
-  cout << "Top module" << endl;
+  //cout << "Top module" << endl;
   //topMod->print();
 
   if (!saveToFile(global_ns, "conv_3_3_app.json")) {
