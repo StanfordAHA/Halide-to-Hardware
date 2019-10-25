@@ -2560,7 +2560,7 @@ void real_unsharp_test() {
   
   PRINT_PASSED("Real unsharp");
 
-  assert(false);
+  //assert(false);
 }
 
 int main(int argc, char **argv) {
