@@ -61,12 +61,14 @@ CGRAWrapper::CGRAWrapper() {
   auto rtp = m->getType();
 
   // TODO: Need to create a map from outArgs to points that represent offsets
-  vector<string> inArgs;
   int cIndex = 0;
+  int inCIndex = 0;
   for (auto field : rtp->getFields()) {
     cout << "Field = " << field << endl;
     if (starts_with(field, "in_arg_")) {
       inArgs.push_back(field);
+      inArgLocations[field] = Point<int>{{0, 0, inCIndex}, {"x", "y", "c"}};
+      inCIndex++;
     } else if (starts_with(field, "out_")) {
       outArgs.push_back(field);
       outArgLocations[field] = Point<int>{{0, 0, cIndex}, {"x", "y", "c"}};

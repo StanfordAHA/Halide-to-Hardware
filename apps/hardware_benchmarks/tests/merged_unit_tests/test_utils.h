@@ -17,18 +17,27 @@ bool hasClock(CoreIR::Module* m) {
 }
 
 static inline
-void resetSim(const std::string& inputName, CoreIR::Module* m, CoreIR::SimulatorState& state) {
+//void resetSim(const std::string& inputName, CoreIR::Module* m, CoreIR::SimulatorState& state) {
+void resetSim(const std::vector<std::string>& inputNames, CoreIR::Module* m, CoreIR::SimulatorState& state) {
 
+  for (auto inputName : inputNames) {
     state.setValue(inputName, BitVector(16, 0));
-    state.setValue("self.in_en", BitVector(1, 0));
-    if (hasClock(m)) {
-      state.setClock("self.clk", 0, 1);
-    }
-    state.setValue("self.reset", BitVector(1, 1));
+  }
+  state.setValue("self.in_en", BitVector(1, 0));
+  if (hasClock(m)) {
+    state.setClock("self.clk", 0, 1);
+  }
+  state.setValue("self.reset", BitVector(1, 1));
 
-    state.resetCircuit();
+  state.resetCircuit();
 
-    state.setValue("self.reset", BitVector(1, 0));
+  state.setValue("self.reset", BitVector(1, 0));
+}
+
+static inline
+void resetSim(const std::string& inputName, CoreIR::Module* m, CoreIR::SimulatorState& state) {
+  std::vector<std::string> ins{inputName};
+  resetSim(ins, m, state);
 }
 
 static inline

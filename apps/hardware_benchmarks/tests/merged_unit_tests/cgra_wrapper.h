@@ -161,6 +161,10 @@ class CGRAWrapper {
     CoreIR::SimulatorState* state;
     std::vector<uint16_t> pixelOutputs;
     std::string inputName;
+    
+    std::vector<std::string> inArgs;
+    std::map<std::string, Point<int> > inArgLocations;
+    
     std::vector<std::string> outArgs;
     std::map<std::string, Point<int> > outArgLocations;
 
