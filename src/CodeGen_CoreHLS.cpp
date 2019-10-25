@@ -3492,12 +3492,9 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
     } else {
       return relativeProductionTime(producer, outputIndex - 1, g);
     }
-    //// TODO: Add producer latencies
-    //return 0;
   }
 
   internal_assert(isLinebuffer(producer));
-  //return outputIndex % numInImageCols(producer) + std::floor(outputIndex / numOutImageRows(producer))*numInImageCols(producer);
 
  // Linebuffers outputIndexth production time is expressed as a function of
   // earlier production times
@@ -3820,179 +3817,21 @@ AppGraph insertDelays(AppGraph& appGraph) {
   return delayedGraph;
 }
 
-// Now: Need to print out arguments and their info, actually use the arguments to form
-// the type of the outermost module?
-CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
-    Stmt stmt,
-    const std::string& name,
-    const vector<CoreIR_Argument>& args) {
-
-  cout << "All args" << endl;
-  for (auto a : args) {
-    cout << "\t" << a.name << endl;
-  }
- 
-  // Build top level interface
-  AcceleratorInterface ifc = topLevelType(context, args);
+AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
+    std::map<const For*, ComputeKernel>& kernelModules,
+    std::map<const For*, CoreIR::Instance*>& kernels,
+    const std::vector<CoreIR_Argument>& args,
+    AcceleratorInterface& ifc,
+    StencilInfoCollector& scl) {
   auto inputAliases = ifc.inputAliases;
-  auto output_name_real = ifc.output_name_real;
   auto output_name = ifc.output_name;
-  auto topType = ifc.designType;
-  auto global_ns = context->getNamespace("global");
-  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
-  cout << "Before creating definition.." << endl;
-  topMod->print();
-  // Maybe what I should do is build a json file here which
-  // stores the alias maps as well as the stencil types
-  // and then use that to build a test case which automatically
-  // wraps up the input and output types?
-  Json aliasInfo;
-  auto& a = aliasInfo["aliasMap"];
-  for (auto al : ifc.inputAliases) {
-    a[al.first] = al.second;
-  }
-
-  auto& oname = aliasInfo["outName"];
-  oname[output_name_real] = output_name;
-
-  auto& ranges = aliasInfo["ranges"];
-  for (auto arg : args) {
-    if (arg.is_stencil) {
-      string name = arg.name;
-      auto& val = ranges[name];
-      auto ranges = arg.stencil_type.bounds;
-      for (auto r : ranges) {
-        val.emplace_back(getConstInt(r.min));
-        val.emplace_back(getConstInt(r.extent));
-      }
-    }
-  }
-  //ofstream interfaceInfo(name + "_accel_interface_info.json");
-  ofstream interfaceInfo("accel_interface_info.json");
-  interfaceInfo << aliasInfo;
-  interfaceInfo.close();
-
-  // Rest of the code builds the definition of this module, first by
-  // creating RTL for each loop kernel, and then by wiring up these
-  // kernels in to a full design
+  auto output_name_real = ifc.output_name_real;
   int bitwidth = 16;
-  LetPusher pusher;
-  stmt = pusher.mutate(stmt);
-  cout << "After let pushing..." << endl;
-  cout << stmt << endl;
 
-  LetEraser letEraser;
-  stmt = letEraser.mutate(stmt);
+  internal_assert(kernels.size() > 0);
 
-  cout << "After let erasure..." << endl;
-  cout << stmt << endl;
-  //internal_assert(false) << "Stopping here for dillon to view\n";
-
-  StoreCollector stCollector;
-  stmt.accept(&stCollector);
-  printCollectedStores(stCollector);
-
-  cout << "Emitting kernel for " << name << endl;
-  cout << "\tStmt is = " << endl;
-  cout << stmt << endl;
-  NestExtractor extractor;
-  stmt.accept(&extractor);
-
-  StencilInfoCollector scl;
-  stmt.accept(&scl);
-
-  inferStreamTypes(scl);
-  //cout << "Stencil info" << endl;
-  StencilInfo info = scl.info;
-
-  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
-  int kernelN = 0;
-
-  //std::map<const For*, CoreIR::Module*> kernelModules;
-  std::map<const For*, ComputeKernel> kernelModules;
-  std::map<Instance*, int> kernelLatencies;
-  std::map<const For*, KernelControlPath> kernelControlPaths;
-  std::map<const For*, HWFunction> functions;
-  for (const For* lp : extractor.loops) {
-    cout << "\t\tLOOP" << endl;
-    cout << "Original body.." << endl;
-    cout << lp->body << endl;
-
-    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp);
-    //auto hwVars = extractHardwareVars(lp, f);
-    auto hwVars = extractHardwareVars(lp);
-    cout << "All hardware vars.." << endl;
-    for (auto hv : hwVars) {
-      cout << "\t" << hv << endl;
-    }
-    f.controlVars = hwVars;
-    auto& body = f.body;
-
-    removeBadStores(stCollector, f);
-    valueConvertProvides(scl.info, f);
-    valueConvertStreamReads(scl.info, f);
-    removeWriteStreamArgs(scl.info, f);
-    divToShift(f);
-    modToShift(f);
-    cout << "After stream read conversion..." << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
-    }
-
-    functions[lp] = f;
-
-    kernelN++;
-  }    
-
-  // For mapping: Re-structure the code so that every hwFunction is built before
-  // we do any re-mapping. Then pass the hardware functions in to a dummy function
-  // that will map each one and return a new mapping from loops to hardware functions
-
-  functions = mapFunctionsToCGRA(functions);
-  for (auto fp : functions) {
-    auto lp = fp.first;
-    HWFunction& f = fp.second;
-    ComputeKernel compK = moduleForKernel(context, scl.info, f, lp);
-    auto m = compK.mod;
-    cout << "Created module for kernel.." << endl;
-    kernelModules[lp] = compK;
-    auto cp = controlPathForKernel(context, scl.info, f, lp);
-    cout << "Control path is..." << endl;
-    cp.m->print();
-    kernelControlPaths[lp] = cp;
-
-    //context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
-    removeUnconnectedInstances(m->getDef());
-    removeUnusedInstances(m->getDef());
-
-    cout << "Module after optimization" << endl;
-    m->print();
-  }
-
-  context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
-  cout << "Done creating kernels..." << endl;
-  auto def = topMod->newModuleDef();
-
-  // Connects up all control paths in the design
-  std::map<const For*, CoreIR::Instance*> kernels;
-  std::map<const For*, CoreIR::Instance*> controlPaths;
-  std::map<Instance*, CoreIR::Instance*> kernelToControlPath;
-  for (auto k : kernelModules) {
-    auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
-    kernels[k.first] = kI;
-
-    KernelControlPath cpM = map_get(k.first, kernelControlPaths);
-    auto controlPath = def->addInstance("control_path_module_" + k.second.mod->getName(), cpM.m);
-    controlPaths[k.first] = controlPath;
-    def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
-    for (auto v : cpM.controlVars) {
-      auto vn = coreirSanitize(v);
-      def->connect(controlPath->sel(vn), kI->sel(vn));
-    }
-    kernelToControlPath[kI] = controlPath;
-
-  }
-
+  CoreIR::ModuleDef* def = std::begin(kernels)->second->getContainer();
+  CoreIR::Context* context = def->getContext();
   // Creates all linebuffers
   std::map<string, CoreIR::Instance*> linebufferResults;
   std::map<string, CoreIR::Instance*> linebufferInputs;
@@ -4189,6 +4028,177 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   cout << "Application graph..." << endl;
   cout << appGraph.toString() << endl;
+
+  return appGraph;
+}
+// Now: Need to print out arguments and their info, actually use the arguments to form
+// the type of the outermost module?
+CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
+    Stmt stmt,
+    const std::string& name,
+    const vector<CoreIR_Argument>& args) {
+
+  cout << "All args" << endl;
+  for (auto a : args) {
+    cout << "\t" << a.name << endl;
+  }
+ 
+  // Build top level interface
+  AcceleratorInterface ifc = topLevelType(context, args);
+  auto inputAliases = ifc.inputAliases;
+  auto output_name_real = ifc.output_name_real;
+  auto output_name = ifc.output_name;
+  auto topType = ifc.designType;
+  auto global_ns = context->getNamespace("global");
+  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+  cout << "Before creating definition.." << endl;
+  topMod->print();
+  // Maybe what I should do is build a json file here which
+  // stores the alias maps as well as the stencil types
+  // and then use that to build a test case which automatically
+  // wraps up the input and output types?
+  Json aliasInfo;
+  auto& a = aliasInfo["aliasMap"];
+  for (auto al : ifc.inputAliases) {
+    a[al.first] = al.second;
+  }
+
+  auto& oname = aliasInfo["outName"];
+  oname[output_name_real] = output_name;
+
+  auto& ranges = aliasInfo["ranges"];
+  for (auto arg : args) {
+    if (arg.is_stencil) {
+      string name = arg.name;
+      auto& val = ranges[name];
+      auto ranges = arg.stencil_type.bounds;
+      for (auto r : ranges) {
+        val.emplace_back(getConstInt(r.min));
+        val.emplace_back(getConstInt(r.extent));
+      }
+    }
+  }
+  //ofstream interfaceInfo(name + "_accel_interface_info.json");
+  ofstream interfaceInfo("accel_interface_info.json");
+  interfaceInfo << aliasInfo;
+  interfaceInfo.close();
+
+  // Rest of the code builds the definition of this module, first by
+  // creating RTL for each loop kernel, and then by wiring up these
+  // kernels in to a full design
+  int bitwidth = 16;
+  LetPusher pusher;
+  stmt = pusher.mutate(stmt);
+  cout << "After let pushing..." << endl;
+  cout << stmt << endl;
+
+  LetEraser letEraser;
+  stmt = letEraser.mutate(stmt);
+
+  cout << "After let erasure..." << endl;
+  cout << stmt << endl;
+  //internal_assert(false) << "Stopping here for dillon to view\n";
+
+  StoreCollector stCollector;
+  stmt.accept(&stCollector);
+  printCollectedStores(stCollector);
+
+  cout << "Emitting kernel for " << name << endl;
+  cout << "\tStmt is = " << endl;
+  cout << stmt << endl;
+  NestExtractor extractor;
+  stmt.accept(&extractor);
+
+  StencilInfoCollector scl;
+  stmt.accept(&scl);
+
+  inferStreamTypes(scl);
+  //cout << "Stencil info" << endl;
+  StencilInfo info = scl.info;
+
+  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
+  int kernelN = 0;
+
+  std::map<const For*, ComputeKernel> kernelModules;
+  std::map<const For*, KernelControlPath> kernelControlPaths;
+  std::map<const For*, HWFunction> functions;
+  for (const For* lp : extractor.loops) {
+    cout << "\t\tLOOP" << endl;
+    cout << "Original body.." << endl;
+    cout << lp->body << endl;
+
+    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp);
+    //auto hwVars = extractHardwareVars(lp, f);
+    auto hwVars = extractHardwareVars(lp);
+    cout << "All hardware vars.." << endl;
+    for (auto hv : hwVars) {
+      cout << "\t" << hv << endl;
+    }
+    f.controlVars = hwVars;
+    auto& body = f.body;
+
+    removeBadStores(stCollector, f);
+    valueConvertProvides(scl.info, f);
+    valueConvertStreamReads(scl.info, f);
+    removeWriteStreamArgs(scl.info, f);
+    divToShift(f);
+    modToShift(f);
+    cout << "After stream read conversion..." << endl;
+    for (auto instr : body) {
+      cout << "\t\t\t" << *instr << endl;
+    }
+
+    functions[lp] = f;
+
+    kernelN++;
+  }    
+
+  functions = mapFunctionsToCGRA(functions);
+  for (auto fp : functions) {
+    auto lp = fp.first;
+    HWFunction& f = fp.second;
+    ComputeKernel compK = moduleForKernel(context, scl.info, f, lp);
+    auto m = compK.mod;
+    cout << "Created module for kernel.." << endl;
+    kernelModules[lp] = compK;
+    auto cp = controlPathForKernel(context, scl.info, f, lp);
+    cout << "Control path is..." << endl;
+    cp.m->print();
+    kernelControlPaths[lp] = cp;
+
+    //context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
+    removeUnconnectedInstances(m->getDef());
+    removeUnusedInstances(m->getDef());
+
+    cout << "Module after optimization" << endl;
+    m->print();
+  }
+
+  context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
+  cout << "Done creating kernels..." << endl;
+  auto def = topMod->newModuleDef();
+
+  // Connects up all control paths in the design
+  std::map<const For*, CoreIR::Instance*> kernels;
+  std::map<const For*, CoreIR::Instance*> controlPaths;
+  std::map<Instance*, CoreIR::Instance*> kernelToControlPath;
+  for (auto k : kernelModules) {
+    auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
+    kernels[k.first] = kI;
+
+    KernelControlPath cpM = map_get(k.first, kernelControlPaths);
+    auto controlPath = def->addInstance("control_path_module_" + k.second.mod->getName(), cpM.m);
+    controlPaths[k.first] = controlPath;
+    def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
+    for (auto v : cpM.controlVars) {
+      auto vn = coreirSanitize(v);
+      def->connect(controlPath->sel(vn), kI->sel(vn));
+    }
+    kernelToControlPath[kI] = controlPath;
+
+  }
+
+  AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
 
   auto topSort = topologicalSort(appGraph.appGraph);
   //cout << "Sorted nodes..." << endl;
