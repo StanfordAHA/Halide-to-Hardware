@@ -3741,6 +3741,85 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
     //return design_type;
 }
 
+AppGraph insertDelays(AppGraph& appGraph) {
+
+  CoreIR::Context* context = std::begin(appGraph.values)->first->getContext();
+  CoreIR::ModuleDef* def = std::begin(appGraph.values)->first->getContainer();
+  AppGraph delayedGraph;
+  for (auto w : appGraph.values) {
+    delayedGraph.addVertex(w.first);
+  }
+
+  //map<edisc, Instance*> edgeDelays;
+  for (auto n : appGraph.extraDelaysNeeded) {
+    if (n.second != 0) {
+      auto kEdge = appGraph.getLabel(n.first);
+
+      auto delay = def->addInstance("delay_" + context->getUnique(),
+          "halidehw.shift_register",
+          {{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, n.second)}});
+          //{{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, 0)}});
+      cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
+      delayedGraph.addVertex(delay);
+      appGraph.edgeDelays[n.first] = delay;
+    }
+  }
+
+  // Now: For each edge in the original graph:
+  // If the edge needs a delay that is not zero:
+  // add an edge from current graph to delay, and
+  // from delay to next node
+  // Else: Copy the edge from appGraph to delayedGraph
+  for (auto e : appGraph.appGraph.getEdges()) {
+    int delay = map_get(e, appGraph.extraDelaysNeeded);
+    auto origSrc = appGraph.source(e);
+    auto origDst = appGraph.target(e);
+    auto origEdge = appGraph.getLabel(e);
+
+    auto newSrcV = delayedGraph.getVdisc(origSrc);
+    auto newDstV = delayedGraph.getVdisc(origDst);
+    
+    auto newSrc = delayedGraph.getNode(newSrcV);
+    auto newDst = delayedGraph.getNode(newDstV);
+    
+    if (delay == 0) {
+      // Copy edge
+      auto newEdge = delayedGraph.addEdge(newSrc, newDst);
+      KernelEdge labelCopy;
+      labelCopy = origEdge;
+
+      delayedGraph.addEdgeLabel(newEdge, labelCopy);
+    } else {
+      cout << "Finding delay for " << e << endl;
+      Wireable* newD = map_find(e, appGraph.edgeDelays);
+      cout << "Found delay for " << e << endl;
+
+      auto s2d = delayedGraph.addEdge(newSrc, newD);
+      auto d2d = delayedGraph.addEdge(newD, newDst);
+
+      cout << "Added new edges" << endl;
+
+      KernelEdge srcToDelay;
+      KernelEdge delayToDst;
+      
+      srcToDelay.dataSrc = origEdge.dataSrc;
+      srcToDelay.valid = origEdge.valid;
+      srcToDelay.dataDest = newD->sel("in_data");
+      srcToDelay.en = newD->sel("in_en");
+
+      delayToDst.dataSrc = newD->sel("out_data");
+      delayToDst.valid = newD->sel("valid");
+      delayToDst.dataDest = origEdge.dataDest;
+      delayToDst.en = origEdge.en;
+
+      delayedGraph.addEdgeLabel(s2d, srcToDelay);
+      delayedGraph.addEdgeLabel(d2d, delayToDst);
+    }
+  }
+
+  return delayedGraph;
+}
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -4199,84 +4278,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
 
-  // Now: Need to create new delay nodes for each kernel (if the kernel needs a delay)
-  // TODO: Create delay data structure
-  //       Compute real linebuffer delays
-  //       Compute real kernel delays
-  //       Do app graph modifications to insert new delay nodes
-  AppGraph delayedGraph;
-  for (auto w : appGraph.values) {
-    delayedGraph.addVertex(w.first);
-  }
-
-  //map<edisc, Instance*> edgeDelays;
-  for (auto n : appGraph.extraDelaysNeeded) {
-    if (n.second != 0) {
-      auto kEdge = appGraph.getLabel(n.first);
-
-      auto delay = def->addInstance("delay_" + context->getUnique(),
-          "halidehw.shift_register",
-          {{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, n.second)}});
-          //{{"type", COREMK(context, kEdge.dataSrc->getType())}, {"delay", COREMK(context, 0)}});
-      cout << "\tCreated delay = " << CoreIR::toString(*delay) << endl;
-      delayedGraph.addVertex(delay);
-      appGraph.edgeDelays[n.first] = delay;
-    }
-  }
-
-  // Now: For each edge in the original graph:
-  // If the edge needs a delay that is not zero:
-  // add an edge from current graph to delay, and
-  // from delay to next node
-  // Else: Copy the edge from appGraph to delayedGraph
-  for (auto e : appGraph.appGraph.getEdges()) {
-    int delay = map_get(e, appGraph.extraDelaysNeeded);
-    auto origSrc = appGraph.source(e);
-    auto origDst = appGraph.target(e);
-    auto origEdge = appGraph.getLabel(e);
-
-    auto newSrcV = delayedGraph.getVdisc(origSrc);
-    auto newDstV = delayedGraph.getVdisc(origDst);
-    
-    auto newSrc = delayedGraph.getNode(newSrcV);
-    auto newDst = delayedGraph.getNode(newDstV);
-    
-    if (delay == 0) {
-      // Copy edge
-      auto newEdge = delayedGraph.addEdge(newSrc, newDst);
-      KernelEdge labelCopy;
-      labelCopy = origEdge;
-
-      delayedGraph.addEdgeLabel(newEdge, labelCopy);
-    } else {
-      cout << "Finding delay for " << e << endl;
-      Wireable* newD = map_find(e, appGraph.edgeDelays);
-      cout << "Found delay for " << e << endl;
-
-      auto s2d = delayedGraph.addEdge(newSrc, newD);
-      auto d2d = delayedGraph.addEdge(newD, newDst);
-
-      cout << "Added new edges" << endl;
-
-      KernelEdge srcToDelay;
-      KernelEdge delayToDst;
-      
-      srcToDelay.dataSrc = origEdge.dataSrc;
-      srcToDelay.valid = origEdge.valid;
-      srcToDelay.dataDest = newD->sel("in_data");
-      srcToDelay.en = newD->sel("in_en");
-
-      delayToDst.dataSrc = newD->sel("out_data");
-      delayToDst.valid = newD->sel("valid");
-      delayToDst.dataDest = origEdge.dataDest;
-      delayToDst.en = origEdge.en;
-
-      delayedGraph.addEdgeLabel(s2d, srcToDelay);
-      delayedGraph.addEdgeLabel(d2d, delayToDst);
-    }
-  }
-
-  appGraph = delayedGraph;
+  appGraph = insertDelays(appGraph);
+  //appGraph = delayedGraph;
   wireUpAppGraph(appGraph, kernelToControlPath, def);
   
   cout << "Setting definition of topMod..." << endl;
@@ -4284,7 +4287,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   topMod->setDef(def);
 
   cout << "Top module before inlining" << endl;
-
   topMod->print();
   
   context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
