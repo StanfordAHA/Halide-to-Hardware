@@ -2489,7 +2489,7 @@ void real_unsharp_test() {
   Func gray;
   gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(x, y, 0))
         + 150 * cast<uint16_t>(hw_input(x, y, 1))
-        + 29 * cast<uint16_t>(hw_input(x, y, 1))) >> 8);
+        + 29 * cast<uint16_t>(hw_input(x, y, 2))) >> 8);
 
   // Use a 2D filter to blur the input
   Func blur_unnormalized, blur;
@@ -2525,6 +2525,7 @@ void real_unsharp_test() {
     }
   }
   //indexTestPatternRandom(inputBuf, hwInputBuf);
+  cout << "CPU Input..." << endl;
   printBuffer(inputBuf, cout);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize, 3);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
@@ -2560,7 +2561,7 @@ void real_unsharp_test() {
 
 int main(int argc, char **argv) {
 
-  //real_unsharp_test();
+  real_unsharp_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);

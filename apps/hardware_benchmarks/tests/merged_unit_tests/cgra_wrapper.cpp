@@ -55,8 +55,8 @@ CGRAWrapper::CGRAWrapper() {
   }
   c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
   m = c->getNamespace("global")->getModule("DesignTop");
-  cout << "Module..." << endl;
-  m->print();
+  //cout << "Module..." << endl;
+  //m->print();
   // Set input name
   auto rtp = m->getType();
 
@@ -67,7 +67,7 @@ CGRAWrapper::CGRAWrapper() {
     cout << "Field = " << field << endl;
     if (starts_with(field, "in_arg_")) {
       inArgs.push_back("self." + field);
-      inArgLocations[field] = Point<int>{{0, 0, inCIndex}, {"x", "y", "c"}};
+      inArgLocations["self." + field] = Point<int>{{0, 0, inCIndex}, {"x", "y", "c"}};
       inCIndex++;
     } else if (starts_with(field, "out_")) {
       outArgs.push_back(field);
@@ -78,8 +78,8 @@ CGRAWrapper::CGRAWrapper() {
 
   cout << "Size of inArgs = " << inArgs.size() << endl;
   cout << "Size of outArgs = " << outArgs.size() << endl;
-  assert(inArgs.size() == 1);
-  inputName = inArgs[0];
+  //assert(inArgs.size() == 1);
+  //inputName = inArgs[0];
 
   //assert(false);
   state = new CoreIR::SimulatorState(m);
@@ -158,6 +158,7 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
       dest_subimage_extent_0 - 1,
       dest_subimage_extent_2 - 1});
   // TODO: Replace with real increment value
+  writeIdx.setIncrement("c", inArgs.size());
   readIdx.setIncrement("c", outArgs.size());
 
   pixelOutputs.clear();
@@ -169,35 +170,38 @@ void CGRAWrapper::produce_subimage(halide_buffer_t* sourceBuf, int32_t sourceOff
     
     if (!writeIdx.allDone()) {
 
-    auto i = writeIdx.coord("x");
-    auto j = writeIdx.coord("y");
-    auto k = writeIdx.coord("c");
-    // TODO: Replace with 4th dimension stride when that comes up
-    auto m = 0;
+      auto i = writeIdx.coord("x");
+      auto j = writeIdx.coord("y");
+      auto k = writeIdx.coord("c");
+      // TODO: Replace with 4th dimension stride when that comes up
+      auto m = 0;
 
-    int offset = sourceOffset + 
-      src_stride_0 * i +
-      src_stride_1 * j + 
-      src_stride_2 * k + 
-      src_stride_3 * m;
+      for (auto argPt : inArgLocations) {
+        string inputName = argPt.first;
+        cout << "\tInput: " << inputName << ", has offset = " << argPt.second << endl;
+        int cOff = argPt.second.coord("c");
+        int offset = sourceOffset + 
+          src_stride_0 * i +
+          src_stride_1 * j + 
+          src_stride_2 * (k + cOff) + 
+          src_stride_3 * m;
 
-      assert(sourceBits == 8 || sourceBits == 16);
+        assert(sourceBits == 8 || sourceBits == 16);
 
-      if (sourceBits == 8) {
-        uint8_t* hostBuf = (uint8_t*) _halide_buffer_get_host(sourceBuf);
-        uint8_t nextInPixel = hostBuf[offset];
-        cout << "Next pixel = " << nextInPixel << endl;
         state->setValue("self.in_en", BitVector(1, true));
-        // Note: Accelerator promotes everything to 16 bits on input
-        state->setValue(inputName, BitVector(16, nextInPixel));
-      } else {
-        assert(sourceBits == 16);
+        if (sourceBits == 8) {
+          uint8_t* hostBuf = (uint8_t*) _halide_buffer_get_host(sourceBuf);
+          uint8_t nextInPixel = hostBuf[offset];
+          cout << "\tNext pixel (8) from offset " << offset << " = " << nextInPixel << endl;
+          state->setValue(inputName, BitVector(16, nextInPixel));
+        } else {
+          assert(sourceBits == 16);
 
-        uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(sourceBuf);
-        uint16_t nextInPixel = hostBuf[offset];
-        cout << "Next pixel = " << nextInPixel << endl;
-        state->setValue("self.in_en", BitVector(1, true));
-        state->setValue(inputName, BitVector(16, nextInPixel));
+          uint16_t* hostBuf = (uint16_t*) _halide_buffer_get_host(sourceBuf);
+          uint16_t nextInPixel = hostBuf[offset];
+          cout << "\tNext pixel (16) from offset " << offset << " = " << nextInPixel << endl;
+          state->setValue(inputName, BitVector(16, nextInPixel));
+        }
       }
     } else {
       state->setValue("self.in_en", BitVector(1, false));
