@@ -4126,6 +4126,16 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       dimParams.push_back(stoi(sd.second[i]));
     }
     cout << "\t\tdim params = " << dimParams << endl;
+
+    int numReceivers = stoi(sd.second[numDimParams]);
+    cout << "\t\t# receivers = " << numReceivers << endl;
+    int paramsPerReceiver = 1 + 1 + 2*numDims;
+    int receiverOffset = numDimParams + 1;
+    cout << "\t\t# receiver params = " << paramsPerReceiver << endl;
+    for (int r = 0; r < numReceivers; r++) {
+      cout << "\t\t\tReceiver " << r << " is " << sd.second[receiverOffset + r*paramsPerReceiver] << endl;
+    }
+    // Name, fifo depth, <offset, extent>
   }
   internal_assert(false);
   //cout << "Stencil info" << endl;
