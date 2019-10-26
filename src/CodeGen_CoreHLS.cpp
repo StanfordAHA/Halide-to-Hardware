@@ -3798,14 +3798,22 @@ AppGraph insertDelays(AppGraph& appGraph) {
   return delayedGraph;
 }
 
+enum StreamSource {
+  STREAM_SOURCE_ARG,
+  STREAM_SOURCE_LOOP,
+  STREAM_SOURCE_LB
+};
+
 class StreamNode {
   public:
-    bool isLoop;
+    StreamSource ss;
     const For* lp;
     CoreIR_Argument arg;
+    std::string lbName;
 
-  bool isLoopNest() const { return isLoop; }
-  bool isArgument() const { return !isLoop; }
+
+  bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
+  bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
 };
 
 class StreamEdge {
@@ -3853,7 +3861,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   cout << "All args" << endl;
   for (auto a : args) {
     cout << "\t" << a.name << endl;
-    StreamNode argNode{false, nullptr, a};
+    StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
     streamGraph.addVertex(argNode);
   }
   std::map<const For*, std::set<const Call*> > streamReads;
@@ -3863,8 +3871,13 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     std::set<const Call*> writeStreams = collectCalls("write_stream", f.first->body);
     streamReads[f.first] = readStreams;
     streamWrites[f.first] = writeStreams;
-    StreamNode forNode{true, f.first};
+    StreamNode forNode{STREAM_SOURCE_LOOP, f.first};
     streamGraph.addVertex(forNode);
+  }
+
+  for (auto lb : scl.info.linebuffers) {
+    StreamNode lbN{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    streamGraph.addVertex(lbN);
   }
 
   cout << "Stream reads" << endl;
