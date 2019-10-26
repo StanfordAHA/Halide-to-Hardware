@@ -3871,7 +3871,10 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto r : streamReads) {
     cout << "\tLoop..." << endl;
     for (auto rd : r.second) {
-      cout << "\t\t" << rd->args[2] << endl;
+      auto stencilName = rd->args[1];
+      auto streamName = rd->args[0];
+      auto dispatchString = rd->args[2];
+      cout << "\t\tstream = " << streamName << ", dispatch str = " << dispatchString << endl;
     }
   }
 
