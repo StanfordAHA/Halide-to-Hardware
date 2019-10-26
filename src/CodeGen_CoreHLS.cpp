@@ -3817,12 +3817,50 @@ AppGraph insertDelays(AppGraph& appGraph) {
   return delayedGraph;
 }
 
+// Now: I want to incorporate information about how streams are dispatched
+// (offsets and extents) so that I can insert hedgetrimmer elements that
+// strip portions of the stream output away.
 AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     std::map<const For*, ComputeKernel>& kernelModules,
     std::map<const For*, CoreIR::Instance*>& kernels,
     const std::vector<CoreIR_Argument>& args,
     AcceleratorInterface& ifc,
     StencilInfoCollector& scl) {
+
+  // Maybe the first change to make is to create a graph of the for loops used in
+  // the app and the connections between those loops via streams? That would also
+  // get me closer in representation to the loop transformations Im interested in
+  //
+  cout << "Checking dispatch statements" << endl;
+  for (auto sd : scl.info.streamDispatches) {
+    cout << "\t" << sd.first << " -> " << sd.second << endl;
+    internal_assert(sd.second.size() > 0);
+    int numDims = stoi(sd.second[0]);
+    cout << "\t\t# dims = " << numDims << endl;
+    int numDimParams = 1 + 3*numDims;
+    vector<int> dimParams;
+    for (int i = 1; i < numDimParams; i++) {
+      dimParams.push_back(stoi(sd.second[i]));
+    }
+    cout << "\t\tdim params = " << dimParams << endl;
+
+    int numReceivers = stoi(sd.second[numDimParams]);
+    cout << "\t\t# receivers = " << numReceivers << endl;
+    int paramsPerReceiver = 1 + 1 + 2*numDims;
+    int receiverOffset = numDimParams + 1;
+    cout << "\t\t# receiver params = " << paramsPerReceiver << endl;
+    for (int r = 0; r < numReceivers; r++) {
+      int rStart = receiverOffset + r*paramsPerReceiver;
+      cout << "\t\t\tReceiver " << r << " is " << sd.second[rStart] << ", with buffer size = " << sd.second[rStart + 1];
+      for (int p = rStart + 2; p < rStart + paramsPerReceiver; p += 2) {
+        cout << " offset = " << sd.second[p] << ", extent = " << sd.second[p + 1];
+      }
+      cout << endl;
+    }
+  }
+
+  // Now: Need to use this information while wiring up the design?
+  internal_assert(false) << "Stopping here\n";
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
   auto output_name_real = ifc.output_name_real;
@@ -4114,35 +4152,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   inferStreamTypes(scl);
 
-  cout << "Checking dispatch statements" << endl;
-  for (auto sd : scl.info.streamDispatches) {
-    cout << "\t" << sd.first << " -> " << sd.second << endl;
-    internal_assert(sd.second.size() > 0);
-    int numDims = stoi(sd.second[0]);
-    cout << "\t\t# dims = " << numDims << endl;
-    int numDimParams = 1 + 3*numDims;
-    vector<int> dimParams;
-    for (int i = 1; i < numDimParams; i++) {
-      dimParams.push_back(stoi(sd.second[i]));
-    }
-    cout << "\t\tdim params = " << dimParams << endl;
-
-    int numReceivers = stoi(sd.second[numDimParams]);
-    cout << "\t\t# receivers = " << numReceivers << endl;
-    int paramsPerReceiver = 1 + 1 + 2*numDims;
-    int receiverOffset = numDimParams + 1;
-    cout << "\t\t# receiver params = " << paramsPerReceiver << endl;
-    for (int r = 0; r < numReceivers; r++) {
-      int rStart = receiverOffset + r*paramsPerReceiver;
-      cout << "\t\t\tReceiver " << r << " is " << sd.second[rStart] << ", with buffer offset = " << sd.second[rStart + 1];
-      for (int p = rStart + 2; p < rStart + paramsPerReceiver; p += 2) {
-        cout << " offset = " << sd.second[p] << ", extent = " << sd.second[p + 1];
-      }
-      cout << endl;
-    }
-    // Name, fifo depth, <offset, extent>
-  }
-  internal_assert(false);
   //cout << "Stencil info" << endl;
   StencilInfo info = scl.info;
 
