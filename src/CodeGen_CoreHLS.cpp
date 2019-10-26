@@ -4133,7 +4133,12 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     int receiverOffset = numDimParams + 1;
     cout << "\t\t# receiver params = " << paramsPerReceiver << endl;
     for (int r = 0; r < numReceivers; r++) {
-      cout << "\t\t\tReceiver " << r << " is " << sd.second[receiverOffset + r*paramsPerReceiver] << endl;
+      int rStart = receiverOffset + r*paramsPerReceiver;
+      cout << "\t\t\tReceiver " << r << " is " << sd.second[rStart] << ", with buffer offset = " << sd.second[rStart + 1];
+      for (int p = rStart + 2; p < rStart + paramsPerReceiver; p += 2) {
+        cout << " offset = " << sd.second[p] << ", extent = " << sd.second[p + 1];
+      }
+      cout << endl;
     }
     // Name, fifo depth, <offset, extent>
   }
