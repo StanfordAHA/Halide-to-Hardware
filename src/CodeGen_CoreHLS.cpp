@@ -3856,10 +3856,23 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     StreamNode argNode{false, nullptr, a};
     streamGraph.addVertex(argNode);
   }
+  std::map<const For*, std::set<const Call*> > streamReads;
+  std::map<const For*, std::set<const Call*> > streamWrites;
   for (auto f : functions) {
     std::set<const Call*> readStreams = collectCalls("read_stream", f.first->body);
+    std::set<const Call*> writeStreams = collectCalls("write_stream", f.first->body);
+    streamReads[f.first] = readStreams;
+    streamWrites[f.first] = writeStreams;
     StreamNode forNode{true, f.first};
     streamGraph.addVertex(forNode);
+  }
+
+  cout << "Stream reads" << endl;
+  for (auto r : streamReads) {
+    cout << "\tLoop..." << endl;
+    for (auto rd : r.second) {
+      cout << "\t\t" << rd->args[2] << endl;
+    }
   }
 
   // What I want to do:
