@@ -3814,6 +3814,25 @@ class StreamEdge {
     vector<string> dispatchParams;
 };
 
+class CallCollector : public IRGraphVisitor {
+  public:
+    std::string targetName;
+    std::set<const Call*> calls;
+
+    CallCollector(const std::string target_) : targetName(target_) {}
+
+    void visit(const Call* c) {
+      if (c->name == targetName) {
+        calls.insert(c);
+      }
+    }
+};
+
+std::set<const Call*> collectCalls(const std::string& name, const Stmt& stmt) {
+  CallCollector c(name);
+  stmt.accept(&c);
+  return c.calls;
+}
 // Now: I want to incorporate information about how streams are dispatched
 // (offsets and extents) so that I can insert hedgetrimmer elements that
 // strip portions of the stream output away.
@@ -3838,9 +3857,18 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     streamGraph.addVertex(argNode);
   }
   for (auto f : functions) {
+    std::set<const Call*> readStreams = collectCalls("read_stream", f.first->body);
     StreamNode forNode{true, f.first};
     streamGraph.addVertex(forNode);
   }
+
+  // What I want to do:
+  // - Walk over each node in streamGraph. If it is a loop then connect all
+  // inputs to it, then set its outputs
+  // - Problem: linebuffers inputs will never be connected
+  // Note: a linebuffer is actually an operation on memory, so maybe it
+  // should be included as a separate node type?
+  // Q: Are all stream reads / writes reflected in dispatch statements?
   cout << "Checking dispatch statements" << endl;
   for (auto sd : scl.info.streamDispatches) {
     cout << "\t" << sd.first << " -> " << sd.second << endl;
