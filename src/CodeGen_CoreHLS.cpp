@@ -3878,6 +3878,19 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     }
   }
 
+  cout << "Stream writes" << endl;
+  for (auto r : streamWrites) {
+    cout << "\tLoop..." << endl;
+    for (auto wr : r.second) {
+      cout << "\t\tstream = " << wr->args[0] << endl;
+    }
+  }
+
+  cout << "Stream writes by linebuffers" << endl;
+  for (auto lb : scl.info.linebuffers) {
+    cout << "\t" << lb[1] << endl;
+  }
+
   // What I want to do:
   // - Walk over each node in streamGraph. If it is a loop then connect all
   // inputs to it, then set its outputs
