@@ -1577,26 +1577,7 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
 
   // Assume this is a top-level input
   return {0, 1, 0, 1};
-
-  //if (CoreIR::contains_key(str, info.streamWrites)) {
-
-    //string inputStencil = info.streamWrites[str];
-    //cout << "Stream " << str << " writes to stencil " << inputStencil << endl;
-    //return getStencilDims(inputStencil, info);
-  //}
-
-
-  //if (CoreIR::contains_key(str, info.streamReads)) {
-
-    //string inputStencil = info.streamReads[str];
-    //cout << "Stream " << str << " reads from stencil " << inputStencil << endl;
-    //return getStencilDims(inputStencil, info);
-  //}
-
-  //return {0, 1, 0, 1};
-  //internal_assert(false) << "No stream dims for " << str << "\n";
 }
-
 
 std::string coreirSanitize(const std::string& str) {
   string san = "";
@@ -3817,6 +3798,22 @@ AppGraph insertDelays(AppGraph& appGraph) {
   return delayedGraph;
 }
 
+class StreamNode {
+  public:
+    bool isLoop;
+    const For* lp;
+    CoreIR_Argument arg;
+
+  bool isLoopNest() const { return isLoop; }
+  bool isArgument() const { return !isLoop; }
+};
+
+class StreamEdge {
+  public:
+    std::string streamName;
+    vector<string> dispatchParams;
+};
+
 // Now: I want to incorporate information about how streams are dispatched
 // (offsets and extents) so that I can insert hedgetrimmer elements that
 // strip portions of the stream output away.
@@ -3830,7 +3827,20 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   // Maybe the first change to make is to create a graph of the for loops used in
   // the app and the connections between those loops via streams? That would also
   // get me closer in representation to the loop transformations Im interested in
-  //
+  // Note: The full application graph needs a node to model for loops as well as
+  // arguments.
+  DirectedGraph<StreamNode, StreamEdge> streamGraph;
+
+  cout << "All args" << endl;
+  for (auto a : args) {
+    cout << "\t" << a.name << endl;
+    StreamNode argNode{false, nullptr, a};
+    streamGraph.addVertex(argNode);
+  }
+  for (auto f : functions) {
+    StreamNode forNode{true, f.first};
+    streamGraph.addVertex(forNode);
+  }
   cout << "Checking dispatch statements" << endl;
   for (auto sd : scl.info.streamDispatches) {
     cout << "\t" << sd.first << " -> " << sd.second << endl;
