@@ -28,6 +28,7 @@ namespace Halide {
 namespace Internal {
 
 using std::ostream;
+using std::pair;
 using std::endl;
 using std::string;
 using std::vector;
@@ -3923,6 +3924,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     streamGraph.addVertex(lbN);
   }
 
+  map<string, vector<pair<StreamNode, vector<int> > > > streamsToReaders;
+  map<string, StreamNode> streamsToWriters;
   cout << "Stream reads" << endl;
   for (auto r : streamReads) {
     cout << "\tLoop..." << endl;
@@ -3934,6 +3937,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       string dispatchName = exprString(dispatchString);
       string streamStr = exprString(streamName);
       vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
+      StreamNode node{STREAM_SOURCE_LOOP, r.first};
+      streamsToReaders[streamStr].push_back({node, dispatchParams});
     }
   }
 
@@ -3942,18 +3947,21 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     cout << "\tLoop..." << endl;
     for (auto wr : r.second) {
       cout << "\t\tstream = " << wr->args[0] << endl;
+      internal_assert(!contains_key(exprString(wr->args[0]), streamsToWriters));
+      streamsToWriters[exprString(wr->args[0])] = {STREAM_SOURCE_LOOP, r.first};
     }
   }
 
   cout << "Stream writes by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
+    streamsToWriters[lb[1]] = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
   }
-
 
   cout << "Stream reads by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
+    streamsToReaders[lb[0]].push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
   }
 
   // What I want to do:
