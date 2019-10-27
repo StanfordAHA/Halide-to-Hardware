@@ -3841,6 +3841,49 @@ std::set<const Call*> collectCalls(const std::string& name, const Stmt& stmt) {
   stmt.accept(&c);
   return c.calls;
 }
+
+std::string stripQuotes(const std::string& str) {
+  string nStr = "";
+  for (auto c : str) {
+    if (c == '\"') {
+    } else {
+      nStr += c;
+    }
+  }
+  return nStr;
+}
+
+vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
+  auto sd = map_get(streamStr, info.streamDispatches);
+  internal_assert(sd.size() > 0);
+  int numDims = stoi(sd[0]);
+  int numDimParams = 1 + 3*numDims;
+  vector<int> dimParams;
+  for (int i = 1; i < numDimParams; i++) {
+    dimParams.push_back(stoi(sd[i]));
+  }
+
+  int numReceivers = stoi(sd[numDimParams]);
+  //cout << "\t\t# receivers = " << numReceivers << endl;
+  int paramsPerReceiver = 1 + 1 + 2*numDims;
+  int receiverOffset = numDimParams + 1;
+  //cout << "\t\t# receiver params = " << paramsPerReceiver << endl;
+  for (int r = 0; r < numReceivers; r++) {
+    int rStart = receiverOffset + r*paramsPerReceiver;
+    //cout << "\t\t\tReceiver " << r << " is " << sd.second[rStart] << ", with buffer size = " << sd.second[rStart + 1];
+    if (sd[rStart] == dispatchName) {
+      vector<int> params;
+      for (int p = rStart + 2; p < rStart + paramsPerReceiver; p += 2) {
+        cout << "Getting dispatch parameter " << exprString(sd[p]) << endl;
+        params.push_back(stoi(stripQuotes(exprString(sd[p]))));
+      }
+      return params;
+    }
+  }
+
+  internal_assert(false) << "No dispatch for " << streamStr << " to " << dispatchName << "\n";
+   //" in " << info.streamDispatches << "\n";
+}
 // Now: I want to incorporate information about how streams are dispatched
 // (offsets and extents) so that I can insert hedgetrimmer elements that
 // strip portions of the stream output away.
@@ -3888,6 +3931,9 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       auto streamName = rd->args[0];
       auto dispatchString = rd->args[2];
       cout << "\t\tstream = " << streamName << ", dispatch str = " << dispatchString << endl;
+      string dispatchName = exprString(dispatchString);
+      string streamStr = exprString(streamName);
+      vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
     }
   }
 
