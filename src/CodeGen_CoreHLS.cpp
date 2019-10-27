@@ -3904,12 +3904,23 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     cout << "\t" << lb[1] << endl;
   }
 
+
+  cout << "Stream reads by linebuffers" << endl;
+  for (auto lb : scl.info.linebuffers) {
+    cout << "\t" << lb[0] << endl;
+  }
+
   // What I want to do:
   // - Walk over each node in streamGraph. If it is a loop then connect all
   // inputs to it, then set its outputs
+  // - Also: I want to make sure that every connection is accompanied by
+  // the edge filter parameters it needs
+  // - Dispatches are only stream -> for loop though I think, bc they are
+  // tagged by dispatches.
+  // Eventually: I want to have the graph represented in dag before AppGraph
+  // construction. Then I want to be able to build the appgraph from this
+  // graph, adding trimmer nodes where appropriate
   // - Problem: linebuffers inputs will never be connected
-  // Note: a linebuffer is actually an operation on memory, so maybe it
-  // should be included as a separate node type?
   // Q: Are all stream reads / writes reflected in dispatch statements?
   cout << "Checking dispatch statements" << endl;
   for (auto sd : scl.info.streamDispatches) {
