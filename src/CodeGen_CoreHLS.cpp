@@ -4108,6 +4108,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       // Create linebuffer
     } else if (n.ss == STREAM_SOURCE_LOOP) {
       // Add kernel instance
+      appGraph.addVertex(map_find(n.lp, kernels));
     }
   }
   for (auto in : linebufferInputs) {
@@ -4124,9 +4125,9 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     //}
   //}
 
-  for (auto f : functions) {
-    appGraph.addVertex(map_find(f.first, kernels));
-  }
+  //for (auto f : functions) {
+    //appGraph.addVertex(map_find(f.first, kernels));
+  //}
 
   //appGraph.addVertex(def->sel("self")->sel(output_name));
 
