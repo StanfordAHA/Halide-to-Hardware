@@ -38,7 +38,6 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
          
-          //kernel.compute_at(hw_input, xo);
           hw_input.compute_root();
           hw_output.compute_root();
           
