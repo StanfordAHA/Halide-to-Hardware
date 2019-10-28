@@ -3993,24 +3993,17 @@ vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>&
   return 0;
 }
 
-// Now: I want to incorporate information about how streams are dispatched
-// (offsets and extents) so that I can insert hedgetrimmer elements that
-// strip portions of the stream output away.
-AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
+map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>& functions,
     std::map<const For*, ComputeKernel>& kernelModules,
     std::map<const For*, CoreIR::Instance*>& kernels,
     const std::vector<CoreIR_Argument>& args,
     AcceleratorInterface& ifc,
-    StencilInfoCollector& scl) {
-
-  DirectedGraph<StreamNode, StreamSubset> streamGraph;
-
-  cout << "All args" << endl;
+    StencilInfoCollector& scl,
+    DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
   map<string, StreamUseInfo> streamUseInfo;
   for (auto a : args) {
     if (a.is_stencil) {
       cout << "\t" << a.name << endl;
-      //StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
       StreamNode aN = argNode(a);
       streamGraph.addVertex(aN);
       if (!a.is_output) {
@@ -4097,6 +4090,27 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     }
   }
 
+
+  return streamUseInfo;
+}
+
+// Now: I want to incorporate information about how streams are dispatched
+// (offsets and extents) so that I can insert hedgetrimmer elements that
+// strip portions of the stream output away.
+AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
+    std::map<const For*, ComputeKernel>& kernelModules,
+    std::map<const For*, CoreIR::Instance*>& kernels,
+    const std::vector<CoreIR_Argument>& args,
+    AcceleratorInterface& ifc,
+    StencilInfoCollector& scl) {
+
+  DirectedGraph<StreamNode, StreamSubset> streamGraph;
+
+  cout << "All args" << endl;
+
+  map<string, StreamUseInfo> streamUseInfo =
+    createStreamUseInfo(functions, kernelModules, kernels, args, ifc, scl, streamGraph);
+  
   // Now: Add edges to streamGraph for each stream?
   cout << "Extracted stream info" << endl;
   for (auto streamInfo : streamUseInfo) {
