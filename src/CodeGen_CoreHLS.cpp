@@ -3186,14 +3186,10 @@ Instance* createLinebuffer(CoreIR::Context* context,
   for (uint i=0; i<num_dims; ++i) {
     input_dims[i] = inRanges[2*i + 1] - inRanges[2*i];
     input_type = input_type->Arr(input_dims[i]);
-    //}
 
-    //for (uint i=0; i<num_dims; ++i) {
     output_dims[i] = outRanges[2*i + 1] - outRanges[2*i];
     output_type = output_type->Arr(output_dims[i]);
-    //}
-
-    //for (uint i=0; i<num_dims; ++i) {
+    
     image_dims[i] = params[i];
     image_type = image_type->Arr(image_dims[i]);
 }
@@ -3962,11 +3958,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     AcceleratorInterface& ifc,
     StencilInfoCollector& scl) {
 
-  // Maybe the first change to make is to create a graph of the for loops used in
-  // the app and the connections between those loops via streams? That would also
-  // get me closer in representation to the loop transformations Im interested in
-  // Note: The full application graph needs a node to model for loops as well as
-  // arguments.
   DirectedGraph<StreamNode, StreamSubset> streamGraph;
 
   cout << "All args" << endl;
@@ -3999,8 +3990,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     streamGraph.addVertex(lbN);
   }
 
-  //map<string, vector<pair<StreamNode, vector<int> > > > streamsToReaders;
-  //map<string, StreamNode> streamsToWriters;
   cout << "Stream reads" << endl;
   for (auto r : streamReads) {
     cout << "\tLoop..." << endl;
@@ -4014,7 +4003,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
       StreamNode node{STREAM_SOURCE_LOOP, r.first};
       streamUseInfo[streamStr].readers.push_back({node, {dispatchParams}});
-      //streamsToReaders[streamStr].push_back({node, dispatchParams});
     }
   }
 
@@ -4023,9 +4011,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     cout << "\tLoop..." << endl;
     for (auto wr : r.second) {
       cout << "\t\tstream = " << wr->args[0] << endl;
-      //internal_assert(!contains_key(exprString(wr->args[0]), streamsToWriters));
       streamUseInfo[exprString(wr->args[0])].writer = {STREAM_SOURCE_LOOP, r.first};
-      //streamsToWriters[exprString(wr->args[0])] = {STREAM_SOURCE_LOOP, r.first};
     }
   }
 
@@ -4033,13 +4019,11 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
     streamUseInfo[lb[1]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
-    //streamsToWriters[lb[1]] = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
   }
 
   cout << "Stream reads by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
-    //streamsToReaders[lb[0]].push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
     streamUseInfo[lb[0]].readers.push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
   }
 
@@ -4090,7 +4074,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   // Now: Build appGraph from streamInfo?
 
   // Now: Need to use this information while wiring up the design?
-  //internal_assert(false) << "Stopping here\n";
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
   auto output_name_real = ifc.output_name_real;
@@ -4224,6 +4207,13 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
   // Wiring up function inputs
+  for (auto streamInfo : streamUseInfo) {
+    string stream = streamInfo.first;
+    for (auto reader : streamInfo.second.readers) {
+      StreamNode readerNode = reader.first;
+      StreamSubset subset = reader.second;
+    }
+  }
   for (auto f : functions) {
     // Collect a map from input names to output wireables?
     // And together all inputs?
