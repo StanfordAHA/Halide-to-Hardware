@@ -3959,13 +3959,15 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   cout << "All args" << endl;
   map<string, StreamUseInfo> streamUseInfo;
   for (auto a : args) {
-    cout << "\t" << a.name << endl;
-    StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
-    streamGraph.addVertex(argNode);
-    if (!a.is_output) {
-      streamUseInfo[a.name].writer = {STREAM_SOURCE_ARG, nullptr, a};
-    } else {
-      streamUseInfo[a.name].readers.push_back({{STREAM_SOURCE_ARG, nullptr, a}, {}});
+    if (a.is_stencil) {
+      cout << "\t" << a.name << endl;
+      StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
+      streamGraph.addVertex(argNode);
+      if (!a.is_output) {
+        streamUseInfo[a.name].writer = {STREAM_SOURCE_ARG, nullptr, a};
+      } else {
+        streamUseInfo[a.name].readers.push_back({{STREAM_SOURCE_ARG, nullptr, a}, {}});
+      }
     }
   }
   std::map<const For*, std::set<const Call*> > streamReads;
@@ -4072,10 +4074,10 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     }
   }
 
-
+  // Now: Build appGraph from streamInfo?
 
   // Now: Need to use this information while wiring up the design?
-  internal_assert(false) << "Stopping here\n";
+  //internal_assert(false) << "Stopping here\n";
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
   auto output_name_real = ifc.output_name_real;

@@ -2493,8 +2493,8 @@ void real_unsharp_test() {
 
   // Use a 2D filter to blur the input
   Func blur_unnormalized, blur;
-  RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
-  //RDom win(0, blockSize, 0, blockSize);
+  //RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
+  RDom win(0, blockSize, 0, blockSize);
   blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * gray(x+win.x, y+win.y) );
   blur(x, y) = blur_unnormalized(x, y) / 8;
 
