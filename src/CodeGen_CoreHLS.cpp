@@ -3932,6 +3932,53 @@ class CallCollector : public IRGraphVisitor {
     }
 };
 
+Wireable* dataValid(StreamNode& src) {
+  if (isComputeKernel(src.getWireable())) {
+    return src.getWireable()->sel("valid");
+  }
+
+  if (isLinebuffer(src.getWireable())) {
+    return src.getWireable()->sel("valid");
+  }
+
+  internal_assert(false);
+}
+
+Wireable* dataEn(StreamNode& dest, const std::string& stream) {
+  if (isComputeKernel(dest.getWireable())) {
+    return dest.getWireable()->sel("in_en");
+  }
+  if (isLinebuffer(dest.getWireable())) {
+    return dest.getWireable()->sel("wen");
+  }
+  internal_assert(false);
+}
+
+Wireable* dataIn(StreamNode& src, const std::string& stream) {
+  if (isComputeKernel(src.getWireable())) {
+    auto inst = static_cast<Instance*>(src.getWireable());
+    return inst->sel(coreirSanitize(stream));
+  }
+
+  if (isLinebuffer(src.getWireable())) {
+    return src.getWireable()->sel("in");
+  }
+  internal_assert(false);
+}
+
+Wireable* dataOut(StreamNode& src, std::string& stream) {
+  if (isLinebuffer(src.getWireable())) {
+    return src.getWireable()->sel("out");
+  }
+
+  if (isComputeKernel(src.getWireable())) {
+    cout << "Selecting " << stream << endl;
+    return src.getWireable()->sel(coreirSanitize(stream));
+  }
+  internal_assert(false);
+  return src.getWireable();
+}
+
 std::set<const Call*> collectCalls(const std::string& name, const Stmt& stmt) {
   CallCollector c(name);
   stmt.accept(&c);
@@ -4244,196 +4291,196 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   }
 
   auto self = def->sel("self");
-  // One way to proceed: for every node in streamgraph, if it is a linebuffer
-  // then create a new connection for it?
-  for (auto node : streamGraph.getVertNames()) {
+  //// One way to proceed: for every node in streamgraph, if it is a linebuffer
+  //// then create a new connection for it?
+  //for (auto node : streamGraph.getVertNames()) {
 
-  }
-  for (auto in : linebufferInputs) {
-    string inName = in.first;
-    auto lb = in.second;
+  //}
+  //for (auto in : linebufferInputs) {
+    //string inName = in.first;
+    //auto lb = in.second;
 
-    bool foundInput = false;
-    for (auto v : args) {
-      if (coreirSanitize(v.name) == coreirSanitize(inName)) {
+    //bool foundInput = false;
+    //for (auto v : args) {
+      //if (coreirSanitize(v.name) == coreirSanitize(inName)) {
 
-        internal_assert(CoreIR::contains_key(inName, inputAliases));
-        string coreirName = CoreIR::map_find(inName, inputAliases);
-        KernelEdge e;
-        e.dataDest = lb->sel("in");
-        e.en = lb->sel("wen");
+        //internal_assert(CoreIR::contains_key(inName, inputAliases));
+        //string coreirName = CoreIR::map_find(inName, inputAliases);
+        //KernelEdge e;
+        //e.dataDest = lb->sel("in");
+        //e.en = lb->sel("wen");
 
-        e.dataSrc = self->sel("in")->sel(coreirName);
-        e.valid = self->sel("in_en");
+        //e.dataSrc = self->sel("in")->sel(coreirName);
+        //e.valid = self->sel("in_en");
 
-        auto ed = appGraph.addEdge(e.dataSrc, lb);
-        appGraph.addEdgeLabel(ed, e);
+        //auto ed = appGraph.addEdge(e.dataSrc, lb);
+        //appGraph.addEdgeLabel(ed, e);
 
-        foundInput = true;
+        //foundInput = true;
 
-        break;
-      }
-    }
+        //break;
+      //}
+    //}
 
-    // Could not find an input for this linebuffer in module inputs
-    if (!foundInput) {
-      for (auto f : functions) {
-        for (auto output : outputStreams(f.second)) {
-          if (coreirSanitize(output->name) == coreirSanitize(inName)) {
-            KernelEdge e;
-            e.dataDest = lb->sel("in");
-            e.en = lb->sel("wen");
+    //// Could not find an input for this linebuffer in module inputs
+    //if (!foundInput) {
+      //for (auto f : functions) {
+        //for (auto output : outputStreams(f.second)) {
+          //if (coreirSanitize(output->name) == coreirSanitize(inName)) {
+            //KernelEdge e;
+            //e.dataDest = lb->sel("in");
+            //e.en = lb->sel("wen");
 
-            e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
-            e.valid = map_find(f.first, kernels)->sel("valid");
+            //e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(output->name));
+            //e.valid = map_find(f.first, kernels)->sel("valid");
 
-            auto ed = appGraph.addEdge(map_find(f.first, kernels), lb);
-            appGraph.addEdgeLabel(ed, e);
+            //auto ed = appGraph.addEdge(map_find(f.first, kernels), lb);
+            //appGraph.addEdgeLabel(ed, e);
 
-            foundInput = true;
+            //foundInput = true;
 
-            break;
-          }
-        }
+            //break;
+          //}
+        //}
 
-        if (foundInput) {
-          break;
-        }
-      }
-    }
-    internal_assert(foundInput) << "Could not find input for " << inName << "\n";
-  }
+        //if (foundInput) {
+          //break;
+        //}
+      //}
+    //}
+    //internal_assert(foundInput) << "Could not find input for " << inName << "\n";
+  //}
 
-  // Wire up top module outputs
-  bool foundOut = false;
-  // Wire up output
-  for (auto f : functions) {
-    for (auto out : outputStreams(f.second)) {
-      if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
-        KernelEdge e;
-        e.dataDest = self->sel(output_name);
-        e.en = self->sel("valid");
+  //// Wire up top module outputs
+  //bool foundOut = false;
+  //// Wire up output
+  //for (auto f : functions) {
+    //for (auto out : outputStreams(f.second)) {
+      //if (coreirSanitize(out->name) == coreirSanitize(output_name_real)) {
+        //KernelEdge e;
+        //e.dataDest = self->sel(output_name);
+        //e.en = self->sel("valid");
 
-        e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(out->name));
-        e.valid = map_find(f.first, kernels)->sel("valid");
+        //e.dataSrc = map_find(f.first, kernels)->sel(coreirSanitize(out->name));
+        //e.valid = map_find(f.first, kernels)->sel("valid");
 
-        auto ed = appGraph.addEdge(map_find(f.first, kernels), e.dataDest);
-        appGraph.addEdgeLabel(ed, e);
+        //auto ed = appGraph.addEdge(map_find(f.first, kernels), e.dataDest);
+        //appGraph.addEdgeLabel(ed, e);
 
-        foundOut = true;
-        break;
-      }
-    }
-  }
-  internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
+        //foundOut = true;
+        //break;
+      //}
+    //}
+  //}
+  //internal_assert(foundOut) << "Could not find output for " << output_name_real << "\n";
 
   // Wiring up function inputs
   for (auto streamInfo : streamUseInfo) {
     string stream = streamInfo.first;
+    auto writerNode = streamInfo.second.writer;
     for (auto reader : streamInfo.second.readers) {
       StreamNode readerNode = reader.first;
       StreamSubset subset = reader.second;
 
-      Wireable* src = streamInfo.second.writer.getWireable();
+      Wireable* src = writerNode.getWireable();
       Wireable* dest = readerNode.getWireable();
 
       cout << "Edge from " << coreStr(src) << " to " << coreStr(dest) << endl;
-      // If each node in streamUseInfo had an associated wireable I could just 
-      // get the wireables and then create the edge from those?
 
-      // Problem: Do I want to insert the stream subset filter node here?
-      // Also: How do I relate streamnodes to wireables?
-      //if (readerNode.ss == STREAM_SOURCE_LOOP) {
-        //KernelEdge e = buildEdge(readerNode, writerNode, def, appGraph);
-      //}
+      KernelEdge e;
+      e.dataSrc = dataOut(writerNode, stream);
+      e.valid = dataValid(writerNode);
+
+      e.dataDest = dataIn(readerNode, stream);
+      e.en = dataEn(readerNode, stream);
     }
   }
-  for (auto f : functions) {
-    // Collect a map from input names to output wireables?
-    // And together all inputs?
-    //
-    std::map<CoreIR::Wireable*, CoreIR::Wireable*> inputMap;
-    std::vector<CoreIR::Wireable*> allEnables;
-    for (auto input : inputStreams(f.second)) {
-      cout << "Function " << f.second.name << " has input " << *input << endl;
-      CoreIR::Wireable* inPort = map_get(f.first, kernels)->sel(coreirSanitize(input->name));
+  //for (auto f : functions) {
+    //// Collect a map from input names to output wireables?
+    //// And together all inputs?
+    ////
+    //std::map<CoreIR::Wireable*, CoreIR::Wireable*> inputMap;
+    //std::vector<CoreIR::Wireable*> allEnables;
+    //for (auto input : inputStreams(f.second)) {
+      //cout << "Function " << f.second.name << " has input " << *input << endl;
+      //CoreIR::Wireable* inPort = map_get(f.first, kernels)->sel(coreirSanitize(input->name));
 
-      if (CoreIR::contains_key(input->name, linebufferResults)) {
-        auto lb = linebufferResults[input->name];
-        inputMap[inPort] = lb->sel("out");
-        allEnables.push_back(lb->sel("valid"));
+      //if (CoreIR::contains_key(input->name, linebufferResults)) {
+        //auto lb = linebufferResults[input->name];
+        //inputMap[inPort] = lb->sel("out");
+        //allEnables.push_back(lb->sel("valid"));
 
-        KernelEdge e;
-        e.dataSrc = lb->sel("out");
-        e.valid = lb->sel("valid");
+        //KernelEdge e;
+        //e.dataSrc = lb->sel("out");
+        //e.valid = lb->sel("valid");
 
-        e.dataDest = inPort;
-        e.en = map_find(f.first, kernels)->sel("in_en");
+        //e.dataDest = inPort;
+        //e.en = map_find(f.first, kernels)->sel("in_en");
 
-        auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
-        appGraph.addEdgeLabel(ed, e);
+        //auto ed = appGraph.addEdge(lb, map_find(f.first, kernels));
+        //appGraph.addEdgeLabel(ed, e);
 
-      } else {
-        // The input is a top-level module input?
-        bool foundProducer = false;
-        for (auto otherF : functions) {
-          for (auto output : outputStreams(otherF.second)) {
-            if (output->name == input->name) {
-              cout << input->name << " is produced by " << otherF.second.name << endl;
-              inputMap[inPort] = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
-              allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
+      //} else {
+        //// The input is a top-level module input?
+        //bool foundProducer = false;
+        //for (auto otherF : functions) {
+          //for (auto output : outputStreams(otherF.second)) {
+            //if (output->name == input->name) {
+              //cout << input->name << " is produced by " << otherF.second.name << endl;
+              //inputMap[inPort] = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
+              //allEnables.push_back(map_get(otherF.first, kernels)->sel("valid"));
 
-              foundProducer = true;
+              //foundProducer = true;
 
-              KernelEdge e;
-              e.dataSrc = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
-              e.valid = map_get(otherF.first, kernels)->sel("valid");
+              //KernelEdge e;
+              //e.dataSrc = map_get(otherF.first, kernels)->sel(coreirSanitize(output->name));
+              //e.valid = map_get(otherF.first, kernels)->sel("valid");
 
-              e.dataDest = inPort;
-              e.en = map_find(f.first, kernels)->sel("in_en");
+              //e.dataDest = inPort;
+              //e.en = map_find(f.first, kernels)->sel("in_en");
               
-              auto ed = appGraph.addEdge(map_get(otherF.first, kernels), map_find(f.first, kernels));
-              appGraph.addEdgeLabel(ed, e);
+              //auto ed = appGraph.addEdge(map_get(otherF.first, kernels), map_find(f.first, kernels));
+              //appGraph.addEdgeLabel(ed, e);
 
-              break;
-            }
-          }
+              //break;
+            //}
+          //}
 
-          if (foundProducer) {
-            break;
-          }
-        }
+          //if (foundProducer) {
+            //break;
+          //}
+        //}
 
-        if (!foundProducer) {
-          // Assume that this must be a top-level input
-          auto self = def->sel("self");
-          cout << "Trying to find default producer for " << CoreIR::toString(*inPort) << " in " << CoreIR::toString(*(self->sel("in"))) << endl;
+        //if (!foundProducer) {
+          //// Assume that this must be a top-level input
+          //auto self = def->sel("self");
+          //cout << "Trying to find default producer for " << CoreIR::toString(*inPort) << " in " << CoreIR::toString(*(self->sel("in"))) << endl;
 
-          auto selTp = self->sel("in")->getType();
-          internal_assert(CoreIR::isa<CoreIR::RecordType>(selTp)) << "select self.in must be a record\n";
-          auto rtp = static_cast<CoreIR::RecordType*>(selTp);
-          auto recs = rtp->getFields();
-          internal_assert(recs.size() > 0);
+          //auto selTp = self->sel("in")->getType();
+          //internal_assert(CoreIR::isa<CoreIR::RecordType>(selTp)) << "select self.in must be a record\n";
+          //auto rtp = static_cast<CoreIR::RecordType*>(selTp);
+          //auto recs = rtp->getFields();
+          //internal_assert(recs.size() > 0);
 
-          auto argSel = self->sel("in")->sel(*begin(recs));
+          //auto argSel = self->sel("in")->sel(*begin(recs));
 
-          inputMap[inPort] = argSel;
-          allEnables.push_back(self->sel("in_en"));
+          //inputMap[inPort] = argSel;
+          //allEnables.push_back(self->sel("in_en"));
 
-          KernelEdge e;
-          e.dataSrc = argSel;
-          e.valid = self->sel("in_en");
+          //KernelEdge e;
+          //e.dataSrc = argSel;
+          //e.valid = self->sel("in_en");
 
-          e.dataDest = inPort;
-          e.en = map_find(f.first, kernels)->sel("in_en");
+          //e.dataDest = inPort;
+          //e.en = map_find(f.first, kernels)->sel("in_en");
 
-          auto ed = appGraph.addEdge(argSel, map_find(f.first, kernels));
-          appGraph.addEdgeLabel(ed, e);
-        }
-      }
-    }
+          //auto ed = appGraph.addEdge(argSel, map_find(f.first, kernels));
+          //appGraph.addEdgeLabel(ed, e);
+        //}
+      //}
+    //}
 
-  }
+  //}
 
   cout << "Application graph..." << endl;
   cout << appGraph.toString() << endl;
