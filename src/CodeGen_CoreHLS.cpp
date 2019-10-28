@@ -4094,25 +4094,41 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
   AppGraph appGraph;
   appGraph.kernelModules = kernelModules;
+  for (auto node : streamGraph.getVertNames()) {
+    StreamNode n = node.second;
+    if (n.ss == STREAM_SOURCE_ARG) {
+      if (!n.arg.is_output) {
+        string coreirName = CoreIR::map_find(n.arg.name, inputAliases);
+        auto s = def->sel("self")->sel("in")->sel(coreirName);
+        appGraph.addVertex(s);
+      } else {
+        appGraph.addVertex(def->sel("self")->sel(output_name));
+      }
+    } else if (n.ss == STREAM_SOURCE_LB) {
+      // Create linebuffer
+    } else if (n.ss == STREAM_SOURCE_LOOP) {
+      // Add kernel instance
+    }
+  }
   for (auto in : linebufferInputs) {
     string inName = in.first;
     auto lb = in.second;
     appGraph.addVertex(lb);
   }
 
-  for (auto arg : args) {
-    if (arg.is_stencil && !arg.is_output) {
-      string coreirName = CoreIR::map_find(arg.name, inputAliases);
-      auto s = def->sel("self")->sel("in")->sel(coreirName);
-      appGraph.addVertex(s);
-    }
-  }
+  //for (auto arg : args) {
+    //if (arg.is_stencil && !arg.is_output) {
+      //string coreirName = CoreIR::map_find(arg.name, inputAliases);
+      //auto s = def->sel("self")->sel("in")->sel(coreirName);
+      //appGraph.addVertex(s);
+    //}
+  //}
 
   for (auto f : functions) {
     appGraph.addVertex(map_find(f.first, kernels));
   }
 
-  appGraph.addVertex(def->sel("self")->sel(output_name));
+  //appGraph.addVertex(def->sel("self")->sel(output_name));
 
   auto self = def->sel("self");
   for (auto in : linebufferInputs) {
