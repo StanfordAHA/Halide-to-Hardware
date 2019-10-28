@@ -2463,7 +2463,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
     Json romVals;
-    for (int i = 0; i < values.size(); i++) {
+    for (int i = 0; i < (int) values.size(); i++) {
       //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
       romVals["init"].emplace_back(val);
@@ -3543,7 +3543,7 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
 
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
-  auto ed = appGraph.getLabel(e);
+  //auto ed = appGraph.getLabel(e);
 
   return aTime;
 }
@@ -3841,6 +3841,7 @@ class StreamNode {
         return wire;
       }
       internal_assert(false);
+      return nullptr;
     }
 
     std::string toString() const {
@@ -3855,6 +3856,8 @@ class StreamNode {
       if (ss == STREAM_SOURCE_LB) {
         return lbName;
       }
+      internal_assert(false);
+      return "ERROR";
     }
 };
 
@@ -3893,6 +3896,7 @@ bool operator==(const StreamNode& x, const StreamNode& y) {
     return x.lbName == y.lbName;
   }
   internal_assert(false) << "Cannot compare 2 StreamNodes\n";
+  return false;
 }
 
 class StreamEdge {
@@ -3962,6 +3966,7 @@ vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName
   }
 
   internal_assert(false) << "No dispatch for " << streamStr << " to " << dispatchName << "\n";
+  return {};
    //" in " << info.streamDispatches << "\n";
 }
 
@@ -3985,6 +3990,7 @@ vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>&
   }
   cout << "Error: No node for " << target.toString() << endl;
   internal_assert(false);
+  return 0;
 }
 
 // Now: I want to incorporate information about how streams are dispatched
@@ -4009,7 +4015,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       streamGraph.addVertex(aN);
       if (!a.is_output) {
         streamUseInfo[a.name].writer = argNode(a);
-        //{STREAM_SOURCE_ARG, nullptr, a};
       } else {
         streamUseInfo[a.name].readers.push_back({argNode(a), {}});
       }
@@ -4022,13 +4027,11 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     std::set<const Call*> writeStreams = collectCalls("write_stream", f.first->body);
     streamReads[f.first] = readStreams;
     streamWrites[f.first] = writeStreams;
-    //StreamNode forNode{STREAM_SOURCE_LOOP, f.first};
     StreamNode forNode = nestNode(f.first);
     streamGraph.addVertex(forNode);
   }
 
   for (auto lb : scl.info.linebuffers) {
-    //StreamNode lbN{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
     StreamNode lbN = lbNode(lb[0] + "_to_" + lb[1]);
     streamGraph.addVertex(lbN);
   }
@@ -4044,7 +4047,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       string dispatchName = exprString(dispatchString);
       string streamStr = exprString(streamName);
       vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
-      //StreamNode node{STREAM_SOURCE_LOOP, r.first};
       StreamNode node = nestNode(r.first);
       streamUseInfo[streamStr].readers.push_back({node, {dispatchParams}});
     }
@@ -4056,24 +4058,15 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     for (auto wr : r.second) {
       cout << "\t\tstream = " << wr->args[0] << endl;
       streamUseInfo[exprString(wr->args[0])].writer = nestNode(r.first);
-      //{STREAM_SOURCE_LOOP, r.first};
     }
   }
 
   cout << "Stream writes by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
-    //streamUseInfo[lb[1]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
     streamUseInfo[lb[1]].writer = lbNode(lb[0] + "_to_" + lb[1]);
-    //{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
-  //}
-
-  //cout << "Stream reads by linebuffers" << endl;
-  //for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
-    //streamUseInfo[lb[0]].readers.push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
     streamUseInfo[lb[0]].readers.push_back({lbNode(lb[0] + "_to_" + lb[1]), {}});
-    //{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
   }
 
   cout << "Checking dispatch statements" << endl;
@@ -4109,11 +4102,11 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto streamInfo : streamUseInfo) {
     cout << "\tInfo for " << streamInfo.first << endl;
     cout << "\t\twriter = " << streamInfo.second.writer.toString() << endl;
-    vdisc sourceNode = getStreamNode(streamInfo.second.writer, streamGraph);
+    //vdisc sourceNode = getStreamNode(streamInfo.second.writer, streamGraph);
     for (auto rd : streamInfo.second.readers) {
       cout << "\t\tReader = " << rd.first.toString() << " with params = " << rd.second.offsets << endl;
-      vdisc destNode = getStreamNode(rd.first, streamGraph);
-      auto ed = streamGraph.addEdge(sourceNode, destNode);
+      //vdisc destNode = getStreamNode(rd.first, streamGraph);
+      //auto ed = streamGraph.addEdge(sourceNode, destNode);
       // TODO: Create edge label
       //streamGraph.addEdgeLabel(ed, rd.second);
       // Now: add an edge from reader source node 
@@ -4416,7 +4409,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   // Rest of the code builds the definition of this module, first by
   // creating RTL for each loop kernel, and then by wiring up these
   // kernels in to a full design
-  int bitwidth = 16;
+  //int bitwidth = 16;
   LetPusher pusher;
   stmt = pusher.mutate(stmt);
   cout << "After let pushing..." << endl;
