@@ -4173,7 +4173,35 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     internal_assert(base != nullptr);
 
     writer.setWireable(base);
-    
+   
+    for (auto& readers : info.readers) {
+      auto& writer = readers.first;
+      Wireable* base = nullptr;
+      if (writer.ss == STREAM_SOURCE_ARG) {
+        if (!writer.arg.is_output) {
+          string coreirName = CoreIR::map_find(writer.arg.name, inputAliases);
+          auto s = def->sel("self")->sel("in")->sel(coreirName);
+          base = s;
+        } else {
+          auto s = def->sel("self")->sel(output_name);
+          base = s;
+        }
+      } else if (writer.ss == STREAM_SOURCE_LB) {
+        for (auto inst : linebuffers) {
+          if (inst->getInstname() == writer.lbName) {
+            base = static_cast<Wireable*>(inst);
+            break;
+          }
+        }
+        internal_assert(base != nullptr) << "No linebuffer instance for " << writer.lbName << "\n";
+      } else if (writer.ss == STREAM_SOURCE_LOOP) {
+        // Add kernel instance
+        base = map_find(writer.lp, kernels);
+      }
+      internal_assert(base != nullptr);
+
+      writer.setWireable(base);
+    }
   }
 
   AppGraph appGraph;
@@ -4305,6 +4333,11 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     for (auto reader : streamInfo.second.readers) {
       StreamNode readerNode = reader.first;
       StreamSubset subset = reader.second;
+
+      Wireable* src = streamInfo.second.writer.getWireable();
+      Wireable* dest = readerNode.getWireable();
+
+      cout << "Edge from " << coreStr(src) << " to " << coreStr(dest) << endl;
       // If each node in streamUseInfo had an associated wireable I could just 
       // get the wireables and then create the edge from those?
 
