@@ -3957,10 +3957,16 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   DirectedGraph<StreamNode, StreamSubset> streamGraph;
 
   cout << "All args" << endl;
+  map<string, StreamUseInfo> streamUseInfo;
   for (auto a : args) {
     cout << "\t" << a.name << endl;
     StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
     streamGraph.addVertex(argNode);
+    if (!a.is_output) {
+      streamUseInfo[a.name].writer = {STREAM_SOURCE_ARG, nullptr, a};
+    } else {
+      streamUseInfo[a.name].readers.push_back({{STREAM_SOURCE_ARG, nullptr, a}, {}});
+    }
   }
   std::map<const For*, std::set<const Call*> > streamReads;
   std::map<const For*, std::set<const Call*> > streamWrites;
@@ -3978,7 +3984,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     streamGraph.addVertex(lbN);
   }
 
-  map<string, StreamUseInfo> streamUseInfo;
   //map<string, vector<pair<StreamNode, vector<int> > > > streamsToReaders;
   //map<string, StreamNode> streamsToWriters;
   cout << "Stream reads" << endl;
