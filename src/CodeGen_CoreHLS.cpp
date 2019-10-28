@@ -3183,19 +3183,19 @@ void createLinebuffers(CoreIR::Context* context,
     vector<int> inRanges = getStreamDims(inName, info);
     vector<int> outRanges = getStreamDims(outName, info);
     uint input_dims [num_dims];
+    uint output_dims [num_dims];
+    uint image_dims [num_dims];
     for (uint i=0; i<num_dims; ++i) {
       input_dims[i] = inRanges[2*i + 1] - inRanges[2*i];
       input_type = input_type->Arr(input_dims[i]);
-    }
+    //}
 
-    uint output_dims [num_dims];
-    for (uint i=0; i<num_dims; ++i) {
+    //for (uint i=0; i<num_dims; ++i) {
       output_dims[i] = outRanges[2*i + 1] - outRanges[2*i];
       output_type = output_type->Arr(output_dims[i]);
-    }
+    //}
 
-    uint image_dims [num_dims];
-    for (uint i=0; i<num_dims; ++i) {
+    //for (uint i=0; i<num_dims; ++i) {
       image_dims[i] = params[i];
       image_type = image_type->Arr(image_dims[i]);
     }
