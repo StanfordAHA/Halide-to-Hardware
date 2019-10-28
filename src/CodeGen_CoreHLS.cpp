@@ -3993,6 +3993,11 @@ vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>&
   return 0;
 }
 
+std::string lbName(const std::vector<std::string>& lb) {
+  internal_assert(lb.size() > 1);
+  return coreirSanitize(lb[0] + "_to_" + lb[1]);
+}
+
 map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>& functions,
     std::map<const For*, ComputeKernel>& kernelModules,
     std::map<const For*, CoreIR::Instance*>& kernels,
@@ -4025,7 +4030,8 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
   }
 
   for (auto lb : scl.info.linebuffers) {
-    StreamNode lbN = lbNode(lb[0] + "_to_" + lb[1]);
+    StreamNode lbN = lbNode(lbName(lb));
+    //lb[0] + "_to_" + lb[1]);
     streamGraph.addVertex(lbN);
   }
 
@@ -4057,9 +4063,12 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
   cout << "Stream writes by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
-    streamUseInfo[lb[1]].writer = lbNode(lb[0] + "_to_" + lb[1]);
+    //streamUseInfo[lb[1]].writer = lbNode(lb[0] + "_to_" + lb[1]);
+    streamUseInfo[lb[1]].writer = lbNode(lbName(lb));
+    //lb[0] + "_to_" + lb[1]);
     cout << "\t" << lb[0] << endl;
-    streamUseInfo[lb[0]].readers.push_back({lbNode(lb[0] + "_to_" + lb[1]), {}});
+    //streamUseInfo[lb[0]].readers.push_back({lbNode(lb[0] + "_to_" + lb[1]), {}});
+    streamUseInfo[lb[0]].readers.push_back({lbNode(lbName(lb)), {}});
   }
 
   cout << "Checking dispatch statements" << endl;
@@ -4139,7 +4148,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
   CoreIR::ModuleDef* def = std::begin(kernels)->second->getContainer();
   CoreIR::Context* context = def->getContext();
-  // Creates all linebuffers
+  // Challenges for refactoring here:
+  // No mapping from linebuffers to linebuffer nodes
   std::map<string, CoreIR::Instance*> linebufferResults;
   std::map<string, CoreIR::Instance*> linebufferInputs;
   createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
