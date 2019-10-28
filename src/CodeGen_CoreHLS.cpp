@@ -3215,6 +3215,7 @@ void createLinebuffers(CoreIR::Context* context,
     const int bitwidth,
     std::map<string, CoreIR::Instance*>& linebufferResults,
     std::map<string, CoreIR::Instance*>& linebufferInputs,
+    std::set<CoreIR::Instance*>& linebuffers,
     StencilInfoCollector& scl) {
 
   auto& info = scl.info;
@@ -3225,6 +3226,7 @@ void createLinebuffers(CoreIR::Context* context,
     def->connect(coreir_lb->sel("reset"), def->sel("self")->sel("reset"));
     linebufferResults[outName] = coreir_lb;
     linebufferInputs[inName] = coreir_lb;
+    linebuffers.insert(coreir_lb);
   }
 }
 
@@ -4151,7 +4153,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   // No mapping from linebuffers to linebuffer nodes
   std::map<string, CoreIR::Instance*> linebufferResults;
   std::map<string, CoreIR::Instance*> linebufferInputs;
-  createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, scl);
+  std::set<CoreIR::Instance*> linebuffers;
+  createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, linebuffers, scl);
 
   AppGraph appGraph;
   appGraph.kernelModules = kernelModules;
@@ -4167,6 +4170,14 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       }
     } else if (n.ss == STREAM_SOURCE_LB) {
       // Create linebuffer
+      Wireable* w = nullptr;
+      for (auto inst : linebuffers) {
+        if (inst->getInstname() == n.lbName) {
+          w = static_cast<Wireable*>(inst);
+          break;
+        }
+      }
+      internal_assert(w != nullptr) << "No linebuffer instance for " << n.lbName << "\n";
     } else if (n.ss == STREAM_SOURCE_LOOP) {
       // Add kernel instance
       appGraph.addVertex(map_find(n.lp, kernels));
