@@ -3833,6 +3833,10 @@ class StreamNode {
 
     StreamNode() : wire(nullptr) {}
 
+    void setWireable(Wireable* w) {
+      wire = w;
+    }
+
     bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
     bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
 
@@ -4121,25 +4125,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   map<string, StreamUseInfo> streamUseInfo =
     createStreamUseInfo(functions, kernelModules, kernels, args, ifc, scl, streamGraph);
   
-  // Now: Add edges to streamGraph for each stream?
-  cout << "Extracted stream info" << endl;
-  for (auto streamInfo : streamUseInfo) {
-    cout << "\tInfo for " << streamInfo.first << endl;
-    cout << "\t\twriter = " << streamInfo.second.writer.toString() << endl;
-    //vdisc sourceNode = getStreamNode(streamInfo.second.writer, streamGraph);
-    for (auto rd : streamInfo.second.readers) {
-      cout << "\t\tReader = " << rd.first.toString() << " with params = " << rd.second.offsets << endl;
-      //vdisc destNode = getStreamNode(rd.first, streamGraph);
-      //auto ed = streamGraph.addEdge(sourceNode, destNode);
-      // TODO: Create edge label
-      //streamGraph.addEdgeLabel(ed, rd.second);
-      // Now: add an edge from reader source node 
-    }
-  }
-
-  // Now: Build appGraph from streamInfo?
-
-  // Now: Need to use this information while wiring up the design?
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
   auto output_name_real = ifc.output_name_real;
@@ -4150,23 +4135,65 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   CoreIR::ModuleDef* def = std::begin(kernels)->second->getContainer();
   CoreIR::Context* context = def->getContext();
   // Challenges for refactoring here:
-  // No mapping from linebuffers to linebuffer nodes
+  // No mapping from linebuffers to linebuffer nodes (solved)
+  // Creating new edges is a tedious process
+  // Im not sure how we are going to compute new delays from streamsubsets
+  // DAG data structure API is not exactly what I want
   std::map<string, CoreIR::Instance*> linebufferResults;
   std::map<string, CoreIR::Instance*> linebufferInputs;
   std::set<CoreIR::Instance*> linebuffers;
   createLinebuffers(context, def, bitwidth, linebufferResults, linebufferInputs, linebuffers, scl);
 
+  for (auto& streamUse : streamUseInfo) {
+    auto& info = streamUse.second;
+    auto& writer = info.writer;
+
+    Wireable* base = nullptr;
+    if (writer.ss == STREAM_SOURCE_ARG) {
+      if (!writer.arg.is_output) {
+        string coreirName = CoreIR::map_find(writer.arg.name, inputAliases);
+        auto s = def->sel("self")->sel("in")->sel(coreirName);
+        base = s;
+      } else {
+        auto s = def->sel("self")->sel(output_name);
+        base = s;
+      }
+    } else if (writer.ss == STREAM_SOURCE_LB) {
+      for (auto inst : linebuffers) {
+        if (inst->getInstname() == writer.lbName) {
+          base = static_cast<Wireable*>(inst);
+          break;
+        }
+      }
+      internal_assert(base != nullptr) << "No linebuffer instance for " << writer.lbName << "\n";
+    } else if (writer.ss == STREAM_SOURCE_LOOP) {
+      // Add kernel instance
+      base = map_find(writer.lp, kernels);
+    }
+    internal_assert(base != nullptr);
+
+    writer.setWireable(base);
+    
+  }
+
   AppGraph appGraph;
   appGraph.kernelModules = kernelModules;
+  // Use this map to wire up edges?
+  std::map<vdisc, Wireable*> streamNodeMap;
   for (auto node : streamGraph.getVertNames()) {
+    vdisc v = node.first;
     StreamNode n = node.second;
     if (n.ss == STREAM_SOURCE_ARG) {
       if (!n.arg.is_output) {
         string coreirName = CoreIR::map_find(n.arg.name, inputAliases);
         auto s = def->sel("self")->sel("in")->sel(coreirName);
         appGraph.addVertex(s);
+        streamNodeMap[v] = s;
       } else {
-        appGraph.addVertex(def->sel("self")->sel(output_name));
+        auto s = def->sel("self")->sel(output_name);
+        appGraph.addVertex(s);
+        //def->sel("self")->sel(output_name));
+        streamNodeMap[v] = s;
       }
     } else if (n.ss == STREAM_SOURCE_LB) {
       // Create linebuffer
@@ -4178,32 +4205,22 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
         }
       }
       internal_assert(w != nullptr) << "No linebuffer instance for " << n.lbName << "\n";
+     
+      streamNodeMap[v] = w;
+      appGraph.addVertex(w);
     } else if (n.ss == STREAM_SOURCE_LOOP) {
       // Add kernel instance
+      streamNodeMap[v] = map_find(n.lp, kernels);
       appGraph.addVertex(map_find(n.lp, kernels));
     }
   }
-  for (auto in : linebufferInputs) {
-    string inName = in.first;
-    auto lb = in.second;
-    appGraph.addVertex(lb);
-  }
-
-  //for (auto arg : args) {
-    //if (arg.is_stencil && !arg.is_output) {
-      //string coreirName = CoreIR::map_find(arg.name, inputAliases);
-      //auto s = def->sel("self")->sel("in")->sel(coreirName);
-      //appGraph.addVertex(s);
-    //}
-  //}
-
-  //for (auto f : functions) {
-    //appGraph.addVertex(map_find(f.first, kernels));
-  //}
-
-  //appGraph.addVertex(def->sel("self")->sel(output_name));
 
   auto self = def->sel("self");
+  // One way to proceed: for every node in streamgraph, if it is a linebuffer
+  // then create a new connection for it?
+  for (auto node : streamGraph.getVertNames()) {
+
+  }
   for (auto in : linebufferInputs) {
     string inName = in.first;
     auto lb = in.second;
@@ -4288,6 +4305,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     for (auto reader : streamInfo.second.readers) {
       StreamNode readerNode = reader.first;
       StreamSubset subset = reader.second;
+      // If each node in streamUseInfo had an associated wireable I could just 
+      // get the wireables and then create the edge from those?
 
       // Problem: Do I want to insert the stream subset filter node here?
       // Also: How do I relate streamnodes to wireables?
@@ -4388,6 +4407,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
   return appGraph;
 }
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
