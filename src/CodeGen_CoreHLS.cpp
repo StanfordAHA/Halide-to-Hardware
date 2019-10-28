@@ -3820,24 +3820,42 @@ class StreamNode {
     const For* lp;
     CoreIR_Argument arg;
     std::string lbName;
+    CoreIR::Wireable* wire;
 
+    //StreamNode() : wire(nullptr) {}
 
-  bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
-  bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
+    bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
+    bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
 
-  std::string toString() const {
-    if (ss == STREAM_SOURCE_ARG) {
-      return arg.name;
+    CoreIR::Wireable* getWireable() const {
+      internal_assert(wire != nullptr) << "wire is null in getWireable\n";
+      if (ss == STREAM_SOURCE_ARG) {
+        return wire;
+      }
+
+      if (ss == STREAM_SOURCE_LOOP) {
+        return wire;
+      }
+
+      if (ss == STREAM_SOURCE_LB) {
+        return wire;
+      }
+      internal_assert(false);
     }
 
-    if (ss == STREAM_SOURCE_LOOP) {
-      return lp->name;
-    }
+    std::string toString() const {
+      if (ss == STREAM_SOURCE_ARG) {
+        return arg.name;
+      }
 
-    if (ss == STREAM_SOURCE_LB) {
-      return lbName;
+      if (ss == STREAM_SOURCE_LOOP) {
+        return lp->name;
+      }
+
+      if (ss == STREAM_SOURCE_LB) {
+        return lbName;
+      }
     }
-  }
 };
 
 bool operator==(const StreamNode& x, const StreamNode& y) {
@@ -4019,10 +4037,10 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
     streamUseInfo[lb[1]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
-  }
+  //}
 
-  cout << "Stream reads by linebuffers" << endl;
-  for (auto lb : scl.info.linebuffers) {
+  //cout << "Stream reads by linebuffers" << endl;
+  //for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
     streamUseInfo[lb[0]].readers.push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
   }
@@ -4212,6 +4230,12 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     for (auto reader : streamInfo.second.readers) {
       StreamNode readerNode = reader.first;
       StreamSubset subset = reader.second;
+
+      // Problem: Do I want to insert the stream subset filter node here?
+      // Also: How do I relate streamnodes to wireables?
+      //if (readerNode.ss == STREAM_SOURCE_LOOP) {
+        //KernelEdge e = buildEdge(readerNode, writerNode, def, appGraph);
+      //}
     }
   }
   for (auto f : functions) {
