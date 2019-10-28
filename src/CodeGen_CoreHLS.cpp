@@ -3815,6 +3815,20 @@ class StreamNode {
 
   bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
   bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
+
+  std::string toString() const {
+    if (ss == STREAM_SOURCE_ARG) {
+      return arg.name;
+    }
+
+    if (ss == STREAM_SOURCE_LOOP) {
+      return lp->name;
+    }
+
+    if (ss == STREAM_SOURCE_LB) {
+      return lbName;
+    }
+  }
 };
 
 class StreamEdge {
@@ -3885,6 +3899,17 @@ vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName
   internal_assert(false) << "No dispatch for " << streamStr << " to " << dispatchName << "\n";
    //" in " << info.streamDispatches << "\n";
 }
+
+class StreamSubset {
+  public:
+    vector<int> offsets;
+};
+
+class StreamUseInfo {
+  public:
+    vector<pair<StreamNode, StreamSubset> > readers;
+    StreamNode writer;
+};
 // Now: I want to incorporate information about how streams are dispatched
 // (offsets and extents) so that I can insert hedgetrimmer elements that
 // strip portions of the stream output away.
@@ -3924,8 +3949,9 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     streamGraph.addVertex(lbN);
   }
 
-  map<string, vector<pair<StreamNode, vector<int> > > > streamsToReaders;
-  map<string, StreamNode> streamsToWriters;
+  map<string, StreamUseInfo> streamUseInfo;
+  //map<string, vector<pair<StreamNode, vector<int> > > > streamsToReaders;
+  //map<string, StreamNode> streamsToWriters;
   cout << "Stream reads" << endl;
   for (auto r : streamReads) {
     cout << "\tLoop..." << endl;
@@ -3938,7 +3964,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       string streamStr = exprString(streamName);
       vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
       StreamNode node{STREAM_SOURCE_LOOP, r.first};
-      streamsToReaders[streamStr].push_back({node, dispatchParams});
+      streamUseInfo[streamStr].readers.push_back({node, {dispatchParams}});
+      //streamsToReaders[streamStr].push_back({node, dispatchParams});
     }
   }
 
@@ -3947,35 +3974,26 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     cout << "\tLoop..." << endl;
     for (auto wr : r.second) {
       cout << "\t\tstream = " << wr->args[0] << endl;
-      internal_assert(!contains_key(exprString(wr->args[0]), streamsToWriters));
-      streamsToWriters[exprString(wr->args[0])] = {STREAM_SOURCE_LOOP, r.first};
+      //internal_assert(!contains_key(exprString(wr->args[0]), streamsToWriters));
+      streamUseInfo[exprString(wr->args[0])].writer = {STREAM_SOURCE_LOOP, r.first};
+      //streamsToWriters[exprString(wr->args[0])] = {STREAM_SOURCE_LOOP, r.first};
     }
   }
 
   cout << "Stream writes by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
-    streamsToWriters[lb[1]] = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    streamUseInfo[lb[1]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    //streamsToWriters[lb[1]] = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
   }
 
   cout << "Stream reads by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
-    streamsToReaders[lb[0]].push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
+    //streamsToReaders[lb[0]].push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
+    streamUseInfo[lb[0]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
   }
 
-  // What I want to do:
-  // - Walk over each node in streamGraph. If it is a loop then connect all
-  // inputs to it, then set its outputs
-  // - Also: I want to make sure that every connection is accompanied by
-  // the edge filter parameters it needs
-  // - Dispatches are only stream -> for loop though I think, bc they are
-  // tagged by dispatches.
-  // Eventually: I want to have the graph represented in dag before AppGraph
-  // construction. Then I want to be able to build the appgraph from this
-  // graph, adding trimmer nodes where appropriate
-  // - Problem: linebuffers inputs will never be connected
-  // Q: Are all stream reads / writes reflected in dispatch statements?
   cout << "Checking dispatch statements" << endl;
   for (auto sd : scl.info.streamDispatches) {
     cout << "\t" << sd.first << " -> " << sd.second << endl;
@@ -4001,6 +4019,16 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
         cout << " offset = " << sd.second[p] << ", extent = " << sd.second[p + 1];
       }
       cout << endl;
+    }
+  }
+
+  // Now: Add edges to streamGraph for each stream?
+  cout << "Extracted stream info" << endl;
+  for (auto streamInfo : streamUseInfo) {
+    cout << "\tInfo for " << streamInfo.first << endl;
+    cout << "\t\twrite r= " << streamInfo.second.writer.toString() << endl;
+    for (auto rd : streamInfo.second.readers) {
+      cout << "\t\tReader = " << rd.first.toString() << " with params = " << rd.second.offsets << endl;
     }
   }
 
