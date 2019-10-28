@@ -3822,7 +3822,7 @@ class StreamNode {
     std::string lbName;
     CoreIR::Wireable* wire;
 
-    //StreamNode() : wire(nullptr) {}
+    StreamNode() : wire(nullptr) {}
 
     bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
     bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
@@ -3857,6 +3857,27 @@ class StreamNode {
       }
     }
 };
+
+StreamNode lbNode(const std::string& name) {
+  StreamNode node;
+  node.ss = STREAM_SOURCE_LB;
+  node.lbName = name;
+  return node;
+}
+
+StreamNode argNode(CoreIR_Argument& arg) {
+  StreamNode node;
+  node.ss = STREAM_SOURCE_ARG;
+  node.arg = arg;
+  return node;
+}
+
+StreamNode nestNode(const For* lp) {
+  StreamNode node;
+  node.ss = STREAM_SOURCE_LOOP;
+  node.lp = lp;
+  return node;
+}
 
 bool operator==(const StreamNode& x, const StreamNode& y) {
   if (x.ss != y.ss) {
@@ -3983,12 +4004,14 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto a : args) {
     if (a.is_stencil) {
       cout << "\t" << a.name << endl;
-      StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
-      streamGraph.addVertex(argNode);
+      //StreamNode argNode{STREAM_SOURCE_ARG, nullptr, a};
+      StreamNode aN = argNode(a);
+      streamGraph.addVertex(aN);
       if (!a.is_output) {
-        streamUseInfo[a.name].writer = {STREAM_SOURCE_ARG, nullptr, a};
+        streamUseInfo[a.name].writer = argNode(a);
+        //{STREAM_SOURCE_ARG, nullptr, a};
       } else {
-        streamUseInfo[a.name].readers.push_back({{STREAM_SOURCE_ARG, nullptr, a}, {}});
+        streamUseInfo[a.name].readers.push_back({argNode(a), {}});
       }
     }
   }
@@ -3999,12 +4022,14 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     std::set<const Call*> writeStreams = collectCalls("write_stream", f.first->body);
     streamReads[f.first] = readStreams;
     streamWrites[f.first] = writeStreams;
-    StreamNode forNode{STREAM_SOURCE_LOOP, f.first};
+    //StreamNode forNode{STREAM_SOURCE_LOOP, f.first};
+    StreamNode forNode = nestNode(f.first);
     streamGraph.addVertex(forNode);
   }
 
   for (auto lb : scl.info.linebuffers) {
-    StreamNode lbN{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    //StreamNode lbN{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    StreamNode lbN = lbNode(lb[0] + "_to_" + lb[1]);
     streamGraph.addVertex(lbN);
   }
 
@@ -4019,7 +4044,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       string dispatchName = exprString(dispatchString);
       string streamStr = exprString(streamName);
       vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
-      StreamNode node{STREAM_SOURCE_LOOP, r.first};
+      //StreamNode node{STREAM_SOURCE_LOOP, r.first};
+      StreamNode node = nestNode(r.first);
       streamUseInfo[streamStr].readers.push_back({node, {dispatchParams}});
     }
   }
@@ -4029,20 +4055,25 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     cout << "\tLoop..." << endl;
     for (auto wr : r.second) {
       cout << "\t\tstream = " << wr->args[0] << endl;
-      streamUseInfo[exprString(wr->args[0])].writer = {STREAM_SOURCE_LOOP, r.first};
+      streamUseInfo[exprString(wr->args[0])].writer = nestNode(r.first);
+      //{STREAM_SOURCE_LOOP, r.first};
     }
   }
 
   cout << "Stream writes by linebuffers" << endl;
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[1] << endl;
-    streamUseInfo[lb[1]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    //streamUseInfo[lb[1]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    streamUseInfo[lb[1]].writer = lbNode(lb[0] + "_to_" + lb[1]);
+    //{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
   //}
 
   //cout << "Stream reads by linebuffers" << endl;
   //for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
-    streamUseInfo[lb[0]].readers.push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
+    //streamUseInfo[lb[0]].readers.push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
+    streamUseInfo[lb[0]].readers.push_back({lbNode(lb[0] + "_to_" + lb[1]), {}});
+    //{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
   }
 
   cout << "Checking dispatch statements" << endl;
