@@ -3911,6 +3911,12 @@ class StreamUseInfo {
     vector<pair<StreamNode, StreamSubset> > readers;
     StreamNode writer;
 };
+
+
+vdisc getStreamNode(StreamNode& node, DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
+  internal_assert(false);
+}
+
 // Now: I want to incorporate information about how streams are dispatched
 // (offsets and extents) so that I can insert hedgetrimmer elements that
 // strip portions of the stream output away.
@@ -3926,7 +3932,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   // get me closer in representation to the loop transformations Im interested in
   // Note: The full application graph needs a node to model for loops as well as
   // arguments.
-  DirectedGraph<StreamNode, StreamEdge> streamGraph;
+  DirectedGraph<StreamNode, StreamSubset> streamGraph;
 
   cout << "All args" << endl;
   for (auto a : args) {
@@ -3992,7 +3998,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto lb : scl.info.linebuffers) {
     cout << "\t" << lb[0] << endl;
     //streamsToReaders[lb[0]].push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
-    streamUseInfo[lb[0]].writer = {STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]};
+    streamUseInfo[lb[0]].readers.push_back({{STREAM_SOURCE_LB, nullptr, {}, lb[0] + "_to_" + lb[1]}, {}});
   }
 
   cout << "Checking dispatch statements" << endl;
@@ -4028,10 +4034,18 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   for (auto streamInfo : streamUseInfo) {
     cout << "\tInfo for " << streamInfo.first << endl;
     cout << "\t\twrite r= " << streamInfo.second.writer.toString() << endl;
+    vdisc sourceNode = getStreamNode(streamInfo.second.writer, streamGraph);
     for (auto rd : streamInfo.second.readers) {
       cout << "\t\tReader = " << rd.first.toString() << " with params = " << rd.second.offsets << endl;
+      vdisc destNode = getStreamNode(rd.first, streamGraph);
+      auto ed = streamGraph.addEdge(sourceNode, destNode);
+      // TODO: Create edge label
+      //streamGraph.addEdgeLabel(ed, rd.second);
+      // Now: add an edge from reader source node 
     }
   }
+
+
 
   // Now: Need to use this information while wiring up the design?
   internal_assert(false) << "Stopping here\n";
