@@ -3148,6 +3148,65 @@ void inferStreamTypes(StencilInfoCollector& scl) {
     
 }
 
+Instance* createLinebuffer(CoreIR::Context* context,
+    CoreIR::ModuleDef* def,
+    StencilInfo& info,
+    const std::vector<std::string>& lb) {
+
+  int bitwidth = 16;
+
+  string inName = lb[0];
+  string outName = lb[1];
+
+  string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
+  vector<int> params;
+  for (int i = 2; i < (int) lb.size(); i++) {
+    params.push_back(stoi(lb[i]));
+  }
+
+  cout << "Linebuffer from " << inName << " to " << outName << " with params: ";
+  for (auto p : params) {
+    cout << p << ", ";
+  }
+  cout << endl;
+
+  // Need to create: input_type, output_type, image_type, has_valid (assume true)
+
+  uint num_dims = params.size();
+  CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
+  CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
+  CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
+
+
+  vector<int> inRanges = getStreamDims(inName, info);
+  vector<int> outRanges = getStreamDims(outName, info);
+  uint input_dims [num_dims];
+  uint output_dims [num_dims];
+  uint image_dims [num_dims];
+  for (uint i=0; i<num_dims; ++i) {
+    input_dims[i] = inRanges[2*i + 1] - inRanges[2*i];
+    input_type = input_type->Arr(input_dims[i]);
+    //}
+
+    //for (uint i=0; i<num_dims; ++i) {
+    output_dims[i] = outRanges[2*i + 1] - outRanges[2*i];
+    output_type = output_type->Arr(output_dims[i]);
+    //}
+
+    //for (uint i=0; i<num_dims; ++i) {
+    image_dims[i] = params[i];
+    image_type = image_type->Arr(image_dims[i]);
+}
+
+CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
+  {"output_type", CoreIR::Const::make(context,output_type)},
+  {"image_type", CoreIR::Const::make(context,image_type)},
+  {"has_valid",CoreIR::Const::make(context,true)}};
+
+CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "commonlib.linebuffer", lb_args);
+return coreir_lb;
+}
+
 void createLinebuffers(CoreIR::Context* context,
     CoreIR::ModuleDef* def,
     const int bitwidth,
@@ -3159,53 +3218,7 @@ void createLinebuffers(CoreIR::Context* context,
   for (auto lb : scl.info.linebuffers) {
     string inName = lb[0];
     string outName = lb[1];
-
-    string lb_name = "lb_" + coreirSanitize(inName) + "_to_" + coreirSanitize(outName);
-    vector<int> params;
-    for (int i = 2; i < (int) lb.size(); i++) {
-      params.push_back(stoi(lb[i]));
-    }
-
-    cout << "Linebuffer from " << inName << " to " << outName << " with params: ";
-    for (auto p : params) {
-      cout << p << ", ";
-    }
-    cout << endl;
-
-    // Need to create: input_type, output_type, image_type, has_valid (assume true)
-
-    uint num_dims = params.size();
-    CoreIR::Type* input_type = context->BitIn()->Arr(bitwidth);
-    CoreIR::Type* output_type = context->Bit()->Arr(bitwidth);
-    CoreIR::Type* image_type = context->Bit()->Arr(bitwidth);
-
-
-    vector<int> inRanges = getStreamDims(inName, info);
-    vector<int> outRanges = getStreamDims(outName, info);
-    uint input_dims [num_dims];
-    uint output_dims [num_dims];
-    uint image_dims [num_dims];
-    for (uint i=0; i<num_dims; ++i) {
-      input_dims[i] = inRanges[2*i + 1] - inRanges[2*i];
-      input_type = input_type->Arr(input_dims[i]);
-    //}
-
-    //for (uint i=0; i<num_dims; ++i) {
-      output_dims[i] = outRanges[2*i + 1] - outRanges[2*i];
-      output_type = output_type->Arr(output_dims[i]);
-    //}
-
-    //for (uint i=0; i<num_dims; ++i) {
-      image_dims[i] = params[i];
-      image_type = image_type->Arr(image_dims[i]);
-    }
-
-    CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)},
-      {"output_type", CoreIR::Const::make(context,output_type)},
-      {"image_type", CoreIR::Const::make(context,image_type)},
-      {"has_valid",CoreIR::Const::make(context,true)}};
-
-    CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "commonlib.linebuffer", lb_args);
+    auto coreir_lb = createLinebuffer(context, def, info, lb);
     def->connect(coreir_lb->sel("reset"), def->sel("self")->sel("reset"));
     linebufferResults[outName] = coreir_lb;
     linebufferInputs[inName] = coreir_lb;
