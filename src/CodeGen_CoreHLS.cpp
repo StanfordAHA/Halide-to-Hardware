@@ -3891,6 +3891,7 @@ vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName
       for (int p = rStart + 2; p < rStart + paramsPerReceiver; p += 2) {
         cout << "Getting dispatch parameter " << exprString(sd[p]) << endl;
         params.push_back(stoi(stripQuotes(exprString(sd[p]))));
+        params.push_back(stoi(stripQuotes(exprString(sd[p + 1]))));
       }
       return params;
     }
