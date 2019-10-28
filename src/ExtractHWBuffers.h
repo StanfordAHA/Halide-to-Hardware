@@ -22,7 +22,15 @@
 namespace Halide {
 namespace Internal {
 
-struct BufferDimSize {
+struct Stride {
+  int stride;
+  bool is_inverse;
+  Stride(int stride=0, bool is_inverse=false) :
+    stride(stride), is_inverse(is_inverse) {}
+
+};
+
+struct MergedDimSize {
   std::string loop_name;
   Expr logical_size;
   Expr logical_min;
@@ -36,58 +44,174 @@ struct BufferDimSize {
   Expr output_max_pos;
 };
 
-struct Stride {
-  int stride;
-  bool is_inverse;
-  Stride(int stride=0, bool is_inverse=false) :
-    stride(stride), is_inverse(is_inverse) {}
-
+struct InputDimSize {
+  std::string loop_name;
+  Expr input_chunk;
+  Expr input_block;
 };
 
-std::vector<BufferDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
-                                                 std::vector<int> output_stencil, std::vector<int> output_block,
-                                                 std::vector<int> input_chunk, std::vector<int> input_block);
+struct InputStream {
+  std::string name;
+  std::vector<InputDimSize> idims;
+  Stmt input_access_pattern;
+  std::map<std::string, Stride> stride_map;
+};
+
+struct OutputDimSize {
+  std::string loop_name;
+  Expr output_stencil;
+  Expr output_block;
+  Expr output_min_pos;
+  Expr output_max_pos;
+};
+
+struct HWBuffer; // forward declare
+struct OutputStream {
+  std::string name;
+  std::vector<OutputDimSize> odims;
+  Stmt output_access_pattern;
+  std::map<std::string, Stride> stride_map;
+  std::shared_ptr<HWBuffer> hwref;
+};
+
+struct InOutDimSize {
+  std::string loop_name;
+
+  Expr input_chunk;
+  Expr input_block;
+
+  Expr output_stencil;
+  Expr output_block;
+  Expr output_min_pos;
+  Expr output_max_pos;
+};
+
+struct LogicalDimSize {
+  Expr var_name;
+  Expr logical_size;
+  Expr logical_min;
+};
+
+std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
+                                                 std::vector<int> output_stencil,
+                                                 std::vector<int> output_block,
+                                                 std::vector<int> input_chunk,
+                                                 std::vector<int> input_block);
   
 struct HWBuffer {
   std::string name;
   std::string store_level;
   std::string compute_level;
-  LoopLevel store_looplevel;
-  LoopLevel compute_looplevel = LoopLevel::inlined();
-  
-  // Parameters for the HWBuffer
-  std::vector<BufferDimSize> dims;
-  std::shared_ptr<SlidingStencils> input_stencil;
+  std::vector<std::string> streaming_loops;
+  //LoopLevel store_looplevel;
+  //LoopLevel compute_looplevel = LoopLevel::inlined();
 
-  Stmt input_access_pattern;
-  Stmt output_access_pattern;
   Stmt my_stmt;
-
-  // Parameters used during optimization
+  Function func;
   bool is_inlined = false;
   bool is_output = false;
+  
+  // old parameters for the HWBuffer
+  std::shared_ptr<SlidingStencils> input_stencil;
+  std::vector<InOutDimSize> dims;
+  Stmt input_access_pattern;
+  Stmt output_access_pattern;
   std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls
-  Function func;
-  std::vector<std::string> streaming_loops;
   std::map<std::string, Stride> stride_map;
 
+  // dimensions for the hwbuffer
+  std::vector<LogicalDimSize> ldims;
+  std::map<std::string, InputStream> istreams;
+  std::map<std::string, OutputStream> ostreams;
+  
+  // Constructors
   HWBuffer(size_t num_dims, SlidingStencils &is) :
-    dims(std::vector<BufferDimSize>(num_dims)), input_stencil(std::make_shared<SlidingStencils>(is)) { }
+    input_stencil(std::make_shared<SlidingStencils>(is)), dims(std::vector<InOutDimSize>(num_dims)) { }
   HWBuffer() : input_stencil(nullptr) { }
 
-  HWBuffer(std::string name, std::vector<BufferDimSize> dims, bool is_inlined, bool is_output) :
-    name(name), dims(dims), is_inlined(is_inlined), is_output(is_output) { };
-  HWBuffer(std::string name, std::vector<BufferDimSize> dims, std::vector<std::string> loops,
-           int store_index, int compute_index, bool is_inlined, bool is_output) :
-  //std::map<std::string, std::shared_ptr<HWBuffer>> consumer_map) :
-    name(name), store_level(store_index < 0 ? "" : loops[store_index]),
-    compute_level(compute_index < 0 ? "" : loops[compute_index]),
-    dims(dims), is_inlined(is_inlined), is_output(is_output) {
-    loops.erase(loops.begin());
-    streaming_loops = loops;
+    /*
+  HWBuffer(std::string name, std::vector<MergedDimSize> mdims, bool is_inlined, bool is_output) :
+    name(name), is_inlined(is_inlined), is_output(is_output) {
+    dims = std::vector<InOutDimSize>(mdims.size());
+    for (size_t i=0; i<mdims.size(); ++i) {
+      dims[i].loop_name      = mdims[i].loop_name;
+      dims[i].input_chunk    = mdims[i].input_chunk;
+      dims[i].input_block    = mdims[i].input_block;
+      dims[i].output_stencil = mdims[i].output_stencil;
+      dims[i].output_block   = mdims[i].output_block;
+      dims[i].output_min_pos = mdims[i].output_min_pos;
+      dims[i].output_max_pos = mdims[i].output_max_pos;
+    }
+
   };
 
+  HWBuffer(std::string name, std::vector<MergedDimSize> dims, std::vector<std::string> loops,
+           int store_index, int compute_index, bool is_inlined, bool is_output) :
+    name(name), store_level(store_index < 0 ? "" : loops[store_index]),
+    compute_level(compute_index < 0 ? "" : loops[compute_index]),
+    is_inlined(is_inlined), is_output(is_output), dims(dims) {
+    loops.erase(loops.begin());
+    streaming_loops = loops;
+
+    for (size_t i=0; i<dims.size(); ++i) {
+      ldims[i].logical_size = dims[i].logical_size;
+      ldims[i].logical_min = dims[i].logical_min;
+    }
+  };
+  */
+
+  HWBuffer(std::string name, std::vector<MergedDimSize> mdims, std::vector<std::string> loops,
+           int store_index, int compute_index, bool is_inlined, bool is_output) :
+    name(name), store_level(store_index < 0 ? "" : loops[store_index]),
+    compute_level(compute_index < 0 ? "" : loops[compute_index]),
+    is_inlined(is_inlined), is_output(is_output) {
+    loops.erase(loops.begin());
+    streaming_loops = loops;
+
+
+    ldims = std::vector<LogicalDimSize>(mdims.size());
+    for (size_t i=0; i<mdims.size(); ++i) {
+      ldims[i].logical_size = mdims[i].logical_size;
+      ldims[i].logical_min = mdims[i].logical_min;
+    }
+
+    InputStream istream;
+    istream.idims = std::vector<InputDimSize>(mdims.size());
+    istreams["input"] = istream;
+    
+    OutputStream ostream;
+    ostream.odims = std::vector<OutputDimSize>(mdims.size());
+    ostreams["output"] = ostream;
+    
+    dims = std::vector<InOutDimSize>(mdims.size());
+    for (size_t i=0; i<mdims.size(); ++i) {
+      istreams["input"].idims.at(i).loop_name       = mdims.at(i).loop_name;
+      istreams["input"].idims.at(i).input_chunk     = mdims.at(i).input_chunk;
+      istreams["input"].idims.at(i).input_block     = mdims.at(i).input_block;
+      
+      ostreams["output"].odims.at(i).loop_name      = mdims.at(i).loop_name;
+      ostreams["output"].odims.at(i).output_stencil = mdims.at(i).output_stencil;
+      ostreams["output"].odims.at(i).output_block   = mdims.at(i).output_block;
+      ostreams["output"].odims.at(i).output_min_pos = mdims.at(i).output_min_pos;
+      ostreams["output"].odims.at(i).output_max_pos = mdims.at(i).output_max_pos;
+    }
+
+    // old way
+    dims = std::vector<InOutDimSize>(mdims.size());
+    for (size_t i=0; i<mdims.size(); ++i) {
+      dims[i].loop_name      = mdims[i].loop_name;
+      dims[i].input_chunk    = mdims[i].input_chunk;
+      dims[i].input_block    = mdims[i].input_block;
+      dims[i].output_stencil = mdims[i].output_stencil;
+      dims[i].output_block   = mdims[i].output_block;
+      dims[i].output_min_pos = mdims[i].output_min_pos;
+      dims[i].output_max_pos = mdims[i].output_max_pos;
+    }
+    
+  };
+
+  
 };
 
 std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec);
@@ -99,6 +223,7 @@ std::map<std::string, HWBuffer> extract_hw_buffers(Stmt s, const std::map<std::s
 
 struct HWXcel {
   std::string name;
+  Function func;
   LoopLevel store_level;
   LoopLevel compute_level;
   

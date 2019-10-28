@@ -33,6 +33,7 @@ void h_assert(bool condition, const string msg="") {
 void check_param(const string paramname, Expr param1, Expr param2) {
   std::ostringstream debug_stream;
   debug_stream << paramname << " not correct: " << param1 << " vs ref=" << param2;
+  h_assert(param1.defined() && param2.defined(), debug_stream.str());
   h_assert(is_one(simplify(param1 == param2)), debug_stream.str());
 }
 
@@ -146,7 +147,7 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   h_assert(hwbuffer.name == ref.name, "wrong name for hwbuffer: " + hwbuffer.name + " vs ref=" + ref.name);
   
   //std::cout << "loop is " << hwbuffer.store_looplevel.lock() << " and " << hwbuffer.compute_looplevel.lock() << std::endl;
-  std::cout << "loop has compute " << hwbuffer.compute_looplevel.lock() << std::endl;
+  //std::cout << "loop has compute " << hwbuffer.compute_looplevel.lock() << std::endl;
   h_assert(hwbuffer.store_level == ref.store_level,
            hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
   h_assert(hwbuffer.compute_level == ref.compute_level,
@@ -165,7 +166,7 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
 
   h_assert(hwbuffer.dims.size() == ref.dims.size(), "doesn't have correct num of dims");
   for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param("logical size dim" + to_string(i), hwbuffer.dims.at(i).logical_size, ref.dims.at(i).logical_size);
+    check_param("logical size dim" + to_string(i), hwbuffer.ldims.at(i).logical_size, ref.ldims.at(i).logical_size);
   }
   for (size_t i=0; i<ref.dims.size(); ++i) {
     check_param("output stencil dim" + to_string(i), hwbuffer.dims.at(i).output_stencil, ref.dims.at(i).output_stencil);
@@ -504,7 +505,7 @@ int main(int argc, char **argv) {
 
     //if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
-    if (pipeline_hwbuffer_test({3, 1}, 64) != 0) { return -1; }
+    if (pipeline_hwbuffer_test({3, 3}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
 
@@ -514,6 +515,9 @@ int main(int argc, char **argv) {
     //if (tiled_pipeline_hwbuffer_test({3}, 64, 32) != 0) { return -1; }
     if (tiled_pipeline_hwbuffer_test({7, 3, 5, 2}, 64, 16) != 0) { return -1; }
 
+    printf("Running forked conv hwbuffer tests\n");
+    printf("    checking hwbuffers...\n");
+    
     //if (forked_pipeline_hwbuffer_test(3, {3}, 3, 64) != 0) { return -1; }
     
     printf("Success!\n");

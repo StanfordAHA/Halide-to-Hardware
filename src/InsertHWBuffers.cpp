@@ -366,6 +366,9 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             // Replace the arguments. e.g.
             //   func.s0.x -> func.stencil.x
             for (size_t i = 0; i < op->args.size(); i++) {
+              std::cout << "op->arg " << op->args[i] << " - " << kernel.dims.at(i).output_min_pos << std::endl;
+
+              
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
               new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
@@ -560,7 +563,8 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
     for (size_t i = 0; i < kernel.dims.size(); i++) {
         dispatch_args.push_back(kernel.dims[i].output_stencil);
         dispatch_args.push_back(kernel.dims[i].input_chunk);
-        dispatch_args.push_back(kernel.dims[i].logical_size);
+        dispatch_args.push_back(kernel.ldims[i].logical_size);
+        //dispatch_args.push_back(kernel.dims[i].logical_size);
         //Expr store_extent = simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1);
         //internal_assert(is_const(store_extent));
         //dispatch_args.push_back((int)*as_const_int(store_extent));
@@ -576,8 +580,11 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         //internal_assert(p.second->dims.size() == kernel.dims.size()); FIXME, should this be the case?
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           //dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos)); FIXME
-          dispatch_args.push_back(p.second->dims.at(i).logical_min);
-          dispatch_args.push_back(p.second->dims.at(i).logical_size);
+          //dispatch_args.push_back(p.second->dims.at(i).logical_min);
+          //dispatch_args.push_back(p.second->dims.at(i).logical_size);
+          dispatch_args.push_back(p.second->ldims.at(i).logical_min);
+          dispatch_args.push_back(p.second->ldims.at(i).logical_size);
+          
           //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
           //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
           //internal_assert(is_const(store_offset));
@@ -681,7 +688,8 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
           //                             kernel.dims[i].store_bound.min + 1);
-          Expr store_extent = kernel.dims[i].logical_size;
+          //Expr store_extent = kernel.dims[i].logical_size;
+          Expr store_extent = kernel.ldims[i].logical_size;
           hwbuffer_args.push_back(store_extent);
           
             std::cout << "store extent in this hwbuffer: " << store_extent << std::endl;
@@ -906,10 +914,10 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
             //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
             //                             kernel.dims[i].store_bound.min + 1);
-            std::cout << "store=" << kernel.dims[i].logical_size
+            std::cout << "store=" << kernel.ldims[i].logical_size
                       << " in_chunk=" << kernel.dims[i].input_chunk
                       << std::endl;
-            int store_extent_int = to_int(kernel.dims[i].logical_size);
+            int store_extent_int = to_int(kernel.ldims[i].logical_size);
             //std::cout << store_extent << " ";
 
             debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent_int << '\n';
@@ -988,7 +996,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
                 //const IntImm *store_extent_int = store_extent.as<IntImm>();
                 //internal_assert(store_extent_int);
                 
-                int store_extent_int = to_int(kernel.dims[i].logical_size);
+                int store_extent_int = to_int(kernel.ldims[i].logical_size);
                 int loop_extent = store_extent_int / to_int(kernel.dims[i].input_chunk);
 
                 Expr loop_var = Variable::make(Int(32), loop_var_name);
@@ -1030,7 +1038,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
             //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
             //                             kernel.dims[i].store_bound.min + 1);
-            int store_extent_int = to_int(kernel.dims[i].logical_size);
+            int store_extent_int = to_int(kernel.ldims[i].logical_size);
             debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent_int << '\n';
 
             // check the condition for the new loop for sliding the update stencil
@@ -1209,7 +1217,7 @@ class InsertHWBuffers : public IRMutator2 {
                 internal_assert(kernel.func.output_types().size() == 1);
                 vector<Expr> image_args;
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
-                    image_args.push_back(kernel.dims[i].logical_min);
+                    image_args.push_back(kernel.ldims[i].logical_min);
                 }
                 Expr address_of_subimage_origin = Call::make(Handle(), Call::buffer_get_host, {Call::make(kernel.func, image_args, 0)}, Call::Extern);
                 Expr buffer_var = Variable::make(type_of<struct buffer_t *>(), kernel.name + ".buffer");
@@ -1221,7 +1229,7 @@ class InsertHWBuffers : public IRMutator2 {
                 vector<Expr> stream_call_args({direction, buffer_var, stream_var, address_of_subimage_origin});
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
                     stream_call_args.push_back(Variable::make(Int(32), kernel.name + ".stride." + std::to_string(i)));
-                    stream_call_args.push_back(kernel.dims[i].logical_size);
+                    stream_call_args.push_back(kernel.ldims[i].logical_size);
                     //stream_call_args.push_back(simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1));
                 }
                 Stmt stream_subimg = Evaluate::make(Call::make(Handle(), "stream_subimage", stream_call_args, Call::Intrinsic));
