@@ -3831,6 +3831,22 @@ class StreamNode {
   }
 };
 
+bool operator==(const StreamNode& x, const StreamNode& y) {
+  if (x.ss != y.ss) {
+    return false;
+  }
+  if (x.ss == STREAM_SOURCE_LOOP) {
+    return x.lp == y.lp;
+  }
+  if (x.ss == STREAM_SOURCE_ARG) {
+    return x.arg.name == y.arg.name;
+  }
+  if (x.ss == STREAM_SOURCE_LB) {
+    return x.lbName == y.lbName;
+  }
+  internal_assert(false) << "Cannot compare 2 StreamNodes\n";
+}
+
 class StreamEdge {
   public:
     std::string streamName;
@@ -3913,7 +3929,13 @@ class StreamUseInfo {
 };
 
 
-vdisc getStreamNode(StreamNode& node, DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
+vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
+  for (auto node : streamGraph.getVertNames()) {
+    if (node.second == target) {
+      return node.first;
+    }
+  }
+  cout << "Error: No node for " << target.toString() << endl;
   internal_assert(false);
 }
 
@@ -4033,7 +4055,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   cout << "Extracted stream info" << endl;
   for (auto streamInfo : streamUseInfo) {
     cout << "\tInfo for " << streamInfo.first << endl;
-    cout << "\t\twrite r= " << streamInfo.second.writer.toString() << endl;
+    cout << "\t\twriter = " << streamInfo.second.writer.toString() << endl;
     vdisc sourceNode = getStreamNode(streamInfo.second.writer, streamGraph);
     for (auto rd : streamInfo.second.readers) {
       cout << "\t\tReader = " << rd.first.toString() << " with params = " << rd.second.offsets << endl;
