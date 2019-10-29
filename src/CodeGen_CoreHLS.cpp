@@ -4402,6 +4402,9 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
       e.dataDest = dataIn(readerNode, stream);
       e.en = dataEn(readerNode, stream);
+
+      auto ed = appGraph.addEdge(src, dest);
+      appGraph.addEdgeLabel(ed, e);
     }
   }
   //for (auto f : functions) {
