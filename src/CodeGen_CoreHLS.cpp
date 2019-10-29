@@ -3276,7 +3276,7 @@ class AppGraph {
         }
       }
 
-      internal_assert(inEnables.size() == 1);
+      internal_assert(inEnables.size() == 1) << "inEnables.size() == " << inEnables.size() << "\n";
 
       return *std::begin(inEnables);
     }
@@ -3941,7 +3941,8 @@ Wireable* dataValid(StreamNode& src) {
     return src.getWireable()->sel("valid");
   }
 
-  internal_assert(false);
+  internal_assert(isa<Interface>(getBase(src.getWireable())));
+  return getBase(src.getWireable())->sel("in_en");
 }
 
 Wireable* dataEn(StreamNode& dest, const std::string& stream) {
@@ -3951,7 +3952,9 @@ Wireable* dataEn(StreamNode& dest, const std::string& stream) {
   if (isLinebuffer(dest.getWireable())) {
     return dest.getWireable()->sel("wen");
   }
-  internal_assert(false);
+
+  return getBase(dest.getWireable())->sel("valid");
+  //internal_assert(false);
 }
 
 Wireable* dataIn(StreamNode& src, const std::string& stream) {
@@ -3963,7 +3966,9 @@ Wireable* dataIn(StreamNode& src, const std::string& stream) {
   if (isLinebuffer(src.getWireable())) {
     return src.getWireable()->sel("in");
   }
-  internal_assert(false);
+
+  return src.getWireable();
+  //internal_assert(false);
 }
 
 Wireable* dataOut(StreamNode& src, std::string& stream) {
@@ -3975,8 +3980,12 @@ Wireable* dataOut(StreamNode& src, std::string& stream) {
     cout << "Selecting " << stream << endl;
     return src.getWireable()->sel(coreirSanitize(stream));
   }
-  internal_assert(false);
+
   return src.getWireable();
+  //getBase(src.getWireable());
+  //->sel("in_en");
+  //internal_assert(false);
+  //return src.getWireable();
 }
 
 std::set<const Call*> collectCalls(const std::string& name, const Stmt& stmt) {
