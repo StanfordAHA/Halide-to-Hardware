@@ -543,6 +543,27 @@ bool can_use_rom(Stmt s, string allocname) {
 void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
+  {
+  CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+  CoreIR::TypeGen* srTg = hns->newTypeGen("stream_trimmer", srParams,
+      [](CoreIR::Context* c, CoreIR::Values args) {
+      auto t = args.at("type")->get<CoreIR::Type*>();
+      return c->Record({
+          {"clk", c->Named("coreir.clkIn")},
+          {"in", t->getFlipped()},
+          {"en", c->BitIn()},
+          {"out", t},
+          {"valid", c->Bit()}
+          });
+      });
+  auto srGen = hns->newGeneratorDecl("stream_trimmer", srTg, srParams);
+  srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+      auto self = def->sel("self");
+      def->connect(self->sel("in"), self->sel("out"));
+      def->connect(self->sel("en"), self->sel("valid"));
+      });
+  }
+
   CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}, {"delay", context->Int()}};
   CoreIR::TypeGen* srTg = hns->newTypeGen("shift_register", srParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
@@ -3367,8 +3388,11 @@ class AppGraph {
       std::string str = "";
       str += "---- App graph info\n";
       for (auto v : allVertices()) {
+        cout << "Getting info for " << coreStr(v) << endl;
         str += "\t-- Vertex: " + CoreIR::toString(*v) + "\n";
         for (auto inEdge : appGraph.inEdges(getVdisc(v))) {
+          cout << "In edge name = " << inEdge << endl;
+          cout << "In edge = " << getLabel(inEdge).toString() << endl;
           str += "\t\t" + getLabel(inEdge).toString() + "\n";
         }
       }
@@ -4343,6 +4367,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       cout << "\tUsed extents     = " << subset.usedExtents << endl;
 
       // Need to check whether the edge uses all data produced by the streamnode
+      bool needTrimmer = false;
       if (subset.numDims == 0) {
       } else {
         // Check if all dims are used
@@ -4357,30 +4382,46 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
           cout << "\tDiffs = " << diffs << endl;
           vector<int> offsets = subset.usedOffsets();
           cout << "\tOffsets = " << offsets << endl;
-          // Now: Trimmed extents will be?
-          // Really I only need to know the "top left" corner (the first element to be used) for our
-          // current delay insertion. But I would like to save more information than that
-          //
-          // For now: Insert the delay node as a dummy and make sure the graph is still well formed
-          // Then: Add support for production time computation in this node.
-          internal_assert(false);
+          needTrimmer = true;
         }
       }
 
 
-      KernelEdge e;
-      e.dataSrc = dataOut(writerNode, stream);
-      e.valid = dataValid(writerNode);
+      if (needTrimmer) {
+        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, context->BitIn()->Arr(bitwidth))}});
+        appGraph.addVertex(trimmer);
+        
+        KernelEdge toTrimmer;
+        toTrimmer.dataSrc = dataOut(writerNode, stream);
+        toTrimmer.valid = dataValid(writerNode);
+        toTrimmer.dataDest = trimmer->sel("in");
+        toTrimmer.en = trimmer->sel("en");
 
-      e.dataDest = dataIn(readerNode, stream);
-      e.en = dataEn(readerNode, stream);
+        KernelEdge fromTrimmer;
+        fromTrimmer.dataDest = trimmer->sel("out");
+        fromTrimmer.valid = trimmer->sel("valid");
+        fromTrimmer.dataDest = dataIn(readerNode, stream);
+        fromTrimmer.en = dataEn(readerNode, stream);
 
-      auto ed = appGraph.addEdge(src, dest);
-      appGraph.addEdgeLabel(ed, e);
+        auto ed = appGraph.addEdge(src, trimmer);
+        appGraph.addEdgeLabel(ed, toTrimmer);
+
+        auto ed1 = appGraph.addEdge(trimmer, dest);
+        appGraph.addEdgeLabel(ed1, fromTrimmer);
+      } else {
+        KernelEdge e;
+        e.dataSrc = dataOut(writerNode, stream);
+        e.valid = dataValid(writerNode);
+
+        e.dataDest = dataIn(readerNode, stream);
+        e.en = dataEn(readerNode, stream);
+
+        auto ed = appGraph.addEdge(src, dest);
+        appGraph.addEdgeLabel(ed, e);
+      }
     }
   }
 
-  internal_assert(false) << "Stopping here\n";
   cout << "Application graph..." << endl;
   cout << appGraph.toString() << endl;
 
