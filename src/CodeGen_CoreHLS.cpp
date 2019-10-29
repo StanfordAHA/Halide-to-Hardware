@@ -4010,6 +4010,22 @@ class StreamSubset {
     int numDims;
     vector<int> usedExtents;
     vector<int> actualExtents;
+
+    vector<int> getUsedDims() const {
+      vector<int> dims;
+      for (size_t i = 0; i < usedExtents.size(); i += 2) {
+        dims.push_back(usedExtents.at(i + 1));
+      }
+      return dims;
+    }
+
+    vector<int> getActualDims() const {
+      vector<int> dims;
+      for (size_t i = 2; i < actualExtents.size(); i += 3) {
+        dims.push_back(actualExtents.at(i));
+      }
+      return dims;
+    }
 };
 
 //vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
@@ -4319,6 +4335,18 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       cout << "\tUsed extents     = " << subset.usedExtents << endl;
 
       // Need to check whether the edge uses all data produced by the streamnode
+      if (subset.numDims == 0) {
+      } else {
+        // Check if all dims are used
+        vector<int> fullExtents = subset.getActualDims();
+        vector<int> usedExtents = subset.getUsedDims();
+        cout << "Full extents: " << fullExtents << ", used extents " << usedExtents << ", need trimmer node\n";
+        if (fullExtents != usedExtents) {
+          internal_assert(false);
+        }
+      }
+
+
       KernelEdge e;
       e.dataSrc = dataOut(writerNode, stream);
       e.valid = dataValid(writerNode);
@@ -4331,6 +4359,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     }
   }
 
+  internal_assert(false) << "Stopping here\n";
   cout << "Application graph..." << endl;
   cout << appGraph.toString() << endl;
 
