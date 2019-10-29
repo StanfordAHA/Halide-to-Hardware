@@ -4342,6 +4342,12 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
         vector<int> usedExtents = subset.getUsedDims();
         cout << "Full extents: " << fullExtents << ", used extents " << usedExtents << ", need trimmer node\n";
         if (fullExtents != usedExtents) {
+          // Now: Trimmed extents will be?
+          // Really I only need to know the "top left" corner (the first element to be used) for our
+          // current delay insertion. But I would like to save more information than that
+          //
+          // For now: Insert the delay node as a dummy and make sure the graph is still well formed
+          // Then: Add support for production time computation in this node.
           internal_assert(false);
         }
       }
