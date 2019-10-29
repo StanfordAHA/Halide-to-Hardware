@@ -4310,10 +4310,13 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
       // TODO: Check stream subsets and see if the connecting edge
       // needs to use a trimmer
+      internal_assert(subset.numDims == 0 || subset.numDims == 2 || subset.numDims == 3);
       Wireable* src = writerNode.getWireable();
       Wireable* dest = readerNode.getWireable();
 
       cout << "Edge from " << coreStr(src) << " to " << coreStr(dest) << endl;
+      cout << "\tOriginal extents = " << subset.actualExtents << endl;
+      cout << "\tUsed extents     = " << subset.usedExtents << endl;
 
       // Need to check whether the edge uses all data produced by the streamnode
       KernelEdge e;
