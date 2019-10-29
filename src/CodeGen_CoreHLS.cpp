@@ -4011,6 +4011,14 @@ class StreamSubset {
     vector<int> usedExtents;
     vector<int> actualExtents;
 
+    vector<int> usedOffsets() const {
+      vector<int> off;
+      for (int i = 0; i < numDims; i++) {
+        off.push_back(usedExtents[2*i]);
+      }
+      return off;
+    }
+
     vector<int> getUsedDims() const {
       vector<int> dims;
       for (size_t i = 0; i < usedExtents.size(); i += 2) {
@@ -4342,6 +4350,13 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
         vector<int> usedExtents = subset.getUsedDims();
         cout << "Full extents: " << fullExtents << ", used extents " << usedExtents << ", need trimmer node\n";
         if (fullExtents != usedExtents) {
+          vector<int> diffs;
+          for (size_t i = 0; i < fullExtents.size(); i++) {
+            diffs.push_back(fullExtents.at(i) - usedExtents.at(i));
+          }
+          cout << "\tDiffs = " << diffs << endl;
+          vector<int> offsets = subset.usedOffsets();
+          cout << "\tOffsets = " << offsets << endl;
           // Now: Trimmed extents will be?
           // Really I only need to know the "top left" corner (the first element to be used) for our
           // current delay insertion. But I would like to save more information than that
