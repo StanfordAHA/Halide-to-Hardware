@@ -4005,7 +4005,15 @@ std::string stripQuotes(const std::string& str) {
   return nStr;
 }
 
-vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
+class StreamSubset {
+  public:
+    int numDims;
+    vector<int> usedExtents;
+    vector<int> actualExtents;
+};
+
+//vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
+StreamSubset findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
   auto sd = map_get(streamStr, info.streamDispatches);
   internal_assert(sd.size() > 0);
   int numDims = stoi(sd[0]);
@@ -4030,7 +4038,7 @@ vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName
         params.push_back(stoi(stripQuotes(exprString(sd[p]))));
         params.push_back(stoi(stripQuotes(exprString(sd[p + 1]))));
       }
-      return params;
+      return {numDims, params, dimParams};
     }
   }
 
@@ -4038,11 +4046,6 @@ vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName
   return {};
    //" in " << info.streamDispatches << "\n";
 }
-
-class StreamSubset {
-  public:
-    vector<int> offsets;
-};
 
 class StreamUseInfo {
   public:
@@ -4109,9 +4112,9 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
       cout << "\t\tstream = " << streamName << ", dispatch str = " << dispatchString << endl;
       string dispatchName = exprString(dispatchString);
       string streamStr = exprString(streamName);
-      vector<int> dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
+      StreamSubset dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
       StreamNode node = nestNode(r.first);
-      streamUseInfo[streamStr].readers.push_back({node, {dispatchParams}});
+      streamUseInfo[streamStr].readers.push_back({node, dispatchParams});
     }
   }
 
@@ -4312,6 +4315,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
       cout << "Edge from " << coreStr(src) << " to " << coreStr(dest) << endl;
 
+      // Need to check whether the edge uses all data produced by the streamnode
       KernelEdge e;
       e.dataSrc = dataOut(writerNode, stream);
       e.valid = dataValid(writerNode);
