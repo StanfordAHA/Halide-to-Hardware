@@ -3367,6 +3367,7 @@ class AppGraph {
     }
 
     void addEdgeLabel(edisc ed, KernelEdge& e) {
+      internal_assert(!contains_key(ed, edgeLabels));
       edgeLabels[ed] = e;
     }
 
@@ -3374,6 +3375,10 @@ class AppGraph {
       auto vd = appGraph.addVertex(w);
       values[w] = vd;
       return vd;
+    }
+
+    bool hasLabel(const edisc ed) {
+      return contains_key(ed, edgeLabels);
     }
 
     KernelEdge getLabel(const edisc ed) {
@@ -3392,6 +3397,8 @@ class AppGraph {
         str += "\t-- Vertex: " + CoreIR::toString(*v) + "\n";
         for (auto inEdge : appGraph.inEdges(getVdisc(v))) {
           cout << "In edge name = " << inEdge << endl;
+          internal_assert(hasLabel(inEdge));
+          cout << "has label" << endl;
           cout << "In edge = " << getLabel(inEdge).toString() << endl;
           str += "\t\t" + getLabel(inEdge).toString() + "\n";
         }
@@ -4398,16 +4405,20 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
         toTrimmer.en = trimmer->sel("en");
 
         KernelEdge fromTrimmer;
-        fromTrimmer.dataDest = trimmer->sel("out");
+        fromTrimmer.dataSrc = trimmer->sel("out");
         fromTrimmer.valid = trimmer->sel("valid");
         fromTrimmer.dataDest = dataIn(readerNode, stream);
         fromTrimmer.en = dataEn(readerNode, stream);
 
         auto ed = appGraph.addEdge(src, trimmer);
+        cout << "Trimmer edge ed: " << ed << endl;
         appGraph.addEdgeLabel(ed, toTrimmer);
 
         auto ed1 = appGraph.addEdge(trimmer, dest);
+        cout << "Trimmer edge ed1: " << ed1 << endl;
         appGraph.addEdgeLabel(ed1, fromTrimmer);
+
+        internal_assert(appGraph.hasLabel(ed1));
       } else {
         KernelEdge e;
         e.dataSrc = dataOut(writerNode, stream);
