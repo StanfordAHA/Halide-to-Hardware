@@ -4262,7 +4262,6 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
   AppGraph appGraph;
   appGraph.kernelModules = kernelModules;
-  // Use this map to wire up edges?
   std::map<vdisc, Wireable*> streamNodeMap;
   for (auto node : streamGraph.getVertNames()) {
     vdisc v = node.first;
@@ -4306,6 +4305,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       StreamNode readerNode = reader.first;
       StreamSubset subset = reader.second;
 
+      // TODO: Check stream subsets and see if the connecting edge
+      // needs to use a trimmer
       Wireable* src = writerNode.getWireable();
       Wireable* dest = readerNode.getWireable();
 
