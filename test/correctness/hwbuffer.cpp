@@ -166,19 +166,19 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
 
   h_assert(hwbuffer.dims.size() == ref.dims.size(), "doesn't have correct num of dims");
   for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param("logical size dim" + to_string(i), hwbuffer.ldims.at(i).logical_size, ref.ldims.at(i).logical_size);
+    check_param(hwbuffer.name + " logical size dim" + to_string(i), hwbuffer.ldims.at(i).logical_size, ref.ldims.at(i).logical_size);
   }
   for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param("output stencil dim" + to_string(i), hwbuffer.dims.at(i).output_stencil, ref.dims.at(i).output_stencil);
+    check_param(hwbuffer.name + " output stencil dim" + to_string(i), hwbuffer.dims.at(i).output_stencil, ref.dims.at(i).output_stencil);
   }
   for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param("output block dim" + to_string(i), hwbuffer.dims.at(i).output_block, ref.dims.at(i).output_block);
+    check_param(hwbuffer.name + " output block dim" + to_string(i), hwbuffer.dims.at(i).output_block, ref.dims.at(i).output_block);
   }
   for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param("input chunk dim" + to_string(i), hwbuffer.dims.at(i).input_chunk, ref.dims.at(i).input_chunk);
+    check_param(hwbuffer.name + " input chunk dim" + to_string(i), hwbuffer.dims.at(i).input_chunk, ref.dims.at(i).input_chunk);
   }
   for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param("input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
+    check_param(hwbuffer.name + " input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
   }
 
   return 0;
@@ -411,7 +411,7 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     }
 
     //k_last(x, y) = 3*y + x;
-    //hw_output(x, y) = conv_last(x+r_last.x, y+r_last.y);// * k_last(r_last.x, r_last.y);
+    //hw_output(x, y) = conv_last(x+r_last.x, y+r_last.y) * k_last(r_last.x, r_last.y);
     hw_output(x, y) = conv_last(x, y);
     output(x, y) = hw_output(x, y);
 
@@ -443,20 +443,26 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
 
     h_assert(hwxcels.size() == 1, "Incorrect number of xcels found");
     auto xcel = hwxcels.at(0);
-    h_assert(xcel.hwbuffers.size() == 2 + 2*num_conv, "Incorrect number of hwbuffers found");
+    
+    // number of convs: hw_input, k_init,conv_init, 2*(k_conv, conv_mid), conv_last,hw_output
+    size_t num_hwbuffers = 1 + 2 + 2*num_conv + 2;
+    h_assert(xcel.hwbuffers.size() == num_hwbuffers, "Incorrect number of hwbuffers found: " + 
+             to_string(xcel.hwbuffers.size()) + " vs " + to_string(num_hwbuffers));
     h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
-    std::cout << "done with hwbuffer creation of convchain" << suffix << "\n";
+    std::cout << "done with hwbuffer creation of forked" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
     for (size_t i=0; i<num_conv; ++i) {
       string hwbuffer_name = i==0 ? "hw_input" + suffix : "conv" + to_string(i-1) + suffix;
       h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
       auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
-      
-      int ref_logsize = imgsize;
+
+      int max_conv_size = 0;
       for (size_t j=i; j<num_conv; ++j) {
-        ref_logsize += ksizes.at(j) - 1;
+        max_conv_size = std::max(ksizes.at(j) - 1, max_conv_size);
       }
+      int ref_logsize = i==0 ? imgsize + max_conv_size + (initk - 1) : imgsize;
+
       int ksize = ksizes.at(i);
       auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                         {ksize, ksize}, {ksize, ksize},
@@ -492,7 +498,7 @@ int main(int argc, char **argv) {
     printf("Running conv hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
 
-    if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
+    //if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(2, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(5, 64) != 0) { return -1; }
@@ -505,7 +511,7 @@ int main(int argc, char **argv) {
 
     //if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
-    if (pipeline_hwbuffer_test({3, 3}, 64) != 0) { return -1; }
+    if (pipeline_hwbuffer_test({5, 3}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
 
@@ -513,12 +519,12 @@ int main(int argc, char **argv) {
     printf("    checking hwbuffers...\n");
     
     //if (tiled_pipeline_hwbuffer_test({3}, 64, 32) != 0) { return -1; }
-    if (tiled_pipeline_hwbuffer_test({7, 3, 5, 2}, 64, 16) != 0) { return -1; }
+    //if (tiled_pipeline_hwbuffer_test({7, 3, 5, 2}, 64, 16) != 0) { return -1; }
 
     printf("Running forked conv hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
     
-    //if (forked_pipeline_hwbuffer_test(3, {3}, 3, 64) != 0) { return -1; }
+    //if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
     
     printf("Success!\n");
     return 0;

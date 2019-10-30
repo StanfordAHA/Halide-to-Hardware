@@ -773,7 +773,6 @@ class FindInnerLoops : public IRVisitor {
   }
 
   void visit(const For *op) {
-    std::cout << "comparing loop " << op->name << " to " << outer_loop_exclusive << std::endl;
     // scan loops are loops between the outer store level (exclusive) and
     // the inner compute level (inclusive) of the accelerated function
     if (in_inner_loops && starts_with(op->name, func.name() + ".")) {
@@ -884,8 +883,10 @@ class HWBuffers : public IRMutator2 {
         // create the streaming loops
         if (compute_level == store_level) {
           hwbuffer.streaming_loops = {compute_level};
-        } else {
+        } else if (xcel->store_level.match(store_level)) {
           hwbuffer.streaming_loops = get_loop_levels_between(Stmt(op), xcel->func, store_locked, compute_locked, true);
+        } else {
+          user_error << "xcel store loop is different from the hwbuffer store loop. no good.\n";
         }
         //std::cout << Stmt(op) << std::endl;
         std::cout << "streaming loops: " << hwbuffer.streaming_loops << std::endl;
@@ -894,7 +895,8 @@ class HWBuffers : public IRMutator2 {
         hwbuffer.compute_level = hwbuffer.streaming_loops.back();
         //hwbuffer.store_level = hwbuffer.streaming_loops.front();
         hwbuffer.store_level = xcel->store_level.to_string();
-        
+
+        // Simplification possible when compute and store is the same level
         if (sched.compute_level() == sched.store_level()) {
           std::cout << op->name << " has compute=store level\n";
 
@@ -1071,15 +1073,15 @@ class HWBuffers : public IRMutator2 {
 
           // check that all of the extracted parameters are of the same vector length
           //FIXMEyikes
-          //internal_assert(hwbuffer.dims.size() == output_block_box.size());
           std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while " << total_buffer_box.size() << " num box_dims\n";
           std::cout << " loops are: " << loop_names << std::endl;
 
           //internal_assert(hwbuffer.dims.size() == loop_names.size()) << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
           //internal_assert(loop_names.size() == hwbuffer.input_stencil->output_stencil_box.size());
           //internal_assert(loop_names.size() == sliding_stencil_map.at(for_name).output_stencil_box.size());
+          internal_assert(hwbuffer.dims.size() == output_stencil_box.size());
+          
           internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
-          //internal_assert(hwbuffer.dims.size() == output_stencil_box.size());
           internal_assert(hwbuffer.dims.size() == output_block_box.size());
           internal_assert(hwbuffer.dims.size() == input_block_box.size());
 
@@ -1224,7 +1226,7 @@ void find_output_scope(Stmt s, Function func,
 }
 
 
-// Second pass through hwbuffers, setting some more parameters.
+// Second pass through hwbuffers, setting some more parameters, including the consumer outputs.
 void set_opt_params(HWXcel *xcel, 
                     const map<string, Function> &env,
                     const vector<BoundsInference_Stage> &inlined_stages,
@@ -1252,15 +1254,16 @@ void set_opt_params(HWXcel *xcel,
 //  FindInputStencil fis(consumer.name, cur_func, func_compute_level, stencil_bounds);
 //  hwbuffer.my_stmt.accept(&fis);
 
-
+  // go through the stages from the output back to the input
   while (i >= 1) {
     i--;
+    
     const BoundsInference_Stage &stage = inlined_stages[i];
-  
-    if (in_output && inlined_stages[i].name != xcel->name) {
+    if (in_output && stage.name != xcel->name) {
       continue;
     }
-    
+
+    // run through hwbuffers looking for a particular name
     auto iterator = std::find_if(hwbuffers.begin(), hwbuffers.end(), [stage](const std::pair<std::string, HWBuffer>& buffer_pair){
         if (stage.name == buffer_pair.first) {
           return true;
@@ -1274,8 +1277,7 @@ void set_opt_params(HWXcel *xcel,
     
     std::cout << hwbuffer.name << " before func\n";
 
-    FunctionPtr func_ptr =  env.at(hwbuffer.name).get_contents();
-    Function cur_func = Function(func_ptr);
+    Function cur_func = hwbuffer.func;
     if (stage.stage > 0) {
       StageSchedule update_schedule = cur_func.update_schedule(stage.stage - 1);
       auto rvars = update_schedule.rvars();
@@ -1284,8 +1286,6 @@ void set_opt_params(HWXcel *xcel,
         std::cout << hwbuffer.name << " " << i << " update has min_pos=" << rvars[i].min << std::endl;
       }
     }
-    
-    hwbuffer.func = cur_func;
 
     std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while \n";
     std::cout << " loops are: " << hwbuffer.streaming_loops << std::endl;
@@ -1310,14 +1310,14 @@ void set_opt_params(HWXcel *xcel,
       if (inlined_stages[i].name == xcel->name) {
         in_output = false;
       }
-      continue;
+      continue; // output kernel doesn't need to keep going (no consumers)
     }
 
     // HWBuffer Parameter: bool is_inlined;
     if (cur_func.schedule().is_accelerator_input() ||
         //(cur_func.schedule().compute_level() != xcel->store_level &&
         (cur_func.schedule().compute_level().match(xcel->compute_level) &&
-         xcel->store_level == cur_func.schedule().store_level())) {
+         cur_func.schedule().store_level().match(xcel->store_level))) {
       hwbuffer.is_inlined = false;
     } else {
       hwbuffer.is_inlined = true;
@@ -1329,20 +1329,13 @@ void set_opt_params(HWXcel *xcel,
               << " is_hw_kernel=" << cur_func.schedule().is_hw_kernel()
               << std::endl;
     
-    for (size_t j = 0; j < stage.consumers.size(); j++) {
-      const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
-      std::cout << consumer.name << ",";
-    }
-    std::cout << std::endl;
-
     // HWBuffer Parameter: map<string, HWBuffer&> consumer_buffers
     for (size_t j = 0; j < stage.consumers.size(); j++) {
       internal_assert(stage.consumers[j] < (int)inlined_stages.size());
       const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
       std::cout << "right before " << consumer.name << " consumer of " << hwbuffer.name << "\n";
 
-
-      if (!hwbuffer.is_inlined &&  hwbuffers.count(consumer.name)) {
+      if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
       //if (hwbuffers.count(consumer.name)) {
         std::cout << "adding " << hwbuffer.name << " as an input of " << consumer.name << "\n";
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
@@ -1350,16 +1343,13 @@ void set_opt_params(HWXcel *xcel,
         std::cout << "couldn't find consumer " << consumer.name << std::endl;
       }
 
-
       const Box &consumer_bounds = stage.bounds.find(make_pair(consumer.name,
-                                                 consumer.stage))->second;
+                                                               consumer.stage))->second;
       std::cout << " size of consumer box is " << consumer_bounds << std::endl;
-      std::cout << " size of consumer box is " << simplify(consumer_bounds[0].max - consumer_bounds[0].min) << std::endl;
       const HWBuffer &consumer_buffer = hwbuffers.at(consumer.name);
       string consumer_name;
       if (consumer.name != hwbuffer.name) {
         if (consumer_buffer.is_inlined) {
-          //FIXMEyikes
           //internal_assert(consumer_buffer.consumer_buffers.size() == 1) << "The inlined kernel " << consumer.name << " has more than one consumer.\n";
           consumer_name = consumer_buffer.consumer_buffers.begin()->first;
         } else {
@@ -1397,15 +1387,14 @@ void set_opt_params(HWXcel *xcel,
       consumer_buffer.my_stmt.accept(&fos);
       hwbuffer.stride_map = fos.stride_map;
       std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
-      for (const auto& string_int_pair : hwbuffer.stride_map) {
-        std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
-      }
+      //for (const auto& string_int_pair : hwbuffer.stride_map) {
+      //  std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
+      //}
 
       //std::cout << consumer_buffer.my_stmt << std::endl;
       std::cout << "the output stencil of " << hwbuffer.name << " from " << consumer_buffer.name
                 << " at " << hwbuffer.compute_level
                 << " is " << fos.output_stencil_box << std::endl;
-      //std::cout << consumer_buffer.my_stmt;
       
       //FindInputStencil fis(consumer.name, cur_func, hwbuffer.compute_level);
       FindInputStencil fis(consumer.name, cur_func, func_compute_level, stencil_bounds);
@@ -1416,7 +1405,6 @@ void set_opt_params(HWXcel *xcel,
                 << " at " << hwbuffer.compute_level
                 << " is " << fis.input_chunk_box << std::endl;
 
-
       // FIXMEyikes: this doesn't seem to work
       //const auto consumer_sliding_stencils = hwbuffers.at(consumer.name).input_stencil;
 
@@ -1425,7 +1413,8 @@ void set_opt_params(HWXcel *xcel,
       }
       
       std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name
-                << " with " << hwbuffers.count(consumer.name) << " found\n";
+                << " for hwbuffer " << hwbuffer.name << "\n";
+
       for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
         //hwbuffer.dims.at(idx).input_chunk = hwbuffer.name == "hw_input" ? 3 : consumer_sliding_stencils->input_chunk_box.at(idx);
         hwbuffer.dims.at(idx).input_chunk = 1;
@@ -1500,8 +1489,8 @@ void set_opt_params(HWXcel *xcel,
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
-        ReplaceOutputAccessPatternRanges foapr(consumer_buffer);
-        hwbuffer.output_access_pattern = foapr.mutate(hwbuffer.output_access_pattern);
+        ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
+        hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
       }
 
 //      // save the bounds values in scope
@@ -1575,6 +1564,9 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   xcel->streaming_loop_levels = get_loop_levels_between(s, func, xcel->store_level, xcel->compute_level);
   xcel->input_streams = func.schedule().accelerate_inputs();
 
+  std::cout << "creating an accelerator for " << func.name() << std::endl
+            << s << std::endl;
+
   std::cout << xcel->name << " has the streaming loops: ";
   for (const auto& streaming_loop_name : xcel->streaming_loop_levels) {
     std::cout << streaming_loop_name << " ";
@@ -1597,11 +1589,11 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
               << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
-    std::cout << "Final buffer:\n" << hwbuffer_pair.second << std::endl;
+    std::cout << "Final buffer:\n" << hwbuffer_pair.second;
 
     auto num_inputs = hwbuffer_pair.second.func.updates().size() + 1;
     auto num_outputs = hwbuffer_pair.second.consumer_buffers.size();
-    std::cout << "num_in=" << num_inputs << "   num_out=" << num_outputs << std::endl;
+    std::cout << "num_in=" << num_inputs << "   num_out=" << num_outputs << std::endl << std::endl;
 
     
     //hwbuffer_pair.second.streaming_loops = xcel->streaming_loop_levels;
