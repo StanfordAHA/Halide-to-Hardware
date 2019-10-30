@@ -87,7 +87,17 @@ bool isComputeKernel(CoreIR::Wireable* v) {
   }
 
   return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
-    !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b));
+    !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b)) &&
+    !fromGenerator("halidehw.stream_trimmer", static_cast<Instance*>(b));
+}
+
+bool isTrimmer(Wireable* destBase) {
+  if (isa<Instance>(destBase)) {
+    auto instBase = static_cast<CoreIR::Instance*>(destBase);
+    return fromGenerator("halidehw.stream_trimmer", instBase);
+  }
+
+  return false;
 }
 
 bool isLinebuffer(Wireable* destBase) {
@@ -559,8 +569,16 @@ void loadHalideLib(CoreIR::Context* context) {
   auto srGen = hns->newGeneratorDecl("stream_trimmer", srTg, srParams);
   srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
       auto self = def->sel("self");
-      def->connect(self->sel("in"), self->sel("out"));
-      def->connect(self->sel("en"), self->sel("valid"));
+      auto tp = args.at("type")->get<CoreIR::Type*>();
+      auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, 9*2 + 9)}});
+      
+      def->connect(sr->sel("in_data"), self->sel("in"));
+      def->connect(sr->sel("in_en"), self->sel("en"));
+      def->connect(sr->sel("valid"), self->sel("valid"));
+      def->connect(sr->sel("out_data"), self->sel("out"));
+
+      //def->connect(self->sel("in"), self->sel("out"));
+      //def->connect(self->sel("en"), self->sel("valid"));
       });
   }
 
@@ -3565,6 +3583,14 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   // or: arrivaltime of buffersize(th) input (first output production)
   // plus the offset from 
 
+  if (isTrimmer(producer)) {
+    return 35;
+    //return 40;
+    //return -40;
+    //return 0;
+    //return -(9*2 + 2);
+    //internal_assert(false) << "no production time support for trimmers!\n";
+  }
   internal_assert(isLinebuffer(producer));
   return arrivalTime(firstInputEdge(producer, g), linebufferDelay(producer), g) + relativeProductionTime(producer, outputIndex, g);
 }
@@ -4395,7 +4421,8 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
 
       if (needTrimmer) {
-        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, context->BitIn()->Arr(bitwidth))}});
+        auto trimInTp = dataOut(writerNode, stream)->getType();
+        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, trimInTp)}});
         appGraph.addVertex(trimmer);
         
         KernelEdge toTrimmer;

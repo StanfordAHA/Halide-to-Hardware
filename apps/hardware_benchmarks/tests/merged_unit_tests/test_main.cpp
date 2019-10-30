@@ -136,8 +136,8 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   }
   context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
   CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
-  cout << "Module..." << endl;
-  m->print();
+  //cout << "Module..." << endl;
+  //m->print();
   return m;
 }
 
@@ -302,7 +302,7 @@ class AcceleratorCallConsolidator : public IRMutator {
     
     Stmt visit(const Realize* p) {
 
-      cout << "Visiting realize " << p->name << endl;
+      //cout << "Visiting realize " << p->name << endl;
 
       bool justEntered = inHWRegion == false;
       if (justEntered) {
@@ -320,11 +320,11 @@ class AcceleratorCallConsolidator : public IRMutator {
     }
 
     Expr visit(const Call* c) {
-      cout << "Visiting call " << c->name << endl;
+      //cout << "Visiting call " << c->name << endl;
       if (c->name == "stream_subimage") {
         accelCalls.push_back(c);
       }
-      cout << "Done with call" << endl;
+      //cout << "Done with call" << endl;
       return c;
     }
 };
@@ -529,11 +529,11 @@ void offset_window_test() {
       t = t.with_feature(Target::Feature::CoreIR);
       auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
-      cout << "Module before consolidation..." << endl;
-      cout << mod << endl;
+      //cout << "Module before consolidation..." << endl;
+      //cout << mod << endl;
 
       for (auto& f : mod.functions()) {
-        cout << "Consolidating function" << f << endl;
+        //cout << "Consolidating function" << f << endl;
         AcceleratorCallConsolidator cons;
         f.body = cons.mutate(f.body);
       }
@@ -1651,17 +1651,17 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
     t = t.with_feature(Target::Feature::CoreIR);
     auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
-    cout << "Module before consolidation..." << endl;
-    cout << mod << endl;
+    //cout << "Module before consolidation..." << endl;
+    //cout << mod << endl;
 
     for (auto& f : mod.functions()) {
-      cout << "Consolidating function" << f << endl;
+      //cout << "Consolidating function" << f << endl;
       AcceleratorCallConsolidator cons;
       f.body = cons.mutate(f.body);
     }
 
-    cout << "Compiled to module" << endl;
-    cout << mod << endl;
+    //cout << "Compiled to module" << endl;
+    //cout << mod << endl;
     ofstream outFile(name + "_soc_mini.cpp");
     CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
     testPrinter.compileForCGRA(mod);
