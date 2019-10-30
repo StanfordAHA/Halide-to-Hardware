@@ -570,7 +570,7 @@ void loadHalideLib(CoreIR::Context* context) {
   srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
       auto self = def->sel("self");
       auto tp = args.at("type")->get<CoreIR::Type*>();
-      auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, 9*2 + 9)}});
+      auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, 9*2 + 2)}});
       
       def->connect(sr->sel("in_data"), self->sel("in"));
       def->connect(sr->sel("in_en"), self->sel("en"));
@@ -3584,8 +3584,8 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   // plus the offset from 
 
   if (isTrimmer(producer)) {
-    return 35;
-    //return 40;
+    //return 35;
+    return 40;
     //return -40;
     //return 0;
     //return -(9*2 + 2);
@@ -4406,7 +4406,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
         // Check if all dims are used
         vector<int> fullExtents = subset.getActualDims();
         vector<int> usedExtents = subset.getUsedDims();
-        cout << "Full extents: " << fullExtents << ", used extents " << usedExtents << ", need trimmer node\n";
+        cout << "Full extents: " << fullExtents << ", used extents " << usedExtents << endl;
         if (fullExtents != usedExtents) {
           vector<int> diffs;
           for (size_t i = 0; i < fullExtents.size(); i++) {
@@ -4415,10 +4415,18 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
           cout << "\tDiffs = " << diffs << endl;
           vector<int> offsets = subset.usedOffsets();
           cout << "\tOffsets = " << offsets << endl;
-          needTrimmer = true;
+          bool allZero = true;
+          for (auto off : offsets) {
+            if (off != 0) {
+              allZero = false;
+              break;
+            }
+          }
+          if (!allZero) {
+            needTrimmer = true;
+          }
         }
       }
-
 
       if (needTrimmer) {
         auto trimInTp = dataOut(writerNode, stream)->getType();
