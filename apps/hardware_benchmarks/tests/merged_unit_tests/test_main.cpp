@@ -2679,6 +2679,15 @@ void conv_layer_mobile_test() {
 
           hw_output.print_loop_nest();
 
+      Target t;
+      t = t.with_feature(Target::Feature::CoreIR);
+  vector<Argument> args{input};
+      auto mod = hw_output.compile_to_module(args, "hw_output", t);
+
+      cout << "Module before consolidation..." << endl;
+      cout << mod << endl;
+  //auto context = hwContext();
+  //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
           PRINT_PASSED("Conv layer mobile");
           assert(false);
         //}

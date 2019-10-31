@@ -1014,70 +1014,6 @@ class HWLoopSchedule {
     }
 };
 
-class InnermostLoopChecker : public IRGraphVisitor {
-  public:
-    bool foundSubLoop;
-
-    InnermostLoopChecker() : foundSubLoop(false) {}
-
-    void visit(const For* f) {
-      foundSubLoop = true;
-    }
-};
-
-bool isInnermostLoop(const For* f) {
-  InnermostLoopChecker c;
-  f->body->accept(&c);
-  return !c.foundSubLoop;
-}
-
-class LetEraser : public IRMutator {
-
-  public:
-
-    Stmt visit(const LetStmt* let) {
-      auto newBody = this->mutate(let->body);
-      return newBody;
-    }
-
-    Stmt visit(const For* f) {
-      if (isInnermostLoop(f)) {
-        return f;
-      } else {
-        return IRMutator::visit(f);
-      }
-    }
-};
-
-class LetPusher : public IRMutator {
-  public:
-
-    vector<const LetStmt*> letStack;
-
-    Stmt visit(const LetStmt* let) {
-      letStack.push_back(let);
-      auto res = IRMutator::visit(let);
-      letStack.pop_back();
-
-      return res;
-    }
-
-    Stmt visit(const For* f) {
-      if (isInnermostLoop(f)) {
-        cout << "Found innermost loop with var: " << f->name << endl;
-        Stmt lBody = f->body;
-        for (int i = ((int) letStack.size()) - 1; i >= 0; i--) {
-          auto let = letStack[i];
-          lBody = LetStmt::make(let->name, let->value, lBody);
-        }
-
-        return For::make(f->name, f->min, f->extent, f->for_type, f->device_api, lBody);
-      } else {
-        return IRMutator::visit(f);
-      }
-    }
-};
-
 class InstructionCollector : public IRGraphVisitor {
   public:
     std::map<std::string, HWInstr*> vars;
@@ -4534,16 +4470,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   // creating RTL for each loop kernel, and then by wiring up these
   // kernels in to a full design
   //int bitwidth = 16;
-  LetPusher pusher;
-  stmt = pusher.mutate(stmt);
-  cout << "After let pushing..." << endl;
-  cout << stmt << endl;
+  stmt = preprocessHWLoops(stmt);
+  //LetPusher pusher;
+  //stmt = pusher.mutate(stmt);
+  //cout << "After let pushing..." << endl;
+  //cout << stmt << endl;
 
-  LetEraser letEraser;
-  stmt = letEraser.mutate(stmt);
+  //LetEraser letEraser;
+  //stmt = letEraser.mutate(stmt);
 
-  cout << "After let erasure..." << endl;
-  cout << stmt << endl;
+  //cout << "After let erasure..." << endl;
+  //cout << stmt << endl;
   //internal_assert(false) << "Stopping here for dillon to view\n";
 
   StoreCollector stCollector;

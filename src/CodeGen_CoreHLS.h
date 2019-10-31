@@ -2,6 +2,7 @@
 #define HALIDE_CODEGEN_COREHLS_H
 
 #include "IR.h"
+#include "PreprocessHWLoops.h"
 
 #include "coreir.h"
 

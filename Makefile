@@ -472,6 +472,7 @@ SOURCE_FILES = \
   PartitionLoops.cpp \
   Pipeline.cpp \
   Prefetch.cpp \
+	PreprocessHWLoops.cpp \
   PrintLoopNest.cpp \
   Profiling.cpp \
   PurifyIndexMath.cpp \
@@ -647,6 +648,7 @@ HEADER_FILES = \
   PartitionLoops.h \
   Pipeline.h \
   Prefetch.h \
+	PreprocessHWLoops.h \
   Profiling.h \
   PurifyIndexMath.h \
   PythonExtensionGen.h \
