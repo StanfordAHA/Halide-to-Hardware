@@ -3584,7 +3584,11 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   // plus the offset from 
 
   if (isTrimmer(producer)) {
+
+    // This does not work
+    //return 20;
     //return 35;
+    // Note: This delay works
     return 40;
     //return -40;
     //return 0;
