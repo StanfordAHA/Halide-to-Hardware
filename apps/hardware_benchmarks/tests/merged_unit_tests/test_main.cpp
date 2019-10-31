@@ -2565,66 +2565,63 @@ void real_unsharp_test() {
 
 void conv_layer_mobile_test() {
     ImageParam input(type_of<int8_t>(), 3);
-    //Output<Buffer<uint8_t>> output{"output", 3};
+    ImageParam output(type_of<int8_t>(), 3);
+        Func hw_input("hw_input");
+        Func hw_output("hw_output");
+        Var x("x"), y("y"), c("c"), k("k");
 
-        //[> THE ALGORITHM <]
+        Func filter_dw, filter_pw;
+        Func bias_dw, bias_pw;
 
-        //Func hw_input("hw_input");
-        //Func hw_output("hw_output");
-        //Var x("x"), y("y"), c("c"), k("k");
+        filter_dw(x, y, c) = 1;
+        filter_pw(c, k) = 3;
+        bias_dw(c) = 0;
+        bias_pw(k) = 0;
 
-        //Func filter_dw, filter_pw;
-        //Func bias_dw, bias_pw;
+        Func dw_conv("dw_conv");
+        Func pw_conv("pw_conv");
+        Func pw_conv_reduction;
 
-        //filter_dw(x, y, c) = 1;
-        //filter_pw(c, k) = 3;
-        //bias_dw(c) = 0;
-        //bias_pw(k) = 0;
+        RDom r_dw(0, 3, 0, 3);
+        RVar pw_c("c");
+        RDom r_pw(0, 4);
 
-        //Func dw_conv("dw_conv");
-        //Func pw_conv("pw_conv");
-        //Func pw_conv_reduction;
+        hw_input(x, y, c) = input(x, y, c);
 
-        //RDom r_dw(0, 3, 0, 3);
-        //RVar pw_c("c");
-        //RDom r_pw(0, 4);
+        //depthwise ConvolutionLayer
+        dw_conv(x, y, c) = cast<int16_t>(bias_dw(c));
+        dw_conv(x, y, c) += cast<int16_t>(filter_dw(r_dw.x, r_dw.y, c) *
+                                          hw_input(x + r_dw.x, y + r_dw.y, c));
 
-        //hw_input(x, y, c) = input(x, y, c);
+        //pointwise ConvolutionLayer
+        pw_conv(x, y, c, k) = cast<int16_t>(bias_pw(k));
+        pw_conv(x, y, c, k) += cast<int16_t>(filter_pw(c, k) * dw_conv(x, y, c));
+        pw_conv_reduction(x, y, k) = 0;
+        pw_conv_reduction(x, y, k) += cast<int16_t>(pw_conv(x, y, r_pw.x, k));
+        hw_output(x, y, k) = cast<int8_t>(max(0, pw_conv_reduction(x, y, k)));
+        //hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
 
-        ////depthwise ConvolutionLayer
-        //dw_conv(x, y, c) = cast<int16_t>(bias_dw(c));
-        //dw_conv(x, y, c) += cast<int16_t>(filter_dw(r_dw.x, r_dw.y, c) *
-                                          //hw_input(x + r_dw.x, y + r_dw.y, c));
-
-        ////pointwise ConvolutionLayer
-        //pw_conv(x, y, c, k) = cast<int16_t>(bias_pw(k));
-        //pw_conv(x, y, c, k) += cast<int16_t>(filter_pw(c, k) * dw_conv(x, y, c));
-        //pw_conv_reduction(x, y, k) = 0;
-        //pw_conv_reduction(x, y, k) += cast<int16_t>(pw_conv(x, y, r_pw.x, k));
-        //hw_output(x, y, k) = cast<int8_t>(max(0, pw_conv_reduction(x, y, k)));
-        ////hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
-
-        //output(x, y, k) = cast<uint8_t>(hw_output(x, y, k));
+        output(x, y, k) = cast<uint8_t>(hw_output(x, y, k));
 
 
         //output.bound(x, 0, 14);
         //output.bound(y, 0, 14);
         //output.bound(k, 0, 4);
 
-        //hw_output.bound(x, 0, 14);
-        //hw_output.bound(y, 0, 14);
-        //hw_output.bound(k, 0, 4);
+        hw_output.bound(x, 0, 14);
+        hw_output.bound(y, 0, 14);
+        hw_output.bound(k, 0, 4);
 
-        //bias_dw.bound(c, 0, 4);
-        //bias_pw.bound(k, 0, 4);
+        bias_dw.bound(c, 0, 4);
+        bias_pw.bound(k, 0, 4);
         
-        //filter_dw.bound(c, 0, 4);
-        //filter_pw.bound(c, 0, 4);
-        //filter_pw.bound(k, 0, 4);
+        filter_dw.bound(c, 0, 4);
+        filter_pw.bound(c, 0, 4);
+        filter_pw.bound(k, 0, 4);
 
-        //pw_conv.bound(x, 0, 14);
-        //pw_conv.bound(y, 0, 14);
-        //pw_conv.bound(k, 0, 4);
+        pw_conv.bound(x, 0, 14);
+        pw_conv.bound(y, 0, 14);
+        pw_conv.bound(k, 0, 4);
 
         //[> THE SCHEDULE <]
         //if (get_target().has_feature(Target::CoreIR)) {
