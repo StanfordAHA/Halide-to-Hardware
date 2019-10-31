@@ -2625,58 +2625,62 @@ void conv_layer_mobile_test() {
 
         //[> THE SCHEDULE <]
         //if (get_target().has_feature(Target::CoreIR)) {
-          //// Blocking spatially on X Y dim
-          //Var xo("xo"), xi("xi"), yo("yo"), yi("yi");
+          // Blocking spatially on X Y dim
+          Var xo("xo"), xi("xi"), yo("yo"), yi("yi");
           
-          //hw_input.compute_root();
-          //hw_output.compute_root();
+          hw_input.compute_root();
+          hw_output.compute_root();
 
-          //filter_dw.compute_at(hw_output, xo)
-            //.unroll(x).unroll(y).unroll(c);
-          //filter_pw.compute_at(hw_output, xo)
-            //.unroll(c).unroll(k);
-          //bias_dw.compute_at(hw_output, xo)
-            //.unroll(c);
-          //bias_pw.compute_at(hw_output, xo)
-            //.unroll(k);
+          filter_dw.compute_at(hw_output, xo)
+            .unroll(x).unroll(y).unroll(c);
+          filter_pw.compute_at(hw_output, xo)
+            .unroll(c).unroll(k);
+          bias_dw.compute_at(hw_output, xo)
+            .unroll(c);
+          bias_pw.compute_at(hw_output, xo)
+            .unroll(k);
 
-          //hw_output.tile(x, y, xo, yo, xi, yi, 14, 14)
-            //.reorder(xi, yi, k, xo, yo)
-            //.reorder_storage(k, x, y)
-            ////.hw_accelerate(xi, xo);
-            //.accelerate({hw_input}, xi, xo);
+          hw_output.tile(x, y, xo, yo, xi, yi, 14, 14)
+            .reorder(xi, yi, k, xo, yo)
+            .reorder_storage(k, x, y)
+            //.hw_accelerate(xi, xo);
+            .accelerate({hw_input}, xi, xo);
 
-          ////schedule pw conv reduction
-          //pw_conv_reduction.update()
-            ////.unroll(k)
-            //.reorder(k, x, y, r_pw.x);
+          //schedule pw conv reduction
+          pw_conv_reduction.update()
+            //.unroll(k)
+            .reorder(k, x, y, r_pw.x);
 
-          //pw_conv_reduction.compute_at(hw_output, xo).store_at(hw_output, xo);
+          pw_conv_reduction.compute_at(hw_output, xo).store_at(hw_output, xo);
 
-          ////schedule pw conv
-          ////pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
+          //schedule pw conv
           //pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
-            //.reorder(c, x, y, k);
+          pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
+            .reorder(c, x, y, k);
           
-          ////schedule dw conv
+          //schedule dw conv
+          dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
+            .reorder(x, y, c);
+          
           //dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
-            //.reorder(x, y, c);
-          
-          ////dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
-          ////dw_conv.compute_at(hw_output, xi).store_at(hw_output, xo)
-          ////dw_conv.linebuffer()
+          //dw_conv.compute_at(hw_output, xi).store_at(hw_output, xo)
+          //dw_conv.linebuffer()
 
 
-          //dw_conv.update()
-            //.reorder(r_dw.x, r_dw.y, x, y, c)
-            //.unroll(r_dw.x)
-            //.unroll(r_dw.y);
-          ////.unroll(c);
+          dw_conv.update()
+            .reorder(r_dw.x, r_dw.y, x, y, c)
+            .unroll(r_dw.x)
+            .unroll(r_dw.y);
+          //.unroll(c);
           
 
-          ////add input stream
-          //hw_input.stream_to_accelerator().reorder_storage(c, x, y);
-          
+          //add input stream
+          hw_input.stream_to_accelerator().reorder_storage(c, x, y);
+
+          hw_output.print_loop_nest();
+
+          PRINT_PASSED("Conv layer mobile");
+          assert(false);
         //}
 
   //}
