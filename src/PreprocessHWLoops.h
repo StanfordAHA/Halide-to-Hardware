@@ -7,7 +7,7 @@ namespace Halide {
   namespace Internal {
 
     bool isInnermostLoop(const For* f);
-    Stmt preprocessHWLoops(Stmt& stmt);
+    Stmt preprocessHWLoops(const Stmt& stmt);
 
   }
 }

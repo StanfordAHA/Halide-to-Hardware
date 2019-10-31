@@ -75,7 +75,7 @@ class LetEraser : public IRMutator {
 };
 
 
-  Stmt preprocessHWLoops(Stmt& stmt) {
+  Stmt preprocessHWLoops(const Stmt& stmt) {
     LetPusher pusher;
     Stmt pushed = pusher.mutate(stmt);
     LetEraser letEraser;

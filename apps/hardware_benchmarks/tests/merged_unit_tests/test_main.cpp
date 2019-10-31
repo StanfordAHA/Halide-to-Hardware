@@ -2563,6 +2563,19 @@ void real_unsharp_test() {
   //assert(false);
 }
 
+class HWRegionFinder : public IRGraphVisitor {
+  public:
+    bool foundRegion;
+    const Realize* region;
+
+    HWRegionFinder() : foundRegion(false) {}
+
+    void visit(const Realize* p) {
+      region = p;
+      foundRegion = true;
+    }
+
+};
 void conv_layer_mobile_test() {
     ImageParam input(type_of<int8_t>(), 3);
     ImageParam output(type_of<int8_t>(), 3);
@@ -2687,6 +2700,16 @@ void conv_layer_mobile_test() {
       cout << "Module before consolidation..." << endl;
       cout << mod << endl;
 
+      for (auto f : mod.functions()) {
+        cout << "Preprocessed body for " << f.name << endl;
+        HWRegionFinder finder;
+        f.body.accept(&finder);
+        if (finder.foundRegion) {
+          cout << "---- Found hw region..." << endl;
+          cout << preprocessHWLoops(finder.region->body) << endl;
+        }
+      }
+
       //cout << "Postprocessed module" << endl;
       //cout << 
   //auto context = hwContext();
@@ -2702,7 +2725,7 @@ void conv_layer_mobile_test() {
 
 int main(int argc, char **argv) {
 
-  //conv_layer_mobile_test();
+  conv_layer_mobile_test();
   real_unsharp_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
