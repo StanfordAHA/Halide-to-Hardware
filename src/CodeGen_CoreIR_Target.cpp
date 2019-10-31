@@ -2498,9 +2498,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   // set input range and stride
   vector<int> input_stride(6);
   vector<int> input_range(6);
+  nlohmann::json input_chunk_json;
   internal_assert(input_chunk.size() == input_block.size());
   internal_assert(input_chunk.size() <= input_stride.size());
   for (size_t i = 0; i < input_chunk.size(); ++i) {
+    input_chunk_json["input_chunk"][i] = input_chunk[i];
     input_stride[i] = input_block[i];
     internal_assert(input_chunk[i] % input_block[i] == 0);
     input_range[i] = input_chunk[i] / input_block[i];
@@ -2508,10 +2510,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   // FIXME: This isn't always the case
   int num_reduction_iter = 1;
+  nlohmann::json output_stencil_json;
   for (size_t i = 0; i < output_stencil.size(); ++i) {
     //internal_assert(output_stencil[i] % output_block[i] == 0)
     //  << a0 << " dim=" << i << " output stencil=" << output_stencil[i] << " + block=" << output_block[i];
     num_reduction_iter *= output_stencil[i] / output_block[i];
+    output_stencil_json["output_stencil"][i] = output_stencil[i];
   }
   std::cout << "num_reduction_iter=" << num_reduction_iter << std::endl;
     
@@ -2610,10 +2614,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"range_4",              CoreIR::Const::make(context, output_range.at(4))},
                             {"stride_5",             CoreIR::Const::make(context, output_stride.at(5))},
                             {"range_5",              CoreIR::Const::make(context, output_range.at(5))},
-                            {"input_stride_0",       CoreIR::Const::make(context, input_stride.at(0))},
-                            {"input_range_0",        CoreIR::Const::make(context, input_range.at(0))},
-                            {"input_stride_1",       CoreIR::Const::make(context, input_stride.at(1))},
-                            {"input_range_1",        CoreIR::Const::make(context, input_range.at(1))},
+                            {"input_stride_0",       CoreIR::Const::make(context, 1)},
+                            {"input_range_0",        CoreIR::Const::make(context, 64)},
+                            {"input_stride_1",       CoreIR::Const::make(context, 64)},
+                            {"input_range_1",        CoreIR::Const::make(context, 64)},
+                            //{"input_stride_0",       CoreIR::Const::make(context, input_stride.at(0))},
+                            //{"input_range_0",        CoreIR::Const::make(context, input_range.at(0))},
+                            //{"input_stride_1",       CoreIR::Const::make(context, input_stride.at(1))},
+                            //{"input_range_1",        CoreIR::Const::make(context, input_range.at(1))},
                             {"input_stride_2",       CoreIR::Const::make(context, input_stride.at(2))},
                             {"input_range_2",        CoreIR::Const::make(context, input_range.at(2))},
                             {"input_stride_3",       CoreIR::Const::make(context, input_stride.at(3))},
@@ -2629,6 +2637,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"logical_size",         CoreIR::Const::make(context, logical_json)},
                             {"init",                 CoreIR::Const::make(context, init)},
                             {"num_reduction_iter",   CoreIR::Const::make(context, num_reduction_iter)},
+                            {"input_chunk",          CoreIR::Const::make(context, input_chunk_json)},
+                            {"output_stencil",       CoreIR::Const::make(context, output_stencil_json)},
+                            {"num_stencil_acc_dim",  CoreIR::Const::make(context, 0)}, // FIXME
   };
 
 
