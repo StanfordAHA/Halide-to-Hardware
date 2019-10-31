@@ -1,7 +1,7 @@
 #include "coreir/passes/transform/rungenerators.h"
 
 #include "coreir_interpret.h"
-#include "coreir_sim_plugins.h"
+//#include "coreir_sim_plugins.h"
 
 using namespace std;
 using namespace CoreIR;
@@ -16,6 +16,7 @@ void ImageWriter<elem_t>::write(elem_t data) {
            current_y < height &&
            current_z < channels);
     image(current_x, current_y, current_z) = data;
+    std::cout << "output data = " << (int)data << std::endl;
 
     // increment coords
     current_x++;
@@ -54,7 +55,7 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
   set<string> visited_connections;
   bool uses_valid = false;
-  
+
   for (auto wireable_pair : self_conxs) {
     //cout << wireable_pair.first->toString() << " is connected to " << wireable_pair.second->toString() << endl;
 
@@ -75,9 +76,9 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
 
     if ("self.clk" == port_name) {
       state.setClock(port_name, 0, 1);
-      
+
       cout << "reset clock " << port_name << endl;
-      
+
     } else if (port_type->isOutput()) {
       if (port_name.find("[") != string::npos) {
         string port_name_wo_index = port_name.substr(0, port_name.find("["));
@@ -85,12 +86,12 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
 
         cout << "reset " << port_name << " as indexed port "
              << port_name_wo_index << " with size 1" << endl;
-        
+
       } else {
         auto port_output = static_cast<BitType*>(port_type);
         uint type_bitwidth = port_output->getSize();
         state.setValue(port_name, BitVector(type_bitwidth));
-      
+
         cout << "reset " << port_name << " with size " << type_bitwidth << endl;
 
       }
@@ -126,6 +127,7 @@ void run_coreir_on_interpreter(string coreir_design,
   Namespace* g = c->getGlobal();
 
   CoreIRLoadLibrary_commonlib(c);
+  CoreIRLoadLibrary_lakelib(c);
   if (!loadFromFile(c, coreir_design)) {
     cout << "Could not load " << coreir_design
          << " from json!!" << endl;
@@ -141,11 +143,11 @@ void run_coreir_on_interpreter(string coreir_design,
 // Build the simulator with the new model
   auto ubufBuilder = [](WireNode& wd) {
     //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
-    UnifiedBuffer* ubufModel = new UnifiedBuffer();
+    UnifiedBuffer_new* ubufModel = new UnifiedBuffer_new();
     return ubufModel;
   };
 
-  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("commonlib.unified_buffer"), ubufBuilder}};
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
 
   SimulatorState state(m, qualifiedNamesToSimPlugins);
   //SimulatorState state(m);
@@ -159,7 +161,7 @@ void run_coreir_on_interpreter(string coreir_design,
   // sets initial values for all inputs/outputs/clock
   bool uses_valid = reset_coreir_circuit(state, m);
 
-  cout << "starting coreir simulation" << endl;  
+  cout << "starting coreir simulation" << endl;
   state.resetCircuit();
 
   ImageWriter<T> coreir_img_writer(output);
@@ -170,13 +172,18 @@ void run_coreir_on_interpreter(string coreir_design,
         // set input value
         //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
         state.setValue(input_name, BitVector(16, input(x,y,c)));
+        state.setValue("self.in_en", BitVector(1, 1));
 
         // propogate to all wires
-        state.exeCombinational();
+        state.execute();
+
+        // give another rising edge (execute seq)
+        //state.exeSequential();
 
         // read output wire
         if (uses_valid) {
           bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+          cout <<"y=" <<y<<", x="<<x<<" output valid= "<< valid_value << endl;
 
           if (valid_value) {
             T output_value = state.getBitVec(output_name).to_type<T>();
@@ -188,9 +195,7 @@ void run_coreir_on_interpreter(string coreir_design,
           output(x,y,c) = output_value;
           std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
-        
-        // give another rising edge (execute seq)
-        state.exeSequential();
+
 
       }
     }
@@ -198,7 +203,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
   coreir_img_writer.print_coords();
 
-  
+
   deleteContext(c);
   printf("finished running CoreIR code\n");
 

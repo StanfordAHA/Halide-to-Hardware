@@ -15,6 +15,7 @@ BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 HALIDE_SRC_PATH ?= ../../../..
+LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname

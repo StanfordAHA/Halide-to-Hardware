@@ -17,6 +17,7 @@
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "lakelib.h"
 
 namespace Halide {
 namespace Internal {
@@ -399,10 +400,11 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
-                                             "counter", "linebuffer",
+                                             "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
-                                             "reg_array", "reshape", "transpose_reshape",
-                                             "abstract_unified_buffer", "unified_buffer"
+                                             "reg_array", "reshape", "transpose_reshape"
+                                             //"abstract_unified_buffer",
+                                             //"unified_buffer"
   };
   for (auto gen_name : commonlib_gen_names) {
     gens[gen_name] = "commonlib." + gen_name;
@@ -442,12 +444,21 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all modules from memory
   context->getNamespace("memory");
-  std::vector<string> memorylib_gen_names = {"ram2",
-                                             "rom2",
-                                             "fifo"};
+  std::vector<string> memorylib_gen_names = {"ram2","rom2",
+                                             "fifo",};
 
   for (auto gen_name : memorylib_gen_names) {
     gens[gen_name] = "memory." + gen_name;
+    internal_assert(context->hasGenerator(gens[gen_name]))
+      << "could not find " << gen_name << "\n";
+  }
+
+  // add all generators from lakelib which include some cgra libs
+  CoreIRLoadLibrary_lakelib(context);
+  std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
+
+  for (auto gen_name : lakelib_gen_names) {
+    gens[gen_name] = "lakelib." + gen_name;
     internal_assert(context->hasGenerator(gens[gen_name]))
       << "could not find " << gen_name << "\n";
   }

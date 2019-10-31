@@ -22,11 +22,11 @@ public:
         RDom r(0, ksize,               0, ksize);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
-        kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
-        kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+        kernel(0,0) = 17;      kernel(0,1) = 4;      kernel(0,2) = 6;
+        kernel(1,0) = 7;      kernel(1,1) = 19;       kernel(1,2) = 4;
+        kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
 
-        //conv(x, y) = 0;
+        conv(x, y) = 0;
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
@@ -52,7 +52,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+
 //          Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
 //          // Produce loop levels: host, global buffer, cgra
 //          output.tile(x, y, x_host,y_host, xi,yi, 256,256);
@@ -61,10 +61,10 @@ public:
 //          hw_input.store_root().compute_root();
 //          hw_input.in().store_at(output, x_host).compute_at(output,x_gb);
 //          hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
-          
+
           hw_input.compute_root();
           hw_output.compute_root();
-          
+
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             .hw_accelerate(xi, xo);
 
@@ -77,27 +77,27 @@ public:
 
           hw_input.stream_to_accelerator();
           kernel.compute_at(hw_output, xo);
-          
+
         } else {  // schedule to CPU
 //          kernel.compute_root();
 //          conv.compute_root();
 //          conv.update()
 //            .unroll(r.x, ksize)
 //            .unroll(r.y, ksize);
-          
+
 //          Var xi,yi, xo,yo;
 //          output.tile(x, y, xo,yo, xi,yi, 64,64);
 //          hw_input.in().store_at(output, xo).compute_at(output, xi);
 //          //hw_input.in().store_root().compute_at(output, x);
-          hw_input.in().store_root().compute_at(output,x);
+          //hw_input.in().store_root().compute_at(output,x);
           conv.update()
             .unroll(r.x)
             .unroll(r.y);
 //          //output.compute_root();
-//          
+//
 //          kernel.compute_at(output, xo);
         }
-        
+
     }
 };
 
