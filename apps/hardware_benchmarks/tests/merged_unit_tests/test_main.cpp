@@ -2686,6 +2686,9 @@ void conv_layer_mobile_test() {
 
       cout << "Module before consolidation..." << endl;
       cout << mod << endl;
+
+      //cout << "Postprocessed module" << endl;
+      //cout << 
   //auto context = hwContext();
   //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
           PRINT_PASSED("Conv layer mobile");
@@ -2699,7 +2702,7 @@ void conv_layer_mobile_test() {
 
 int main(int argc, char **argv) {
 
-  conv_layer_mobile_test();
+  //conv_layer_mobile_test();
   real_unsharp_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
