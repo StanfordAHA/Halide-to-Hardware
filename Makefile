@@ -387,6 +387,7 @@ SOURCE_FILES = \
   CodeGen_ARM.cpp \
   CodeGen_C.cpp \
 	CodeGen_CoreHLS.cpp \
+	CodeGen_CoreHLS_Kernel.cpp \
   CodeGen_CoreIR_Base.cpp \
   CodeGen_CoreIR_Target.cpp \
   CodeGen_CoreIR_Testbench.cpp \
@@ -562,6 +563,7 @@ HEADER_FILES = \
   Closure.h \
   CodeGen_ARM.h \
   CodeGen_C.h \
+	CodeGen_CoreHLS_Kernel.h \
   CodeGen_D3D12Compute_Dev.h \
   CodeGen_GPU_Dev.h \
   CodeGen_GPU_Host.h \
