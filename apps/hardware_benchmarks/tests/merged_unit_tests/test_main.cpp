@@ -128,7 +128,12 @@ CoreIR::Context* hwContext() {
 CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
-  hwOutput.compile_to_coreir(name, args, fName, t);
+  auto hm = hwOutput.compile_to_module(args, fName, t);
+  for (auto f : hm.functions()) {
+    Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
+    f.body.accept(&gen);
+  }
+  //hwOutput.compile_to_coreir(name, args, fName, t);
 
   if (!loadFromFile(context, "./conv_3_3_app.json")) {
     cout << "Error: Could not load json for unit test!" << endl;
@@ -480,6 +485,20 @@ class CodeGen_SoC_Test : public CodeGen_C {
         inHWRegion = false;
       }
     }
+};
+
+class HWRegionFinder : public IRGraphVisitor {
+  public:
+    bool foundRegion;
+    const Realize* region;
+
+    HWRegionFinder() : foundRegion(false) {}
+
+    void visit(const Realize* p) {
+      region = p;
+      foundRegion = true;
+    }
+
 };
 
 void offset_window_test() {
@@ -2563,19 +2582,6 @@ void real_unsharp_test() {
   //assert(false);
 }
 
-class HWRegionFinder : public IRGraphVisitor {
-  public:
-    bool foundRegion;
-    const Realize* region;
-
-    HWRegionFinder() : foundRegion(false) {}
-
-    void visit(const Realize* p) {
-      region = p;
-      foundRegion = true;
-    }
-
-};
 void conv_layer_mobile_test() {
     ImageParam input(type_of<int8_t>(), 3);
     ImageParam output(type_of<int8_t>(), 3);

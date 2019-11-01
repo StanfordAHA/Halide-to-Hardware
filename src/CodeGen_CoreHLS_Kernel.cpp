@@ -3,6 +3,7 @@
 
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreHLS_Kernel.h"
+#include "CodeGen_CoreHLS.h"
 #include "CodeGen_CoreIR_Testbench.h"
 #include "Substitute.h"
 #include "IROperator.h"
@@ -11,10 +12,12 @@
 #include "Lerp.h"
 #include "Simplify.h"
 
+#include "coreir/libs/commonlib.h"
+#include "coreir/libs/float.h"
+
 namespace Halide {
 
 namespace Internal {
-
 using std::ostream;
 using std::endl;
 using std::string;
@@ -41,6 +44,13 @@ using std::map;
         // generate CoreIR target code using the child code generator
         string ip_name = unique_name("coreir_target");
 
+        CoreIR::Context* context = CoreIR::newContext();
+        loadHalideLib(context);
+        CoreIRLoadLibrary_commonlib(context);
+        CoreIRLoadLibrary_float(context);
+        // TODO: Move save to json file from CodeGen_CoreHLS.cpp to here
+        createCoreIRForStmt(context, hw_body, ip_name, args);
+        CoreIR::deleteContext(context);
 
         // emits the target function call
         

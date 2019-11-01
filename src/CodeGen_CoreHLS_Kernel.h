@@ -9,7 +9,6 @@
 #include "StencilType.h"
 
 namespace Halide {
-
 namespace Internal {
 
   class CodeGen_CoreHLS_Kernel : public IRGraphVisitor {
