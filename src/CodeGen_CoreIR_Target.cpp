@@ -501,9 +501,12 @@ void CodeGen_CoreIR_Target::add_kernel(Stmt s,
                                        const string &name,
                                        const vector<CoreIR_Argument> &args) {
   debug(1) << "CodeGen_CoreIR_Target::add_kernel " << name << "\n";
+  std::cout << "Doing codegen for " << name << std::endl;
 
   hdrc.add_kernel(s, name, args);
+  std::cout << "Finished hdrc kernel: " << name << std::endl;
   srcc.add_kernel(s, name, args);
+  std::cout << "Finished srcc kernel: " << name << std::endl;
 }
 
 void CodeGen_CoreIR_Target::dump() {
@@ -559,6 +562,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   for (size_t i = 0; i < args.size(); i++) {
     string arg_name = "arg_" + std::to_string(i);
 
+    std::cout << "Processing arg " << arg_name << std::endl;
     if (args[i].is_stencil) {
       Stencil_Type stype = args[i].stencil_type;
 
@@ -620,6 +624,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     if (i < args.size()-1) stream << ",\n";
   }
 
+  std::cout << "Done processing args" << std::endl;
   // Emit prototype to coreir
   create_json = (num_inouts > 0);
 
@@ -650,6 +655,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   def = design->newModuleDef();
   self = def->sel("self");
 
+  std::cout << "Created design type" << std::endl;
+
   for (auto input_pair : input_types) {
     string arg_name = input_pair.first;
     hw_input_set[arg_name] = self->sel("in")->sel(arg_name);
@@ -661,6 +668,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     stream << ")\n";
     open_scope();
 
+    std::cout << "Creating design body" << std::endl;
     // add CoreIR pragma at function scope
     stream << "#pragma CoreIR DATAFLOW\n"
            << "#pragma CoreIR INLINE region\n"
@@ -762,9 +770,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     }
     stream << "\n";
 
+    std::cout << "Starting print body" << std::endl;
     // print body
     print(stmt);
 
+    std::cout << "Done with print body" << std::endl;
     close_scope("kernel hls_target" + print_name(name));
   }
   stream << "\n";
