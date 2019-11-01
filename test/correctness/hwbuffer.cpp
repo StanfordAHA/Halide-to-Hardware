@@ -300,11 +300,7 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
     hw_output.bound(y, 0, imgsize);
 
     for (uint i=0; i < num_conv; ++i) {
-      if (i==num_conv-1) {
-        conv[i].store_at(hw_output, xo).compute_at(hw_output, xi);
-      } else {
-        conv[i].store_at(hw_output, xo).compute_at(hw_output, xi);
-      }
+      conv[i].store_at(hw_output, xo).compute_at(hw_output, xi);
       kernel[i].compute_at(hw_output, xo);
       conv[i].update().unroll(r[i].x).unroll(r[i].y);
 		}
@@ -407,7 +403,7 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     for (size_t i=0; i<num_conv; ++i) {
       kernel[i](x, y) = Expr(7*i) + 5*x + y;
       conv[i](x, y) += conv_init(x+r[i].x, y+r[i].y) * kernel[i](r[i].x, r[i].y);
-      conv_last(x, y) += cast<int32_t>(conv[i](x, y) * Expr(i));
+      conv_last(x, y) += cast<int32_t>(conv[i](x + r_last.x, y + r_last.y) * Expr(i));
     }
 
     //k_last(x, y) = 3*y + x;
@@ -432,6 +428,8 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     k_init.compute_at(hw_output, xo);
     conv_init.store_at(hw_output, xo).compute_at(hw_output, xi);
     conv_init.update().unroll(r_init.x).unroll(r_init.y);
+
+    conv_last.store_at(hw_output, xo).compute_at(hw_output, xi);
     
     hw_input.store_at(hw_output, xo).compute_at(conv_init, x);
     hw_input.stream_to_accelerator();
@@ -452,18 +450,27 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     std::cout << "done with hwbuffer creation of forked" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
-    for (size_t i=0; i<num_conv; ++i) {
-      string hwbuffer_name = i==0 ? "hw_input" + suffix : "conv" + to_string(i-1) + suffix;
+    for (size_t i=0; i<num_conv+2; ++i) {
+      string hwbuffer_name =
+        i==0 ? "hw_input" + suffix :
+        i==1 ? "conv_init" + suffix :
+        "conv" + to_string(i-2) + suffix;
       h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
       auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
 
       int max_conv_size = 0;
-      for (size_t j=i; j<num_conv; ++j) {
-        max_conv_size = std::max(ksizes.at(j) - 1, max_conv_size);
+      for (size_t j=0; j<num_conv; ++j) {
+        max_conv_size = std::max(ksizes.at(j), max_conv_size);
       }
-      int ref_logsize = i==0 ? imgsize + max_conv_size + (initk - 1) : imgsize;
+      int ref_logsize =
+        i==0 ? imgsize + (lastk-1) + (max_conv_size-1) + (initk-1) :
+        i==1 ? imgsize + (lastk-1) + (max_conv_size-1) :
+        imgsize + (lastk-1);
 
-      int ksize = ksizes.at(i);
+      int ksize =
+        i==0 ? initk :
+        i==1 ? max_conv_size :
+        lastk;
       auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                         {ksize, ksize}, {ksize, ksize},
                                         {1, 1}, {1, 1});
@@ -523,8 +530,10 @@ int main(int argc, char **argv) {
 
     printf("Running forked conv hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
-    
+
+    //if (forked_pipeline_hwbuffer_test(3, {1, 1}, 3, 64) != 0) { return -1; }
     //if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
+    if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
     
     printf("Success!\n");
     return 0;

@@ -595,11 +595,12 @@ class FindOutputStencil : public IRVisitor {
 
     if (op->name == compute_level) {
       std::cout << var << " found compute level with for loop " << op->name << std::endl;
+      //std::cout << "before for bound replacement\n" << Stmt(op->body);
 
       ReplaceForBounds rfb;
       Stmt new_body = rfb.mutate(op->body);
 
-      //std::cout << Stmt(new_body);
+      //std::cout << "after for bound replacement\n" << Stmt(new_body);
 
       //if (scope.contains(op->name + ".min")) {
       //  std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
@@ -1227,34 +1228,25 @@ void find_output_scope(Stmt s, Function func,
 
 
 // Second pass through hwbuffers, setting some more parameters, including the consumer outputs.
-void set_opt_params(HWXcel *xcel, 
-                    const map<string, Function> &env,
-                    const vector<BoundsInference_Stage> &inlined_stages,
-                    const vector<string> &streaming_loop_levels,
-                    Scope<Expr>& output_scope,
-                    Box output_bounds) {
+void set_output_params(HWXcel *xcel, 
+                       const map<string, Function> &env,
+                       const vector<BoundsInference_Stage> &inlined_stages,
+                       const vector<string> &streaming_loop_levels,
+                       Scope<Expr>& output_scope,
+                       Box output_bounds) {
 
   auto &hwbuffers = xcel->hwbuffers;
   size_t i = inlined_stages.size() - 1 + 1;
   string xcel_compute_level = streaming_loop_levels.at(streaming_loop_levels.size()-1);
 
   bool in_output = true;
-  // scan through each stage before the output stage
+
 
   Scope<Expr>& stencil_bounds = output_scope;
-  std::cout << "stencil bounds when in the set_opt method: " << stencil_bounds << std::endl;
-    
-//  if (func.name() == var) {
-//    for (size_t i = 0; i < box_write.size(); i++) {
-//      string stage_name = func.name() + ".s0." + func.args()[i];
-//      stencil_bounds.push(stage_name + ".min", box_write[i].min);
-//      stencil_bounds.push(stage_name + ".max", box_write[i].max);
-//    }
-//  }
-//  FindInputStencil fis(consumer.name, cur_func, func_compute_level, stencil_bounds);
-//  hwbuffer.my_stmt.accept(&fis);
+  std::cout << "stencil bounds when in the set_output_params method: " << stencil_bounds << std::endl;
 
-  // go through the stages from the output back to the input
+  // Scan through each stage before the output stage.
+  // Go through the stages from the output back to the input.
   while (i >= 1) {
     i--;
     
@@ -1384,6 +1376,7 @@ void set_opt_params(HWXcel *xcel,
 
       //FindOutputStencil fos(hwbuffer.name, cur_func, xcel->streaming_loop_levels.at(xcel->streaming_loop_levels.size()-1));
       FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
+      //std::cout << "looking for " << hwbuffer.name << " in consumer: \n" << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
       hwbuffer.stride_map = fos.stride_map;
       std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
@@ -1392,7 +1385,7 @@ void set_opt_params(HWXcel *xcel,
       //}
 
       //std::cout << consumer_buffer.my_stmt << std::endl;
-      std::cout << "the output stencil of " << hwbuffer.name << " from " << consumer_buffer.name
+      std::cout << "the output stencil of " << hwbuffer.name << " to " << consumer_buffer.name
                 << " at " << hwbuffer.compute_level
                 << " is " << fos.output_stencil_box << std::endl;
       
@@ -1408,9 +1401,10 @@ void set_opt_params(HWXcel *xcel,
       // FIXMEyikes: this doesn't seem to work
       //const auto consumer_sliding_stencils = hwbuffers.at(consumer.name).input_stencil;
 
-      if (hwbuffers.count(consumer.name) == 0) {
-        continue;
-      }
+      //if (hwbuffers.count(consumer.name) == 0) {
+      //  continue;
+      //}
+      internal_assert(hwbuffers.count(consumer.name) != 0);
       
       std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name
                 << " for hwbuffer " << hwbuffer.name << "\n";
@@ -1584,7 +1578,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel);
 
   // set output parameters for hwbuffers based on consumers
-  set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
+  set_output_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
