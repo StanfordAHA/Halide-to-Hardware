@@ -120,6 +120,7 @@ class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
     std::set<std::string> defined;
+  protected:
 
     void visit(const Variable* v) {
       if (starts_with(v->name, "_")) {
@@ -144,6 +145,7 @@ class DefinedVarExtractor : public IRGraphVisitor {
   public:
     std::set<std::string> defined;
 
+  protected:
     void visit(const LetStmt* let) {
       defined.insert(let->name);
       IRGraphVisitor::visit(let);
@@ -215,6 +217,7 @@ class StoreCollector : public IRGraphVisitor {
     std::vector<const Store*> stores;
     std::map<std::string, std::map<int, int> > constStores;
 
+  protected:
     void visit(const Store* st) {
       stores.push_back(st);
       int storeIndex = getConstInt(st->index);
@@ -318,11 +321,13 @@ std::string exprString(const Expr e) {
 }
 
 class ContainForLoop : public IRVisitor {
-  using IRVisitor::visit;
-  void visit(const For *op) {
-    found = true;
-    varnames.push_back(op->name);
-  }
+
+  protected:
+    using IRVisitor::visit;
+    void visit(const For *op) {
+      found = true;
+      varnames.push_back(op->name);
+    }
 
 public:
   bool found;
@@ -905,6 +910,7 @@ class NestExtractor : public IRGraphVisitor {
 
     NestExtractor() : inFor(false) {}
 
+  protected:
     void visit(const For* l) {
       if (inFor) {
         return;
@@ -1027,6 +1033,7 @@ class InstructionCollector : public IRGraphVisitor {
       f.body.push_back(instr);
     }
 
+  protected:
     void visit(const Realize* op) {
       if (ends_with(op->name, ".stencil")) {
         vector<std::string> fields;
@@ -1396,6 +1403,7 @@ class StencilInfoCollector : public IRGraphVisitor {
 
     // So when a realization happens
 
+  protected:
     void visit(const Call* op) {
       //cout << "Stencil visiting call: " << op->name << endl;
       if (op->name == "dispatch_stream") {
@@ -2893,6 +2901,7 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     LoopNestInfo info;
 
 
+  protected:
     void visit(const For* lp) {
       ForInfo forInfo;
       forInfo.name = lp->name;
@@ -3912,6 +3921,7 @@ class CallCollector : public IRGraphVisitor {
 
     CallCollector(const std::string target_) : targetName(target_) {}
 
+  protected:
     void visit(const Call* c) {
       if (c->name == targetName) {
         calls.insert(c);
