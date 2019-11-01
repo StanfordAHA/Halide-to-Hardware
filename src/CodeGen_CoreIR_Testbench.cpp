@@ -99,8 +99,13 @@ void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
         vector<CoreIR_Argument> args = c.arguments(stencils);
 
         // generate CoreIR target code using the child code generator
+        std::cout << "Getting name" << std::endl;
         string ip_name = unique_name("coreir_target");
+        
+        std::cout << "Got name" << std::endl;
         cg_target.add_kernel(hw_body, ip_name, args);
+
+        std::cout << "Added kernel" << std::endl;
 
         // emits the target function call
         do_indent();
