@@ -6,6 +6,7 @@
 namespace Halide {
   namespace Internal {
 
+    // Moved from CoreIR_CodeGen_Base
     struct Stencil_Type {
       typedef enum {Stencil, Stream, AxiStream} StencilContainerType;
       StencilContainerType type;
