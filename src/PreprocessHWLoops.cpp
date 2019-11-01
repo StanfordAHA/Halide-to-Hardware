@@ -15,6 +15,8 @@ class InnermostLoopChecker : public IRGraphVisitor {
 
     InnermostLoopChecker() : foundSubLoop(false) {}
 
+  protected:
+
     void visit(const For* f) {
       foundSubLoop = true;
     }
@@ -31,6 +33,8 @@ class LetPusher : public IRMutator {
   public:
 
     vector<const LetStmt*> letStack;
+
+  protected:
 
     Stmt visit(const LetStmt* let) {
       letStack.push_back(let);
@@ -59,6 +63,8 @@ class LetPusher : public IRMutator {
 class LetEraser : public IRMutator {
 
   public:
+
+  protected:
 
     Stmt visit(const LetStmt* let) {
       auto newBody = this->mutate(let->body);
