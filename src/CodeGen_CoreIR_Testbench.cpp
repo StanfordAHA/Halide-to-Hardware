@@ -21,22 +21,6 @@ using std::vector;
 using std::pair;
 using std::map;
 
-class CoreIR_Closure : public Closure {
-public:
-  CoreIR_Closure(Stmt s, string output_string)  {
-        s.accept(this);
-        output_name = output_string;
-    }
-
-    vector<CoreIR_Argument> arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &scope);
-
-protected:
-    using Closure::visit;
-    string output_name;
-
-};
-
-
 vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &streams_scope) {
     vector<CoreIR_Argument> res;
     for (const pair<string, Closure::Buffer> &i : buffers) {
