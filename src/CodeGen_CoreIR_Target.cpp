@@ -3,7 +3,6 @@
 #include <limits>
 #include <algorithm>
 
-#include "CodeGen_CoreHLS.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
 #include "Debug.h"
@@ -273,8 +272,6 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   bitwidth = 16;
   context = CoreIR::newContext();
   global_ns = context->getGlobal();
-
-  loadHalideLib(context);
 
   // add all generators from coreirprims
   context->getNamespace("coreir");
@@ -546,16 +543,9 @@ uint num_bits(uint N) {
 
 // add new design
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
-    const string &name,
-    const vector<CoreIR_Argument> &args) {
+                                                         const string &name,
+                                                         const vector<CoreIR_Argument> &args) {
 
-  if (!is_header()) {
-    design = createCoreIRForStmt(context, stmt, name, args);
-    def = design->getDef();
-    global_ns = context->getNamespace("global");
-  }
-  return;
-  
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
   uint num_inouts = 0;
