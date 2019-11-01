@@ -128,7 +128,7 @@ CoreIR::Context* hwContext() {
 CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
-  auto hm = hwOutput.compile_to_module(args, fName, t);
+  auto hm = hwOutput.compile_to_module(args, name, t);
   for (auto f : hm.functions()) {
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
     f.body.accept(&gen);
