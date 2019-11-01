@@ -931,7 +931,10 @@ void control_path_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
 
-  runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
+  auto accelName = getInputAlias("accel_interface_info.json");
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  
+  //runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
@@ -988,7 +991,9 @@ void control_path_xy_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
 
-  runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
+  //runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
+  auto accelName = getInputAlias("accel_interface_info.json");
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
@@ -1037,7 +1042,7 @@ void mod2_test() {
   clamped.linebuffer();
   hw_input.stream_to_accelerator();
 
-  autcontext = hwContext();
+  auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
 
@@ -1157,7 +1162,9 @@ void rom_read_test() {
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
 
-  runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
+  string accelName = getInputAlias("accel_interface_info.json");
+  //runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
@@ -2731,6 +2738,9 @@ void conv_layer_mobile_test() {
 
 int main(int argc, char **argv) {
 
+  control_path_test();
+  control_path_xy_test();
+  rom_read_test();
   conv_layer_mobile_test();
   real_unsharp_test();
   //assert(false);
@@ -2745,12 +2755,9 @@ int main(int argc, char **argv) {
   accel_interface_test();
   accel_soc_test();
   curve_lookup_test();
-  rom_read_test();
   offset_window_test();  
   small_demosaic_test();
   multi_channel_conv_test();
-  control_path_test();
-  control_path_xy_test();
   pointwise_add_test();
   mod2_test();
   shiftRight_test();
