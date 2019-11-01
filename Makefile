@@ -516,6 +516,7 @@ SOURCE_FILES = \
   SlidingWindow.cpp \
   Solve.cpp \
   SplitTuples.cpp \
+	StencilType.cpp \
   StmtToHtml.cpp \
   StorageFlattening.cpp \
   StorageFolding.cpp \
