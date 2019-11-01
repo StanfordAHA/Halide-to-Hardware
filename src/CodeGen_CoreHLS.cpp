@@ -3666,7 +3666,7 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
       }
 
       if (args[i].is_stencil) {
-        CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+        Stencil_Type stype = args[i].stencil_type;
 
         vector<uint> indices;
         for(const auto &range : stype.bounds) {
@@ -3674,7 +3674,7 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
           indices.push_back(func_id_const_value(range.extent));
         }
 
-        if (args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
+        if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
           // add as the outputrg
           uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
           if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
@@ -3685,7 +3685,7 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
           output_name = "out";
           output_name_real = coreirSanitize(args[i].name);
 
-        } else if (!args[i].is_output && args[i].stencil_type.type == CodeGen_CoreIR_Base::Stencil_Type::StencilContainerType::AxiStream) {
+        } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
           // add another input
           uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
           CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();

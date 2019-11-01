@@ -21,7 +21,7 @@ using std::vector;
 using std::pair;
 using std::map;
 
-vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &streams_scope) {
+vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<Stencil_Type> &streams_scope) {
     vector<CoreIR_Argument> res;
     for (const pair<string, Closure::Buffer> &i : buffers) {
         debug(3) << "buffer: " << i.first << " " << i.second.size;
@@ -42,7 +42,7 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Bas
         std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
-            CodeGen_CoreIR_Base::Stencil_Type stype = streams_scope.get(i.first);
+            Stencil_Type stype = streams_scope.get(i.first);
 
             if (starts_with(i.first, output_name)) {
               res.push_back({i.first, true, true, Type(), stype});              
@@ -53,7 +53,7 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Bas
             internal_error << "we don't expect to see a stencil_update type in CoreIR_Closure.\n";
         } else {
             // it is a scalar variable
-            res.push_back({i.first, false, true, i.second, CodeGen_CoreIR_Base::Stencil_Type()});
+            res.push_back({i.first, false, true, i.second, Stencil_Type()});
         }
     }
     return res;

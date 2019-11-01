@@ -8,7 +8,7 @@
 #include "CodeGen_C.h"
 #include "Module.h"
 #include "Scope.h"
-
+#include "StencilType.h"
 #include "coreir.h"
 
 namespace Halide {
@@ -27,14 +27,6 @@ public:
                      OutputKind output_kind = CPlusPlusImplementation,
                      const std::string &include_guard = "")
    : CodeGen_C(dest, target, output_kind, include_guard) {}
-
-  struct Stencil_Type {
-    typedef enum {Stencil, Stream, AxiStream} StencilContainerType;
-    StencilContainerType type;
-    Type elemType;  // type of the element
-    Region bounds;  // extent of each dimension
-        int depth;      // FIFO depth if it is a Stream type
-    };
 
     std::ostringstream require_global_ostream;
     std::ostringstream submethod_ostream;

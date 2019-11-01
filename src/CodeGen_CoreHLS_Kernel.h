@@ -6,6 +6,7 @@
 #include "IRVisitor.h"
 #include "Module.h"
 #include "Scope.h"
+#include "StencilType.h"
 
 namespace Halide {
 
@@ -15,6 +16,7 @@ namespace Internal {
     public:
       std::string outName;
 
+      Scope<Stencil_Type> stencils;  // scope of stencils and streams of stencils
       CodeGen_CoreHLS_Kernel(const std::string& outFileName) : outName(outFileName) {}
     protected:
 

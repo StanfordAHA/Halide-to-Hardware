@@ -23,7 +23,7 @@ public:
         output_name = output_string;
     }
 
-  std::vector<CoreIR_Argument> arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &scope);
+  std::vector<CoreIR_Argument> arguments(const Scope<Stencil_Type> &scope);
 
 protected:
     using Closure::visit;
