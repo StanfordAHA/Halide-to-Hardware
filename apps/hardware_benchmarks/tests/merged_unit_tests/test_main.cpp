@@ -1037,7 +1037,7 @@ void mod2_test() {
   clamped.linebuffer();
   hw_input.stream_to_accelerator();
 
-  auto context = hwContext();
+  autcontext = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
 

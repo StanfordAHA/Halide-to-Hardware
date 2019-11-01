@@ -133,15 +133,8 @@ class HWVarExtractor : public IRGraphVisitor {
       }
     }
 
-    //void visit(const LetStmt* l) {
-      //addVar(l->name);
-      ////hwVars.push_back(l->name);
-      //IRGraphVisitor::visit(l);
-    //}
-
     void visit(const For* lp) {
       addVar(lp->name);
-      //hwVars.push_back(lp->name);
 
       IRGraphVisitor::visit(lp);
     }
@@ -179,7 +172,6 @@ vector<std::string> extractHardwareVars(const For* lp) {
   return ex.hwVars;
 }
 
-  //vector<std::string> extractHardwareVars(const For* lp);
 
   int func_id_const_value(const Expr e) {
     if (const IntImm* e_int = e.as<IntImm>()) {
@@ -1375,15 +1367,15 @@ class InstructionCollector : public IRGraphVisitor {
 
 //vector<HWInstr*> buildHWBody(const For* perfectNest) {
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp);
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
 //HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
-HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest) {
+HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args) {
 
   InstructionCollector collector;
   collector.f.name = name;
   
-  auto design_type = moduleTypeForKernel(context, info, perfectNest);
+  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
@@ -1671,7 +1663,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
  
-  cout << "Creating unit mapping" << endl;
+  cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
   
   std::set<std::string> pipeVars;
   for (auto instr : sched.body) {
@@ -1890,7 +1882,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
 
-    //cout << "Wiring up constants" << endl;
+    cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
@@ -1902,6 +1894,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         constNo++;
         instrValues[op] = cInst->sel("out");
       } else if (op->tp == HWINSTR_TP_VAR) {
+        cout << "Wiring up var..." << op->compactString() << endl;
         string name = op->name;
         if (CoreIR::elem(name, pipeVars)) {
           continue;
@@ -2059,8 +2052,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   }
 }
 
-//CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp) {
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
@@ -2076,20 +2068,21 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
   for (auto v : lpInfo.info.streamWrites) {
     outStreams.insert(v.first);
   }
-  //for (auto instr : instrs) {
-    //if (isCall("rd_stream", instr)) {
-      //inStreams.insert(instr->operands[0]->compactString());
-    //}
-
-    //if (isStreamWrite(instr)) {
-      //outStreams.insert(instr->operands[0]->compactString());
-    //}
-  //}
-
-  //for (auto v : f.controlVars) {
+  
   for (auto v : extractHardwareVars(lp)) {
     string vName = coreirSanitize(v);
     tps.push_back({vName, context->BitIn()->Arr(16)});
+  }
+
+  for (auto arg : args) {
+    if (!arg.is_stencil) {
+      string vName = coreirSanitize(arg.name);
+      if (!arg.is_output) {
+        tps.push_back({vName, context->Bit()->Arr(16)});
+      } else {
+        tps.push_back({vName, context->BitIn()->Arr(16)});
+      }
+    }
   }
 
   //cout << "Current stencils..." << endl;
@@ -2264,10 +2257,7 @@ std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
   }
   return out;
 }
-//CoreIR::Module* moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
-ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp) {
-  //auto& instrs = f.body;
-  //f.mod = design;
+ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
   auto design = f.mod;
@@ -4461,27 +4451,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
     }
   }
-  //ofstream interfaceInfo(name + "_accel_interface_info.json");
   ofstream interfaceInfo("accel_interface_info.json");
   interfaceInfo << aliasInfo;
   interfaceInfo.close();
 
-  // Rest of the code builds the definition of this module, first by
-  // creating RTL for each loop kernel, and then by wiring up these
-  // kernels in to a full design
-  //int bitwidth = 16;
   stmt = preprocessHWLoops(stmt);
-  //LetPusher pusher;
-  //stmt = pusher.mutate(stmt);
-  //cout << "After let pushing..." << endl;
-  //cout << stmt << endl;
-
-  //LetEraser letEraser;
-  //stmt = letEraser.mutate(stmt);
-
-  //cout << "After let erasure..." << endl;
-  //cout << stmt << endl;
-  //internal_assert(false) << "Stopping here for dillon to view\n";
 
   StoreCollector stCollector;
   stmt.accept(&stCollector);
@@ -4512,13 +4486,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     cout << "Original body.." << endl;
     cout << lp->body << endl;
 
-    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp);
-    //auto hwVars = extractHardwareVars(lp, f);
+    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args);
     auto hwVars = extractHardwareVars(lp);
+    for (auto arg : args) {
+      if (!arg.is_stencil) {
+        hwVars.push_back(coreirSanitize(arg.name));
+      }
+    }
+    
     cout << "All hardware vars.." << endl;
     for (auto hv : hwVars) {
       cout << "\t" << hv << endl;
     }
+    
     f.controlVars = hwVars;
     auto& body = f.body;
 
@@ -4542,7 +4522,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto fp : functions) {
     auto lp = fp.first;
     HWFunction& f = fp.second;
-    ComputeKernel compK = moduleForKernel(context, scl.info, f, lp);
+    ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
     kernelModules[lp] = compK;
@@ -4551,7 +4531,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     cp.m->print();
     kernelControlPaths[lp] = cp;
 
-    //context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
     removeUnconnectedInstances(m->getDef());
     removeUnusedInstances(m->getDef());
 
