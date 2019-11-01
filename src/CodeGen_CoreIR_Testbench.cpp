@@ -39,11 +39,14 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<Stencil_Type> &str
     internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
         debug(3) << "var: " << i.first << "\n";
-        std::cout << "var: " << i.first << "\n";
+        std::cout << "var name: " << i.first << std::endl;
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
+
+        std::cout << "\tgetting stencil type: " << i.first << std::endl;
             Stencil_Type stype = streams_scope.get(i.first);
 
+        std::cout << "\tgot stencil type" << i.first << std::endl;
             if (starts_with(i.first, output_name)) {
               res.push_back({i.first, true, true, Type(), stype});              
             } else {
@@ -56,6 +59,7 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<Stencil_Type> &str
             res.push_back({i.first, false, true, i.second, Stencil_Type()});
         }
     }
+    std::cout << "Returning args" << std::endl;
     return res;
 }
 
