@@ -4,7 +4,8 @@
 #include "IR.h"
 
 namespace Halide {
-  namespace Internal {
+
+namespace Internal {
 
     // Moved from CoreIR_CodeGen_Base
     struct Stencil_Type {
