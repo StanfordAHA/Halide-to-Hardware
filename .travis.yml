@@ -11,8 +11,8 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      #- g++-4.9
-      - g++-5
+      - g++-4.9
+      #- g++-5
       - libedit-dev
       - libpng-dev
       - graphviz
@@ -24,7 +24,8 @@ env:
   #
   # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
-  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-5 CC_=gcc-5
+  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
+  #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-5 CC_=gcc-5
 
 cache: apt
 
