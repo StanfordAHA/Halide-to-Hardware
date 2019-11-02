@@ -592,12 +592,23 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         std::cout << "Is axistream output" << std::endl;
         // add as the output
         uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
-        if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
-        for (uint i=0; i<indices.size(); ++i) {
-          output_type = output_type->Arr(indices[i]);
+        std::cout << "out_bitwidth = " << out_bitwidth << std::endl;
+        if (out_bitwidth > 1) {
+          std::cout << "out_bitwidth > 1" << std::endl;
+          output_type = output_type->Arr(out_bitwidth);
+          std::cout << "output_type = " << output_type->toString() << std::endl;
         }
+        for (uint i=0; i<indices.size(); ++i) {
+          std::cout << "setting output type " << i << std::endl;
+          output_type = output_type->Arr(indices[i]);
+          std::cout << "set output type " << i << " to " << output_type->toString() << std::endl;
+        }
+
+        std::cout << "adding to hwoutput set" << std::endl;
         hw_output_set.insert(arg_name);
         
+        std::cout << "added to hw_output_set" << std::endl;
+
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         // add another input
         std::cout << "is axistream input" << std::endl;
