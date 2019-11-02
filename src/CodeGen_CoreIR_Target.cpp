@@ -564,6 +564,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
     std::cout << "Processing arg " << arg_name << std::endl;
     if (args[i].is_stencil) {
+
+      std::cout << arg_name << " is stencil" << std::endl;
       Stencil_Type stype = args[i].stencil_type;
 
       internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
@@ -576,6 +578,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       allocations.push(args[i].name, {args[i].stencil_type.elemType});
       stencils.push(args[i].name, args[i].stencil_type);
 
+      std::cout << "Creating indices" << std::endl;
       // create an array of size in each dimension
       vector<uint> indices;
       for(const auto &range : stype.bounds) {
@@ -583,7 +586,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         indices.push_back(id_const_value(range.extent));
       }
 
+      std::cout << "Created indices" << std::endl;
+
       if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        std::cout << "Is axistream output" << std::endl;
         // add as the output
         uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
         if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
@@ -594,6 +600,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         // add another input
+        std::cout << "is axistream input" << std::endl;
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
         for (uint i=0; i<indices.size(); ++i) {
@@ -602,6 +609,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         input_types.push_back({arg_name, input_type});
           
       } else {
+        std::cout << "is tap" << std::endl;
         // add another array of taps (configuration changes infrequently)
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
@@ -613,7 +621,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
       num_inouts++;
 
+      std::cout << "New num_inouts = " << num_inouts << std::endl;
     } else {
+      std::cout << arg_name << " is not stencil" << std::endl;
       // add another tap (single value)
       stream << print_type(args[i].scalar_type) << " " << arg_name;
       uint in_bitwidth = inst_bitwidth(args[i].scalar_type.bits());
@@ -621,6 +631,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       tap_types[arg_name] = tap_type;
     }
 
+    std::cout << "Done with " << arg_name << std::endl;
     if (i < args.size()-1) stream << ",\n";
   }
 
