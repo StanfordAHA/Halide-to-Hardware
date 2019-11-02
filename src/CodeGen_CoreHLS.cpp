@@ -4536,8 +4536,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
-    kernelModules[lp] = compK;
     auto cp = controlPathForKernel(context, scl.info, f, lp);
+    kernelModules[lp] = compK;
     cout << "Control path is..." << endl;
     cp.m->print();
     kernelControlPaths[lp] = cp;
