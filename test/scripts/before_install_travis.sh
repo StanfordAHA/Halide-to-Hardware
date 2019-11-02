@@ -6,6 +6,6 @@ export CC=${CC_}
 export LLVM_CONFIG=${TRAVIS_BUILD_DIR}/llvm/bin/llvm-config
 export CLANG=${TRAVIS_BUILD_DIR}/llvm/bin/clang
 #export COREIRCONFIG="g++-4.9"
-export COREIRCONFIG="g++-7"
+export COREIRCONFIG="g++-5"
 export COREIR_DIR=${TRAVIS_BUILD_DIR}/coreir
 export OUTPUT_REDIRECTION=""
