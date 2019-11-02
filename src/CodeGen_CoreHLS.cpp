@@ -86,6 +86,7 @@ bool isComputeKernel(CoreIR::Wireable* v) {
     return false;
   }
 
+  // Simplify
   return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
     !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b)) &&
     !fromGenerator("halidehw.stream_trimmer", static_cast<Instance*>(b));
