@@ -16,6 +16,7 @@ addons:
       - libedit-dev
       - libpng-dev
       - graphviz
+      - valgrind
 env:
   # Configurations
   #
