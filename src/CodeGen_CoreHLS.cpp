@@ -123,6 +123,8 @@ class HWVarExtractor : public IRGraphVisitor {
     std::set<std::string> defined;
   protected:
 
+    using IRGraphVisitor::visit;
+
     void visit(const Variable* v) override {
       if (starts_with(v->name, "_")) {
         addVar(v->name);
@@ -147,6 +149,7 @@ class DefinedVarExtractor : public IRGraphVisitor {
     std::set<std::string> defined;
 
   protected:
+    using IRGraphVisitor::visit;
     void visit(const LetStmt* let) override {
       defined.insert(let->name);
       IRGraphVisitor::visit(let);
@@ -219,6 +222,7 @@ class StoreCollector : public IRGraphVisitor {
     std::map<std::string, std::map<int, int> > constStores;
 
   protected:
+    using IRGraphVisitor::visit;
     void visit(const Store* st) override {
       stores.push_back(st);
       int storeIndex = getConstInt(st->index);
@@ -912,6 +916,7 @@ class NestExtractor : public IRGraphVisitor {
     NestExtractor() : inFor(false) {}
 
   protected:
+    using IRGraphVisitor::visit;
     void visit(const For* l) override {
       if (inFor) {
         return;
@@ -1015,6 +1020,7 @@ class HWLoopSchedule {
 
 class InstructionCollector : public IRGraphVisitor {
   public:
+    using IRGraphVisitor::visit;
     std::map<std::string, HWInstr*> vars;
     HWFunction f;
     HWInstr* lastValue;
@@ -1405,6 +1411,7 @@ class StencilInfoCollector : public IRGraphVisitor {
     // So when a realization happens
 
   protected:
+    using IRGraphVisitor::visit;
     void visit(const Call* op) override {
       //cout << "Stencil visiting call: " << op->name << endl;
       if (op->name == "dispatch_stream") {
@@ -2933,6 +2940,7 @@ class LoopNestInfoCollector : public IRGraphVisitor {
 
 
   protected:
+    using IRGraphVisitor::visit;
     void visit(const For* lp) override {
       ForInfo forInfo;
       forInfo.name = lp->name;
@@ -3943,6 +3951,7 @@ class CallCollector : public IRGraphVisitor {
     CallCollector(const std::string target_) : targetName(target_) {}
 
   protected:
+    using IRGraphVisitor::visit;
     void visit(const Call* c) override {
       if (c->name == targetName) {
         calls.insert(c);
