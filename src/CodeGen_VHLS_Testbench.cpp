@@ -47,9 +47,7 @@ vector<VHLS_Argument> VHLS_Closure::arguments(const Scope<CodeGen_VHLS_Base::Ste
         debug(3) << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
-          std::cout << "Pusing to args" << std::endl;
             CodeGen_VHLS_Base::Stencil_Type stype = streams_scope.get(i.first);
-            std::cout << "Got arg from streams_scope" << std::endl;
             res.push_back({i.first, true, Type(), stype});
         } else if (ends_with(i.first, ".stencil_update")) {
             internal_error << "we don't expect to see a stencil_update type in VHLS_Closure.\n";
@@ -58,7 +56,6 @@ vector<VHLS_Argument> VHLS_Closure::arguments(const Scope<CodeGen_VHLS_Base::Ste
             res.push_back({i.first, false, i.second, CodeGen_VHLS_Base::Stencil_Type()});
         }
     }
-    std::cout << "Returning arguments" << std::endl;
     return res;
 }
 
