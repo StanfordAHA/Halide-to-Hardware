@@ -4573,14 +4573,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
-  std::map<const For*, CoreIR::Instance*> controlPaths;
-  std::map<Instance*, CoreIR::Instance*> kernelToControlPath;
   for (auto k : kernelModules) {
     auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
     def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
     kernels[k.first] = kI;
-
-
   }
 
   cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
