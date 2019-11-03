@@ -556,7 +556,7 @@ void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
   {
-  CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+  CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}, {"delay", context->Int()}};
   CoreIR::TypeGen* srTg = hns->newTypeGen("stream_trimmer", srParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
       auto t = args.at("type")->get<CoreIR::Type*>();
@@ -571,8 +571,10 @@ void loadHalideLib(CoreIR::Context* context) {
   auto srGen = hns->newGeneratorDecl("stream_trimmer", srTg, srParams);
   srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
       auto self = def->sel("self");
+      int delay = args.at("delay")->get<int>();
       auto tp = args.at("type")->get<CoreIR::Type*>();
-      auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, 9*2 + 2)}});
+      auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, delay)}});
+      //auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, 9*2 + 2)}});
       
       def->connect(sr->sel("in_data"), self->sel("in"));
       def->connect(sr->sel("in_en"), self->sel("en"));
@@ -3563,11 +3565,13 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
 
   if (isTrimmer(producer)) {
 
+    auto delay = getGenArgs(producer).at("delay")->get<int>();
+    return outputIndex + 2*delay;
     // This does not work
     //return 20;
     //return 35;
     // Note: This delay works
-    return 40;
+    //return 40;
     //return -40;
     //return 0;
     //return -(9*2 + 2);
@@ -4408,7 +4412,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
       if (needTrimmer) {
         auto trimInTp = dataOut(writerNode, stream)->getType();
-        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, trimInTp)}});
+        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, trimInTp)}, {"delay", COREMK(context, 20)}});
         appGraph.addVertex(trimmer);
         
         KernelEdge toTrimmer;
