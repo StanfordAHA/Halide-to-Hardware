@@ -1917,7 +1917,19 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         pipeVars.insert(name);
         //cout << "Finding argument value for " << name << endl;
         auto self = def->sel("self");
-        auto val = self->sel(coreirSanitize(name));
+        
+        Wireable* val = nullptr;
+        if (elem(coreirSanitize(name), cpm.controlVars)) {
+          val = controlPath->sel(coreirSanitize(name));
+          //internal_assert(false) << name << " is a control path variable\n";
+        } else {
+          //cout << "Control path vars are..." << endl;
+          //for (auto v : cpm.controlVars) {
+          //cout << "\t" << v << endl;
+          //}
+          val = self->sel(coreirSanitize(name));
+        }
+        internal_assert(val != nullptr);
 
         instrValues[op] = val;
         
