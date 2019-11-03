@@ -3576,13 +3576,11 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
 
 int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
-  //auto ed = appGraph.getLabel(e);
 
   return aTime;
 }
 
 void wireUpAppGraph(AppGraph& appGraph,
-    std::map<Instance*, CoreIR::Instance*>& kernelToControlPath,
     CoreIR::ModuleDef* def) {
 
   cout << "Setting data sigals on compute kernels" << endl;
@@ -3610,11 +3608,6 @@ void wireUpAppGraph(AppGraph& appGraph,
     auto wEn = andList(def, allEnables);
     cout << "Connecting " << coreStr(inEnable) << " to " << coreStr(wEn) << endl;
     def->connect(inEnable, wEn);
-
-    //if (isComputeKernel(v)) {
-      //cout << "Wiring up control path for compute kernel " << coreStr(v) << endl;
-      //def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
-    //}
   }
 
 }
@@ -4517,7 +4510,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   int kernelN = 0;
 
   std::map<const For*, ComputeKernel> kernelModules;
-  std::map<const For*, KernelControlPath> kernelControlPaths;
   std::map<const For*, HWFunction> functions;
   for (const For* lp : extractor.loops) {
     cout << "\t\tLOOP" << endl;
@@ -4563,11 +4555,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
-    //auto cp = controlPathForKernel(context, scl.info, f, lp);
     kernelModules[lp] = compK;
-    //cout << "Control path is..." << endl;
-    //cp.m->print();
-    //kernelControlPaths[lp] = cp;
 
     cout << "Module before optimization" << endl;
     m->print();
@@ -4592,15 +4580,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
     kernels[k.first] = kI;
 
-    //KernelControlPath cpM = map_get(k.first, kernelControlPaths);
-    //auto controlPath = def->addInstance("control_path_module_" + k.second.mod->getName(), cpM.m);
-    //controlPaths[k.first] = controlPath;
-    //def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
-    //for (auto v : cpM.controlVars) {
-      //auto vn = coreirSanitize(v);
-      //def->connect(controlPath->sel(vn), kI->sel(vn));
-    //}
-    //kernelToControlPath[kI] = controlPath;
 
   }
 
@@ -4608,17 +4587,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
 
   auto topSort = topologicalSort(appGraph.appGraph);
-  //cout << "Sorted nodes..." << endl;
-  //for (auto v : topSort) {
-    //auto w = appGraph.getNode(v);
-    //if (!isa<Interface>(getBase(w))) {
-      //cout << "\t" << v << ": " << CoreIR::toString(*(appGraph.appGraph.getNode(v))) << endl;
-      //int delay = arrivalTime(firstInputEdge(appGraph.getNode(v), appGraph), 0, appGraph);
-      //cout << "\tCycle delay to " << coreStr(w) << " = " << delay << endl;
-    //}
-  //}
-
-  //internal_assert(false) << "Stop here\n";
+  
   // Map from nodes to the times at which first valid from that node is emitted
   std::map<vdisc, int> nodesToDelays;
   //std::map<edisc, int> extraDelaysNeeded;
@@ -4695,7 +4664,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
 
   appGraph = insertDelays(appGraph);
-  wireUpAppGraph(appGraph, kernelToControlPath, def);
+  wireUpAppGraph(appGraph, def);
   
   cout << "Setting definition of topMod..." << endl;
 
