@@ -3500,11 +3500,6 @@ int linebufferFilledSize(Wireable* ld) {
   return linebufferDelay(ld);
 }
 
-// Or is this the time between production of the first output
-// and production of the ith output?
-//
-// Time between arrival of first input to producer and production of
-// outputIndex
 int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   if (isa<Interface>(producer)) {
     return outputIndex;
@@ -3525,20 +3520,23 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
 
   internal_assert(isLinebuffer(producer));
 
- // Linebuffers outputIndexth production time is expressed as a function of
+  // How would I express this as a closed form function? IOW w/o the call to relativeProductionTime?
+  // Linebuffers outputIndexth production time is expressed as a function of
   // earlier production times
-  int delay = 0;
-  if (outputIndex == 0) {
-    delay = 0;
-    return 0;
-    //return linebufferDelay(producer);
-  } else if (outputIndex % numOutImageCols(producer) != 0) {
-    delay = relativeProductionTime(producer, outputIndex - 1, g) + 1;
-  } else {
-    delay = relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
-  }
-  //cout << "Delay for " << coreStr(producer) << "'s " << outputIndex << "(th) element = " << delay << endl;
-  return delay;
+  return outputIndex % numOutImageCols(producer) +
+    std::floor(outputIndex / numOutImageCols(producer)) * numInImageCols(producer);
+  //int delay = 0;
+  //if (outputIndex == 0) {
+    //delay = 0;
+    //return 0;
+    ////return linebufferDelay(producer);
+  //} else if (outputIndex % numOutImageCols(producer) != 0) {
+    //delay = relativeProductionTime(producer, outputIndex - 1, g) + 1;
+  //} else {
+    //delay = relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
+  //}
+  ////cout << "Delay for " << coreStr(producer) << "'s " << outputIndex << "(th) element = " << delay << endl;
+  //return delay;
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
@@ -3555,27 +3553,12 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
       }
     }
     internal_assert(false) << "No kernel module for " << coreStr(producer) << "\n";
-    //return 0 + arrivalTime(firstInputEdge(producer, g), outputIndex, g);
   }
-
-  // If this is a linebuffer then the production time of outputIndex(th)
-  // window is: arrivalTime of (outIndex + buffersize)(th) input
-  // or: arrivaltime of buffersize(th) input (first output production)
-  // plus the offset from 
 
   if (isTrimmer(producer)) {
 
     auto delay = getGenArgs(producer).at("delay")->get<int>();
     return outputIndex + 2*delay;
-    // This does not work
-    //return 20;
-    //return 35;
-    // Note: This delay works
-    //return 40;
-    //return -40;
-    //return 0;
-    //return -(9*2 + 2);
-    //internal_assert(false) << "no production time support for trimmers!\n";
   }
   internal_assert(isLinebuffer(producer));
   return arrivalTime(firstInputEdge(producer, g), linebufferDelay(producer), g) + relativeProductionTime(producer, outputIndex, g);
@@ -3586,12 +3569,6 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
   KernelEdge edgeLabel = g.getLabel(e);
   Wireable* inputSource = edgeLabel.dataSrc;
   return productionTime(getBase(inputSource), index, g) + g.edgeDelay(e);
-  //if (contains_key(e, g.extraDelaysNeeded)) {
-    //internal_assert(contains_key(e, g.extraDelaysNeeded));
-    //return productionTime(getBase(inputSource), index, g) + map_get(e, g.extraDelaysNeeded);
-  //} else {
-    //return productionTime(getBase(inputSource), index, g);
-  //}
 }
 
 int cycleDelay(edisc e, AppGraph& appGraph) {
