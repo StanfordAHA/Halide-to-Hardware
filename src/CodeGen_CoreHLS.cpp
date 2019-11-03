@@ -3582,7 +3582,7 @@ int arrivalTime(edisc e, const int index, AppGraph& g) {
   }
 }
 
-int cycleDelay(edisc e, std::map<const For*, ComputeKernel>& computeKernels, AppGraph& appGraph) {
+int cycleDelay(edisc e, AppGraph& appGraph) {
   int aTime = arrivalTime(e, 0, appGraph);
 
   return aTime;
@@ -4457,7 +4457,7 @@ void computeDelaysForAppGraph(AppGraph& appGraph) {
     edisc maxEdge = 0;
     bool setMaxEdge = false;
     for (auto e : inEdges) {
-      int distToSrc = cycleDelay(e, appGraph.kernelModules, appGraph);
+      int distToSrc = cycleDelay(e, appGraph);
 
       if (distToSrc >= maxDist) {
         maxDist = distToSrc;
@@ -4472,9 +4472,9 @@ void computeDelaysForAppGraph(AppGraph& appGraph) {
       // All delays are trivially the same
     } else {
       for (size_t i = 0; i < inEdges.size() - 1; i++) {
-        int distToSrc = cycleDelay(inEdges[i], appGraph.kernelModules, appGraph);
+        int distToSrc = cycleDelay(inEdges[i], appGraph);
         
-        int distToSrc1 = cycleDelay(inEdges[i + 1], appGraph.kernelModules, appGraph);
+        int distToSrc1 = cycleDelay(inEdges[i + 1], appGraph);
         if (distToSrc != distToSrc1) {
           allDelaysSame = false;
           break;
@@ -4493,7 +4493,7 @@ void computeDelaysForAppGraph(AppGraph& appGraph) {
           appGraph.extraDelaysNeeded[e] = 0;
         } else {
           auto srcVert = appGraph.appGraph.source(e);
-          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph.kernelModules, appGraph);
+          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph);
           int filler = maxDist - distToSrc;
           appGraph.extraDelaysNeeded[e] = filler;
         }
