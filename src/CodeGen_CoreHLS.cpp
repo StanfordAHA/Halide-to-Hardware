@@ -2312,6 +2312,8 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   def->connect(inEn, self->sel("valid"));
 
   auto cpM = controlPathForKernel(context, info, f, lp);
+  cout << "Control path module..." << endl;
+  cpM.m->print();
   auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
   def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
   cout << "Wiring up def in enable and control path in_en" << endl;
@@ -4567,6 +4569,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //cp.m->print();
     //kernelControlPaths[lp] = cp;
 
+    cout << "Module before optimization" << endl;
+    m->print();
+
     removeUnconnectedInstances(m->getDef());
     removeUnusedInstances(m->getDef());
 
@@ -4584,6 +4589,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   std::map<Instance*, CoreIR::Instance*> kernelToControlPath;
   for (auto k : kernelModules) {
     auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
+    def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
     kernels[k.first] = kI;
 
     //KernelControlPath cpM = map_get(k.first, kernelControlPaths);

@@ -141,8 +141,8 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   }
   context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
   CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
-  //cout << "Module..." << endl;
-  //m->print();
+  cout << "Module after wiring clocks ..." << endl;
+  m->print();
   return m;
 }
 
