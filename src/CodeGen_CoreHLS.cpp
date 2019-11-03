@@ -4602,7 +4602,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     //map<edisc, int> incomingDelays;
     int maxDist = 0;
     vdisc maxDistVert;
-    edisc maxEdge;
+    edisc maxEdge = 0;
+    bool setMaxEdge = false;
     for (auto e : inEdges) {
       auto srcVert = appGraph.appGraph.source(e);
       //int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
@@ -4612,6 +4613,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         maxDist = distToSrc;
         maxDistVert = srcVert;
         maxEdge = e;
+        setMaxEdge = true;
       }
       
     }
@@ -4621,12 +4623,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       // All delays are trivially the same
     } else {
       for (size_t i = 0; i < inEdges.size() - 1; i++) {
-        //auto srcVert = appGraph.appGraph.source(inEdges[i]);
-        //int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(inEdges[i], kernelModules, appGraph);
         int distToSrc = cycleDelay(inEdges[i], kernelModules, appGraph);
         
-        //auto srcVert1 = appGraph.appGraph.source(inEdges[i + 1]);
-        //int distToSrc1 = map_get(srcVert1, nodesToDelays) + cycleDelay(inEdges[i + 1], kernelModules, appGraph);
         int distToSrc1 = cycleDelay(inEdges[i + 1], kernelModules, appGraph);
         if (distToSrc != distToSrc1) {
           allDelaysSame = false;
@@ -4640,17 +4638,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
         appGraph.extraDelaysNeeded[e] = 0;
       }
     } else {
-      //cout << "\tDifferent delays to " << coreStr(appGraph.getNode(v)) << endl;
-      //for (auto e : inEdges) {
-        //cout << "\t\t" << coreStr(appGraph.source(e)) << " -> " << cycleDelay(e, kernelModules, appGraph) << endl;
-      //}
-      //cout << "\tMax distance = " << maxDist << endl;
-
-      //internal_assert(false);
-     
 
       for (auto e : inEdges) {
-        if (e == maxEdge) {
+        if (setMaxEdge && (e == maxEdge)) {
           appGraph.extraDelaysNeeded[e] = 0;
         } else {
           auto srcVert = appGraph.appGraph.source(e);
