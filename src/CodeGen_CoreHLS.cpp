@@ -4412,7 +4412,9 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
       if (needTrimmer) {
         auto trimInTp = dataOut(writerNode, stream)->getType();
-        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, trimInTp)}, {"delay", COREMK(context, 20)}});
+        // TODO: Actually compute the delay value from diffs, extents, and traversal order
+        int delayNeeded = 20;
+        auto trimmer = def->addInstance("trimmer_" + def->getContext()->getUnique(), "halidehw.stream_trimmer", {{"type", COREMK(context, trimInTp)}, {"delay", COREMK(context, delayNeeded)}});
         appGraph.addVertex(trimmer);
         
         KernelEdge toTrimmer;
