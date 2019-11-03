@@ -123,7 +123,7 @@ class HWVarExtractor : public IRGraphVisitor {
     std::set<std::string> defined;
   protected:
 
-    void visit(const Variable* v) {
+    void visit(const Variable* v) override {
       if (starts_with(v->name, "_")) {
         addVar(v->name);
       }
@@ -135,7 +135,7 @@ class HWVarExtractor : public IRGraphVisitor {
       }
     }
 
-    void visit(const For* lp) {
+    void visit(const For* lp) override {
       addVar(lp->name);
 
       IRGraphVisitor::visit(lp);
@@ -147,12 +147,12 @@ class DefinedVarExtractor : public IRGraphVisitor {
     std::set<std::string> defined;
 
   protected:
-    void visit(const LetStmt* let) {
+    void visit(const LetStmt* let) override {
       defined.insert(let->name);
       IRGraphVisitor::visit(let);
     }
 
-    void visit(const Let* let) {
+    void visit(const Let* let) override {
       defined.insert(let->name);
       IRGraphVisitor::visit(let);
     }
@@ -219,7 +219,7 @@ class StoreCollector : public IRGraphVisitor {
     std::map<std::string, std::map<int, int> > constStores;
 
   protected:
-    void visit(const Store* st) {
+    void visit(const Store* st) override {
       stores.push_back(st);
       int storeIndex = getConstInt(st->index);
       // TODO: Change to isConst
@@ -325,7 +325,7 @@ class ContainForLoop : public IRVisitor {
 
   protected:
     using IRVisitor::visit;
-    void visit(const For *op) {
+    void visit(const For *op) override {
       found = true;
       varnames.push_back(op->name);
     }
@@ -361,14 +361,14 @@ vector<string> contained_for_loop_names(Stmt s) {
 
 class UsesVariable : public IRVisitor {
   using IRVisitor::visit;
-  void visit(const Variable *op) {
+  void visit(const Variable *op) override {
     if (op->name == varname) {
       used = true;
     }
     return;
   }
 
-  void visit(const Call *op) {
+  void visit(const Call *op) override {
     // only go first two variables, not loop bound checks
     if (op->name == "write_stream" && op->args.size() > 2) {
       op->args[0].accept(this);
@@ -414,7 +414,7 @@ class ROMInit : public IRVisitor {
     }
   }
   
-  void visit(const Store *op) {
+  void visit(const Store *op) override {
     if (op->name == allocname) {
       auto value_expr = op->value;
       auto index_expr = op->index;
@@ -442,7 +442,7 @@ nlohmann::json rom_init(Stmt s, string allocname) {
   
 class AllocationUsage : public IRVisitor {
   using IRVisitor::visit;
-  void visit(const Load *op) {
+  void visit(const Load *op) override {
     if (op->name == alloc_name) {
       num_loads++;
       load_index_exprs.emplace_back(op->index);
@@ -453,7 +453,7 @@ class AllocationUsage : public IRVisitor {
     }
   }
 
-  void visit(const Store *op) {
+  void visit(const Store *op) override {
     if (op->name == alloc_name) {
       num_stores++;
       store_index_exprs.emplace_back(op->index);
@@ -912,7 +912,7 @@ class NestExtractor : public IRGraphVisitor {
     NestExtractor() : inFor(false) {}
 
   protected:
-    void visit(const For* l) {
+    void visit(const For* l) override {
       if (inFor) {
         return;
       }
@@ -1035,7 +1035,7 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
   protected:
-    void visit(const Realize* op) {
+    void visit(const Realize* op) override {
       if (ends_with(op->name, ".stencil")) {
         vector<std::string> fields;
         for (auto bnd : op->bounds) {
@@ -1058,7 +1058,7 @@ class InstructionCollector : public IRGraphVisitor {
       return nI;
     }
 
-    void visit(const UIntImm* imm) {
+    void visit(const UIntImm* imm) override {
       auto ist = newI();
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = 16;
@@ -1066,7 +1066,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const IntImm* imm) {
+    void visit(const IntImm* imm) override {
       auto ist = newI();
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = 16;
@@ -1074,7 +1074,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const Cast* c) {
+    void visit(const Cast* c) override {
       auto ist = newI();
       ist->name = "cast";
       auto operand = codegen(c->value);
@@ -1083,7 +1083,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const FloatImm* imm) {
+    void visit(const FloatImm* imm) override {
       auto ist = newI();
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = 16;
@@ -1091,14 +1091,14 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const StringImm* imm) {
+    void visit(const StringImm* imm) override {
       auto ist = newI();
       ist->tp = HWINSTR_TP_STR;
       ist->strConst = imm->value;
       lastValue = ist;
     }
 
-    void visit(const Provide* p) {
+    void visit(const Provide* p) override {
 
       vector<HWInstr*> operands;
       auto nameConst = newI();
@@ -1124,7 +1124,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const Ramp* r) {
+    void visit(const Ramp* r) override {
 
       IRGraphVisitor::visit(r);
 
@@ -1135,7 +1135,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const Variable* v) {
+    void visit(const Variable* v) override {
 
       if (CoreIR::contains_key(v->name, vars)) {
         lastValue = CoreIR::map_find(v->name, vars);
@@ -1153,23 +1153,23 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
 
-    void visit(const GE* a) {
+    void visit(const GE* a) override {
       visit_binop("gte", a->a, a->b);
     }
 
-    void visit(const LE* a) {
+    void visit(const LE* a) override {
       visit_binop("lte", a->a, a->b);
     }
     
-    void visit(const LT* a) {
+    void visit(const LT* a) override {
       visit_binop("lt", a->a, a->b);
     }
 
-    void visit(const GT* a) {
+    void visit(const GT* a) override {
       visit_binop("gt", a->a, a->b);
     }
     
-    void visit(const And* a) {
+    void visit(const And* a) override {
       visit_binop("and", a->a, a->b);
     }
 
@@ -1181,7 +1181,7 @@ class InstructionCollector : public IRGraphVisitor {
       return lastValue;
     }
 
-    void visit(const Select* sel) {
+    void visit(const Select* sel) override {
       auto c = codegen(sel->condition);
       auto tv = codegen(sel->true_value);
       auto fv = codegen(sel->false_value);
@@ -1204,7 +1204,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const LetStmt* l) {
+    void visit(const LetStmt* l) override {
 
       auto ev = codegen(l->value);
 
@@ -1219,7 +1219,7 @@ class InstructionCollector : public IRGraphVisitor {
       //vars.erase(l->name);
       
     }
-    void visit(const Let* l) {
+    void visit(const Let* l) override {
 
       auto ev = codegen(l->value);
 
@@ -1240,7 +1240,7 @@ class InstructionCollector : public IRGraphVisitor {
       return ist;
     }
 
-    void visit(const Load* ld) {
+    void visit(const Load* ld) override {
       auto ist = newI();
       ist->name = "load";
       vector<HWInstr*> operands;
@@ -1253,7 +1253,7 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const Store* st) {
+    void visit(const Store* st) override {
       auto ist = newI();
       vector<HWInstr*> operands;
       operands.push_back(strConstI(st->name));
@@ -1267,39 +1267,39 @@ class InstructionCollector : public IRGraphVisitor {
       lastValue = ist;
     }
 
-    void visit(const Min* m) {
+    void visit(const Min* m) override {
       visit_binop("min", m->a, m->b);
     }
     
-    void visit(const Max* m) {
+    void visit(const Max* m) override {
       visit_binop("max", m->a, m->b);
     }
 
-    void visit(const Mod* d) {
+    void visit(const Mod* d) override {
       visit_binop("mod", d->a, d->b);
     }
 
-    void visit(const Div* d) {
+    void visit(const Div* d) override {
       visit_binop("div", d->a, d->b);
     }
 
-    void visit(const Add* a) {
+    void visit(const Add* a) override {
       visit_binop("add", a->a, a->b);
     }
 
-    void visit(const EQ* a) {
+    void visit(const EQ* a) override {
       visit_binop("eq", a->a, a->b);
     }
     
-    void visit(const NE* a) {
+    void visit(const NE* a) override {
       visit_binop("neq", a->a, a->b);
     }
     
-    void visit(const Mul* b) {
+    void visit(const Mul* b) override {
       visit_binop("mul", b->a, b->b);
     }
 
-    void visit(const Sub* b) {
+    void visit(const Sub* b) override {
       visit_binop("sub", b->a, b->b);
     }
 
@@ -1312,7 +1312,7 @@ class InstructionCollector : public IRGraphVisitor {
       return andOp;
     }
     
-    void visit(const Call* op) {
+    void visit(const Call* op) override {
       vector<HWInstr*> callOperands;
       //cout << "Processing call: " << op->name << endl;
       for (size_t i = 0; i < op->args.size(); i++) {
@@ -1405,7 +1405,7 @@ class StencilInfoCollector : public IRGraphVisitor {
     // So when a realization happens
 
   protected:
-    void visit(const Call* op) {
+    void visit(const Call* op) override {
       //cout << "Stencil visiting call: " << op->name << endl;
       if (op->name == "dispatch_stream") {
         //cout << "Found dispatch" << endl;
@@ -1455,7 +1455,7 @@ class StencilInfoCollector : public IRGraphVisitor {
       }
     }
 
-    void visit(const Realize* op)  {
+    void visit(const Realize* op)  override {
       if (ends_with(op->name, ".stream")) {
         auto tps = op->types[0];
         auto bnds = op->bounds;
@@ -2933,7 +2933,7 @@ class LoopNestInfoCollector : public IRGraphVisitor {
 
 
   protected:
-    void visit(const For* lp) {
+    void visit(const For* lp) override {
       ForInfo forInfo;
       forInfo.name = lp->name;
       forInfo.min = getConstInt(lp->min);
@@ -3943,7 +3943,7 @@ class CallCollector : public IRGraphVisitor {
     CallCollector(const std::string target_) : targetName(target_) {}
 
   protected:
-    void visit(const Call* c) {
+    void visit(const Call* c) override {
       if (c->name == targetName) {
         calls.insert(c);
       }

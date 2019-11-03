@@ -17,7 +17,7 @@ class InnermostLoopChecker : public IRGraphVisitor {
 
   protected:
 
-    void visit(const For* f) {
+    void visit(const For* f) override {
       foundSubLoop = true;
     }
 };
@@ -36,7 +36,7 @@ class LetPusher : public IRMutator {
 
   protected:
 
-    Stmt visit(const LetStmt* let) {
+    Stmt visit(const LetStmt* let) override {
       letStack.push_back(let);
       auto res = IRMutator::visit(let);
       letStack.pop_back();
@@ -44,7 +44,7 @@ class LetPusher : public IRMutator {
       return res;
     }
 
-    Stmt visit(const For* f) {
+    Stmt visit(const For* f) override {
       if (isInnermostLoop(f)) {
         cout << "Found innermost loop with var: " << f->name << endl;
         Stmt lBody = f->body;
@@ -66,12 +66,12 @@ class LetEraser : public IRMutator {
 
   protected:
 
-    Stmt visit(const LetStmt* let) {
+    Stmt visit(const LetStmt* let) override {
       auto newBody = this->mutate(let->body);
       return newBody;
     }
 
-    Stmt visit(const For* f) {
+    Stmt visit(const For* f) override {
       if (isInnermostLoop(f)) {
         return f;
       } else {
