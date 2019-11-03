@@ -3500,6 +3500,13 @@ int linebufferFilledSize(Wireable* ld) {
   return linebufferDelay(ld);
 }
 
+// Maybe the proper closed form is an expression for
+// difference(pr(i + 1), pr(i)) for all i?
+//
+// Or function from t_reset, ar(i) for inputs?
+
+// Will this relative production time need to become recursive when we move to
+// multi-rate computation?
 int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
   if (isa<Interface>(producer)) {
     return outputIndex;
@@ -3520,9 +3527,6 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
 
   internal_assert(isLinebuffer(producer));
 
-  // How would I express this as a closed form function? IOW w/o the call to relativeProductionTime?
-  // Linebuffers outputIndexth production time is expressed as a function of
-  // earlier production times
   return outputIndex % numOutImageCols(producer) +
     std::floor(outputIndex / numOutImageCols(producer)) * numInImageCols(producer);
   //int delay = 0;
