@@ -19,6 +19,7 @@ namespace Internal {
       CodeGen_CoreHLS_Kernel(const std::string& outFileName) : outName(outFileName) {}
     protected:
 
+      using IRGraphVisitor::visit;
       void visit(const ProducerConsumer *);
       void visit(const Call *);
       void visit(const Realize *);
