@@ -2253,6 +2253,12 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
+class KernelControlPath {
+  public:
+    std::vector<std::string> controlVars;
+    CoreIR::Module* m;
+};
+
 class ComputeKernel {
   public:
     CoreIR::Module* mod;
@@ -2266,6 +2272,9 @@ std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
   }
   return out;
 }
+
+KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp);
+
 ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
@@ -2290,10 +2299,25 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   }
   def->connect(inEn, self->sel("valid"));
 
+  // TODO: Create outer definition that is larger wrapper
+  // Set the wrapper module values
+  auto cpM = controlPathForKernel(context, info, f, lp);
+  auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
+  def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
+  cout << "Wiring up def in enable and control path in_en" << endl;
+  def->connect(self->sel("in_en"), controlPath->sel("in_en"));
+  //for (auto v : cpM.controlVars) {
+    //auto vn = coreirSanitize(v);
+    //// Need to modify the compute kernel here
+    //def->connect(controlPath->sel(vn), ->sel(vn));
+  //}
   //cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
+  
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
   emitCoreIR(info, context, sched, def);
 
+
+  // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
   return {design, sched};
 }
@@ -2878,12 +2902,6 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   }
 }
 
-class KernelControlPath {
-  public:
-    std::vector<std::string> controlVars;
-    CoreIR::Module* m;
-};
-
 class ForInfo {
   public:
     std::string name;
@@ -3065,9 +3083,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     int width = 16;
     if (elem(var->name, loopVarNames)) {
 
-      // Do nothing
-      //if (varName == coreirSanitize(var->name) && self->canSel(varName)) {
-      //def->connect(counter_inst->sel("out"), self->sel(varName));
     } else {
       auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
       def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
@@ -3584,10 +3599,10 @@ void wireUpAppGraph(AppGraph& appGraph,
     cout << "Connecting " << coreStr(inEnable) << " to " << coreStr(wEn) << endl;
     def->connect(inEnable, wEn);
 
-    if (isComputeKernel(v)) {
-      cout << "Wiring up control path for compute kernel " << coreStr(v) << endl;
-      def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
-    }
+    //if (isComputeKernel(v)) {
+      //cout << "Wiring up control path for compute kernel " << coreStr(v) << endl;
+      //def->connect(map_get(static_cast<Instance*>(v), kernelToControlPath)->sel("in_en"), wEn);
+    //}
   }
 
 }
@@ -4211,7 +4226,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   auto output_name_real = ifc.output_name_real;
   int bitwidth = 16;
 
-  internal_assert(kernels.size() > 0);
+  internal_assert(kernels.size() > 0) << "kernels size = " << kernels.size() << "\n";
 
   CoreIR::ModuleDef* def = std::begin(kernels)->second->getContainer();
   CoreIR::Context* context = def->getContext();
@@ -4536,11 +4551,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
-    auto cp = controlPathForKernel(context, scl.info, f, lp);
+    //auto cp = controlPathForKernel(context, scl.info, f, lp);
     kernelModules[lp] = compK;
-    cout << "Control path is..." << endl;
-    cp.m->print();
-    kernelControlPaths[lp] = cp;
+    //cout << "Control path is..." << endl;
+    //cp.m->print();
+    //kernelControlPaths[lp] = cp;
 
     removeUnconnectedInstances(m->getDef());
     removeUnusedInstances(m->getDef());
@@ -4561,18 +4576,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
     kernels[k.first] = kI;
 
-    KernelControlPath cpM = map_get(k.first, kernelControlPaths);
-    auto controlPath = def->addInstance("control_path_module_" + k.second.mod->getName(), cpM.m);
-    controlPaths[k.first] = controlPath;
-    def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
-    for (auto v : cpM.controlVars) {
-      auto vn = coreirSanitize(v);
-      def->connect(controlPath->sel(vn), kI->sel(vn));
-    }
-    kernelToControlPath[kI] = controlPath;
+    //KernelControlPath cpM = map_get(k.first, kernelControlPaths);
+    //auto controlPath = def->addInstance("control_path_module_" + k.second.mod->getName(), cpM.m);
+    //controlPaths[k.first] = controlPath;
+    //def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
+    //for (auto v : cpM.controlVars) {
+      //auto vn = coreirSanitize(v);
+      //def->connect(controlPath->sel(vn), kI->sel(vn));
+    //}
+    //kernelToControlPath[kI] = controlPath;
 
   }
 
+  cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
   AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
 
   auto topSort = topologicalSort(appGraph.appGraph);
