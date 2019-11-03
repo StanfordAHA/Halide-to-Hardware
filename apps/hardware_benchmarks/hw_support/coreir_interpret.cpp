@@ -349,7 +349,9 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
     writeIdx.increment();
   } else {
-    state.setValue("self.in_en", BitVector(1, false));
+    if (uses_inputenable) {
+      state.setValue("self.in_en", BitVector(1, false));
+    }
   }
   // propogate to all wires
   state.exeCombinational();
