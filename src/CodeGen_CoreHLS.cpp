@@ -1659,7 +1659,13 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
+class KernelControlPath {
+  public:
+    std::vector<std::string> controlVars;
+    CoreIR::Module* m;
+};
+
+UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
 
   int defStage = 0;
 
@@ -1989,10 +1995,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
 }
 
 // TODO: Update schedule so that instructions have a start and an end time
-void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def) {
+void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
   assert(sched.II == 1);
 
-  UnitMapping m = createUnitMapping(info, context, sched, def);
+  UnitMapping m = createUnitMapping(info, context, sched, def, cpm, controlPath);
   auto& unitMapping = m.unitMapping;
 
   cout << "Building connections inside each cycle\n";
@@ -2253,12 +2259,6 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
-class KernelControlPath {
-  public:
-    std::vector<std::string> controlVars;
-    CoreIR::Module* m;
-};
-
 class ComputeKernel {
   public:
     CoreIR::Module* mod;
@@ -2299,8 +2299,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   }
   def->connect(inEn, self->sel("valid"));
 
-  // TODO: Create outer definition that is larger wrapper
-  // Set the wrapper module values
   auto cpM = controlPathForKernel(context, info, f, lp);
   auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
   def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
@@ -2314,7 +2312,7 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   //cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  emitCoreIR(info, context, sched, def);
+  emitCoreIR(info, context, sched, def, cpM, controlPath);
 
 
   // Here: Create control path for the module, then add it to def and wire it up.
