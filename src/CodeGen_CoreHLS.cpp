@@ -4601,17 +4601,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     //map<edisc, int> incomingDelays;
     int maxDist = 0;
-    vdisc maxDistVert;
+    //vdisc maxDistVert;
     edisc maxEdge = 0;
     bool setMaxEdge = false;
     for (auto e : inEdges) {
-      auto srcVert = appGraph.appGraph.source(e);
+      //auto srcVert = appGraph.appGraph.source(e);
       //int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
       int distToSrc = cycleDelay(e, kernelModules, appGraph);
 
       if (distToSrc >= maxDist) {
         maxDist = distToSrc;
-        maxDistVert = srcVert;
+        //maxDistVert = srcVert;
         maxEdge = e;
         setMaxEdge = true;
       }
