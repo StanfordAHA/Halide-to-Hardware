@@ -4444,6 +4444,70 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   return appGraph;
 }
 
+void computeDelaysForAppGraph(AppGraph& appGraph) {
+
+  auto topSort = topologicalSort(appGraph.appGraph);
+  
+  // Map from nodes to the times at which first valid from that node is emitted
+  std::map<vdisc, int> nodesToDelays;
+  for (auto v : topSort) {
+    vector<edisc> inEdges = appGraph.appGraph.inEdges(v);
+
+    int maxDist = 0;
+    edisc maxEdge = 0;
+    bool setMaxEdge = false;
+    for (auto e : inEdges) {
+      int distToSrc = cycleDelay(e, appGraph.kernelModules, appGraph);
+
+      if (distToSrc >= maxDist) {
+        maxDist = distToSrc;
+        maxEdge = e;
+        setMaxEdge = true;
+      }
+      
+    }
+
+    bool allDelaysSame = true;
+    if (inEdges.size() == 0) {
+      // All delays are trivially the same
+    } else {
+      for (size_t i = 0; i < inEdges.size() - 1; i++) {
+        int distToSrc = cycleDelay(inEdges[i], appGraph.kernelModules, appGraph);
+        
+        int distToSrc1 = cycleDelay(inEdges[i + 1], appGraph.kernelModules, appGraph);
+        if (distToSrc != distToSrc1) {
+          allDelaysSame = false;
+          break;
+        }
+      }
+    }
+
+    if (allDelaysSame) {
+      for (auto e : inEdges) {
+        appGraph.extraDelaysNeeded[e] = 0;
+      }
+    } else {
+
+      for (auto e : inEdges) {
+        if (setMaxEdge && (e == maxEdge)) {
+          appGraph.extraDelaysNeeded[e] = 0;
+        } else {
+          auto srcVert = appGraph.appGraph.source(e);
+          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, appGraph.kernelModules, appGraph);
+          int filler = maxDist - distToSrc;
+          appGraph.extraDelaysNeeded[e] = filler;
+        }
+      }
+
+    }
+
+    nodesToDelays[v] = maxDist;
+  }
+
+  internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
+
+}
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -4558,6 +4622,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }    
 
   functions = mapFunctionsToCGRA(functions);
+  auto def = topMod->newModuleDef();
+
+  // Connects up all control paths in the design
+  std::map<const For*, CoreIR::Instance*> kernels;
   for (auto fp : functions) {
     auto lp = fp.first;
     HWFunction& f = fp.second;
@@ -4574,90 +4642,16 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     cout << "Module after optimization" << endl;
     m->print();
+    auto kI = def->addInstance("compute_module_" + m->getName(), m);
+        //k.second.mod);
+    def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
+    kernels[lp] = kI;
   }
 
   context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
-  cout << "Done creating kernels..." << endl;
-  auto def = topMod->newModuleDef();
-
-  // Connects up all control paths in the design
-  std::map<const For*, CoreIR::Instance*> kernels;
-  for (auto k : kernelModules) {
-    auto kI = def->addInstance("compute_module_" + k.second.mod->getName(), k.second.mod);
-    def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
-    kernels[k.first] = kI;
-  }
-
   cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
   AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
-
-  auto topSort = topologicalSort(appGraph.appGraph);
-  
-  // Map from nodes to the times at which first valid from that node is emitted
-  std::map<vdisc, int> nodesToDelays;
-  //std::map<edisc, int> extraDelaysNeeded;
-  for (auto v : topSort) {
-    vector<edisc> inEdges = appGraph.appGraph.inEdges(v);
-
-    //map<edisc, int> incomingDelays;
-    int maxDist = 0;
-    //vdisc maxDistVert;
-    edisc maxEdge = 0;
-    bool setMaxEdge = false;
-    for (auto e : inEdges) {
-      //auto srcVert = appGraph.appGraph.source(e);
-      //int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
-      int distToSrc = cycleDelay(e, kernelModules, appGraph);
-
-      if (distToSrc >= maxDist) {
-        maxDist = distToSrc;
-        //maxDistVert = srcVert;
-        maxEdge = e;
-        setMaxEdge = true;
-      }
-      
-    }
-
-    bool allDelaysSame = true;
-    if (inEdges.size() == 0) {
-      // All delays are trivially the same
-    } else {
-      for (size_t i = 0; i < inEdges.size() - 1; i++) {
-        int distToSrc = cycleDelay(inEdges[i], kernelModules, appGraph);
-        
-        int distToSrc1 = cycleDelay(inEdges[i + 1], kernelModules, appGraph);
-        if (distToSrc != distToSrc1) {
-          allDelaysSame = false;
-          break;
-        }
-      }
-    }
-
-    if (allDelaysSame) {
-      for (auto e : inEdges) {
-        appGraph.extraDelaysNeeded[e] = 0;
-      }
-    } else {
-
-      for (auto e : inEdges) {
-        if (setMaxEdge && (e == maxEdge)) {
-          appGraph.extraDelaysNeeded[e] = 0;
-        } else {
-          auto srcVert = appGraph.appGraph.source(e);
-          int distToSrc = map_get(srcVert, nodesToDelays) + cycleDelay(e, kernelModules, appGraph);
-          cout << "\t\tdistToSrc = " << distToSrc << endl;
-          int filler = maxDist - distToSrc;
-          appGraph.extraDelaysNeeded[e] = filler;
-        }
-      }
-
-    }
-
-    nodesToDelays[v] = maxDist;
-  }
-
-  internal_assert(nodesToDelays.size() == topSort.size()) << "some nodes did not get a computed delay\n";
-
+  computeDelaysForAppGraph(appGraph);
   appGraph = insertDelays(appGraph);
   wireUpAppGraph(appGraph, def);
   
