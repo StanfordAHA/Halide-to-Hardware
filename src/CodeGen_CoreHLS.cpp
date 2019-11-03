@@ -3264,6 +3264,13 @@ class AppGraph {
     std::map<edisc, Instance*> edgeDelays;
     std::map<edisc, int> extraDelaysNeeded;
     std::map<const For*, ComputeKernel> kernelModules;
+
+    int edgeDelay(const edisc e) const {
+      if (contains_key(e, extraDelaysNeeded)) {
+        return map_get(e, extraDelaysNeeded);
+      }
+      return 0;
+    }
     
     bool hasInputs(Wireable* w) const {
       return appGraph.inEdges(map_get(w, values)).size() > 0;
@@ -3574,12 +3581,13 @@ int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
 int arrivalTime(edisc e, const int index, AppGraph& g) {
   KernelEdge edgeLabel = g.getLabel(e);
   Wireable* inputSource = edgeLabel.dataSrc;
-  if (contains_key(e, g.extraDelaysNeeded)) {
-    internal_assert(contains_key(e, g.extraDelaysNeeded));
-    return productionTime(getBase(inputSource), index, g) + map_get(e, g.extraDelaysNeeded);
-  } else {
-    return productionTime(getBase(inputSource), index, g);
-  }
+  return productionTime(getBase(inputSource), index, g) + g.edgeDelay(e);
+  //if (contains_key(e, g.extraDelaysNeeded)) {
+    //internal_assert(contains_key(e, g.extraDelaysNeeded));
+    //return productionTime(getBase(inputSource), index, g) + map_get(e, g.extraDelaysNeeded);
+  //} else {
+    //return productionTime(getBase(inputSource), index, g);
+  //}
 }
 
 int cycleDelay(edisc e, AppGraph& appGraph) {
