@@ -1718,7 +1718,7 @@ void small_conv_3_3_test() {
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
 
-  //assert(false);
+  assert(false);
 }
 
 void pointwise_add_test() {
@@ -2831,20 +2831,20 @@ void conv_layer_mobile_test() {
 
 int main(int argc, char **argv) {
 
-  small_conv_3_3_test();
   //small_conv_3_3_not_unrolled_test();
+  double_unsharp_test();
+  real_unsharp_test();
+  small_conv_3_3_test();
   conv_layer_mobile_test();
   control_path_test();
   control_path_xy_test();
   rom_read_test();
-  real_unsharp_test();
   //assert(false);
   different_latency_kernels_test();
   curve_16_lookup_test();
   //assert(false);
   camera_pipeline_test();
   simple_unsharp_test();
-  double_unsharp_test();
   hot_pixel_suppression_test();
   //assert(false);
   accel_interface_test();

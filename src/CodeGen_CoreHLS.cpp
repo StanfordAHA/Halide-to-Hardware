@@ -2957,6 +2957,27 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
+class OuterLoopSeparator : public IRGraphVisitor {
+  using IRGraphVisitor::visit;
+  public:
+
+    std::vector<const For*> outerLoops;
+    Stmt body;
+
+  protected:
+
+    void visit(const For* lp) {
+      outerLoops.push_back(lp);
+
+      if (lp->body->node_type == IRNodeType::For) {
+        lp->body.accept(this);
+      } else {
+        body = lp->body;
+      }
+    }
+
+};
+
 CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const int width, const int val) {
   return def->addInstance(name, "coreir.const", {{"width", COREMK(def->getContext(), width)}}, {{"value", COREMK(def->getContext(), BitVector(width, val))}});
 }
