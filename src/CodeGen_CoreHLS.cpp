@@ -2428,7 +2428,6 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
 }
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
-  //auto& body = f.body;
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
   for (auto instr : f.allInstrs()) {
@@ -2516,10 +2515,6 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
-//vector<HWInstr*> allInstructions(HWFunction& f) {
-  //return f.body;
-//}
-
 void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
   //for (auto instr : allInstructions(f)) {
   for (auto instr : f.allInstrs()) {
@@ -2590,7 +2585,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   auto& body = f.body;
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
-  for (auto instr : body) {
+  //for (auto instr : body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
       provides[target].push_back(instr);
@@ -2759,7 +2755,8 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
 void modToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   std::map<HWInstr*, HWInstr*> replacements;
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("mod", instr)) {
       //cout << "Found mod" << endl;
       if (isConstant(instr->getOperand(1))) {
@@ -2794,7 +2791,8 @@ void divToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   //std::map<HWInstr*, HWInstr*> replacements;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("div", instr)) {
       //cout << "Found div" << endl;
       if (isConstant(instr->getOperand(1))) {
@@ -2970,7 +2968,8 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   auto globalNs = c->getNamespace("global");
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   std::set<HWInstr*> vars;
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_VAR) {
         if (!elem(op->name, streamNames)) {
@@ -4572,7 +4571,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }
     
     f.controlVars = hwVars;
-    //auto& body = f.body;
 
     removeBadStores(stCollector, f);
     valueConvertProvides(scl.info, f);
