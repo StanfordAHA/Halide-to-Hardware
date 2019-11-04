@@ -2210,12 +2210,10 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 
   DirectedGraph<HWInstr*, int> blockGraph;
   map<HWInstr*, vdisc> iNodes;
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     auto v = blockGraph.addVertex(instr);
     iNodes[instr] = v;
   }
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     auto v = map_get(instr, iNodes);
     for (auto op : instr->operands) {
@@ -2293,10 +2291,8 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
     }
   }
 
-  //internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert((f.allInstrs().size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
     internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
@@ -2432,10 +2428,10 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
 }
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
-  auto& body = f.body;
+  //auto& body = f.body;
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
-  for (auto instr : body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("load", instr)) {
       cout << "Found load..." << *instr << endl;
       romLoads[instr->getOperand(0)->compactString()].push_back(instr);
