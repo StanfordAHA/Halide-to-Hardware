@@ -1044,9 +1044,9 @@ class InstructionCollector : public IRGraphVisitor {
 
   protected:
 
-    void visit(const For* lp) override {
-      internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
-    }
+    //void visit(const For* lp) override {
+      //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
+    //}
     
     void visit(const Realize* op) override {
       if (ends_with(op->name, ".stencil")) {
@@ -1386,11 +1386,8 @@ class InstructionCollector : public IRGraphVisitor {
     }
 };
 
-//vector<HWInstr*> buildHWBody(const For* perfectNest) {
-
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
-//HWFunction buildHWBody(const std::string& name, const For* perfectNest) {
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args) {
 
   InstructionCollector collector;
