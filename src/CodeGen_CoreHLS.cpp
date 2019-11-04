@@ -257,7 +257,6 @@ std::vector<HWInstr*> outputStreams(HWFunction& f) {
 
 std::vector<HWInstr*> inputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     if (isCall("rd_stream", instr)) {
       ins.push_back(instr->getOperand(0));
@@ -1429,7 +1428,6 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   //perfectNest->accept(&collector);
   sep.body.accept(&collector);
 
-  //return collector.f.body;
   return collector.f;
 }
 
@@ -2210,7 +2208,9 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
-  std::set<HWInstr*> remaining(begin(f.body), end(f.body));
+  //std::set<HWInstr*> remaining(begin(f.body), end(f.body));
+  std::set<HWInstr*> remaining = f.allInstrs();
+  //(begin(f.body), end(f.body));
 
   DirectedGraph<HWInstr*, int> blockGraph;
   map<HWInstr*, vdisc> iNodes;
