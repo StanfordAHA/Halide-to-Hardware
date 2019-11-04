@@ -1527,6 +1527,9 @@ void small_conv_3_3_test() {
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
 
+  kernel.compute_at(hw_output, xo)
+    .unroll(x).unroll(y);
+
   conv.update()
     .unroll(r.x, 3)
     .unroll(r.y, 3);
@@ -1585,6 +1588,8 @@ void small_conv_3_3_test() {
   deleteContext(context);
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
+
+  assert(false);
 }
 
 void pointwise_add_test() {
@@ -2755,7 +2760,7 @@ void conv_layer_mobile_test() {
 
   //schedule pw conv
   pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
-    .reorder(c, x, y, k);
+    .reorder(c, x, y, k).unroll(c);
 
   //schedule dw conv
   dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
@@ -2808,6 +2813,7 @@ void conv_layer_mobile_test() {
 int main(int argc, char **argv) {
 
   conv_layer_mobile_test();
+  small_conv_3_3_test();
   control_path_test();
   control_path_xy_test();
   rom_read_test();
@@ -2832,7 +2838,6 @@ int main(int argc, char **argv) {
   shiftRight_test();
   clamp_test();
   //clamped_grad_x_test();
-  small_conv_3_3_test();
   small_cascade_test();
   //small_harris_test();
   
