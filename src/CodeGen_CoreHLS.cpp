@@ -2354,12 +2354,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
   cout << "Wiring up def in enable and control path in_en" << endl;
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
-  //for (auto v : cpM.controlVars) {
-    //auto vn = coreirSanitize(v);
-    //// Need to modify the compute kernel here
-    //def->connect(controlPath->sel(vn), ->sel(vn));
-  //}
-  //cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
   emitCoreIR(info, context, sched, def, cpM, controlPath);
@@ -2441,47 +2435,6 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   auto& body = f.body;
-  //vector<HWInstr*> constLoads;
-  //std::map<HWInstr*, HWInstr*> loadsToConstants;
-  ////std::map<string, std::map<int, int> > storedValues;
-  //int pos = 0;
-  //for (auto instr : body) {
-    //if (isLoad(instr)) {
-      ////auto location = instr->operands[2];
-      //for (auto instr : body) {
-        //if (isLoad(instr)) {
-          //auto location = instr->operands[2];
-          ////cout << "Load " << *instr << " from location: " << location->compactString() << endl;
-          //if (isConstant(location)) {
-            ////cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
-            //int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
-
-            ////cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
-            //HWInstr* lastStoreToLoc = new HWInstr();
-            //lastStoreToLoc->tp = HWINSTR_TP_CONST;
-            //lastStoreToLoc->constWidth = 16;
-            //lastStoreToLoc->constValue = std::to_string(newValue);
-            //constLoads.push_back(instr);
-
-            //if (lastStoreToLoc) {
-              //loadsToConstants[instr] = lastStoreToLoc;
-            //}
-          //}
-        //}
-      //}
-      //pos++;
-    //}
-  //}
-
-  //replaceAll(loadsToConstants, f);
-
-  //cout << "Stored Values.." << endl;
-  //for (auto m : storedValues) {
-    //cout << "\t" << m.first << " has values" << endl;
-    //for (auto v : m.second) {
-      //cout << "\t\t[" << v.first << "] = " << v.second << endl;
-    //}
-  //}
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
   for (auto instr : body) {
@@ -2582,7 +2535,6 @@ void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
 }
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
-//vector<HWInstr*>& body) {
   auto& body = f.body;
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
@@ -2605,7 +2557,6 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
 }
 
 bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
-  //for (auto instr : hwInstr) {
   internal_assert(start >= 0);
   internal_assert(end <= (int) hwInstr.size());
   for (int i = start; i < end; i++) {
