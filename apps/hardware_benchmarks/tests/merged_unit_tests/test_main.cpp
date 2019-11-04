@@ -1718,7 +1718,7 @@ void small_conv_3_3_test() {
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
 
-  assert(false);
+  //assert(false);
 }
 
 void pointwise_add_test() {

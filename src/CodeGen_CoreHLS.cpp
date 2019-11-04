@@ -1388,8 +1388,32 @@ class InstructionCollector : public IRGraphVisitor {
 
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
+class OuterLoopSeparator : public IRGraphVisitor {
+  using IRGraphVisitor::visit;
+  public:
+
+    std::vector<const For*> outerLoops;
+    Stmt body;
+
+  protected:
+
+    void visit(const For* lp) {
+      outerLoops.push_back(lp);
+
+      if (lp->body->node_type == IRNodeType::For) {
+        lp->body.accept(this);
+      } else {
+        body = lp->body;
+      }
+    }
+
+};
+
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args) {
 
+
+  OuterLoopSeparator sep;
+  perfectNest->body.accept(&sep);
   InstructionCollector collector;
   collector.f.name = name;
   
@@ -1399,7 +1423,8 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
-  perfectNest->accept(&collector);
+  //perfectNest->accept(&collector);
+  sep.body.accept(&collector);
 
   //return collector.f.body;
   return collector.f;
@@ -2955,27 +2980,6 @@ class LoopNestInfoCollector : public IRGraphVisitor {
         IRGraphVisitor::visit(lp);
       }
     }
-};
-
-class OuterLoopSeparator : public IRGraphVisitor {
-  using IRGraphVisitor::visit;
-  public:
-
-    std::vector<const For*> outerLoops;
-    Stmt body;
-
-  protected:
-
-    void visit(const For* lp) {
-      outerLoops.push_back(lp);
-
-      if (lp->body->node_type == IRNodeType::For) {
-        lp->body.accept(this);
-      } else {
-        body = lp->body;
-      }
-    }
-
 };
 
 CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const int width, const int val) {
