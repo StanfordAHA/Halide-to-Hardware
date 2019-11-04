@@ -2585,8 +2585,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   auto& body = f.body;
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
-  //for (auto instr : body) {
-  for (auto instr : f.allInstrs()) {
+  for (auto instr : body) {
+  //for (auto instr : f.allInstrs()) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
       provides[target].push_back(instr);
