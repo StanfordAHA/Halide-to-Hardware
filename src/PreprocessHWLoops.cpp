@@ -2,6 +2,8 @@
 
 #include "IRMutator.h"
 
+#include "coreir.h"
+
 using namespace std;
 
 namespace Halide {
@@ -9,28 +11,24 @@ namespace Halide {
   namespace Internal {
 
 
-  bool is_const(const Expr e) {
-    if (e.as<IntImm>() || e.as<UIntImm>()) {
-      return true;
-    } else {
-      return false;
+    bool MemoryInfoCollector::isROM(const std::string& name) const {
+      return CoreIR::elem(name, roms());
     }
-  }
 
-class InnermostLoopChecker : public IRGraphVisitor {
-  public:
-    bool foundSubLoop;
+    class InnermostLoopChecker : public IRGraphVisitor {
+      public:
+        bool foundSubLoop;
 
-    InnermostLoopChecker() : foundSubLoop(false) {}
+        InnermostLoopChecker() : foundSubLoop(false) {}
 
-  protected:
+      protected:
 
-    using IRGraphVisitor::visit;
+        using IRGraphVisitor::visit;
 
-    void visit(const For* f) override {
-      foundSubLoop = true;
-    }
-};
+        void visit(const For* f) override {
+          foundSubLoop = true;
+        }
+    };
 
 bool isInnermostLoop(const For* f) {
   InnermostLoopChecker c;
@@ -93,12 +91,54 @@ class LetEraser : public IRMutator {
     }
 };
 
+    int MemoryInfoCollector::romValue(const std::string& name, const int addr) {
+      internal_assert(memOps.size() > 0);
+      for (int i = ((int) memOps.size()) - 1; i >= 0; i--) {
+        auto op = memOps[i];
+        if (op.isStore() && is_const(op.store->index)) {
+          int a = *as_const_int(op.store->index);
+          if (a == addr) {
+            internal_assert(is_const(op.store->value));
+            return *as_const_int(op.store->value);
+          }
+        }
+      }
+      internal_assert(false);
+      return 0;
+    }
+
+class ROMReadOptimizer : public IRMutator {
+  public:
+
+    MemoryInfoCollector mic;
+
+    using IRMutator::visit;
+
+    Expr visit(const Load* ld) {
+      if (mic.isROM(ld->name) &&
+          is_const(ld->index)) {
+        int addr = *as_const_int(ld->index);
+        int value = mic.romValue(ld->name, addr);
+        return IntImm::make(Int(32), value);
+      }
+      
+      return IRMutator::visit(ld);
+    }
+};
+
 
   Stmt preprocessHWLoops(const Stmt& stmt) {
     LetPusher pusher;
     Stmt pushed = pusher.mutate(stmt);
     LetEraser letEraser;
-    return letEraser.mutate(pushed);
+    Stmt r = letEraser.mutate(pushed);
+    ROMReadOptimizer romReadOptimizer;
+
+    MemoryInfoCollector mic;
+    r.accept(&mic);
+    romReadOptimizer.mic = mic;
+    auto romOpt = romReadOptimizer.mutate(r);
+    return romOpt;
   }
 
 }

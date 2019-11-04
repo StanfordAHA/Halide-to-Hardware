@@ -80,6 +80,10 @@ class MemoryInfoCollector : public IRGraphVisitor {
       return ops;
     }
 
+    int romValue(const std::string& name, const int addr);
+
+    bool isROM(const std::string& name) const;
+
     std::set<std::string> roms() const {
       // Find all memories that are only stored to at constant indexes outside of loop nests
       std::set<std::string> memNames = allBufferNames();
