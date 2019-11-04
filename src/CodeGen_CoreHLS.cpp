@@ -246,7 +246,7 @@ bool isStreamWrite(HWInstr* const instr) {
 
 std::vector<HWInstr*> outputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       ins.push_back(instr->getOperand(0));
     }
@@ -257,7 +257,8 @@ std::vector<HWInstr*> outputStreams(HWFunction& f) {
 
 std::vector<HWInstr*> inputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("rd_stream", instr)) {
       ins.push_back(instr->getOperand(0));
     }
@@ -1039,7 +1040,9 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void pushInstr(HWInstr* instr) {
-      f.body.push_back(instr);
+      f.pushInstr(instr);
+      //f.blocks.back()->instrs.push_back(instr);
+      //f.body.push_back(instr);
     }
 
   protected:

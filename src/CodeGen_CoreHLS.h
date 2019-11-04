@@ -82,21 +82,54 @@ class HWInstr {
     }
 };
 
+class HWBlock {
+  public:
+    std::string name;
+    int tripCount;
+    std::vector<HWInstr*> instrs;
+};
+
 class HWFunction {
   public:
     std::string name;
     int uniqueNum;
     std::vector<HWInstr*> body;
+    //std::vector<HWBlock*> blocks;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
 
-    HWFunction() : uniqueNum(0), mod(nullptr) {}
+    HWFunction() : uniqueNum(0), mod(nullptr) {
+      //blocks.push_back(new HWBlock());
+    }
+
+    void pushInstr(HWInstr* instr) {
+      body.push_back(instr);
+      //blocks[0]->instrs.push_back(instr);
+    }
+
+    std::set<HWInstr*> allInstrs() const {
+      std::set<HWInstr*> instrs;
+      for (auto instr : body) {
+        instrs.insert(instr);
+      }
+      //for (auto blk : getBlocks()) {
+        //for (auto instr : blk->instrs) {
+          //instrs.insert(instr);
+        //}
+      //}
+      return instrs;
+    }
 
     CoreIR::ModuleDef* getDef() const {
       auto def = mod->getDef();
       internal_assert(def != nullptr) << "module def is null\n";
       return def;
     }
+
+    //std::vector<HWBlock*> getBlocks() const {
+      //vector<HWBlock*> blk;
+      //return blocks;
+    //}
 
     HWInstr* newConst(const int width, const int value) {
       auto ist = newI();
