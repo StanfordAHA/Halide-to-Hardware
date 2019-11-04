@@ -1469,6 +1469,85 @@ void small_cascade_test() {
   cout << GREEN << "Cascade test passed" << RESET << endl;
 }
 
+void small_conv_3_3_not_unrolled_test() {
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+
+  Var x("x"), y("y");
+
+  Func kernel("kernel");
+  Func conv("conv");
+  RDom r(0, 3,
+      0, 3);
+
+  kernel(x,y) = 0;
+  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+
+  conv(x, y) = 0;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(conv(x, y));
+  output(x, y) = hw_output(x,y);
+
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  int tileSize = 4;
+  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
+    .hw_accelerate(xi, xo);
+
+  kernel.compute_at(hw_output, xo)
+    .unroll(x).unroll(y);
+
+  conv.update();
+  conv.linebuffer();
+
+  hw_input.stream_to_accelerator();
+
+  hw_output.print_loop_nest();
+
+  Target t;
+  t = t.with_feature(Target::Feature::CoreIR);
+  vector<Argument> args{input};
+  auto mod = hw_output.compile_to_module(args, "hw_output", t);
+
+  cout << "Module before consolidation..." << endl;
+  cout << mod << endl;
+
+  for (auto f : mod.functions()) {
+    cout << "Preprocessed body for " << f.name << endl;
+    HWRegionFinder finder;
+    f.body.accept(&finder);
+    if (finder.foundRegion) {
+      Stmt s = preprocessHWLoops(finder.region->body);
+      cout << "---- Found hw region..." << endl;
+      cout << s << endl;
+
+      MemoryInfoCollector mic;
+      s.accept(&mic);
+
+      cout << "----- Memory info..." << endl;
+      for (auto op : mic.memOps) {
+        cout << "\t" << op << endl;
+      }
+
+      cout << "----- ROMS..." << endl;
+      for (auto r : mic.roms()) {
+        cout << r << endl;
+      }
+    }
+  }
+  assert(false);
+}
+
 void small_conv_3_3_test() {
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 2);
@@ -1518,13 +1597,6 @@ void small_conv_3_3_test() {
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  //cout << "CPU output..." << endl;
-  //for (int i = 0; i < 2; i++) {
-    //for (int j = 0; j < 2; j++) {
-      //cout << (int) cpuOutput(i, j) << " ";
-    //}
-    //cout << endl;
-  //}
   
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
   
@@ -2740,8 +2812,9 @@ void conv_layer_mobile_test() {
 
 int main(int argc, char **argv) {
 
-  conv_layer_mobile_test();
   small_conv_3_3_test();
+  small_conv_3_3_not_unrolled_test();
+  conv_layer_mobile_test();
   control_path_test();
   control_path_xy_test();
   rom_read_test();
