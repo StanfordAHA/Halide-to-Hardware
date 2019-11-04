@@ -2632,7 +2632,6 @@ class MemoryInfoCollector : public IRGraphVisitor {
     std::vector<const For*> activeLoops;
     std::vector<MemOp> memOps;
     std::map<string, Expr> letValues;
-    //Scope<Expr> letValues;
 
     void visit(const Let* lt) {
       letValues[lt->name] = lt->value;
@@ -2648,11 +2647,7 @@ class MemoryInfoCollector : public IRGraphVisitor {
 
     void visit(const Load* ld) {
       IRGraphVisitor::visit(ld);
-      Expr addr = ld->index;
-
-      for (auto rep : letValues) {
-        addr = substitute(rep.first, rep.second, addr); 
-      }
+      Expr addr = substitute(letValues, ld->index);
 
       cout << "Old = " << ld->index << ", New addr = " << addr << endl;
 
@@ -2661,6 +2656,7 @@ class MemoryInfoCollector : public IRGraphVisitor {
 
     void visit(const Store* st) {
       IRGraphVisitor::visit(st);
+      Expr addr = substitute(letValues, st->index);
       memOps.push_back({activeLoops, st, nullptr});
     }
 
@@ -2711,7 +2707,6 @@ void conv_layer_mobile_test() {
   pw_conv_reduction(x, y, k) = 0;
   pw_conv_reduction(x, y, k) += cast<int16_t>(pw_conv(x, y, r_pw.x, k));
   hw_output(x, y, k) = cast<int8_t>(max(0, pw_conv_reduction(x, y, k)));
-  //hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
 
   output(x, y, k) = cast<uint8_t>(hw_output(x, y, k));
 
@@ -2759,18 +2754,12 @@ void conv_layer_mobile_test() {
   pw_conv_reduction.compute_at(hw_output, xo).store_at(hw_output, xo);
 
   //schedule pw conv
-  //pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
   pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
     .reorder(c, x, y, k);
 
   //schedule dw conv
   dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
     .reorder(x, y, c);
-
-  //dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo);
-  //dw_conv.compute_at(hw_output, xi).store_at(hw_output, xo);
-  //dw_conv.linebuffer();
-
 
   dw_conv.update()
     .reorder(r_dw.x, r_dw.y, x, y, c)
@@ -2814,8 +2803,6 @@ void conv_layer_mobile_test() {
   //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
   PRINT_PASSED("Conv layer mobile");
   assert(false);
-
-
   }
 
 int main(int argc, char **argv) {
