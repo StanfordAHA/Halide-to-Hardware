@@ -2631,20 +2631,31 @@ class MemoryInfoCollector : public IRGraphVisitor {
 
     std::vector<const For*> activeLoops;
     std::vector<MemOp> memOps;
-    Scope<Expr> letValues;
+    std::map<string, Expr> letValues;
+    //Scope<Expr> letValues;
 
     void visit(const Let* lt) {
-      letValues.push(lt->name, lt->value);
+      letValues[lt->name] = lt->value;
       IRGraphVisitor::visit(lt);
+      letValues.erase(lt->name);
     }
 
     void visit(const LetStmt* lt) {
-      letValues.push(lt->name, lt->value);
+      letValues[lt->name] = lt->value;
       IRGraphVisitor::visit(lt);
+      letValues.erase(lt->name);
     }
 
     void visit(const Load* ld) {
       IRGraphVisitor::visit(ld);
+      Expr addr = ld->index;
+
+      for (auto rep : letValues) {
+        addr = substitute(rep.first, rep.second, addr); 
+      }
+
+      cout << "Old = " << ld->index << ", New addr = " << addr << endl;
+
       memOps.push_back({activeLoops, nullptr, ld});
     }
 
