@@ -490,13 +490,18 @@ class CodeGen_SoC_Test : public CodeGen_C {
 class HWRegionFinder : public IRGraphVisitor {
   public:
     bool foundRegion;
-    const Realize* region;
+    const ProducerConsumer* region;
 
     HWRegionFinder() : foundRegion(false) {}
 
-    void visit(const Realize* p) {
-      region = p;
-      foundRegion = true;
+    //void visit(const Realize* p) {
+    void visit(const ProducerConsumer* p) {
+      if (starts_with(p->name, "_hls_target")) {
+        region = p;
+        foundRegion = true;
+      } else {
+        IRGraphVisitor::visit(p);
+      }
     }
 
 };
@@ -2671,8 +2676,10 @@ class MemoryInfoCollector : public IRGraphVisitor {
       for (auto buf : memNames) {
         vector<MemOp> ops = allOpsOn(buf);
         bool allStoresToConstants = true;
+        int numStores = 0;
         for (auto op : ops) {
           if (op.isStore()) {
+            numStores++;
             const Expr& ind = op.store->index;
             if (!Halide::Internal::is_const(ind) ||
                 !Halide::Internal::is_const(op.store->value)) {
@@ -2681,7 +2688,7 @@ class MemoryInfoCollector : public IRGraphVisitor {
             }
           }
         }
-        if (allStoresToConstants) {
+        if (numStores > 0 && allStoresToConstants) {
           roms.insert(buf);
         }
       }
