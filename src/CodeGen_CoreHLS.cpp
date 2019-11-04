@@ -1040,8 +1040,6 @@ class InstructionCollector : public IRGraphVisitor {
 
     void pushInstr(HWInstr* instr) {
       f.pushInstr(instr);
-      //f.blocks.back()->instrs.push_back(instr);
-      //f.body.push_back(instr);
     }
 
   protected:
@@ -2208,17 +2206,17 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
-  //std::set<HWInstr*> remaining(begin(f.body), end(f.body));
   std::set<HWInstr*> remaining = f.allInstrs();
-  //(begin(f.body), end(f.body));
 
   DirectedGraph<HWInstr*, int> blockGraph;
   map<HWInstr*, vdisc> iNodes;
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     auto v = blockGraph.addVertex(instr);
     iNodes[instr] = v;
   }
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     auto v = map_get(instr, iNodes);
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_INSTR) {
@@ -2295,17 +2293,14 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
     }
   }
 
-  internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
+  //internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
+  internal_assert((f.allInstrs().size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
-  for (auto instr : f.body) {
+  //for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
     internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
   }
-  //cout << "Total schedule time = " << sched.getLatency() << endl;
-  //sched.stages.push_back({});
-  //for (auto instr : f.body) {
-    //sched.stages[0].push_back(instr);
-  //}
 
   return sched;
 }
