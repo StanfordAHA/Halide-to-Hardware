@@ -2606,6 +2606,13 @@ class MemOp {
         const Store* st_,
         const Load* ld_) : surroundingLoops(lps_), store(st_), load(ld_) {}
 
+    std::string getBufferName() const {
+      if (isLoad()) {
+        return load->name;
+      }
+      return store->name;
+    }
+
     bool isLoad() const { return load != nullptr; }
     bool isStore() const { return store != nullptr; }
     
@@ -2637,6 +2644,49 @@ class MemoryInfoCollector : public IRGraphVisitor {
     std::vector<const For*> activeLoops;
     std::vector<MemOp> memOps;
     std::map<string, Expr> letValues;
+
+    std::set<std::string> allBufferNames() const {
+      set<string> names;
+      for (auto op : memOps) {
+        names.insert(op.getBufferName());
+      }
+
+      return names;
+    }
+
+    std::vector<MemOp> allOpsOn(const std::string& buf) const {
+      vector<MemOp> ops;
+      for (auto op : memOps) {
+        if (op.getBufferName() == buf) {
+          ops.push_back(op);
+        }
+      }
+      return ops;
+    }
+
+    std::set<string> roms() const {
+      // Find all memories that are only stored to at constant indexes outside of loop nests
+      set<string> memNames = allBufferNames();
+      set<string> roms;
+      for (auto buf : memNames) {
+        vector<MemOp> ops = allOpsOn(buf);
+        bool allStoresToConstants = true;
+        for (auto op : ops) {
+          if (op.isStore()) {
+            const Expr& ind = op.store->index;
+            if (!Halide::Internal::is_const(ind) ||
+                !Halide::Internal::is_const(op.store->value)) {
+              allStoresToConstants = false;
+              break;
+            }
+          }
+        }
+        if (allStoresToConstants) {
+          roms.insert(buf);
+        }
+      }
+      return roms;
+    }
 
     void visit(const Let* lt) {
       letValues[lt->name] = lt->value;
@@ -2798,6 +2848,11 @@ void conv_layer_mobile_test() {
       cout << "----- Memory info..." << endl;
       for (auto op : mic.memOps) {
         cout << "\t" << op << endl;
+      }
+
+      cout << "----- ROMS..." << endl;
+      for (auto r : mic.roms()) {
+        cout << r << endl;
       }
     }
   }

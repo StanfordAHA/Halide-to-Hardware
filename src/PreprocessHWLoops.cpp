@@ -9,6 +9,14 @@ namespace Halide {
   namespace Internal {
 
 
+  bool is_const(const Expr e) {
+    if (e.as<IntImm>() || e.as<UIntImm>()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
 class InnermostLoopChecker : public IRGraphVisitor {
   public:
     bool foundSubLoop;
