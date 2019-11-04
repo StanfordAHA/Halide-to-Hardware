@@ -2397,7 +2397,6 @@ void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   auto& body = f.body;
-  //cout << "# of const loads = " << constLoads.size() << endl;
   for (auto ldNewVal : loadsToConstants) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
@@ -2415,39 +2414,39 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   auto& body = f.body;
-  vector<HWInstr*> constLoads;
-  std::map<HWInstr*, HWInstr*> loadsToConstants;
-  //std::map<string, std::map<int, int> > storedValues;
-  int pos = 0;
-  for (auto instr : body) {
-    if (isLoad(instr)) {
-      //auto location = instr->operands[2];
-      for (auto instr : body) {
-        if (isLoad(instr)) {
-          auto location = instr->operands[2];
-          //cout << "Load " << *instr << " from location: " << location->compactString() << endl;
-          if (isConstant(location)) {
-            //cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
-            int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
+  //vector<HWInstr*> constLoads;
+  //std::map<HWInstr*, HWInstr*> loadsToConstants;
+  ////std::map<string, std::map<int, int> > storedValues;
+  //int pos = 0;
+  //for (auto instr : body) {
+    //if (isLoad(instr)) {
+      ////auto location = instr->operands[2];
+      //for (auto instr : body) {
+        //if (isLoad(instr)) {
+          //auto location = instr->operands[2];
+          ////cout << "Load " << *instr << " from location: " << location->compactString() << endl;
+          //if (isConstant(location)) {
+            ////cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
+            //int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
 
-            //cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
-            HWInstr* lastStoreToLoc = new HWInstr();
-            lastStoreToLoc->tp = HWINSTR_TP_CONST;
-            lastStoreToLoc->constWidth = 16;
-            lastStoreToLoc->constValue = std::to_string(newValue);
-            constLoads.push_back(instr);
+            ////cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
+            //HWInstr* lastStoreToLoc = new HWInstr();
+            //lastStoreToLoc->tp = HWINSTR_TP_CONST;
+            //lastStoreToLoc->constWidth = 16;
+            //lastStoreToLoc->constValue = std::to_string(newValue);
+            //constLoads.push_back(instr);
 
-            if (lastStoreToLoc) {
-              loadsToConstants[instr] = lastStoreToLoc;
-            }
-          }
-        }
-      }
-      pos++;
-    }
-  }
+            //if (lastStoreToLoc) {
+              //loadsToConstants[instr] = lastStoreToLoc;
+            //}
+          //}
+        //}
+      //}
+      //pos++;
+    //}
+  //}
 
-  replaceAll(loadsToConstants, f);
+  //replaceAll(loadsToConstants, f);
 
   //cout << "Stored Values.." << endl;
   //for (auto m : storedValues) {
