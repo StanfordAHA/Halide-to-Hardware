@@ -2516,12 +2516,13 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
-vector<HWInstr*> allInstructions(HWFunction& f) {
-  return f.body;
-}
+//vector<HWInstr*> allInstructions(HWFunction& f) {
+  //return f.body;
+//}
 
 void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
-  for (auto instr : allInstructions(f)) {
+  //for (auto instr : allInstructions(f)) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       instr->operands = {instr->operands[0], instr->operands[1]};
     }
@@ -2532,6 +2533,7 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   auto& body = f.body;
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
+  //for (auto instr : f.allInstrs()) {
     if (isCall("read_stream", instr)) {
       auto callRep = f.newI();
       //auto callRep = new HWInstr();
@@ -4570,7 +4572,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }
     
     f.controlVars = hwVars;
-    auto& body = f.body;
+    //auto& body = f.body;
 
     removeBadStores(stCollector, f);
     valueConvertProvides(scl.info, f);
@@ -4578,10 +4580,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     removeWriteStreamArgs(scl.info, f);
     divToShift(f);
     modToShift(f);
-    cout << "After stream read conversion..." << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
-    }
+    //cout << "After stream read conversion..." << endl;
+    //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+    //}
 
     functions[lp] = f;
 
