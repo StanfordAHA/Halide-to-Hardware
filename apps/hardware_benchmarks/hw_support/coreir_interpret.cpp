@@ -43,8 +43,8 @@ void ImageWriter<elem_t>::save_image(std::string image_name) {
 
 template <typename elem_t>
 void ImageWriter<elem_t>::print_coords() {
-  std::cout << "x=" << current_x
-            << ",y=" << current_y
+  std::cout << "y=" << current_y
+            << ",x=" << current_x
             << ",z=" << current_z << std::endl;
 }
 
@@ -131,6 +131,283 @@ bool circuit_uses_inputenable(Module *m) {
   return uses_inputenable;
 }
 
+template<typename T>
+class CoordinateVector {
+  public:
+
+    std::vector<T> values;
+    std::vector<std::string> names;
+    std::vector<T> bounds;
+
+    bool finished;
+
+    CoordinateVector(vector<std::string> names_, vector<T> bounds_) : names(names_), bounds(bounds_), finished(false) {
+      values.resize(names.size());
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        values[i] = 0;
+      }
+    }
+
+    CoordinateVector(vector<std::string>& names_, vector<T>& bounds_) : names(names_), bounds(bounds_), finished(false) {
+      values.resize(names.size());
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        values[i] = 0;
+      }
+    }
+
+    int coord(const std::string& str) {
+      for (int i = 0; i < (int) names.size(); i++) {
+        auto cN = names[i];
+        if (cN == str) {
+          return values[i];
+        }
+      }
+
+      assert(false);
+    }
+
+    std::string coordString() const {
+      std::string str = "{";
+      for (int i = 0; i < ((int) bounds.size()); i++) {
+        str += std::to_string(values[i]) + " : " + std::to_string(bounds[i]);
+        if (i < ((int) bounds.size()) - 1) {
+          str += ", ";
+        }
+      }
+      str += "}";
+      return str;
+    }
+    bool allLowerAtMax(const int level) const {
+      if (level == ((int) bounds.size()) - 1) {
+        return true;
+      }
+
+      for (int i = level + 1; i < (int) bounds.size(); i++) {
+        if (!atMax(i)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    bool atMax(const int level) const {
+      bool atM = bounds[level] == values[level];
+      //cout << "atM = " << atM << " for level: " << level << ", bounds = " << bounds[level] << ", value = " << values[level] << endl;
+      return atM;
+    }
+
+    bool allAtMax() const {
+      return atMax(0) && allLowerAtMax(0);
+    }
+
+    bool allDone() const {
+      return finished && atMax(0) && allLowerAtMax(0);
+    }
+    
+    void increment() {
+      if (allAtMax() && !allDone()) {
+        finished = true;
+      }
+
+      if (allDone()) {
+        return;
+      }
+
+      for (int i = 0; i < (int) bounds.size(); i++) {
+        if (allLowerAtMax(i)) {
+          values[i]++;
+
+          for (int j = i + 1; j < (int) bounds.size(); j++) {
+            values[j] = 0;
+          }
+          break;
+        }
+      }
+    }
+
+};
+
+template<typename T>
+void read_for_cycle(
+    CoordinateVector<int>& writeIdx,
+    bool uses_inputenable,
+    bool has_float_input,
+    bool has_float_output,
+    
+    Halide::Runtime::Buffer<T> input,
+    Halide::Runtime::Buffer<T> output,
+    string input_name,
+    string output_name,
+
+    CoreIR::SimulatorState& state,
+    ImageWriter<T>& coreir_img_writer,
+    bool uses_valid
+    ) {
+
+  int x = writeIdx.coord("x");
+  int y = writeIdx.coord("y");
+  int c = writeIdx.coord("c");
+
+  // Set in_en to 1.
+  if (uses_inputenable) {
+    state.setValue("self.in_en", BitVector(1, false));
+  }
+
+  // propogate to all wires
+  state.exeCombinational();
+
+  // read output wire
+  if (uses_valid) {
+    //std::cout << "using valid\n";
+    bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+    //std::cout << "got my valid\n";
+    //cout << "output_bv_n = " << output_bv_n << endl;
+    if (valid_value) {
+      std::cout << "this one is valid\n";
+      auto output_bv = state.getBitVec(output_name);
+
+      // bitcast to float if it is a float
+      T output_value;
+      if (has_float_output) {
+        float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+        //std::cout << "read out float: " << output_float << " ";
+        output_value = static_cast<T>(output_float);
+      } else {
+        output_value = output_bv.to_type<T>();
+      }
+
+      coreir_img_writer.write(output_value);
+
+      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+    }
+  } else {
+    //if (std::is_floating_point<T>::value) {
+    //  T output_value = state.getBitVec(output_name);
+    //  output(x,y,c) = output_value;
+    //} else {
+    //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
+
+    auto output_bv = state.getBitVec(output_name);
+
+    // bitcast to float if it is a float
+    T output_value;
+    if (has_float_output) {
+      float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+      output_value = static_cast<T>(output_float);
+    } else {
+      output_value = output_bv.to_type<T>();
+    }
+
+    output(x,y,c) = output_value;
+
+    //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+  }
+
+  // give another rising edge (execute seq)
+  state.exeSequential();
+}
+
+template<typename T>
+void run_for_cycle(CoordinateVector<int>& writeIdx,
+    CoordinateVector<int>& readIdx,
+    bool uses_inputenable,
+    bool has_float_input,
+    bool has_float_output,
+
+    Halide::Runtime::Buffer<T> input,
+    Halide::Runtime::Buffer<T> output,
+    string input_name,
+    string output_name,
+
+    CoreIR::SimulatorState& state,
+    ImageWriter<T>& coreir_img_writer,
+    bool uses_valid
+    ) {
+
+  const int x = writeIdx.coord("x");
+  const int y = writeIdx.coord("y");
+  const int c = writeIdx.coord("c");
+
+  if (!writeIdx.allDone()) {
+
+    if (uses_inputenable) {
+      state.setValue("self.in_en", BitVector(1, true));
+    }
+
+    // Set input value.
+    // bitcast to int if it is a float
+    if (has_float_input) {
+      state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
+      //cout << "input set\n";
+    } else {
+      state.setValue(input_name, BitVector(16, input(x,y,c)));
+      //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+    }
+
+    writeIdx.increment();
+  } else {
+    if (uses_inputenable) {
+      state.setValue("self.in_en", BitVector(1, false));
+    }
+  }
+  // propogate to all wires
+  state.exeCombinational();
+
+  // read output wire
+  if (uses_valid) {
+    //std::cout << "using valid\n";
+    bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+    //std::cout << "got my valid\n";
+    //cout << "output_bv_n = " << output_bv_n << endl;
+    if (valid_value) {
+      std::cout << "this one is valid\n";
+      auto output_bv = state.getBitVec(output_name);
+
+      // bitcast to float if it is a float
+      T output_value;
+      if (has_float_output) {
+        float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+        //std::cout << "read out float: " << output_float << " ";
+        output_value = static_cast<T>(output_float);
+      } else {
+        output_value = output_bv.to_type<T>();
+      }
+
+      coreir_img_writer.write(output_value);
+
+      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+      readIdx.increment();
+    }
+  } else {
+    //if (std::is_floating_point<T>::value) {
+    //  T output_value = state.getBitVec(output_name);
+    //  output(x,y,c) = output_value;
+    //} else {
+    //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
+
+    auto output_bv = state.getBitVec(output_name);
+
+    // bitcast to float if it is a float
+    T output_value;
+    if (has_float_output) {
+      float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
+      output_value = static_cast<T>(output_float);
+    } else {
+      output_value = output_bv.to_type<T>();
+    }
+
+    output(x,y,c) = output_value;
+
+    //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+    //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name).to_type<int>() << dec << endl;
+  }
+
+  // give another rising edge (execute seq)
+  state.exeSequential();
+}
 
 template<typename T>
 void run_coreir_on_interpreter(string coreir_design,
@@ -168,86 +445,63 @@ void run_coreir_on_interpreter(string coreir_design,
   bool uses_valid = reset_coreir_circuit(state, m);
   bool uses_inputenable = circuit_uses_inputenable(m);
 
-  cout << "starting coreir simulation" << endl;  
+  cout << "starting coreir simulation by calling resetCircuit" << endl;  
   state.resetCircuit();
-  cout << "reset\n";
+  cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
 
-  for (int y = 0; y < input.height(); y++) {
-    for (int x = 0; x < input.width(); x++) {
-      for (int c = 0; c < input.channels(); c++) {
+  int maxCycles = 10000;
+  int cycles = 0;
 
-        //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
 
-        // Set in_en to 1.
-        if (uses_inputenable) {
-          state.setValue("self.in_en", BitVector(1, true));
-        }
-        
-        // Set input value.
-        // bitcast to int if it is a float
-        if (has_float_input) {
-          state.setValue(input_name, BitVector(16, bitCastToInt((float)input(x,y,c))>>16));
-          //cout << "input set\n";
-        } else {
-          state.setValue(input_name, BitVector(16, input(x,y,c)));
-        }
-
-        // propogate to all wires
-        state.exeCombinational();
-
-        // read output wire
-        if (uses_valid) {
-          //std::cout << "using valid\n";
-          bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-          //std::cout << "got my valid\n";
-          if (valid_value) {
-            //std::cout << "this one is valid\n";
-            auto output_bv = state.getBitVec(output_name);
-            
-            // bitcast to float if it is a float
-            T output_value;
-            if (has_float_output) {
-              float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-              //std::cout << "read out float: " << output_float << " ";
-              output_value = static_cast<T>(output_float);
-            } else {
-              output_value = output_bv.to_type<T>();
-            }
-            
-            coreir_img_writer.write(output_value);
-            
-            //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
-          }
-        } else {
-          //if (std::is_floating_point<T>::value) {
-          //  T output_value = state.getBitVec(output_name);
-          //  output(x,y,c) = output_value;
-          //} else {
-          //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
-          
-          auto output_bv = state.getBitVec(output_name);
-
-          // bitcast to float if it is a float
-          T output_value;
-          if (has_float_output) {
-            float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
-            output_value = static_cast<T>(output_float);
-          } else {
-            output_value = output_bv.to_type<T>();
-          }
-
-          output(x,y,c) = output_value;
-            
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
-        }
-        
-        // give another rising edge (execute seq)
-        state.exeSequential();
-
-      }
-    }
+  // TODO: Need to get imagewriter bounds?
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {((int)coreir_img_writer.getHeight() - 1), ((int)coreir_img_writer.getWidth()) - 1, ((int) coreir_img_writer.getChannels()) - 1});
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+    run_for_cycle(writeIdx, readIdx,
+        uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+    cycles++;
   }
+
+  
+  //for (int y = 0; y < input.height(); y++) {
+    //for (int x = 0; x < input.width(); x++) {
+      //for (int c = 0; c < input.channels(); c++) {
+        //cout << "Write idx = " << writeIdx.coordString() << endl;
+
+        //assert(writeIdx.coord("x") == x);
+        //assert(writeIdx.coord("y") == y);
+        //assert(writeIdx.coord("c") == c);
+        //run_for_cycle(writeIdx, readIdx,
+            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        ////run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            ////uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        //writeIdx.increment();
+
+      //}
+    //}
+  //}
+
+  //int spareRows = 3;
+  //int spareCols = 20;
+  //int spareChannels = 1;
+
+  //for (int y = input.height(); y < input.height() + spareRows; y++) {
+    //for (int x = input.width(); x < input.width() + spareCols; x++) {
+      //for (int c = input.channels(); c < input.channels() + spareChannels; c++) {
+
+        //read_for_cycle(writeIdx,
+             //writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        //writeIdx.increment();
+        ////read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+      //}
+    //}
+  //}
   coreir_img_writer.print_coords();
 
   deleteContext(c);

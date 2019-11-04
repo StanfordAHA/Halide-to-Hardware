@@ -560,7 +560,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     string arg_name = "arg_" + std::to_string(i);
 
     if (args[i].is_stencil) {
-      CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+      Stencil_Type stype = args[i].stencil_type;
 
       internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
                       args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
@@ -696,7 +696,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       string arg_name = "arg_" + std::to_string(i);
       do_indent();
       if (args[i].is_stencil) {
-        CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+        Stencil_Type stype = args[i].stencil_type;
         stream << print_stencil_type(args[i].stencil_type) << " &"
                << print_name(args[i].name) << " = " << arg_name << ";\n";
 

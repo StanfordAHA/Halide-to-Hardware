@@ -2,6 +2,8 @@
 
 namespace {
 
+  using namespace std;
+
 using namespace Halide;
 
 class PointwiseMultiplication : public Halide::Generator<PointwiseMultiplication> {
@@ -23,7 +25,8 @@ public:
         output(x, y) = hw_output(x, y);
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) ||
+            get_target().has_feature(Target::HLS)) {
           Var xi,yi, xo,yo;
           
           hw_input.compute_root();
@@ -33,6 +36,9 @@ public:
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();
+
+          cout << "Loop nest" << endl;
+          hw_output.print_loop_nest();
 
         } else {
           mult.compute_root();

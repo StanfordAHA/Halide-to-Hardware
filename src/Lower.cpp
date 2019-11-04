@@ -86,6 +86,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
              const vector<Argument> &args, const LinkageType linkage_type,
              const vector<IRMutator *> &custom_passes) {
 
+  //std::cout << "Starting lowering..." << std::endl;
+  //std::cout << "Target = " << t << std::endl;
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
 
@@ -131,6 +133,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     bool any_memoized = false;
     Stmt s = schedule_functions(outputs, fused_groups, env, t, any_memoized);
     debug(2) << "Lowering after creating initial loop nests:\n" << s << '\n';
+    
+    //std::cout << "Lowering after creating initial loop nests:\n" << s << '\n';
 
     if (any_memoized) {
         debug(1) << "Injecting memoization...\n";
@@ -152,6 +156,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     // function. Used in later bounds inference passes.
     debug(1) << "Computing bounds of each function's value\n";
     FuncValueBounds func_bounds = compute_function_value_bounds(order, env);
+    //std::cout << "FuncValueBounds..." << std::endl;
+    //for (auto fEntry : func_bounds) {
+      ////std::cout << "\t" << fEntry.first.first << " : " << fEntry.first.second <<
+        //" -> " << "[" << fEntry.second.min << ", " << fEntry.second.max << "]" << std::endl;
+    //}
 
     // The checks will be in terms of the symbols defined by bounds
     // inference.
@@ -166,13 +175,14 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Performing computation bounds inference...\n";
     s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, inlined_stages, t);
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
+    //std::cout << "#### AFter bounds inference: " << s << "\n";
 
     debug(1) << "Removing extern loops...\n";
     s = remove_extern_loops(s);
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
-    if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
+    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
       s = sliding_window(s, env);
     }
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
@@ -192,7 +202,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
+    if (t.has_feature(Target::CoreIRHLS) || t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
+
+      //std::cout << "Now we are doing HLS specific optimizations" << std::endl;
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
@@ -214,9 +226,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
-    //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
       s = storage_folding(s, env);
-      //}
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
 
     debug(1) << "Injecting debug_to_file calls...\n";
@@ -232,7 +242,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
     //std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
 
-    if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
       debug(1) << "Forking asynchronous producers...\n";
       s = fork_async_producers(s, env);
       debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
@@ -384,7 +394,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after lowering unsafe promises:\n" << s << "\n\n";
 
     debug(1) << "Emulating float16 math...\n";
-    std::cout << "Emulating float16 math...\n";
+    //std::cout << "Emulating float16 math...\n";
     s = emulate_float16_math(s, t);
     debug(2) << "Lowering after emulating float16 math:\n" << s << "\n\n";
     //std::cout << "Lowering after emulating float16 math:\n" << s << "\n\n";

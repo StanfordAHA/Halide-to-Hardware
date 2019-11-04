@@ -10,7 +10,7 @@ namespace {
 using namespace Halide;
 
 // Size of blur for gradients.
-int blockSize = 5;
+const int blockSize = 5;
   
 class UnsharpFilter : public Halide::Generator<UnsharpFilter> {
 public:
@@ -71,14 +71,16 @@ public:
         output.bound(c, 0, 3);
         
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) ||
+            get_target().has_feature(Target::HLS)) {
           hw_input.compute_root();
           hw_output.compute_root();
           
           output.tile(x, y, xo, yo, xi, yi, 480, 640).reorder(c, xi, yi, xo, yo);
 
           hw_output.tile(x, y, xo, yo, xi, yi, 480, 640).reorder(c, xi, yi, xo, yo);
-          blur_unnormalized.update().unroll(win.x).unroll(win.y);
+          blur_unnormalized.linebuffer()
+            .update().unroll(win.x).unroll(win.y);
 
           hw_output.accelerate({hw_input}, xi, xo);
           gray.linebuffer().fifo_depth(ratio, 20);

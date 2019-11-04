@@ -20,7 +20,7 @@ namespace Halide {
       bool is_stencil;
       bool is_output;
       Type scalar_type;
-      CodeGen_CoreIR_Base::Stencil_Type stencil_type;
+      Stencil_Type stencil_type;
     };
 
     // Encapsulates all arguments for a coreir module to be constructed and wired up later.
@@ -117,7 +117,8 @@ namespace Halide {
         std::map<std::string,std::shared_ptr<Storage_Def>> hw_store_set;
         std::map<std::string,std::shared_ptr<CoreIR_Inst_Args>> hw_def_set;
         std::map<std::string,CoreIR::Wireable*> hw_input_set;
-        std::unordered_set<std::string> hw_output_set;
+        //std::unordered_set<std::string> hw_output_set;
+        std::set<std::string> hw_output_set;
 
         // keep track for valid network
         std::map<std::string, std::vector<std::string> > hw_dispatch_set;

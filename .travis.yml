@@ -11,10 +11,12 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      - g++-4.9
+      #- g++-4.9
+      - g++-7
       - libedit-dev
       - libpng-dev
       - graphviz
+      - valgrind
 env:
   # Configurations
   #
@@ -23,7 +25,9 @@ env:
   #
   # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
-  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
+  #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
+  #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-5 CC_=gcc-5
+  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
 
 cache: apt
 
@@ -78,5 +82,6 @@ after_script: |
     curl -LO --retry 3 https://raw.github.com/mernst/plume-lib/master/bin/trigger-travis.sh
     sh trigger-travis.sh StanfordAHA Applications $TRAVIS_ACCESS_TOKEN
   fi
+
     
     

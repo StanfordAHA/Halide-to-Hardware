@@ -26,6 +26,7 @@ public:
 
         // common patterns: average of four surrounding pixels
         Func neswNeighbors, diagNeighbors;
+        // Should this actually be /4 outside of the hw input?
         neswNeighbors(x, y) = (hw_input(x-1, y)   + hw_input(x+1, y) +
                                hw_input(x,   y-1) + hw_input(x,   y+1)/4);
         diagNeighbors(x, y) = (hw_input(x-1, y-1) + hw_input(x+1, y-1) +
@@ -69,7 +70,8 @@ public:
         output.bound(c, 0, 3);
             
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) ||
+            get_target().has_feature(Target::HLS)) {
           hw_input.compute_root();
           hw_output.compute_root();
           

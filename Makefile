@@ -173,7 +173,7 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
-#COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
+COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
 CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-unknown-warning-option -Wno-psabi
@@ -386,6 +386,8 @@ SOURCE_FILES = \
   Closure.cpp \
   CodeGen_ARM.cpp \
   CodeGen_C.cpp \
+	CodeGen_CoreHLS.cpp \
+	CodeGen_CoreHLS_Kernel.cpp \
   CodeGen_CoreIR_Base.cpp \
   CodeGen_CoreIR_Target.cpp \
   CodeGen_CoreIR_Testbench.cpp \
@@ -471,6 +473,7 @@ SOURCE_FILES = \
   PartitionLoops.cpp \
   Pipeline.cpp \
   Prefetch.cpp \
+	PreprocessHWLoops.cpp \
   PrintLoopNest.cpp \
   Profiling.cpp \
   PurifyIndexMath.cpp \
@@ -513,6 +516,7 @@ SOURCE_FILES = \
   SlidingWindow.cpp \
   Solve.cpp \
   SplitTuples.cpp \
+	StencilType.cpp \
   StmtToHtml.cpp \
   StorageFlattening.cpp \
   StorageFolding.cpp \
@@ -560,6 +564,7 @@ HEADER_FILES = \
   Closure.h \
   CodeGen_ARM.h \
   CodeGen_C.h \
+	CodeGen_CoreHLS_Kernel.h \
   CodeGen_D3D12Compute_Dev.h \
   CodeGen_GPU_Dev.h \
   CodeGen_GPU_Host.h \
@@ -646,6 +651,7 @@ HEADER_FILES = \
   PartitionLoops.h \
   Pipeline.h \
   Prefetch.h \
+	PreprocessHWLoops.h \
   Profiling.h \
   PurifyIndexMath.h \
   PythonExtensionGen.h \

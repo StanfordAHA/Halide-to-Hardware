@@ -37,7 +37,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+         
           hw_input.compute_root();
           hw_output.compute_root();
           

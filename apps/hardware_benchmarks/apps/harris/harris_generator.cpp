@@ -104,8 +104,10 @@ public:
           //hw_output.compute_at(output, xo);
           hw_output.compute_root();
 
+          //int tileSize = 8;
+          int tileSize = 58;
           hw_output
-            .tile(x, y, xo, yo, xi, yi, 58, 58)
+            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
             .accelerate({padded16}, xi, xo);
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();

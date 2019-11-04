@@ -16,6 +16,22 @@ namespace Halide {
 
 namespace Internal {
 
+class CoreIR_Closure : public Closure {
+public:
+  CoreIR_Closure(Stmt s, std::string output_string)  {
+        s.accept(this);
+        output_name = output_string;
+    }
+
+  std::vector<CoreIR_Argument> arguments(const Scope<Stencil_Type> &scope);
+
+protected:
+    using Closure::visit;
+    std::string output_name;
+
+};
+
+
 /** A code generator that emits Xilinx Vivado HLS compatible C++ testbench code.
  */
 class CodeGen_CoreIR_Testbench : public CodeGen_CoreIR_Base {
