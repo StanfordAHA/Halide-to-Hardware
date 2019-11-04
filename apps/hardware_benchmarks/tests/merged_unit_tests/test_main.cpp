@@ -21,6 +21,44 @@ std::string GREEN = "\033[32m";
 std::string RED = "\033[31m";
 std::string RESET = "\033[0m";
 
+template<typename T>
+bool is2D(T& buf) {
+  return (buf.dimensions() == 2) || (buf.dimensions() == 3 && buf.channels() == 1);
+}
+
+template<typename T0, typename T1>
+void indexTestPatternRandom(T0& inputBuf, T1& hwInputBuf) {
+
+  if (is2D(inputBuf)) {
+    for (int i = 0; i < inputBuf.width(); i++) {
+      for (int j = 0; j < inputBuf.height(); j++) {
+        hwInputBuf(i, j, 0) = rand() % 255;
+        inputBuf(i, j) = hwInputBuf(i, j);
+      }
+    }
+  } else {
+    assert(inputBuf.dimensions() == 3);
+    for (int i = 0; i < inputBuf.width(); i++) {
+      for (int j = 0; j < inputBuf.height(); j++) {
+        for (int b = 0; b < inputBuf.channels(); b++) {
+          hwInputBuf(i, j, b) = rand() % 255;
+          inputBuf(i, j, b) = hwInputBuf(i, j, b);
+        }
+      }
+    }
+  }
+}
+
+template<typename T0, typename T1>
+void indexTestPattern2D(T0& inputBuf, T1& hwInputBuf) {
+  for (int i = 0; i < inputBuf.width(); i++) {
+    for (int j = 0; j < inputBuf.height(); j++) {
+      hwInputBuf(i, j, 0) = i + j*inputBuf.width();
+      inputBuf(i, j) = hwInputBuf(i, j);
+    }
+  }
+}
+
 std::string getInputAlias(const std::string& jsonFile) {
   json j;
   ifstream inFile(jsonFile);
@@ -60,11 +98,6 @@ Halide::Buffer<OT> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<
     hw_output.realize(cpuOutput, t, rParams);
     return cpuOutput;
   }
-}
-
-template<typename T>
-bool is2D(T& buf) {
-  return (buf.dimensions() == 2) || (buf.dimensions() == 3 && buf.channels() == 1);
 }
 
 template<typename T>
@@ -1501,6 +1534,13 @@ void small_conv_3_3_not_unrolled_test() {
   hw_output.compute_root();
 
   int tileSize = 4;
+  Halide::Buffer<uint8_t> inputBuf(tileSize + 2, tileSize + 2);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
+  indexTestPatternRandom(inputBuf, hwInputBuf);
+  //indexTestPattern2D(inputBuf, hwInputBuf);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
+  auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
+  
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
 
@@ -1514,37 +1554,49 @@ void small_conv_3_3_not_unrolled_test() {
 
   hw_output.print_loop_nest();
 
-  Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
+  auto context = hwContext();
   vector<Argument> args{input};
-  auto mod = hw_output.compile_to_module(args, "hw_output", t);
+  auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
 
-  cout << "Module before consolidation..." << endl;
-  cout << mod << endl;
+  string accelName = getInputAlias("accel_interface_info.json");
+  //runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
 
-  for (auto f : mod.functions()) {
-    cout << "Preprocessed body for " << f.name << endl;
-    HWRegionFinder finder;
-    f.body.accept(&finder);
-    if (finder.foundRegion) {
-      Stmt s = preprocessHWLoops(finder.region->body);
-      cout << "---- Found hw region..." << endl;
-      cout << s << endl;
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
 
-      MemoryInfoCollector mic;
-      s.accept(&mic);
+  cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
+  //Target t;
+  //t = t.with_feature(Target::Feature::CoreIR);
+  //vector<Argument> args{input};
+  //auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
-      cout << "----- Memory info..." << endl;
-      for (auto op : mic.memOps) {
-        cout << "\t" << op << endl;
-      }
+  //cout << "Module before consolidation..." << endl;
+  //cout << mod << endl;
 
-      cout << "----- ROMS..." << endl;
-      for (auto r : mic.roms()) {
-        cout << r << endl;
-      }
-    }
-  }
+  //for (auto f : mod.functions()) {
+    //cout << "Preprocessed body for " << f.name << endl;
+    //HWRegionFinder finder;
+    //f.body.accept(&finder);
+    //if (finder.foundRegion) {
+      //Stmt s = preprocessHWLoops(finder.region->body);
+      //cout << "---- Found hw region..." << endl;
+      //cout << s << endl;
+
+      //MemoryInfoCollector mic;
+      //s.accept(&mic);
+
+      //cout << "----- Memory info..." << endl;
+      //for (auto op : mic.memOps) {
+        //cout << "\t" << op << endl;
+      //}
+
+      //cout << "----- ROMS..." << endl;
+      //for (auto r : mic.roms()) {
+        //cout << r << endl;
+      //}
+    //}
+  //}
   assert(false);
 }
 
@@ -1713,39 +1765,6 @@ void pointwise_add_test() {
     deleteContext(context);
 
     cout << GREEN << "Pointwise add passed!" << RESET << endl;
-}
-
-template<typename T0, typename T1>
-void indexTestPatternRandom(T0& inputBuf, T1& hwInputBuf) {
-
-  if (is2D(inputBuf)) {
-    for (int i = 0; i < inputBuf.width(); i++) {
-      for (int j = 0; j < inputBuf.height(); j++) {
-        hwInputBuf(i, j, 0) = rand() % 255;
-        inputBuf(i, j) = hwInputBuf(i, j);
-      }
-    }
-  } else {
-    assert(inputBuf.dimensions() == 3);
-    for (int i = 0; i < inputBuf.width(); i++) {
-      for (int j = 0; j < inputBuf.height(); j++) {
-        for (int b = 0; b < inputBuf.channels(); b++) {
-          hwInputBuf(i, j, b) = rand() % 255;
-          inputBuf(i, j, b) = hwInputBuf(i, j, b);
-        }
-      }
-    }
-  }
-}
-
-template<typename T0, typename T1>
-void indexTestPattern2D(T0& inputBuf, T1& hwInputBuf) {
-  for (int i = 0; i < inputBuf.width(); i++) {
-    for (int j = 0; j < inputBuf.height(); j++) {
-      hwInputBuf(i, j, 0) = i + j*inputBuf.width();
-      inputBuf(i, j) = hwInputBuf(i, j);
-    }
-  }
 }
 
 void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
