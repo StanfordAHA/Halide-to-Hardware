@@ -2631,7 +2631,17 @@ class MemoryInfoCollector : public IRGraphVisitor {
 
     std::vector<const For*> activeLoops;
     std::vector<MemOp> memOps;
+    Scope<Expr> letValues;
 
+    void visit(const Let* lt) {
+      letValues.push(lt->name, lt->value);
+      IRGraphVisitor::visit(lt);
+    }
+
+    void visit(const LetStmt* lt) {
+      letValues.push(lt->name, lt->value);
+      IRGraphVisitor::visit(lt);
+    }
 
     void visit(const Load* ld) {
       IRGraphVisitor::visit(ld);
