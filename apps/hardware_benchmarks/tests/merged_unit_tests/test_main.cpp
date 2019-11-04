@@ -2595,7 +2595,34 @@ class MemOp {
     std::vector<const For*> surroundingLoops;
     const Store* store;
     const Load* load;
+
+    MemOp() : store(nullptr), load(nullptr) {}
+    MemOp(std::vector<const For*>& lps_,
+        const Store* st_,
+        const Load* ld_) : surroundingLoops(lps_), store(st_), load(ld_) {}
+
+    bool isLoad() const { return load != nullptr; }
+    bool isStore() const { return store != nullptr; }
+    
+
+    void print(std::ostream& out) const {
+      for (auto lp : surroundingLoops) {
+        out << lp->name << " : " << lp->min << ", " << lp->extent << "; ";
+      }
+      if (isLoad()) {
+        out << "ld: " << load->name << "[" << load->index << "]";
+      } else {
+        assert(isStore());
+        //out << "st: " << store->name << "[" << store->index << "] =  " << store->value;
+        out << "st: " << store->name << "[" << store->index << "]";
+      }
+    }
 };
+
+std::ostream& operator<<(std::ostream& out, const MemOp& op) {
+  op.print(out);
+  return out;
+}
 
 class MemoryInfoCollector : public IRGraphVisitor {
   public:
@@ -2607,10 +2634,12 @@ class MemoryInfoCollector : public IRGraphVisitor {
 
 
     void visit(const Load* ld) {
+      IRGraphVisitor::visit(ld);
       memOps.push_back({activeLoops, nullptr, ld});
     }
 
     void visit(const Store* st) {
+      IRGraphVisitor::visit(st);
       memOps.push_back({activeLoops, st, nullptr});
     }
 
@@ -2753,7 +2782,7 @@ void conv_layer_mobile_test() {
 
       cout << "----- Memory info..." << endl;
       for (auto op : mic.memOps) {
-        cout << "memop inside " << op.surroundingLoops.size() << " loops" << endl;
+        cout << "\t" << op << endl;
       }
     }
   }
