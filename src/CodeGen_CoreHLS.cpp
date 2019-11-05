@@ -2537,7 +2537,6 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
 }
 
 void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
-  //for (auto instr : allInstructions(f)) {
   for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       instr->operands = {instr->operands[0], instr->operands[1]};
@@ -2602,10 +2601,11 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
-  auto& body = f.body;
+  //auto& body = f.body;
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
-  for (auto instr : body) {
+  //for (auto instr : body) {
+  for (auto instr : f.structuredOrder()) {
   //for (auto instr : f.allInstrs()) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
@@ -2658,13 +2658,10 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
     int provideNum = 0;
-    //for (auto instr : pr.second) {
     for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
       auto instr = pr.second[i];
       cout << "\t\t" << *instr << endl;
-      //HWInstr* refresh = new HWInstr();
       auto refresh = f.newI();
-      //refresh->uniqueNum = provideNum + 100;
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
