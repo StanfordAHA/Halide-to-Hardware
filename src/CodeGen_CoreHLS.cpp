@@ -1124,7 +1124,7 @@ class InstructionCollector : public IRGraphVisitor {
 
     void pushInstr(HWInstr* instr) {
       if (activeBlock == nullptr) {
-        f.pushInstr(instr);
+        internal_assert(false);
       } else {
         activeBlock->instrs.push_back(instr);
       }
@@ -1139,16 +1139,21 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const For* lp) override {
-      auto toLoop = newBr();
-      pushInstr(toLoop);
       auto loopBlk = f.newBlk();
+      auto nextBlk = f.newBlk();
+      
+      auto toLoop = newBr();
+      toLoop->operands.push_back(f.newVar(loopBlk->name));
+      pushInstr(toLoop);
 
       activeBlock = loopBlk;
-
       IRGraphVisitor::visit(lp);
-
+      activeBlock = loopBlk;
+      
       auto fromLoop = newBr();
-      auto nextBlk = f.newBlk();
+      fromLoop->operands.push_back(f.newVar(loopBlk->name));
+      fromLoop->operands.push_back(f.newVar(nextBlk->name));
+
       pushInstr(fromLoop);
 
       activeBlock = nextBlk;
@@ -1522,6 +1527,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   OuterLoopSeparator sep;
   perfectNest->body.accept(&sep);
   InstructionCollector collector;
+  collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
   auto design_type = moduleTypeForKernel(context, info, perfectNest, args);

@@ -93,7 +93,6 @@ class HWFunction {
 
   protected:
     std::vector<HWBlock*> blocks;
-    //std::vector<HWInstr*> body;
 
   public:
     std::string name;
@@ -103,7 +102,6 @@ class HWFunction {
 
     HWFunction() : uniqueNum(0), mod(nullptr) {
       newBlk();
-      //blocks.push_back(newBlk());
     }
 
     HWBlock* newBlk() {
@@ -141,11 +139,9 @@ class HWFunction {
       for (auto& blk : blocks) {
         CoreIR::delete_if(blk->instrs, c);
       }
-      //[c](HWInstr* instr) { return c(instr); });
     }
 
     void pushInstr(HWInstr* instr) {
-      //body.push_back(instr);
       blocks.back()->instrs.push_back(instr);
     }
 
@@ -173,6 +169,13 @@ class HWFunction {
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = width;
       ist->constValue = std::to_string(value);
+      return ist;
+    }
+    HWInstr* newVar(const std::string& name) {
+      auto ist = newI();
+      ist->latency = 0;
+      ist->tp = HWINSTR_TP_VAR;
+      ist->name = name;
       return ist;
     }
 
