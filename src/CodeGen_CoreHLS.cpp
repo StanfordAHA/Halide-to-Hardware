@@ -2396,8 +2396,11 @@ class ComputeKernel {
 
 std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
   out << "@" << f.name << endl;
-  for (auto instr : f.structuredOrder()) {
-    out << "\t" << *instr << endl;
+  for (auto blk : f.getBlocks()) {
+    out << "--- Blk" << endl;
+    for (auto instr : blk->instrs) {
+      out << "\t" << *instr << endl;
+    }
   }
   return out;
 }
@@ -2624,7 +2627,7 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
-  internal_assert(f.numBlocks() == 1);
+  internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
 
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
