@@ -1338,7 +1338,8 @@ bool CodeGen_CoreIR_Target::CodeGen_CoreIR_C::connect_linebuffer(std::string con
     producer = strip_stream(producer_name);
 
     // connect to upstream linebuffer valid
-    if (lb_map.count(producer_name) > 0) {
+    if (lb_map.count(producer_name) > 0 &&
+        consumer_wen_wire->getConnectedWireables().size() == 0) { // ignore if wen already connected
       stream << "// connected lb valid: connecting " << producer_name << " valid to " 
              << consumer_name << " wen\n";
       CoreIR::Wireable* linebuffer_wire = lb_map[producer_name];
@@ -1350,7 +1351,11 @@ bool CodeGen_CoreIR_Target::CodeGen_CoreIR_C::connect_linebuffer(std::string con
     consumer_recurse = producer;
   }
 
-  if (is_input(consumer_name)) {
+  if (consumer_wen_wire->getConnectedWireables().size() > 0) {
+    // nothing to do if wen already connected
+    return true;
+    
+  } else if (is_input(consumer_name)) {
     // connect to self upstream valid
     stream << "// connected to upstream valid (input enable) here\n";
     def->connect(self->sel("in_en"), consumer_wen_wire);
@@ -1364,8 +1369,8 @@ bool CodeGen_CoreIR_Target::CodeGen_CoreIR_C::connect_linebuffer(std::string con
            << consumer_name << " wen\n";
     CoreIR::Wireable* linebuffer_wire = lb_map[producer_name];
     def->connect(linebuffer_wire->sel("valid"), consumer_wen_wire);
-
     return true;
+    
   } else {
     return false;
   }
@@ -2987,6 +2992,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   vector<vector<int> > consumer_extents(num_of_consumers);
 
   stream << "// going through consumers\n";
+  for (const auto &arg : args) {
+    stream << arg << ", ";
+  }
+  stream << std::endl;
+  
   internal_assert(op->args.size() >= num_of_demensions*3 + 3 + num_of_consumers*(2 + 2*num_of_demensions));
   for (size_t i = 0; i < num_of_consumers; i++) {
     const StringImm *string_imm = op->args[num_of_demensions*3 + 3 + (2 + 2*num_of_demensions)*i].as<StringImm>();

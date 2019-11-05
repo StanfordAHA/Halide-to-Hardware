@@ -569,6 +569,8 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         //internal_assert(is_const(store_extent));
         //dispatch_args.push_back((int)*as_const_int(store_extent));
     }
+
+/*    
     dispatch_args.push_back((int)kernel.consumer_buffers.size());
     std::cout << "   going to " << kernel.consumer_buffers.size() << " consumers: ";
     for (const auto& p : kernel.consumer_buffers) {
@@ -593,6 +595,35 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
           //dispatch_args.push_back((int)*as_const_int(store_extent));
         }
     }
+*/
+
+    dispatch_args.push_back((int)kernel.ostreams.size());
+    std::cout << "   going to " << kernel.ostreams.size() << " consumers: ";
+    for (const auto& p : kernel.ostreams) {
+      auto cptr = p.second.hwref;
+      std::cout << p.first << "(" << cptr->ldims.size() << " dims)" << ", \n";
+      dispatch_args.push_back(p.first);
+      //internal_assert(kernel.consumer_fifo_depths.count(p.first));
+      //dispatch_args.push_back(std::max(min_fifo_depth, kernel.consumer_fifo_depths.find(p.first)->second));
+      dispatch_args.push_back(0); // assume a 0 fifo_depth
+      //internal_assert(p.second->dims.size() == kernel.dims.size()); FIXME, should this be the case?
+
+      for (size_t i = 0; i < cptr->ldims.size(); i++) {
+        //dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos)); FIXME
+        //dispatch_args.push_back(p.second->dims.at(i).logical_min);
+        //dispatch_args.push_back(p.second->dims.at(i).logical_size);
+        dispatch_args.push_back(cptr->ldims.at(i).logical_min);
+        dispatch_args.push_back(cptr->ldims.at(i).logical_size);
+          
+        //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
+        //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
+        //internal_assert(is_const(store_offset));
+        //internal_assert(is_const(store_extent));
+        //dispatch_args.push_back((int)*as_const_int(store_offset));
+        //dispatch_args.push_back((int)*as_const_int(store_extent));
+      }
+    }
+    
     return Evaluate::make(Call::make(Handle(), "dispatch_stream", dispatch_args, Call::Intrinsic));
 }
 
@@ -617,11 +648,19 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
     Stmt consumer = ProducerConsumer::make_consume(stencil_name, s);
     Stmt pc = Block::make(producer, consumer);
 
+
+    std::cout << "let's see some inputs\n";
     // create a realizeation of the stencil image
     Region bounds;
-    for (const auto dim: input.dims) {
-        bounds.push_back(Range(0, dim.output_stencil));
+    internal_assert(input.ostreams.count(kernel.name) > 0);
+    //for (const auto dim: input.dims) {
+    std::cout << input.name << " to " << kernel.name << " has " << input.ostreams.count(kernel.name) << std::endl;
+    std::cout << input.ostreams.at(kernel.name).odims.size() << std::endl;
+    for (const auto &dim : input.ostreams.at(kernel.name).odims) {
+      std::cout << "output stencil is of size " << dim.output_stencil << std::endl;
+      bounds.push_back(Range(0, dim.output_stencil));
     }
+    std::cout << "created the realize\n";
     s = Realize::make(stencil_name, input.func.output_types(), MemoryType::Auto, bounds, const_true(), pc);
     return s;
 }
@@ -731,6 +770,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
           hwbuffer_args.push_back(id_addr.strides_in_dim.at(i));
         }
 
+        std::cout << hwbuffer_args << std::endl;
         
         Stmt hwbuffer_call = Evaluate::make(Call::make(Handle(), "hwbuffer", hwbuffer_args, Call::Intrinsic));
         Stmt dispatch_call = create_hwbuffer_dispatch_call(kernel);

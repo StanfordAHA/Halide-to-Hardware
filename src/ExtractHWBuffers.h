@@ -126,40 +126,7 @@ struct HWBuffer {
   std::map<std::string, OutputStream> ostreams;
   
   // Constructors
-  HWBuffer(size_t num_dims, SlidingStencils &is) :
-    input_stencil(std::make_shared<SlidingStencils>(is)), dims(std::vector<InOutDimSize>(num_dims)) { }
   HWBuffer() : input_stencil(nullptr) { }
-
-    /*
-  HWBuffer(std::string name, std::vector<MergedDimSize> mdims, bool is_inlined, bool is_output) :
-    name(name), is_inlined(is_inlined), is_output(is_output) {
-    dims = std::vector<InOutDimSize>(mdims.size());
-    for (size_t i=0; i<mdims.size(); ++i) {
-      dims[i].loop_name      = mdims[i].loop_name;
-      dims[i].input_chunk    = mdims[i].input_chunk;
-      dims[i].input_block    = mdims[i].input_block;
-      dims[i].output_stencil = mdims[i].output_stencil;
-      dims[i].output_block   = mdims[i].output_block;
-      dims[i].output_min_pos = mdims[i].output_min_pos;
-      dims[i].output_max_pos = mdims[i].output_max_pos;
-    }
-
-  };
-
-  HWBuffer(std::string name, std::vector<MergedDimSize> dims, std::vector<std::string> loops,
-           int store_index, int compute_index, bool is_inlined, bool is_output) :
-    name(name), store_level(store_index < 0 ? "" : loops[store_index]),
-    compute_level(compute_index < 0 ? "" : loops[compute_index]),
-    is_inlined(is_inlined), is_output(is_output), dims(dims) {
-    loops.erase(loops.begin());
-    streaming_loops = loops;
-
-    for (size_t i=0; i<dims.size(); ++i) {
-      ldims[i].logical_size = dims[i].logical_size;
-      ldims[i].logical_min = dims[i].logical_min;
-    }
-  };
-  */
 
   HWBuffer(std::string name, std::vector<MergedDimSize> mdims, std::vector<std::string> loops,
            int store_index, int compute_index, bool is_inlined, bool is_output) :
@@ -168,7 +135,6 @@ struct HWBuffer {
     is_inlined(is_inlined), is_output(is_output) {
     loops.erase(loops.begin());
     streaming_loops = loops;
-
 
     ldims = std::vector<LogicalDimSize>(mdims.size());
     for (size_t i=0; i<mdims.size(); ++i) {
