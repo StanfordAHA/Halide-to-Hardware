@@ -2653,7 +2653,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       }
     }
 
-    insert(0, initInstr, body);
+    insert(0, initInstr, f.body);
     HWInstr* activeProvide = initInstr;
     f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
@@ -2668,7 +2668,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
-      replaceAllUsesAfter(refresh, activeProvide, refresh, body);
+      replaceAllUsesAfter(refresh, activeProvide, refresh, f.body);
       //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
       activeProvide = refresh;
       provideNum++;
