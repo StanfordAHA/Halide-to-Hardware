@@ -110,6 +110,7 @@ class HWFunction {
     void deleteInstr(HWInstr* instr);
 
     void insertAt(HWInstr* pos, HWInstr* newInstr);
+    void insert(const int pos, HWInstr* newInstr);
 
     template<typename Cond>
     void deleteAll(Cond c) {

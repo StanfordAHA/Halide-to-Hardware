@@ -73,7 +73,7 @@ bool operator==(const HWInstr& a, const HWInstr& b) {
 }
 
 
-void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
+void HWFunction::insert(const int i, HWInstr* instr) {
   body.insert(std::begin(body) + i, instr);
 }
 
@@ -88,7 +88,7 @@ int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
 void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
   int position = instructionPosition(pos, body);
   assert(position >= 0);
-  insert(position, newInstr, body);
+  insert(position, newInstr);
 }
 
 void HWFunction::deleteInstr(HWInstr* instr) {
@@ -2601,12 +2601,9 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
-  //auto& body = f.body;
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
-  //for (auto instr : body) {
   for (auto instr : f.structuredOrder()) {
-  //for (auto instr : f.allInstrs()) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
       provides[target].push_back(instr);
@@ -2614,11 +2611,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     }
   }
 
-  // What is the right way to optimize this?
-  // Find the initialization value of the provides
-  // Create an instruction to initialize the provide
-  // Replace all references to stencil after a given
-  // provide with the result of the new provide call
   std::map<std::string, HWInstr*> initProvides;
   cout << "Provides" << endl;
   for (auto pr : provides) {
@@ -2653,7 +2645,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       }
     }
 
-    insert(0, initInstr, f.body);
+    //insert(0, initInstr, f.body);
+    f.insert(0, initInstr);
     HWInstr* activeProvide = initInstr;
     f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
