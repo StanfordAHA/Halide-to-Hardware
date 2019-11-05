@@ -102,11 +102,14 @@ class HWFunction {
     CoreIR::Module* mod;
 
     HWFunction() : uniqueNum(0), mod(nullptr) {
-      blocks.push_back(new HWBlock());
+      newBlk();
+      //blocks.push_back(newBlk());
     }
 
     HWBlock* newBlk() {
       HWBlock* n = new HWBlock();
+      n->name = "blk_" + std::to_string(uniqueNum);
+      uniqueNum++;
       blocks.push_back(n);
 
       return n;

@@ -2417,7 +2417,7 @@ class ComputeKernel {
 std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
   out << "@" << f.name << endl;
   for (auto blk : f.getBlocks()) {
-    out << "--- Blk" << endl;
+    out << "--- Blk " << blk->name << endl;
     for (auto instr : blk->instrs) {
       out << "\t" << *instr << endl;
     }
