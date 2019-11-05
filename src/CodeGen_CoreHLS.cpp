@@ -1139,22 +1139,25 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void visit(const For* lp) override {
-      auto loopBlk = f.newBlk();
-      auto nextBlk = f.newBlk();
       
       auto toLoop = newBr();
-      toLoop->operands.push_back(f.newVar(loopBlk->name));
+      auto fromLoop = newBr();
+      
       pushInstr(toLoop);
 
+      auto loopBlk = f.newBlk();
       activeBlock = loopBlk;
       IRGraphVisitor::visit(lp);
-      activeBlock = loopBlk;
+     
+      pushInstr(fromLoop);
       
-      auto fromLoop = newBr();
+      auto nextBlk = f.newBlk();
+      
+      toLoop->operands.push_back(f.newVar(loopBlk->name));
+      
       fromLoop->operands.push_back(f.newVar(loopBlk->name));
       fromLoop->operands.push_back(f.newVar(nextBlk->name));
 
-      pushInstr(fromLoop);
 
       activeBlock = nextBlk;
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
