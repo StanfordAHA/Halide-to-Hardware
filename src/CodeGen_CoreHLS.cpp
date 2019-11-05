@@ -72,6 +72,9 @@ bool operator==(const HWInstr& a, const HWInstr& b) {
   assert(false);
 }
 
+void insert(vector<HWInstr*>& instrs, const int i, HWInstr* instr) {
+  instrs.insert(std::begin(instrs) + i, instr);
+}
 
 void HWFunction::insert(const int i, HWInstr* instr) {
   blocks[0]->instrs.insert(std::begin(blocks[0]->instrs) + i, instr);
@@ -87,13 +90,19 @@ int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
 }
 
 void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
-  int position = instructionPosition(pos, blocks[0]->instrs);
-  assert(position >= 0);
-  insert(position, newInstr);
+  for (auto blk : blocks) {
+    if (elem(pos, blk->instrs)) {
+      int position = instructionPosition(pos, blk->instrs);
+      assert(position >= 0);
+      Halide::Internal::insert(blk->instrs, position, newInstr);
+    }
+  }
 }
 
 void HWFunction::deleteInstr(HWInstr* instr) {
-  CoreIR::remove(instr, blocks[0]->instrs);
+  for (auto blk : blocks) {
+    CoreIR::remove(instr, blk->instrs);
+  }
 }
 
 void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
@@ -113,10 +122,12 @@ void HWFunction::replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement) {
 }
 
 void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement) {
-  int startPos = instructionPosition(refresh, blocks[0]->instrs);
-  for (int i = startPos + 1; i < (int) blocks[0]->instrs.size(); i++) {
-    replaceOperand(toReplace, replacement, blocks[0]->instrs[i]);
- }
+  for (auto blk : blocks) {
+    int startPos = instructionPosition(refresh, blk->instrs);
+    for (int i = startPos + 1; i < (int) blk->instrs.size(); i++) {
+      replaceOperand(toReplace, replacement, blk->instrs[i]);
+    }
+  }
 }
 
 namespace {
