@@ -2514,11 +2514,11 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   f.mod->print();
 }
 
-void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
-  int position = instructionPosition(instr, body);
-  assert(position >= 0);
-  insert(position, refresh, body);
-}
+//void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
+  //int position = instructionPosition(instr, body);
+  //assert(position >= 0);
+  //insert(position, refresh, body);
+//}
 
 void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
   int startPos = instructionPosition(refresh, body);
@@ -2552,7 +2552,8 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   }
 
   for (auto rp : replacements) {
-    insertAt(rp.first, rp.second, body);
+    f.insertAt(rp.first, rp.second);
+    //insertAt(rp.first, rp.second, body);
   }
   f.deleteAll([replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
   //CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
@@ -2658,7 +2659,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       //refresh->uniqueNum = provideNum + 100;
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
-      insertAt(instr, refresh, body);
+      f.insertAt(instr, refresh);
+      //insertAt(instr, refresh, body);
       replaceAllUsesAfter(refresh, activeProvide, refresh, body);
       activeProvide = refresh;
       provideNum++;
@@ -2787,7 +2789,8 @@ void modToShift(HWFunction& f) {
   }
 
   for (auto r : replacements) {
-    insertAt(r.first, r.second, f.body);
+    f.insertAt(r.first, r.second);
+    //insertAt(r.first, r.second, f.body);
     replaceAllUsesWith(r.first, r.second, f.body);
     toErase.insert(r.first);
   }
@@ -2823,13 +2826,15 @@ void divToShift(HWFunction& f) {
 
   CoreIR::reverse(replacements);
   for (auto r : replacements) {
-    insertAt(r.first, r.second, f.body);
+    f.insertAt(r.first, r.second);
+    //insertAt(r.first, r.second, f.body);
     replaceAllUsesWith(r.first, r.second, f.body);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
-    CoreIR::remove(i, f.body);
+    f.deleteInstr(i);
+    //CoreIR::remove(i, f.body);
   }
 }
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
