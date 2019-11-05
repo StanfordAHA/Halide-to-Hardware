@@ -2439,7 +2439,6 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
       f.insertAt(ldNewVal.first, ldNewVal.second);
-      //insertAt(ldNewVal.first, ldNewVal.second, f.body);
     }
     replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
@@ -2514,12 +2513,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   f.mod->print();
 }
 
-//void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
-  //int position = instructionPosition(instr, body);
-  //assert(position >= 0);
-  //insert(position, refresh, body);
-//}
-
 void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
   int startPos = instructionPosition(refresh, body);
   for (int i = startPos + 1; i < (int) body.size(); i++) {
@@ -2553,7 +2546,6 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
 
   for (auto rp : replacements) {
     f.insertAt(rp.first, rp.second);
-    //insertAt(rp.first, rp.second, body);
   }
   f.deleteAll([replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
   //CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
@@ -2660,7 +2652,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
-      //insertAt(instr, refresh, body);
       replaceAllUsesAfter(refresh, activeProvide, refresh, body);
       activeProvide = refresh;
       provideNum++;
@@ -2790,13 +2781,13 @@ void modToShift(HWFunction& f) {
 
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
-    //insertAt(r.first, r.second, f.body);
     replaceAllUsesWith(r.first, r.second, f.body);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
-    CoreIR::remove(i, f.body);
+    f.deleteInstr(i);
+    //CoreIR::remove(i, f.body);
   }
 }
 void divToShift(HWFunction& f) {
@@ -2818,7 +2809,6 @@ void divToShift(HWFunction& f) {
           shrInstr->name = "ashr";
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
           replacements.push_back({instr, shrInstr});
-          //replacements[instr] = shrInstr;
         }
       }
     }
@@ -2827,14 +2817,12 @@ void divToShift(HWFunction& f) {
   CoreIR::reverse(replacements);
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
-    //insertAt(r.first, r.second, f.body);
     replaceAllUsesWith(r.first, r.second, f.body);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
     f.deleteInstr(i);
-    //CoreIR::remove(i, f.body);
   }
 }
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
