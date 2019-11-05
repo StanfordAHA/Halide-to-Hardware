@@ -2443,11 +2443,11 @@ bool isConstant(HWInstr* instr) {
   //}
 //}
 
-void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
-  for (auto* instr : body) {
-    replaceOperand(toReplace, replacement, instr);
-  }
-}
+//void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
+  //for (auto* instr : body) {
+    //replaceOperand(toReplace, replacement, instr);
+  //}
+//}
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   //auto& body = f.body;
@@ -2657,7 +2657,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     insert(0, initInstr, body);
     HWInstr* activeProvide = initInstr;
-    replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+    //replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+    f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
     int provideNum = 0;
     //for (auto instr : pr.second) {
@@ -2671,6 +2672,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
       replaceAllUsesAfter(refresh, activeProvide, refresh, body);
+      //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
       activeProvide = refresh;
       provideNum++;
     }
@@ -2799,7 +2801,8 @@ void modToShift(HWFunction& f) {
 
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
-    replaceAllUsesWith(r.first, r.second, f.body);
+    //replaceAllUsesWith(r.first, r.second, f.body);
+    f.replaceAllUsesWith(r.first, r.second);
     toErase.insert(r.first);
   }
 
@@ -2835,7 +2838,8 @@ void divToShift(HWFunction& f) {
   CoreIR::reverse(replacements);
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
-    replaceAllUsesWith(r.first, r.second, f.body);
+    f.replaceAllUsesWith(r.first, r.second);
+    //replaceAllUsesWith(r.first, r.second, f.body);
     toErase.insert(r.first);
   }
 
