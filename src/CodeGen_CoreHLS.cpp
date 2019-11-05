@@ -1149,9 +1149,9 @@ class InstructionCollector : public IRGraphVisitor {
 
       auto fromLoop = newBr();
       auto nextBlk = f.newBlk();
-      activeBlock = nextBlk;
       pushInstr(fromLoop);
 
+      activeBlock = nextBlk;
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
     }
     
@@ -2649,6 +2649,9 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
 
+  // With multiple blocks:
+  // - For each stencil:
+  // - Find all provides for that stencil. Find all places where that stencil might have been set
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : f.structuredOrder()) {
@@ -2705,7 +2708,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
-      //replaceAllUsesAfter(refresh, activeProvide, refresh, f.body);
       f.replaceAllUsesAfter(refresh, activeProvide, refresh);
       activeProvide = refresh;
       provideNum++;
