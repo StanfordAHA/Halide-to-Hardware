@@ -4625,8 +4625,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     f.controlVars = hwVars;
 
     removeBadStores(stCollector, f);
-    valueConvertProvides(scl.info, f);
     valueConvertStreamReads(scl.info, f);
+    valueConvertProvides(scl.info, f);
     removeWriteStreamArgs(scl.info, f);
     divToShift(f);
     modToShift(f);
