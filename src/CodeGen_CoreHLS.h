@@ -98,12 +98,18 @@ class HWFunction {
   public:
     std::string name;
     int uniqueNum;
-    //std::vector<HWBlock*> blocks;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
 
     HWFunction() : uniqueNum(0), mod(nullptr) {
       blocks.push_back(new HWBlock());
+    }
+
+    HWBlock* newBlk() {
+      HWBlock* n = new HWBlock();
+      blocks.push_back(n);
+
+      return n;
     }
 
     std::vector<HWBlock*> getBlocks() const {
@@ -118,7 +124,6 @@ class HWFunction {
         }
       }
       return instrs;
-      //return body;
     }
 
     void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement);

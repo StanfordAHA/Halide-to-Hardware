@@ -1128,7 +1128,11 @@ class InstructionCollector : public IRGraphVisitor {
   protected:
 
     void visit(const For* lp) override {
-      internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
+      f.newBlk();
+      IRGraphVisitor::visit(lp);
+
+      f.newBlk();
+      //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
     }
     
     void visit(const Realize* op) override {
