@@ -102,6 +102,10 @@ class HWFunction {
       //blocks.push_back(new HWBlock());
     }
 
+    std::vector<HWInstr*> structuredOrder() const {
+      return body;
+    }
+
     void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement);
     void deleteInstr(HWInstr* instr);
 
