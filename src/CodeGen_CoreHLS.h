@@ -90,10 +90,13 @@ class HWBlock {
 };
 
 class HWFunction {
+
+  protected:
+    std::vector<HWInstr*> body;
+
   public:
     std::string name;
     int uniqueNum;
-    std::vector<HWInstr*> body;
     //std::vector<HWBlock*> blocks;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
