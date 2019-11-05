@@ -1110,10 +1110,11 @@ class InstructionCollector : public IRGraphVisitor {
     HWFunction f;
     HWInstr* lastValue;
     HWInstr* currentPredicate;
+    HWBlock* activeBlock;
     
     Scope<std::vector<std::string> > activeRealizations;
     
-    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
+    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr), activeBlock(nullptr) {}
 
     HWInstr* newI() {
       auto ist = f.newI();
@@ -1122,16 +1123,35 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void pushInstr(HWInstr* instr) {
-      f.pushInstr(instr);
+      if (activeBlock == nullptr) {
+        f.pushInstr(instr);
+      } else {
+        activeBlock->instrs.push_back(instr);
+      }
     }
 
   protected:
 
+    HWInstr* newBr() {
+      auto i = f.newI();
+      i->name = "br";
+      return i;
+    }
+
     void visit(const For* lp) override {
-      f.newBlk();
+      auto toLoop = newBr();
+      pushInstr(toLoop);
+      auto loopBlk = f.newBlk();
+
+      activeBlock = loopBlk;
+
       IRGraphVisitor::visit(lp);
 
-      f.newBlk();
+      auto fromLoop = newBr();
+      auto nextBlk = f.newBlk();
+      activeBlock = nextBlk;
+      pushInstr(fromLoop);
+
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
     }
     
