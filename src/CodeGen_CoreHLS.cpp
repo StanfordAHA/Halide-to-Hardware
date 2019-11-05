@@ -1138,6 +1138,13 @@ class InstructionCollector : public IRGraphVisitor {
       return i;
     }
 
+    // Several new problems: How do we do value conversion for a provide via dataflow analysis?
+    // How should we represent control path variables? as explicit indexes or as values saved in
+    // some other place in the HWFunction? I kind of like the idea of the hwfunction control flow
+    // as a listing of execution counts relative to another point in the syntax
+    //
+    // And in that representation each value is defined in terms of values of earlier statements,
+    // (by recurrence relations), or by a closed SCEV or some similar construct?
     void visit(const For* lp) override {
       
       auto toLoop = newBr();
