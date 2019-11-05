@@ -2531,8 +2531,6 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   //for (auto instr : f.allInstrs()) {
     if (isCall("read_stream", instr)) {
       auto callRep = f.newI();
-      //auto callRep = new HWInstr();
-      //callRep->uniqueNum = 999;
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
@@ -2604,8 +2602,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   for (auto pr : provides) {
     auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
     auto provideName = provideValue->operands[0]->compactString();
-    // What to do?
-    //vector<int> dims = getStencilDims(provideName, info);
 
     vector<int> dims = stencilDimsInBody(info, f, provideName);
     vector<HWInstr*> initialSets;
