@@ -104,6 +104,8 @@ class HWFunction {
 
     void deleteInstr(HWInstr* instr);
 
+    void insertAt(HWInstr* pos, HWInstr* newInstr);
+
     template<typename Cond>
     void deleteAll(Cond c) {
       CoreIR::delete_if(body, c);

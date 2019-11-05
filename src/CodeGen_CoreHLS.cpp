@@ -48,9 +48,28 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
-  void HWFunction::deleteInstr(HWInstr* instr) {
-    CoreIR::remove(instr, body);
+void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
+  body.insert(std::begin(body) + i, instr);
+}
+
+int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
+  for (int pos = 0; pos < (int) body.size(); pos++) {
+    if (body[pos] == instr) {
+      return pos;
+    }
   }
+  return -1;
+}
+void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
+  int position = instructionPosition(pos, body);
+  assert(position >= 0);
+  insert(position, newInstr, body);
+}
+
+void HWFunction::deleteInstr(HWInstr* instr) {
+  CoreIR::remove(instr, body);
+}
+
 namespace {
 
 
@@ -2494,18 +2513,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   f.mod->print();
 }
 
-void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
-  body.insert(std::begin(body) + i, instr);
-}
-
-int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
-  for (int pos = 0; pos < (int) body.size(); pos++) {
-    if (body[pos] == instr) {
-      return pos;
-    }
-  }
-  return -1;
-}
 void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
   int position = instructionPosition(instr, body);
   assert(position >= 0);
