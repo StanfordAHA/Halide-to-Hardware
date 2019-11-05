@@ -92,7 +92,8 @@ class HWBlock {
 class HWFunction {
 
   protected:
-    std::vector<HWInstr*> body;
+    std::vector<HWBlock*> blocks;
+    //std::vector<HWInstr*> body;
 
   public:
     std::string name;
@@ -102,11 +103,22 @@ class HWFunction {
     CoreIR::Module* mod;
 
     HWFunction() : uniqueNum(0), mod(nullptr) {
-      //blocks.push_back(new HWBlock());
+      blocks.push_back(new HWBlock());
+    }
+
+    std::vector<HWBlock*> getBlocks() const {
+      return blocks;
     }
 
     std::vector<HWInstr*> structuredOrder() const {
-      return body;
+      std::vector<HWInstr*> instrs;
+      for (auto blk : getBlocks()) {
+        for (auto instr : blk->instrs) {
+          instrs.push_back(instr);
+        }
+      }
+      return instrs;
+      //return body;
     }
 
     void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement);
@@ -118,25 +130,27 @@ class HWFunction {
 
     template<typename Cond>
     void deleteAll(Cond c) {
-      CoreIR::delete_if(body, c);
+      for (auto& blk : blocks) {
+        CoreIR::delete_if(blk->instrs, c);
+      }
       //[c](HWInstr* instr) { return c(instr); });
     }
 
     void pushInstr(HWInstr* instr) {
-      body.push_back(instr);
-      //blocks[0]->instrs.push_back(instr);
+      //body.push_back(instr);
+      blocks[0]->instrs.push_back(instr);
     }
 
     std::set<HWInstr*> allInstrs() const {
       std::set<HWInstr*> instrs;
-      for (auto instr : body) {
-        instrs.insert(instr);
-      }
-      //for (auto blk : getBlocks()) {
-        //for (auto instr : blk->instrs) {
-          //instrs.insert(instr);
-        //}
+      //for (auto instr : body) {
+        //instrs.insert(instr);
       //}
+      for (auto blk : getBlocks()) {
+        for (auto instr : blk->instrs) {
+          instrs.insert(instr);
+        }
+      }
       return instrs;
     }
 
@@ -145,11 +159,6 @@ class HWFunction {
       internal_assert(def != nullptr) << "module def is null\n";
       return def;
     }
-
-    //std::vector<HWBlock*> getBlocks() const {
-      //vector<HWBlock*> blk;
-      //return blocks;
-    //}
 
     HWInstr* newConst(const int width, const int value) {
       auto ist = newI();

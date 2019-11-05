@@ -74,7 +74,7 @@ bool operator==(const HWInstr& a, const HWInstr& b) {
 
 
 void HWFunction::insert(const int i, HWInstr* instr) {
-  body.insert(std::begin(body) + i, instr);
+  blocks[0]->instrs.insert(std::begin(blocks[0]->instrs) + i, instr);
 }
 
 int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
@@ -85,14 +85,15 @@ int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
   }
   return -1;
 }
+
 void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
-  int position = instructionPosition(pos, body);
+  int position = instructionPosition(pos, blocks[0]->instrs);
   assert(position >= 0);
   insert(position, newInstr);
 }
 
 void HWFunction::deleteInstr(HWInstr* instr) {
-  CoreIR::remove(instr, body);
+  CoreIR::remove(instr, blocks[0]->instrs);
 }
 
 void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
@@ -112,9 +113,9 @@ void HWFunction::replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement) {
 }
 
 void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement) {
-  int startPos = instructionPosition(refresh, body);
-  for (int i = startPos + 1; i < (int) body.size(); i++) {
-    replaceOperand(toReplace, replacement, body[i]);
+  int startPos = instructionPosition(refresh, blocks[0]->instrs);
+  for (int i = startPos + 1; i < (int) blocks[0]->instrs.size(); i++) {
+    replaceOperand(toReplace, replacement, blocks[0]->instrs[i]);
  }
 }
 
