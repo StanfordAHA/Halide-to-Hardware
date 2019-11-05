@@ -2265,7 +2265,6 @@ std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
 HWLoopSchedule asapSchedule(HWFunction& f) {
   HWLoopSchedule sched;
   sched.body = f.structuredOrder();
-  //sched.body = f.body;
   // TODO: Actually compute this later on
   sched.II = 1;
 
@@ -2374,7 +2373,6 @@ class ComputeKernel {
 
 std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
   out << "@" << f.name << endl;
-  //for (auto instr : f.body) {
   for (auto instr : f.structuredOrder()) {
     out << "\t" << *instr << endl;
   }
@@ -2548,7 +2546,6 @@ void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
 }
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
-  //auto& body = f.body;
   auto body = f.structuredOrder();
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
@@ -2681,7 +2678,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   for (auto pr : provides) {
     for (auto instr : pr.second) {
       f.deleteInstr(instr);
-      //CoreIR::remove(instr, body);
     }
   }
 }
