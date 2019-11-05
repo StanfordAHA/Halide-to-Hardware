@@ -48,6 +48,31 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+bool operator==(const HWInstr& a, const HWInstr& b) {
+  if (a.tp != b.tp) {
+    return false;
+  }
+
+  if (a.tp == HWINSTR_TP_STR) {
+    return a.strConst == b.strConst;
+  }
+
+  if (a.tp == HWINSTR_TP_VAR) {
+    return a.name == b.name;
+  }
+
+  if (a.tp == HWINSTR_TP_CONST) {
+    return a.constWidth == b.constWidth && a.constValue == b.constValue;
+  }
+
+  if (a.tp == HWINSTR_TP_INSTR) {
+    return a.uniqueNum == b.uniqueNum;
+  }
+
+  assert(false);
+}
+
+
 void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
   body.insert(std::begin(body) + i, instr);
 }
@@ -68,6 +93,22 @@ void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
 
 void HWFunction::deleteInstr(HWInstr* instr) {
   CoreIR::remove(instr, body);
+}
+
+void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
+  int i = 0;
+  for (auto op : instr->operands) {
+    if (*op == *toReplace) {
+      instr->operands[i] = replacement;
+    }
+    i++;
+  }
+}
+
+void HWFunction::replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement) {
+  for (auto* instr : allInstrs()) {
+    replaceOperand(toReplace, replacement, instr);
+  }
 }
 
 namespace {
@@ -2392,40 +2433,15 @@ bool isConstant(HWInstr* instr) {
   return instr->tp == HWINSTR_TP_CONST;
 }
 
-bool operator==(const HWInstr& a, const HWInstr& b) {
-  if (a.tp != b.tp) {
-    return false;
-  }
-
-  if (a.tp == HWINSTR_TP_STR) {
-    return a.strConst == b.strConst;
-  }
-
-  if (a.tp == HWINSTR_TP_VAR) {
-    return a.name == b.name;
-  }
-
-  if (a.tp == HWINSTR_TP_CONST) {
-    return a.constWidth == b.constWidth && a.constValue == b.constValue;
-  }
-
-  if (a.tp == HWINSTR_TP_INSTR) {
-    return a.uniqueNum == b.uniqueNum;
-  }
-
-  assert(false);
-}
-
-
-void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
-  int i = 0;
-  for (auto op : instr->operands) {
-    if (*op == *toReplace) {
-      instr->operands[i] = replacement;
-    }
-    i++;
-  }
-}
+//void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
+  //int i = 0;
+  //for (auto op : instr->operands) {
+    //if (*op == *toReplace) {
+      //instr->operands[i] = replacement;
+    //}
+    //i++;
+  //}
+//}
 
 void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
   for (auto* instr : body) {
@@ -2434,13 +2450,14 @@ void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr
 }
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
-  auto& body = f.body;
+  //auto& body = f.body;
   for (auto ldNewVal : loadsToConstants) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
       f.insertAt(ldNewVal.first, ldNewVal.second);
     }
-    replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
+    f.replaceAllUsesWith(ldNewVal.first, ldNewVal.second);
+    //replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
 
   for (auto ldNewVal : loadsToConstants) {
@@ -2539,7 +2556,8 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
-      replaceAllUsesWith(targetStencil, callRep, body);
+      f.replaceAllUsesWith(targetStencil, callRep);
+      //replaceAllUsesWith(targetStencil, callRep, body);
       replacements[instr] = callRep;
     }
   }

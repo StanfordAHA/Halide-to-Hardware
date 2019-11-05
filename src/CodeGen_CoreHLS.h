@@ -102,6 +102,7 @@ class HWFunction {
       //blocks.push_back(new HWBlock());
     }
 
+    void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement);
     void deleteInstr(HWInstr* instr);
 
     void insertAt(HWInstr* pos, HWInstr* newInstr);
