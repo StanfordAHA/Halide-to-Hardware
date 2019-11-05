@@ -102,6 +102,14 @@ class HWFunction {
       //blocks.push_back(new HWBlock());
     }
 
+    void deleteInstr(HWInstr* instr);
+
+    template<typename Cond>
+    void deleteAll(Cond c) {
+      CoreIR::delete_if(body, c);
+      //[c](HWInstr* instr) { return c(instr); });
+    }
+
     void pushInstr(HWInstr* instr) {
       body.push_back(instr);
       //blocks[0]->instrs.push_back(instr);

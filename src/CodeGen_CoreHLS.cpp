@@ -48,7 +48,11 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+  void HWFunction::deleteInstr(HWInstr* instr) {
+    CoreIR::remove(instr, body);
+  }
 namespace {
+
 
 template<typename TOut, typename T>
 TOut* sc(T* p) {
@@ -2421,10 +2425,12 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   }
 
   for (auto ldNewVal : loadsToConstants) {
-    CoreIR::remove(ldNewVal.first, body);
+    f.deleteInstr(ldNewVal.first);
+    //CoreIR::remove(ldNewVal.first, body);
   }
 
-  CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
+  f.deleteAll([](HWInstr* instr) { return isStore(instr); });
+  //CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
 }
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
