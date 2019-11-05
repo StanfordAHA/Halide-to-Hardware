@@ -106,6 +106,7 @@ class HWFunction {
       return body;
     }
 
+    void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement);
     void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement);
     void deleteInstr(HWInstr* instr);
 

@@ -111,6 +111,13 @@ void HWFunction::replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement) {
   }
 }
 
+void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement) {
+  int startPos = instructionPosition(refresh, body);
+  for (int i = startPos + 1; i < (int) body.size(); i++) {
+    replaceOperand(toReplace, replacement, body[i]);
+ }
+}
+
 namespace {
 
 
@@ -2645,7 +2652,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       }
     }
 
-    //insert(0, initInstr, f.body);
     f.insert(0, initInstr);
     HWInstr* activeProvide = initInstr;
     f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
@@ -2658,8 +2664,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
-      replaceAllUsesAfter(refresh, activeProvide, refresh, f.body);
-      //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
+      //replaceAllUsesAfter(refresh, activeProvide, refresh, f.body);
+      f.replaceAllUsesAfter(refresh, activeProvide, refresh);
       activeProvide = refresh;
       provideNum++;
     }
