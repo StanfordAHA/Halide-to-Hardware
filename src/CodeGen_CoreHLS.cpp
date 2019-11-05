@@ -2450,7 +2450,6 @@ bool isConstant(HWInstr* instr) {
 //}
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
-  //auto& body = f.body;
   for (auto ldNewVal : loadsToConstants) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
@@ -2566,7 +2565,6 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
     f.insertAt(rp.first, rp.second);
   }
   f.deleteAll([replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
-  //CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
 }
 
 bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
@@ -2657,7 +2655,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     insert(0, initInstr, body);
     HWInstr* activeProvide = initInstr;
-    //replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
     f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
     int provideNum = 0;
@@ -2680,7 +2677,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {
-      CoreIR::remove(instr, body);
+      f.deleteInstr(instr);
+      //CoreIR::remove(instr, body);
     }
   }
 }
@@ -2777,7 +2775,6 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
 void modToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   std::map<HWInstr*, HWInstr*> replacements;
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     if (isCall("mod", instr)) {
       //cout << "Found mod" << endl;
@@ -2801,21 +2798,18 @@ void modToShift(HWFunction& f) {
 
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
-    //replaceAllUsesWith(r.first, r.second, f.body);
     f.replaceAllUsesWith(r.first, r.second);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
     f.deleteInstr(i);
-    //CoreIR::remove(i, f.body);
   }
 }
 void divToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   //std::map<HWInstr*, HWInstr*> replacements;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     if (isCall("div", instr)) {
       //cout << "Found div" << endl;
@@ -2839,7 +2833,6 @@ void divToShift(HWFunction& f) {
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
     f.replaceAllUsesWith(r.first, r.second);
-    //replaceAllUsesWith(r.first, r.second, f.body);
     toErase.insert(r.first);
   }
 
@@ -2992,7 +2985,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   auto globalNs = c->getNamespace("global");
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   std::set<HWInstr*> vars;
-  //for (auto instr : f.body) {
   for (auto instr : f.allInstrs()) {
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_VAR) {
