@@ -2426,11 +2426,9 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
 
   for (auto ldNewVal : loadsToConstants) {
     f.deleteInstr(ldNewVal.first);
-    //CoreIR::remove(ldNewVal.first, body);
   }
 
   f.deleteAll([](HWInstr* instr) { return isStore(instr); });
-  //CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
 }
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
@@ -2548,7 +2546,8 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   for (auto rp : replacements) {
     insertAt(rp.first, rp.second, body);
   }
-  CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
+  f.deleteAll([replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
+  //CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
 }
 
 bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
