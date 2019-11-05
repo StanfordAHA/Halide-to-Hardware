@@ -138,14 +138,13 @@ class HWFunction {
 
     void pushInstr(HWInstr* instr) {
       //body.push_back(instr);
-      blocks[0]->instrs.push_back(instr);
+      blocks.back()->instrs.push_back(instr);
     }
+
+    int numBlocks() const { return blocks.size(); }
 
     std::set<HWInstr*> allInstrs() const {
       std::set<HWInstr*> instrs;
-      //for (auto instr : body) {
-        //instrs.insert(instr);
-      //}
       for (auto blk : getBlocks()) {
         for (auto instr : blk->instrs) {
           instrs.insert(instr);

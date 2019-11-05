@@ -2620,6 +2620,8 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
+  internal_assert(f.numBlocks() == 1);
+
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : f.structuredOrder()) {
