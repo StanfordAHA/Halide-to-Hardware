@@ -2438,7 +2438,8 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   for (auto ldNewVal : loadsToConstants) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
-      insertAt(ldNewVal.first, ldNewVal.second, f.body);
+      f.insertAt(ldNewVal.first, ldNewVal.second);
+      //insertAt(ldNewVal.first, ldNewVal.second, f.body);
     }
     replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
