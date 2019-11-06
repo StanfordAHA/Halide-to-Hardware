@@ -198,6 +198,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //auto buffers = extract_hw_buffers(s, env);
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR)) {
+      std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
       for (auto hwbuffer : xcels.at(0).hwbuffers) {
         std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;

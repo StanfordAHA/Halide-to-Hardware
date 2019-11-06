@@ -402,7 +402,8 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
-                                             "reg_array", "reshape", "transpose_reshape"
+                                             "reg_array"
+                                              //"reshape", "transpose_reshape"
                                              //"abstract_unified_buffer",
                                              //"unified_buffer"
   };
@@ -455,14 +456,14 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all generators from lakelib which include some cgra libs
   //CoreIRLoadLibrary_lakelib(context);
-  std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
+  //std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
 
-  for (auto gen_name : lakelib_gen_names) {
-    cout << "Generator name: " << gen_name << endl;
-    gens[gen_name] = "lakelib." + gen_name;
-    internal_assert(context->hasGenerator(gens[gen_name]))
-      << "could not find " << gen_name << "\n";
-  }
+  //for (auto gen_name : lakelib_gen_names) {
+    //cout << "Generator name: " << gen_name << endl;
+    //gens[gen_name] = "lakelib." + gen_name;
+    //internal_assert(context->hasGenerator(gens[gen_name]))
+      //<< "could not find " << gen_name << "\n";
+  //}
   
   // passthrough is now just a mantle wire
   gens["passthrough"] = "mantle.wire";
@@ -2437,6 +2438,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"dim_ref",CoreIR::Const::make(context,dim_ref_type)},
                             {"stride",CoreIR::Const::make(context,stride_type)}};
 
+  cout << "Built hwbuffer args" << endl;
   //CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["abstract_unified_buffer"], aub_args);
   //def->addInstance("abstract_" + ub_name, gens["abstract_unified_buffer"], aub_args);
   if (false) {
@@ -2644,6 +2646,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   };
 
 
+  cout << "Getting unified buffer" << endl;
+  internal_assert(CoreIR::contains_key(string("unified_buffer"), gens)) << "no unified buffer generator\n";
   CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["unified_buffer"], ub_args);
 
   CoreIR::Values input_reshape_args =
