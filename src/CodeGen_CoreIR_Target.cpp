@@ -17,7 +17,7 @@
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
-#include "lakelib.h"
+//#include "lakelib.h"
 
 namespace Halide {
 namespace Internal {
@@ -454,7 +454,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   }
 
   // add all generators from lakelib which include some cgra libs
-  CoreIRLoadLibrary_lakelib(context);
+  //CoreIRLoadLibrary_lakelib(context);
   std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
 
   for (auto gen_name : lakelib_gen_names) {
