@@ -157,7 +157,7 @@ bool is_parallelized(const For *op) {
 class FirstForName : public IRVisitor {
   using IRVisitor::visit;
   
-  void visit(const For *op) {
+  void visit(const For *op) override {
     var = op->name;
   }
 public:
@@ -174,21 +174,21 @@ std::string first_for_name(Stmt s) {
 class ExamineLoopLevel : public IRVisitor {
   using IRVisitor::visit;
   
-  void visit(const For *op) {
+  void visit(const For *op) override {
     // don't recurse if not parallelized
     if (is_parallelized(op) || is_one(op->extent)) {
       IRVisitor::visit(op);
     }
   }
 
-  void visit(const Provide *op) {
+  void visit(const Provide *op) override {
     if (var == "" || op->name == var) {
       found_provide = true;
     }
     IRVisitor::visit(op);
   }
 
-  void visit(const Call *op) {
+  void visit(const Call *op) override {
     if (var == "" || op->name == var) {
       found_call = true;
     }
@@ -281,7 +281,7 @@ class CountBufferUsers : public IRVisitor {
       IRVisitor::visit(op);
   }
 
-  void visit(const ProducerConsumer *op) {
+  void visit(const ProducerConsumer *op) override {
     if (!op->is_producer) {
     //if (false) {
       // look at the writers (writer ports)
@@ -426,7 +426,7 @@ class FindVarStride : public IRVisitor {
   
   using IRVisitor::visit;
 
-  void visit(const Variable *op) {
+  void visit(const Variable *op) override {
     if (op->name == loopname && in_var) {
       //std::cout << "found loop=" << op->name << " and setting stride=" << cur_stride << std::endl;
       stride_for_var = cur_stride;
@@ -435,7 +435,7 @@ class FindVarStride : public IRVisitor {
     }
   }
   
-  void visit(const Call *op) {
+  void visit(const Call *op) override {
     if (op->name == varname) {
       in_var = true;
       // std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
@@ -445,7 +445,7 @@ class FindVarStride : public IRVisitor {
       IRVisitor::visit(op);
     }
   }
-  void visit(const Div *op) {
+  void visit(const Div *op) override {
     //std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
     if (is_const(op->b)) {
       if (in_var) {
@@ -463,7 +463,7 @@ class FindVarStride : public IRVisitor {
     }
   }
 
-  void visit(const Mul *op) {
+  void visit(const Mul *op) override {
     //std::cout << "this is a multiply: " << Expr(op) << std::endl;
     if (is_const(op->a)) {
       if (in_var) {
@@ -516,7 +516,7 @@ class ReplaceForBounds : public IRMutator2 {
     return IRMutator2::visit(op);
   }
 
-  Stmt visit(const For *op) {
+  Stmt visit(const For *op) override {
     Expr min = mutate(op->min);
     Expr extent = mutate(op->extent);
     Stmt body = mutate(op->body);
@@ -763,7 +763,7 @@ class FindInnerLoops : public IRVisitor {
 
   using IRVisitor::visit;
 
-  void visit(const ProducerConsumer *op) {
+  void visit(const ProducerConsumer *op) override {
     // match store level at PC node in case the looplevel is outermost
     if (outer_loop_exclusive.lock().func() == op->name &&
         outer_loop_exclusive.lock().var().name() == Var::outermost().name()) {
@@ -772,7 +772,7 @@ class FindInnerLoops : public IRVisitor {
     IRVisitor::visit(op);
   }
 
-  void visit(const For *op) {
+  void visit(const For *op) override {
     // scan loops are loops between the outer store level (exclusive) and
     // the inner compute level (inclusive) of the accelerated function
     if (in_inner_loops && starts_with(op->name, func.name() + ".")) {
@@ -1184,7 +1184,7 @@ class FindOutputBounds : public IRVisitor {
 
   using IRVisitor::visit;
 
-  void visit(const For *op) {
+  void visit(const For *op) override {
     //std::cout << "visiting " << op->name << std::endl;
     if (compute_level.match(op->name)) {
       Box box = box_provided(op->body, func.name());
