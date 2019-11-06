@@ -458,6 +458,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
 
   for (auto gen_name : lakelib_gen_names) {
+    cout << "Generator name: " << gen_name << endl;
     gens[gen_name] = "lakelib." + gen_name;
     internal_assert(context->hasGenerator(gens[gen_name]))
       << "could not find " << gen_name << "\n";
