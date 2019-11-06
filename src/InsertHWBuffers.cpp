@@ -161,7 +161,7 @@ std::vector<std::string> get_tokens(const std::string &line, const std::string &
 }
 
 class IdentifyAddressing : public IRVisitor {
-  int stream_dim_idx;
+  //int stream_dim_idx;
   const Scope<Expr> &scope;
   
   using IRVisitor::visit;
@@ -244,7 +244,8 @@ public:
   vector<int> dim_refs;
   vector<int> strides_in_dim;
   IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const map<string,Stride> &stride_map) :
-    stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
+    //stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
+    scope(scope), storage_names(func.args()), stride_map(stride_map) {
     const auto &sch = func.definition().schedule();
     const auto &splits = sch.splits();
 
@@ -682,7 +683,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         vector<Expr> hwbuffer_args({update_stream_var, stream_var});
 
         std::cout << "hwbuffer num_dims=" << kernel.dims.size() << "\n";
-        hwbuffer_args.push_back(Expr(kernel.dims.size()));
+        hwbuffer_args.push_back(Expr((int) kernel.dims.size()));
         
         // extract the buffer size, and put it into args
         for (size_t i = 0; i < kernel.dims.size(); i++) {
@@ -716,7 +717,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         IdentifyAddressing id_addr(kernel.func, scope, kernel.stride_map);
         kernel.output_access_pattern.accept(&id_addr);
 
-        hwbuffer_args.push_back(Expr(id_addr.ranges.size()));
+        hwbuffer_args.push_back(Expr((int) id_addr.ranges.size()));
         internal_assert(id_addr.ranges.size() == id_addr.dim_refs.size());
         internal_assert(id_addr.ranges.size() == id_addr.strides_in_dim.size());        
         

@@ -158,7 +158,8 @@ private:
 class FindHWBoundaries {
 public:
     FindHWBoundaries(Function output, set<string> &inputs, set<string> &taps)
-        : output_func(output), input_names(inputs), tap_names(taps) {}
+        //: output_func(output), input_names(inputs), tap_names(taps) {}
+        : output_func(output), input_names(inputs) {}
 
     void identify() {
       internal_assert(output_func.schedule().is_accelerator_output());
@@ -190,7 +191,7 @@ public:
 private:
     Function output_func;
     set<string> &input_names;
-    set<string> &tap_names;
+    //set<string> &tap_names;
 };
 
 void find_hw_boundaries(Function f, std::set<std::string> &inputs,
