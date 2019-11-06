@@ -15,7 +15,9 @@ BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 HALIDE_SRC_PATH ?= ../../../..
-LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs)
+#LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
+#LDFLAGS += asdfasdfadsf -L$(FUNCUBUF_PATH)/bin $(shell $LLVM_CONFIG --ldflags)
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
