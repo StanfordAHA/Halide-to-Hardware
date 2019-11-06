@@ -41,7 +41,7 @@ install:
   - git clone -b ubuffer https://github.com/rdaly525/coreir.git
   - cd coreir/build && cmake ..
   - make -j2 all && cd ../../
-  - git clone https://github.com/joyliu37/BufferMapping.git
+  - git clone https://github.com/dillonhuff/BufferMapping.git
   - cd BufferMapping/cfunc/
   - make lib && cd ../../
 
