@@ -49,28 +49,27 @@ public:
 
         output(x, y, k) = cast<uint8_t>(hw_output(x, y, k));
 
-
-        output.bound(x, 0, 14);
-        output.bound(y, 0, 14);
-        output.bound(k, 0, 4);
-
-        hw_output.bound(x, 0, 14);
-        hw_output.bound(y, 0, 14);
-        hw_output.bound(k, 0, 4);
-
-        bias_dw.bound(c, 0, 4);
-        bias_pw.bound(k, 0, 4);
-        
-        filter_dw.bound(c, 0, 4);
-        filter_pw.bound(c, 0, 4);
-        filter_pw.bound(k, 0, 4);
-
-        pw_conv.bound(x, 0, 14);
-        pw_conv.bound(y, 0, 14);
-        pw_conv.bound(k, 0, 4);
-
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          output.bound(x, 0, 14);
+          output.bound(y, 0, 14);
+          output.bound(k, 0, 4);
+
+          hw_output.bound(x, 0, 14);
+          hw_output.bound(y, 0, 14);
+          hw_output.bound(k, 0, 4);
+
+          bias_dw.bound(c, 0, 4);
+          bias_pw.bound(k, 0, 4);
+        
+          filter_dw.bound(c, 0, 4);
+          filter_pw.bound(c, 0, 4);
+          filter_pw.bound(k, 0, 4);
+
+          pw_conv.bound(x, 0, 14);
+          pw_conv.bound(y, 0, 14);
+          pw_conv.bound(k, 0, 4);
+          
           // Blocking spatially on X Y dim
           Var xo("xo"), xi("xi"), yo("yo"), yi("yi");
           

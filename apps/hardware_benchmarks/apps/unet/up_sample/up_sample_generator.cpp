@@ -28,16 +28,15 @@ public:
         hw_output(x, y, z) = cast<uint8_t>(nearest_neighbor(x, y, z));
         output(x, y, z) = hw_output(x, y, z);
 
-
-        nearest_neighbor(x, 0, 64);
-        nearest_neighbor(y, 0, 64);
-        nearest_neighbor(z, 0, 4);
-        output.bound(x, 0, 64);
-        output.bound(y, 0, 64);
-        output.bound(z, 0, 4);
-
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+            nearest_neighbor(x, 0, 64);
+            nearest_neighbor(y, 0, 64);
+            nearest_neighbor(z, 0, 4);
+            output.bound(x, 0, 64);
+            output.bound(y, 0, 64);
+            output.bound(z, 0, 4);
+            
             Var xi, yi, xo, yo;
             hw_input.compute_root();
             hw_output.compute_root();

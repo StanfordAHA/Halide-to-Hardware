@@ -52,17 +52,17 @@ public:
         hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
         output(x, y, w) = max(0, hw_output(x, y, w));
 
-        output.bound(x, 0, imgsize);
-        output.bound(y, 0, imgsize);
-        output.bound(w, 0, k_w);
-        hw_output.bound(w, 0, k_w);
-        //clamp_input.bound(z, 0, k_z);
-        kernel.bound(w, 0, k_w);
-        kernel.bound(z, 0, k_z);
-        hw_input.bound(z, 0, k_z);
-
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
+          output.bound(w, 0, k_w);
+          hw_output.bound(w, 0, k_w);
+          //clamp_input.bound(z, 0, k_z);
+          kernel.bound(w, 0, k_w);
+          kernel.bound(z, 0, k_z);
+          hw_input.bound(z, 0, k_z);
+          
           Var xi,yi, xo,yo;
           
           hw_input.compute_root();
