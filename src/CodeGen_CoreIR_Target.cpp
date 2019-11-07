@@ -17,7 +17,7 @@
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
-//#include "lakelib.h"
+#include "lakelib.h"
 
 namespace Halide {
 namespace Internal {
