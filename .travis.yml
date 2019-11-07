@@ -41,9 +41,9 @@ install:
   - git clone -b ubuffer https://github.com/rdaly525/coreir.git
   - cd coreir/build && cmake ..
   - make -j2 all && cd ../../
-  #- git clone https://github.com/dillonhuff/BufferMapping.git
-  #- cd BufferMapping/cfunc/
-  #- make lib && cd ../../
+  - git clone https://github.com/dillonhuff/BufferMapping.git
+  - cd BufferMapping/cfunc/
+  - make lib && cd ../../
 
 before_deploy:
   - git config --local user.name "jeffsetter"
