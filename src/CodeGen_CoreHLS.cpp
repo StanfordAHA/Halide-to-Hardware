@@ -1986,8 +1986,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       } else if (starts_with(name, "create_stencil")) {
 
 
+        cout << "Making createstencil from " << *instr << endl;
+        cout << "Operand 0 = " << *(instr->getOperand(0)) << endl;
         auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
 
+        cout << "dimRanges = " << dimRanges << endl;
         if (dimRanges.size() == 2) {
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
@@ -2055,7 +2058,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
 
-    cout << "Wiring up constants" << endl;
+    //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
@@ -2067,7 +2070,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         constNo++;
         instrValues[op] = cInst->sel("out");
       } else if (op->tp == HWINSTR_TP_VAR) {
-        cout << "Wiring up var..." << op->compactString() << endl;
+        //cout << "Wiring up var..." << op->compactString() << endl;
         string name = op->name;
         if (CoreIR::elem(name, pipeVars)) {
           continue;
@@ -2642,22 +2645,38 @@ bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
 }
 
 std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo& info) {
+  cout << "Getting streams that use " << name << endl;
   std::set<std::string> users;
   for (auto wr : info.streamReadCallRealizations) {
-    users.insert(exprString(wr.first->args[0]));
+    string rdName = exprString(wr.first->args[1]);
+    cout << "\trdName = " << rdName << endl;
+    if (rdName == name) {
+      users.insert(exprString(wr.first->args[0]));
+      //users.insert(rdName);
+    }
   }
 
   for (auto wr : info.streamWriteCallRealizations) {
-    users.insert(exprString(wr.first->args[0]));
+    string wrName = exprString(wr.first->args[1]);
+    cout << "\twrName = " << wrName << endl;
+    if (wrName == name) {
+      users.insert(exprString(wr.first->args[0]));
+      //users.insert(wrName);
+    }
   }
   return users;
 }
 
 vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::string& stencilName) {
+  cout << "Getting stencilDimsInBody of " << stencilName << endl;
   std::set<std::string> streamUsers = streamsThatUseStencil(stencilName, info);
   std::set<std::string> streamsInF = allStreamNames(f);
   std::set<std::string> streamUsersInF = CoreIR::intersection(streamUsers, streamsInF);
   internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  cout << "Streams that use " << stencilName << "..." << endl;
+  for (auto user : streamUsersInF) {
+    cout << "\t" << user << endl;
+  }
   auto user = *std::begin(streamUsersInF);
   return toInts(map_get(user, info.streamParams));
 }

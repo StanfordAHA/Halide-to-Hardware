@@ -2831,7 +2831,7 @@ void conv_layer_mobile_test() {
 
 int main(int argc, char **argv) {
 
-  small_conv_3_3_not_unrolled_test();
+  //small_conv_3_3_not_unrolled_test();
   double_unsharp_test();
   real_unsharp_test();
   small_conv_3_3_test();
