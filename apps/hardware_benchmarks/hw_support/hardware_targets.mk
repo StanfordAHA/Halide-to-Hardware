@@ -14,9 +14,12 @@ SHELL = bash
 BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
+FUNCUBUF_PATH ?= /Users/dillon/CppWorkspace/Halide-to-Hardware/bin
+#$(ROOT_DIR)/../../../../bin
+#../BufferMapping/cfunc
 HALIDE_SRC_PATH ?= ../../../..
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs)
-#LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
+LDFLAGS += -L$(FUNCUBUF_PATH) -lfuncubuf
 #LDFLAGS += asdfasdfadsf -L$(FUNCUBUF_PATH)/bin $(shell $LLVM_CONFIG --ldflags)
 
 # set default to TESTNAME which forces failure
