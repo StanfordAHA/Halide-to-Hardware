@@ -2719,6 +2719,58 @@ const ProducerConsumer* findProducer(const std::string& name, Stmt& stmt) {
 
   return f.result;
 }
+
+class PolyStmt {
+  public:
+
+    std::vector<const For*> surroundingLoops;
+    bool isAssign;
+    const Store* store;
+    std::string varName;
+    Expr varVal;
+};
+
+std::ostream& operator<<(std::ostream& out, const PolyStmt& s) {
+  for (auto lp : s.surroundingLoops) {
+    out << lp->name << " : " << lp->min << ", " << lp->extent << "; ";
+  }
+  if (s.isAssign) {
+    out << s.varName << " = " << s.varVal;
+  } else {
+    auto store = s.store;
+    out << store->name << "[" << store->index << "] = " << store->value << " if " << store->predicate;
+  }
+  return out;
+}
+
+class PolyhedralStmts : public IRGraphVisitor {
+  public:
+
+    using IRGraphVisitor::visit;
+
+    std::vector<const For*> activeLoops;
+    std::vector<PolyStmt> stmts;
+
+    void visit(const For* lp) override {
+      activeLoops.push_back(lp);
+
+      lp->body.accept(this);
+
+      activeLoops.pop_back();
+    }
+
+    void visit(const LetStmt* lt) override {
+      stmts.push_back({activeLoops, true, nullptr, lt->name, lt->value});
+      lt->body.accept(this);
+    }
+
+    void visit(const Store* st) override {
+      stmts.push_back({activeLoops, false, st});
+    }
+
+
+};
+
 void conv_layer_mobile_test() {
   ImageParam input(type_of<int8_t>(), 3);
   ImageParam output(type_of<int8_t>(), 3);
@@ -2876,6 +2928,14 @@ void conv_layer_mobile_test() {
     cout << "----- ROMS..." << endl;
     for (auto r : mic.roms()) {
       cout << r << endl;
+    }
+
+    PolyhedralStmts ps;
+    hwRegion->body.accept(&ps);
+
+    cout << "Polyhedral statements..." << endl;
+    for (auto stmt : ps.stmts) {
+      cout << "\t" << stmt << endl;
     }
   }
 
