@@ -2,14 +2,6 @@
 set -e
 set -o pipefail
 
-# compile coreir
-git clone -b ubuffer https://github.com/rdaly525/coreir.git
-cd coreir/build && cmake ..
-make -j2 all && cd ../../
-git clone https://github.com/dillonhuff/BufferMapping.git
-cd BufferMapping/cfunc/
-make lib && cd ../../
-
 # Note this script assumes that the current working directory
 # is the root of the repository
 if [ ! -f ./.travis.yml ]; then

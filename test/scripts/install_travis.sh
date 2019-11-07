@@ -14,4 +14,11 @@ else
     mv clang+llvm-${LLVM_VERSION}-linux-x86_64-ubuntu14.04 ${TRAVIS_BUILD_DIR}/llvm
 fi
 
+# compile coreir
+git clone -b ubuffer https://github.com/rdaly525/coreir.git
+cd coreir/build && cmake ..
+make -j2 all && cd ../../
+git clone https://github.com/dillonhuff/BufferMapping.git
+cd BufferMapping/cfunc/
+make lib && cd ../../
 
