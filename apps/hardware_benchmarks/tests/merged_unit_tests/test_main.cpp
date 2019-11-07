@@ -2690,6 +2690,35 @@ void real_unsharp_test() {
   //assert(false);
 }
 
+class ProducerFinder : public IRGraphVisitor {
+  public:
+    std::string target;
+    bool foundTarget;
+    const ProducerConsumer* result;
+
+    ProducerFinder() : foundTarget(false) {}
+
+    using IRGraphVisitor::visit;
+
+    void visit(const ProducerConsumer* pc) {
+      if (pc->is_producer && pc->name == target) {
+        foundTarget = true;
+        result = pc;
+      } else {
+        IRGraphVisitor::visit(pc);
+      }
+    }
+};
+
+const ProducerConsumer* findProducer(const std::string& name, Stmt& stmt) {
+  ProducerFinder f;
+  f.target = name;
+  stmt.accept(&f);
+
+  assert(f.foundTarget);
+
+  return f.result;
+}
 void conv_layer_mobile_test() {
   ImageParam input(type_of<int8_t>(), 3);
   ImageParam output(type_of<int8_t>(), 3);
@@ -2790,7 +2819,7 @@ void conv_layer_mobile_test() {
   hw_output.print_loop_nest();
 
   Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
+  //t = t.with_feature(Target::Feature::CoreIR);
   vector<Argument> args{input};
   auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
@@ -2819,6 +2848,11 @@ void conv_layer_mobile_test() {
         cout << r << endl;
       }
     }
+
+    const ProducerConsumer* hwRegion =
+      findProducer("hw_output", f.body);
+    cout << "HWRegion..." << endl;
+    cout << hwRegion->body << endl;
   }
 
   //cout << "Postprocessed module" << endl;
@@ -2826,16 +2860,16 @@ void conv_layer_mobile_test() {
   //auto context = hwContext();
   //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
   PRINT_PASSED("Conv layer mobile");
-  //assert(false);
-  }
+  assert(false);
+}
 
 int main(int argc, char **argv) {
 
+  conv_layer_mobile_test();
   //small_conv_3_3_not_unrolled_test();
   double_unsharp_test();
   real_unsharp_test();
   small_conv_3_3_test();
-  conv_layer_mobile_test();
   control_path_test();
   control_path_xy_test();
   rom_read_test();
