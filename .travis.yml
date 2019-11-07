@@ -19,7 +19,7 @@ env:
   # Configurations
   #
   # Each line in the ``env`` section represents a set of environment
-  # variables passed to a build configuration
+  # variables passed to a build configuration. Update LLVM Version and gcc?
   #
   # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
