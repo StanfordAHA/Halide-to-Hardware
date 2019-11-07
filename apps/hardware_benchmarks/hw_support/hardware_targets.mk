@@ -14,7 +14,7 @@ SHELL = bash
 BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
-FUNCUBUF_PATH ?= /Users/dillon/CppWorkspace/Halide-to-Hardware/bin
+FUNCUBUF_PATH ?= $(ROOT_DIR)/bin
 #$(ROOT_DIR)/../../../../bin
 #../BufferMapping/cfunc
 HALIDE_SRC_PATH ?= ../../../..
