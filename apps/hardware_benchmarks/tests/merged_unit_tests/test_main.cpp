@@ -2847,12 +2847,36 @@ void conv_layer_mobile_test() {
       for (auto r : mic.roms()) {
         cout << r << endl;
       }
+    } else {
+
     }
 
     const ProducerConsumer* hwRegion =
       findProducer("hw_output", f.body);
     cout << "HWRegion..." << endl;
     cout << hwRegion->body << endl;
+
+    Closure c(hwRegion->body);
+    cout << "Closure variables..." << endl;
+    for (auto vars : c.vars) {
+      cout << "\t" << vars.first << endl;
+    }
+    cout << "Closure buffers..." << endl;
+    for (auto buffers : c.buffers) {
+      cout << "\t" << buffers.first << endl;
+    }
+
+    MemoryInfoCollector mic;
+    hwRegion->body.accept(&mic);
+    cout << "----- Memory info..." << endl;
+    for (auto op : mic.memOps) {
+      cout << "\t" << op << endl;
+    }
+
+    cout << "----- ROMS..." << endl;
+    for (auto r : mic.roms()) {
+      cout << r << endl;
+    }
   }
 
   //cout << "Postprocessed module" << endl;
