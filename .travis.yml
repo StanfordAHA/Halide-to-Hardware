@@ -37,19 +37,12 @@ before_install:
 install:
   # install framework specific to halide
   - test/scripts/install_travis.sh  
-  # compile coreir
-  - git clone -b ubuffer https://github.com/rdaly525/coreir.git
-  - cd coreir/build && cmake ..
-  - make -j2 all && cd ../../
-  - git clone https://github.com/dillonhuff/BufferMapping.git
-  - cd BufferMapping/cfunc/
-  - make lib && cd ../../
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - make distrib -j2
+  - make distrib
   - rm distrib/halide.tgz
   - rm distrib/bin/libHalide.so
   - tar -czvf halide_distrib.tgz distrib
