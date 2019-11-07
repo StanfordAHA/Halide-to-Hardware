@@ -14,10 +14,12 @@ SHELL = bash
 BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
-FUNCUBUF_PATH ?= $(ROOT_DIR)/bin
+FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
 HALIDE_SRC_PATH ?= ../../../..
+#LDFLAGS += -L$(FUNCUBUF_PATH)/bin -Wl,-rpath,$(FUNCUBUF_PATH) -lfuncubuf
+LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
+#-Wl,-rpath,$(FUNCUBUF_PATH) -lfuncubuf
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs)
-LDFLAGS += -L$(FUNCUBUF_PATH) -lfuncubuf
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
