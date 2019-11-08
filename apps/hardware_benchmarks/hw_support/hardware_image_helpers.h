@@ -32,7 +32,7 @@ void create_image(Halide::Runtime::Buffer<T>* input,
     }
     break;
   }
-
+      
   case ImageType::UNIFORM: {
     for (int y = 0; y < input->height(); y++) {
       for (int x = 0; x < input->width(); x++) {
@@ -73,7 +73,6 @@ template <typename T>
 bool compare_images(const Halide::Runtime::Buffer<T>& image0,
                     const Halide::Runtime::Buffer<T>& image1) {
   bool equal_images = true;
-  std::cout << "come to here" <<std::endl;
 
   if (image0.height() != image1.height() ||
       image0.width() != image1.width()) {
@@ -82,12 +81,16 @@ bool compare_images(const Halide::Runtime::Buffer<T>& image0,
               << "(" << image1.width() << "," << image1.height() << ")\n";
     return 0;
   }
-
+  
   for (int y=0; y<image0.height(); y++) {
-    for (int x=0; x<image0.height(); x++) {
-      if(image0(x,y) != image1(x,y)) {
-          std::cout << "pos(x, y) : (" << x << "," << y << ")->original val = "<< (int)image0(x,y) <<
-              ", coreIR val = " << (int)image1(x,y)<< std::endl;
+    for (int x=0; x<image0.width(); x++) {
+      if (image0(x,y) != image1(x,y) && equal_images) {
+        int pixel_location = image0.width()*y + x;
+        std::cout << "image0(y=" << y << ",x=" << x << ") = " << +image0(x,y)
+                  << ", while image1(" << y << "," << x << ") = " << +image1(x,y)
+                  << std::hex << "  (debug at pixel " << +pixel_location << ")\n" << std::dec;
+      }
+      if (image0(x,y) != image1(x,y)) {
         equal_images = false;
       }
     }

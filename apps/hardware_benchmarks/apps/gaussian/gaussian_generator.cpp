@@ -55,11 +55,6 @@ public:
         Func hw_output;
         hw_output(x, y) = cast<uint8_t>( blur(x, y) );
         output(x, y) = hw_output(x, y);
-
-        hw_output.bound(x, 0, 64);
-        hw_output.bound(y, 0, 64);
-        output.bound(x, 0, 64);
-        output.bound(x, 0, 64);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

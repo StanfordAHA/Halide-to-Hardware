@@ -3,7 +3,6 @@
 #include "coreir/passes/transform/rungenerators.h"
 
 #include "coreir_interpret.h"
-//#include "coreir_sim_plugins.h"
 
 using namespace std;
 using namespace CoreIR;
@@ -18,7 +17,6 @@ void ImageWriter<elem_t>::write(elem_t data) {
            current_y < height &&
            current_z < channels);
     image(current_x, current_y, current_z) = data;
-    std::cout << "output data = " << (int)data << std::endl;
 
     // increment coords
     current_x++;
@@ -57,7 +55,7 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
   set<string> visited_connections;
   bool uses_valid = false;
-
+  
   for (auto wireable_pair : self_conxs) {
     //cout << wireable_pair.first->toString() << " is connected to " << wireable_pair.second->toString() << endl;
 
@@ -78,9 +76,9 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
 
     if ("self.clk" == port_name) {
       state.setClock(port_name, 0, 1);
-
+      
       cout << "reset clock " << port_name << endl;
-
+      
     } else if (port_type->isOutput()) {
       if (port_name.find("[") != string::npos) {
         string port_name_wo_index = port_name.substr(0, port_name.find("["));
@@ -88,12 +86,12 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
 
         cout << "reset " << port_name << " as indexed port "
              << port_name_wo_index << " with size 1" << endl;
-
+        
       } else {
         auto port_output = static_cast<BitType*>(port_type);
         uint type_bitwidth = port_output->getSize();
         state.setValue(port_name, BitVector(type_bitwidth));
-
+      
         cout << "reset " << port_name << " with size " << type_bitwidth << endl;
 
       }
@@ -424,30 +422,18 @@ void run_coreir_on_interpreter(string coreir_design,
   Namespace* g = c->getGlobal();
 
   CoreIRLoadLibrary_commonlib(c);
-  CoreIRLoadLibrary_lakelib(c);
+  CoreIRLoadLibrary_float(c);
   if (!loadFromFile(c, coreir_design)) {
     cout << "Could not load " << coreir_design
          << " from json!!" << endl;
     c->die();
   }
 
-  std::cout << "about to run some passes\n";
   c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
-
-// Build the simulator with the new model
-  auto ubufBuilder = [](WireNode& wd) {
-    //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
-    UnifiedBuffer_new* ubufModel = new UnifiedBuffer_new();
-    return ubufModel;
-  };
-
-  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
-
-  SimulatorState state(m, qualifiedNamesToSimPlugins);
-  //SimulatorState state(m);
+  SimulatorState state(m);
 
   if (!saveToFile(g, "bin/design_simulated.json", m)) {
     cout << "Could not save to json!!" << endl;
@@ -459,51 +445,64 @@ void run_coreir_on_interpreter(string coreir_design,
   bool uses_valid = reset_coreir_circuit(state, m);
   bool uses_inputenable = circuit_uses_inputenable(m);
 
-  cout << "starting coreir simulation" << endl;
+  cout << "starting coreir simulation by calling resetCircuit" << endl;  
   state.resetCircuit();
   cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
 
-  for (int y = 0; y < input.height(); y++) {
-    for (int x = 0; x < input.width(); x++) {
-      for (int c = 0; c < input.channels(); c++) {
-        // set input value
-        //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
-        state.setValue(input_name, BitVector(16, input(x,y,c)));
-        if (uses_inputenable) {
-          state.setValue("self.in_en", BitVector(1, 1));
-        }
+  int maxCycles = 10000;
+  int cycles = 0;
 
-        // propogate to all wires
-        state.execute();
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
 
-        // give another rising edge (execute seq)
-        //state.exeSequential();
-
-        // read output wire
-        if (uses_valid) {
-          bool valid_value = state.getBitVec("self.valid").to_type<bool>();
-          cout <<"y=" <<y<<", x="<<x<<" output valid= "<< valid_value << endl;
-
-          if (valid_value) {
-            T output_value = state.getBitVec(output_name).to_type<T>();
-            coreir_img_writer.write(output_value);
-            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (((unsigned long long)input(x,y,c)) & 0xff) << " out=" << output_value << dec << endl;
-          }
-        } else {
-          T output_value = state.getBitVec(output_name).to_type<T>();
-          output(x,y,c) = output_value;
-          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (((unsigned long long)input(x,y,c)) & 0xff) << " out=" << output_value << dec << endl;
-          //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
-        }
-
-
-      }
-    }
+  // TODO: Need to get imagewriter bounds?
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {((int)coreir_img_writer.getHeight() - 1), ((int)coreir_img_writer.getWidth()) - 1, ((int) coreir_img_writer.getChannels()) - 1});
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+    run_for_cycle(writeIdx, readIdx,
+        uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+    cycles++;
   }
 
-  coreir_img_writer.print_coords();
+  
+  //for (int y = 0; y < input.height(); y++) {
+    //for (int x = 0; x < input.width(); x++) {
+      //for (int c = 0; c < input.channels(); c++) {
+        //cout << "Write idx = " << writeIdx.coordString() << endl;
 
+        //assert(writeIdx.coord("x") == x);
+        //assert(writeIdx.coord("y") == y);
+        //assert(writeIdx.coord("c") == c);
+        //run_for_cycle(writeIdx, readIdx,
+            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        ////run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            ////uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        //writeIdx.increment();
+
+      //}
+    //}
+  //}
+
+  //int spareRows = 3;
+  //int spareCols = 20;
+  //int spareChannels = 1;
+
+  //for (int y = input.height(); y < input.height() + spareRows; y++) {
+    //for (int x = input.width(); x < input.width() + spareCols; x++) {
+      //for (int c = input.channels(); c < input.channels() + spareChannels; c++) {
+
+        //read_for_cycle(writeIdx,
+             //writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
+            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+
+        //writeIdx.increment();
+        ////read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+      //}
+    //}
+  //}
+  coreir_img_writer.print_coords();
 
   deleteContext(c);
   printf("finished running CoreIR code\n");

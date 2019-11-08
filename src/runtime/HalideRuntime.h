@@ -1287,8 +1287,7 @@ typedef enum halide_target_feature_t {
     halide_target_feature_coreir_valid = 61, ///< Enable output signal valid for CoreIR.
     halide_target_feature_hls = 62, ///< Enable output to HLS.
     halide_target_feature_coreir_hls = 63, ///< Enable output to CoreIRHLS
-    halide_target_feature_use_extract_hw_kernel = 64, ///< Enable old hwkernel functionality instead of unified buffer 
-    halide_target_feature_end = 65 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
+    halide_target_feature_end = 64 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
 } halide_target_feature_t;
 
 /** This function is called internally by Halide in some situations to determine
