@@ -880,7 +880,7 @@ class StreamOpt : public IRMutator {
 
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
             std::cout << "just continue\n";
-            stmt = IRMutator2::visit(op);
+            stmt = IRMutator::visit(op);
         } else if (dag.compute_level.match(op->name)) {
             std::cout << "xcel compute\n";
             internal_assert(dag.loop_vars.count(op->name));

@@ -216,8 +216,8 @@ bool call_at_level(Stmt s, string var = "") {
   return ell.found_call;
 }
   
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
     const Scope<Expr> &scope;
   
     Expr visit(const Variable *var) override {
@@ -232,7 +232,7 @@ class ExpandExpr : public IRMutator2 {
 
     // remove for loops of length 1
     Stmt visit(const For *old_op) override {
-      Stmt s = IRMutator2::visit(old_op);
+      Stmt s = IRMutator::visit(old_op);
       const For *op = s.as<For>();
       
       if (is_one(op->extent)) {
@@ -500,8 +500,8 @@ public:
 };
 
 
-class ReplaceForBounds : public IRMutator2 {
-  using IRMutator2::visit;
+class ReplaceForBounds : public IRMutator {
+  using IRMutator::visit;
   Scope<Expr> scope;
 
   Stmt visit(const LetStmt *op) override {
@@ -513,7 +513,7 @@ class ReplaceForBounds : public IRMutator2 {
     } else {
       //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
     }
-    return IRMutator2::visit(op);
+    return IRMutator::visit(op);
   }
 
   Stmt visit(const For *op) override {
@@ -724,8 +724,8 @@ public:
     var(v), compute_level(cl), found_stencil(false), func(func), stencil_bounds(stencil_bounds) {}
 };
 
-class ReplaceOutputAccessPatternRanges : public IRMutator2 {
-  using IRMutator2::visit;
+class ReplaceOutputAccessPatternRanges : public IRMutator {
+  using IRMutator::visit;
   int count;
   int max_count;
   const HWBuffer& kernel;
@@ -740,7 +740,7 @@ class ReplaceOutputAccessPatternRanges : public IRMutator2 {
       new_extent = old_op->extent;
     }
 
-    Stmt s = IRMutator2::visit(old_op);
+    Stmt s = IRMutator::visit(old_op);
     const For *op = s.as<For>();
     Stmt for_stmt = For::make(op->name, op->min, new_extent, op->for_type, op->device_api, op->body);
     
@@ -818,15 +818,15 @@ vector<string> get_loop_levels_between(Stmt s, Function func,
 
 }
 
-class HWBuffers : public IRMutator2 {
+class HWBuffers : public IRMutator {
     const map<string, Function> &env;
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
   
     Stmt visit(const LetStmt *op) override {
       ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
 
     Stmt visit(const Realize *op) override {
@@ -836,14 +836,14 @@ class HWBuffers : public IRMutator2 {
         // If it's not in the environment it's some anonymous
         // realization that we should skip (e.g. an inlined reduction)
         if (iter == env.end()) {
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
 
         // find the function
         const FuncSchedule &sched = iter->second.schedule();
         if (!sched.is_hw_kernel()) {
           std::cout << "skipping non-hwkernel realize " << op->name << std::endl;
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         }
         Function func = iter->second;
 
@@ -1008,7 +1008,7 @@ class HWBuffers : public IRMutator2 {
             buffers[hwbuffer.name] = hwbuffer;
           }
           
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
           
         } else {
           // look for a sliding window that can be used in a line buffer
@@ -1147,8 +1147,8 @@ map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &en
 
 // Because storage folding runs before simplification, it's useful to
 // at least substitute in constants before running it, and also simplify the RHS of Let Stmts.
-class SubstituteInConstants : public IRMutator2 {
-    using IRMutator2::visit;
+class SubstituteInConstants : public IRMutator {
+    using IRMutator::visit;
 
     Scope<Expr> scope;
     Stmt visit(const LetStmt *op) override {

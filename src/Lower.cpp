@@ -20,6 +20,7 @@
 #include "DebugToFile.h"
 #include "Deinterleave.h"
 #include "EarlyFree.h"
+#include "EmulateFloat16Math.h"
 #include "ExtractHWKernelDAG.h"
 #include "ExtractHWBuffers.h"
 #include "FindCalls.h"
