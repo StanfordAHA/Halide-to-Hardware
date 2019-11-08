@@ -1756,7 +1756,7 @@ void pointwise_add_test() {
     
     Context* context = newContext();
     vector<Argument> args{input};
-    auto m = buildModule(context, "coreir_brighter", args, "brighter", hwOutput);
+    auto m = buildModule(true, context, "coreir_brighter", args, "brighter", hwOutput);
     SimulatorState state(m);
 
     state.setValue("self.reset", BitVector(1, 1));
