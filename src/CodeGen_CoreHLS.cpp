@@ -510,6 +510,8 @@ class ROMInit : public IRVisitor {
       int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
       init_values["init"][index] = value;
+      //init_values["init"][index] = std::to_string(value);
+      //init_values["init"].emplace_back(std::to_string(value));
     }
   }
 
@@ -2562,8 +2564,8 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     for (int i = 0; i < (int) values.size(); i++) {
       //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
-      romVals["init"][i] = val;
-      //romVals["init"].emplace_back(val);
+      //romVals["init"][i] = val;
+      romVals["init"].emplace_back(std::to_string(val));
       //romVals["init"].emplace_back(200);
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
