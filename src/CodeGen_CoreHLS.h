@@ -82,15 +82,80 @@ class HWInstr {
     }
 };
 
+class HWBlock {
+  public:
+    std::string name;
+    int tripCount;
+    std::vector<HWInstr*> instrs;
+};
+
 class HWFunction {
+
+  protected:
+    std::vector<HWBlock*> blocks;
+
   public:
     std::string name;
     int uniqueNum;
-    std::vector<HWInstr*> body;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
 
-    HWFunction() : uniqueNum(0), mod(nullptr) {}
+    HWFunction() : uniqueNum(0), mod(nullptr) {
+      newBlk();
+    }
+
+    HWBlock* newBlk() {
+      HWBlock* n = new HWBlock();
+      n->name = "blk_" + std::to_string(uniqueNum);
+      uniqueNum++;
+      blocks.push_back(n);
+
+      return n;
+    }
+
+    std::vector<HWBlock*> getBlocks() const {
+      return blocks;
+    }
+
+    std::vector<HWInstr*> structuredOrder() const {
+      std::vector<HWInstr*> instrs;
+      for (auto blk : getBlocks()) {
+        for (auto instr : blk->instrs) {
+          instrs.push_back(instr);
+        }
+      }
+      return instrs;
+    }
+
+    void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement);
+    void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement);
+    void deleteInstr(HWInstr* instr);
+
+    void insertAt(HWInstr* pos, HWInstr* newInstr);
+    void insert(const int pos, HWInstr* newInstr);
+
+    template<typename Cond>
+    void deleteAll(Cond c) {
+      for (auto& blk : blocks) {
+        CoreIR::delete_if(blk->instrs, c);
+      }
+    }
+
+    void pushInstr(HWInstr* instr) {
+      blocks.back()->instrs.push_back(instr);
+    }
+
+    int numBlocks() const { return blocks.size(); }
+
+    std::set<HWInstr*> allInstrs() const {
+      std::set<HWInstr*> instrs;
+      for (auto blk : getBlocks()) {
+        for (auto instr : blk->instrs) {
+          instrs.insert(instr);
+        }
+      }
+      return instrs;
+    }
 
     CoreIR::ModuleDef* getDef() const {
       auto def = mod->getDef();
@@ -104,6 +169,13 @@ class HWFunction {
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = width;
       ist->constValue = std::to_string(value);
+      return ist;
+    }
+    HWInstr* newVar(const std::string& name) {
+      auto ist = newI();
+      ist->latency = 0;
+      ist->tp = HWINSTR_TP_VAR;
+      ist->name = name;
       return ist;
     }
 

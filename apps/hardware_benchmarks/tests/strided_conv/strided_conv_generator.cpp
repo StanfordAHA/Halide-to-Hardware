@@ -37,14 +37,17 @@ public:
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
+        output.bound(x, 0, 31);
+        output.bound(y, 0, 31);
+
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+
           hw_input.compute_root();
           hw_output.compute_root();
-          
-          hw_output.tile(x,y, xo,yo, xi,yi, 64 / stride - (filter - 1), 64 / stride - (filter - 1))
+
+          hw_output.tile(x,y, xo,yo, xi,yi, (64 - (filter - 1))/stride, (64 - (filter - 1))/stride )
             .hw_accelerate(xi, xo);
 
           conv.update()
@@ -53,8 +56,10 @@ public:
 
           conv.linebuffer();
 
+          kernel.compute_at(hw_output, xo);
+
           hw_input.stream_to_accelerator();
-          
+
         } else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();
@@ -62,7 +67,7 @@ public:
             .unroll(r.x, filter)
             .unroll(r.y, filter);
         }
-        
+
     }
 };
 

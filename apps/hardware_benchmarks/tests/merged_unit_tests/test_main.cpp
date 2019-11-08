@@ -158,9 +158,12 @@ CoreIR::Context* hwContext() {
   return context;
 }
 
-CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+CoreIR::Module* buildModule(bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
+  if (!useUbuffer) {
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
+  }
   auto hm = hwOutput.compile_to_module(args, name, t);
   for (auto f : hm.functions()) {
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
@@ -177,6 +180,10 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   cout << "Module after wiring clocks ..." << endl;
   m->print();
   return m;
+}
+
+CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  return buildModule(false, context, name, args, fName, hwOutput);
 }
 
 template<typename T>
@@ -584,6 +591,7 @@ void offset_window_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
       //cout << "Module before consolidation..." << endl;
@@ -724,6 +732,7 @@ void small_demosaic_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
 
       for (auto& f : mod.functions()) {
@@ -1089,8 +1098,9 @@ void mod2_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "mod2 test passed" << RESET << endl;
 }
+
 void shiftRight_test() {
   ImageParam input(type_of<int16_t>(), 2);
   ImageParam output(type_of<int16_t>(), 2);
@@ -1142,7 +1152,7 @@ void shiftRight_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "shiftRight test passed" << RESET << endl;
 }
 
 void rom_read_test() {
@@ -1261,7 +1271,7 @@ void clamp_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "clamp test passed" << RESET << endl;
 }
 
 void small_harris_test() {
@@ -1746,7 +1756,7 @@ void pointwise_add_test() {
     
     Context* context = newContext();
     vector<Argument> args{input};
-    auto m = buildModule(context, "coreir_brighter", args, "brighter", hwOutput);
+    auto m = buildModule(true, context, "coreir_brighter", args, "brighter", hwOutput);
     SimulatorState state(m);
 
     state.setValue("self.reset", BitVector(1, 1));
@@ -1776,6 +1786,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   {
     Target t;
     t = t.with_feature(Target::Feature::CoreIR);
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
     auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
     //cout << "Module before consolidation..." << endl;
@@ -1949,7 +1960,7 @@ Expr avg(Expr a, Expr b) {
 }
 
 Func demosaic(Func raw) {
-  Var x, y, c;
+  Var x("x"), y("y"), c("c");
   // The demosaic algorithm is optimized for HLS schedule
   // such that the bound analysis can derive a constant window
   // and shift step without needed to unroll 'demosaic' into
@@ -2169,7 +2180,7 @@ void curve_16_lookup_test() {
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
 
-  cout << GREEN << "Curve lookup test passed" << RESET << endl;
+  cout << GREEN << "Curve 16 lookup test passed" << RESET << endl;
 }
 void curve_lookup_test() {
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -2690,6 +2701,87 @@ void real_unsharp_test() {
   //assert(false);
 }
 
+class ProducerFinder : public IRGraphVisitor {
+  public:
+    std::string target;
+    bool foundTarget;
+    const ProducerConsumer* result;
+
+    ProducerFinder() : foundTarget(false) {}
+
+    using IRGraphVisitor::visit;
+
+    void visit(const ProducerConsumer* pc) {
+      if (pc->is_producer && pc->name == target) {
+        foundTarget = true;
+        result = pc;
+      } else {
+        IRGraphVisitor::visit(pc);
+      }
+    }
+};
+
+const ProducerConsumer* findProducer(const std::string& name, Stmt& stmt) {
+  ProducerFinder f;
+  f.target = name;
+  stmt.accept(&f);
+
+  assert(f.foundTarget);
+
+  return f.result;
+}
+
+class PolyStmt {
+  public:
+
+    std::vector<const For*> surroundingLoops;
+    bool isAssign;
+    const Store* store;
+    std::string varName;
+    Expr varVal;
+};
+
+std::ostream& operator<<(std::ostream& out, const PolyStmt& s) {
+  for (auto lp : s.surroundingLoops) {
+    out << lp->name << " : " << lp->min << ", " << lp->extent << "; ";
+  }
+  if (s.isAssign) {
+    out << s.varName << " = " << s.varVal;
+  } else {
+    auto store = s.store;
+    out << store->name << "[" << store->index << "] = " << store->value << " if " << store->predicate;
+  }
+  return out;
+}
+
+class PolyhedralStmts : public IRGraphVisitor {
+  public:
+
+    using IRGraphVisitor::visit;
+
+    std::vector<const For*> activeLoops;
+    std::vector<PolyStmt> stmts;
+
+    void visit(const For* lp) override {
+      activeLoops.push_back(lp);
+
+      lp->body.accept(this);
+
+      activeLoops.pop_back();
+    }
+
+    void visit(const LetStmt* lt) override {
+      stmts.push_back({activeLoops, true, nullptr, lt->name, lt->value});
+      lt->body.accept(this);
+    }
+
+    void visit(const Store* st) override {
+      stmts.push_back({activeLoops, false, st});
+    }
+
+
+};
+
 void conv_layer_mobile_test() {
   ImageParam input(type_of<int8_t>(), 3);
   ImageParam output(type_of<int8_t>(), 3);
@@ -2790,7 +2882,7 @@ void conv_layer_mobile_test() {
   hw_output.print_loop_nest();
 
   Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
+  //t = t.with_feature(Target::Feature::CoreIR);
   vector<Argument> args{input};
   auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
@@ -2818,6 +2910,43 @@ void conv_layer_mobile_test() {
       for (auto r : mic.roms()) {
         cout << r << endl;
       }
+    } else {
+
+    }
+
+    const ProducerConsumer* hwRegion =
+      findProducer("hw_output", f.body);
+    cout << "HWRegion..." << endl;
+    cout << hwRegion->body << endl;
+
+    Closure c(hwRegion->body);
+    cout << "Closure variables..." << endl;
+    for (auto vars : c.vars) {
+      cout << "\t" << vars.first << endl;
+    }
+    cout << "Closure buffers..." << endl;
+    for (auto buffers : c.buffers) {
+      cout << "\t" << buffers.first << endl;
+    }
+
+    MemoryInfoCollector mic;
+    hwRegion->body.accept(&mic);
+    cout << "----- Memory info..." << endl;
+    for (auto op : mic.memOps) {
+      cout << "\t" << op << endl;
+    }
+
+    cout << "----- ROMS..." << endl;
+    for (auto r : mic.roms()) {
+      cout << r << endl;
+    }
+
+    PolyhedralStmts ps;
+    hwRegion->body.accept(&ps);
+
+    cout << "Polyhedral statements..." << endl;
+    for (auto stmt : ps.stmts) {
+      cout << "\t" << stmt << endl;
     }
   }
 
@@ -2827,39 +2956,40 @@ void conv_layer_mobile_test() {
   //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
   PRINT_PASSED("Conv layer mobile");
   //assert(false);
-  }
+}
 
 int main(int argc, char **argv) {
 
-  small_conv_3_3_test();
-  //small_conv_3_3_not_unrolled_test();
-  conv_layer_mobile_test();
-  control_path_test();
-  control_path_xy_test();
-  rom_read_test();
-  real_unsharp_test();
-  //assert(false);
-  different_latency_kernels_test();
-  curve_16_lookup_test();
-  //assert(false);
-  camera_pipeline_test();
-  simple_unsharp_test();
-  double_unsharp_test();
-  hot_pixel_suppression_test();
-  //assert(false);
-  accel_interface_test();
-  accel_soc_test();
-  curve_lookup_test();
-  offset_window_test();  
-  small_demosaic_test();
-  multi_channel_conv_test();
   pointwise_add_test();
   mod2_test();
   shiftRight_test();
   clamp_test();
-  //clamped_grad_x_test();
+  
   small_cascade_test();
-  //small_harris_test();
+ 
+  // Experimenta tests
+  //conv_layer_mobile_test();
+  //small_conv_3_3_not_unrolled_test();
+  
+  double_unsharp_test();
+  real_unsharp_test();
+  small_conv_3_3_test();
+  control_path_test();
+  control_path_xy_test();
+  
+  rom_read_test();
+  different_latency_kernels_test();
+  curve_16_lookup_test();
+  camera_pipeline_test();
+  simple_unsharp_test();
+  hot_pixel_suppression_test();
+  accel_interface_test();
+  accel_soc_test();
+  curve_lookup_test();
+  
+  offset_window_test();  
+  small_demosaic_test();
+  multi_channel_conv_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;

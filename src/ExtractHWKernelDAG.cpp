@@ -431,6 +431,7 @@ class BuildDAGForFunction : public IRVisitor {
             scan_loops.insert(op->name);
             loop_mins[op->name] = op->min;
             loop_maxes[op->name] = simplify(op->min + op->extent - 1);
+            std::cout << "added loop to scan loop named " << op->name << " with extent=" << op->extent << std::endl;
         }
         if (store_level.match(op->name)) {
             is_scan_loops = true;
@@ -700,6 +701,11 @@ public:
         for (const auto &p : dag.taps)
           std::cout << p.second << "\n";
 
+        std::cout << "after building producer pointers:" << "\n";
+        for (const auto &p : dag.kernels)
+          std::cout << p.second << "\n";
+
+        
         return dag;
     }
 };

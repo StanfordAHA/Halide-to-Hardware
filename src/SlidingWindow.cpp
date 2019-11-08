@@ -76,8 +76,6 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     return result;
 }
 
-}
-
 // Perform sliding window optimization for a function over a
 // particular serial for loop
 class SlidingWindowOnFunctionAndLoop : public IRMutator {
@@ -112,6 +110,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             return IRMutator::visit(op);
         } else {
             Stmt stmt = op;
+            std::cout << "visiting pc sliding window for " << op->name << std::endl;
+            //std::cout << stmt << std::endl;
 
             // We're interested in the case where exactly one of the
             // dimensions of the buffer has a min/extent that depends
@@ -124,6 +124,10 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
                      << " along loop variable " << loop_var << "\n"
                      << "Region provided:\n";
 
+            // initialize vectors
+            //output_stencil_box = std::vector<Expr>(func.dimensions());
+            //input_chunk_box = std::vector<Expr>(func.dimensions());
+
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
             for (int i = 0; i < func.dimensions(); i++) {
@@ -134,6 +138,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
                 Expr max_req = scope.get(var + ".max");
                 min_req = expand_expr(min_req, scope);
                 max_req = expand_expr(max_req, scope);
+                std::cout << "for dim=" << i << "  var=" << var
+                          << "  max=" << max_req << "  min=" << min_req << std::endl;
 
                 debug(3) << func_args[i] << ":" << min_req << ", " << max_req  << "\n";
                 if (expr_depends_on_var(min_req, loop_var) ||
@@ -221,6 +227,29 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             Expr prev_max_plus_one = substitute(loop_var, loop_var_expr - 1, max_required) + 1;
             Expr prev_min_minus_one = substitute(loop_var, loop_var_expr - 1, min_required) - 1;
 
+            // compute sizes
+            Box b_p = box_provided(op->body, func.name());
+            Box b_r = box_required(op->body, func.name());
+            std::cout << "func " << func.name() << " provides=" << b_p << " requires=" << b_r << std::endl;
+            Expr output_stencil_size = simplify(expand_expr(max_required - min_required + 1, scope));
+            std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
+            output_stencil_box.push_back(output_stencil_size);
+            output_min_pos.push_back(min_required);
+            
+            //Expr input_chunk_size = simplify(expand_expr(max_required + 1 - prev_max_plus_one, scope));
+            Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
+            input_chunk_size = is_zero(input_chunk_size) ? 1 : input_chunk_size;
+            std::cout << "input stencil: " << input_chunk_size << std::endl;
+            input_chunk_box.push_back(input_chunk_size);
+
+            std::cout << "Sliding " << func.name()
+                      << " over dimension " << dim
+                      << " along loop variable " << loop_var << "\n"
+                      << " where min=" << min_required << "  max=" << max_required
+                      << " max_prev_plus_one=" << prev_max_plus_one << "\n"
+                      << "\n";
+
+
             // If there's no overlap between adjacent iterations, we shouldn't slide.
             if (can_prove(min_required >= prev_max_plus_one) ||
                 can_prove(max_required <= prev_min_minus_one)) {
@@ -230,16 +259,19 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
                          << " there's no overlap in the region computed across iterations\n"
                          << "Min is " << min_required << "\n"
                          << "Max is " << max_required << "\n";
+
                 return stmt;
             }
 
             Expr new_min, new_max;
             if (can_slide_up) {
-                new_min = select(loop_var_expr <= loop_min, min_required, likely_if_innermost(prev_max_plus_one));
+              //new_min = select(loop_var_expr <= loop_min, min_required, likely_if_innermost(prev_max_plus_one));
+              new_min = prev_max_plus_one;
                 new_max = max_required;
             } else {
                 new_min = min_required;
-                new_max = select(loop_var_expr <= loop_min, max_required, likely_if_innermost(prev_min_minus_one));
+                //new_max = select(loop_var_expr <= loop_min, max_required, likely_if_innermost(prev_min_minus_one));
+                new_max = prev_min_minus_one;
             }
 
             Expr early_stages_min_required = new_min;
@@ -249,6 +281,11 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
                      << "Pushing min up from " << min_required << " to " << new_min << "\n"
                      << "Shrinking max from " << max_required << " to " << new_max << "\n";
 
+            std::cout << "Sliding " << func.name() << ", " << dim << "\n"
+                      << "  Pushing min up from " << min_required << " to " << new_min << "\n"
+                      << "  Shrinking max from " << max_required << " to " << new_max << "\n";
+
+            
             // Now redefine the appropriate regions required
             if (can_slide_up) {
                 replacements[prefix + dim + ".min"] = new_min;
@@ -302,6 +339,9 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             debug(3) << "Not entering loop over " << op->name
                      << " because the bounds depend on the var we're sliding over: "
                      << min << ", " << extent << "\n";
+            std::cout << "Not entering loop over " << op->name
+                     << " because the bounds depend on the var we're sliding over: "
+                     << min << ", " << extent << "\n";
             return op;
         } else {
             return IRMutator::visit(op);
@@ -328,8 +368,22 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
     }
 
 public:
-    SlidingWindowOnFunctionAndLoop(Function f, string v, Expr v_min) : func(f), loop_var(v), loop_min(v_min) {}
+    std::vector<Expr> output_stencil_box;
+    std::vector<Expr> output_min_pos;
+    std::vector<Expr> input_chunk_box;
+    SlidingWindowOnFunctionAndLoop(Function f, string v, Expr v_min) :
+      func(f), loop_var(v), loop_min(v_min) {}
+
+    // define the copy constructor without Scope (whose copy constructor is private)
+    SlidingWindowOnFunctionAndLoop(const SlidingWindowOnFunctionAndLoop &obj) {
+      output_stencil_box = obj.output_stencil_box;
+      output_min_pos = obj.output_min_pos;
+      input_chunk_box = obj.input_chunk_box;
+    }
+
 };
+
+}
 
 // Perform sliding window optimization for a particular function
 class SlidingWindowOnFunction : public IRMutator {
@@ -360,6 +414,56 @@ public:
     SlidingWindowOnFunction(Function f) : func(f) {}
 };
 
+// Perform sliding window optimization for a particular function
+class SlidingWindowVisitorOnFunction : public IRVisitor {
+    Function func;
+
+    using IRVisitor::visit;
+
+    void visit(const For *op) override {
+        debug(3) << " Doing sliding window analysis over loop: " << op->name << "\n";
+        //std::cout << " Doing sliding window analysis over loop: " << op->name << "\n";
+
+        Stmt new_body = op->body;
+        new_body.accept(this);
+
+        if (op->for_type == ForType::Serial ||
+            op->for_type == ForType::Unrolled) {
+          //std::cout << "searching for sliding window for " << func.name() << " using loop " << op->name << std::endl;
+            SlidingWindowOnFunctionAndLoop sliding_window_mutator = SlidingWindowOnFunctionAndLoop(func, op->name, op->min);
+            sliding_window_mutator.mutate(op->body);
+
+            auto added_stencil = sliding_window_mutator.output_stencil_box;
+            ss.output_stencil_box.insert(ss.output_stencil_box.end(), added_stencil.begin(), added_stencil.end());
+            auto added_chunk = sliding_window_mutator.input_chunk_box;
+            ss.input_chunk_box.insert(ss.input_chunk_box.end(), added_chunk.begin(), added_chunk.end());
+            auto added_min_pos = sliding_window_mutator.output_min_pos;
+            ss.output_min_pos.insert(ss.output_min_pos.end(), added_min_pos.begin(), added_min_pos.end());
+
+            if (added_stencil.size() > 0) {
+              std::cout << "added sliding stencil called " << op->name << " with " << added_stencil.size()
+                        << "more loops resulting in num_total_loops=" << ss.output_stencil_box.size() << "\n";
+            }
+            
+            buffer_sliding_stencils[op->name] = ss;
+        }
+    }
+
+public:
+    // contiually adds to set of loops; needed for nested for loops
+    SlidingStencils ss;
+    std::map<std::string, SlidingStencils> buffer_sliding_stencils;
+    SlidingWindowVisitorOnFunction(Function f) : func(f) {}
+};
+
+std::map<std::string, SlidingStencils> extract_sliding_stencils(Stmt s, Function f) {
+  auto sliding_window_mutator = SlidingWindowVisitorOnFunction(f);
+  //std::cout << "extracting sliding stencils for: \n" << s << std::endl;
+  s.accept(&sliding_window_mutator);
+  return sliding_window_mutator.buffer_sliding_stencils;
+}
+
+
 // Perform sliding window optimization for all functions
 class SlidingWindow : public IRMutator {
     const map<string, Function> &env;
@@ -386,6 +490,7 @@ class SlidingWindow : public IRMutator {
         Stmt new_body = op->body;
 
         debug(3) << "Doing sliding window analysis on realization of " << op->name << "\n";
+        //std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
 
         new_body = SlidingWindowOnFunction(iter->second).mutate(new_body);
 

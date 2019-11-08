@@ -3,6 +3,7 @@
 #include <limits>
 #include <algorithm>
 
+// Comment
 #include "CodeGen_CoreHLS.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
@@ -48,7 +49,90 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+bool operator==(const HWInstr& a, const HWInstr& b) {
+  if (a.tp != b.tp) {
+    return false;
+  }
+
+  if (a.tp == HWINSTR_TP_STR) {
+    return a.strConst == b.strConst;
+  }
+
+  if (a.tp == HWINSTR_TP_VAR) {
+    return a.name == b.name;
+  }
+
+  if (a.tp == HWINSTR_TP_CONST) {
+    return a.constWidth == b.constWidth && a.constValue == b.constValue;
+  }
+
+  if (a.tp == HWINSTR_TP_INSTR) {
+    return a.uniqueNum == b.uniqueNum;
+  }
+
+  assert(false);
+}
+
+void insert(vector<HWInstr*>& instrs, const int i, HWInstr* instr) {
+  instrs.insert(std::begin(instrs) + i, instr);
+}
+
+void HWFunction::insert(const int i, HWInstr* instr) {
+  blocks[0]->instrs.insert(std::begin(blocks[0]->instrs) + i, instr);
+}
+
+int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
+  for (int pos = 0; pos < (int) body.size(); pos++) {
+    if (body[pos] == instr) {
+      return pos;
+    }
+  }
+  return -1;
+}
+
+void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
+  for (auto blk : blocks) {
+    if (elem(pos, blk->instrs)) {
+      int position = instructionPosition(pos, blk->instrs);
+      assert(position >= 0);
+      Halide::Internal::insert(blk->instrs, position, newInstr);
+    }
+  }
+}
+
+void HWFunction::deleteInstr(HWInstr* instr) {
+  for (auto blk : blocks) {
+    CoreIR::remove(instr, blk->instrs);
+  }
+}
+
+void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
+  int i = 0;
+  for (auto op : instr->operands) {
+    if (*op == *toReplace) {
+      instr->operands[i] = replacement;
+    }
+    i++;
+  }
+}
+
+void HWFunction::replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement) {
+  for (auto* instr : allInstrs()) {
+    replaceOperand(toReplace, replacement, instr);
+  }
+}
+
+void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement) {
+  for (auto blk : blocks) {
+    int startPos = instructionPosition(refresh, blk->instrs);
+    for (int i = startPos + 1; i < (int) blk->instrs.size(); i++) {
+      replaceOperand(toReplace, replacement, blk->instrs[i]);
+    }
+  }
+}
+
 namespace {
+
 
 template<typename TOut, typename T>
 TOut* sc(T* p) {
@@ -246,7 +330,7 @@ bool isStreamWrite(HWInstr* const instr) {
 
 std::vector<HWInstr*> outputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       ins.push_back(instr->getOperand(0));
     }
@@ -257,7 +341,7 @@ std::vector<HWInstr*> outputStreams(HWFunction& f) {
 
 std::vector<HWInstr*> inputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("rd_stream", instr)) {
       ins.push_back(instr->getOperand(0));
     }
@@ -427,6 +511,8 @@ class ROMInit : public IRVisitor {
       int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
       init_values["init"][index] = value;
+      //init_values["init"][index] = std::to_string(value);
+      //init_values["init"].emplace_back(std::to_string(value));
     }
   }
 
@@ -1027,10 +1113,11 @@ class InstructionCollector : public IRGraphVisitor {
     HWFunction f;
     HWInstr* lastValue;
     HWInstr* currentPredicate;
+    HWBlock* activeBlock;
     
     Scope<std::vector<std::string> > activeRealizations;
     
-    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
+    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr), activeBlock(nullptr) {}
 
     HWInstr* newI() {
       auto ist = f.newI();
@@ -1039,14 +1126,52 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void pushInstr(HWInstr* instr) {
-      f.body.push_back(instr);
+      if (activeBlock == nullptr) {
+        internal_assert(false);
+      } else {
+        activeBlock->instrs.push_back(instr);
+      }
     }
 
   protected:
 
-    //void visit(const For* lp) override {
+    HWInstr* newBr() {
+      auto i = f.newI();
+      i->name = "br";
+      return i;
+    }
+
+    // Several new problems: How do we do value conversion for a provide via dataflow analysis?
+    // How should we represent control path variables? as explicit indexes or as values saved in
+    // some other place in the HWFunction? I kind of like the idea of the hwfunction control flow
+    // as a listing of execution counts relative to another point in the syntax
+    //
+    // And in that representation each value is defined in terms of values of earlier statements,
+    // (by recurrence relations), or by a closed SCEV or some similar construct?
+    void visit(const For* lp) override {
+      
+      auto toLoop = newBr();
+      auto fromLoop = newBr();
+      
+      pushInstr(toLoop);
+
+      auto loopBlk = f.newBlk();
+      activeBlock = loopBlk;
+      IRGraphVisitor::visit(lp);
+     
+      pushInstr(fromLoop);
+      
+      auto nextBlk = f.newBlk();
+      
+      toLoop->operands.push_back(f.newVar(loopBlk->name));
+      
+      fromLoop->operands.push_back(f.newVar(loopBlk->name));
+      fromLoop->operands.push_back(f.newVar(nextBlk->name));
+
+
+      activeBlock = nextBlk;
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
-    //}
+    }
     
     void visit(const Realize* op) override {
       if (ends_with(op->name, ".stencil")) {
@@ -1388,9 +1513,34 @@ class InstructionCollector : public IRGraphVisitor {
 
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
+class OuterLoopSeparator : public IRGraphVisitor {
+  using IRGraphVisitor::visit;
+  public:
+
+    std::vector<const For*> outerLoops;
+    Stmt body;
+
+  protected:
+
+    void visit(const For* lp) {
+      outerLoops.push_back(lp);
+
+      if (lp->body->node_type == IRNodeType::For) {
+        lp->body.accept(this);
+      } else {
+        body = lp->body;
+      }
+    }
+
+};
+
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args) {
 
+
+  OuterLoopSeparator sep;
+  perfectNest->body.accept(&sep);
   InstructionCollector collector;
+  collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
   auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
@@ -1399,9 +1549,9 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
-  perfectNest->accept(&collector);
+  //perfectNest->accept(&collector);
+  sep.body.accept(&collector);
 
-  //return collector.f.body;
   return collector.f;
 }
 
@@ -1839,8 +1989,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       } else if (starts_with(name, "create_stencil")) {
 
 
+        cout << "Making createstencil from " << *instr << endl;
+        cout << "Operand 0 = " << *(instr->getOperand(0)) << endl;
         auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
 
+        cout << "dimRanges = " << dimRanges << endl;
         if (dimRanges.size() == 2) {
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
@@ -1908,7 +2061,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
 
-    cout << "Wiring up constants" << endl;
+    //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
@@ -1920,7 +2073,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         constNo++;
         instrValues[op] = cInst->sel("out");
       } else if (op->tp == HWINSTR_TP_VAR) {
-        cout << "Wiring up var..." << op->compactString() << endl;
+        //cout << "Wiring up var..." << op->compactString() << endl;
         string name = op->name;
         if (CoreIR::elem(name, pipeVars)) {
           continue;
@@ -2176,21 +2329,21 @@ std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
 
 HWLoopSchedule asapSchedule(HWFunction& f) {
   HWLoopSchedule sched;
-  sched.body = f.body;
+  sched.body = f.structuredOrder();
   // TODO: Actually compute this later on
   sched.II = 1;
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
-  std::set<HWInstr*> remaining(begin(f.body), end(f.body));
+  std::set<HWInstr*> remaining = f.allInstrs();
 
   DirectedGraph<HWInstr*, int> blockGraph;
   map<HWInstr*, vdisc> iNodes;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     auto v = blockGraph.addVertex(instr);
     iNodes[instr] = v;
   }
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     auto v = map_get(instr, iNodes);
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_INSTR) {
@@ -2267,17 +2420,12 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
     }
   }
 
-  internal_assert((f.body.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
+  internal_assert((f.allInstrs().size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
     internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
   }
-  //cout << "Total schedule time = " << sched.getLatency() << endl;
-  //sched.stages.push_back({});
-  //for (auto instr : f.body) {
-    //sched.stages[0].push_back(instr);
-  //}
 
   return sched;
 }
@@ -2290,8 +2438,11 @@ class ComputeKernel {
 
 std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
   out << "@" << f.name << endl;
-  for (auto instr : f.body) {
-    out << "\t" << *instr << endl;
+  for (auto blk : f.getBlocks()) {
+    out << "--- Blk " << blk->name << endl;
+    for (auto instr : blk->instrs) {
+      out << "\t" << *instr << endl;
+    }
   }
   return out;
 }
@@ -2329,12 +2480,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
   cout << "Wiring up def in enable and control path in_en" << endl;
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
-  //for (auto v : cpM.controlVars) {
-    //auto vn = coreirSanitize(v);
-    //// Need to modify the compute kernel here
-    //def->connect(controlPath->sel(vn), ->sel(vn));
-  //}
-  //cout << "# of stages in loop schedule = " << sched.stages.size() << endl;
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
   emitCoreIR(info, context, sched, def, cpM, controlPath);
@@ -2356,110 +2501,43 @@ bool isConstant(HWInstr* instr) {
   return instr->tp == HWINSTR_TP_CONST;
 }
 
-bool operator==(const HWInstr& a, const HWInstr& b) {
-  if (a.tp != b.tp) {
-    return false;
-  }
+//void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
+  //int i = 0;
+  //for (auto op : instr->operands) {
+    //if (*op == *toReplace) {
+      //instr->operands[i] = replacement;
+    //}
+    //i++;
+  //}
+//}
 
-  if (a.tp == HWINSTR_TP_STR) {
-    return a.strConst == b.strConst;
-  }
-
-  if (a.tp == HWINSTR_TP_VAR) {
-    return a.name == b.name;
-  }
-
-  if (a.tp == HWINSTR_TP_CONST) {
-    return a.constWidth == b.constWidth && a.constValue == b.constValue;
-  }
-
-  if (a.tp == HWINSTR_TP_INSTR) {
-    return a.uniqueNum == b.uniqueNum;
-  }
-
-  assert(false);
-}
-
-
-void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
-  int i = 0;
-  for (auto op : instr->operands) {
-    if (*op == *toReplace) {
-      instr->operands[i] = replacement;
-    }
-    i++;
-  }
-}
-
-void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
-  for (auto* instr : body) {
-    replaceOperand(toReplace, replacement, instr);
-  }
-}
+//void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
+  //for (auto* instr : body) {
+    //replaceOperand(toReplace, replacement, instr);
+  //}
+//}
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
-  auto& body = f.body;
   for (auto ldNewVal : loadsToConstants) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
-      insertAt(ldNewVal.first, ldNewVal.second, f.body);
+      f.insertAt(ldNewVal.first, ldNewVal.second);
     }
-    replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
+    f.replaceAllUsesWith(ldNewVal.first, ldNewVal.second);
+    //replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
 
   for (auto ldNewVal : loadsToConstants) {
-    CoreIR::remove(ldNewVal.first, body);
+    f.deleteInstr(ldNewVal.first);
   }
 
-  CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
+  f.deleteAll([](HWInstr* instr) { return isStore(instr); });
 }
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
-  auto& body = f.body;
-  //vector<HWInstr*> constLoads;
-  //std::map<HWInstr*, HWInstr*> loadsToConstants;
-  ////std::map<string, std::map<int, int> > storedValues;
-  //int pos = 0;
-  //for (auto instr : body) {
-    //if (isLoad(instr)) {
-      ////auto location = instr->operands[2];
-      //for (auto instr : body) {
-        //if (isLoad(instr)) {
-          //auto location = instr->operands[2];
-          ////cout << "Load " << *instr << " from location: " << location->compactString() << endl;
-          //if (isConstant(location)) {
-            ////cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
-            //int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
-
-            ////cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
-            //HWInstr* lastStoreToLoc = new HWInstr();
-            //lastStoreToLoc->tp = HWINSTR_TP_CONST;
-            //lastStoreToLoc->constWidth = 16;
-            //lastStoreToLoc->constValue = std::to_string(newValue);
-            //constLoads.push_back(instr);
-
-            //if (lastStoreToLoc) {
-              //loadsToConstants[instr] = lastStoreToLoc;
-            //}
-          //}
-        //}
-      //}
-      //pos++;
-    //}
-  //}
-
-  //replaceAll(loadsToConstants, f);
-
-  //cout << "Stored Values.." << endl;
-  //for (auto m : storedValues) {
-    //cout << "\t" << m.first << " has values" << endl;
-    //for (auto v : m.second) {
-      //cout << "\t\t[" << v.first << "] = " << v.second << endl;
-    //}
-  //}
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
-  for (auto instr : body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("load", instr)) {
       cout << "Found load..." << *instr << endl;
       romLoads[instr->getOperand(0)->compactString()].push_back(instr);
@@ -2482,11 +2560,13 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     string curveName = m.first.substr(1, m.first.size() - 2);
     //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
-    Json romVals;
+    //Json romVals;
+    nlohmann::json romVals;
     for (int i = 0; i < (int) values.size(); i++) {
       //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
-      romVals["init"].emplace_back(val);
+      //romVals["init"][i] = val;
+      romVals["init"].emplace_back(std::to_string(val));
       //romVals["init"].emplace_back(200);
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
@@ -2519,24 +2599,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   f.mod->print();
 }
 
-void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
-  body.insert(std::begin(body) + i, instr);
-}
-
-int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
-  for (int pos = 0; pos < (int) body.size(); pos++) {
-    if (body[pos] == instr) {
-      return pos;
-    }
-  }
-  return -1;
-}
-void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
-  int position = instructionPosition(instr, body);
-  assert(position >= 0);
-  insert(position, refresh, body);
-}
-
 void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
   int startPos = instructionPosition(refresh, body);
   for (int i = startPos + 1; i < (int) body.size(); i++) {
@@ -2544,12 +2606,8 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
-vector<HWInstr*> allInstructions(HWFunction& f) {
-  return f.body;
-}
-
 void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
-  for (auto instr : allInstructions(f)) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       instr->operands = {instr->operands[0], instr->operands[1]};
     }
@@ -2557,30 +2615,28 @@ void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
 }
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
-//vector<HWInstr*>& body) {
-  auto& body = f.body;
+  auto body = f.structuredOrder();
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
+  //for (auto instr : f.allInstrs()) {
     if (isCall("read_stream", instr)) {
       auto callRep = f.newI();
-      //auto callRep = new HWInstr();
-      //callRep->uniqueNum = 999;
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
-      replaceAllUsesWith(targetStencil, callRep, body);
+      f.replaceAllUsesWith(targetStencil, callRep);
+      //replaceAllUsesWith(targetStencil, callRep, body);
       replacements[instr] = callRep;
     }
   }
 
   for (auto rp : replacements) {
-    insertAt(rp.first, rp.second, body);
+    f.insertAt(rp.first, rp.second);
   }
-  CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
+  f.deleteAll([replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
 }
 
 bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
-  //for (auto instr : hwInstr) {
   internal_assert(start >= 0);
   internal_assert(end <= (int) hwInstr.size());
   for (int i = start; i < end; i++) {
@@ -2594,31 +2650,51 @@ bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
 }
 
 std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo& info) {
+  cout << "Getting streams that use " << name << endl;
   std::set<std::string> users;
   for (auto wr : info.streamReadCallRealizations) {
-    users.insert(exprString(wr.first->args[0]));
+    string rdName = exprString(wr.first->args[1]);
+    cout << "\trdName = " << rdName << endl;
+    if (rdName == name) {
+      users.insert(exprString(wr.first->args[0]));
+      //users.insert(rdName);
+    }
   }
 
   for (auto wr : info.streamWriteCallRealizations) {
-    users.insert(exprString(wr.first->args[0]));
+    string wrName = exprString(wr.first->args[1]);
+    cout << "\twrName = " << wrName << endl;
+    if (wrName == name) {
+      users.insert(exprString(wr.first->args[0]));
+      //users.insert(wrName);
+    }
   }
   return users;
 }
 
 vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::string& stencilName) {
+  cout << "Getting stencilDimsInBody of " << stencilName << endl;
   std::set<std::string> streamUsers = streamsThatUseStencil(stencilName, info);
   std::set<std::string> streamsInF = allStreamNames(f);
   std::set<std::string> streamUsersInF = CoreIR::intersection(streamUsers, streamsInF);
   internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  cout << "Streams that use " << stencilName << "..." << endl;
+  for (auto user : streamUsersInF) {
+    cout << "\t" << user << endl;
+  }
   auto user = *std::begin(streamUsersInF);
   return toInts(map_get(user, info.streamParams));
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
-  auto& body = f.body;
+  internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
+
+  // With multiple blocks:
+  // - For each stencil:
+  // - Find all provides for that stencil. Find all places where that stencil might have been set
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
-  for (auto instr : body) {
+  for (auto instr : f.structuredOrder()) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
       provides[target].push_back(instr);
@@ -2626,18 +2702,11 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     }
   }
 
-  // What is the right way to optimize this?
-  // Find the initialization value of the provides
-  // Create an instruction to initialize the provide
-  // Replace all references to stencil after a given
-  // provide with the result of the new provide call
   std::map<std::string, HWInstr*> initProvides;
   cout << "Provides" << endl;
   for (auto pr : provides) {
     auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
     auto provideName = provideValue->operands[0]->compactString();
-    // What to do?
-    //vector<int> dims = getStencilDims(provideName, info);
 
     vector<int> dims = stencilDimsInBody(info, f, provideName);
     vector<HWInstr*> initialSets;
@@ -2667,22 +2736,19 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       }
     }
 
-    insert(0, initInstr, body);
+    f.insert(0, initInstr);
     HWInstr* activeProvide = initInstr;
-    replaceAllUsesWith(provideValue->operands[0], activeProvide, body);
+    f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
     int provideNum = 0;
-    //for (auto instr : pr.second) {
     for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
       auto instr = pr.second[i];
       cout << "\t\t" << *instr << endl;
-      //HWInstr* refresh = new HWInstr();
       auto refresh = f.newI();
-      //refresh->uniqueNum = provideNum + 100;
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
-      insertAt(instr, refresh, body);
-      replaceAllUsesAfter(refresh, activeProvide, refresh, body);
+      f.insertAt(instr, refresh);
+      f.replaceAllUsesAfter(refresh, activeProvide, refresh);
       activeProvide = refresh;
       provideNum++;
     }
@@ -2690,7 +2756,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {
-      CoreIR::remove(instr, body);
+      f.deleteInstr(instr);
     }
   }
 }
@@ -2787,7 +2853,7 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
 void modToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   std::map<HWInstr*, HWInstr*> replacements;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("mod", instr)) {
       //cout << "Found mod" << endl;
       if (isConstant(instr->getOperand(1))) {
@@ -2809,20 +2875,20 @@ void modToShift(HWFunction& f) {
   }
 
   for (auto r : replacements) {
-    insertAt(r.first, r.second, f.body);
-    replaceAllUsesWith(r.first, r.second, f.body);
+    f.insertAt(r.first, r.second);
+    f.replaceAllUsesWith(r.first, r.second);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
-    CoreIR::remove(i, f.body);
+    f.deleteInstr(i);
   }
 }
 void divToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   //std::map<HWInstr*, HWInstr*> replacements;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("div", instr)) {
       //cout << "Found div" << endl;
       if (isConstant(instr->getOperand(1))) {
@@ -2836,7 +2902,6 @@ void divToShift(HWFunction& f) {
           shrInstr->name = "ashr";
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
           replacements.push_back({instr, shrInstr});
-          //replacements[instr] = shrInstr;
         }
       }
     }
@@ -2844,13 +2909,13 @@ void divToShift(HWFunction& f) {
 
   CoreIR::reverse(replacements);
   for (auto r : replacements) {
-    insertAt(r.first, r.second, f.body);
-    replaceAllUsesWith(r.first, r.second, f.body);
+    f.insertAt(r.first, r.second);
+    f.replaceAllUsesWith(r.first, r.second);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
-    CoreIR::remove(i, f.body);
+    f.deleteInstr(i);
   }
 }
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
@@ -2998,7 +3063,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   auto globalNs = c->getNamespace("global");
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   std::set<HWInstr*> vars;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_VAR) {
         if (!elem(op->name, streamNames)) {
@@ -4600,18 +4665,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     }
     
     f.controlVars = hwVars;
-    auto& body = f.body;
 
     removeBadStores(stCollector, f);
-    valueConvertProvides(scl.info, f);
     valueConvertStreamReads(scl.info, f);
+    valueConvertProvides(scl.info, f);
     removeWriteStreamArgs(scl.info, f);
     divToShift(f);
     modToShift(f);
-    cout << "After stream read conversion..." << endl;
-    for (auto instr : body) {
-      cout << "\t\t\t" << *instr << endl;
-    }
+    //cout << "After stream read conversion..." << endl;
+    //for (auto instr : body) {
+      //cout << "\t\t\t" << *instr << endl;
+    //}
 
     functions[lp] = f;
 
