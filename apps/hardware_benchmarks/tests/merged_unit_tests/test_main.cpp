@@ -161,6 +161,7 @@ CoreIR::Context* hwContext() {
 CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
+  t = t.with_feature(Target::Feature::UseExtractHWKernel);
   auto hm = hwOutput.compile_to_module(args, name, t);
   for (auto f : hm.functions()) {
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
@@ -584,6 +585,7 @@ void offset_window_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
       //cout << "Module before consolidation..." << endl;
@@ -724,6 +726,7 @@ void small_demosaic_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
 
       for (auto& f : mod.functions()) {
@@ -1089,8 +1092,9 @@ void mod2_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "mod2 test passed" << RESET << endl;
 }
+
 void shiftRight_test() {
   ImageParam input(type_of<int16_t>(), 2);
   ImageParam output(type_of<int16_t>(), 2);
@@ -1142,7 +1146,7 @@ void shiftRight_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "shiftRight test passed" << RESET << endl;
 }
 
 void rom_read_test() {
@@ -1261,7 +1265,7 @@ void clamp_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "clamp test passed" << RESET << endl;
 }
 
 void small_harris_test() {
@@ -1776,6 +1780,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   {
     Target t;
     t = t.with_feature(Target::Feature::CoreIR);
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
     auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
     //cout << "Module before consolidation..." << endl;
@@ -2953,23 +2958,25 @@ int main(int argc, char **argv) {
   mod2_test();
   shiftRight_test();
   clamp_test();
+  
   small_cascade_test();
-  conv_layer_mobile_test();
+ 
+  // Experimenta tests
+  //conv_layer_mobile_test();
   //small_conv_3_3_not_unrolled_test();
+  
   double_unsharp_test();
   real_unsharp_test();
   small_conv_3_3_test();
   control_path_test();
   control_path_xy_test();
+  
   rom_read_test();
-  //assert(false);
   different_latency_kernels_test();
   curve_16_lookup_test();
-  //assert(false);
   camera_pipeline_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
-  //assert(false);
   accel_interface_test();
   accel_soc_test();
   curve_lookup_test();

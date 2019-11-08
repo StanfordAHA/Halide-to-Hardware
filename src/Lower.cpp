@@ -79,6 +79,7 @@
 namespace Halide {
 namespace Internal {
 
+using namespace std;
 using std::map;
 using std::ostringstream;
 using std::set;
@@ -207,8 +208,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     std::cout << "extracting hw buffers\n";
     //auto buffers = extract_hw_buffers(s, env);
+    
+    bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
+
+    cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
-    if (t.has_feature(Target::CoreIR)) {
+    if (t.has_feature(Target::CoreIR) && use_ubuffer) {
       std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
       for (auto hwbuffer : xcels.at(0).hwbuffers) {
@@ -232,8 +237,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       std::cout << "Performing HLS target optimization..." << s << '\n';
-
-      bool use_ubuffer = true;
 
       if (use_ubuffer) {
         for (const HWXcel &xcel : xcels) {
