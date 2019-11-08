@@ -2557,11 +2557,13 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     string curveName = m.first.substr(1, m.first.size() - 2);
     //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
-    Json romVals;
+    //Json romVals;
+    nlohmann::json romVals;
     for (int i = 0; i < (int) values.size(); i++) {
       //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
-      romVals["init"].emplace_back(val);
+      romVals["init"][i] = val;
+      //romVals["init"].emplace_back(val);
       //romVals["init"].emplace_back(200);
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
