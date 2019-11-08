@@ -158,10 +158,12 @@ CoreIR::Context* hwContext() {
   return context;
 }
 
-CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+CoreIR::Module* buildModule(bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
-  t = t.with_feature(Target::Feature::UseExtractHWKernel);
+  if (!useUbuffer) {
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
+  }
   auto hm = hwOutput.compile_to_module(args, name, t);
   for (auto f : hm.functions()) {
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
@@ -178,6 +180,10 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   cout << "Module after wiring clocks ..." << endl;
   m->print();
   return m;
+}
+
+CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  return buildModule(false, context, name, args, fName, hwOutput);
 }
 
 template<typename T>

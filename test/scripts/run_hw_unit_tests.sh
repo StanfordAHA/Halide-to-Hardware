@@ -6,4 +6,4 @@ else
   exit 1
 fi
 
-lldb ./all-tests
+./all-tests
