@@ -58,6 +58,9 @@ generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DE
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+ifeq ($(UNAME), Darwin)
+	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $@
+endif
 
 design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
@@ -91,6 +94,9 @@ $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_pr
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+ifeq ($(UNAME), Darwin)
+	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $@
+endif
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
