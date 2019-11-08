@@ -2,6 +2,7 @@
 #include <iostream>
 #include <set>
 #include <sstream>
+#include <vector>
 
 #include "Lower.h"
 
@@ -20,7 +21,7 @@
 #include "Deinterleave.h"
 #include "EarlyFree.h"
 #include "ExtractHWKernelDAG.h"
-#include "EmulateFloat16Math.h"
+#include "ExtractHWBuffers.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "Function.h"
@@ -33,6 +34,7 @@
 #include "InferArguments.h"
 #include "InjectHostDevBufferCopies.h"
 #include "InjectOpenGLIntrinsics.h"
+#include "InsertHWBuffers.h"
 #include "Inline.h"
 #include "LICM.h"
 #include "LoopCarry.h"
@@ -177,20 +179,42 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
     //std::cout << "#### AFter bounds inference: " << s << "\n";
 
+    for (auto stage : inlined_stages) {
+      std::cout << "found stage: " << stage.name << std::endl;
+      for (auto map_entry : stage.bounds) {
+        std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
+      }
+    }
+    
     debug(1) << "Removing extern loops...\n";
     s = remove_extern_loops(s);
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
-
-    debug(1) << "Performing sliding window optimization...\n";
-    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
-      s = sliding_window(s, env);
-    }
-    debug(2) << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
     s = allocation_bounds_inference(s, env, func_bounds);
     debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
 
+    std::cout << "doing sliding window lowering pass\n";
+    Stmt s_sliding;
+    if (t.has_feature(Target::CoreIR)) {
+      s_sliding = sliding_window(s, env);
+      //s = sliding_window(s, env);
+      std::cout << "finished sliding window lowering pass\n" << s;
+    } else {
+      s = sliding_window(s, env);
+    }
+
+    std::cout << "extracting hw buffers\n";
+    //auto buffers = extract_hw_buffers(s, env);
+    vector<HWXcel> xcels;
+    if (t.has_feature(Target::CoreIR)) {
+      std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
+      xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+      for (auto hwbuffer : xcels.at(0).hwbuffers) {
+        std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+      }
+    }
+    
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -202,32 +226,47 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    if (t.has_feature(Target::CoreIRHLS) || t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
-
-      //std::cout << "Now we are doing HLS specific optimizations" << std::endl;
+    Stmt s_ub;
+    if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
-      //std::cout << "Performing HLS target optimization..." << s << '\n';
-      
-      vector<HWKernelDAG> dags;
-      s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+      std::cout << "Performing HLS target optimization..." << s << '\n';
 
-      for(const HWKernelDAG &dag : dags) {
-        s = stream_opt(s, dag);
-        //s = replace_image_param(s, dag);
+      bool use_ubuffer = true;
+
+      if (use_ubuffer) {
+        for (const HWXcel &xcel : xcels) {
+          s = insert_hwbuffers(s, xcel);
+          //std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
+        }
+      } else {
+       vector<HWKernelDAG> dags;
+       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+       
+       std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+       
+       for(const HWKernelDAG &dag : dags) {
+         s = stream_opt(s, dag);
+         //s = replace_image_param(s, dag);
+       }
       }
 
-      debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
+      //debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
       //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
     debug(1) << "Simplifying...\n";
+    //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     debug(1) << "Performing storage folding optimization...\n";
-      s = storage_folding(s, env);
+    //std::cout << "Performing storage folding optimization...\n" << s << '\n';
+    //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+    s = storage_folding(s, env);
+    //}
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
+    //std::cout << "Lowering after storage folding:\n" << s << '\n';
 
     debug(1) << "Injecting debug_to_file calls...\n";
     s = debug_to_file(s, outputs, env);

@@ -44,6 +44,11 @@ public:
         grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
                                               2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
                                                 padded16(x+1,y+1) -   padded16(x+1,y-1));
+        //RDom r(-1, 3, -1, 3);
+        //grad_x_unclamp(x, y) = 0;
+        //grad_x_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
+        //grad_y_unclamp(x, y) = 0;
+        //grad_y_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
 
         grad_x(x, y) = clamp(grad_x_unclamp(x,y), -255, 255);
         grad_y(x, y) = clamp(grad_y_unclamp(x,y), -255, 255);
@@ -56,13 +61,18 @@ public:
 
         // shift gradients
         Func lxx, lyy, lxy;
-        lxx(x, y) = grad_xx(x, y) >> 7;
-        lyy(x, y) = grad_yy(x, y) >> 7;
-        lxy(x, y) = grad_xy(x, y) >> 7;
+        //lxx(x, y) = grad_xx(x, y) >> 7;
+        //lyy(x, y) = grad_yy(x, y) >> 7;
+        //lxy(x, y) = grad_xy(x, y) >> 7;
+        lxx(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_x(x,y)) >> 7;
+        lyy(x, y) = cast<int32_t>(grad_y(x,y)) * cast<int32_t>(grad_y(x,y)) >> 7;
+        lxy(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_y(x,y)) >> 7;
+
 
         // box filter (i.e. windowed sum)
         Func lgxx, lgyy, lgxy;
         RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        //RDom box(0, blockSize, 0, blockSize);
         lgxx(x, y) += lxx(x+box.x, y+box.y);
         lgyy(x, y) += lyy(x+box.x, y+box.y);
         lgxy(x, y) += lxy(x+box.x, y+box.y);
@@ -90,10 +100,17 @@ public:
             cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
-        hw_output(x, y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold),
-                                                255,
-                                                0));
+        Func cim_output;
+        cim_output(x,y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cim_output(x,y);
+        //hw_output(x, y) = cast<uint8_t>(cim(x,y));
+        //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
+
+
         output(x, y) = hw_output(x, y);
+
+        output.bound(x, 0, 58);
+        output.bound(y, 0, 58);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
@@ -112,8 +129,8 @@ public:
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
         
-          grad_x.linebuffer();
-          grad_y.linebuffer();
+          //grad_x.linebuffer();
+          //grad_y.linebuffer();
           lxx.linebuffer();
           lyy.linebuffer();
           lxy.linebuffer();
@@ -121,12 +138,13 @@ public:
           lgyy.linebuffer();
           lgxy.linebuffer();
           cim.linebuffer();
+          cim_output.linebuffer();
 
           lgxx.update(0).unroll(box.x).unroll(box.y);
           lgyy.update(0).unroll(box.x).unroll(box.y);
           lgxy.update(0).unroll(box.x).unroll(box.y);
 
-          //padded16.stream_to_accelerator();
+          padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 58, 58);

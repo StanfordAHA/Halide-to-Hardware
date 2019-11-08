@@ -379,7 +379,7 @@ Stmt Provide::make(const std::string &name, const std::vector<Expr> &values, con
         internal_assert(values[i].defined()) << "Provide of undefined value\n";
     }
     for (size_t i = 0; i < args.size(); i++) {
-        internal_assert(args[i].defined()) << "Provide to undefined location\n";
+      internal_assert(args[i].defined()) << "Provide " << name << " to undefined arg " << i << " location: " << args[i] << "\n";;
     }
 
     Provide *node = new Provide;
