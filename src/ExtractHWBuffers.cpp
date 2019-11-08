@@ -15,6 +15,8 @@
 namespace Halide {
 namespace Internal {
 
+using namespace std;
+
 using std::map;
 using std::vector;
 using std::string;
@@ -1259,6 +1261,7 @@ void set_opt_params(HWXcel *xcel,
     i--;
     
     const BoundsInference_Stage &stage = inlined_stages[i];
+    cout << "Inlined stage = " << stage.name << endl;
     if (in_output && stage.name != xcel->name) {
       continue;
     }
@@ -1567,6 +1570,9 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   std::cout << "creating an accelerator for " << func.name() << std::endl
             << s << std::endl;
 
+  cout << "xcel name          = " << xcel->name << endl;
+  cout << "xcel store level   = " << xcel->store_level << endl;
+  cout << "xcel compute level = " << xcel->compute_level << endl;
   std::cout << xcel->name << " has the streaming loops: ";
   for (const auto& streaming_loop_name : xcel->streaming_loop_levels) {
     std::cout << streaming_loop_name << " ";
@@ -1583,6 +1589,12 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   // use realizes to define each hwbuffer
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel);
 
+  cout << "Extracted " << xcel->hwbuffers.size() << " buffers" << endl;
+  for (auto b : xcel->hwbuffers) {
+    cout << "\t" << b.second.name << endl;
+    cout << "\t\t" << "store level: " << b.second.store_level << endl;
+    cout << "\t\t" << "compute level: " << b.second.compute_level << endl;
+  }
   // set output parameters for hwbuffers based on consumers
   set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
 
@@ -1618,8 +1630,9 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     
     Function func = p.second;
     // skip this function if it is not accelerated
-    if(!func.schedule().is_accelerated())
+    if(!func.schedule().is_accelerated()) {
       continue;
+    }
     
     std::cout << "Found accelerate function " << func.name() << "\n";
     LoopLevel store_locked = func.schedule().store_level().lock();
@@ -1629,7 +1642,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       store_locked.var().name();
 
     debug(3) << "Found accelerate function " << func.name() << "\n";
-    std::cout << "Found accelerate function " << func.name() << "\n";
+    //std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";
     HWXcel xcel;
     extract_hw_xcel_top_parameters(s, func, env, inlined_stages, &xcel);
