@@ -2944,11 +2944,16 @@ void conv_layer_mobile_test() {
   //auto context = hwContext();
   //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
   PRINT_PASSED("Conv layer mobile");
-  assert(false);
+  //assert(false);
 }
 
 int main(int argc, char **argv) {
 
+  pointwise_add_test();
+  mod2_test();
+  shiftRight_test();
+  clamp_test();
+  small_cascade_test();
   conv_layer_mobile_test();
   //small_conv_3_3_not_unrolled_test();
   double_unsharp_test();
@@ -2971,13 +2976,6 @@ int main(int argc, char **argv) {
   offset_window_test();  
   small_demosaic_test();
   multi_channel_conv_test();
-  pointwise_add_test();
-  mod2_test();
-  shiftRight_test();
-  clamp_test();
-  //clamped_grad_x_test();
-  small_cascade_test();
-  //small_harris_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;

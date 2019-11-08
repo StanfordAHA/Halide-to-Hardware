@@ -1271,7 +1271,7 @@ void set_opt_params(HWXcel *xcel,
           return false;
         }
       });
-    internal_assert(iterator != hwbuffers.end());
+    internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
     auto &hwbuffer = iterator->second;
     internal_assert(hwbuffer.name == iterator->first);
     
