@@ -2,9 +2,6 @@
 
 #include "coreir.h"
 #include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
-#include "lakelib.h"
-#include "ubuf_coreirsim.h"
 
 template <typename elem_t>
 class ImageWriter {

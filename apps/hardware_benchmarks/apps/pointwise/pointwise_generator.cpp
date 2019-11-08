@@ -34,8 +34,6 @@ public:
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             .hw_accelerate(xi, xo);
-          hw_output.bound(x, 0, 64);
-          hw_output.bound(y, 0, 64);
 
           hw_input.stream_to_accelerator();
 
