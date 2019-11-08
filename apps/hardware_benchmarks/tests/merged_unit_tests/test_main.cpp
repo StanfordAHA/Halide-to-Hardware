@@ -1954,7 +1954,7 @@ Expr avg(Expr a, Expr b) {
 }
 
 Func demosaic(Func raw) {
-  Var x, y, c;
+  Var x("x"), y("y"), c("c");
   // The demosaic algorithm is optimized for HLS schedule
   // such that the bound analysis can derive a constant window
   // and shift step without needed to unroll 'demosaic' into
@@ -2974,7 +2974,7 @@ int main(int argc, char **argv) {
   rom_read_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
-  //camera_pipeline_test();
+  camera_pipeline_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
   accel_interface_test();
