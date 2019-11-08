@@ -470,7 +470,9 @@ void run_coreir_on_interpreter(string coreir_design,
         // set input value
         //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
         state.setValue(input_name, BitVector(16, input(x,y,c)));
-        state.setValue("self.in_en", BitVector(1, 1));
+        if (uses_inputenable) {
+          state.setValue("self.in_en", BitVector(1, 1));
+        }
 
         // propogate to all wires
         state.execute();
