@@ -214,11 +214,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
-      std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
+      //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
-      for (auto hwbuffer : xcels.at(0).hwbuffers) {
-        std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
-      }
+      //for (auto hwbuffer : xcels.at(0).hwbuffers) {
+        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+      //}
     }
     
     debug(1) << "Removing code that depends on undef values...\n";
@@ -236,7 +236,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
-      std::cout << "Performing HLS target optimization..." << s << '\n';
+      //std::cout << "Performing HLS target optimization..." << s << '\n';
 
       if (use_ubuffer) {
         for (const HWXcel &xcel : xcels) {
@@ -247,7 +247,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
        vector<HWKernelDAG> dags;
        s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
        
-       std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+       //std::cout << "Lowering before HLS optimization:\n" << s << '\n';
        
        for(const HWKernelDAG &dag : dags) {
          s = stream_opt(s, dag);

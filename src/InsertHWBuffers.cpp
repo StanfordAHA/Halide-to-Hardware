@@ -1330,14 +1330,14 @@ public:
 Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
   debug(3) << s << "\n";
 
-  for (auto &hwbuffer_pair : xcel.hwbuffers) {
-    std::cout << hwbuffer_pair.first << " is inline=" << hwbuffer_pair.second.is_inlined
-              << " with num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
-  }
+  //for (auto &hwbuffer_pair : xcel.hwbuffers) {
+    //std::cout << hwbuffer_pair.first << " is inline=" << hwbuffer_pair.second.is_inlined
+              //<< " with num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
+  //}
   
   s = InsertHWBuffers(xcel).mutate(s);
   debug(3) << s << "\n";
-  std::cout << "Inserted hwbuffers: \n" << s << "\n";
+  //std::cout << "Inserted hwbuffers: \n" << s << "\n";
   return s;
 }
 
