@@ -1740,22 +1740,25 @@ void pointwise_add_test() {
 
     Func hwInput("hw_input");
     Func hwOutput("hw_output");
+    Func dummyOut("dummy_out");
     Func brighter("brighter");
     
     hwInput(x, y) = input(x, y);
     brighter(x, y) = hwInput(x, y) + 10;
     hwOutput(x, y) = brighter(x, y);
 
+    dummyOut(x, y) = hwOutput(x, y);
     hwInput.compute_root();
     hwOutput.compute_root();
 
     hwOutput.tile(x, y, xo, yo, xi, yi, 4, 4).hw_accelerate(xi, xo);
-    brighter.linebuffer();
+    //brighter.linebuffer();
     
     hwInput.stream_to_accelerator();
     
     Context* context = newContext();
     vector<Argument> args{input};
+    //auto m = buildModule(true, context, "coreir_brighter", args, "brighter", dummyOut);
     auto m = buildModule(true, context, "coreir_brighter", args, "brighter", hwOutput);
     SimulatorState state(m);
 
