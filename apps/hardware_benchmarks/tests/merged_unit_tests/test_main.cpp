@@ -2174,7 +2174,7 @@ void curve_16_lookup_test() {
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
 
-  cout << GREEN << "Curve lookup test passed" << RESET << endl;
+  cout << GREEN << "Curve 16 lookup test passed" << RESET << endl;
 }
 void curve_lookup_test() {
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -2974,16 +2974,16 @@ int main(int argc, char **argv) {
   rom_read_test();
   different_latency_kernels_test();
   curve_16_lookup_test();
-  camera_pipeline_test();
+  //camera_pipeline_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
   accel_interface_test();
   accel_soc_test();
   curve_lookup_test();
   
-  //offset_window_test();  
-  //small_demosaic_test();
-  //multi_channel_conv_test();
+  offset_window_test();  
+  small_demosaic_test();
+  multi_channel_conv_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
