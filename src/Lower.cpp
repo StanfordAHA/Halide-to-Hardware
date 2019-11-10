@@ -239,10 +239,14 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       //std::cout << "Performing HLS target optimization..." << s << '\n';
 
       if (use_ubuffer) {
+          std::cout << "--- Before inserting hwbuffers" << std::endl;
+          std::cout << s << std::endl;
         for (const HWXcel &xcel : xcels) {
           s = insert_hwbuffers(s, xcel);
-          //std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
         }
+          std::cout << "--- After inserting hwbuffers" << std::endl;
+          std::cout << s << std::endl;
+          //internal_assert(false);
       } else {
        vector<HWKernelDAG> dags;
        s = extract_hw_kernel_dag(s, env, inlined_stages, dags);

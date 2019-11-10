@@ -15,6 +15,7 @@ using std::ostream;
 namespace Halide {
 namespace Internal {
 
+using namespace std;
 using std::string;
 using std::map;
 using std::set;
@@ -600,6 +601,9 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
 
 // Add realize and read_stream calls arround IR s
 Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) {
+
+    cout << "Input to add_hwinput_stencil is.." << endl;
+    cout << s << endl;
     string stencil_name = input.name + ".stencil";
     string stream_name = stencil_name + ".stream";
     Expr stream_var = Variable::make(Handle(), stream_name);
@@ -624,6 +628,9 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
         bounds.push_back(Range(0, dim.output_stencil));
     }
     s = Realize::make(stencil_name, input.func.output_types(), MemoryType::Auto, bounds, const_true(), pc);
+
+    cout << "Result of add_hwinput_stencil is.." << endl;
+    cout << s << endl;
     return s;
 }
 
@@ -898,6 +905,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         for (const string& s : kernel.input_streams) {
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
+            std::cout << "\tinserting stencil streams for " << it->second << endl;
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
         }
         std::cout << "read streams created\n";

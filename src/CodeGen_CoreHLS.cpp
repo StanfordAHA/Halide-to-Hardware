@@ -4576,6 +4576,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     const std::string& name,
     const vector<CoreIR_Argument>& args) {
 
+  cout << "Creating coreir for" << endl;
+  cout << stmt << endl;
 
   cout << "All args" << endl;
   for (auto a : args) {
