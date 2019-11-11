@@ -1225,7 +1225,8 @@ void set_opt_params(HWXcel *xcel,
       const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
 
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
-        hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        //hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        hwbuffers.at(consumer.name).input_streams.insert(hwbuffer.name);
       } else {
       }
 
@@ -1346,7 +1347,8 @@ void set_opt_params(HWXcel *xcel,
       //std::cout << "right before " << consumer.name << " inputs\n";
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
-        hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        //hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        hwbuffers.at(consumer.name).input_streams.insert(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
       }

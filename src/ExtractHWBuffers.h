@@ -115,7 +115,8 @@ struct HWBuffer {
   Stmt input_access_pattern;
   Stmt output_access_pattern;
   std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
-  std::vector<std::string> input_streams;  // used when inserting read_stream calls
+  //std::vector<std::string> input_streams;  // used when inserting read_stream calls
+  std::set<std::string> input_streams;  // used when inserting read_stream calls
   std::map<std::string, Stride> stride_map;
 
   // dimensions for the hwbuffer

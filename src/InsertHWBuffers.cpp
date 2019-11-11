@@ -8,6 +8,7 @@
 #include "Simplify.h"
 #include "Bounds.h"
 
+// redo
 #include <iostream>
 #include <algorithm>
 using std::ostream;
@@ -393,7 +394,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
 
     Expr visit(const Call *op) {
       std::cout << op->name << " is a call in the replacerefs\n";
-      std::cout << "kernelname=" << kernel.name << " input_streams=" << kernel.input_streams << "\n";
+      //std::cout << "kernelname=" << kernel.name << " input_streams=" << kernel.input_streams << "\n";
         if(op->name == kernel.name || // call to this kernel itself (in update definition)
            std::find(kernel.input_streams.begin(), kernel.input_streams.end(),
                      op->name) != kernel.input_streams.end() // call to an input stencil
@@ -1030,6 +1031,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
         // add read_stream for each input stencil (producers fed to func)
         for (const string& s : kernel.input_streams) {
+          cout << "\t---- Inserting kernel input stream" << s << endl;
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
