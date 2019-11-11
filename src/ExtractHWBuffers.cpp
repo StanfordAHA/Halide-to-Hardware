@@ -1345,7 +1345,6 @@ void set_opt_params(HWXcel *xcel,
       }
 
       //std::cout << "right before " << consumer.name << " inputs\n";
-    // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         //hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
         hwbuffers.at(consumer.name).input_streams.insert(hwbuffer.name);
@@ -1402,6 +1401,10 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   // set output parameters for hwbuffers based on consumers
   set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
 
+  cout << "------ All input streams to " << xcel->name << endl;
+  for (auto in : xcel->input_streams) {
+    cout << "\t" << in << endl;
+  }
 }
 
 vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,

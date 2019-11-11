@@ -34,6 +34,7 @@ using std::endl;
 using std::string;
 using std::vector;
 using std::map;
+using std::set;
 using std::ostringstream;
 using std::ofstream;
 using std::cout;
@@ -4658,6 +4659,37 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     cout << "Original body.." << endl;
     cout << lp->body << endl;
 
+    // This code section is a hack to deal with insertion of
+    // provides in unified buffer code that should not be there
+    CallCollector cc("read_stream");
+    lp->body.accept(&cc);
+
+    ProvideCollector pc;
+    lp->body.accept(&pc);
+
+    set<const Call*> callsToRemove;
+    for (auto rd : cc.calls) {
+      string name = exprString(rd->args[1]);
+      cout << "\tRead: " << name << endl;
+
+      bool remove = false;
+      for (auto provide : pc.provides) {
+        if (provide->name == name) {
+          remove = true;
+          break;
+        }
+      }
+      if (remove) {
+        callsToRemove.insert(rd);
+      }
+    }
+
+    cout << "Should remove..." << endl;
+    for (auto c : callsToRemove) {
+      cout << "\t" << c->name << "(" << c->args[0] << ", " << c->args[1] << ")" << endl;
+    }
+
+    // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args);
     auto hwVars = extractHardwareVars(lp);
     for (auto arg : args) {

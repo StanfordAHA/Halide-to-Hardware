@@ -603,7 +603,7 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
 // Add realize and read_stream calls arround IR s
 Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) {
 
-    cout << "Input to add_hwinput_stencil is.." << endl;
+    cout << "Input to add_hwinput_stencil is: " << input.name << endl;
     cout << s << endl;
     string stencil_name = input.name + ".stencil";
     string stream_name = stencil_name + ".stream";
