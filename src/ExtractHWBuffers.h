@@ -77,13 +77,14 @@ struct OutputStream {
 struct InOutDimSize {
   std::string loop_name;
 
-  Expr input_chunk;
-  Expr input_block;
+  Expr input_chunk;    // replace stencilfor, dispatch, need_hwbuffer, add_hwbuffer,
+                       // transform_hwkernel, xcel inserthwbuffers
+  Expr input_block;    // add_hwbuffer
 
-  Expr output_stencil;
-  Expr output_block;
-  Expr output_min_pos;
-  Expr output_max_pos;
+  Expr output_stencil; // add_hwbuffer, dispatch
+  Expr output_block;   // add_hwbuffer
+  //Expr output_min_pos; // in provide+call shifts
+  //Expr output_max_pos; // not used yet?
 };
 
 struct LogicalDimSize {
@@ -171,8 +172,8 @@ struct HWBuffer {
       dims[i].input_block    = mdims[i].input_block;
       dims[i].output_stencil = mdims[i].output_stencil;
       dims[i].output_block   = mdims[i].output_block;
-      dims[i].output_min_pos = mdims[i].output_min_pos;
-      dims[i].output_max_pos = mdims[i].output_max_pos;
+      //dims[i].output_min_pos = mdims[i].output_min_pos;
+      //dims[i].output_max_pos = mdims[i].output_max_pos;
     }
     
   };

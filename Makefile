@@ -1970,7 +1970,7 @@ $(DISTRIB_DIR)/include/Halide.h: $(INCLUDE_DIR)/Halide.h
 $(DISTRIB_DIR)/tools/GenGen.cpp: $(ROOT_DIR)/tools/GenGen.cpp
 	cp $(ROOT_DIR)/tools/GenGen.cpp $(DISTRIB_DIR)/tools
 
-quick_distrib: $(DISTRIB_DIR)/halide_config.make $(DISTRIB_DIR)/lib/libHalide.a $(DISTRIB_DIR)/include/Halide.h $(DISTRIB_DIR)/tools/GenGen.cpp
+compiler quick_distrib: $(DISTRIB_DIR)/halide_config.make $(DISTRIB_DIR)/lib/libHalide.a $(DISTRIB_DIR)/include/Halide.h $(DISTRIB_DIR)/tools/GenGen.cpp
 
 $(BIN_DIR)/HalideTraceViz: $(ROOT_DIR)/util/HalideTraceViz.cpp $(INCLUDE_DIR)/HalideRuntime.h $(ROOT_DIR)/tools/halide_image_io.h $(ROOT_DIR)/tools/halide_trace_config.h
 	$(CXX) $(OPTIMIZE) -std=c++11 $(filter %.cpp,$^) -I$(INCLUDE_DIR) -I$(ROOT_DIR)/tools -L$(BIN_DIR) -o $@

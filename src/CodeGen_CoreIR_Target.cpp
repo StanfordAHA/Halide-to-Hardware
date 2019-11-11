@@ -369,8 +369,8 @@ bool can_use_rom(Stmt s, string allocname) {
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
-    srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-//srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,
@@ -456,6 +456,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   // add all generators from lakelib which include some cgra libs
   CoreIRLoadLibrary_lakelib(context);
   std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
+  //"new_unified_buffer"};
 
   for (auto gen_name : lakelib_gen_names) {
     gens[gen_name] = "lakelib." + gen_name;
