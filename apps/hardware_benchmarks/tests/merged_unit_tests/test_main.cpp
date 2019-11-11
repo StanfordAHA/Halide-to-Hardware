@@ -1549,7 +1549,6 @@ void small_conv_3_3_not_unrolled_test() {
   Halide::Buffer<uint8_t> inputBuf(tileSize + 2, tileSize + 2);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   indexTestPatternRandom(inputBuf, hwInputBuf);
-  //indexTestPattern2D(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
   
@@ -1571,7 +1570,6 @@ void small_conv_3_3_not_unrolled_test() {
   auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
 
   string accelName = getInputAlias("accel_interface_info.json");
-  //runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
@@ -1614,7 +1612,8 @@ void small_conv_3_3_not_unrolled_test() {
 
 void small_conv_3_3_test() {
   ImageParam input(type_of<uint8_t>(), 2);
-  ImageParam output(type_of<uint8_t>(), 2);
+  //ImageParam output(type_of<uint8_t>(), 2);
+  Func output;
 
   Var x("x"), y("y");
 
@@ -1642,6 +1641,15 @@ void small_conv_3_3_test() {
 
   hw_input.compute_root();
   hw_output.compute_root();
+
+  int inTileSize = 4;
+  int outTileSize = inTileSize - 2;
+
+  hw_output.bound(x, 0, outTileSize);
+  hw_output.bound(y, 0, outTileSize);
+
+  output.bound(x, 0, outTileSize);
+  output.bound(y, 0, outTileSize);
 
   // Creating input data
   Halide::Buffer<uint8_t> inputBuf(4, 4);
@@ -1681,7 +1689,8 @@ void small_conv_3_3_test() {
   // Generate CoreIR
   auto context = hwContext();
   vector<Argument> args{input};
-  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  //auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  auto m = buildModule(true, context, "coreir_conv_3_3", args, "conv_3_3", output);
   cout << "Module = " << endl;
   m->print();
 
@@ -1729,8 +1738,6 @@ void small_conv_3_3_test() {
   deleteContext(context);
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
-
-  //assert(false);
 }
 
 void pointwise_add_test() {
@@ -2972,6 +2979,7 @@ void conv_layer_mobile_test() {
 int main(int argc, char **argv) {
 
   pointwise_add_test();
+  small_conv_3_3_test();
   mod2_test();
   shiftRight_test();
   clamp_test();
@@ -2984,7 +2992,6 @@ int main(int argc, char **argv) {
   
   double_unsharp_test();
   real_unsharp_test();
-  small_conv_3_3_test();
   control_path_test();
   control_path_xy_test();
   
