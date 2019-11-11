@@ -1591,6 +1591,11 @@ class StencilInfoCollector : public IRGraphVisitor {
         for (auto arg : op->args) {
           info.linebuffers.back().push_back(exprString(arg));
         }
+      } else if (op->name == "hwbuffer") {
+        info.hwbuffers.push_back({});
+        for (auto arg : op->args) {
+          info.hwbuffers.back().push_back(exprString(arg));
+        }
       } else if (op->name == "read_stream") {
         string stencilDest = exprString(op->args[1]);
 
