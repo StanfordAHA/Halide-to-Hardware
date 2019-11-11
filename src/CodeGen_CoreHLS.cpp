@@ -202,6 +202,21 @@ std::string coreStr(const CoreIR::Type* w) {
   return CoreIR::toString(*w);
 }
 
+//class CallRemover : public IRGraphMutator {
+  //public:
+    //using IRGraphMutator::visit;
+
+    //const std::set<const Call*> toErase;
+
+    //Stmt visit(const Evaluate* e) override {
+      //Expr b = e->value;
+      //if (isBannedCall(b, toErase)) {
+        //internal_assert(false);
+      //}
+    //}
+
+//};
+
 class HWVarExtractor : public IRGraphVisitor {
   public:
     vector<std::string> hwVars;
