@@ -1736,7 +1736,8 @@ void small_conv_3_3_test() {
 void pointwise_add_test() {
 
     ImageParam input(type_of<uint8_t>(), 2);
-    ImageParam output(type_of<uint8_t>(), 2);
+    Func output;
+    //ImageParam output(type_of<uint8_t>(), 2);
 
     Var x, y;
 
@@ -1744,7 +1745,7 @@ void pointwise_add_test() {
     Func mult("mult");
     hw_input(x, y) = cast<uint16_t>(input(x, y));
 
-    mult(x, y) = hw_input(x,y) * 2;
+    mult(x, y) = hw_input(x,y) + 10;
     hw_output(x, y) = cast<uint8_t>(mult(x, y));
     output(x, y) = hw_output(x, y);
 
@@ -1753,34 +1754,20 @@ void pointwise_add_test() {
     hw_input.compute_root();
     hw_output.compute_root();
 
-    hw_output.tile(x,y, xo,yo, xi,yi, 4, 4)
+    int tileSize = 1;
+    hw_output.tile(x,y, xo,yo, xi,yi, 1, 1)
       .hw_accelerate(xi, xo);
-    hw_output.bound(x, 0, 4);
-    hw_output.bound(y, 0, 4);
+    hw_output.bound(x, 0, 1);
+    hw_output.bound(y, 0, 1);
 
+    output.bound(x, 0, 1);
+    output.bound(y, 0, 1);
     hw_input.stream_to_accelerator();
-    //Func hwInput("hw_input");
-    //Func hwOutput("hw_output");
-    //Func dummyOut("dummy_out");
-    //Func brighter("brighter");
-    
-    //hwInput(x, y) = input(x, y);
-    //brighter(x, y) = hwInput(x, y) + 10;
-    //hwOutput(x, y) = brighter(x, y);
-
-    //dummyOut(x, y) = hwOutput(x, y);
-    //hwInput.compute_root();
-    //hwOutput.compute_root();
-    //dummyOut.compute_root();
-
-    //dummyOut.tile(x, y, xo, yo, xi, yi, 4, 4).hw_accelerate(xi, xo);
-    
-    //hwInput.stream_to_accelerator();
     
     Context* context = newContext();
     vector<Argument> args{input};
     //auto m = buildModule(true, context, "coreir_brighter", args, "brighter", dummyOut);
-    auto m = buildModule(true, context, "coreir_brighter", args, "brighter", hw_output);
+    auto m = buildModule(true, context, "coreir_brighter", args, "brighter", output);
     SimulatorState state(m);
 
     state.setValue("self.reset", BitVector(1, 1));
