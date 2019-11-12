@@ -202,20 +202,43 @@ std::string coreStr(const CoreIR::Type* w) {
   return CoreIR::toString(*w);
 }
 
-//class CallRemover : public IRGraphMutator {
-  //public:
-    //using IRGraphMutator::visit;
+class ContainsCall : public IRGraphVisitor {
+  public:
 
-    //const std::set<const Call*> toErase;
+    using IRGraphVisitor::visit;
 
-    //Stmt visit(const Evaluate* e) override {
-      //Expr b = e->value;
-      //if (isBannedCall(b, toErase)) {
-        //internal_assert(false);
-      //}
-    //}
+    std::set<const Call*> possible;
+    bool found;
 
-//};
+    ContainsCall() : found(false) {}
+
+    void visit(const Call* c) {
+      if (elem(c, possible)) {
+        found = true;
+      }
+      IRGraphVisitor::visit(c);
+    }
+};
+
+class CallRemover : public IRMutator {
+  public:
+    using IRMutator::visit;
+
+    std::set<const Call*> toErase;
+
+    Stmt visit(const Evaluate* e) override {
+      Expr b = e->value;
+      ContainsCall cc;
+      cc.possible = toErase;
+      e->accept(&cc);
+      if (cc.found) {
+        cout << "Found call: " << e->value << endl;
+        internal_assert(false);
+      }
+      return IRMutator::visit(e);
+    }
+
+};
 
 class HWVarExtractor : public IRGraphVisitor {
   public:
@@ -4703,6 +4726,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     for (auto c : callsToRemove) {
       cout << "\t" << c->name << "(" << c->args[0] << ", " << c->args[1] << ")" << endl;
     }
+
+    CallRemover cr;
+    cr.toErase = callsToRemove;
+    auto newBody = cr.mutate(lp->body);
+    //lp->body.accept(&cr);
 
     // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args);
