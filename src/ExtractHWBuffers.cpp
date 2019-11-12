@@ -69,14 +69,14 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
     //output_min_pos.emplace_back(dim.output_min_pos);
   }
 
-  vector<string> input_streams, output_streams;
+  vector<string> input_istreams, output_ostreams;
   map<string, vector<Expr> > ostream_output_mins;
   for (const auto& istream_pair : buffer.istreams) {
-    input_streams.emplace_back(istream_pair.first);
+    input_istreams.emplace_back(istream_pair.first);
   }
   for (const auto& ostream_pair : buffer.ostreams) {
     vector<Expr> consumer_output_min;
-    output_streams.emplace_back(ostream_pair.first);
+    output_ostreams.emplace_back(ostream_pair.first);
     for (const auto& dim : ostream_pair.second.odims) {
       consumer_output_min.emplace_back(dim.output_min_pos);
     }
@@ -103,8 +103,8 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
      << "store level: " << buffer.store_level << std::endl
      << "is_inline=" << buffer.is_inlined << std::endl
      << "is_output=" << buffer.is_output << std::endl
-     << "input_streams=" << input_streams << std::endl
-     << "output_streams=" << output_streams << std::endl;
+     << "input_streams=" << input_istreams << std::endl
+     << "output_streams=" << output_ostreams << std::endl;
   //<< "num_inputs=" << num_inputs << std::endl
   //<< "num_output=" << num_outputs << std::endl;
 
@@ -1513,7 +1513,7 @@ void set_output_params(HWXcel *xcel,
       std::cout << "right before " << consumer.name << " inputs\n";
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
-        hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
         ostream.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
@@ -1571,7 +1571,9 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   xcel->store_level = func.schedule().accelerate_store_level();
   xcel->compute_level = func.schedule().accelerate_compute_level();
   xcel->streaming_loop_levels = get_loop_levels_between(s, func, xcel->store_level, xcel->compute_level);
-  xcel->input_streams = func.schedule().accelerate_inputs();
+  for (auto xcel_input : func.schedule().accelerate_inputs()) {
+    xcel->input_streams.emplace(xcel_input);
+  }
 
   std::cout << "creating an accelerator for " << func.name() << std::endl
             << s << std::endl;

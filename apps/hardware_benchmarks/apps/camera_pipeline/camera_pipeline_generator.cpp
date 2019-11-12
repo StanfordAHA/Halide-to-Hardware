@@ -244,7 +244,7 @@ namespace {
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
-        hw_input.compute_root();
+        hw_input.store_at(hw_output, xo).compute_at(denoised, x);
         hw_output.compute_root();
 
         hw_output.accelerate({hw_input}, xi, xo, {});

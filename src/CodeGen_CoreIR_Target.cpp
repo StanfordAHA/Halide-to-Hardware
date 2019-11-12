@@ -369,8 +369,8 @@ bool can_use_rom(Stmt s, string allocname) {
 CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_CoreIR_C::CPlusPlusHeader),
-    //srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
-srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+    srcc(std::cout, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
+//srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   CodeGen_CoreIR_Target::CodeGen_CoreIR_C::CodeGen_CoreIR_C(std::ostream &s,
                                                             Target target,
@@ -455,8 +455,8 @@ srcc(src_stream, target, CodeGen_CoreIR_C::CPlusPlusImplementation) { }
 
   // add all generators from lakelib which include some cgra libs
   CoreIRLoadLibrary_lakelib(context);
-  std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer"};
-  //"new_unified_buffer"};
+  std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer",
+                                           "new_unified_buffer"};
 
   for (auto gen_name : lakelib_gen_names) {
     gens[gen_name] = "lakelib." + gen_name;
@@ -2651,6 +2651,29 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["unified_buffer"], ub_args);
 
+  string new_ub_name = "new_" + ub_name;
+  nlohmann::json istream_json;
+  
+
+  
+  nlohmann::json ostream_json;
+
+
+
+  
+  CoreIR::Values ub_arg2 = {{"width",                CoreIR::Const::make(context, width)},
+                            {"logical_size",         CoreIR::Const::make(context, logical_json)},
+                            {"ostreams",             CoreIR::Const::make(context, ostream_json)},
+                            {"istreams",             CoreIR::Const::make(context, istream_json)},
+                            {"depth",                CoreIR::Const::make(context, depth)},
+                            {"chain_en",             CoreIR::Const::make(context, chain_en)},
+                            {"chain_idx",            CoreIR::Const::make(context, chain_idx)},
+                            {"init",                 CoreIR::Const::make(context, init)}
+  };
+  //def->addInstance(new_ub_name, gens["new_unified_buffer"], ub_arg2);
+
+  
+
   CoreIR::Values input_reshape_args =
     {{"input_type", CoreIR::Const::make(context, input_ports_type)},
      {"output_type", CoreIR::Const::make(context, context->Flip(context->BitIn()->Arr(bitwidth)->Arr(num_input_ports)))}};
@@ -2972,46 +2995,46 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   const Variable *stream_name_var = op->args[0].as<Variable>();
   internal_assert(stream_name_var);
   string stream_name = stream_name_var->name;
-  size_t num_of_demensions = *as_const_int(op->args[1]);
-  vector<int> stencil_sizes(num_of_demensions);
-  vector<int> stencil_steps(num_of_demensions);
-  vector<int> store_extents(num_of_demensions);
+  size_t num_of_dimensions = *as_const_int(op->args[1]);
+  vector<int> stencil_steps(num_of_dimensions);
+  vector<int> store_extents(num_of_dimensions);
 
   stream << "// unpacking dispatch\n";
-  internal_assert(op->args.size() >= num_of_demensions*3 + 2);
-  for (size_t i = 0; i < num_of_demensions; i++) {
-    stencil_sizes[i] = *as_const_int(op->args[i*3 + 2]);
-    stencil_steps[i] = *as_const_int(op->args[i*3 + 3]);
-    store_extents[i] = *as_const_int(op->args[i*3 + 4]);
+  int idx = 2; // the next param
+  internal_assert(op->args.size() >= num_of_dimensions*2 + 2);
+  for (size_t i = 0; i < num_of_dimensions; i++) {
+    //stencil_sizes[i] = *as_const_int(op->args[i*3 + 2]);
+    stencil_steps[i] = *as_const_int(op->args[idx++]);
+    store_extents[i] = *as_const_int(op->args[idx++]);
   }
 
-  internal_assert(op->args.size() >= num_of_demensions*3 + 3);
-  size_t num_of_consumers = *as_const_int(op->args[num_of_demensions*3 + 2]);
+  internal_assert(op->args.size() >= num_of_dimensions*2 + 3);
+  size_t num_of_consumers = *as_const_int(op->args[idx++]);
   vector<string> consumer_names(num_of_consumers);
   vector<int> consumer_fifo_depth(num_of_consumers);
+  vector<vector<int> > consumer_stencils(num_of_dimensions);
   vector<vector<int> > consumer_offsets(num_of_consumers);
   vector<vector<int> > consumer_extents(num_of_consumers);
 
   stream << "// going through consumers\n";
-  for (const auto &arg : args) {
-    stream << arg << ", ";
-  }
-  stream << std::endl;
   
-  internal_assert(op->args.size() >= num_of_demensions*3 + 3 + num_of_consumers*(2 + 2*num_of_demensions));
+  internal_assert(op->args.size() >= num_of_dimensions*2 + 3 + num_of_consumers*(2 + 3*num_of_dimensions));
   for (size_t i = 0; i < num_of_consumers; i++) {
-    const StringImm *string_imm = op->args[num_of_demensions*3 + 3 + (2 + 2*num_of_demensions)*i].as<StringImm>();
+    const StringImm *string_imm = op->args[idx++].as<StringImm>();
     internal_assert(string_imm);
     consumer_names[i] = string_imm->value;
-    const IntImm *int_imm = op->args[num_of_demensions*3 + 4 + (2 + 2*num_of_demensions)*i].as<IntImm>();
+    const IntImm *int_imm = op->args[idx++].as<IntImm>();
     internal_assert(int_imm);
     consumer_fifo_depth[i] = int_imm->value;
-    vector<int> offsets(num_of_demensions);
-    vector<int > extents(num_of_demensions);
-    for (size_t j = 0; j < num_of_demensions; j++) {
-      offsets[j] = *as_const_int(op->args[num_of_demensions*3 + 5 + (2 + 2*num_of_demensions)*i + 2*j]);
-      extents[j] = *as_const_int(op->args[num_of_demensions*3 + 6 + (2 + 2*num_of_demensions)*i + 2*j]);
+    vector<int> stencilsizes(num_of_dimensions);
+    vector<int> offsets(num_of_dimensions);
+    vector<int > extents(num_of_dimensions);
+    for (size_t j = 0; j < num_of_dimensions; j++) {
+      stencilsizes[j] = *as_const_int(op->args[idx++]);
+      offsets[j] = *as_const_int(op->args[idx++]);
+      extents[j] = *as_const_int(op->args[idx++]);
     }
+    consumer_stencils[i] = stencilsizes;
     consumer_offsets[i] = offsets;
     consumer_extents[i] = extents;
   }
@@ -3064,12 +3087,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   }
 
   // emits for a loop for each dimensions (larger dimension number, outer the loop)
-  for (int i = num_of_demensions - 1; i >= 0; i--) {
+  for (int i = num_of_dimensions - 1; i >= 0; i--) {
     string dim_name = "_dim_" + std::to_string(i);
     do_indent();
     // HLS C: for(int dim = 0; dim <= store_extent - stencil.size; dim += stencil.step)
     stream << "for (int " << dim_name <<" = 0; "
-           << dim_name << " <= " << store_extents[i] - stencil_sizes[i] << "; "
+           << dim_name << " <= " << store_extents[i] - consumer_stencils[0][i] << "; "
            << dim_name << " += " << stencil_steps[i] << ")\n";
 
   }
@@ -3095,11 +3118,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
     //           [&& dim_1 >= consumer_offset_1 && dim_1 <= consumer_offset_1 + consumer_extent_1 - stencil_size_1...])
     do_indent();
     stream << "if (";
-    for (size_t j = 0; j < num_of_demensions; j++) {
+    for (size_t j = 0; j < num_of_dimensions; j++) {
       string dim_name = "_dim_" + std::to_string(j);
       stream << dim_name << " >= " << consumer_offsets[i][j] << " && "
-             << dim_name << " <= " << consumer_offsets[i][j] + consumer_extents[i][j] - stencil_sizes[j];
-      if (j != num_of_demensions - 1)
+             << dim_name << " <= " << consumer_offsets[i][j] + consumer_extents[i][j] - consumer_stencils[i][j];
+      if (j != num_of_dimensions - 1)
         stream << " && ";
     }
     stream << ")\n";

@@ -74,6 +74,18 @@ struct OutputStream {
   std::shared_ptr<HWBuffer> hwref;
 };
 
+struct RMWStream {
+  std::string name;
+  std::vector<InputDimSize> idims;
+  std::vector<OutputDimSize> mdims;
+  std::vector<OutputDimSize> odims;
+  Stmt input_access_pattern;
+  Stmt modify_access_pattern;
+  Stmt output_access_pattern;
+  std::map<std::string, Stride> stride_map;
+  std::shared_ptr<HWBuffer> ohwref;
+};
+
 struct InOutDimSize {
   std::string loop_name;
 
@@ -118,7 +130,7 @@ struct HWBuffer {
   Stmt input_access_pattern;
   Stmt output_access_pattern;
   std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
-  std::vector<std::string> input_streams;  // used when inserting read_stream calls
+  std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
   std::map<std::string, Stride> stride_map;
 
   // dimensions for the hwbuffer
@@ -129,8 +141,9 @@ struct HWBuffer {
   // Constructors
   HWBuffer() : input_stencil(nullptr) { }
 
-  HWBuffer(std::string name, std::vector<MergedDimSize> mdims, std::vector<std::string> loops,
-           int store_index, int compute_index, bool is_inlined, bool is_output) :
+  HWBuffer(std::string name, std::vector<MergedDimSize> mdims,
+           std::vector<std::string> loops, int store_index, int compute_index, bool is_inlined, bool is_output,
+           std::string iname="input", std::string oname="output") :
     name(name), store_level(store_index < 0 ? "" : loops[store_index]),
     compute_level(compute_index < 0 ? "" : loops[compute_index]),
     is_inlined(is_inlined), is_output(is_output) {
@@ -145,24 +158,24 @@ struct HWBuffer {
 
     InputStream istream;
     istream.idims = std::vector<InputDimSize>(mdims.size());
-    istreams["input"] = istream;
     
     OutputStream ostream;
     ostream.odims = std::vector<OutputDimSize>(mdims.size());
-    ostreams["output"] = ostream;
     
     dims = std::vector<InOutDimSize>(mdims.size());
     for (size_t i=0; i<mdims.size(); ++i) {
-      istreams["input"].idims.at(i).loop_name       = mdims.at(i).loop_name;
-      istreams["input"].idims.at(i).input_chunk     = mdims.at(i).input_chunk;
-      istreams["input"].idims.at(i).input_block     = mdims.at(i).input_block;
+      istream.idims.at(i).loop_name       = mdims.at(i).loop_name;
+      istream.idims.at(i).input_chunk     = mdims.at(i).input_chunk;
+      istream.idims.at(i).input_block     = mdims.at(i).input_block;
       
-      ostreams["output"].odims.at(i).loop_name      = mdims.at(i).loop_name;
-      ostreams["output"].odims.at(i).output_stencil = mdims.at(i).output_stencil;
-      ostreams["output"].odims.at(i).output_block   = mdims.at(i).output_block;
-      ostreams["output"].odims.at(i).output_min_pos = mdims.at(i).output_min_pos;
-      ostreams["output"].odims.at(i).output_max_pos = mdims.at(i).output_max_pos;
+      ostream.odims.at(i).loop_name      = mdims.at(i).loop_name;
+      ostream.odims.at(i).output_stencil = mdims.at(i).output_stencil;
+      ostream.odims.at(i).output_block   = mdims.at(i).output_block;
+      ostream.odims.at(i).output_min_pos = mdims.at(i).output_min_pos;
+      ostream.odims.at(i).output_max_pos = mdims.at(i).output_max_pos;
     }
+    istreams[iname] = istream;
+    ostreams[oname] = ostream;
 
     // old way
     dims = std::vector<InOutDimSize>(mdims.size());

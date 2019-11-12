@@ -36,6 +36,11 @@ void check_param(const string paramname, Expr param1, Expr param2) {
   h_assert(param1.defined() && param2.defined(), debug_stream.str());
   h_assert(is_one(simplify(param1 == param2)), debug_stream.str());
 }
+void check_param(const string paramname, int param1, int param2) {
+  std::ostringstream debug_stream;
+  debug_stream << paramname << " not correct: " << param1 << " vs ref=" << param2;
+  h_assert(param1 == param2, debug_stream.str());
+}
 
 std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
                                       const vector<Argument> &args) {
@@ -181,6 +186,25 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
     check_param(hwbuffer.name + " input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
   }
 
+  // Note: the number of consumer streams includes the update
+  //check_param(hwbuffer.name + " number of consumer streams", hwbuffer.ostreams.size(), ref.ostreams.size());
+  
+  for (const auto& ostream_pair : ref.ostreams) {
+    h_assert(hwbuffer.ostreams.count(ostream_pair.first) > 0, hwbuffer.name + " has an ostream the hwbuffer does not have: " + ostream_pair.first);
+    auto& ref_odims = ostream_pair.second.odims;
+    auto& hwbuffer_odims = hwbuffer.ostreams.at(ostream_pair.first).odims;
+  
+    check_param("num of ostream dims", hwbuffer_odims.size(), ref_odims.size());
+    for (size_t i=0; i<ref.dims.size(); ++i) {
+      //std::cout << "output stencil looks like: " << hwbuffer_odims.at(i).output_stencil << " and " << ref_odims.at(i).output_stencil << std::endl;
+      check_param(hwbuffer.name + " output stencil dim" + to_string(i), hwbuffer_odims.at(i).output_stencil, ref_odims.at(i).output_stencil);
+    }
+    for (size_t i=0; i<ref.dims.size(); ++i) {
+      //std::cout << "output block looks like: " << hwbuffer_odims.at(i).output_block << " and " << ref_odims.at(i).output_block << std::endl;
+      check_param(hwbuffer.name + " output block dim" + to_string(i), hwbuffer_odims.at(i).output_block, ref_odims.at(i).output_block);
+    }
+  }
+
   return 0;
 }
 
@@ -243,7 +267,8 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     }
     HWBuffer ref_hwbuffer = HWBuffer("hw_input" + suffix, dims,
                                      loops, 0, 2,
-                                     false, true);
+                                     false, true,
+                                     "", "conv"+suffix);
     std::cout << input_hwbuffer << std::endl;
     int output_value = check_hwbuffer_params(input_hwbuffer, ref_hwbuffer);
 
@@ -320,8 +345,16 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
     std::cout << "done with hwbuffer creation of convchain" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
+    vector<string> buffer_names = vector<string>(num_conv);
     for (size_t i=0; i<num_conv; ++i) {
       string hwbuffer_name = i==0 ? "hw_input" + suffix : "conv" + to_string(i-1) + suffix;
+      buffer_names[i] = hwbuffer_name;
+    }
+    
+    for (size_t i=0; i<num_conv; ++i) {
+      string hwbuffer_name = buffer_names.at(i);
+      string producer_name = i==0 ? "" : buffer_names.at(i-1);
+      string consumer_name = i==num_conv-1 ? "conv"+std::to_string(i)+suffix : buffer_names.at(i+1);
       h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
       auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
       
@@ -347,7 +380,8 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
 
       HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims,
                                        loops, store_index, compute_index,
-                                       false, false);
+                                       false, false,
+                                       producer_name, consumer_name);
       int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
       if (output_value != 0) { return output_value; }
     }
@@ -450,11 +484,26 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     std::cout << "done with hwbuffer creation of forked" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
+    vector<string> buffer_names = vector<string>(num_conv + 2);
     for (size_t i=0; i<num_conv+2; ++i) {
       string hwbuffer_name =
         i==0 ? "hw_input" + suffix :
         i==1 ? "conv_init" + suffix :
         "conv" + to_string(i-2) + suffix;
+      buffer_names[i] = hwbuffer_name;
+    }
+
+    for (size_t i=0; i<num_conv+2; ++i) {
+      string hwbuffer_name = buffer_names.at(i);
+      string producer_name =
+        i==0 ? "" :
+        i==1 ? buffer_names.at(0) :
+        buffer_names.at(1);
+      string consumer_name =
+        i==0 ? buffer_names.at(1) :
+        i==1 ? buffer_names.at(2) :
+        "conv_last"+suffix;
+      
       h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
       auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
 
@@ -488,7 +537,8 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
 
       HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims,
                                        loops, store_index, compute_index,
-                                       false, false);
+                                       false, false,
+                                       producer_name, consumer_name);
       int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
       if (output_value != 0) { return output_value; }
     }
@@ -507,7 +557,7 @@ int main(int argc, char **argv) {
 
     //if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(2, 64) != 0) { return -1; }
-    //if (conv_hwbuffer_test(3, 64) != 0) { return -1; }
+    if (conv_hwbuffer_test(3, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(5, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 16) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
@@ -533,7 +583,7 @@ int main(int argc, char **argv) {
 
     //if (forked_pipeline_hwbuffer_test(3, {1, 1}, 3, 64) != 0) { return -1; }
     //if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
-    if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
+    //if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
     
     printf("Success!\n");
     return 0;

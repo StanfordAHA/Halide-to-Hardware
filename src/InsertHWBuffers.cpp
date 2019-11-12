@@ -570,8 +570,8 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
     vector<Expr> dispatch_args({stream_var, (int)kernel.dims.size()});
     
     for (size_t i = 0; i < kernel.dims.size(); i++) {
-        dispatch_args.push_back(kernel.dims[i].output_stencil); // move for one of each stream
-        dispatch_args.push_back(kernel.dims[i].input_chunk);
+        //dispatch_args.push_back(kernel.dims[i].output_stencil);
+        dispatch_args.push_back(kernel.dims[i].input_chunk); // move for one of each stream
         dispatch_args.push_back(kernel.ldims[i].logical_size);
         //dispatch_args.push_back(kernel.dims[i].logical_size);
         //Expr store_extent = simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1);
@@ -609,6 +609,7 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
     dispatch_args.push_back((int)kernel.ostreams.size());
     std::cout << "   going to " << kernel.ostreams.size() << " consumers: ";
     for (const auto& p : kernel.ostreams) {
+      auto ostream = p.second;
       auto cptr = p.second.hwref;
       std::cout << p.first << "(" << cptr->ldims.size() << " dims)" << ", \n";
       dispatch_args.push_back(p.first);
@@ -621,6 +622,7 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
         //dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos)); FIXME
         //dispatch_args.push_back(p.second->dims.at(i).logical_min);
         //dispatch_args.push_back(p.second->dims.at(i).logical_size);
+        dispatch_args.push_back(ostream.odims.at(i).output_stencil);
         dispatch_args.push_back(cptr->ldims.at(i).logical_min);
         dispatch_args.push_back(cptr->ldims.at(i).logical_size);
           
@@ -767,16 +769,25 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           hwbuffer_args.push_back(kernel.dims.at(i).input_block);
         }
-        // FIXME: we should push the output stencil for each consumer
-        for (size_t i = 0; i < kernel.dims.size(); i++) {
-          hwbuffer_args.push_back(kernel.dims.at(i).output_stencil);
-        }
-        // FIXME: we should push the output block for each consumer
-        for (size_t i = 0; i < kernel.dims.size(); i++) {
-          std::cout << "output_blk" << i << " = " << kernel.dims.at(i).output_block << "\n";
-          hwbuffer_args.push_back(kernel.dims.at(i).output_block);
-        }
 
+        // we should push the output stencil for each consumer
+        int num_ostreams = 0;
+        //hwbuffer_args.push_back(1); // number of ostreams
+        for (const auto& ostream_p : kernel.ostreams) {
+          if (ostream_p.first != kernel.name) { // skip updates for now
+            const auto& ostream = ostream_p.second;
+            for (size_t i = 0; i < ostream.odims.size(); i++) {
+              hwbuffer_args.push_back(ostream.odims.at(i).output_stencil);
+            }
+            for (size_t i = 0; i < ostream.odims.size(); i++) {
+              std::cout << "output_blk" << i << " = " << ostream.odims.at(i).output_block << "\n";
+              hwbuffer_args.push_back(ostream.odims.at(i).output_block);
+            }
+            num_ostreams += 1;
+          }
+        }
+        internal_assert(num_ostreams < 2);
+        
         std::cout << "doing some addressing for kernel=" << kernel.name << "\n";
         for (const auto& string_int_pair : kernel.stride_map) {
           std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
