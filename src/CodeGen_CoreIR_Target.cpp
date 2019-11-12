@@ -2374,6 +2374,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     stream << input_block[i] << " ";
   }
 
+  int num_consumers = id_const_value(op->args[cur_idx++]);
+  internal_assert(num_consumers == 1);
+  string output_name =   op->args[cur_idx++].as<Variable>()->name;
+
   CoreIR::Type* output_stencil_type = context->Bit()->Arr(bitwidth);
   vector<size_t> output_stencil(num_dims);
   stream << " output stencil=";

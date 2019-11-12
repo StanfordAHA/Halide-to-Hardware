@@ -772,9 +772,10 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
 
         // we should push the output stencil for each consumer
         int num_ostreams = 0;
-        //hwbuffer_args.push_back(1); // number of ostreams
+        hwbuffer_args.push_back(1); // number of ostreams
         for (const auto& ostream_p : kernel.ostreams) {
           if (ostream_p.first != kernel.name) { // skip updates for now
+            hwbuffer_args.push_back(ostream_p.first);
             const auto& ostream = ostream_p.second;
             for (size_t i = 0; i < ostream.odims.size(); i++) {
               hwbuffer_args.push_back(ostream.odims.at(i).output_stencil);
