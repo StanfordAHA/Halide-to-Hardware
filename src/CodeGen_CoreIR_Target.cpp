@@ -2376,7 +2376,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   int num_consumers = id_const_value(op->args[cur_idx++]);
   internal_assert(num_consumers == 1);
-  string output_name =   op->args[cur_idx++].as<Variable>()->name;
+  string output_name =   op->args[cur_idx++].as<StringImm>()->value;
 
   CoreIR::Type* output_stencil_type = context->Bit()->Arr(bitwidth);
   vector<size_t> output_stencil(num_dims);
@@ -2397,8 +2397,26 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   }
   stream << "\n";
 
-  size_t num_streaming_dims = id_const_value(op->args[cur_idx]);
-  cur_idx++;
+  int num_updates = id_const_value(op->args[cur_idx++]);
+  vector<size_t> modify_stencil(num_dims);
+  vector<size_t> modify_block(num_dims);
+  for (int i=0; i<num_updates; ++i) {
+    stream << " modify stencil=";
+    for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+      modify_stencil[i] = id_const_value(op->args[cur_idx]);
+      stream << modify_stencil[i] << " ";
+    }
+    std::cout << std::endl;
+
+    stream << " modify=";
+    for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+      modify_block[i] = id_const_value(op->args[cur_idx]);
+      stream << modify_block[i] << " ";
+    }
+    stream << "\n";
+  }
+  
+  size_t num_streaming_dims = id_const_value(op->args[cur_idx++]);
   
   CoreIR::Type* range_type = context->Bit();
   vector<size_t> access_ranges(num_streaming_dims);
@@ -2657,13 +2675,24 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   string new_ub_name = "new_" + ub_name;
   nlohmann::json istream_json;
-  
-
+  istream_json["input0"]["input_stride"] = input_stride;
+  istream_json["input0"]["input_range"] = input_range;
+  istream_json["input0"]["input_starting_addrs"] = input_starting_addrs;
+  istream_json["input0"]["input_chunk"] = input_chunk;
+  istream_json["input0"]["input_block"] = input_block;
+  istream_json["input0"]["num_input_ports"] = num_input_ports;
   
   nlohmann::json ostream_json;
-
-
-
+  ostream_json[output_name]["output_stride"] = access_strides;
+  ostream_json[output_name]["output_range"] = access_ranges;
+  ostream_json[output_name]["output_starting_addrs"] = output_starting_addrs;
+  ostream_json[output_name]["output_stencil"] = output_stencil;
+  ostream_json[output_name]["output_block"] = output_block;
+  ostream_json[output_name]["num_stencil_acc_dim"] = 0;
+  ostream_json[output_name]["stencil_width"] = {1};                   // default: used only after hw mapping
+  ostream_json[output_name]["iter_cnt"] = 1;                          // remove: this is the product of all ranges
+  ostream_json[output_name]["num_loops"] = dimensionality;            // remove: aka dimensionality, this can be inferred perhaps from the length of each ostream?
+  ostream_json[output_name]["num_output_ports"] = num_output_ports;   // remove: this is the product of output block dims
   
   CoreIR::Values ub_arg2 = {{"width",                CoreIR::Const::make(context, width)},
                             {"logical_size",         CoreIR::Const::make(context, logical_json)},

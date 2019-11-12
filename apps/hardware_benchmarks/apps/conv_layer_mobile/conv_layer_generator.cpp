@@ -104,13 +104,12 @@ public:
             .reorder(c, x, y, k);
           
           //schedule dw conv
-          dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
-            .reorder(x, y, c);
+          dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo);
+            //.reorder(x, y, c);
           
           //dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
           //dw_conv.compute_at(hw_output, xi).store_at(hw_output, xo)
           //dw_conv.linebuffer()
-
 
           dw_conv.update()
             .reorder(r_dw.x, r_dw.y, x, y, c)
