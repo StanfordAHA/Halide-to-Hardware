@@ -3,7 +3,6 @@
 #include <limits>
 #include <algorithm>
 
-// Comment
 #include "CodeGen_CoreHLS.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
@@ -232,8 +231,9 @@ class CallRemover : public IRMutator {
       cc.possible = toErase;
       e->accept(&cc);
       if (cc.found) {
-        cout << "Found call: " << e->value << endl;
-        internal_assert(false);
+        return Evaluate::make(0);
+        //cout << "Found call: " << e->value << endl;
+        //internal_assert(false);
       }
       return IRMutator::visit(e);
     }
@@ -4613,6 +4613,52 @@ void computeDelaysForAppGraph(AppGraph& appGraph) {
 
 }
 
+class UselessReadRemover : public IRMutator {
+  public:
+    using IRMutator::visit;
+
+    Stmt visit(const For* lp) {
+      // This code section is a hack to deal with insertion of
+      // provides in unified buffer code that should not be there
+      CallCollector cc("read_stream");
+      lp->body.accept(&cc);
+
+      ProvideCollector pc;
+      lp->body.accept(&pc);
+
+      set<const Call*> callsToRemove;
+      for (auto rd : cc.calls) {
+        string name = exprString(rd->args[1]);
+        cout << "\tRead: " << name << endl;
+
+        bool remove = false;
+        for (auto provide : pc.provides) {
+          if (provide->name == name) {
+            remove = true;
+            break;
+          }
+        }
+        if (remove) {
+          callsToRemove.insert(rd);
+        }
+      }
+
+      cout << "Should remove..." << endl;
+      for (auto c : callsToRemove) {
+        cout << "\t" << c->name << "(" << c->args[0] << ", " << c->args[1] << ")" << endl;
+      }
+
+      CallRemover cr;
+      cr.toErase = callsToRemove;
+      auto newBody = cr.mutate(lp->body);
+      cout << "New body.." << endl;
+      cout << newBody << endl;
+
+      return For::make(lp->name, lp->min, lp->extent, lp->for_type, lp->device_api, newBody);
+
+    }
+};
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -4669,6 +4715,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   stmt = preprocessHWLoops(stmt);
 
+  UselessReadRemover readRemover;
+  stmt = readRemover.mutate(stmt);
+  
   StoreCollector stCollector;
   stmt.accept(&stCollector);
   printCollectedStores(stCollector);
@@ -4697,40 +4746,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     cout << "Original body.." << endl;
     cout << lp->body << endl;
 
-    // This code section is a hack to deal with insertion of
-    // provides in unified buffer code that should not be there
-    CallCollector cc("read_stream");
-    lp->body.accept(&cc);
-
-    ProvideCollector pc;
-    lp->body.accept(&pc);
-
-    set<const Call*> callsToRemove;
-    for (auto rd : cc.calls) {
-      string name = exprString(rd->args[1]);
-      cout << "\tRead: " << name << endl;
-
-      bool remove = false;
-      for (auto provide : pc.provides) {
-        if (provide->name == name) {
-          remove = true;
-          break;
-        }
-      }
-      if (remove) {
-        callsToRemove.insert(rd);
-      }
-    }
-
-    cout << "Should remove..." << endl;
-    for (auto c : callsToRemove) {
-      cout << "\t" << c->name << "(" << c->args[0] << ", " << c->args[1] << ")" << endl;
-    }
-
-    CallRemover cr;
-    cr.toErase = callsToRemove;
-    auto newBody = cr.mutate(lp->body);
-    //lp->body.accept(&cr);
 
     // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args);
