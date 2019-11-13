@@ -321,5 +321,41 @@ class SubstituteInConstants : public IRMutator {
 Stmt substituteInConstants(Stmt& s) {
   return SubstituteInConstants().mutate(s);
 }
+
+class ExpandExprNoVar : public IRMutator {
+    using IRMutator::visit;
+    const Scope<Expr> &scope;
+
+    Expr visit(const Variable *var) {
+        if (scope.contains(var->name)) {
+          debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          //std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          if (var->name == "hw_output.s0.x.xi") { return Expr(0); }
+          if (var->name == "hw_output.s0.y.yi") { return Expr(0); }
+          return Expr(0);
+          //return scope.get(var->name);
+
+
+        } else {
+          std::cout << "Scope does not contain  " << var->name << "\n";
+          return var;
+        }
+    }
+
+public:
+    ExpandExprNoVar(const Scope<Expr> &s) : scope(s) {}
+
+};
+
+// Perform all the substitutions in a scope
+Expr expand_expr_no_var(Expr e, const Scope<Expr> &scope) {
+    ExpandExprNoVar ee(scope);
+    Expr result = ee.mutate(e);
+    debug(4) << "Expanded " << e << " into " << result << "\n";
+    return result;
+}
+
+
+
   }
 }
