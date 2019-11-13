@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "Bounds.h"
 #include "IR.h"
 #include "Scope.h"
 
@@ -19,6 +20,11 @@ namespace Halide {
     bool call_at_level(Stmt s, std::string var);
     Expr expand_expr(Expr e, const Scope<Expr> &scope);
     Stmt expand_expr(Stmt e, const Scope<Expr> &scope);
+    void find_output_scope(Stmt s, Function func,
+        LoopLevel compute_level,
+        Scope<Expr> &scope);
+    Box find_output_bounds(Stmt s, Function func,
+        LoopLevel compute_level);
   }
 }
 #endif

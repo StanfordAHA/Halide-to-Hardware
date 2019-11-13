@@ -1,9 +1,12 @@
 #include "HWUtils.h"
 
+#include "Func.h"
 #include "IRVisitor.h"
 #include "IRMutator.h"
 #include "IROperator.h"
+#include "Schedule.h"
 #include "Substitute.h"
+
 
 using namespace std;
 
@@ -171,5 +174,54 @@ Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
     debug(3) << "Expanded " << e << " into " << result << "\n";
     return result;
 }
+
+class FindOutputBounds : public IRVisitor {
+  LoopLevel compute_level;
+  Function func;
+
+  using IRVisitor::visit;
+
+  void visit(const For *op) override {
+    //std::cout << "visiting " << op->name << std::endl;
+    if (compute_level.match(op->name)) {
+      Box box = box_provided(op->body, func.name());
+      output_bounds = box;
+    }
+    IRVisitor::visit(op);
+  }
+
+public:
+  Box output_bounds;
+  
+  FindOutputBounds(LoopLevel compute, Function func)
+    : compute_level(compute), func(func) {
+    std::cout << "func trying to find output bounds: " << func.name()
+              << " " << compute.var().name() << std::endl;
+  }
+};
+
+Box find_output_bounds(Stmt s, Function func,
+                       LoopLevel compute_level) {
+  FindOutputBounds fob(compute_level, func);
+  s.accept(&fob);
+  return fob.output_bounds;
+}
+
+void find_output_scope(Stmt s, Function func,
+                       LoopLevel compute_level,
+                       Scope<Expr> &scope) {
+  FindOutputBounds fob(compute_level, func);
+  s.accept(&fob);
+  auto box = fob.output_bounds;
+  
+  for (int i = 0; i < func.dimensions(); i++) {
+    string stage_name = func.name() + ".s0." + func.args()[i];
+    scope.push(stage_name + ".min", box[i].min);
+    std::cout << stage_name << ".min being set to " << box[i].min << std::endl;
+    scope.push(stage_name + ".max", box[i].max);
+  }
+}
+
+
   }
 }
