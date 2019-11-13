@@ -442,6 +442,7 @@ SOURCE_FILES = \
   Generator.cpp \
   HexagonOffload.cpp \
   HexagonOptimize.cpp \
+	HWUtils.cpp \
   ImageParam.cpp \
   InferArguments.cpp \
   InjectHostDevBufferCopies.cpp \

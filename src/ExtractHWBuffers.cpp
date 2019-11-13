@@ -114,27 +114,6 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
    return dims;
 }
 
-std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
-    std::vector<std::string> tokens;
-    size_t prev = 0, pos = 0;
-    std::string token;
-    // copied from https://stackoverflow.com/a/7621814
-    while ((pos = line.find_first_of(delimiter, prev)) != std::string::npos) {
-        if (pos > prev) {
-            tokens.emplace_back(line.substr(prev, pos - prev));
-        }
-        prev = pos + 1;
-    }
-    if (prev < line.length()) tokens.emplace_back(line.substr(prev, std::string::npos));
-    // remove empty ones
-    std::vector<std::string> result;
-    result.reserve(tokens.size());
-    for (auto const &t : tokens)
-        if (!t.empty()) result.emplace_back(t);
-    return result;
-}
-
-
 int id_const_value(const Expr e) {
   if (const IntImm* e_int = e.as<IntImm>()) {
     return e_int->value;
@@ -674,44 +653,30 @@ class FindInputStencil : public IRVisitor {
   }
 
   void visit(const For *op) override {
-    //std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     if (op->name == compute_level) {
-      //std::cout << op->body << std::endl;
       auto box_write = box_provided(op->body, var);
       auto interval = box_write;
       input_chunk_box = vector<Expr>(interval.size());
 
-      //std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
-      // save the bounds values in scope
-      //Scope<Expr> stencil_bounds;
-      //std::cout << "doing findinputstencil for " << var << " " << stencil_bounds << std::endl;
-      //std::cout << op->body << std::endl;
       if (func.name() == var) {
         for (size_t i = 0; i < box_write.size(); i++) {
           string stage_name = func.name() + ".s0." + func.args()[i];
           stencil_bounds.push(stage_name + ".min", box_write[i].min);
           stencil_bounds.push(stage_name + ".max", box_write[i].max);
-          //std::cout << "this is stage: " << stage_name << " " << stencil_bounds << std::endl;
         }
       }
 
       output_min_pos_box = vector<Expr>(interval.size());
       
-      //std::cout << "HWBuffer Parameter: " << var << " input chunk size - "
-                //<< "box extent=[";
-
       for (size_t dim=0; dim<interval.size(); ++dim) {
         found_stencil = true;
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         input_chunk_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
-        //std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
         output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
-        //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
-      //std::cout << "]\n";
 
     }
     IRVisitor::visit(op);
@@ -1414,10 +1379,6 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
   
   s = SubstituteInConstants().mutate(s);
   
-  for (auto stage : inlined_stages) {
-    //std::cout << "stage includes " << stage.name << std::endl;
-  }
-    
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
     
