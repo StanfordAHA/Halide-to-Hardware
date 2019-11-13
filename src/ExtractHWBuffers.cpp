@@ -160,7 +160,6 @@ public:
   Function func;
   FindOutputStencil(string v, Function func, string cl) :
     var(v), compute_level(cl), found_stencil(false), func(func) {
-    //std::cout << "looking to find " << v << " output stencil where compute_level=" << compute_level << std::endl;
   }
 };
 
@@ -174,7 +173,6 @@ class ReplaceOutputAccessPatternRanges : public IRMutator {
   Stmt visit(const For *old_op) override {
     Expr new_extent;
     if (count < max_count) {
-      //new_extent = kernel.dims.at(count).logical_size;
       new_extent = kernel.ldims.at(count).logical_size;
       count += 1;
     } else {
@@ -428,40 +426,6 @@ map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &en
 }
 
 
-// Because storage folding runs before simplification, it's useful to
-// at least substitute in constants before running it, and also simplify the RHS of Let Stmts.
-class SubstituteInConstants : public IRMutator {
-    using IRMutator::visit;
-
-    Scope<Expr> scope;
-    Stmt visit(const LetStmt *op) override {
-        Expr value = simplify(mutate(op->value));
-
-        Stmt body;
-        if (is_const(value)) {
-            ScopedBinding<Expr> bind(scope, op->name, value);
-            body = mutate(op->body);
-        } else {
-            body = mutate(op->body);
-        }
-
-        if (body.same_as(op->body) && value.same_as(op->value)) {
-            return op;
-        } else {
-            return LetStmt::make(op->name, value, body);
-        }
-    }
-
-    Expr visit(const Variable *op) override {
-        if (scope.contains(op->name)) {
-            return scope.get(op->name);
-        } else {
-            return op;
-        }
-    }
-};
-
-
 // Second pass through hwbuffers, setting some more parameters, including the consumer outputs.
 void set_opt_params(HWXcel *xcel, 
                     const map<string, Function> &env,
@@ -537,7 +501,6 @@ void set_opt_params(HWXcel *xcel,
 
     // HWBuffer Parameter: bool is_inlined;
     if (cur_func.schedule().is_accelerator_input() ||
-        //(cur_func.schedule().compute_level() != xcel->store_level &&
         (cur_func.schedule().compute_level().match(xcel->compute_level) &&
          cur_func.schedule().store_level().match(xcel->store_level))) {
       hwbuffer.is_inlined = false;
@@ -551,7 +514,6 @@ void set_opt_params(HWXcel *xcel,
       const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[j]];
 
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
-        //hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
         hwbuffers.at(consumer.name).input_streams.insert(hwbuffer.name);
       } else {
       }
@@ -562,7 +524,6 @@ void set_opt_params(HWXcel *xcel,
       string consumer_name;
       if (consumer.name != hwbuffer.name) {
         if (consumer_buffer.is_inlined) {
-          //internal_assert(consumer_buffer.consumer_buffers.size() == 1) << "The inlined kernel " << consumer.name << " has more than one consumer.\n";
           consumer_name = consumer_buffer.consumer_buffers.begin()->first;
         } else {
           consumer_name = consumer_buffer.name;
@@ -572,9 +533,6 @@ void set_opt_params(HWXcel *xcel,
       }
 
       hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
-
-      //FindOutputStencil fos(hwbuffer.name, cur_func, consumer_buffer.compute_level);
-      //FindOutputStencil fos(hwbuffer.name, cur_func, xcel->compute_level.lock().func());
 
       std::string func_compute_level = xcel->streaming_loop_levels.at(xcel->streaming_loop_levels.size()-1);
       const FuncSchedule &sched = cur_func.schedule();
@@ -601,11 +559,8 @@ void set_opt_params(HWXcel *xcel,
       }
       
       for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
-        //hwbuffer.dims.at(idx).input_chunk = hwbuffer.name == "hw_input" ? 3 : consumer_sliding_stencils->input_chunk_box.at(idx);
         hwbuffer.dims.at(idx).input_chunk = 1;
         if (hwbuffer.dims.size() > idx) {
-        //if (fis.found_stencil) {
-          //hwbuffer.dims.at(idx).input_chunk = fis.input_chunk_box.at(idx);
           hwbuffer.dims.at(idx).input_chunk = hwbuffer.dims.at(idx).input_block;
         }
         
@@ -614,65 +569,25 @@ void set_opt_params(HWXcel *xcel,
           
           if (is_zero(hwbuffer.dims.at(idx).output_min_pos)) { // alternatively, not output
             hwbuffer.dims.at(idx).output_min_pos = consumer_buffer.dims.at(idx).output_min_pos;
-
-            //if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
-            //  std::cout << "old min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
-            //  hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
-            //  std::cout << "new min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
-            //}
           }
           
-          //std::cout << "replaced min pos for " << hwbuffer.name << " " << idx << " with "
-                    //<< hwbuffer.dims.at(idx).output_min_pos << "\n";
-          //std::cout << consumer_bounds << std::endl;
-          if (!consumer_buffer.is_output) {
-            //std::cout << simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds)) << std::endl;
-          }
-          //if (consumer_bounds) {
-          //  std::cout << " consumer_bounds=" << consumer_bounds[i].min << " = " 
-          //            << simplify(expand_expr(consumer_bounds[i].min, stencil_bounds)) << std::endl;
-          //}
         }
 
-        //if (hwbuffer.name == "hw_input") {
-        //  hwbuffer.dims.at(idx).output_min_pos = b[i].min;
-        //}
-        
-        //hwbuffer.dims.at(idx).output_stencil = consumer_sliding_stencils->output_stencil_box.at(idx);
-        //if (true) {
         if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
           hwbuffer.dims.at(idx).output_block = fos.output_stencil_box.at(idx);
-          //std::cout << "replaced output stencil for " << hwbuffer.name << " based on consumer " << consumer.name << std::endl;
-          //std::cout << "output min position is: " << fos.output_min_pos_box.at(idx) << std::endl;
-
-          //hwbuffer.dims.at(idx).output_stencil = hwbuffer.dims.at(idx).output_block;
-          //if (!hwbuffer.dims.at(idx).output_min_pos.same_as(fos.output_min_pos_box.at(idx))) {
-          //  std::cout << "old min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
           if (!consumer_buffer.is_output) {
             hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
           }
-          //  std::cout << "new min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
-          //}
         } else {
-          //std::cout << "couldn't find that output stencil thing\n";
         }
 
-        //hwbuffer.dims.at(idx).output_min_pos = simplify(hwbuffer.dims.at(idx).output_min_pos);
-        //if (!consumer_buffer.is_output) {
         hwbuffer.dims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
         hwbuffer.dims.at(idx).output_max_pos = simplify(expand_expr(consumer_bounds[idx].max, stencil_bounds));
-        //std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
         auto loop_range = simplify(expand_expr(consumer_bounds[idx].max - consumer_bounds[idx].min + 1, stencil_bounds));
-        //std::cout << "  range would/should be: " << loop_range << std::endl;
-
-        //std::cout << "replaced input=" << hwbuffer.dims.at(idx).input_chunk
-                  //<< " and output=" << hwbuffer.dims.at(idx).output_stencil << std::endl;
       }
 
-      //std::cout << "right before " << consumer.name << " inputs\n";
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
-        //hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
         hwbuffers.at(consumer.name).input_streams.insert(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
@@ -703,7 +618,6 @@ void set_opt_params(HWXcel *xcel,
   }
   
 }
-
 
 void extract_hw_xcel_top_parameters(Stmt s, Function func,
                                     const map<string, Function> &env,
@@ -737,8 +651,9 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
   vector<HWXcel> xcels;
-  
-  s = SubstituteInConstants().mutate(s);
+ 
+  s = substituteInConstants(s);
+  //s = SubstituteInConstants().mutate(s);
   
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
@@ -749,7 +664,6 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       continue;
     }
     
-    //std::cout << "Found accelerate function " << func.name() << "\n";
     LoopLevel store_locked = func.schedule().store_level().lock();
     string store_varname =
       store_locked.is_root() ? "root" :
@@ -757,7 +671,6 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       store_locked.var().name();
 
     debug(3) << "Found accelerate function " << func.name() << "\n";
-    //std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";
     HWXcel xcel;
     extract_hw_xcel_top_parameters(s, func, env, inlined_stages, &xcel);

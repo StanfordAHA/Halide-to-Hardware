@@ -351,6 +351,7 @@ public:
 };
 
 
+Stmt substituteInConstants(Stmt& s);
   }
 }
 #endif

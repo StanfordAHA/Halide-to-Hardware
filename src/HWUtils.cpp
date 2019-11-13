@@ -283,5 +283,43 @@ vector<string> get_loop_levels_between(Stmt s, Function func,
 }
 
 
+
+// Because storage folding runs before simplification, it's useful to
+// at least substitute in constants before running it, and also simplify the RHS of Let Stmts.
+class SubstituteInConstants : public IRMutator {
+    using IRMutator::visit;
+
+    Scope<Expr> scope;
+    Stmt visit(const LetStmt *op) override {
+        Expr value = simplify(mutate(op->value));
+
+        Stmt body;
+        if (is_const(value)) {
+            ScopedBinding<Expr> bind(scope, op->name, value);
+            body = mutate(op->body);
+        } else {
+            body = mutate(op->body);
+        }
+
+        if (body.same_as(op->body) && value.same_as(op->value)) {
+            return op;
+        } else {
+            return LetStmt::make(op->name, value, body);
+        }
+    }
+
+    Expr visit(const Variable *op) override {
+        if (scope.contains(op->name)) {
+            return scope.get(op->name);
+        } else {
+            return op;
+        }
+    }
+};
+
+
+Stmt substituteInConstants(Stmt& s) {
+  return SubstituteInConstants().mutate(s);
+}
   }
 }
