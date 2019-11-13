@@ -328,8 +328,6 @@ class HWBuffers : public IRMutator {
         } else {
           // look for a sliding window that can be used in a line buffer
 
-          //std::cout << "Doing sliding window analysis on realization of " << op->name << "\n";
-
           // use sliding window to get stencil sizes
           // Parameters 1 and 2
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
@@ -351,7 +349,6 @@ class HWBuffers : public IRMutator {
 
           auto boxes_read = boxes_required(new_body);
 
-          //std::cout << "HWBuffer Parameter: " << op->name << " has Total box of size [";
           size_t i_max = boxes_read[op->name].size();
           // Parameter 6
           auto total_buffer_box = vector<Expr>(i_max);
@@ -653,7 +650,6 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
   vector<HWXcel> xcels;
  
   s = substituteInConstants(s);
-  //s = SubstituteInConstants().mutate(s);
   
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {

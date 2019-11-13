@@ -15,20 +15,13 @@
 #include <vector>
 #include <iostream>
 
+#include "HWStencil.h"
 #include "IR.h"
 #include "ExtractHWKernelDAG.h"
 #include "SlidingWindow.h"
 
 namespace Halide {
 namespace Internal {
-
-struct Stride {
-  int stride;
-  bool is_inverse;
-  Stride(int stride=0, bool is_inverse=false) :
-    stride(stride), is_inverse(is_inverse) {}
-
-};
 
 struct MergedDimSize {
   std::string loop_name;
