@@ -1,5 +1,7 @@
 #include "HWUtils.h"
 
+using namespace std;
+
 namespace Halide {
   namespace Internal {
 
@@ -23,6 +25,30 @@ std::vector<std::string> get_tokens(const std::string &line, const std::string &
     return result;
 }
 
+
+int id_const_value(const Expr e) {
+  if (const IntImm* e_int = e.as<IntImm>()) {
+    return e_int->value;
+
+  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    return e_uint->value;
+
+  } else {
+    return -1;
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
 
   }
 }

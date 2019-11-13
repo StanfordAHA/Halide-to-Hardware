@@ -4,6 +4,7 @@
 #include "Bounds.h"
 #include "Debug.h"
 #include "Func.h"
+#include "HWUtils.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "IRPrinter.h"
@@ -34,18 +35,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
 };
 
 std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec) {
-  os << "[";
-  for (size_t i=0; i<vec.size(); ++i) {
-    os << vec.at(i);
-    if (i < vec.size() - 1) {
-      os << ",";
-    }
-  }
-  os << "]";
-  return os;
-};
-
-std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
   os << "[";
   for (size_t i=0; i<vec.size(); ++i) {
     os << vec.at(i);
@@ -112,18 +101,6 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
    }
    
    return dims;
-}
-
-int id_const_value(const Expr e) {
-  if (const IntImm* e_int = e.as<IntImm>()) {
-    return e_int->value;
-
-  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-    return e_uint->value;
-
-  } else {
-    return -1;
-  }
 }
 
 namespace {
@@ -544,7 +521,7 @@ public:
   ReplaceForBounds() {}
 };
 
-
+// Rebuild
 class FindOutputStencil : public IRVisitor {
   using IRVisitor::visit;
   string var;

@@ -207,9 +207,6 @@ std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, 
                                             const std::vector<BoundsInference_Stage> &inlined_stages);
 
 
-std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec);
-int id_const_value(const Expr e);
-std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);
 
 
 }  // namespace Internal

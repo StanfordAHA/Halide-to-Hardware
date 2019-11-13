@@ -3,6 +3,7 @@
 #include "IROperator.h"
 #include "Scope.h"
 #include "Debug.h"
+#include "HWUtils.h"
 #include "Substitute.h"
 #include "IRPrinter.h"
 #include "Simplify.h"
