@@ -299,6 +299,58 @@ public:
   ReplaceForBounds() {}
 };
 
+class FindInputStencil : public IRVisitor {
+  using IRVisitor::visit;
+  string var;
+  Scope<Expr> scope;
+  string compute_level;
+
+  // keep track of lets to later replace variables with constants
+  void visit(const LetStmt *op) override {
+      ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
+      IRVisitor::visit(op);
+  }
+
+  void visit(const For *op) override {
+
+    if (op->name == compute_level) {
+      auto box_write = box_provided(op->body, var);
+      auto interval = box_write;
+      input_chunk_box = vector<Expr>(interval.size());
+
+      if (func.name() == var) {
+        for (size_t i = 0; i < box_write.size(); i++) {
+          string stage_name = func.name() + ".s0." + func.args()[i];
+          stencil_bounds.push(stage_name + ".min", box_write[i].min);
+          stencil_bounds.push(stage_name + ".max", box_write[i].max);
+        }
+      }
+
+      output_min_pos_box = vector<Expr>(interval.size());
+      
+      for (size_t dim=0; dim<interval.size(); ++dim) {
+        found_stencil = true;
+        Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+        Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
+        Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
+        input_chunk_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
+        output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
+      }
+
+    }
+    IRVisitor::visit(op);
+  }
+public:
+  vector<Expr> input_chunk_box;
+  vector<Expr> output_min_pos_box;
+  bool found_stencil;
+  Function func;
+  Scope<Expr> &stencil_bounds;
+  FindInputStencil(string v, Function func, string cl, Scope<Expr> &stencil_bounds) :
+    var(v), compute_level(cl), found_stencil(false), func(func), stencil_bounds(stencil_bounds) {}
+};
+
+
   }
 }
 #endif
