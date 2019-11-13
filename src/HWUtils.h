@@ -404,10 +404,15 @@ public:
   vector<Expr> output_min_pos_box;
   map<string, Stride> stride_map;
   bool found_stencil;
-  Function func;
-  FindOutputStencil(string v, Function func, string cl) :
-    var(v), compute_level(cl), found_stencil(false), func(func) {
+
+  FindOutputStencil(string v, string cl) :
+    var(v), compute_level(cl), found_stencil(false) {
   }
+
+  //Function func;
+  //FindOutputStencil(string v, Function func, string cl) :
+    //var(v), compute_level(cl), found_stencil(false), func(func) {
+  //}
 };
 Stmt substituteInConstants(Stmt& s);
   }

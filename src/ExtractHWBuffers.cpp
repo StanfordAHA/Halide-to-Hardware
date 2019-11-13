@@ -221,7 +221,8 @@ class HWBuffers : public IRMutator {
             box[i] = extent;
           }
 
-          FindOutputStencil fos(op->name, func, xcel_store_level);
+          //FindOutputStencil fos(op->name, func, xcel_store_level);
+          FindOutputStencil fos(op->name, xcel_store_level);
           new_body.accept(&fos);
 
           CountBufferUsers counter(op->name);
@@ -276,7 +277,8 @@ class HWBuffers : public IRMutator {
           
           std::string for_namer = first_for_name(new_body);
 
-          FindOutputStencil fos(op->name, func, xcel_compute_level);
+          //FindOutputStencil fos(op->name, func, xcel_compute_level);
+          FindOutputStencil fos(op->name, xcel_compute_level);
           new_body.accept(&fos);
           auto output_stencil_box = fos.output_stencil_box;
 
@@ -485,7 +487,8 @@ void set_opt_params(HWXcel *xcel,
         }
       }
 
-      FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
+      //FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
+      FindOutputStencil fos(hwbuffer.name, func_compute_level);
       consumer_buffer.my_stmt.accept(&fos);
       hwbuffer.stride_map = fos.stride_map;
 
