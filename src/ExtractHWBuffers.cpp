@@ -118,7 +118,6 @@ class FindOutputStencil : public IRVisitor {
   }
 
   void visit(const For *op) override {
-    //std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     auto fvs = FindVarStride(var, op->name);
     (op->body).accept(&fvs);
@@ -129,18 +128,11 @@ class FindOutputStencil : public IRVisitor {
     stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
     stride_map[varname].is_inverse = fvs.is_div;
     
-    //std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
-    //          << " stride_map[" << varname << "]=" << stride_map[varname].stride << std::endl;
-    //std::cout << op->body << std::endl;
-
-
     if (op->name == compute_level) {
-      //std::cout << var << " found compute level with for loop " << op->name << std::endl;
 
       ReplaceForBounds rfb;
       Stmt new_body = rfb.mutate(op->body);
 
-      //std::cout << op->body << std::endl;
       auto box_read = box_required(new_body, var);
 
 
