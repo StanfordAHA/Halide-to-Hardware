@@ -503,8 +503,9 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         // This works around the issue that read stencil call from a interface stream
         // in the compute kernel cannot fully unrolled
         int force_buffer_depth = 0;
-        if (kernel.input_streams.empty() && kernel.consumer_buffers.size() == 1)
+        if (kernel.input_streams.empty() && kernel.consumer_buffers.size() == 1) {
             force_buffer_depth = 1;
+        }
         Stmt dispatch_call = create_hwbuffer_dispatch_call(kernel, force_buffer_depth);
         ret = Block::make(dispatch_call, s);
     }
@@ -603,7 +604,6 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         // realize and PC node for func.stencil
         Stmt stencil_produce = ProducerConsumer::make_produce(stencil_name, produce);
         Stmt stencil_consume = ProducerConsumer::make_produce(stencil_name, write_call);
-        //Stmt stencil_pc = ProducerConsumer::make(stencil_name, produce, update, write_call);
         Stmt stencil_pc = Block::make(stencil_produce, stencil_consume);
 
         // create a realization of the stencil of the step-size
@@ -719,7 +719,6 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         }
         Stmt write_call = Evaluate::make(Call::make(Handle(), "write_stream", write_args, Call::Intrinsic));
 
-        //Stmt stencil_pc = ProducerConsumer::make(stencil_name, produce, Stmt(), write_call);
         Stmt stencil_produce = ProducerConsumer::make_produce(stencil_name, produce);
         Stmt stencil_consume = ProducerConsumer::make_consume(stencil_name, write_call);
         Stmt stencil_pc = Block::make(stencil_produce, stencil_consume);
@@ -749,8 +748,6 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
             string loop_var_name = kernel.name + "." + kernel.func.args()[i]
                 + ".__scan_dim_" + std::to_string(scan_dim++);
 
-            //Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-            //                             kernel.dims[i].store_bound.min + 1);
             int store_extent_int = to_int(kernel.ldims[i].logical_size);
             debug(3) << "kernel " << kernel.name << " store_extent = " << store_extent_int << '\n';
 
@@ -789,16 +786,16 @@ class InsertHWBuffers : public IRMutator {
 
     Stmt visit(const For *op) {
         Stmt stmt;
-        std::cout << "visiting for loop named " << op->name
-                  << " where store_lvl=" << xcel.store_level
-                  << " where compute_lvl=" << xcel.compute_level
-                  << std::endl;
+        //std::cout << "visiting for loop named " << op->name
+                  //<< " where store_lvl=" << xcel.store_level
+                  //<< " where compute_lvl=" << xcel.compute_level
+                  //<< std::endl;
 
-        std::cout << "streaming loops:\n";
-        for (auto &ll : xcel.streaming_loop_levels) {
-          std::cout << ll << ",";
-        }
-        std::cout << std::endl;
+        //std::cout << "streaming loops:\n";
+        //for (auto &ll : xcel.streaming_loop_levels) {
+          //std::cout << ll << ",";
+        //}
+        //std::cout << std::endl;
 
 
 
@@ -807,12 +804,10 @@ class InsertHWBuffers : public IRMutator {
         // store level doesn't match name AND loop var is not found in xcel
         if (!xcel.store_level.match(op->name) &&
             !is_loop_var) {
-          std::cout << "just continue\n";
             stmt = IRMutator::visit(op);
 
         // compute level matches name
         } else if (xcel.compute_level.match(op->name)) {
-          std::cout << "xcel compute\n";
             internal_assert(is_loop_var); // compute level was supposed to be inclusive
 
             // walk inside of any let statements
@@ -905,7 +900,6 @@ class InsertHWBuffers : public IRMutator {
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
                     stream_call_args.push_back(Variable::make(Int(32), kernel.name + ".stride." + std::to_string(i)));
                     stream_call_args.push_back(kernel.ldims[i].logical_size);
-                    //stream_call_args.push_back(simplify(kernel.dims[i].store_bound.max - kernel.dims[i].store_bound.min + 1));
                 }
                 Stmt stream_subimg = Evaluate::make(Call::make(Handle(), "stream_subimage", stream_call_args, Call::Intrinsic));
 
@@ -935,21 +929,9 @@ class InsertHWBuffers : public IRMutator {
         
         if (!buffer.is_inlined && // is a hwbuffered function
             !buffer.is_output && // not the output
-            //xcel.name != op->name && // not the output
             xcel.input_streams.count(op->name) == 0 // not a input
           ) {
           return mutate(op->body);
-          // check constraints
-          /*
-            for (size_t i = 0; i < kernel.dims.size(); i++) {
-            Expr store_extent = simplify(kernel.dims[i].store_bound.max -
-            kernel.dims[i].store_bound.min + 1);
-            if (!is_zero(simplify(op->bounds[i].extent - store_extent))) {
-            user_error << "hwbuffer (" << store_extent << ") for " << op->name
-            << " is not equal to realize extent (" << op->bounds[i].extent << ").\n";
-            }
-            }
-          */
         }
       } //else
       return IRMutator::visit(op);
