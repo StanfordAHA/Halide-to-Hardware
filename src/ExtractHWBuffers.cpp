@@ -259,23 +259,11 @@ class HWBuffers : public IRMutator {
           }
           hwbuffer.output_access_pattern = reader_loopnest;
           
-          //if (buffers.count(hwbuffer.name) == 0) {
-            //buffers[hwbuffer.name] = hwbuffer;
-          //}
-          
-          //return IRMutator::visit(op);
-          
         } else {
           // look for a sliding window that can be used in a line buffer
 
           // use sliding window to get stencil sizes
           // Parameters 1 and 2
-          //auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
-          //new_body = mutate(new_body);
-          
-          //std::string for_namer = first_for_name(new_body);
-
-          //FindOutputStencil fos(op->name, func, xcel_compute_level);
           FindOutputStencil fos(op->name, xcel_compute_level);
           new_body.accept(&fos);
           auto output_stencil_box = fos.output_stencil_box;
@@ -322,13 +310,6 @@ class HWBuffers : public IRMutator {
           }
           hwbuffer.output_access_pattern = reader_loopnest;
           
-          //if (buffers.count(hwbuffer.name) == 0) {          
-            //buffers[hwbuffer.name] = hwbuffer;
-          //}
-
-
-          //return Realize::make(op->name, op->types, op->memory_type,
-                               //op->bounds, op->condition, new_body);
         }
 
         if (buffers.count(hwbuffer.name) == 0) {
