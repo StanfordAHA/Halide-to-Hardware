@@ -12,6 +12,8 @@ namespace Halide {
     std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);
     int id_const_value(const Expr e);
     std::ostream& operator<<(std::ostream& os, const std::vector<std::string>& vec);
+    bool is_parallelized(const For *op);
+    std::string first_for_name(Stmt s);
   }
 }
 #endif

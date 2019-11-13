@@ -1,5 +1,7 @@
 #include "HWUtils.h"
 
+#include "IRVisitor.h"
+
 using namespace std;
 
 namespace Halide {
@@ -49,6 +51,30 @@ std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
   os << "]";
   return os;
 };
+
+// return true if the for loop is not serialized
+bool is_parallelized(const For *op) {
+  return op->for_type == ForType::Parallel ||
+    op->for_type == ForType::Unrolled ||
+    op->for_type == ForType::Vectorized;
+}
+
+class FirstForName : public IRVisitor {
+  using IRVisitor::visit;
+  
+  void visit(const For *op) override {
+    var = op->name;
+  }
+public:
+  string var;
+  FirstForName() {}
+};
+
+std::string first_for_name(Stmt s) {
+  FirstForName ffn;
+  s.accept(&ffn);
+  return ffn.var;
+}
 
   }
 }

@@ -105,30 +105,6 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
 
 namespace {
 
-// return true if the for loop is not serialized
-bool is_parallelized(const For *op) {
-  return op->for_type == ForType::Parallel ||
-    op->for_type == ForType::Unrolled ||
-    op->for_type == ForType::Vectorized;
-}
-
-class FirstForName : public IRVisitor {
-  using IRVisitor::visit;
-  
-  void visit(const For *op) override {
-    var = op->name;
-  }
-public:
-  string var;
-  FirstForName() {}
-};
-
-std::string first_for_name(Stmt s) {
-  FirstForName ffn;
-  s.accept(&ffn);
-  return ffn.var;
-}
-
 class ExamineLoopLevel : public IRVisitor {
   using IRVisitor::visit;
   
