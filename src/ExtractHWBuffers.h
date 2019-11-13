@@ -116,7 +116,7 @@ struct HWBuffer {
   std::vector<LogicalDimSize> ldims;
   std::map<std::string, InputStream> istreams;
   std::map<std::string, OutputStream> ostreams;
-  
+
   // Constructors
   HWBuffer(size_t num_dims, SlidingStencils &is) :
     input_stencil(std::make_shared<SlidingStencils>(is)), dims(std::vector<InOutDimSize>(num_dims)) { }
@@ -194,6 +194,11 @@ struct HWXcel {
   std::map<std::string, HWBuffer> hwbuffers;
   std::map<std::string, HWBuffer*> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
   //std::map<std::string, HWTap> input_taps;
+  
+  bool isAcceleratorInput(const std::string& name) const {
+    return input_streams.count(name) != 0;
+  }
+  
 };
 
 std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, Function> &env,
