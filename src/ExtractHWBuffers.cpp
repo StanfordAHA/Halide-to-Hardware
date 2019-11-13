@@ -105,65 +105,6 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
 
 namespace {
 
-class FindOutputStencil : public IRVisitor {
-  using IRVisitor::visit;
-  string var;
-  Scope<Expr> scope;
-  string compute_level;
-
-  // keep track of lets to later replace variables with constants
-  void visit(const LetStmt *op) override {
-      ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
-      IRVisitor::visit(op);
-  }
-
-  void visit(const For *op) override {
-
-    auto fvs = FindVarStride(var, op->name);
-    (op->body).accept(&fvs);
-    int stride_for_var = fvs.stride_for_var;
-
-    auto var_tokens = get_tokens(op->name, ".");
-    auto varname = var_tokens.size() > 2 ? var_tokens.at(2) : op->name;
-    stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
-    stride_map[varname].is_inverse = fvs.is_div;
-    
-    if (op->name == compute_level) {
-
-      ReplaceForBounds rfb;
-      Stmt new_body = rfb.mutate(op->body);
-
-      auto box_read = box_required(new_body, var);
-
-
-      auto interval = box_read;
-      output_stencil_box = vector<Expr>(interval.size());
-      output_min_pos_box = vector<Expr>(interval.size());
-
-      for (size_t dim=0; dim<interval.size(); ++dim) {
-        found_stencil = true;
-        Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
-        Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
-        Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        output_stencil_box[dim] = lower_expr.defined() ? lower_expr : port_expr;
-        output_min_pos_box[dim] = interval[dim].min;
-      }
-
-    }
-    IRVisitor::visit(op);
-  }
-public:
-  vector<Expr> output_stencil_box;
-  vector<Expr> output_min_pos_box;
-  map<string, Stride> stride_map;
-  bool found_stencil;
-  Function func;
-  FindOutputStencil(string v, Function func, string cl) :
-    var(v), compute_level(cl), found_stencil(false), func(func) {
-  }
-};
-
-
 class ReplaceOutputAccessPatternRanges : public IRMutator {
   using IRMutator::visit;
   int count;
