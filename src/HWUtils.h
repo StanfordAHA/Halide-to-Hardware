@@ -25,6 +25,10 @@ namespace Halide {
         Scope<Expr> &scope);
     Box find_output_bounds(Stmt s, Function func,
         LoopLevel compute_level);
+    std::vector<std::string> get_loop_levels_between(Stmt s, Function func,
+        LoopLevel outer_level_exclusive,
+        LoopLevel inner_level_inclusive,
+        bool start_inside = false);
   }
 }
 #endif

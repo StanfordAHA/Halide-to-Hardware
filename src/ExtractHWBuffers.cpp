@@ -582,68 +582,6 @@ public:
 };
 
 
-class FindInnerLoops : public IRVisitor {
-  Function func;
-
-  LoopLevel outer_loop_exclusive;
-  LoopLevel inner_loop_inclusive;
-  bool in_inner_loops;
-
-  using IRVisitor::visit;
-
-  void visit(const ProducerConsumer *op) override {
-    // match store level at PC node in case the looplevel is outermost
-    if (outer_loop_exclusive.lock().func() == op->name &&
-        outer_loop_exclusive.lock().var().name() == Var::outermost().name()) {
-      in_inner_loops = true;
-    }
-    IRVisitor::visit(op);
-  }
-
-  void visit(const For *op) override {
-    // scan loops are loops between the outer store level (exclusive) and
-    // the inner compute level (inclusive) of the accelerated function
-    if (in_inner_loops && starts_with(op->name, func.name() + ".")) {
-      debug(3) << "added loop " << op->name << " to inner loops.\n";
-      inner_loops.emplace_back(op->name);
-      //loop_mins[op->name] = op->min;
-      //loop_maxes[op->name] = simplify(op->min + op->extent - 1);
-      //std::cout << "added loop to scan loop named " << op->name << " with extent=" << op->extent << std::endl;
-    }
-
-    // reevaluate in_scan_loops in terms of loop levels
-    if (outer_loop_exclusive.match(op->name)) {
-      in_inner_loops = true;
-    }
-    if (inner_loop_inclusive.match(op->name)) {
-      in_inner_loops = false;
-    }
-
-    // Recurse
-    IRVisitor::visit(op);
-  }
-
-public:  
-  FindInnerLoops(Function f, LoopLevel outer_level, LoopLevel inner_level, bool inside)
-    : func(f), outer_loop_exclusive(outer_level), inner_loop_inclusive(inner_level),
-      in_inner_loops(inside) { }
-
-  vector<string> inner_loops;
-  
-};
-
-// Produce a vector of the loops within a for-loop-nest.
-//   Note: this can be used to find the streaming loops between the store and compute level.
-vector<string> get_loop_levels_between(Stmt s, Function func,
-                                       LoopLevel outer_level_exclusive,
-                                       LoopLevel inner_level_inclusive,
-                                       bool start_inside = false) {
-  FindInnerLoops fil(func, outer_level_exclusive, inner_level_inclusive, start_inside);
-  s.accept(&fil);
-  //std::cout << "got some loops: " << fil.inner_loops << std::endl;
-  return fil.inner_loops;
-}
-
 }
 
 class HWBuffers : public IRMutator {
