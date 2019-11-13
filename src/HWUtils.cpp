@@ -1,8 +1,6 @@
 #include "HWUtils.h"
 
 #include "Func.h"
-#include "IRVisitor.h"
-#include "IRMutator.h"
 #include "IROperator.h"
 #include "Schedule.h"
 #include "Substitute.h"

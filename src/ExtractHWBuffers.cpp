@@ -106,152 +106,6 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
 namespace {
 
 
-class FindVarStride : public IRVisitor {
-  string varname;
-  string loopname;
-  int cur_stride;
-  bool in_var;
-  bool in_div;
-  
-  using IRVisitor::visit;
-
-  void visit(const Variable *op) override {
-    if (op->name == loopname && in_var) {
-      //std::cout << "found loop=" << op->name << " and setting stride=" << cur_stride << std::endl;
-      stride_for_var = cur_stride;
-      is_div = in_div;
-      IRVisitor::visit(op);
-    }
-  }
-  
-  void visit(const Call *op) override {
-    if (op->name == varname) {
-      in_var = true;
-      // std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
-      IRVisitor::visit(op);
-      in_var = false;
-    } else {
-      IRVisitor::visit(op);
-    }
-  }
-  void visit(const Div *op) override {
-    //std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
-    if (is_const(op->b)) {
-      if (in_var) {
-        cur_stride *= id_const_value(op->b);
-        in_div = true;
-        op->a.accept(this);
-        in_div = false;
-        cur_stride /= id_const_value(op->b);
-      } else {
-        op->a.accept(this);
-      }
-      
-    } else {
-      IRVisitor::visit(op);
-    }
-  }
-
-  void visit(const Mul *op) override {
-    //std::cout << "this is a multiply: " << Expr(op) << std::endl;
-    if (is_const(op->a)) {
-      if (in_var) {
-        cur_stride *= id_const_value(op->a);
-        op->b.accept(this);
-        cur_stride /= id_const_value(op->a);
-      } else {
-        op->b.accept(this);
-      }
-      
-    } else if (is_const(op->b)) {
-      if (in_var) {
-        cur_stride *= id_const_value(op->b);
-        op->a.accept(this);
-        cur_stride /= id_const_value(op->b);
-      } else {
-        op->a.accept(this);
-      }
-      
-    } else {
-      op->a.accept(this);
-      op->b.accept(this);
-    }
-  }
-
-public:
-  int stride_for_var;
-  bool is_div;
-  
-  FindVarStride(string varname, string forname) :
-    varname(varname), loopname(forname),
-    cur_stride(1), in_var(false), in_div(false),
-    stride_for_var(0), is_div(false) { }
-};
-
-
-class ReplaceForBounds : public IRMutator {
-  using IRMutator::visit;
-  Scope<Expr> scope;
-
-  Stmt visit(const LetStmt *op) override {
-    if (!scope.contains(op->name)) {
-    //if (true) {
-      //ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
-      scope.push(op->name, simplify(expand_expr(op->value, scope)));
-      //std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
-    } else {
-      //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
-    }
-    return IRMutator::visit(op);
-  }
-
-  Stmt visit(const For *op) override {
-    Expr min = mutate(op->min);
-    Expr extent = mutate(op->extent);
-    Stmt body = mutate(op->body);
-    
-    if (scope.contains(op->name + ".min")) {
-      auto new_min = scope.get(op->name + ".min");
-      auto new_max = scope.get(op->name + ".max");
-      if (!new_min.same_as(min)) {
-        //std::cout << op->name << " replaced this min from " << min << " to " << new_min << std::endl;
-        min = new_min;
-        min = 0;
-        //extent = simplify(extent - new_min);
-        extent = 1;
-        auto for_stmt = For::make(op->name, std::move(min), std::move(extent),
-                                  op->for_type, op->device_api, std::move(body));
-
-        //auto return_stmt = LetStmt::make(op->name + ".loop_extent", simplify(new_max-new_min+1), for_stmt);
-        //return_stmt = LetStmt::make(op->name + ".loop_max", new_max, return_stmt);
-        //return_stmt = LetStmt::make(op->name + ".loop_min", new_min, return_stmt);
-        auto return_stmt = LetStmt::make(op->name + ".loop_extent", 1, for_stmt);
-        return_stmt = LetStmt::make(op->name + ".loop_max", 0, return_stmt);
-        return_stmt = LetStmt::make(op->name + ".loop_min", 0, return_stmt);
-        return return_stmt;
-      } else {
-        //std::cout << op->name << " same replaced this min from " << min << " to " << new_min << std::endl;
-      }
-      
-    } else {
-      //std::cout << "couldn't find for loop " << op->name + ".min\n";
-    }
-
-
-    if (min.same_as(op->min) &&
-        extent.same_as(op->extent) &&
-        body.same_as(op->body)) {
-        return op;
-    }
-    return For::make(op->name, std::move(min), std::move(extent),
-                     op->for_type, op->device_api, std::move(body));
-
-  }
-  
-public:
-  ReplaceForBounds() {}
-};
-
 // Rebuild
 class FindOutputStencil : public IRVisitor {
   using IRVisitor::visit;
@@ -288,36 +142,13 @@ class FindOutputStencil : public IRVisitor {
       ReplaceForBounds rfb;
       Stmt new_body = rfb.mutate(op->body);
 
-      //std::cout << Stmt(new_body);
-
-      //if (scope.contains(op->name + ".min")) {
-      //  std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
-      //} else {
-      //  std::cout << "couldn't find a loop min\n";
-      //}
-      
       //std::cout << op->body << std::endl;
       auto box_read = box_required(new_body, var);
 
-      //Box box = box_provided(new_body, var);
-      // std::cout << "let's save this output box num_dims=" << func.dimensions() << " box=" << box.size() << "\n";
-      // // save the bounds values in scope
-      // Scope<Expr> stencil_bounds;
-      // if (func.name() == var) {
-      //   for (int i = 0; i < func.dimensions(); i++) {
-      //     string stage_name = func.name() + ".s0." + func.args()[i];
-      //     stencil_bounds.push(stage_name + ".min", box[i].min);
-      //     stencil_bounds.push(stage_name + ".max", box[i].max);
-      //   }
-      // }
-      // std::cout << "box saved\n";
 
       auto interval = box_read;
       output_stencil_box = vector<Expr>(interval.size());
       output_min_pos_box = vector<Expr>(interval.size());
-
-      //std::cout << "HWBuffer Parameter: " << var << " output stencil size - "
-                //<< "box extent=[";
 
       for (size_t dim=0; dim<interval.size(); ++dim) {
         found_stencil = true;
@@ -325,13 +156,8 @@ class FindOutputStencil : public IRVisitor {
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         output_stencil_box[dim] = lower_expr.defined() ? lower_expr : port_expr;
-        //std::cout << port_expr << "?" << lower_expr.defined() << ":" << lower_expr << "-" << upper_expr  << " ";
-        //output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, scope));
         output_min_pos_box[dim] = interval[dim].min;
-        //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
-        //std::cout << " using " << interval[dim].max - interval[dim].min + 1 << std::endl;
       }
-      //std::cout << "]\n";
 
     }
     IRVisitor::visit(op);
