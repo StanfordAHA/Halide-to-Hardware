@@ -669,6 +669,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
 
+  cout << "---- Creating kernel for stmt..." << endl;
+  cout << stmt << endl;
+
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
   uint num_inouts = 0;
