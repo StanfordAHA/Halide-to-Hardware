@@ -201,15 +201,15 @@ class HWBuffers : public IRMutator {
         hwbuffer.compute_level = hwbuffer.streaming_loops.back();
         hwbuffer.store_level = xcel->store_level.to_string();
 
+        // use sliding window to get stencil sizes
+        auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
+        new_body = mutate(new_body);
+
+        std::string for_namer = first_for_name(new_body);
+
         // Simplification possible when compute and store is the same level
         if (sched.compute_level() == sched.store_level()) {
 
-          // use sliding window to get stencil sizes
-          auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
-          new_body = mutate(new_body);
-          
-          std::string for_namer = first_for_name(new_body);
-          
           auto boxes_write = boxes_provided(new_body);
           auto boxes_read = boxes_required(new_body);
 
@@ -259,23 +259,21 @@ class HWBuffers : public IRMutator {
           }
           hwbuffer.output_access_pattern = reader_loopnest;
           
-          //std::cout << "created hwbuffer\n";
-
-          if (buffers.count(hwbuffer.name) == 0) {
-            buffers[hwbuffer.name] = hwbuffer;
-          }
+          //if (buffers.count(hwbuffer.name) == 0) {
+            //buffers[hwbuffer.name] = hwbuffer;
+          //}
           
-          return IRMutator::visit(op);
+          //return IRMutator::visit(op);
           
         } else {
           // look for a sliding window that can be used in a line buffer
 
           // use sliding window to get stencil sizes
           // Parameters 1 and 2
-          auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
-          new_body = mutate(new_body);
+          //auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
+          //new_body = mutate(new_body);
           
-          std::string for_namer = first_for_name(new_body);
+          //std::string for_namer = first_for_name(new_body);
 
           //FindOutputStencil fos(op->name, func, xcel_compute_level);
           FindOutputStencil fos(op->name, xcel_compute_level);
@@ -298,11 +296,7 @@ class HWBuffers : public IRMutator {
           for (size_t i=0; i<i_max; ++i) {
             Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
             total_buffer_box[i] = extent;
-
-            std::cout << total_buffer_box[i];
-            if (i < i_max - 1) { std::cout << extent << " "; }
           }
-          std::cout << "]\n";
 
           // create the hwbuffer
           std::string for_name = first_for_name(new_body);
@@ -310,13 +304,8 @@ class HWBuffers : public IRMutator {
 
           hwbuffer.ldims = vector<LogicalDimSize>(output_block_box.size());
           hwbuffer.stride_map = fos.stride_map;
-          std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
 
           // check that all of the extracted parameters are of the same vector length
-          //FIXMEyikes
-          std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while " << total_buffer_box.size() << " num box_dims\n";
-          std::cout << " loops are: " << loop_names << std::endl;
-
           internal_assert(hwbuffer.dims.size() == output_stencil_box.size());
           
           internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
@@ -333,14 +322,22 @@ class HWBuffers : public IRMutator {
           }
           hwbuffer.output_access_pattern = reader_loopnest;
           
-          if (buffers.count(hwbuffer.name) == 0) {          
-            buffers[hwbuffer.name] = hwbuffer;
-          }
+          //if (buffers.count(hwbuffer.name) == 0) {          
+            //buffers[hwbuffer.name] = hwbuffer;
+          //}
 
 
-          return Realize::make(op->name, op->types, op->memory_type,
-                               op->bounds, op->condition, new_body);
+          //return Realize::make(op->name, op->types, op->memory_type,
+                               //op->bounds, op->condition, new_body);
         }
+
+        if (buffers.count(hwbuffer.name) == 0) {
+          buffers[hwbuffer.name] = hwbuffer;
+        }
+
+        return IRMutator::visit(op);
+
+
     }
   
 public:

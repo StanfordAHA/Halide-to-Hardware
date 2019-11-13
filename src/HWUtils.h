@@ -165,7 +165,6 @@ class FindVarStride : public IRVisitor {
 
   void visit(const Variable *op) override {
     if (op->name == loopname && in_var) {
-      //std::cout << "found loop=" << op->name << " and setting stride=" << cur_stride << std::endl;
       stride_for_var = cur_stride;
       is_div = in_div;
       IRVisitor::visit(op);
@@ -175,7 +174,6 @@ class FindVarStride : public IRVisitor {
   void visit(const Call *op) override {
     if (op->name == varname) {
       in_var = true;
-      // std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
       IRVisitor::visit(op);
       in_var = false;
     } else {
@@ -183,7 +181,6 @@ class FindVarStride : public IRVisitor {
     }
   }
   void visit(const Div *op) override {
-    //std::cout << "woah, dis a divide: " << Expr(op) << std::endl;
     if (is_const(op->b)) {
       if (in_var) {
         cur_stride *= id_const_value(op->b);
@@ -201,7 +198,6 @@ class FindVarStride : public IRVisitor {
   }
 
   void visit(const Mul *op) override {
-    //std::cout << "this is a multiply: " << Expr(op) << std::endl;
     if (is_const(op->a)) {
       if (in_var) {
         cur_stride *= id_const_value(op->a);
@@ -243,12 +239,8 @@ class ReplaceForBounds : public IRMutator {
 
   Stmt visit(const LetStmt *op) override {
     if (!scope.contains(op->name)) {
-    //if (true) {
-      //ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       scope.push(op->name, simplify(expand_expr(op->value, scope)));
-      //std::cout << "binded scope: " << op->name << " set to " << scope.get(op->name) << std::endl;
     } else {
-      //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
     }
     return IRMutator::visit(op);
   }
@@ -262,27 +254,20 @@ class ReplaceForBounds : public IRMutator {
       auto new_min = scope.get(op->name + ".min");
       auto new_max = scope.get(op->name + ".max");
       if (!new_min.same_as(min)) {
-        //std::cout << op->name << " replaced this min from " << min << " to " << new_min << std::endl;
         min = new_min;
         min = 0;
-        //extent = simplify(extent - new_min);
         extent = 1;
         auto for_stmt = For::make(op->name, std::move(min), std::move(extent),
                                   op->for_type, op->device_api, std::move(body));
 
-        //auto return_stmt = LetStmt::make(op->name + ".loop_extent", simplify(new_max-new_min+1), for_stmt);
-        //return_stmt = LetStmt::make(op->name + ".loop_max", new_max, return_stmt);
-        //return_stmt = LetStmt::make(op->name + ".loop_min", new_min, return_stmt);
         auto return_stmt = LetStmt::make(op->name + ".loop_extent", 1, for_stmt);
         return_stmt = LetStmt::make(op->name + ".loop_max", 0, return_stmt);
         return_stmt = LetStmt::make(op->name + ".loop_min", 0, return_stmt);
         return return_stmt;
       } else {
-        //std::cout << op->name << " same replaced this min from " << min << " to " << new_min << std::endl;
       }
       
     } else {
-      //std::cout << "couldn't find for loop " << op->name + ".min\n";
     }
 
 
@@ -409,11 +394,8 @@ public:
     var(v), compute_level(cl), found_stencil(false) {
   }
 
-  //Function func;
-  //FindOutputStencil(string v, Function func, string cl) :
-    //var(v), compute_level(cl), found_stencil(false), func(func) {
-  //}
 };
+
 Stmt substituteInConstants(Stmt& s);
   }
 }
