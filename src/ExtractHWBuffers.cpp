@@ -125,36 +125,22 @@ class CountBufferUsers : public IRVisitor {
 
   void visit(const ProducerConsumer *op) override {
     if (!op->is_producer) {
-    //if (false) {
-      // look at the writers (writer ports)
       if (provide_at_level(op->body, var)) {
         auto box_write = box_provided(op->body, var);
-        //std::cout << "writers inside pc " << op->name << std::endl;
-        //std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
-
-        //std::cout << "HWBuffer Parameter: writer ports - "
-                  //<< "box extent=[";
         auto interval = box_write;
         input_block_box = vector<Expr>(interval.size());
         for (size_t dim=0; dim<interval.size(); ++dim) {
           Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
           Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
           Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-          //std::cout << lower_expr << "-" << upper_expr << " ";
           input_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         }
-        //std::cout << "]\n";
 
       }
 
       // look at the readers (reader ports, read address gen)
       if (call_at_level(op->body, var)) {
         auto box_read = box_required(op->body, var);
-        //std::cout << "readers inside pc " << op->name << std::endl;
-        //std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-        //std::cout << Stmt(op->body) << std::endl;
-        //std::cout << "HWBuffer Parameter: reader ports - "
-                  //<< "box extent=[";
         auto interval = box_read;
 
         output_block_box = vector<Expr>(interval.size());
@@ -163,9 +149,7 @@ class CountBufferUsers : public IRVisitor {
           Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
           Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
           output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
-          //std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
         }
-        //std::cout << "]\n";
       }
     }
     IRVisitor::visit(op);
@@ -177,17 +161,14 @@ class CountBufferUsers : public IRVisitor {
     Stmt for_stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, op->body);
     if (current_for == nullptr) {
       full_stmt = for_stmt;
-      //std::cout << "added first for loop: " << op->name << std::endl;
 
       auto box_read = box_required(op->body, var);
       auto interval = box_read;
       for (size_t dim=0; dim<interval.size(); ++dim) {
         auto assertstmt = AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope)));
-        //std::cout << "min pos in dim " << dim << ":" << assertstmt;
       }
     } else if (!is_parallelized(op)) {
       current_for->body = for_stmt;
-      //std::cout << "added for loop: " << op->name << std::endl;
     }
     current_for = const_cast<For *>(for_stmt.as<For>());
 
@@ -196,32 +177,20 @@ class CountBufferUsers : public IRVisitor {
     // look at the writers (writer ports)
     if (provide_at_level(op->body, var) && !is_parallelized(op)) {
       auto box_write = box_provided(op->body, var);
-      //std::cout << "writers inside loop " << op->name << std::endl;
-      //std::cout << "Box writer found for " << var << " with box " << box_write << std::endl;
-
-      //std::cout << "HWBuffer Parameter: writer ports - "
-                //<< "box extent=[";
       auto interval = box_write;
       input_block_box = vector<Expr>(interval.size());
       for (size_t dim=0; dim<interval.size(); ++dim) {
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        //std::cout << lower_expr << "-" << upper_expr << " ";
         input_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
       }
-      //std::cout << "]\n";
 
     }
 
     // look at the readers (reader ports, read address gen)
     if (call_at_level(op->body, var) && !is_parallelized(op)) {
       auto box_read = box_required(op->body, var);
-      //std::cout << "readers inside loop " << op->name << std::endl;
-      //std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-      //std::cout << Stmt(op->body) << std::endl;
-      //std::cout << "HWBuffer Parameter: reader ports - "
-                //<< "box extent=[";
       auto interval = box_read;
 
       vector<Stmt> stmts;
@@ -232,15 +201,11 @@ class CountBufferUsers : public IRVisitor {
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
-        //std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
       }
-      //std::cout << "]\n";
 
       const vector<Stmt> &const_stmts = stmts;
       current_for->body = Block::make(const_stmts);
       reader_loopnest = simplify(expand_expr(full_stmt, scope));
-      //std::cout << "HWBuffer Parameter - " << var << " nested reader loop:\n" << reader_loopnest << std::endl;
-
     }
 
 
@@ -710,9 +675,6 @@ class HWBuffers : public IRMutator {
           //std::cout << "created hwbuffer\n";
 
           if (buffers.count(hwbuffer.name) == 0) {
-            //std::cout << "Here is the hwbuffer (store=compute):"
-                      //<< " [" << buffers.count(hwbuffer.name) << "]\n"
-                      //<< hwbuffer << std::endl;
             buffers[hwbuffer.name] = hwbuffer;
           }
           
