@@ -1,6 +1,9 @@
 #include "HWUtils.h"
 
 #include "IRVisitor.h"
+#include "IRMutator.h"
+#include "IROperator.h"
+#include "Substitute.h"
 
 using namespace std;
 
@@ -76,5 +79,97 @@ std::string first_for_name(Stmt s) {
   return ffn.var;
 }
 
+class ExamineLoopLevel : public IRVisitor {
+  using IRVisitor::visit;
+  
+  void visit(const For *op) override {
+    // don't recurse if not parallelized
+    if (is_parallelized(op) || is_one(op->extent)) {
+      IRVisitor::visit(op);
+    }
+  }
+
+  void visit(const Provide *op) override {
+    if (var == "" || op->name == var) {
+      found_provide = true;
+    }
+    IRVisitor::visit(op);
+  }
+
+  void visit(const Call *op) override {
+    if (var == "" || op->name == var) {
+      found_call = true;
+    }
+    IRVisitor::visit(op);
+  }
+
+public:
+  bool found_provide;
+  bool found_call;
+  string var;
+  ExamineLoopLevel(string var) : found_provide(false), found_call(false), var(var) {}
+};
+
+// return if provide creates the var at this level (not recursing into serial loops)
+bool provide_at_level(Stmt s, string var = "") {
+  ExamineLoopLevel ell(var);
+  s.accept(&ell);
+  return ell.found_provide;
+}
+
+// return if call uses the var at this level (not recursing into serial loops)
+bool call_at_level(Stmt s, string var = "") {
+  ExamineLoopLevel ell(var);
+  s.accept(&ell);
+  return ell.found_call;
+}
+  
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
+    const Scope<Expr> &scope;
+  
+    Expr visit(const Variable *var) override {
+        if (scope.contains(var->name)) {
+            Expr expr = scope.get(var->name);
+            debug(3) << "Fully expanded " << var->name << " -> " << expr << "\n";
+            return expr;
+        } else {
+            return var;
+        }
+    }
+
+    // remove for loops of length 1
+    Stmt visit(const For *old_op) override {
+      Stmt s = IRMutator::visit(old_op);
+      const For *op = s.as<For>();
+      
+      if (is_one(op->extent)) {
+        Stmt new_body = substitute(op->name, op->min, op->body);
+        return new_body;
+        
+      } else {
+        return op;
+      }
+    }
+
+public:
+    ExpandExpr(const Scope<Expr> &s) : scope(s) {}
+
+};
+
+// Perform all the substitutions in a scope
+Expr expand_expr(Expr e, const Scope<Expr> &scope) {
+    ExpandExpr ee(scope);
+    Expr result = ee.mutate(e);
+    debug(3) << "Expanded " << e << " into " << result << "\n";
+    return result;
+}
+
+Stmt expand_expr(Stmt e, const Scope<Expr> &scope) {
+    ExpandExpr ee(scope);
+    Stmt result = ee.mutate(e);
+    debug(3) << "Expanded " << e << " into " << result << "\n";
+    return result;
+}
   }
 }

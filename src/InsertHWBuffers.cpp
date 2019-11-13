@@ -27,35 +27,35 @@ using std::cout;
 
 namespace {
 
-class ExpandExpr : public IRMutator {
-    using IRMutator::visit;
-    const Scope<Expr> &scope;
+//class ExpandExpr : public IRMutator {
+    //using IRMutator::visit;
+    //const Scope<Expr> &scope;
 
-    Expr visit(const Variable *var) {
-        if (scope.contains(var->name)) {
-          debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
-          //std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
-          return scope.get(var->name);
+    //Expr visit(const Variable *var) {
+        //if (scope.contains(var->name)) {
+          //debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          ////std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
+          //return scope.get(var->name);
 
 
-        } else {
-          std::cout << "Scope does not contain  " << var->name << "\n";
-          return var;
-        }
-    }
+        //} else {
+          //std::cout << "Scope does not contain  " << var->name << "\n";
+          //return var;
+        //}
+    //}
 
-public:
-    ExpandExpr(const Scope<Expr> &s) : scope(s) {}
+//public:
+    //ExpandExpr(const Scope<Expr> &s) : scope(s) {}
 
-};
+//};
 
-// Perform all the substitutions in a scope
-Expr expand_expr(Expr e, const Scope<Expr> &scope) {
-    ExpandExpr ee(scope);
-    Expr result = ee.mutate(e);
-    debug(4) << "Expanded " << e << " into " << result << "\n";
-    return result;
-}
+//// Perform all the substitutions in a scope
+//Expr expand_expr(Expr e, const Scope<Expr> &scope) {
+    //ExpandExpr ee(scope);
+    //Expr result = ee.mutate(e);
+    //debug(4) << "Expanded " << e << " into " << result << "\n";
+    //return result;
+//}
 
 class ExpandExprNoVar : public IRMutator {
     using IRMutator::visit;
