@@ -566,13 +566,60 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   }
 }
 
+typedef uint64_t vd;
+typedef uint64_t ed;
+
+template<typename V, typename E>
+class DGraph {
+
+  uint64_t nv;
+  uint64_t ne;
+
+  public:
+
+    std::map<vd, V> vertLabels;
+    std::map<ed, E> edgeLabels;
+
+    DGraph() : nv(0), ne(0) {}
+
+    vd addVert(const V& label) {
+      auto v = nv;
+      nv++;
+      vertLabels[v] = label;
+
+      return v;
+    }
+};
+
 vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
   vector<HWXcel> xcels;
  
   s = substituteInConstants(s);
-  
+
+  cout << "#### All functions in env..." << endl;
+  DGraph<Function, int> dg;
+  for (const auto &p : env) {
+    Function func = p.second;
+    cout << "\tName: " << func.name() << endl;
+    cout << "\t\tIs accel input : " << func.schedule().is_accelerator_input() << endl;
+    cout << "\t\tIs accel output: " << func.schedule().is_accelerator_output() << endl;
+    cout << "\t\tIs accelerated : " << func.schedule().is_accelerated() << endl;
+    cout << "\t\tIs hwkernel    : " << func.schedule().is_hw_kernel() << endl;
+    LoopLevel store_level = func.schedule().store_level().lock();
+    LoopLevel compute_level = func.schedule().compute_level().lock();
+    cout << "\t\tStore level  : " << store_level << endl;
+    cout << "\t\tCompute level: " << store_level << endl;
+    if (func.schedule().is_accelerated()) {
+      cout << "\t\tAccel compute: " << func.schedule().accelerate_compute_level().lock() << endl;
+      cout << "\t\tAccel store: " << func.schedule().accelerate_store_level().lock() << endl;
+    }
+    if (func.schedule().is_hw_kernel()) {
+      dg.addVert(func);
+    }
+  }
+
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
     
@@ -581,7 +628,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     if(!func.schedule().is_accelerated()) {
       continue;
     }
-    
+
     LoopLevel store_locked = func.schedule().store_level().lock();
     string store_varname =
       store_locked.is_root() ? "root" :
