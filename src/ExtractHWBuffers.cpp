@@ -13,6 +13,10 @@
 #include "Simplify.h"
 #include "Substitute.h"
 
+#include "coreir.h"
+
+using namespace CoreIR;
+
 namespace Halide {
 namespace Internal {
 
@@ -591,6 +595,69 @@ class DGraph {
     }
 };
 
+bool isAcceleratorOutput(const Function& f) {
+  return f.schedule().is_accelerator_output();
+}
+
+bool isAcceleratorInput(const Function& f) {
+  return f.schedule().is_accelerator_input();
+}
+
+bool isAcceleratorInternal(const Function& f) {
+  return f.schedule().is_hw_kernel() && !isAcceleratorInput(f) && !isAcceleratorOutput(f);
+}
+
+class MemoryMap : public IRGraphVisitor {
+  public:
+
+    using IRGraphVisitor::visit;
+
+    const map<string, Function>& env;
+    std::vector<const For*> activeLoops;
+
+    MemoryMap(const map<string, Function>& env_) : env(env_) {}
+
+  protected:
+
+    void visit(const For* lp) override {
+      activeLoops.push_back(lp);
+
+      IRGraphVisitor::visit(lp);
+
+      activeLoops.pop_back();
+    }
+
+    void visit(const Provide* p) override {
+      IRGraphVisitor::visit(p);
+      if (contains_key(p->name, env)) {
+        Function f = map_find(p->name, env);
+        if (isAcceleratorOutput(f)) {
+          cout << "Found output provide: " << p->name << endl;
+        } else if (isAcceleratorInternal(f)) {
+          cout << "Found internal provide: " << p->name << endl;
+        } else if (isAcceleratorInput(f)) {
+          cout << "Found input provide: " << p->name << "... ignoring" << endl;
+        }
+      }
+    }
+
+    void visit(const Call* c) override {
+      IRGraphVisitor::visit(c);
+      
+      if (contains_key(c->name, env)) {
+        Function f = map_find(c->name, env);
+        if (isAcceleratorOutput(f)) {
+          cout << "Found output call: " << c->name << endl;
+        } else if (isAcceleratorInternal(f)) {
+          cout << "Found internal call: " << c->name << endl;
+        } else if (isAcceleratorInput(f)) {
+          cout << "Found input call: " << c->name << endl;
+        }
+      }
+
+    }
+};
+
 vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
@@ -619,6 +686,10 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       dg.addVert(func);
     }
   }
+
+  MemoryMap memMap(env);
+  s.accept(&memMap);
+  internal_assert(false) << "Stopping so dillon can view\n";
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
