@@ -622,6 +622,18 @@ class LoopOp {
     }
 };
 
+template<typename T>
+int numInstances(const LoopOp<T>& op) {
+  int instances = 1;
+  for (auto lp : op.surroundingLoops) {
+    if (lp->for_type == ForType::Parallel ||
+        lp->for_type == ForType::Unrolled) {
+      instances *= id_const_value(lp->extent);
+    }
+  }
+  return instances;
+}
+
 class MemInfo {
   public:
     std::vector<LoopOp<const Provide*> > provides;
@@ -728,10 +740,12 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     cout << "\t--- Provides..." << endl;
     for (auto p : mm.second.provides) {
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
+      cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
     }
     cout << "\t--- Calls..." << endl;
     for (auto p : mm.second.calls) {
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
+      cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
     }
   }
   //internal_assert(false) << "Stopping so dillon can view\n";
