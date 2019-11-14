@@ -121,10 +121,9 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
             //   func.s0.x -> func.stencil.x
             for (size_t i = 0; i < op->args.size(); i++) {
               //std::cout << "op->arg " << op->args[i] << " - " << kernel.dims.at(i).output_min_pos << std::endl;
-
-              
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
+              // Culprit here is output_min_pos is not correct
               new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
             }
 

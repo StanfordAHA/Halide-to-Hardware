@@ -27,7 +27,7 @@ env:
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
   #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
   #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-5 CC_=gcc-5
-  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
+  - LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
 
 cache: apt
 
