@@ -734,7 +734,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
     }
   }
-  internal_assert(false) << "Stopping so dillon can view\n";
+  //internal_assert(false) << "Stopping so dillon can view\n";
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
