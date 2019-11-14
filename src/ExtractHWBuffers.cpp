@@ -689,7 +689,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
 
   MemoryMap memMap(env);
   s.accept(&memMap);
-  internal_assert(false) << "Stopping so dillon can view\n";
+  //internal_assert(false) << "Stopping so dillon can view\n";
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
