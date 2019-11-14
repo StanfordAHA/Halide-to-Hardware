@@ -355,6 +355,13 @@ Expr expand_expr_no_var(Expr e, const Scope<Expr> &scope) {
     return result;
 }
 
+std::string exprString(const Expr e) {
+  ostringstream ss;
+  ss << e;
+  string en = ss.str();
+  return en;
+}
+
 
 
   }

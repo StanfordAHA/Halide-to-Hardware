@@ -7,6 +7,7 @@
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
 #include "Debug.h"
+#include "HWUtils.h"
 #include "Substitute.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -439,13 +440,6 @@ std::vector<int> toInts(const std::vector<std::string>& strs) {
     ints.push_back(stoi(s));
   }
   return ints;
-}
-
-std::string exprString(const Expr e) {
-  ostringstream ss;
-  ss << e;
-  string en = ss.str();
-  return en;
 }
 
 class ContainForLoop : public IRVisitor {

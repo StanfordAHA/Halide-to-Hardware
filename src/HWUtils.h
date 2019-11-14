@@ -561,6 +561,7 @@ public:
 };
 
 
+std::string exprString(const Expr e);
 
   }
 }

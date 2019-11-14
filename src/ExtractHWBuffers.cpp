@@ -607,6 +607,27 @@ bool isAcceleratorInternal(const Function& f) {
   return f.schedule().is_hw_kernel() && !isAcceleratorInput(f) && !isAcceleratorOutput(f);
 }
 
+template<typename T>
+class LoopOp {
+  public:
+    std::vector<const For*> surroundingLoops;
+    T op;
+
+    std::string prefixString() const {
+      std::string str  = "";
+      for (auto lp : surroundingLoops) {
+        str += lp->name + " : [" + exprString(lp->min) + ", " + exprString(lp->extent) + "], ";
+      }
+      return str;
+    }
+};
+
+class MemInfo {
+  public:
+    std::vector<LoopOp<const Provide*> > provides;
+    std::vector<LoopOp<const Call*> > calls;
+};
+
 class MemoryMap : public IRGraphVisitor {
   public:
 
@@ -614,6 +635,7 @@ class MemoryMap : public IRGraphVisitor {
 
     const map<string, Function>& env;
     std::vector<const For*> activeLoops;
+    std::map<string, MemInfo> memInfo;
 
     MemoryMap(const map<string, Function>& env_) : env(env_) {}
 
@@ -622,6 +644,12 @@ class MemoryMap : public IRGraphVisitor {
     void visit(const For* lp) override {
       activeLoops.push_back(lp);
 
+      auto tch = boxes_touched(lp->body);
+      cout << "--- Boxes touched inside: " << lp->name << endl;
+      for (auto bx : tch) {
+        cout << "\t" << bx.first << endl;
+        cout << "\t" << bx.second << endl;
+      }
       IRGraphVisitor::visit(lp);
 
       activeLoops.pop_back();
@@ -633,8 +661,10 @@ class MemoryMap : public IRGraphVisitor {
         Function f = map_find(p->name, env);
         if (isAcceleratorOutput(f)) {
           cout << "Found output provide: " << p->name << endl;
+          memInfo[p->name].provides.push_back({activeLoops, p});
         } else if (isAcceleratorInternal(f)) {
           cout << "Found internal provide: " << p->name << endl;
+          memInfo[p->name].provides.push_back({activeLoops, p});
         } else if (isAcceleratorInput(f)) {
           cout << "Found input provide: " << p->name << "... ignoring" << endl;
         }
@@ -648,10 +678,13 @@ class MemoryMap : public IRGraphVisitor {
         Function f = map_find(c->name, env);
         if (isAcceleratorOutput(f)) {
           cout << "Found output call: " << c->name << endl;
+          memInfo[c->name].calls.push_back({activeLoops, c});
         } else if (isAcceleratorInternal(f)) {
           cout << "Found internal call: " << c->name << endl;
+          memInfo[c->name].calls.push_back({activeLoops, c});
         } else if (isAcceleratorInput(f)) {
           cout << "Found input call: " << c->name << endl;
+          memInfo[c->name].calls.push_back({activeLoops, c});
         }
       }
 
@@ -689,7 +722,19 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
 
   MemoryMap memMap(env);
   s.accept(&memMap);
-  //internal_assert(false) << "Stopping so dillon can view\n";
+  cout << "Memory mapping..." << endl;
+  for (auto mm : memMap.memInfo) {
+    cout << "\t" << mm.first << endl;
+    cout << "\t--- Provides..." << endl;
+    for (auto p : mm.second.provides) {
+      cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
+    }
+    cout << "\t--- Calls..." << endl;
+    for (auto p : mm.second.calls) {
+      cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
+    }
+  }
+  internal_assert(false) << "Stopping so dillon can view\n";
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
