@@ -619,7 +619,11 @@ class LoopOp {
       for (auto lp : surroundingLoops) {
         es = substitute(lp->name, lp->min + lp->extent - 1, es);
       }
-      return simplify(expand(es));
+      es = simplify(expand(es));
+      for (auto lp : surroundingLoops) {
+        es = substitute(lp->name, lp->min + lp->extent - 1, es);
+      }
+      return simplify(es);
     }
 
     Expr expandMin(const Expr& e) {
@@ -627,7 +631,11 @@ class LoopOp {
       for (auto lp : surroundingLoops) {
         es = substitute(lp->name, lp->min, es);
       }
-      return simplify(expand(es));
+      es = simplify(expand(es));
+      for (auto lp : surroundingLoops) {
+        es = substitute(lp->name, lp->min, es);
+      }
+      return simplify(es);
     }
 
     Expr expand(const Expr& e) {
@@ -680,12 +688,12 @@ class MemoryMap : public IRGraphVisitor {
       for (const Range& bound : rp->bounds) {
         Expr min = bound.min;
         Expr extent = bound.extent;
-        for (auto s : activeScope) {
-          cout << "\tSubstituting " << s.first << " -> " << s.second << endl;
-        }
+        //for (auto s : activeScope) {
+          //cout << "\tSubstituting " << s.first << " -> " << s.second << endl;
+        //}
         cout << "\tMin = " << min << endl;
         Expr minS = substitute(activeScope, substitute(activeScope, min));
-        cout << "\tMinS = " << minS << endl;
+        //cout << "\tMinS = " << minS << endl;
         for (int i = 0; i < 20; i++) {
           minS = substitute(activeScope, minS);
         }
@@ -705,6 +713,8 @@ class MemoryMap : public IRGraphVisitor {
         cout << "\t" << simplify(extS) << endl;
       }
 
+
+      rp->body.accept(this);
       //internal_assert(false);
     }
 
@@ -738,6 +748,7 @@ class MemoryMap : public IRGraphVisitor {
 
     void visit(const Provide* p) override {
       IRGraphVisitor::visit(p);
+      cout << "Visiting provide: " << p->name << endl;
       if (contains_key(p->name, env)) {
         Function f = map_find(p->name, env);
         if (isAcceleratorOutput(f)) {
@@ -755,6 +766,7 @@ class MemoryMap : public IRGraphVisitor {
     void visit(const Call* c) override {
       IRGraphVisitor::visit(c);
       
+      cout << "Visiting call: " << c->name << endl;
       if (contains_key(c->name, env)) {
         Function f = map_find(c->name, env);
         memInfo[c->name].calls.push_back({activeScope, activeLoops, c});
@@ -829,7 +841,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       }
     }
   }
-  //internal_assert(false) << "Stopping so dillon can view\n";
+  internal_assert(false) << "Stopping so dillon can view\n";
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {

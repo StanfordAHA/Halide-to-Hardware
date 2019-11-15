@@ -224,9 +224,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     debug(1) << "Simplifying...\n";
     //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
+
+    cout << "Lowering befre first simplification:\n" << s << "\n\n";
+    
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
+    cout << "Lowering after first simplification:\n" << s << "\n\n";
     cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
