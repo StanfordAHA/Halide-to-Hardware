@@ -746,6 +746,18 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     for (auto p : mm.second.calls) {
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
       cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
+      cout << "\t\t\tMin addr..." << endl;
+      const Call* c = p.op;
+      Scope<Interval> bounds;
+      for (auto lp : p.surroundingLoops) {
+        Expr min = lp->min;
+        Interval bound = Interval::single_point(min);
+        bounds.push(lp->name, bound);
+      }
+      for (const Expr& arg : c->args) {
+        cout << "\t\t\t" << arg << endl;
+        //Expr lowerBound = find_constant_bound(substitute(min, bounds), Direction::Lower)
+      }
     }
   }
   //internal_assert(false) << "Stopping so dillon can view\n";
