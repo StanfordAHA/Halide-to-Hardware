@@ -211,17 +211,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     
     bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
 
-    cout << "Should use ubuffer ? " << use_ubuffer << endl;
-    vector<HWXcel> xcels;
-    if (t.has_feature(Target::CoreIR) && use_ubuffer) {
-      //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
-      xcels = extract_hw_accelerators(s, env, inlined_stages);
-      //xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
-      //for (auto hwbuffer : xcels.at(0).hwbuffers) {
-        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
-      //}
-    }
-    
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -238,6 +227,17 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
+    cout << "Should use ubuffer ? " << use_ubuffer << endl;
+    vector<HWXcel> xcels;
+    if (t.has_feature(Target::CoreIR) && use_ubuffer) {
+      //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
+      xcels = extract_hw_accelerators(s, env, inlined_stages);
+      //xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+      //for (auto hwbuffer : xcels.at(0).hwbuffers) {
+        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+      //}
+    }
+    
     Stmt s_ub;
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
