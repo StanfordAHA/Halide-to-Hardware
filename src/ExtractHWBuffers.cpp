@@ -610,6 +610,7 @@ bool isAcceleratorInternal(const Function& f) {
 template<typename T>
 class LoopOp {
   public:
+    std::map<std::string, Expr> activeScope;
     std::vector<const For*> surroundingLoops;
     T op;
 
@@ -646,12 +647,25 @@ class MemoryMap : public IRGraphVisitor {
     using IRGraphVisitor::visit;
 
     const map<string, Function>& env;
+    map<string, Expr> activeScope;
     std::vector<const For*> activeLoops;
     std::map<string, MemInfo> memInfo;
 
     MemoryMap(const map<string, Function>& env_) : env(env_) {}
 
   protected:
+
+    void visit(const Let* lp) override {
+      activeScope[lp->name] = lp->value;
+      lp->body.accept(this);
+      activeScope.erase(lp->name);
+    }
+
+    void visit(const LetStmt* lp) override {
+      activeScope[lp->name] = lp->value;
+      lp->body.accept(this);
+      activeScope.erase(lp->name);
+    }
 
     void visit(const For* lp) override {
       activeLoops.push_back(lp);
@@ -673,10 +687,10 @@ class MemoryMap : public IRGraphVisitor {
         Function f = map_find(p->name, env);
         if (isAcceleratorOutput(f)) {
           cout << "Found output provide: " << p->name << endl;
-          memInfo[p->name].provides.push_back({activeLoops, p});
+          memInfo[p->name].provides.push_back({activeScope, activeLoops, p});
         } else if (isAcceleratorInternal(f)) {
           cout << "Found internal provide: " << p->name << endl;
-          memInfo[p->name].provides.push_back({activeLoops, p});
+          memInfo[p->name].provides.push_back({activeScope, activeLoops, p});
         } else if (isAcceleratorInput(f)) {
           cout << "Found input provide: " << p->name << "... ignoring" << endl;
         }
@@ -688,15 +702,13 @@ class MemoryMap : public IRGraphVisitor {
       
       if (contains_key(c->name, env)) {
         Function f = map_find(c->name, env);
+        memInfo[c->name].calls.push_back({activeScope, activeLoops, c});
         if (isAcceleratorOutput(f)) {
           cout << "Found output call: " << c->name << endl;
-          memInfo[c->name].calls.push_back({activeLoops, c});
         } else if (isAcceleratorInternal(f)) {
           cout << "Found internal call: " << c->name << endl;
-          memInfo[c->name].calls.push_back({activeLoops, c});
         } else if (isAcceleratorInput(f)) {
           cout << "Found input call: " << c->name << endl;
-          memInfo[c->name].calls.push_back({activeLoops, c});
         }
       }
 
