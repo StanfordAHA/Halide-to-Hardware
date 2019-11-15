@@ -675,13 +675,48 @@ class MemoryMap : public IRGraphVisitor {
 
   protected:
 
+    void visit(const Realize* rp) override {
+      cout << "### Found realize..." << endl;
+      for (const Range& bound : rp->bounds) {
+        Expr min = bound.min;
+        Expr extent = bound.extent;
+        for (auto s : activeScope) {
+          cout << "\tSubstituting " << s.first << " -> " << s.second << endl;
+        }
+        cout << "\tMin = " << min << endl;
+        Expr minS = substitute(activeScope, substitute(activeScope, min));
+        cout << "\tMinS = " << minS << endl;
+        for (int i = 0; i < 20; i++) {
+          minS = substitute(activeScope, minS);
+        }
+        for (auto lp : activeLoops) {
+          minS = substitute(lp->name, lp->min + lp->extent - 1, minS);
+        }
+
+        Expr extS = substitute(activeScope, extent);
+        for (int i = 0; i < 20; i++) {
+          extS = substitute(activeScope, extS);
+        }
+        for (auto lp : activeLoops) {
+          extS = substitute(lp->name, lp->min + lp->extent - 1, extS);
+        }
+
+        cout << "\t" << simplify(minS) << endl;
+        cout << "\t" << simplify(extS) << endl;
+      }
+
+      //internal_assert(false);
+    }
+
     void visit(const Let* lp) override {
+      //internal_assert(!contains_key(lp->name, activeScope));
       activeScope[lp->name] = lp->value;
       lp->body.accept(this);
       activeScope.erase(lp->name);
     }
 
     void visit(const LetStmt* lp) override {
+      //internal_assert(!contains_key(lp->name, activeScope));
       activeScope[lp->name] = lp->value;
       lp->body.accept(this);
       activeScope.erase(lp->name);

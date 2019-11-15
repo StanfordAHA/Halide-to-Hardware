@@ -233,6 +233,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
+    debug(1) << "Simplifying...\n";
+    //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
+    s = simplify(s, false); // Storage folding needs .loop_max symbols
+    debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
+
     Stmt s_ub;
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
@@ -264,11 +269,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
     
-    debug(1) << "Simplifying...\n";
-    //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
-    s = simplify(s, false); // Storage folding needs .loop_max symbols
-    debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
-
+    std::cout << "Before storage folding...\n" << s << "\n\n";
     debug(1) << "Performing storage folding optimization...\n";
     //std::cout << "Performing storage folding optimization...\n" << s << '\n';
     //if (!t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
@@ -312,7 +313,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     }
 
     debug(1) << "Performing storage flattening...\n";
-    //std::cout << "Before storage flattening...\n" << s << "\n\n";
+    std::cout << "Before storage flattening...\n" << s << "\n\n";
+    
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
     //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
