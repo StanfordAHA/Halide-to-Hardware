@@ -199,11 +199,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     std::cout << "doing sliding window lowering pass\n";
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
-      s_sliding = sliding_window(s, env);
+      //s_sliding = sliding_window(s, env);
       //s = sliding_window(s, env);
       std::cout << "finished sliding window lowering pass\n" << s;
     } else {
-      s = sliding_window(s, env);
+      //s = sliding_window(s, env);
     }
 
     std::cout << "extracting hw buffers\n";
@@ -215,7 +215,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
       //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
-      xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+      xcels = extract_hw_accelerators(s, env, inlined_stages);
+      //xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
       //for (auto hwbuffer : xcels.at(0).hwbuffers) {
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       //}

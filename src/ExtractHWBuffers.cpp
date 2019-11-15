@@ -617,9 +617,9 @@ class LoopOp {
     Expr expandMax(const Expr& e) {
       Expr es = expand(e);
       for (auto lp : surroundingLoops) {
-        es = substitute(lp->name, lp->min + lp->extent + 1, es);
+        es = substitute(lp->name, lp->min + lp->extent - 1, es);
       }
-      return expand(es);
+      return simplify(expand(es));
     }
 
     Expr expandMin(const Expr& e) {
@@ -627,7 +627,7 @@ class LoopOp {
       for (auto lp : surroundingLoops) {
         es = substitute(lp->name, lp->min, es);
       }
-      return expand(es);
+      return simplify(expand(es));
     }
 
     Expr expand(const Expr& e) {
@@ -637,7 +637,7 @@ class LoopOp {
     std::string prefixString() const {
       std::string str  = "";
       for (auto lp : surroundingLoops) {
-        str += lp->name + " : [" + exprString(lp->min) + ", " + exprString(lp->extent) + "], ";
+        str += lp->name + " : [" + exprString(lp->min) + ", " + exprString(simplify(lp->min + lp->extent - 1)) + "], ";
       }
       return str;
     }
@@ -740,7 +740,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
 
   vector<HWXcel> xcels;
  
-  s = substituteInConstants(s);
+  //s = substituteInConstants(s);
 
   cout << "#### All functions in env..." << endl;
   DGraph<Function, int> dg;
