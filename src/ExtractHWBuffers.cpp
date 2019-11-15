@@ -614,6 +614,14 @@ class LoopOp {
     std::vector<const For*> surroundingLoops;
     T op;
 
+    Expr expandMax(const Expr& e) {
+      Expr es = expand(e);
+      for (auto lp : surroundingLoops) {
+        es = substitute(lp->name, lp->min + lp->extent + 1, es);
+      }
+      return expand(es);
+    }
+
     Expr expandMin(const Expr& e) {
       Expr es = expand(e);
       for (auto lp : surroundingLoops) {
@@ -781,6 +789,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       for (const Expr& arg : c->args) {
         cout << "\t\t\t\t" << arg << endl;
         cout << "\t\t\t\tMinAccessLoc: " << p.expandMin(arg) << endl;
+        cout << "\t\t\t\tMaxAccessLoc: " << p.expandMax(arg) << endl;
         //Expr lowerBound = find_constant_bound(substitute(min, bounds), Direction::Lower)
       }
     }
