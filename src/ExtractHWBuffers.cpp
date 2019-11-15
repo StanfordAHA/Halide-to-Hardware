@@ -13,7 +13,7 @@
 #include "Simplify.h"
 #include "Substitute.h"
 
-#include "coreir.h"
+#include "coreir/common/algorithm.h"
 
 using namespace CoreIR;
 
