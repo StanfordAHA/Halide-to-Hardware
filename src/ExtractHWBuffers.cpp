@@ -782,6 +782,33 @@ class MemoryMap : public IRGraphVisitor {
     }
 };
 
+class Address {
+  public:
+    std::vector<Expr> coordinates;
+};
+
+class PortSpec {
+  public:
+    bool isReadPort;
+    LoopOp<Address> accessPattern;
+};
+
+std::ostream& operator<<(std::ostream& out, const PortSpec& pt) {
+  out << (pt.isReadPort ? "read" : "write") << " ";
+  out << pt.accessPattern.prefixString();
+  out << " ";
+  for (auto c : pt.accessPattern.op.coordinates) {
+    out << c << ", ";
+  }
+  return out;
+}
+
+class BufferSpec {
+  public:
+    int capacity;
+    std::map<std::string, PortSpec> ports;
+};
+
 vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
@@ -813,19 +840,34 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
 
   MemoryMap memMap(env);
   s.accept(&memMap);
+  map<string, BufferSpec> buffers;
   cout << "Memory mapping..." << endl;
   for (auto mm : memMap.memInfo) {
+    string name = mm.first;
+    int portNo = 0;
+    buffers[name] = {};
+    buffers[name].capacity = 100;
     cout << "\t" << mm.first << endl;
     cout << "\t--- Provides..." << endl;
     for (auto p : mm.second.provides) {
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
       cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
+      PortSpec ps = {false};
+      for (auto lp : p.surroundingLoops) {
+        ps.accessPattern.surroundingLoops.push_back(lp);
+      }
+      for (auto coordExpr : p.op->args) {
+        ps.accessPattern.op.coordinates.push_back(coordExpr);
+      }
+      buffers[name].ports[p.op->name + "_provide_pt_" + std::to_string(portNo)] = ps;
+      portNo++;
     }
     cout << "\t--- Calls..." << endl;
     for (auto p : mm.second.calls) {
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
       cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
       cout << "\t\t\tMin addr..." << endl;
+      buffers[name].ports[p.op->name + "_call_pt_" + std::to_string(portNo)] = {true};
       const Call* c = p.op;
       Scope<Interval> bounds;
       for (auto lp : p.surroundingLoops) {
@@ -837,8 +879,16 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
         cout << "\t\t\t\t" << arg << endl;
         cout << "\t\t\t\tMinAccessLoc: " << p.expandMin(arg) << endl;
         cout << "\t\t\t\tMaxAccessLoc: " << p.expandMax(arg) << endl;
-        //Expr lowerBound = find_constant_bound(substitute(min, bounds), Direction::Lower)
       }
+      portNo++;
+    }
+  }
+  cout << "Logical buffers..." << endl;
+  for (auto bs : buffers) {
+    cout << "\t" << bs.first << ": Capacity = " << bs.second.capacity << endl;
+    cout << "\tports..." << endl;
+    for (auto pt : bs.second.ports) {
+      cout << "\t\t" << pt.first << ": " << pt.second << endl;
     }
   }
   internal_assert(false) << "Stopping so dillon can view\n";

@@ -234,6 +234,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
+      s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
+      cout << "Pre-unrolled: " << endl;
+      cout << s << endl;
       //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       xcels = extract_hw_accelerators(s, env, inlined_stages);
       //xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
