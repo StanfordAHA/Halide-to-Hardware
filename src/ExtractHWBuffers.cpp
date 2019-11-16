@@ -867,7 +867,14 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
       cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
       cout << "\t\t\tMin addr..." << endl;
-      buffers[name].ports[p.op->name + "_call_pt_" + std::to_string(portNo)] = {true};
+      PortSpec ps = {true};
+      for (auto lp : p.surroundingLoops) {
+        ps.accessPattern.surroundingLoops.push_back(lp);
+      }
+      for (auto coordExpr : p.op->args) {
+        ps.accessPattern.op.coordinates.push_back(coordExpr);
+      }
+      buffers[name].ports[p.op->name + "_call_pt_" + std::to_string(portNo)] = ps;
       const Call* c = p.op;
       Scope<Interval> bounds;
       for (auto lp : p.surroundingLoops) {
