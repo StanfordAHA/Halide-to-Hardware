@@ -34,6 +34,7 @@ dist: xenial
 
 install:
   - docker pull keyiz/garnet-flow-cad
+  # Why does this memory directive get us killed?
   #- docker run -itd --memory=50m --name halide-hw-distro keyiz/garnet-flow-cad bash
   - docker run -itd --name halide-hw-distro keyiz/garnet-flow-cad bash
   #- docker cp ../Halide-to-Hardware halide-hw-distro:/Halide-to-Hardware
