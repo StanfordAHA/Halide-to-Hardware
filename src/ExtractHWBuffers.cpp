@@ -814,91 +814,91 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
 
   vector<HWXcel> xcels;
  
-  //s = substituteInConstants(s);
+  s = substituteInConstants(s);
 
-  cout << "#### All functions in env..." << endl;
-  DGraph<Function, int> dg;
-  for (const auto &p : env) {
-    Function func = p.second;
-    cout << "\tName: " << func.name() << endl;
-    cout << "\t\tIs accel input : " << func.schedule().is_accelerator_input() << endl;
-    cout << "\t\tIs accel output: " << func.schedule().is_accelerator_output() << endl;
-    cout << "\t\tIs accelerated : " << func.schedule().is_accelerated() << endl;
-    cout << "\t\tIs hwkernel    : " << func.schedule().is_hw_kernel() << endl;
-    LoopLevel store_level = func.schedule().store_level().lock();
-    LoopLevel compute_level = func.schedule().compute_level().lock();
-    cout << "\t\tStore level  : " << store_level << endl;
-    cout << "\t\tCompute level: " << store_level << endl;
-    if (func.schedule().is_accelerated()) {
-      cout << "\t\tAccel compute: " << func.schedule().accelerate_compute_level().lock() << endl;
-      cout << "\t\tAccel store: " << func.schedule().accelerate_store_level().lock() << endl;
-    }
-    if (func.schedule().is_hw_kernel()) {
-      dg.addVert(func);
-    }
-  }
+  //cout << "#### All functions in env..." << endl;
+  //DGraph<Function, int> dg;
+  //for (const auto &p : env) {
+    //Function func = p.second;
+    //cout << "\tName: " << func.name() << endl;
+    //cout << "\t\tIs accel input : " << func.schedule().is_accelerator_input() << endl;
+    //cout << "\t\tIs accel output: " << func.schedule().is_accelerator_output() << endl;
+    //cout << "\t\tIs accelerated : " << func.schedule().is_accelerated() << endl;
+    //cout << "\t\tIs hwkernel    : " << func.schedule().is_hw_kernel() << endl;
+    //LoopLevel store_level = func.schedule().store_level().lock();
+    //LoopLevel compute_level = func.schedule().compute_level().lock();
+    //cout << "\t\tStore level  : " << store_level << endl;
+    //cout << "\t\tCompute level: " << store_level << endl;
+    //if (func.schedule().is_accelerated()) {
+      //cout << "\t\tAccel compute: " << func.schedule().accelerate_compute_level().lock() << endl;
+      //cout << "\t\tAccel store: " << func.schedule().accelerate_store_level().lock() << endl;
+    //}
+    //if (func.schedule().is_hw_kernel()) {
+      //dg.addVert(func);
+    //}
+  //}
 
-  MemoryMap memMap(env);
-  s.accept(&memMap);
-  map<string, BufferSpec> buffers;
-  cout << "Memory mapping..." << endl;
-  for (auto mm : memMap.memInfo) {
-    string name = mm.first;
-    int portNo = 0;
-    buffers[name] = {};
-    buffers[name].capacity = 100;
-    cout << "\t" << mm.first << endl;
-    cout << "\t--- Provides..." << endl;
-    for (auto p : mm.second.provides) {
-      cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
-      cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
-      PortSpec ps = {false};
-      for (auto lp : p.surroundingLoops) {
-        ps.accessPattern.surroundingLoops.push_back(lp);
-      }
-      for (auto coordExpr : p.op->args) {
-        ps.accessPattern.op.coordinates.push_back(coordExpr);
-      }
-      buffers[name].ports[p.op->name + "_provide_pt_" + std::to_string(portNo)] = ps;
-      portNo++;
-    }
-    cout << "\t--- Calls..." << endl;
-    for (auto p : mm.second.calls) {
-      cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
-      cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
-      cout << "\t\t\tMin addr..." << endl;
-      PortSpec ps = {true};
-      for (auto lp : p.surroundingLoops) {
-        ps.accessPattern.surroundingLoops.push_back(lp);
-      }
-      for (auto coordExpr : p.op->args) {
-        ps.accessPattern.op.coordinates.push_back(coordExpr);
-      }
-      buffers[name].ports[p.op->name + "_call_pt_" + std::to_string(portNo)] = ps;
-      const Call* c = p.op;
-      Scope<Interval> bounds;
-      for (auto lp : p.surroundingLoops) {
-        Expr min = lp->min;
-        Interval bound = Interval::single_point(min);
-        bounds.push(lp->name, bound);
-      }
-      for (const Expr& arg : c->args) {
-        cout << "\t\t\t\t" << arg << endl;
-        cout << "\t\t\t\tMinAccessLoc: " << p.expandMin(arg) << endl;
-        cout << "\t\t\t\tMaxAccessLoc: " << p.expandMax(arg) << endl;
-      }
-      portNo++;
-    }
-  }
-  cout << "Logical buffers..." << endl;
-  for (auto bs : buffers) {
-    cout << "\t" << bs.first << ": Capacity = " << bs.second.capacity << endl;
-    cout << "\tports..." << endl;
-    for (auto pt : bs.second.ports) {
-      cout << "\t\t" << pt.first << ": " << pt.second << endl;
-    }
-  }
-  internal_assert(false) << "Stopping so dillon can view\n";
+  //MemoryMap memMap(env);
+  //s.accept(&memMap);
+  //map<string, BufferSpec> buffers;
+  //cout << "Memory mapping..." << endl;
+  //for (auto mm : memMap.memInfo) {
+    //string name = mm.first;
+    //int portNo = 0;
+    //buffers[name] = {};
+    //buffers[name].capacity = 100;
+    //cout << "\t" << mm.first << endl;
+    //cout << "\t--- Provides..." << endl;
+    //for (auto p : mm.second.provides) {
+      //cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
+      //cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
+      //PortSpec ps = {false};
+      //for (auto lp : p.surroundingLoops) {
+        //ps.accessPattern.surroundingLoops.push_back(lp);
+      //}
+      //for (auto coordExpr : p.op->args) {
+        //ps.accessPattern.op.coordinates.push_back(coordExpr);
+      //}
+      //buffers[name].ports[p.op->name + "_provide_pt_" + std::to_string(portNo)] = ps;
+      //portNo++;
+    //}
+    //cout << "\t--- Calls..." << endl;
+    //for (auto p : mm.second.calls) {
+      //cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
+      //cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
+      //cout << "\t\t\tMin addr..." << endl;
+      //PortSpec ps = {true};
+      //for (auto lp : p.surroundingLoops) {
+        //ps.accessPattern.surroundingLoops.push_back(lp);
+      //}
+      //for (auto coordExpr : p.op->args) {
+        //ps.accessPattern.op.coordinates.push_back(coordExpr);
+      //}
+      //buffers[name].ports[p.op->name + "_call_pt_" + std::to_string(portNo)] = ps;
+      //const Call* c = p.op;
+      //Scope<Interval> bounds;
+      //for (auto lp : p.surroundingLoops) {
+        //Expr min = lp->min;
+        //Interval bound = Interval::single_point(min);
+        //bounds.push(lp->name, bound);
+      //}
+      //for (const Expr& arg : c->args) {
+        //cout << "\t\t\t\t" << arg << endl;
+        //cout << "\t\t\t\tMinAccessLoc: " << p.expandMin(arg) << endl;
+        //cout << "\t\t\t\tMaxAccessLoc: " << p.expandMax(arg) << endl;
+      //}
+      //portNo++;
+    //}
+  //}
+  //cout << "Logical buffers..." << endl;
+  //for (auto bs : buffers) {
+    //cout << "\t" << bs.first << ": Capacity = " << bs.second.capacity << endl;
+    //cout << "\tports..." << endl;
+    //for (auto pt : bs.second.ports) {
+      //cout << "\t\t" << pt.first << ": " << pt.second << endl;
+    //}
+  //}
+  //internal_assert(false) << "Stopping so dillon can view\n";
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
