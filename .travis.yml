@@ -1,45 +1,57 @@
-notifications:
-  email: false
-dist: trusty
-sudo: false
-language: c
-compiler:
-  - gcc
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      #- g++-4.9
-      - g++-7
-      - libedit-dev
-      - libpng-dev
-      - graphviz
-      - valgrind
-env:
-  - LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
+service: docker
+language: minimal
+dist: xenial
 
-cache: apt
+#notifications:
+  #email: false
+#dist: trusty
+#sudo: false
+#language: c
+#compiler:
+  #- gcc
+#addons:
+  #apt:
+    #sources:
+      #- ubuntu-toolchain-r-test
+    #packages:
+      ##- g++-4.9
+      #- g++-7
+      #- libedit-dev
+      #- libpng-dev
+      #- graphviz
+      #- valgrind
+#env:
+  #- LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
+
+#cache: apt
 
 # Note the commands below are written assuming Ubuntu 12.04LTS
-before_install:
-  # set variables necessary for halide
-  - source test/scripts/before_install_travis.sh
-  # set envirnoment variables specific to this repo
-  - export TEST_HALIDE_GEN=true
+#before_install:
+  ## set variables necessary for halide
+  #- source test/scripts/before_install_travis.sh
+  ## set envirnoment variables specific to this repo
+  #- export TEST_HALIDE_GEN=true
 
 install:
-  # install framework specific to halide
-  - test/scripts/install_travis.sh  
+  - docker pull keyiz/garnet-flow-cad
+  - docker run -itd --name halide-hw-distro keyiz/garnet-flow-cad bash
+  #- docker cp ../Halide-to-Hardware halide-hw-distro:/Halide-to-Hardware
+  # TODO: Change this script to use travis environment variables
+  - docker exec -i halide-hw-distro bash -c "git clone --branch dhuff_migrate_coreir_build_halide_from_scratch --depth 1 https://github.com/StanfordAHA/GarnetFlow.git"
+  - docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/; ./build_halide_distrib.sh StanfordAHA/Halide-to-Hardware hls_hwbuffer_codegen_garnetflow_updates"
+  - docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/halide_distrib.tgz ./halide_distrib.tgz
+  ## install framework specific to halide
+  #- test/scripts/install_travis.sh  
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - make distrib
-  - rm distrib/halide.tgz
-  - rm distrib/bin/libHalide.so
-  - tar -czvf halide_distrib.tgz distrib
+  - echo "done with travis before_deploy"
+  #- make distrib
+  #- rm distrib/halide.tgz
+  #- rm distrib/bin/libHalide.so
+  #- tar -czvf halide_distrib.tgz distrib
 
 deploy:
   provider: releases
@@ -53,12 +65,13 @@ deploy:
 
 before_script:
   # create Halide compiler
-  - make -j4 distrib
+  #- make -j4 distrib
 
 script:
+  - echo "at travis script"
   # run test cases for hardware codegens
-  - export HALIDE_DEBUG_REDIRECT=""
-  - bash test/scripts/build_travis.sh
+  #- export HALIDE_DEBUG_REDIRECT=""
+  #- bash test/scripts/build_travis.sh
 
 after_script: |
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
