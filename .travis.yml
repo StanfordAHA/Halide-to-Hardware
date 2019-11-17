@@ -34,7 +34,7 @@ dist: xenial
 
 install:
   - docker pull keyiz/garnet-flow-cad
-  - docker run -itd --memory=100m --name halide-hw-distro keyiz/garnet-flow-cad bash
+  - docker run -itd --memory=50m --name halide-hw-distro keyiz/garnet-flow-cad bash
   #- docker cp ../Halide-to-Hardware halide-hw-distro:/Halide-to-Hardware
   # TODO: Change this script to use travis environment variables
   - docker exec -i halide-hw-distro bash -c "git clone --branch dhuff_migrate_coreir_build_halide_from_scratch --depth 1 https://github.com/StanfordAHA/GarnetFlow.git"
