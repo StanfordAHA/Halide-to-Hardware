@@ -4,7 +4,6 @@ dist: trusty
 sudo: false
 language: c
 compiler:
-  # Comment out for now to keep build matrix small
   - gcc
 addons:
   apt:
@@ -18,15 +17,6 @@ addons:
       - graphviz
       - valgrind
 env:
-  # Configurations
-  #
-  # Each line in the ``env`` section represents a set of environment
-  # variables passed to a build configuration. Update LLVM Version and gcc?
-  #
-  # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
-  # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
-  #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
-  #- LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-5 CC_=gcc-5
   - LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
 
 cache: apt

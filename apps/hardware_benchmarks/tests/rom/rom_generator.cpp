@@ -51,7 +51,10 @@ public:
             .hw_accelerate(xi, xo);
 
           curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-          
+
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
+
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU
