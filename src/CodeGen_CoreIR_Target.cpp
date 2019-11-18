@@ -674,17 +674,17 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   cout << "---- Creating kernel for stmt..." << endl;
   cout << stmt << endl;
 
-  if (is_header()) {
-    return;
-  } else {
-    global_ns = context->getNamespace("global");
-    design = createCoreIRForStmt(context, stmt, name, args);
-    def = design->getDef();
-    //design = global_ns->newModuleDecl("DesignTop", design_type);
-    //design->print();
-    self = def->sel("self");
-    return;
-  }
+  //if (is_header()) {
+    //return;
+  //} else {
+    //global_ns = context->getNamespace("global");
+    //design = createCoreIRForStmt(context, stmt, name, args);
+    //def = design->getDef();
+    ////design = global_ns->newModuleDecl("DesignTop", design_type);
+    ////design->print();
+    //self = def->sel("self");
+    //return;
+  //}
 
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
