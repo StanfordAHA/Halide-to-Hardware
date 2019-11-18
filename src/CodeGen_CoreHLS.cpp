@@ -675,6 +675,23 @@ void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
   {
+    CoreIR::Params srParams{{"width", context->Int()}};
+    CoreIR::TypeGen* srTg = hns->newTypeGen("cast", srParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto width = args.at("width")->get<int>();
+        return c->Record({
+            {"in", c->BitIn()->Arr(width)},
+            {"out", c->Bit()->Arr(width)}
+            });
+        });
+    auto srGen = hns->newGeneratorDecl("cast", srTg, srParams);
+    srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto self = def->sel("self");
+        def->connect(self->sel("in"), self->sel("out"));
+        });
+  }
+
+  {
   CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}, {"delay", context->Int()}};
   CoreIR::TypeGen* srTg = hns->newTypeGen("stream_trimmer", srParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
@@ -1953,7 +1970,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         instrValues[instr] = sel->sel("out");
         unitMapping[instr] = sel;
       } else if (name == "cast") {
-        auto cs = def->addInstance("wire_" + std::to_string(defStage), "coreir.wire", {{"width", CoreIR::Const::make(context, 16)}});
+        auto cs = def->addInstance("wire_" + std::to_string(defStage), "halidehw.cast", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = cs->sel("out");
         unitMapping[instr] = cs;
       } else if (name == "rd_stream") {

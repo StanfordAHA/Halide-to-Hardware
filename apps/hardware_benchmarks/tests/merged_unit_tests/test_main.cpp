@@ -167,7 +167,6 @@ CoreIR::Module* buildModule(bool useUbuffer, CoreIR::Context* context, const std
   auto hm = hwOutput.compile_to_module(args, name, t);
   cout << "Compiled to module..." << endl;
   cout << hm << endl;
-  assert(false);
   for (auto f : hm.functions()) {
     cout << "Generating coreir for function " << f.name << endl;
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
@@ -1691,8 +1690,8 @@ void small_conv_3_3_test() {
   // Generate CoreIR
   auto context = hwContext();
   vector<Argument> args{input};
-  //auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
-  auto m = buildModule(true, context, "coreir_conv_3_3", args, "conv_3_3", output);
+  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  //auto m = buildModule(true, context, "coreir_conv_3_3", args, "conv_3_3", output);
   cout << "Module = " << endl;
   m->print();
 
