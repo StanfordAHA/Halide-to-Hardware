@@ -35,28 +35,20 @@ dist: xenial
 
 install:
   - docker pull keyiz/garnet-flow-cad
-  # Why does this memory directive get us killed?
-  #- docker run -itd --memory=50m --name halide-hw-distro keyiz/garnet-flow-cad bash
   - docker run -itd --name halide-hw-distro keyiz/garnet-flow-cad bash
-  #- docker cp ../Halide-to-Hardware halide-hw-distro:/Halide-to-Hardware
   # TODO: Change this script to use travis environment variables
   - docker exec -i halide-hw-distro bash -c "git clone --branch dhuff_migrate_coreir_build_halide_from_scratch --depth 1 https://github.com/StanfordAHA/GarnetFlow.git"
-  - docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/; ./build_halide_distrib.sh StanfordAHA/Halide-to-Hardware hls_hwbuffer_codegen_garnetflow_updates"
+  - docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/; ./build_halide_distrib.sh StanfordAHA/Halide-to-Hardware ${TRAVIS_COMMIT}"
+    # StanfordAHA/Halide-to-Hardware hls_hwbuffer_codegen_garnetflow_updates"
   - docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_app.sh pointwise"
   - docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_test.sh conv_3_3"
   - docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/halide_distrib.tgz ./halide_distrib.tgz
-  ## install framework specific to halide
-  #- test/scripts/install_travis.sh  
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
   - echo "done with travis before_deploy"
-  #- make distrib
-  #- rm distrib/halide.tgz
-  #- rm distrib/bin/libHalide.so
-  #- tar -czvf halide_distrib.tgz distrib
 
 deploy:
   provider: releases
@@ -69,14 +61,10 @@ deploy:
     all_branches: true
 
 before_script:
-  # create Halide compiler
-  #- make -j4 distrib
+  - echo "at before_script"
 
 script:
   - echo "at travis script"
-  # run test cases for hardware codegens
-  #- export HALIDE_DEBUG_REDIRECT=""
-  #- bash test/scripts/build_travis.sh
 
 after_script: |
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
