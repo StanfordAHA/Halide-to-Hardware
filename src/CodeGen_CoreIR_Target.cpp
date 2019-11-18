@@ -2918,8 +2918,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
     CoreIR::Wireable* lb_wen = def->addInstance(lb_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
     def->connect(lb_wen->sel("out"), coreir_lb->sel("wen"));
   }
-  def->addInstance(lb_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
-  def->connect({lb_name + "_flush", "out"}, {lb_name, "flush"});
+  //def->addInstance(lb_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+  //def->connect({lb_name + "_flush", "out"}, {lb_name, "flush"});
 
   
   //hw_wire_set[lb_out_name] = coreir_lb->sel("out");

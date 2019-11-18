@@ -1,37 +1,9 @@
 service: docker
 language: minimal
-# did this change matter for linking?
 dist: xenial
 
-#notifications:
-  #email: false
-#dist: trusty
-#sudo: false
-#language: c
-#compiler:
-  #- gcc
-#addons:
-  #apt:
-    #sources:
-      #- ubuntu-toolchain-r-test
-    #packages:
-      ##- g++-4.9
-      #- g++-7
-      #- libedit-dev
-      #- libpng-dev
-      #- graphviz
-      #- valgrind
-#env:
-  #- LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7
-
-#cache: apt
-
-# Note the commands below are written assuming Ubuntu 12.04LTS
-#before_install:
-  ## set variables necessary for halide
-  #- source test/scripts/before_install_travis.sh
-  ## set envirnoment variables specific to this repo
-  #- export TEST_HALIDE_GEN=true
+notifications:
+  email: false
 
 install:
   - ./test/scripts/garnet_docker_build.sh
@@ -51,12 +23,6 @@ deploy:
   on:
     tags: true
     all_branches: true
-
-before_script:
-  - echo "at before_script"
-
-script:
-  - echo "at travis script"
 
 after_script: |
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
