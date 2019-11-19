@@ -1516,6 +1516,8 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "linebuf_decl";
       } else if (op->name == "absd") {
         ist->name = "absd";
+      } else if (op->name == "abs") {
+        ist->name = "abs";
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
         assert(callOperands.size() > 1);
@@ -1914,6 +1916,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
+      } else if (name == "abs") {
+
+        auto mul = def->addInstance("abs" + std::to_string(defStage), "commonlib.abs", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = mul->sel("out");
+        unitMapping[instr] = mul;
       } else if (name == "absd") {
         auto mul = def->addInstance("absd" + std::to_string(defStage), "commonlib.absd", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
@@ -2250,9 +2257,11 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
         def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
         def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
+      } else if (instr->name == "abs") {
+        auto arg = instr->getOperand(0);
+        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       } else if (instr->name == "cast") {
         auto arg = instr->getOperand(0);
-        //auto unit = CoreIR::map_find(instr, unitMapping);
         def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       } else if (instr->name == "rd_stream") {
         auto arg = instr->getOperand(0);
