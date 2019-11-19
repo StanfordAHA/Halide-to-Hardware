@@ -76,7 +76,7 @@ public:
           //hw_input.linebuffer();
 
           hw_input.stream_to_accelerator();
-          kernel.compute_at(hw_output, xo);
+          kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
 
         } else {  // schedule to CPU
 //          kernel.compute_root();
