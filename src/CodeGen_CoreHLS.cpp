@@ -4815,6 +4815,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   topMod->print();
   
   context->runPasses({"rungenerators"});
+  context->runPasses({"flatten"});
   //for (auto inst : def->getInstances) {
 
   //}
