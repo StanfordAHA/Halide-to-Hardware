@@ -44,8 +44,8 @@ public:
 
           hw_output.bound(x, 0, 64);
           hw_output.bound(y, 0, 64);
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
+          output.bound(x, 0, 60);
+          output.bound(y, 0, 60);
           
 
           hw_output.compute_root();
