@@ -41,6 +41,7 @@ using std::ofstream;
 using std::cout;
 
 using CoreIR::DirectedGraph;
+using CoreIR::ModuleDef;
 using CoreIR::vdisc;
 using CoreIR::Interface;
 using CoreIR::Instance;
@@ -4653,6 +4654,40 @@ class UselessReadRemover : public IRMutator {
     }
 };
 
+void flattenExcluding(ModuleDef* def, vector<string>& generatorNames) {
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (auto instP : def->getInstances()) {
+      bool fromAnyGen = false;
+      for (auto g : generatorNames) {
+        if (fromGenerator(g, instP.second)) {
+          fromAnyGen = true;
+          break;
+        }
+      }
+
+      if (!fromAnyGen) {
+        changed = inlineInstance(instP.second);
+        if (changed) {
+          break;
+        }
+      }
+    }
+  }
+
+}
+
+void flattenExcluding(CoreIR::Context* c, vector<string>& generatorNames) {
+  for (auto ns : c->getNamespaces()) {
+    for (auto m : ns.second->getModules()) {
+      if (m.second->hasDef()) {
+        flattenExcluding(m.second->getDef(), generatorNames);
+      }
+    }
+  }
+}
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -4800,7 +4835,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     kernels[lp] = kI;
   }
 
-  context->runPasses({"rungenerators", "flatten", "deletedeadinstances"});
+  context->runPasses({"rungenerators"});
+  vector<string> generatorNames{"unified_buffer", "linebuffer", "rom2"};
+  flattenExcluding(context, generatorNames);
+  context->runPasses({"deletedeadinstances"});
   cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
   AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
   computeDelaysForAppGraph(appGraph);
@@ -4815,7 +4853,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   topMod->print();
   
   context->runPasses({"rungenerators"});
-  context->runPasses({"flatten"});
+
+  flattenExcluding(context, generatorNames);
+  //context->runPasses({"flatten"});
   //for (auto inst : def->getInstances) {
 
   //}
