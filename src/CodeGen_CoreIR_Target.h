@@ -123,6 +123,7 @@ namespace Halide {
         std::map<std::string, std::vector<std::string> > hw_dispatch_set;
         std::map<std::string, CoreIR::Wireable*> lb_map;          // lb name to lb wire
         std::map<std::string, CoreIR::Wireable*> lb_kernel_map;   // element in kernel to lb wire
+        std::map<std::string, std::string> input_aliases;   // element in kernel to lb wire
         void record_dispatch(std::string producer_name, std::string consumer_name);
         void record_linebuffer(std::string producer_name, CoreIR::Wireable* wire);
         bool connect_linebuffer(std::string consumer_name, CoreIR::Wireable* consumer_wen_wire);

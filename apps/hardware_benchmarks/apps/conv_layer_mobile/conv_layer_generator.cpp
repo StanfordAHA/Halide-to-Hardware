@@ -73,7 +73,8 @@ public:
           // Blocking spatially on X Y dim
           Var xo("xo"), xi("xi"), yo("yo"), yi("yi");
           
-          hw_input.compute_root();
+          //hw_input.compute_root();
+          //hw_input.store_at(hw_output, xo).compute_at(dw_conv, x);
           hw_output.compute_root();
 
           filter_dw.compute_at(hw_output, xo)
@@ -88,13 +89,13 @@ public:
           hw_output.tile(x, y, xo, yo, xi, yi, 14, 14)
             .reorder(xi, yi, k, xo, yo)
             .reorder_storage(k, x, y)
-            //.hw_accelerate(xi, xo);
-            .accelerate({hw_input}, xi, xo);
+            .hw_accelerate(xi, xo);
+            //.accelerate({hw_input}, xi, xo);
 
           //schedule pw conv reduction
           pw_conv_reduction.update()
-            //.unroll(k)
-            .reorder(k, x, y, r_pw.x);
+            .reorder(k, x, y, r_pw.x)
+            .unroll(k);
 
           pw_conv_reduction.compute_at(hw_output, xo).store_at(hw_output, xo);
 
@@ -104,8 +105,8 @@ public:
             .reorder(c, x, y, k);
           
           //schedule dw conv
-          dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo);
-            //.reorder(x, y, c);
+          dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
+            .reorder(x, y, c);
           
           //dw_conv.compute_at(pw_conv, x).store_at(hw_output, xo)
           //dw_conv.compute_at(hw_output, xi).store_at(hw_output, xo)
@@ -119,8 +120,10 @@ public:
           
 
           //add input stream
-          hw_input.stream_to_accelerator().reorder_storage(c, x, y);
-          
+          hw_input.stream_to_accelerator();//.reorder_storage(c, x, y);
+          //hw_input.store_root().compute_at(pw_conv, x);
+          //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
+          hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);
         }
 
   }

@@ -403,8 +403,6 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
                                              "reg_array", "reshape", "transpose_reshape"
-                                             //"abstract_unified_buffer",
-                                             //"unified_buffer"
   };
   for (auto gen_name : commonlib_gen_names) {
     gens[gen_name] = "commonlib." + gen_name;
@@ -664,6 +662,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
 
   // Keep track of the inputs, output, and taps for this module
   std::vector<std::pair<string, CoreIR::Type*>> input_types;
+  std::vector<std::pair<string, CoreIR::Type*>> in_en_types;
   std::map<string, CoreIR::Type*> tap_types;
   CoreIR::Type* output_type = context->Bit();
 
@@ -709,6 +708,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
           input_type = input_type->Arr(indices[i]);
         }
         input_types.push_back({arg_name, input_type});
+        in_en_types.push_back({arg_name, context->BitIn()});
           
       } else {
         // add another array of taps (configuration changes infrequently)
@@ -747,8 +747,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   if (has_valid) {
     design_type = context->Record({
       {"in", context->Record(input_types)},
+      {"in_en", context->Record(in_en_types)},
       {"reset", context->BitIn()},
-      {"in_en", context->BitIn()},
       {"out", output_type},
       {"valid", context->Bit()}
     });
@@ -817,6 +817,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
         stream << print_stencil_type(args[i].stencil_type) << " &"
                << print_name(args[i].name) << " = " << arg_name << ";\n";
+        input_aliases[print_name(args[i].name)] = arg_name;
 
         // input arguments are only streams
         if (ends_with(args[i].name, ".stream")) {
@@ -866,9 +867,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         add_wire(const_name, const_inst->sel("out"));
           
       }
-
-
     }
+    
     stream << "\n// hw_input_set contains: ";
     for (auto x : hw_input_set) {
       stream << " " << x.first;
@@ -1358,8 +1358,9 @@ bool CodeGen_CoreIR_Target::CodeGen_CoreIR_C::connect_linebuffer(std::string con
     
   } else if (is_input(consumer_name)) {
     // connect to self upstream valid
-    stream << "// connected to upstream valid (input enable) here\n";
-    def->connect(self->sel("in_en"), consumer_wen_wire);
+    stream << "// connected to upstream valid (input enable) here for " << consumer_name << "\n";
+    auto& aliased_input_name = input_aliases.at(consumer_name);
+    def->connect(self->sel("in_en")->sel(aliased_input_name), consumer_wen_wire);
     return true;
 
     //stream << "// TODO: connect to upstream valid here\n";
@@ -1975,12 +1976,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const For *op) {
     int inc_value = 1;
     string counter_name = unique_name("count_" + wirename);
 
-    stream << "// creating counter for " << wirename << "\n";
-
     CoreIR::Values args = {{"width",CoreIR::Const::make(context,bitwidth)},
                            {"min",CoreIR::Const::make(context,min_value)},
                            {"max",CoreIR::Const::make(context,max_value)},
                            {"inc",CoreIR::Const::make(context,inc_value)}};
+
+    if (!is_defined(wirename)) {
+      CoreIR::Values genargs;
+      CoreIR_Inst_Args const_args(wirename, wirename, "out", gens["counter"], args, genargs);
+      hw_def_set[wirename] = std::make_shared<CoreIR_Inst_Args>(const_args);
+    }
+
+    stream << "// creating counter for " << wirename << " with max=" << max_value << "\n";
 
     CoreIR::Wireable* counter_inst = def->addInstance(counter_name, gens["counter"], args);
     add_wire(wirename, counter_inst->sel("out"));
@@ -2501,8 +2508,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   size_t dimensionality = num_streaming_dims;
   
   // set output range and stride based on access pattern
-  vector<int> output_stride(6);
-  vector<int> output_range(6);
+  vector<int> output_stride(std::max((int)num_streaming_dims, 6));
+  vector<int> output_range(std::max((int)num_streaming_dims, 6));
 
   vector<int> flat_dim_strides(capacity.size());
   internal_assert(flat_dim_strides.size() == capacity.size());
@@ -2524,8 +2531,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   }
 
   // set input range and stride
-  vector<int> input_stride(6);
-  vector<int> input_range(6);
+  vector<int> input_stride(std::max((int)input_chunk.size(), 6));
+  vector<int> input_range(std::max((int)input_chunk.size(), 6));
   nlohmann::json input_chunk_json;
   internal_assert(input_chunk.size() == input_block.size());
   internal_assert(input_chunk.size() <= input_stride.size());
@@ -3051,7 +3058,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
 
   stream << "// going through consumers\n";
   
-  internal_assert(op->args.size() >= num_of_dimensions*2 + 3 + num_of_consumers*(2 + 3*num_of_dimensions));
+  internal_assert(op->args.size() >= 2 + num_of_dimensions*2 + 1 + num_of_consumers*(2 + 3*num_of_dimensions));
   for (size_t i = 0; i < num_of_consumers; i++) {
     const StringImm *string_imm = op->args[idx++].as<StringImm>();
     internal_assert(string_imm);
@@ -3575,6 +3582,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Load *op) {
     std::vector<VarValues> pts;
     for (const Variable* v : dep_vars) {
       string id_var = print_name(v->name);
+
       internal_assert(is_defined(id_var)) << " didn't work for " << id_var << "\n";
 
       std::shared_ptr<CoreIR_Inst_Args> counter_args = hw_def_set[id_var];
@@ -3590,7 +3598,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Load *op) {
       pts.clear();
       if (old_pts.empty()) {
         // add all points from counter
-        for (uint count=0; count<counter_max; ++count) {
+        for (uint count=0; count<=counter_max; ++count) {
           VarValues vvv;
           vvv[id_var] = count;
           stream << "//     pushed var,count: " << id_var << "," << count << endl;

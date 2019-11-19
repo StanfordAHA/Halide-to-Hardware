@@ -123,12 +123,14 @@ struct HWBuffer {
   Function func;
   bool is_inlined = false;
   bool is_output = false;
+  int num_accum_iters = 0;
   
   // old parameters for the HWBuffer
   std::shared_ptr<SlidingStencils> input_stencil;
   std::vector<InOutDimSize> dims;
   Stmt input_access_pattern;
   Stmt output_access_pattern;
+  std::map<std::string, std::shared_ptr<HWBuffer>> producer_buffers;
   std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
   std::map<std::string, Stride> stride_map;
@@ -211,6 +213,7 @@ struct HWXcel {
   std::set<std::string> input_streams; // might be wrong?
   std::map<std::string, HWBuffer> hwbuffers;
   std::map<std::string, HWBuffer*> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
+
   //std::map<std::string, HWTap> input_taps;
 };
 

@@ -21,7 +21,7 @@ public:
         lt1(x,y) = hw_input(x,y) < 128;
         lt2(x,y) = hw_input(x,y) < 64;
         
-	Func bool_and, bool_or, bool_not, bool_xor;
+        Func bool_and, bool_or, bool_not, bool_xor;
         bool_and(x,y) = lt1(x,y) && lt2(x,y);
         bool_not(x,y) = !( lt1(x,y) );
         bool_or(x,y)  = bool_and(x,y) || bool_not(x,y);
@@ -33,6 +33,9 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
+          
           Var xi,yi, xo,yo;
           
           hw_input.compute_root();

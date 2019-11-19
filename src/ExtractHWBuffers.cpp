@@ -636,6 +636,7 @@ class FindOutputStencil : public IRVisitor {
       //}
       
       //std::cout << op->body << std::endl;
+      std::cout << new_body << std::endl;
       auto box_read = box_required(new_body, var);
 
       //Box box = box_provided(new_body, var);
@@ -831,6 +832,8 @@ class FindInnerLoops : public IRVisitor {
     IRVisitor::visit(op);
     if (added_loop) {
       inner_loops.pop_back();
+      std::cout << "updated loops: " << inner_loops << std::endl;
+      in_inner_loops = true;
     }
   }
 
@@ -851,6 +854,7 @@ vector<string> get_loop_levels_between(Stmt s, Function func,
                                        LoopLevel inner_level_inclusive,
                                        bool start_inside = false) {
   FindInnerLoops fil(func, outer_level_exclusive, inner_level_inclusive, start_inside);
+  std::cout << "find some loops: " << s << std::endl;
   s.accept(&fil);
   std::cout << "got some loops: " << fil.returned_inner_loops << std::endl;
   return fil.returned_inner_loops;
@@ -890,7 +894,7 @@ class HWBuffers : public IRMutator2 {
         // create the hwbuffer
         HWBuffer hwbuffer;
         hwbuffer.name = op->name;
-        std::cout << hwbuffer.name << "found realize for new hwbuffer" << std::endl;
+        std::cout << hwbuffer.name << " found realize for new hwbuffer" << std::endl;
         hwbuffer.func = func;
         hwbuffer.my_stmt = op->body;
         Stmt new_body = op->body;
@@ -1125,7 +1129,7 @@ class HWBuffers : public IRMutator2 {
           //internal_assert(hwbuffer.dims.size() == loop_names.size()) << "HWBuffer has " << hwbuffer.dims.size() << " dims, while only " << loop_names.size() << " loops\n";
           //internal_assert(loop_names.size() == hwbuffer.input_stencil->output_stencil_box.size());
           //internal_assert(loop_names.size() == sliding_stencil_map.at(for_name).output_stencil_box.size());
-          internal_assert(hwbuffer.dims.size() == output_stencil_box.size()) << "output_stencil_box size is " << output_stencil_box.size() << "\n";
+          //internal_assert(hwbuffer.dims.size() == output_stencil_box.size()) << "output_stencil_box size is " << output_stencil_box.size() << "\n";
           
           internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
           internal_assert(hwbuffer.dims.size() == output_block_box.size());
@@ -1380,6 +1384,7 @@ void set_output_params(HWXcel *xcel,
       //if (hwbuffers.count(consumer.name)) {
         std::cout << "adding " << hwbuffer.name << " as an input of " << consumer.name << "\n";
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = std::make_shared<HWBuffer>(hwbuffer);
       } else {
         std::cout << "couldn't find consumer " << consumer.name << std::endl;
       }
@@ -1410,10 +1415,10 @@ void set_output_params(HWXcel *xcel,
       auto compute_looplevel = sched.compute_level();
       
       std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name()
-                << "compute=" << cur_func.schedule().compute_level() << std::endl;
+                << " compute=" << cur_func.schedule().compute_level() << std::endl;
 
       FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
-      //std::cout << "looking for " << hwbuffer.name << " in consumer: \n" << consumer_buffer.my_stmt << std::endl;
+      std::cout << "looking for " << hwbuffer.name << " in consumer: \n" << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
       hwbuffer.stride_map = fos.stride_map;
       ostream.stride_map = fos.stride_map;
@@ -1513,7 +1518,7 @@ void set_output_params(HWXcel *xcel,
             odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
           }
         } else {
-          std::cout << "couldn't find that output stencil thing\n";
+          std::cout << hwbuffer.name << "couldn't find that output stencil thing\n";
           std::cout << "doing some defaults for " << hwbuffer.name << std::endl;
           std::cout << "before- output: " << odims.at(idx).output_block << "," << odims.at(idx).output_stencil << std::endl;
           odims.at(idx).output_block = hwbuffer.dims.at(idx).output_block; // needed for hw_input
@@ -1628,9 +1633,17 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
               << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
     std::cout << "Final buffer:\n" << hwbuffer_pair.second;
 
-    auto num_inputs = hwbuffer_pair.second.func.updates().size() + 1;
-    auto num_outputs = hwbuffer_pair.second.consumer_buffers.size();
-    std::cout << "num_in=" << num_inputs << "   num_out=" << num_outputs << std::endl << std::endl;
+    auto kernel = hwbuffer_pair.second;
+    auto num_inputs = kernel.func.updates().size() + 1;
+    auto num_outputs = kernel.consumer_buffers.size();
+    std::cout << "num_in=" << num_inputs << "   num_out=" << num_outputs << std::endl;
+
+    if (kernel.ostreams.count(kernel.name)) {
+      std::cout << "accumulate=" << " cycles" << std::endl;
+    } else {
+      std::cout << "no accumulation" << std::endl;
+    }
+    std::cout << std::endl;
 
     
     //hwbuffer_pair.second.streaming_loops = xcel->streaming_loop_levels;

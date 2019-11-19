@@ -28,6 +28,9 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
+
+          hw_output.bound(x, 0, 64);
+          hw_output.bound(y, 0, 64);
           
           hw_input.compute_root();
           hw_output.compute_root();

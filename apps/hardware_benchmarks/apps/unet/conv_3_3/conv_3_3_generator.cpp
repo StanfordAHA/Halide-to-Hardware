@@ -7,12 +7,12 @@ using namespace Halide;
 class Convolution3x3Kernel : public Halide::Generator<Convolution3x3Kernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 3};
-  //Input<Buffer<uint8_t>>  kernel{"kernel", 4};
+    Input<Buffer<uint8_t>>  kernel{"kernel", 4};
     Output<Buffer<uint8_t>> output{"output", 3};
 
     int ksize = 3;
     int imgsize = 62;
-    int k_z = 2;
+    int k_z = 4;
     int k_w = 4;
 
     void generate() {
@@ -25,11 +25,11 @@ public:
         //Expr k_z = kernel.dim(2).extent();
 
         //Expr k_z = 2;
-        Func kernel;
-        kernel(x,y,z,w) = 0;
-        kernel(0,0,0,0) = 11;      kernel(0,1,0,0) = 12;      kernel(0,2,0,0) = 13;
-        kernel(1,0,0,0) = 14;      kernel(1,1,0,0) = 0;       kernel(1,2,0,0) = 16;
-        kernel(2,0,0,0) = 17;      kernel(2,1,0,0) = 18;      kernel(2,2,0,0) = 19;
+        //Func kernel;
+        //kernel(x,y,z,w) = 0;
+        //kernel(0,0,0,0) = 11;      kernel(0,1,0,0) = 12;      kernel(0,2,0,0) = 13;
+        //kernel(1,0,0,0) = 14;      kernel(1,1,0,0) = 0;       kernel(1,2,0,0) = 16;
+        //kernel(2,0,0,0) = 17;      kernel(2,1,0,0) = 18;      kernel(2,2,0,0) = 19;
 
         Func conv("conv");
         RDom r(0, ksize,
@@ -42,11 +42,11 @@ public:
         Func clamp_input("clamp_input");
         clamp_input(x, y, z) = input(clamp(x, 0, width - 1), clamp(y, 0, height - 1), z);
 
-        Func kernel_copy;
-        kernel_copy(x, y, z, w) = kernel(x, y, z, w);
+        Func hw_kernel;
+        hw_kernel(x, y, z, w) = kernel(x, y, z, w);
         hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
-        //conv(x, y, w) += kernel_copy(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
-        conv(x, y, w) += kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
+        conv(x, y, w) += hw_kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
+        //conv(x, y, w) += kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
 
         Func hw_output("hw_output");
         hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
@@ -59,46 +59,59 @@ public:
           output.bound(w, 0, k_w);
           hw_output.bound(w, 0, k_w);
           //clamp_input.bound(z, 0, k_z);
-          kernel.bound(w, 0, k_w);
-          kernel.bound(z, 0, k_z);
-          hw_input.bound(z, 0, k_z);
+          //kernel.bound(w, 0, k_w);
+          //kernel.bound(z, 0, k_z);
+          //hw_input.bound(z, 0, k_z);
           
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
+          hw_input.compute_at(hw_output, xo);
+          hw_kernel.compute_at(hw_output, xo);
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
-            .reorder_storage(w,x,y)
+            //.reorder_storage(w,x,y)
             .hw_accelerate(xi, xo) //.unroll(w, k_w); 
             //   order reorder from inner to outermost
-            .reorder(xi,w,yi,xo,yo);
+            //.reorder(xi,w,yi,xo,yo);
             //.reorder(xi,yi,w,xo,yo);
             //.reorder(xi,w,yi,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
+            .reorder_storage(w,x,y).reorder(xi,yi,w,xo,yo);
+            //.reorder(w,xi,yi,xo,yo);
 
+          hw_kernel
+            .reorder_storage(z,w,x,y)
+            .reorder(z,w,x,y);
+          
           hw_input
-            .reorder_storage(x,y,z);
+            .reorder_storage(z,x,y)
+            .reorder(z,x,y);
           //.unroll(z, k_z);
           
           conv.reorder(w,x,y)
             .reorder_storage(w,x,y);
 
           conv.update()
-            .reorder(r.z,r.x,r.y,w,x,y);
+            //.reorder(r.z,r.x,r.y,w,x,y);
             //.reorder(r.x,r.y,r.z,w,x,y);
             //.reorder(r.x,r.y,r.z,w,x,y);
             //.reorder(w,r.x,r.y,r.z,x,y);
             //.reorder(r.z,w,r.x,r.y,x,y);
+            //.reorder(r.z,r.x,r.y,w,x,y);
+            .reorder(r.x,r.y,r.z,w,x,y);
 
           
           conv.update()
-            .unroll(r.z, k_z);                       // unroll input channel
+            //.unroll(r.z, k_z);                       // unroll input channel
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // unroll conv
             //.unroll(r.x, ksize);                     // unroll conv x
             //.unroll(w, k_w);                         // unroll output channel
-            //.unroll(w, k_w);                          // unroll for multiple memories?
+            //.unroll(w, k_w).unroll();                // unroll for multiple memories?
+            //.unroll(r.x).unroll(r.y).unroll(r.z);    // unroll all rdoms
+            .unroll(r.x).unroll(r.y).unroll(r.z, k_z/2);       // unroll all rdoms, partial for r.z
+            //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 4); // unroll all rdoms, x4
             
             //.unroll(w, k_w).unroll(r.x, ksize);
             //.unroll(r.y, ksize);
@@ -106,10 +119,10 @@ public:
 
           conv.linebuffer();
 
-          kernel.compute_at(hw_output, xo).
-            unroll(x).unroll(y).unroll(z).unroll(w);
+          //kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(z).unroll(w);
           
           //hw_input.unroll(x, 3);
+          hw_kernel.stream_to_accelerator();
           hw_input.stream_to_accelerator();
 
         } else {  // schedule to CPU

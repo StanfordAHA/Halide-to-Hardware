@@ -231,7 +231,8 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
       .hw_accelerate(xi, xo);
 
-    hw_input.compute_at(conv, x).store_at(hw_output, xo);
+    //hw_input.compute_at(conv, x).store_at(hw_output, xo);
+    hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
 
     conv.update()
       .unroll(r.x, ksize)
@@ -320,7 +321,8 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
     hw_output.tile(x,y, xo,yo, xi,yi, tilesize, tilesize)
       .hw_accelerate(xi, xo);
 
-    hw_input.store_at(hw_output, xo).compute_at(conv[0], x);
+    //hw_input.store_at(hw_output, xo).compute_at(conv[0], x);
+    hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
     hw_output.bound(x, 0, imgsize);
     hw_output.bound(y, 0, imgsize);
 

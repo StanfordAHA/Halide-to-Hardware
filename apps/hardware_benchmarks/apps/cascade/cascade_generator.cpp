@@ -28,8 +28,8 @@ public:
         Func conv2 = Func("conv2");
 
         Func hw_input("hw_input");
-        //hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input(x, y) = x + y;
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        //hw_input(x, y) = x + y;
         conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
         
         conv2(x, y)  += kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
@@ -46,7 +46,6 @@ public:
           hw_output.bound(y, 0, 64);
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
-          
 
           hw_output.compute_root();
           hw_output.tile(x,y, xo,yo, xi,yi, 64-4, 64-4)
@@ -54,10 +53,9 @@ public:
             .hw_accelerate(xi, xo);
 
           //hw_input.compute_root();
-          hw_input.store_at(hw_output, xo).compute_at(conv1, x);
+          //hw_input.store_at(hw_output, xo).compute_at(conv1, x);
           
           kernel.compute_at(hw_output, xo);
-
 
           conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
           conv1.update()
@@ -65,14 +63,14 @@ public:
             .unroll(r.y);
           //conv1.linebuffer();
 
-
+          conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
           conv2.update()
             .unroll(r.x)
             .unroll(r.y);
           //conv2.linebuffer();
-          conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
           
           hw_input.stream_to_accelerator();
+          hw_input.compute_root();//store_at(hw_output, xo).compute_at(hw_output, xi);
           
         } else {  // schedule to CPU
           kernel.compute_root();
