@@ -2977,7 +2977,73 @@ void conv_layer_mobile_test() {
   //assert(false);
 }
 
+void arith_test() {
+
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+  
+  Var x("x"), y("y");
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<int16_t>(input(x, y));
+
+  Func mult, div, add, sub, mod;
+  mult(x,y) = hw_input(x,y) * 13;
+  div(x,y) = hw_input(x,y) / 4;
+  mod(x,y) = hw_input(x,y) % 16;
+  add(x,y) = div(x,y) + mod(x,y);
+  sub(x,y) = mult(x,y) - add(x,y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(sub(x, y));
+  output(x, y) = hw_output(x,y);
+
+   // Creating input data
+  Halide::Buffer<uint8_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(4, 4, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = rand();
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+   //Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  /* THE HARDWARE SCHEDULE */
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.bound(x, 0, 4);
+  hw_output.bound(y, 0, 4);
+
+  hw_output.tile(x,y, xo,yo, xi,yi, 4, 4)
+    .hw_accelerate(xi, xo);
+
+  hw_input.stream_to_accelerator();
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "arith_coreir", args, "arith", hw_output);
+
+  string accelName = getInputAlias("accel_interface_info.json");
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  PRINT_PASSED("Arith test passed");
+}
+
 int main(int argc, char **argv) {
+  arith_test();
   small_conv_3_3_test();
 
   pointwise_add_test();
