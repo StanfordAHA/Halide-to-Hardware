@@ -2994,6 +2994,7 @@ void arith_test() {
   //mod(x,y) = hw_input(x,y);
   add(x,y) = div(x,y) + mod(x,y);
   sub(x,y) = mult(x,y) - add(x,y);
+  //sub(x,y) = mult(x,y) + add(x,y);
 
   Func hw_output("hw_output");
   hw_output(x, y) = cast<uint8_t>(sub(x, y));
