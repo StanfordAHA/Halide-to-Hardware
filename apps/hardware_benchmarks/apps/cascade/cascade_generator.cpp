@@ -56,7 +56,7 @@ public:
           //hw_input.compute_root();
           hw_input.store_at(hw_output, xo).compute_at(conv1, x);
           
-          kernel.compute_at(hw_output, xo);
+          kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
 
 
           conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
