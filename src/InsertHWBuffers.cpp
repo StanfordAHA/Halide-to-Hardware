@@ -87,198 +87,8 @@ Expr expand_expr_no_var(Expr e, const Scope<Expr> &scope) {
     return result;
 }
 
-
-class IdentifyAddressingVar : public IRVisitor {
-  int asserts_found;
-
-  using IRVisitor::visit;
-
-  void visit(const Variable *op) {
-    if (op->name == varname) {
-      dim_ref = asserts_found;
-      stride = 1;
-    }
-  }
-
-  void visit(const Mul *op) {
-    std::cout << "found a multiply: " << Expr(op) << "\n";
-    if (const Variable* op_a = op->a.as<Variable>()) {
-      if (op_a->name == varname) {
-        stride = id_const_value(expand_expr(op->b, scope));
-        dim_ref = asserts_found;
-      }
-      
-    } else if (const Variable* op_b = op->b.as<Variable>()) {
-      if (op_b->name == varname) {
-        stride = id_const_value(expand_expr(op->a, scope));
-        dim_ref = asserts_found;
-      }
-    }
-  }
-
-  void visit(const Div *op) {
-    std::cout << "woah a divide: " << Expr(op) << "\n";
-  }
-
-  
-  void visit(const AssertStmt *op) {
-    IRVisitor::visit(op);
-    asserts_found += 1;
-  }
-  
-public:
-  const Scope<Expr> &scope;
-  const string varname;
-  
-
-  // if var not found, dim_ref should be 0
-  int dim_ref;
-  // if var not found, stride should be 0
-  int stride;
-  IdentifyAddressingVar(string varname, const Scope<Expr> &thescope) :
-    asserts_found(0), scope(thescope), varname(varname), dim_ref(0), stride(0) {}
-
-};
-
-std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
-    std::vector<std::string> tokens;
-    size_t prev = 0, pos = 0;
-    std::string token;
-    // copied from https://stackoverflow.com/a/7621814
-    while ((pos = line.find_first_of(delimiter, prev)) != std::string::npos) {
-        if (pos > prev) {
-            tokens.emplace_back(line.substr(prev, pos - prev));
-        }
-        prev = pos + 1;
-    }
-    if (prev < line.length()) tokens.emplace_back(line.substr(prev, std::string::npos));
-    // remove empty ones
-    std::vector<std::string> result;
-    result.reserve(tokens.size());
-    for (auto const &t : tokens)
-        if (!t.empty()) result.emplace_back(t);
-    return result;
 }
 
-class IdentifyAddressing : public IRVisitor {
-  int stream_dim_idx;
-  const Scope<Expr> &scope;
-  
-  using IRVisitor::visit;
-  
-  void visit(const For *op) {
-    varnames.push_back(op->name);
-    //internal_assert(is_zero(op->min)); FIXME
-
-    // push range
-    int range = id_const_value(expand_expr(op->extent, scope));
-    //range = range < 0 && op->name=="conv.s1.r$z.r$z" ? 4 : range;
-    internal_assert(range > 0) << "the range is " << range << " for " << op->extent << " for " << op->name << "\n";
-
-    auto tokens = get_tokens(op->name, ".");
-    auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
-    std::cout << op->name << " is probably referring to storage " << varname << std::endl;
-    
-    //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
-
-    // determine dim_ref and stride
-    //if (pos < storage_names.size()) {
-    if (dim_map.count(varname)>0) {
-      std::cout << "this is a streaming loop: " << varname << " for " << op->name << "\n";
-
-      cout << "stride_map: ";
-      for (const auto& string_int_pair : stride_map) {
-        std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
-      }
-      std::cout << std::endl;
-      
-      std::cout << " and mapcount=" << stride_map.size() << " " << stride_map.count(varname) << std::endl;
-      int stride = stride_map.count(varname)>0 ? stride_map.at(varname).stride : 1;
-      bool is_inv = stride_map.count(varname)>0 ? stride_map.at(varname).is_inverse : false;
-      //int stride = 1;
-      std::cout << "stride=" << stride << " is_inv=" << is_inv << std::endl;
-
-      if (is_inv) {
-        // push outer loop first
-        dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
-        strides_in_dim.insert(strides_in_dim.begin(), 1);
-        ranges.insert(ranges.begin(), range / stride);
-        // push inner loop that has stride=0
-        dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
-        ranges.insert(ranges.begin(), stride);
-        strides_in_dim.insert(strides_in_dim.begin(), 0);
-        
-      } else {
-        dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
-        strides_in_dim.insert(strides_in_dim.begin(), stride);
-        ranges.insert(ranges.begin(), range);
-      }
-
-      std::cout << op->name << " has stride=" << strides_in_dim.at(0)
-                << " dim_ref=" << dim_refs.at(0)
-                << " range=" << ranges.at(0) << "\n";
-      
-    } else {
-      IdentifyAddressingVar iav(op->name, scope);
-      std::cout << "finding stride and range for " << op->name
-                << "\n in: " << op->body << std::endl;
-      (op->body).accept(&iav);
-      dim_refs.insert(dim_refs.begin(), iav.dim_ref);
-      strides_in_dim.insert(strides_in_dim.begin(), iav.stride);
-      ranges.insert(ranges.begin(), range);
-      std::cout << op->name << " has stride=" << iav.stride << " dim_ref=" << iav.dim_ref << "\n";
-    }
-
-    IRVisitor::visit(op);
-  }
-
-
-public:
-  const vector<string> &storage_names;
-  const map<string,Stride> &stride_map;
-  vector<string> varnames;
-
-  map<string, int> dim_map;
-  
-  vector<int> ranges;
-  vector<int> dim_refs;
-  vector<int> strides_in_dim;
-  IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const map<string,Stride> &stride_map) :
-    stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
-    const auto &sch = func.definition().schedule();
-    const auto &splits = sch.splits();
-
-    // populate dim map with names
-    for (size_t i=0; i < storage_names.size(); ++i) {
-      dim_map[storage_names.at(i)] = i;
-      std::cout << "storage name=" << storage_names.at(i) << " has dim_idx=" << i << "\n";
-    }
-
-    // add any splits
-    for (auto split : splits) {
-      std::cout << "remapping " << split.old_var << " with " << split.outer << " and " << split.inner << "\n";
-      if (dim_map.count(split.old_var)) {
-        dim_map[split.outer] = dim_map.at(split.old_var);
-        dim_map[split.inner] = dim_map.at(split.old_var);
-      }
-    }
-    
-    std::cout << "going to be looking for range and strides where storage=" << storage_names << std::endl;
-  }
-};
-
-
-}
-
-
-int to_int(Expr expr) {
-  //FIXMEyikes internal_assert(is_const(simplify(expr)));
-  if (is_const(simplify(expr))) {
-    return (int)*as_const_int(expr);
-  } else {
-    return -1;
-  }
-}
 
 class ReplaceReferencesWithBufferStencil : public IRMutator2 {
     const HWBuffer &kernel;
@@ -678,35 +488,6 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
     s = Realize::make(stencil_name, input.func.output_types(), MemoryType::Auto, bounds, const_true(), pc);
     return s;
 }
-
-void calculate_accumulation(const HWBuffer &kernel) {
-    bool has_accum = kernel.ostreams.count(kernel.name) > 0;
-    int num_logical_pixels = 1;
-    for (size_t i = 0; i < kernel.ldims.size(); i++) {
-      Expr store_extent = kernel.ldims[i].logical_size;
-      num_logical_pixels *= to_int(store_extent);
-    }
-    
-    for (auto& istream_pair : kernel.producer_buffers) {
-      auto istream = *istream_pair.second;
-
-      IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
-      istream.output_access_pattern.accept(&id_addr);
-      int num_iter=1;
-      for (size_t i = 0; i < id_addr.ranges.size(); i++) {
-        num_iter *= id_addr.ranges.at(i);
-      }
-      
-      if (has_accum && num_logical_pixels != num_iter) {
-        //kernel.num_accum_iters = num_iter / num_logical_pixels;
-      }
-
-      std::cout << kernel.name << " has a total of " << num_logical_pixels << " iterations and producer "
-                << istream.name << " has " << num_iter << " iterations"
-                << "  has_accum=" << has_accum << std::endl;
-    }
-}
-
   
 bool need_hwbuffer(const HWBuffer &kernel) {
     // check if we need a hwbuffer
@@ -755,61 +536,13 @@ bool need_hwbuffer(const HWBuffer &kernel) {
       }
     }
 
-    bool has_accum = kernel.ostreams.count(kernel.name) > 0;
-    int num_logical_pixels = 1;
-    for (size_t i = 0; i < kernel.ldims.size(); i++) {
-      Expr store_extent = kernel.ldims[i].logical_size;
-      num_logical_pixels *= to_int(store_extent);
-    }
-    
-    for (auto& istream_pair : kernel.producer_buffers) {
-      auto istream = *istream_pair.second;
-
-      IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
-      istream.output_access_pattern.accept(&id_addr);
-      int num_iter=1;
-      for (size_t i = 0; i < id_addr.ranges.size(); i++) {
-        num_iter *= id_addr.ranges.at(i);
-      }
-      
-      if (has_accum && num_logical_pixels != num_iter) {
-        //kernel.num_accum_iters = num_iter / num_logical_pixels;
-      }
-
-      std::cout << kernel.name << " has a total of " << num_logical_pixels << " iterations and producer "
-                << istream.name << " has " << num_iter << " iterations"
-                << "  has_accum=" << has_accum << std::endl;
-
-    
-    /*
-    IdentifyAddressing id_addr(kernel.func, Scope<Expr>(), kernel.stride_map);
-    kernel.output_access_pattern.accept(&id_addr);
-    int num_iter=1;
-    for (size_t i = 0; i < id_addr.ranges.size(); i++) {
-      num_iter *= id_addr.ranges.at(i);
-    }
-    for (auto& ostream_pair : kernel.ostreams) {
-      auto ostream = *ostream_pair.second.hwref;
-      bool has_accum = ostream.ostreams.count(ostream_pair.first) > 0;
-      int num_logical_pixels = 1;
-      for (size_t i = 0; i < ostream.dims.size(); i++) {
-        Expr store_extent = ostream.ldims[i].logical_size;
-        num_logical_pixels *= to_int(store_extent);
-      }
-
-      if (has_accum && num_logical_pixels != num_iter) {
-        ostream.num_accum_iters = num_iter / num_logical_pixels;
-      }
-
-      std::cout << kernel.name << " has a total of " << num_iter << " iterations and consumer "
-                << ostream.name << " has " << num_logical_pixels << " pixels"
-                << "  has_accum=" << has_accum << std::endl;
-
-    */
-
+    if (kernel.num_accum_iters > 0) {
+      std::cout << "creating accumulation for " << kernel.name << " with "
+                << kernel.num_accum_iters << " iterations" << std::endl;
+      ret = true;
     }
 
-    
+     
     return ret;
 }
 
@@ -1524,7 +1257,6 @@ Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
   for (auto &hwbuffer_pair : xcel.hwbuffers) {
     std::cout << hwbuffer_pair.first << " is inline=" << hwbuffer_pair.second.is_inlined
               << " with num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
-    calculate_accumulation(hwbuffer_pair.second);
   }
 
 

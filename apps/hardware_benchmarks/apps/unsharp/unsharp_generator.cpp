@@ -41,7 +41,8 @@ public:
 
         // create the input
         Func hw_input;
-        hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
+        //hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
+        hw_input(c, x, y) = cast<uint16_t>(input(x, y, c));
 
         // create a grayscale image
         Func gray;
@@ -70,13 +71,14 @@ public:
         hw_output(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255));
                 
         //output(c, x, y) = hw_output(c, x, y);
-        output(c, x, y) = hw_output(x, y);
-        output.bound(c, 0, 1);
-        output.bound(x, 0, 64);
-        output.bound(y, 0, 64);
+        output(x, y, c) = hw_output(x, y);
+        //output.bound(c, 0, 3);
+        //output.bound(x, 0, 60);
+        //output.bound(y, 0, 60);
+        
         //hw_output.bound(c, 0, 1);
-        hw_output.bound(x, 0, 64);
-        hw_output.bound(y, 0, 64);
+        //hw_output.bound(x, 0, 60);
+        //hw_output.bound(y, 0, 60);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -86,7 +88,7 @@ public:
           
           //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
 
-          hw_output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(xi, yi, xo, yo);
+          hw_output.tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo);
 
           blur_unnormalized.linebuffer();
           blur_unnormalized.update()
@@ -99,7 +101,7 @@ public:
           //hw_output.unroll(c);  // hw output bound
           //hw_input.unroll(c);  // hw input bound
           //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
-          gray.fifo_depth(hw_output, 480*9); // hw input bounds
+          gray.fifo_depth(hw_output, 60*9); // hw input bounds
           gray.stream_to_accelerator();
 
           kernel.compute_at(hw_output, xo).unroll(x);

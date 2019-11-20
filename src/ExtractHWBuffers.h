@@ -224,7 +224,28 @@ std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, 
 std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec);
 int id_const_value(const Expr e);
 std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);
+int to_int(Expr expr);
 
+class IdentifyAddressing : public IRVisitor {
+  int stream_dim_idx;
+  const Scope<Expr> &scope;
+  
+  using IRVisitor::visit;
+  
+  void visit(const For *op);
+
+public:
+  const vector<string> &storage_names;
+  const map<string,Stride> &stride_map;
+  vector<string> varnames;
+
+  map<string, int> dim_map;
+  
+  vector<int> ranges;
+  vector<int> dim_refs;
+  vector<int> strides_in_dim;
+  IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const map<string,Stride> &stride_map);
+};
 
 }  // namespace Internal
 }  // namespace Halide
