@@ -3,7 +3,6 @@
 #include <limits>
 #include <algorithm>
 
-// Test
 #include "CodeGen_CoreHLS.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
@@ -4668,6 +4667,7 @@ void flattenExcluding(ModuleDef* def, vector<string>& generatorNames) {
       }
 
       if (!fromAnyGen) {
+        cout << "Instance: " << coreStr(instP.second) << " is not any of: " << generatorNames << endl;
         changed = inlineInstance(instP.second);
         if (changed) {
           break;
@@ -4683,6 +4683,8 @@ void flattenExcluding(CoreIR::Context* c, vector<string>& generatorNames) {
     for (auto m : ns.second->getModules()) {
       if (m.second->hasDef()) {
         flattenExcluding(m.second->getDef(), generatorNames);
+        cout << m.first << "After selective flattening..." << endl;
+        m.second->print();
       }
     }
   }
@@ -4836,7 +4838,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
 
   context->runPasses({"rungenerators"});
-  vector<string> generatorNames{"unified_buffer", "linebuffer", "rom2"};
+  vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memories.rom2"};
   flattenExcluding(context, generatorNames);
   context->runPasses({"deletedeadinstances"});
   cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
