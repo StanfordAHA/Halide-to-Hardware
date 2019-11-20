@@ -4838,7 +4838,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
 
   context->runPasses({"rungenerators"});
-  vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memories.rom2"};
+  vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
   flattenExcluding(context, generatorNames);
   context->runPasses({"deletedeadinstances"});
   cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
