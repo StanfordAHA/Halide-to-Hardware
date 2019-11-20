@@ -2932,7 +2932,9 @@ void modToShift(HWFunction& f) {
           // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI();
           shrInstr->name = "and_bv";
-          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
+          //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
+          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value - 1)};
+          //1 << (value - 1))};
           replacements[instr] = shrInstr;
         }
       }
