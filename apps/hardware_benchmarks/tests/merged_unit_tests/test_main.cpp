@@ -3045,7 +3045,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
-  arith_test();
+  //arith_test();
   small_conv_3_3_test();
 
   pointwise_add_test();
