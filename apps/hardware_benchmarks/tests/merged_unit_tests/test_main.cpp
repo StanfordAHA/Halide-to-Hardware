@@ -3036,7 +3036,7 @@ void ushift_test() {
   deleteContext(context);
 
   PRINT_PASSED("ushift test passed");
-  assert(false);
+  //assert(false);
 }
 
 void arith_test() {
@@ -3108,7 +3108,7 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   ushift_test();
-  //arith_test();
+  arith_test();
   small_conv_3_3_test();
 
   pointwise_add_test();
