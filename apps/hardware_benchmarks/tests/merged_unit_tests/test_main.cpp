@@ -2977,6 +2977,68 @@ void conv_layer_mobile_test() {
   //assert(false);
 }
 
+void ushift_test() {
+
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
+  
+  Var x("x"), y("y");
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+
+  Func res;
+  res(x, y) = hw_input(x, y) >> 9;
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint16_t>(res(x, y));
+  output(x, y) = hw_output(x,y);
+
+   // Creating input data
+  Halide::Buffer<uint16_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = 0xffff - i - j;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+   //Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  /* THE HARDWARE SCHEDULE */
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.bound(x, 0, 4);
+  hw_output.bound(y, 0, 4);
+
+  hw_output.tile(x,y, xo,yo, xi,yi, 4, 4)
+    .hw_accelerate(xi, xo);
+
+  hw_input.stream_to_accelerator();
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "arith_coreir", args, "arith", hw_output);
+
+  string accelName = getInputAlias("accel_interface_info.json");
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  PRINT_PASSED("ushift test passed");
+  assert(false);
+}
+
 void arith_test() {
 
   ImageParam input(type_of<uint8_t>(), 2);
@@ -3045,6 +3107,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
+  ushift_test();
   //arith_test();
   small_conv_3_3_test();
 

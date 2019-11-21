@@ -47,8 +47,17 @@ class HWInstr {
     std::string constValue;
 
     CoreIR::Type* resType;
+    bool signedNum;
 
-    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), latency(0), predicate(nullptr), resType(nullptr) {}
+    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), latency(0), predicate(nullptr), resType(nullptr), signedNum(false) {}
+
+    bool isSigned() const {
+      return signedNum;
+    }
+
+    void setSigned(const bool value) {
+      signedNum = value;
+    }
 
     CoreIR::Instance* getUnit() const {
       internal_assert(unit != nullptr) << "unit is null in HWInstr\n";

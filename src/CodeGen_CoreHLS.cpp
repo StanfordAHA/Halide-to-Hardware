@@ -1388,6 +1388,11 @@ class InstructionCollector : public IRGraphVisitor {
       auto ist = newI();
       ist->name = name;
       ist->operands = {aV, bV};
+      if (a.type().is_uint() && b.type().is_uint()) {
+        ist->setSigned(true);
+      } else {
+        ist->setSigned(false);
+      }
       pushInstr(ist);
       //instrs.push_back(ist);
       lastValue = ist;
@@ -2107,6 +2112,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto shr = def->addInstance("ashr" + std::to_string(defStage), "coreir.ashr", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = shr->sel("out");
         unitMapping[instr] = shr;
+      } else if (name == "lshr") {
+        auto shr = def->addInstance("lshr" + std::to_string(defStage), "coreir.lshr", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = shr->sel("out");
+        unitMapping[instr] = shr;
       } else if (name == "load") {
         int portNo = instr->getOperand(0)->toInt();
         unitMapping[instr] = instr->getUnit();
@@ -2293,8 +2302,7 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
 
       } else if (starts_with(instr->name, "init_stencil")) {
         // No inputs
-      } else if (instr->name == "ashr") {
-
+      } else if ((instr->name == "ashr") || (instr->name == "lshr")) {
         def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
         def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
       } else if (instr->name == "load") {
@@ -2966,7 +2974,11 @@ void divToShift(HWFunction& f) {
           int value = std::ceil(std::log2(constVal));
           //cout << "\t\tpower of 2 = " << value << endl;
           auto shrInstr = f.newI();
-          shrInstr->name = "ashr";
+          if (instr->getOperand(0)->isSigned()) {
+            shrInstr->name = "ashr";
+          } else {
+            shrInstr->name = "lshr";
+          }
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
           replacements.push_back({instr, shrInstr});
         }
