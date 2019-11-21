@@ -1469,22 +1469,27 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const Min* m) override {
       visit_binop("min", m->a, m->b);
+      lastValue->setSigned(!(m->type.is_uint()));
     }
     
     void visit(const Max* m) override {
       visit_binop("max", m->a, m->b);
+      lastValue->setSigned(!(m->type.is_uint()));
     }
 
     void visit(const Mod* d) override {
       visit_binop("mod", d->a, d->b);
+      lastValue->setSigned(!(d->type.is_uint()));
     }
 
     void visit(const Div* d) override {
       visit_binop("div", d->a, d->b);
+      lastValue->setSigned(!(d->type.is_uint()));
     }
 
     void visit(const Add* a) override {
       visit_binop("add", a->a, a->b);
+      lastValue->setSigned(!(a->type.is_uint()));
     }
 
     void visit(const EQ* a) override {
@@ -1497,10 +1502,12 @@ class InstructionCollector : public IRGraphVisitor {
     
     void visit(const Mul* b) override {
       visit_binop("mul", b->a, b->b);
+      lastValue->setSigned(!(b->type.is_uint()));
     }
 
     void visit(const Sub* b) override {
       visit_binop("sub", b->a, b->b);
+      lastValue->setSigned(!(b->type.is_uint()));
     }
 
     HWInstr* andHW(HWInstr* a, HWInstr* b) {
