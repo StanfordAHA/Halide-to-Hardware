@@ -2494,7 +2494,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   for (const auto& range : access_ranges) {
     iter_cnt *= range;
   }
-  
   int num_input_ports = 1;
   for (const auto &input_size : input_block) {
     num_input_ports *= input_size;
@@ -2525,10 +2524,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   internal_assert(num_streaming_dims <= access_dim_refs.size());
   internal_assert(num_streaming_dims <= access_ranges.size());
   for (size_t i=0; i<num_streaming_dims; ++i) {
-    output_stride.at(i) = access_strides.at(i) * 
+    output_stride.at(i) = //access_strides.at(i) * 
       flat_dim_strides.at(access_dim_refs.at(i));
     output_range.at(i) = access_ranges.at(i);
   }
+  std::cout << a0 << " flat dims=" << flat_dim_strides << std::endl
+            << " output_range=" << output_range << std::endl
+            << " output_stride=" << output_stride << std::endl;
+
 
   // set input range and stride
   vector<int> input_stride(std::max((int)input_chunk.size(), 6));
@@ -2564,14 +2567,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     // calculate address
     int start_addr = 0;
     for (size_t idx = 0; idx < in_indexes.size(); ++idx) {
-      int stride = idx==0 ? 1 : logical_size.at(idx-1);
+      int stride = idx==0 ? 1 : capacity.at(idx-1);
+      //int stride = flat_dim_strides.at(idx);
       start_addr += in_indexes.at(idx) * stride;
     }
   
     // set input port as calculated starting address
     input_starting_addrs.at(port) = start_addr;
     input_starting_json["input_start"][port] = input_starting_addrs.at(port);
-  
+
     // increment index
     in_indexes.at(0) += 1;
     for (size_t dim = 0; dim < num_dims; ++dim) {
@@ -2592,13 +2596,15 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     // calculate address
     int start_addr = 0;
     for (size_t idx = 0; idx < out_indexes.size(); ++idx) {
-      int stride = idx==0 ? 1 : logical_size.at(idx-1);
+      //int stride = idx==0 ? 1 : logical_size.at(idx-1);
+      int stride = flat_dim_strides.at(idx);
       start_addr += out_indexes.at(idx) * stride;
     }
   
     // set output port as calculated starting address
     output_starting_addrs.at(port) = start_addr;
     output_starting_json["output_start"][port] = output_starting_addrs.at(port);
+    std::cout << start_addr << " for the index numbered " << out_indexes << std::endl;
       
     // increment index
     out_indexes.at(0) += 1;

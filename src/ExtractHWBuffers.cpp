@@ -1528,7 +1528,7 @@ void set_output_params(HWXcel *xcel,
             odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
           }
         } else {
-          std::cout << hwbuffer.name << "couldn't find that output stencil thing\n";
+          std::cout << hwbuffer.name << " couldn't find that output stencil thing\n";
           std::cout << "doing some defaults for " << hwbuffer.name << std::endl;
           std::cout << "before- output: " << odims.at(idx).output_block << "," << odims.at(idx).output_stencil << std::endl;
           odims.at(idx).output_block = hwbuffer.dims.at(idx).output_block; // needed for hw_input
@@ -1698,6 +1698,7 @@ void IdentifyAddressing::visit(const For *op) {
       strides_in_dim.insert(strides_in_dim.begin(), 0);
         
     } else {
+      std::cout << "not inverse variable " << varname << " for func " << func.name() << std::endl;
       dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
       strides_in_dim.insert(strides_in_dim.begin(), stride);
       ranges.insert(ranges.begin(), range);
@@ -1724,10 +1725,11 @@ void IdentifyAddressing::visit(const For *op) {
 
 
 IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const map<string,Stride> &stride_map) :
-    stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
+    func(func), stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
     const auto &sch = func.definition().schedule();
     const auto &splits = sch.splits();
 
+    std::cout << "populating dim map for " << func.name() << std::endl;
     // populate dim map with names
     for (size_t i=0; i < storage_names.size(); ++i) {
       dim_map[storage_names.at(i)] = i;

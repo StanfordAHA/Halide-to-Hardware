@@ -539,7 +539,7 @@ bool need_hwbuffer(const HWBuffer &kernel) {
     if (kernel.num_accum_iters > 0) {
       std::cout << "creating accumulation for " << kernel.name << " with "
                 << kernel.num_accum_iters << " iterations" << std::endl;
-      ret = true;
+      //ret = true;
     }
 
      
@@ -630,17 +630,25 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
           }
         }
         
-        std::cout << "doing some addressing for kernel=" << kernel.name << "\n";
-        for (const auto& string_int_pair : kernel.stride_map) {
-          std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
-        }
-
         IdentifyAddressing id_addr(kernel.func, scope, kernel.stride_map);
         kernel.output_access_pattern.accept(&id_addr);
 
+        std::cout << "doing some addressing for kernel=" << kernel.name << "\n";
+        for (const auto& string_int_pair : kernel.stride_map) {
+          std::cout << string_int_pair.first << "," << string_int_pair.second.stride
+                    << std::endl;
+        }
+
         hwbuffer_args.push_back(Expr(id_addr.ranges.size()));
         internal_assert(id_addr.ranges.size() == id_addr.dim_refs.size());
-        internal_assert(id_addr.ranges.size() == id_addr.strides_in_dim.size());        
+        internal_assert(id_addr.ranges.size() == id_addr.strides_in_dim.size());
+
+        for (size_t i = 0; i < id_addr.ranges.size(); i++) {
+          std::cout << "dim" << i << ": range=" << id_addr.ranges.at(i)
+                    << " dim_ref=" << id_addr.dim_refs.at(i)
+                    << " stride=" << id_addr.strides_in_dim.at(i)
+                    << "\n";
+        }
 
         int num_iter=1;
         for (size_t i = 0; i < id_addr.ranges.size(); i++) {

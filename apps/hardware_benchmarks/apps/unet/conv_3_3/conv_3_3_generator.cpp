@@ -24,7 +24,6 @@ public:
         Expr width = input.dim(1).extent();
         //Expr k_z = kernel.dim(2).extent();
 
-        //Expr k_z = 2;
         //Func kernel;
         //kernel(x,y,z,w) = 0;
         //kernel(0,0,0,0) = 11;      kernel(0,1,0,0) = 12;      kernel(0,2,0,0) = 13;
@@ -40,13 +39,15 @@ public:
 
         Func hw_input("hw_input");
         Func clamp_input("clamp_input");
-        clamp_input(x, y, z) = input(clamp(x, 0, width - 1), clamp(y, 0, height - 1), z);
+        //clamp_input(x, y, z) = input(clamp(x, 0, width - 1), clamp(y, 0, height - 1), z);
+        clamp_input(z, x, y) = input(z, clamp(x, 0, width - 1), clamp(y, 0, height - 1));
 
         Func hw_kernel;
-        hw_kernel(x, y, z, w) = kernel(x, y, z, w);
-        hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
-        conv(x, y, w) += hw_kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
-        //conv(x, y, w) += kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
+        hw_kernel(z, x, y, w) = kernel(z, x, y, w);
+        //hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
+        hw_input(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
+        //conv(x, y, w) += hw_kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
+        conv(x, y, w) += hw_kernel(r.z, r.x, r.y, w) * hw_input(r.z, x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
@@ -78,20 +79,20 @@ public:
             //.reorder(xi,w,yi,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
-            .reorder_storage(w,x,y).reorder(xi,yi,w,xo,yo);
+            .reorder_storage(x,y,w).reorder(xi,yi,w,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
 
           hw_kernel
-            .reorder_storage(z,w,x,y)
-            .reorder(z,w,x,y);
+            .reorder_storage(z,x,y,w)
+            .reorder(z,x,y,w);
           
           hw_input
             .reorder_storage(z,x,y)
             .reorder(z,x,y);
           //.unroll(z, k_z);
           
-          conv.reorder(w,x,y)
-            .reorder_storage(w,x,y);
+          conv.reorder(x,y,w)
+            .reorder_storage(x,y,w);
 
           conv.update()
             //.reorder(r.z,r.x,r.y,w,x,y);
@@ -100,8 +101,7 @@ public:
             //.reorder(w,r.x,r.y,r.z,x,y);
             //.reorder(r.z,w,r.x,r.y,x,y);
             //.reorder(r.z,r.x,r.y,w,x,y);
-            .reorder(r.x,r.y,r.z,w,x,y);
-
+            .reorder(r.z,r.x,r.y,w,x,y);
           
           conv.update()
             //.unroll(r.z, k_z);                       // unroll input channel
@@ -109,8 +109,8 @@ public:
             //.unroll(r.x, ksize);                     // unroll conv x
             //.unroll(w, k_w);                         // unroll output channel
             //.unroll(w, k_w).unroll();                // unroll for multiple memories?
-            //.unroll(r.x).unroll(r.y).unroll(r.z);    // unroll all rdoms
-            .unroll(r.x).unroll(r.y).unroll(r.z, k_z/2);       // unroll all rdoms, partial for r.z
+            .unroll(r.x).unroll(r.y).unroll(r.z);    // unroll all rdoms
+            //.unroll(r.x).unroll(r.y).unroll(r.z, k_z/2);       // unroll all rdoms, partial for r.z
             //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 4); // unroll all rdoms, x4
             
             //.unroll(w, k_w).unroll(r.x, ksize);

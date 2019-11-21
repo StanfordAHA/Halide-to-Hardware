@@ -59,8 +59,8 @@ public:
             .hw_accelerate(xi, xo);
 
           conv.update()
-            .unroll(r.x, ksize);
-            //.unroll(r.y, ksize);
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
 
           conv.linebuffer();
           //hw_input.linebuffer();

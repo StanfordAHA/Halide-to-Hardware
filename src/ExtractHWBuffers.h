@@ -227,6 +227,7 @@ std::vector<std::string> get_tokens(const std::string &line, const std::string &
 int to_int(Expr expr);
 
 class IdentifyAddressing : public IRVisitor {
+  Function func;
   int stream_dim_idx;
   const Scope<Expr> &scope;
   

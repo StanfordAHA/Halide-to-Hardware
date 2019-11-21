@@ -72,9 +72,9 @@ public:
                 
         //output(c, x, y) = hw_output(c, x, y);
         output(x, y, c) = hw_output(x, y);
-        //output.bound(c, 0, 3);
-        //output.bound(x, 0, 60);
-        //output.bound(y, 0, 60);
+        output.bound(c, 0, 3);
+        output.bound(x, 0, 60);
+        output.bound(y, 0, 60);
         
         //hw_output.bound(c, 0, 1);
         //hw_output.bound(x, 0, 60);
