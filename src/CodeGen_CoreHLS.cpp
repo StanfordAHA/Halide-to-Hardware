@@ -2940,8 +2940,15 @@ void modToShift(HWFunction& f) {
           // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI();
           shrInstr->name = "and_bv";
-          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
-          //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value - 1)};
+          //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
+          shrInstr->setSigned(instr->isSigned());
+
+          shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, constVal - 1)};
+
+          //auto andInstr = f.newI();
+          //andInstr->setSigned(instr->getSigned());
+          //andInstr->operands = {shrInstr, };
+
           //1 << (value - 1))};
           replacements[instr] = shrInstr;
         }
@@ -2959,6 +2966,7 @@ void modToShift(HWFunction& f) {
     f.deleteInstr(i);
   }
 }
+
 void divToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   //std::map<HWInstr*, HWInstr*> replacements;
@@ -2979,6 +2987,7 @@ void divToShift(HWFunction& f) {
           } else {
             shrInstr->name = "lshr";
           }
+          shrInstr->setSigned(instr->isSigned());
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
           replacements.push_back({instr, shrInstr});
         }
