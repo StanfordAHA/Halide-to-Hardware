@@ -8,6 +8,8 @@
 #include "hardware_process_helper.h"
 #include "hardware_image_helpers.h"
 
+using namespace std;
+
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
@@ -153,6 +155,8 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
   run_call();
   std::string output_filename = "bin/output_" + hardware_name + ".png";
   convert_and_save_image(output, output_filename);
+  cout << "First pixe of output..." << endl;
+  cout << (int) output(0, 0) << endl;
 
   std::cout << "Ran " << design_name << " on " << hardware_name << "\n";
   return 0;

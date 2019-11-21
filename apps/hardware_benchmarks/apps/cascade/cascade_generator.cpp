@@ -6,8 +6,8 @@ using namespace Halide;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Input<Buffer<uint16_t>>  input{"input", 2};
+    Output<Buffer<uint16_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -27,15 +27,18 @@ public:
         Func conv1 = Func("conv1");
         Func conv2 = Func("conv2");
 
+        conv1(x, y) = 0;
+        conv2(x, y) = 0;
+
         Func hw_input("hw_input");
-        //hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input(x, y) = x + y;
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
         conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
         
         conv2(x, y)  += kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv2(x, y));
+        //hw_output(x, y) = cast<uint8_t>(conv2(x, y));
+        hw_output(x, y) = cast<uint16_t>(conv2(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
@@ -59,18 +62,19 @@ public:
           kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
 
 
-          conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
+          //conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
+          conv1.linebuffer();
           conv1.update()
             .unroll(r.x)
             .unroll(r.y);
           //conv1.linebuffer();
 
 
+          conv2.linebuffer();
           conv2.update()
             .unroll(r.x)
             .unroll(r.y);
-          //conv2.linebuffer();
-          conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
+          //conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
           
           hw_input.stream_to_accelerator();
           

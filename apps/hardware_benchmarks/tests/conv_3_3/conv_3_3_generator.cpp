@@ -31,16 +31,6 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
-        //conv(x,y) =
-        //  kernel(0,0)*hw_input(x,y) +
-        //  kernel(1,0)*hw_input(x+1,y) +
-        //  kernel(2,0)*hw_input(x+2,y) +
-        //  kernel(0,1)*hw_input(x,y+1) +
-        //  kernel(1,1)*hw_input(x+1,y+1) +
-        //  kernel(2,1)*hw_input(x+2,y+1) +
-        //  kernel(0,2)*hw_input(x,y+2) +
-        //  kernel(1,2)*hw_input(x+1,y+2) +
-        //  kernel(2,2)*hw_input(x+2,y+2);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
@@ -73,6 +63,7 @@ public:
             .unroll(r.y, ksize);
 
           conv.linebuffer();
+
           //hw_input.linebuffer();
 
           hw_input.stream_to_accelerator();

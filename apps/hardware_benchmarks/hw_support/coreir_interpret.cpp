@@ -378,7 +378,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " based on bv=" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
       readIdx.increment();
     }
   } else {
@@ -466,42 +466,6 @@ void run_coreir_on_interpreter(string coreir_design,
   }
 
   
-  //for (int y = 0; y < input.height(); y++) {
-    //for (int x = 0; x < input.width(); x++) {
-      //for (int c = 0; c < input.channels(); c++) {
-        //cout << "Write idx = " << writeIdx.coordString() << endl;
-
-        //assert(writeIdx.coord("x") == x);
-        //assert(writeIdx.coord("y") == y);
-        //assert(writeIdx.coord("c") == c);
-        //run_for_cycle(writeIdx, readIdx,
-            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-        ////run_for_cycle(writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
-            ////uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-
-        //writeIdx.increment();
-
-      //}
-    //}
-  //}
-
-  //int spareRows = 3;
-  //int spareCols = 20;
-  //int spareChannels = 1;
-
-  //for (int y = input.height(); y < input.height() + spareRows; y++) {
-    //for (int x = input.width(); x < input.width() + spareCols; x++) {
-      //for (int c = input.channels(); c < input.channels() + spareChannels; c++) {
-
-        //read_for_cycle(writeIdx,
-             //writeIdx.coord("x"), writeIdx.coord("y"), writeIdx.coord("c"),
-            //uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-
-        //writeIdx.increment();
-        ////read_for_cycle(x, y, c, uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
-      //}
-    //}
-  //}
   coreir_img_writer.print_coords();
 
   deleteContext(c);
