@@ -2,9 +2,6 @@
 
 #include "coreir.h"
 #include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
-#include "lakelib.h"
-#include "ubuf_coreirsim.h"
 
 template <typename elem_t>
 class ImageWriter {
@@ -18,10 +15,6 @@ public:
   elem_t read(uint x, uint y, uint z);
   void save_image(std::string image_name);
   void print_coords();
-
-  uint getHeight() const { return height; }
-  uint getWidth() const { return width; }
-  uint getChannels() const { return channels; }
 
 private:
   const uint width, height, channels;
