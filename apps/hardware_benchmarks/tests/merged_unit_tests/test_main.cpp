@@ -3107,13 +3107,13 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
+  shiftRight_test();
   ushift_test();
   arith_test();
   small_conv_3_3_test();
 
   pointwise_add_test();
   mod2_test();
-  shiftRight_test();
   clamp_test();
   
   small_cascade_test();

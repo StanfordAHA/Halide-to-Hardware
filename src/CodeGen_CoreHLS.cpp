@@ -1252,6 +1252,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = 16;
       ist->constValue = std::to_string(imm->value);
+      ist->setSigned(false);
       lastValue = ist;
     }
 
@@ -1260,6 +1261,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = 16;
       ist->constValue = std::to_string(imm->value);
+      ist->setSigned(true);
       lastValue = ist;
     }
 
@@ -1268,6 +1270,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->name = "cast";
       auto operand = codegen(c->value);
       ist->operands = {operand};
+      ist->setSigned(!(c->type.is_uint()));
       pushInstr(ist);
       lastValue = ist;
     }
@@ -1336,6 +1339,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto ist = newI();
       ist->name = v->name;
       ist->tp = HWINSTR_TP_VAR;
+      ist->setSigned(!(v->type.is_uint()));
       vars[v->name] = ist;
 
       lastValue = ist;
@@ -1544,6 +1548,7 @@ class InstructionCollector : public IRGraphVisitor {
         vector<int> windowDims = getDimRanges(rngs);
         ist->operandTypes.resize(callOperands.size());
         ist->operandTypes[1] = {16, windowDims};
+        ist->setSigned(!(op->type.is_uint()));
 
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
@@ -1551,6 +1556,8 @@ class InstructionCollector : public IRGraphVisitor {
         auto callOp = newI();
         callOp->tp = HWINSTR_TP_VAR;
         callOp->name = calledStencil;
+        callOp->setSigned(!(op->type.is_uint()));
+        cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
         
         //callOp->strConst = calledStencil;
         callOperands.insert(std::begin(callOperands), callOp);
@@ -2694,6 +2701,7 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   //for (auto instr : f.allInstrs()) {
     if (isCall("read_stream", instr)) {
       auto callRep = f.newI();
+      callRep->setSigned(instr->isSigned());
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
@@ -2968,24 +2976,29 @@ void modToShift(HWFunction& f) {
 }
 
 void divToShift(HWFunction& f) {
+  cout << "Div to shift for:" << endl;
+  cout << f << endl;
+
   std::set<HWInstr*> toErase;
   //std::map<HWInstr*, HWInstr*> replacements;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
   for (auto instr : f.allInstrs()) {
     if (isCall("div", instr)) {
-      //cout << "Found div" << endl;
+      cout << "Found div: " << *instr << endl;
       if (isConstant(instr->getOperand(1))) {
         //cout << "\tDividing by constant = " << instr->getOperand(1)->compactString() << endl;
         auto constVal = instr->getOperand(1)->toInt();
         if (CoreIR::isPower2(constVal)) {
-          //cout << "\t\tand it is a power of 2" << endl;
+          cout << "\t\tand it is a power of 2" << endl;
           int value = std::ceil(std::log2(constVal));
-          //cout << "\t\tpower of 2 = " << value << endl;
+          cout << "\t\tpower of 2 = " << value << endl;
           auto shrInstr = f.newI();
           if (instr->getOperand(0)->isSigned()) {
             shrInstr->name = "ashr";
+            cout << "Operand 0 signed" << endl;
           } else {
             shrInstr->name = "lshr";
+            cout << "Operand 0 unssigned" << endl;
           }
           shrInstr->setSigned(instr->isSigned());
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
