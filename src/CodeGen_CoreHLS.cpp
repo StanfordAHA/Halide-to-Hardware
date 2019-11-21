@@ -1076,7 +1076,9 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   if (instr.tp == HWINSTR_TP_VAR) {
     out << instr.name;
   } else {
-    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": " << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
+    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
+    out << (instr.isSigned() ? "S" : "U") << ": ";
+    out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
     for (auto op : instr.operands) {
       out << op->compactString() << ", ";
     }
@@ -1556,9 +1558,10 @@ class InstructionCollector : public IRGraphVisitor {
         auto callOp = newI();
         callOp->tp = HWINSTR_TP_VAR;
         callOp->name = calledStencil;
-        callOp->setSigned(!(op->type.is_uint()));
-        cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
-        
+        //callOp->setSigned(!(op->type.is_uint()));
+        //cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
+       
+        ist->setSigned(!(op->type.is_uint()));
         //callOp->strConst = calledStencil;
         callOperands.insert(std::begin(callOperands), callOp);
 
@@ -2111,7 +2114,6 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
               "halidehw.stencil_read_3",
               {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
               {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
         }
@@ -4830,8 +4832,13 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     
     f.controlVars = hwVars;
 
+    cout << "Before opts..." << endl;
+    cout << f << endl;
+
     removeBadStores(stCollector, f);
     valueConvertStreamReads(scl.info, f);
+    cout << "After valueconver stream reads..." << endl;
+    cout << f << endl;
     valueConvertProvides(scl.info, f);
     removeWriteStreamArgs(scl.info, f);
     divToShift(f);
