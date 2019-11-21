@@ -2942,7 +2942,8 @@ void removeUnusedInstances(CoreIR::ModuleDef* def) {
 
 void modToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
-  std::map<HWInstr*, HWInstr*> replacements;
+  //std::map<HWInstr*, HWInstr*> replacements;
+  std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
   for (auto instr : f.allInstrs()) {
     if (isCall("mod", instr)) {
       //cout << "Found mod" << endl;
@@ -2962,12 +2963,9 @@ void modToShift(HWFunction& f) {
 
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, constVal - 1)};
 
-          //auto andInstr = f.newI();
-          //andInstr->setSigned(instr->getSigned());
-          //andInstr->operands = {shrInstr, };
-
           //1 << (value - 1))};
-          replacements[instr] = shrInstr;
+          replacements.push_back({instr, shrInstr});
+          //replacements[instr] = shrInstr;
         }
       }
     }
@@ -2989,7 +2987,6 @@ void divToShift(HWFunction& f) {
   cout << f << endl;
 
   std::set<HWInstr*> toErase;
-  //std::map<HWInstr*, HWInstr*> replacements;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
   for (auto instr : f.allInstrs()) {
     if (isCall("div", instr)) {
