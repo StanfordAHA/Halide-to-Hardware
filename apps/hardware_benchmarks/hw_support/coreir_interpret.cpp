@@ -478,7 +478,7 @@ void run_coreir_on_interpreter(string coreir_design,
         state.execute();
 
         // give another rising edge (execute seq)
-        state.exeSequential();
+        //state.exeSequential();
 
         // read output wire
         if (uses_valid) {
