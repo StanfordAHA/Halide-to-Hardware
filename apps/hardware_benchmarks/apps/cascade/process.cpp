@@ -9,10 +9,10 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-const int inImgSize = 8;
-const int outImgSize = inImgSize - 4;
+const int inImgSize = 64;
+const int outImgSize = inImgSize - 2;
 
-typedef int16_t Pixel;
+typedef uint8_t Pixel;
 
 int main(int argc, char **argv) {
 
