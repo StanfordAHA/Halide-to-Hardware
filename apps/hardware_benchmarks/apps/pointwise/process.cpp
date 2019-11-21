@@ -9,6 +9,9 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
+int inImgSize = 64;
+int outImgSize = inImgSize;
+
 int main(int argc, char **argv) {
 
   OneInOneOut_ProcessController<uint8_t> processor("pointwise",
@@ -23,8 +26,8 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<uint8_t>(64, 64);
-  processor.output = Buffer<uint8_t>(64, 64);
+  processor.input = Buffer<uint8_t>(inImgSize, inImgSize);
+  processor.output = Buffer<uint8_t>(outImgSize, outImgSize);
   
   processor.process_command(argc, argv);
   
