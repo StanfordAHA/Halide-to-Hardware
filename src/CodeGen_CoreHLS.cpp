@@ -1167,7 +1167,8 @@ class InstructionCollector : public IRGraphVisitor {
     HWInstr* lastValue;
     HWInstr* currentPredicate;
     HWBlock* activeBlock;
-    
+
+    std::vector<const For*> activeLoops;
     Scope<std::vector<std::string> > activeRealizations;
     
     InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr), activeBlock(nullptr) {}
@@ -1202,7 +1203,7 @@ class InstructionCollector : public IRGraphVisitor {
     // And in that representation each value is defined in terms of values of earlier statements,
     // (by recurrence relations), or by a closed SCEV or some similar construct?
     void visit(const For* lp) override {
-      
+
       auto toLoop = newBr();
       auto fromLoop = newBr();
       
