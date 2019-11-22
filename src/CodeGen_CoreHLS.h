@@ -23,8 +23,18 @@ class HWType {
     std::vector<int> dims;
 };
 
+class LoopSpec {
+  public:
+
+    std::string name;
+    Expr min;
+    Expr extent;
+};
+
 class HWInstr {
   public:
+    std::vector<LoopSpec> surroundingLoops;
+
     int uniqueNum;
     HWInstrTp tp;
     CoreIR::Module* opType;

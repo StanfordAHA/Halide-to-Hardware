@@ -1577,37 +1577,6 @@ void small_conv_3_3_not_unrolled_test() {
   deleteContext(context);
 
   cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
-  //Target t;
-  //t = t.with_feature(Target::Feature::CoreIR);
-  //vector<Argument> args{input};
-  //auto mod = hw_output.compile_to_module(args, "hw_output", t);
-
-  //cout << "Module before consolidation..." << endl;
-  //cout << mod << endl;
-
-  //for (auto f : mod.functions()) {
-    //cout << "Preprocessed body for " << f.name << endl;
-    //HWRegionFinder finder;
-    //f.body.accept(&finder);
-    //if (finder.foundRegion) {
-      //Stmt s = preprocessHWLoops(finder.region->body);
-      //cout << "---- Found hw region..." << endl;
-      //cout << s << endl;
-
-      //MemoryInfoCollector mic;
-      //s.accept(&mic);
-
-      //cout << "----- Memory info..." << endl;
-      //for (auto op : mic.memOps) {
-        //cout << "\t" << op << endl;
-      //}
-
-      //cout << "----- ROMS..." << endl;
-      //for (auto r : mic.roms()) {
-        //cout << r << endl;
-      //}
-    //}
-  //}
   assert(false);
 }
 
@@ -3090,6 +3059,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
+  small_conv_3_3_not_unrolled_test();
   different_latency_kernels_test();
   shiftRight_test();
   ushift_test();
@@ -3104,7 +3074,6 @@ int main(int argc, char **argv) {
  
   // Experimenta tests
   //conv_layer_mobile_test();
-  //small_conv_3_3_not_unrolled_test();
   
   double_unsharp_test();
   real_unsharp_test();
