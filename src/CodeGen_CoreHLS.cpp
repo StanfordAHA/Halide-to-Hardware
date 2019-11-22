@@ -1204,26 +1204,28 @@ class InstructionCollector : public IRGraphVisitor {
     // (by recurrence relations), or by a closed SCEV or some similar construct?
     void visit(const For* lp) override {
 
-      auto toLoop = newBr();
-      auto fromLoop = newBr();
+      activeLoops.push_back(lp);
+      //auto toLoop = newBr();
+      //auto fromLoop = newBr();
       
-      pushInstr(toLoop);
+      //pushInstr(toLoop);
 
-      auto loopBlk = f.newBlk();
-      activeBlock = loopBlk;
+      //auto loopBlk = f.newBlk();
+      //activeBlock = loopBlk;
       IRGraphVisitor::visit(lp);
      
-      pushInstr(fromLoop);
+      //pushInstr(fromLoop);
       
-      auto nextBlk = f.newBlk();
+      activeLoops.pop_back();
+      //auto nextBlk = f.newBlk();
       
-      toLoop->operands.push_back(f.newVar(loopBlk->name));
+      //toLoop->operands.push_back(f.newVar(loopBlk->name));
       
-      fromLoop->operands.push_back(f.newVar(loopBlk->name));
-      fromLoop->operands.push_back(f.newVar(nextBlk->name));
+      //fromLoop->operands.push_back(f.newVar(loopBlk->name));
+      //fromLoop->operands.push_back(f.newVar(nextBlk->name));
 
 
-      activeBlock = nextBlk;
+      //activeBlock = nextBlk;
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
     }
     
