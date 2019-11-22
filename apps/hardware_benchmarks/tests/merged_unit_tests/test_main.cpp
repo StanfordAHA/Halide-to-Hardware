@@ -2566,7 +2566,6 @@ void different_latency_kernels_test() {
   Halide::Buffer<uint8_t> inputBuf(outTileSize, outTileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   indexTestPatternRandom(inputBuf, hwInputBuf);
-  //indexTestPattern2D(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
@@ -2591,25 +2590,10 @@ void different_latency_kernels_test() {
   auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
 
   string accelName = getInputAlias("accel_interface_info.json");
-  //json j;
-  //ifstream inFile("accel_interface_info.json");
-  //inFile >> j;
-  //cout << "JSON..." << endl;
-  //cout << j << endl;
-
-  //auto aliasMap = j["aliasMap"];
-  //cout << "Alias map = " << aliasMap << endl;
-  //assert(aliasMap.size() == 1);
-
-  //string inS = begin(aliasMap)->get<string>();
-  //cout << "inS = " << inS << endl;
-  //string outS = "hw_output.stencil.stream";
-  //string accelName = "self.in_" + inS + "_0_0";
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
   PRINT_PASSED("Different latency kernels");
-  //assert(false);
 }
 
 void real_unsharp_test() {
@@ -2972,7 +2956,6 @@ void conv_layer_mobile_test() {
   //cout << "Postprocessed module" << endl;
   //cout << 
   //auto context = hwContext();
-  //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
   PRINT_PASSED("Conv layer mobile");
   //assert(false);
 }
@@ -3107,6 +3090,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
+  different_latency_kernels_test();
   shiftRight_test();
   ushift_test();
   arith_test();
@@ -3128,7 +3112,6 @@ int main(int argc, char **argv) {
   control_path_xy_test();
   
   rom_read_test();
-  different_latency_kernels_test();
   curve_16_lookup_test();
   camera_pipeline_test();
   simple_unsharp_test();
