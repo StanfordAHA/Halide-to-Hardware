@@ -1687,8 +1687,8 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
-//KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo);
-KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo);
+//KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo);
+KernelControlPath controlPathForKernel(HWFunction& f);
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
 void valueConvertProvides(StencilInfo& info, HWFunction& f);
@@ -2673,24 +2673,7 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   
   cout << "Number of stages = " << nStages << endl;
 
-  // TODO: Do real traversal of instructions
-  LoopNestInfo loopInfo;
-  if (f.allInstrs().size() > 0) {
-    HWInstr* fst = f.structuredOrder()[0];
-    cout << "Adding surrounding loops from: " << *fst << endl;
-    for (auto lp : fst->surroundingLoops) {
-      loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
-    }
-  } else {
-    cout << "Error: HWFunction..." << endl;
-    cout << f << endl;
-    cout << "has no instructions!" << endl;
-    internal_assert(false);
-  }
-  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
-  
-  //auto cpM = controlPathForKernel(context, info, f, loopInfo);
-  auto cpM = controlPathForKernel(f, loopInfo);
+  auto cpM = controlPathForKernel(f);
   cout << "Control path module..." << endl;
   cpM.m->print();
   auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
@@ -3244,9 +3227,25 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
 // Maybe first change toward a inner loop handling should be to run instruction collection on outer loops
 // and thus save an activeloop list. Then generate a loopnestinfo data structure directly from that so that
 // lp is not passed around as a parameter?
-//KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo) {
-KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo) {
+//KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo) {
+KernelControlPath controlPathForKernel(HWFunction& f) {
 
+  // TODO: Do real traversal of instructions
+  LoopNestInfo loopInfo;
+  if (f.allInstrs().size() > 0) {
+    HWInstr* fst = f.structuredOrder()[0];
+    cout << "Adding surrounding loops from: " << *fst << endl;
+    for (auto lp : fst->surroundingLoops) {
+      loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+    }
+  } else {
+    cout << "Error: HWFunction..." << endl;
+    cout << f << endl;
+    cout << "has no instructions!" << endl;
+    internal_assert(false);
+  }
+  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+  
   auto c = f.mod->getContext();
 
   KernelControlPath cp;
@@ -3259,22 +3258,9 @@ KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo) {
       vars.insert(lp.name);
     }
   }
-  //std::set<HWInstr*> vars;
-  //for (auto instr : f.allInstrs()) {
-    //for (auto op : instr->operands) {
-      //if (op->tp == HWINSTR_TP_VAR) {
-        //if (!elem(op->name, streamNames)) {
-          //internal_assert(elem(op->name, loopVarNames)) << "Variable: " << op->name << " is not a loop var or a stream\n";
-          //vars.insert(op);
-        //}
-      //}
-    //}
-  //}
 
   for (auto var : vars) {
     int width = 16;
-    //cp.controlVars.push_back(coreirSanitize(var->compactString()));
-    //tps.push_back({coreirSanitize(var->compactString()), c->Bit()->Arr(width)});
     cp.controlVars.push_back(coreirSanitize(var));
     tps.push_back({coreirSanitize(var), c->Bit()->Arr(width)});
   }
