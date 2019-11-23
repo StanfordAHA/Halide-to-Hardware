@@ -2002,8 +2002,9 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
+UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
 
+  auto context = f.mod->getContext();
   int defStage = 0;
 
   UnitMapping m;
@@ -2349,7 +2350,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR:
 
   CoreIR::Context* context = def->getContext();
   // In this mapping I want to assign values that are 
-  UnitMapping m = createUnitMapping(f, info, context, sched, def, controlPath);
+  UnitMapping m = createUnitMapping(f, info, sched, def, controlPath);
   auto& unitMapping = m.unitMapping;
 
   auto self = def->sel("self");
