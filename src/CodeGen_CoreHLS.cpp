@@ -3328,6 +3328,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     if (elem(var->name, loopVarNames)) {
 
     } else {
+      internal_assert(false) << "Variable: " << var << " is not a loop var or a stream\n";
       auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
       def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
     }
