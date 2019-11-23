@@ -4864,6 +4864,21 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   stmt = preprocessHWLoops(stmt);
 
+  // Here: Find all external vars and then replace them with dummies
+  // TODO: Move to preprocess hardware loops, and eliminate when we
+  // need to handle rea parameter passing
+  std::map<string, Expr> dummyVars;
+  for (auto a : args) {
+    if (!a.is_stencil) {
+      dummyVars[a.name] = IntImm::make(a.scalar_type, 0);
+    }
+  }
+  stmt = substitute(dummyVars, stmt);
+
+  cout << "After substitution..." << endl;
+  cout << stmt << endl;
+
+  //internal_assert(dummyVars.size() == 0);
   UselessReadRemover readRemover;
   stmt = readRemover.mutate(stmt);
   
@@ -4885,14 +4900,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   //cout << "Stencil info" << endl;
   StencilInfo info = scl.info;
 
-  // Here: Find all external vars and then replace them with dummies
-  std::set<string> dummyVars;
-  for (auto a : args) {
-    if (!a.is_stencil) {
-      dummyVars.insert(a.name);
-    }
-  }
-  internal_assert(dummyVars.size() == 0);
 
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
@@ -4902,7 +4909,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     cout << "\t\tLOOP" << endl;
     cout << "Original body.." << endl;
     cout << lp->body << endl;
-
 
     // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);

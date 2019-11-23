@@ -3060,6 +3060,8 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
+  control_path_test();
+  control_path_xy_test();
   different_latency_kernels_test();
   shiftRight_test();
   ushift_test();
@@ -3077,8 +3079,6 @@ int main(int argc, char **argv) {
   
   double_unsharp_test();
   real_unsharp_test();
-  control_path_test();
-  control_path_xy_test();
   
   rom_read_test();
   curve_16_lookup_test();
