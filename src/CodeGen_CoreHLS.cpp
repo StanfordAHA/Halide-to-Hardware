@@ -1687,7 +1687,6 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
-//KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo);
 KernelControlPath controlPathForKernel(HWFunction& f);
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
@@ -2246,6 +2245,8 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       }
     }
 
+    defStage++;
+
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
@@ -2303,7 +2304,6 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         }
       }
     }
-    defStage++;
   }
  
     cout << "Done wiring up constants" << endl;
@@ -2651,7 +2651,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
 
   auto design = f.mod;
   auto def = design->getDef();
-  //auto context = def->getContext();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
   if (f.allInstrs().size() == 0) {
@@ -3227,7 +3226,6 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
 // Maybe first change toward a inner loop handling should be to run instruction collection on outer loops
 // and thus save an activeloop list. Then generate a loopnestinfo data structure directly from that so that
 // lp is not passed around as a parameter?
-//KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo) {
 KernelControlPath controlPathForKernel(HWFunction& f) {
 
   // TODO: Do real traversal of instructions
@@ -4911,9 +4909,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto fp : functions) {
     auto lp = fp.first;
     HWFunction& f = fp.second;
-    //ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
-    //ComputeKernel compK = moduleForKernel(context, scl.info, f, args);
-    //ComputeKernel compK = moduleForKernel(context, scl.info, f);
     ComputeKernel compK = moduleForKernel(scl.info, f);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
