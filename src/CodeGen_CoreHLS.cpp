@@ -2252,8 +2252,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         int width = op->constWidth;
         int value = stoi(op->constValue);
         BitVector constVal = BitVector(width, value);
-        //cout << "Constant value for operand " << op->compactString() << " in instruction " << *instr << " is = " << constVal << ", as int = " << constVal.to_type<int>() << endl;
-        auto cInst = def->addInstance("const_" + std::to_string(defStage) + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
+        auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
         instrValues[op] = cInst->sel("out");
       } else if (op->tp == HWINSTR_TP_VAR) {
@@ -2635,14 +2634,17 @@ std::set<HWInstr*> allValuesUsed(const T& program) {
   return vars;
 }
 
-// What intermediate step in the process of supporting loop nests am I working on?
-// Answer: I am working on creating a function that can take in only a hwfunction
-// and return a computekernel (assuming all instructions in the HWFunction have the same loop vars)
-//
-//
-// TODO: Use args to build the unit mapping?
-//ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const vector<CoreIR_Argument>& args) {
-//ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f) {
+template<typename T>
+std::set<HWInstr*> allVarsUsed(const T& program) {
+  set<HWInstr*> vars;
+  for (auto v : allValuesUsed(program)) {
+    if (v->tp == HWINSTR_TP_VAR) {
+      vars.insert(v);
+    }
+  }
+  return vars;
+}
+
 ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
@@ -2663,15 +2665,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   
-  //// Replace the zero value placeholders in ControlPath
-  //cout << "Instruction groups: " << instrGroups.size() << endl;
-  //for (auto ig : instrGroups) {
-    //auto vals = allValuesUsed(ig);
-    //cout << "\tValues used..." << endl;
-    //for (auto v : vals) {
-      //cout << "\t\t" << v->compactString() << endl;
-    //}
-  //}
   internal_assert(instrGroups.size() == 1);
 
   auto sched = asapSchedule(f);
@@ -2729,7 +2722,6 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
       f.insertAt(ldNewVal.first, ldNewVal.second);
     }
     f.replaceAllUsesWith(ldNewVal.first, ldNewVal.second);
-    //replaceAllUsesWith(ldNewVal.first, ldNewVal.second, body);
   }
 
   for (auto ldNewVal : loadsToConstants) {
@@ -3145,6 +3137,7 @@ void divToShift(HWFunction& f) {
     f.deleteInstr(i);
   }
 }
+
 void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
 
   std::vector<std::set<CoreIR::Wireable*> > components;
