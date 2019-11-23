@@ -2334,30 +2334,21 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
       int prodStage = m.getEndTime(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
-      //auto lastReg = m.pipelineRegisters[instr][prodStage];
-      //def->connect(lastReg->sel("in"), fstVal);
-      //for (int i = prodStage + 1; i < (int) sched.stages.size(); i++) {
       for (int i = prodStage + 1; i < sched.numStages(); i++) {
         CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
         def->connect(pipeReg->sel("in"), lastReg);
-         //lastReg->sel("out"));
         lastReg = pipeReg->sel("out");
-        //lastReg = pipeReg;
       }
     }
   }
   return m;
 }
 
-// I want to move to a system that can deal with loop nests. There are a few probems:
-// 1. The statement being scheduled is no longer just a sequence of data updates
-// 2. The unitmapping valueAt function needs to handle source code positions in the HWFunction rather than just numbers in a pipeline
-//    This might be the hardest requirement if we need to preserve low resource utilization
-// 3. Do this transformation in small
 void emitCoreIR(StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
-  assert(sched.II == 1);
+  internal_assert(sched.II == 1);
 
   CoreIR::Context* context = def->getContext();
+  // In this mapping I want to assign values that are 
   UnitMapping m = createUnitMapping(info, context, sched, def, cpm, controlPath);
   auto& unitMapping = m.unitMapping;
 
@@ -2644,7 +2635,14 @@ std::set<HWInstr*> allValuesUsed(const T& program) {
   return vars;
 }
 
-ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const vector<CoreIR_Argument>& args) {
+// What intermediate step in the process of supporting loop nests am I working on?
+// Answer: I am working on creating a function that can take in only a hwfunction
+// and return a computekernel (assuming all instructions in the HWFunction have the same loop vars)
+//
+//
+// TODO: Use args to build the unit mapping?
+//ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const vector<CoreIR_Argument>& args) {
+ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
   auto design = f.mod;
@@ -2658,35 +2656,20 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
 
   auto self = def->sel("self");
 
-  // Now: Split hwfunction on deepest common loop levels
-  // Generate control path for shared loop levels
-  // Collect instructions in non shared loop levels
-  // Find external values in the new set of instructions
-  // use those values to build a new hwfunction and create a new module
-  // for it
-  // Then: Add fork and join to the outer module and wire the inner
-  // module enable to the join, the inner module valid to the fork?
-  // Q: Where does the output valid of a loop go if it is the highest
-  // level valid?
-  cout << "Creating schedule for loop" << endl;
   cout << "Hardware function is..." << endl;
   cout << f << endl;
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  // For each instruction group:
-  // Build a new hwfunction with valid and enable
-  // Build a control path for that groups unique index variables
-  // create forks and joins for each group transition
-
-  // Replace the zero value placeholders in ControlPath
-  cout << "Instruction groups: " << instrGroups.size() << endl;
-  for (auto ig : instrGroups) {
-    auto vals = allValuesUsed(ig);
-    cout << "\tValues used..." << endl;
-    for (auto v : vals) {
-      cout << "\t\t" << v->compactString() << endl;
-    }
-  }
+  
+  //// Replace the zero value placeholders in ControlPath
+  //cout << "Instruction groups: " << instrGroups.size() << endl;
+  //for (auto ig : instrGroups) {
+    //auto vals = allValuesUsed(ig);
+    //cout << "\tValues used..." << endl;
+    //for (auto v : vals) {
+      //cout << "\t\t" << v->compactString() << endl;
+    //}
+  //}
   internal_assert(instrGroups.size() == 1);
 
   auto sched = asapSchedule(f);
@@ -2719,9 +2702,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  // Now I want to simplify the creation of RTL for a group of instructions so that
-  // I can generate feedforward code for compute modules without stencilinfo or 
-  // a controlpath
   emitCoreIR(info, sched, def, cpM, controlPath);
 
   // Here: Create control path for the module, then add it to def and wire it up.
@@ -3268,7 +3248,6 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
 // and thus save an activeloop list. Then generate a loopnestinfo data structure directly from that so that
 // lp is not passed around as a parameter?
 KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo) {
-    //const For* lp) {
 
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
@@ -3293,7 +3272,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
 
   auto def = controlPath->newModuleDef();
-
 
   int width = 16;
 
@@ -4940,7 +4918,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     auto lp = fp.first;
     HWFunction& f = fp.second;
     //ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
-    ComputeKernel compK = moduleForKernel(context, scl.info, f, args);
+    //ComputeKernel compK = moduleForKernel(context, scl.info, f, args);
+    ComputeKernel compK = moduleForKernel(context, scl.info, f);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
     kernelModules[lp] = compK;
