@@ -2642,11 +2642,13 @@ std::set<HWInstr*> allValuesUsed(const T& program) {
 //
 // TODO: Use args to build the unit mapping?
 //ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const vector<CoreIR_Argument>& args) {
-ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f) {
+//ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f) {
+ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
   auto design = f.mod;
   auto def = design->getDef();
+  auto context = def->getContext();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
   if (f.allInstrs().size() == 0) {
@@ -4919,7 +4921,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     HWFunction& f = fp.second;
     //ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
     //ComputeKernel compK = moduleForKernel(context, scl.info, f, args);
-    ComputeKernel compK = moduleForKernel(context, scl.info, f);
+    //ComputeKernel compK = moduleForKernel(context, scl.info, f);
+    ComputeKernel compK = moduleForKernel(scl.info, f);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
     kernelModules[lp] = compK;
