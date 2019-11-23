@@ -2342,13 +2342,23 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& 
   return m;
 }
 
-void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::Instance* controlPath) {
+void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched) {
   internal_assert(sched.II == 1);
 
   auto def = f.mod->getDef();
   internal_assert(def != nullptr);
 
   CoreIR::Context* context = def->getContext();
+ 
+  // Create control path
+  auto cpM = controlPathForKernel(f);
+  cout << "Control path module..." << endl;
+  cpM.m->print();
+  auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
+  def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
+  cout << "Wiring up def in enable and control path in_en" << endl;
+  def->connect(def->sel("self")->sel("in_en"), controlPath->sel("in_en"));
+  
   // In this mapping I want to assign values that are 
   UnitMapping m = createUnitMapping(f, info, sched, def, controlPath);
   auto& unitMapping = m.unitMapping;
@@ -2659,7 +2669,7 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     return {f.mod, sched};
   }
 
-  auto self = def->sel("self");
+  //auto self = def->sel("self");
 
   cout << "Hardware function is..." << endl;
   cout << f << endl;
@@ -2673,16 +2683,9 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   
   cout << "Number of stages = " << nStages << endl;
 
-  auto cpM = controlPathForKernel(f);
-  cout << "Control path module..." << endl;
-  cpM.m->print();
-  auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
-  def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
-  cout << "Wiring up def in enable and control path in_en" << endl;
-  def->connect(self->sel("in_en"), controlPath->sel("in_en"));
-  
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  emitCoreIR(f, info, sched, controlPath);
+  //emitCoreIR(f, info, sched, controlPath);
+  emitCoreIR(f, info, sched);
 
   // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
