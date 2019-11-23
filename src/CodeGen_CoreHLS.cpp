@@ -2907,8 +2907,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     HWInstr* initInstr = f.newI();
     initInstr->name = "init_stencil_" + pr.first;
     initInstr->operands = {};
-    //internal_assert(pr.second.size() > 0);
-    //initInstr->surroundingLoops = initialSets[0]->surroundingLoops;
 
     initInstr->operands.push_back(f.newConst(32, dims.size()));
     cout << "Dims of " << provideName << endl;
@@ -2923,7 +2921,11 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       }
     }
 
+    initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
     f.insert(0, initInstr);
+    // Assume that initInstr has same containing loops as the first instruction
+    // in the HWFunction
+    internal_assert(f.structuredOrder().size() > 0);
     HWInstr* activeProvide = initInstr;
     f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
     cout << "done with set values..." << endl;
