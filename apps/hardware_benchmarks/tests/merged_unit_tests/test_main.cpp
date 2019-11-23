@@ -3059,7 +3059,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
-  small_conv_3_3_not_unrolled_test();
+  //small_conv_3_3_not_unrolled_test();
   different_latency_kernels_test();
   shiftRight_test();
   ushift_test();

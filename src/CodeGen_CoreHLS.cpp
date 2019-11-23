@@ -2324,6 +2324,18 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   UnitMapping m = createUnitMapping(info, context, sched, def, cpm, controlPath);
   auto& unitMapping = m.unitMapping;
 
+  auto self = def->sel("self");
+  // This should be removed and it should be replaced with valid signals wired up
+  // from the write stream output of the kernel, whose delay is by construction equal
+  // to the number of stages in the design
+  CoreIR::Wireable* inEn = self->sel("in_en");
+  for (int i = 0; i < sched.numStages() - 1; i++) {
+    auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
+    def->connect(inEn, vR->sel("in"));
+    inEn = vR->sel("out");
+  }
+  def->connect(inEn, self->sel("valid"));
+
   cout << "Building connections inside each cycle\n";
   //for (int i = 0; i < (int) sched.stages.size(); i++) {
   for (int i = 0; i < sched.numStages(); i++) {
@@ -2593,14 +2605,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   auto sched = asapSchedule(f);
   int nStages = sched.numStages();
   cout << "Number of stages = " << nStages << endl;
-  CoreIR::Wireable* inEn = self->sel("in_en");
-  for (int i = 0; i < nStages - 1; i++) {
-    //auto vR = pipelineRegister(context, def, "valid_delay_reg_" + std::to_string(i), context->Bit());
-    auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
-    def->connect(inEn, vR->sel("in"));
-    inEn = vR->sel("out");
-  }
-  def->connect(inEn, self->sel("valid"));
 
   auto cpM = controlPathForKernel(context, info, f, lp);
   cout << "Control path module..." << endl;
@@ -2612,7 +2616,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
   emitCoreIR(info, context, sched, def, cpM, controlPath);
-
 
   // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
@@ -2629,22 +2632,6 @@ bool isStore(HWInstr* instr) {
 bool isConstant(HWInstr* instr) {
   return instr->tp == HWINSTR_TP_CONST;
 }
-
-//void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
-  //int i = 0;
-  //for (auto op : instr->operands) {
-    //if (*op == *toReplace) {
-      //instr->operands[i] = replacement;
-    //}
-    //i++;
-  //}
-//}
-
-//void replaceAllUsesWith(HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
-  //for (auto* instr : body) {
-    //replaceOperand(toReplace, replacement, instr);
-  //}
-//}
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   for (auto ldNewVal : loadsToConstants) {
