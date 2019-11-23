@@ -39,6 +39,7 @@ using std::ostringstream;
 using std::ofstream;
 using std::cout;
 
+using CoreIR::group_unary;
 using CoreIR::DirectedGraph;
 using CoreIR::ModuleDef;
 using CoreIR::vdisc;
@@ -2624,35 +2625,64 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
-//ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
+template<typename T>
+std::set<HWInstr*> allValuesDefined(const T& program) {
+  set<HWInstr*> vars;
+  for (auto instr : program) {
+    vars.insert(instr);
+  }
+  return vars;
+}
+
+template<typename T>
+std::set<HWInstr*> allValuesUsed(const T& program) {
+  set<HWInstr*> vars;
+  for (auto instr : program) {
+    for (auto op : instr->operands) {
+      vars.insert(op);
+    }
+  }
+  return vars;
+}
+
 ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const vector<CoreIR_Argument>& args) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
-  // Q: What should I do here to move toward a design that can handle inner loops?
-  // A: I guess the first thing to do is to write a recognizer which can find
-  // each loop level instruction chunk and then synthesize them?
-  //
-  // I want to start by breaking up each block in the hwfunction in to groups
-  // by loop level, finding each loop levels external values, and then
-  // turning each one in to a new hwfunction that builds the circuits for
-  // the feedforward dags in the kernel. Then I want to insert forks and
-  // joins between chunks that are connected.
-  // Q: Where do the loop indexes fit in to this? IOW where is the loop
-  // index stored in the hwfunction during scheduling?
-  //
-  // Maybe my confusion about what to do next is driven in part by the control path
-  // being synthesized separately. Or it could be because of the fact that the schedule
-  // works on "f" rather than on a list of instructions
   auto design = f.mod;
   auto def = design->getDef();
+
   internal_assert(def != nullptr) << "module definition is null!\n";
+
   auto self = def->sel("self");
 
+  // Now: Split hwfunction on deepest common loop levels
+  // Generate control path for shared loop levels
+  // Collect instructions in non shared loop levels
+  // Find external values in the new set of instructions
+  // use those values to build a new hwfunction and create a new module
+  // for it
+  // Then: Add fork and join to the outer module and wire the inner
+  // module enable to the join, the inner module valid to the fork?
+  // Q: Where does the output valid of a loop go if it is the highest
+  // level valid?
   cout << "Creating schedule for loop" << endl;
   cout << "Hardware function is..." << endl;
   cout << f << endl;
+
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  cout << "Instruction groups: " << instrGroups.size() << endl;
+  for (auto ig : instrGroups) {
+    auto vals = allValuesUsed(ig);
+    cout << "\tVaues used..." << endl;
+    for (auto v : vals) {
+      cout << "\t\t" << v->compactString() << endl;
+    }
+  }
+  internal_assert(instrGroups.size() == 1);
+
   auto sched = asapSchedule(f);
   int nStages = sched.numStages();
+  
   cout << "Number of stages = " << nStages << endl;
 
   // TODO: Do real traversal of instructions
