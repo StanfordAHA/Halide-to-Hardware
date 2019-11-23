@@ -2669,27 +2669,28 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     return {f.mod, sched};
   }
 
-  //auto self = def->sel("self");
-
   cout << "Hardware function is..." << endl;
   cout << f << endl;
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  
-  internal_assert(instrGroups.size() == 1);
+  // Check if we are in a perfect loop nest
+  if (instrGroups.size() == 1) {
 
-  auto sched = asapSchedule(f);
-  int nStages = sched.numStages();
-  
-  cout << "Number of stages = " << nStages << endl;
+    auto sched = asapSchedule(f);
+    int nStages = sched.numStages();
 
-  cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  //emitCoreIR(f, info, sched, controlPath);
-  emitCoreIR(f, info, sched);
+    cout << "Number of stages = " << nStages << endl;
 
-  // Here: Create control path for the module, then add it to def and wire it up.
-  design->setDef(def);
-  return {design, sched};
+    cout << "# of stages in loop schedule = " << sched.numStages() << endl;
+    //emitCoreIR(f, info, sched, controlPath);
+    emitCoreIR(f, info, sched);
+
+    design->setDef(def);
+    return {design, sched};
+  } else {
+    internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
+    return {design, {}};
+  }
 }
 
 bool isLoad(HWInstr* instr) {
