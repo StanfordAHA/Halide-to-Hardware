@@ -136,6 +136,20 @@ void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWIns
 namespace {
 
 
+std::string coreirSanitize(const std::string& str) {
+  string san = "";
+  for (auto c : str) {
+    if (c == '.') {
+      san += "_";
+    } else if (c == '\"') {
+      san += "_q_";
+    } else {
+      san += c;
+    }
+  }
+  return san;
+}
+
 template<typename TOut, typename T>
 TOut* sc(T* p) {
   return static_cast<TOut*>(p);
@@ -1611,7 +1625,40 @@ class OuterLoopSeparator : public IRGraphVisitor {
 
 };
 
-HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args) {
+void modToShift(HWFunction& f);
+void divToShift(HWFunction& f);
+void removeBadStores(StoreCollector& st, HWFunction& f);
+
+class ComputeKernel {
+  public:
+    CoreIR::Module* mod;
+    HWLoopSchedule sched;
+};
+
+std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
+  out << "@" << f.name << endl;
+  for (auto blk : f.getBlocks()) {
+    out << "--- Blk " << blk->name << endl;
+    for (auto instr : blk->instrs) {
+      out << "\t" << *instr << endl;
+    }
+  }
+  return out;
+}
+
+class KernelControlPath {
+  public:
+    std::vector<std::string> controlVars;
+    CoreIR::Module* m;
+};
+
+KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp);
+void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
+void valueConvertProvides(StencilInfo& info, HWFunction& f);
+
+void removeWriteStreamArgs(StencilInfo& info, HWFunction& f);
+
+HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
   OuterLoopSeparator sep;
   perfectNest->body.accept(&sep);
@@ -1829,20 +1876,6 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   return {0, 1, 0, 1};
 }
 
-std::string coreirSanitize(const std::string& str) {
-  string san = "";
-  for (auto c : str) {
-    if (c == '.') {
-      san += "_";
-    } else if (c == '\"') {
-      san += "_q_";
-    } else {
-      san += c;
-    }
-  }
-  return san;
-}
-
 class UnitMapping {
   protected:
   public:
@@ -1931,12 +1964,6 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   auto r = def->addInstance(name, "commonlib.reg_array", {{"type", COREMK(context, type)}});
   return r;
 }
-
-class KernelControlPath {
-  public:
-    std::vector<std::string> controlVars;
-    CoreIR::Module* m;
-};
 
 UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
 
@@ -2550,25 +2577,6 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 
   return sched;
 }
-
-class ComputeKernel {
-  public:
-    CoreIR::Module* mod;
-    HWLoopSchedule sched;
-};
-
-std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
-  out << "@" << f.name << endl;
-  for (auto blk : f.getBlocks()) {
-    out << "--- Blk " << blk->name << endl;
-    for (auto instr : blk->instrs) {
-      out << "\t" << *instr << endl;
-    }
-  }
-  return out;
-}
-
-KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp);
 
 ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
@@ -4853,7 +4861,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
 
     // Actual scheduling here
-    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args);
+    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
 
     functions[lp] = f;
 
