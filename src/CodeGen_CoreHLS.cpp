@@ -1613,7 +1613,6 @@ class OuterLoopSeparator : public IRGraphVisitor {
 
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args) {
 
-
   OuterLoopSeparator sep;
   perfectNest->body.accept(&sep);
   InstructionCollector collector;
@@ -1626,10 +1625,41 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
-  //perfectNest->accept(&collector);
   sep.body.accept(&collector);
 
-  return collector.f;
+  auto f = collector.f;
+
+  auto hwVars = extractHardwareVars(perfectNest);
+  for (auto arg : args) {
+    if (!arg.is_stencil) {
+      hwVars.push_back(coreirSanitize(arg.name));
+    }
+  }
+
+  cout << "All hardware vars.." << endl;
+  for (auto hv : hwVars) {
+    cout << "\t" << hv << endl;
+  }
+
+  f.controlVars = hwVars;
+
+  cout << "Before opts..." << endl;
+  cout << f << endl;
+
+  removeBadStores(stCollector, f);
+  valueConvertStreamReads(info, f);
+  cout << "After valueconver stream reads..." << endl;
+  cout << f << endl;
+  valueConvertProvides(info, f);
+  removeWriteStreamArgs(info, f);
+  divToShift(f);
+  modToShift(f);
+  //cout << "After stream read conversion..." << endl;
+  //for (auto instr : body) {
+  //cout << "\t\t\t" << *instr << endl;
+  //}
+  //return collector.f;
+  return f;
 }
 
 class StencilInfoCollector : public IRGraphVisitor {
@@ -4824,35 +4854,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args);
-    auto hwVars = extractHardwareVars(lp);
-    for (auto arg : args) {
-      if (!arg.is_stencil) {
-        hwVars.push_back(coreirSanitize(arg.name));
-      }
-    }
-    
-    cout << "All hardware vars.." << endl;
-    for (auto hv : hwVars) {
-      cout << "\t" << hv << endl;
-    }
-    
-    f.controlVars = hwVars;
-
-    cout << "Before opts..." << endl;
-    cout << f << endl;
-
-    removeBadStores(stCollector, f);
-    valueConvertStreamReads(scl.info, f);
-    cout << "After valueconver stream reads..." << endl;
-    cout << f << endl;
-    valueConvertProvides(scl.info, f);
-    removeWriteStreamArgs(scl.info, f);
-    divToShift(f);
-    modToShift(f);
-    //cout << "After stream read conversion..." << endl;
-    //for (auto instr : body) {
-      //cout << "\t\t\t" << *instr << endl;
-    //}
 
     functions[lp] = f;
 
