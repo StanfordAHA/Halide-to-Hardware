@@ -2652,6 +2652,10 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   auto def = design->getDef();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
+  if (f.allInstrs().size() == 0) {
+    auto sched = asapSchedule(f);
+    return {f.mod, sched};
+  }
 
   auto self = def->sel("self");
 
@@ -2670,10 +2674,16 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   cout << f << endl;
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  // For each instruction group:
+  // Build a new hwfunction with valid and enable
+  // Build a control path for that groups unique index variables
+  // create forks and joins for each group transition
+
+  // Replace the zero value placeholders in ControlPath
   cout << "Instruction groups: " << instrGroups.size() << endl;
   for (auto ig : instrGroups) {
     auto vals = allValuesUsed(ig);
-    cout << "\tVaues used..." << endl;
+    cout << "\tValues used..." << endl;
     for (auto v : vals) {
       cout << "\t\t" << v->compactString() << endl;
     }
@@ -2710,6 +2720,9 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
+  // Now I want to simplify the creation of RTL for a group of instructions so that
+  // I can generate feedforward code for compute modules without stencilinfo or 
+  // a controlpath
   emitCoreIR(info, context, sched, def, cpM, controlPath);
 
   // Here: Create control path for the module, then add it to def and wire it up.
