@@ -2654,23 +2654,25 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   int nStages = sched.numStages();
   cout << "Number of stages = " << nStages << endl;
 
-  LoopNestInfoCollector cl;
-  lp->accept(&cl);
-  LoopNestInfo loopInfo = cl.info;
+  //LoopNestInfoCollector cl;
+  //lp->accept(&cl);
+  //LoopNestInfo loopInfo = cl.info;
 
   // TODO: Do real traversal of instructions
-  //LoopNestInfo loopInfo;
-  //if (f.allInstrs().size() > 0) {
-    //HWInstr* fst = f.structuredOrder()[0];
-    //for (auto lp : fst->surroundingLoops) {
-      //loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
-    //}
-  //} else {
-    //cout << "Error: HWFunction..." << endl;
-    //cout << f << endl;
-    //cout << "has no instructions!" << endl;
-  //}
-  //cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+  LoopNestInfo loopInfo;
+  if (f.allInstrs().size() > 0) {
+    HWInstr* fst = f.structuredOrder()[0];
+    cout << "Adding surrounding loops from: " << *fst << endl;
+    for (auto lp : fst->surroundingLoops) {
+      loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+    }
+  } else {
+    cout << "Error: HWFunction..." << endl;
+    cout << f << endl;
+    cout << "has no instructions!" << endl;
+    internal_assert(false);
+  }
+  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
   
   auto cpM = controlPathForKernel(context, info, f, loopInfo);
   cout << "Control path module..." << endl;
