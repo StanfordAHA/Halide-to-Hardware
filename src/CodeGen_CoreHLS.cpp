@@ -1605,26 +1605,26 @@ class InstructionCollector : public IRGraphVisitor {
 
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
-class OuterLoopSeparator : public IRGraphVisitor {
-  using IRGraphVisitor::visit;
-  public:
+//class OuterLoopSeparator : public IRGraphVisitor {
+  //using IRGraphVisitor::visit;
+  //public:
 
-    std::vector<const For*> outerLoops;
-    Stmt body;
+    //std::vector<const For*> outerLoops;
+    //Stmt body;
 
-  protected:
+  //protected:
 
-    void visit(const For* lp) {
-      outerLoops.push_back(lp);
+    //void visit(const For* lp) {
+      //outerLoops.push_back(lp);
 
-      if (lp->body->node_type == IRNodeType::For) {
-        lp->body.accept(this);
-      } else {
-        body = lp->body;
-      }
-    }
+      //if (lp->body->node_type == IRNodeType::For) {
+        //lp->body.accept(this);
+      //} else {
+        //body = lp->body;
+      //}
+    //}
 
-};
+//};
 
 void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
@@ -2657,6 +2657,7 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   LoopNestInfoCollector cl;
   lp->accept(&cl);
   LoopNestInfo loopInfo = cl.info;
+
   cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
   
   auto cpM = controlPathForKernel(context, info, f, loopInfo);
