@@ -1687,7 +1687,8 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
-KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo);
+//KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo);
+KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo);
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
 void valueConvertProvides(StencilInfo& info, HWFunction& f);
@@ -2650,7 +2651,7 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
 
   auto design = f.mod;
   auto def = design->getDef();
-  auto context = def->getContext();
+  //auto context = def->getContext();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
   if (f.allInstrs().size() == 0) {
@@ -2688,7 +2689,8 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   }
   cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
   
-  auto cpM = controlPathForKernel(context, info, f, loopInfo);
+  //auto cpM = controlPathForKernel(context, info, f, loopInfo);
+  auto cpM = controlPathForKernel(f, loopInfo);
   cout << "Control path module..." << endl;
   cpM.m->print();
   auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
@@ -3242,7 +3244,10 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
 // Maybe first change toward a inner loop handling should be to run instruction collection on outer loops
 // and thus save an activeloop list. Then generate a loopnestinfo data structure directly from that so that
 // lp is not passed around as a parameter?
-KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo) {
+//KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo) {
+KernelControlPath controlPathForKernel(HWFunction& f, LoopNestInfo& loopInfo) {
+
+  auto c = f.mod->getContext();
 
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
