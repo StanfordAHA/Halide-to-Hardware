@@ -3248,21 +3248,30 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
-  std::set<HWInstr*> vars;
+  std::set<string> vars;
   for (auto instr : f.allInstrs()) {
-    for (auto op : instr->operands) {
-      if (op->tp == HWINSTR_TP_VAR) {
-        if (!elem(op->name, streamNames)) {
-          vars.insert(op);
-        }
-      }
+    for (auto lp : instr->surroundingLoops) {
+      vars.insert(lp.name);
     }
   }
+  //std::set<HWInstr*> vars;
+  //for (auto instr : f.allInstrs()) {
+    //for (auto op : instr->operands) {
+      //if (op->tp == HWINSTR_TP_VAR) {
+        //if (!elem(op->name, streamNames)) {
+          //internal_assert(elem(op->name, loopVarNames)) << "Variable: " << op->name << " is not a loop var or a stream\n";
+          //vars.insert(op);
+        //}
+      //}
+    //}
+  //}
 
   for (auto var : vars) {
     int width = 16;
-    cp.controlVars.push_back(coreirSanitize(var->compactString()));
-    tps.push_back({coreirSanitize(var->compactString()), c->Bit()->Arr(width)});
+    //cp.controlVars.push_back(coreirSanitize(var->compactString()));
+    //tps.push_back({coreirSanitize(var->compactString()), c->Bit()->Arr(width)});
+    cp.controlVars.push_back(coreirSanitize(var));
+    tps.push_back({coreirSanitize(var), c->Bit()->Arr(width)});
   }
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
 
@@ -3270,11 +3279,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
 
   int width = 16;
 
-  // What is the right way to create this control path?
-  // - Counter for each loop index variable
-  // - Connect reset to counter reset, and connect the counter out to the control output
-  // - Each level in the nest increments when all levels below it are at their max?
-  // - Each level resets when it reaches its max? (but maybe this is default counter behavior?)
   std::vector<CoreIR::Wireable*> loopLevelCounters;
   std::vector<CoreIR::Wireable*> levelAtMax;
   std::set<std::string> loopVarNames;
@@ -3323,17 +3327,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
   }
   def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
-  for (auto var : vars) {
-    int width = 16;
-    if (elem(var->name, loopVarNames)) {
-
-    } else {
-      internal_assert(false) << "Variable: " << var << " is not a loop var or a stream\n";
-      auto dummyVal = def->addInstance(coreirSanitize(var->name) + "_dummy_val", "coreir.const", {{"width", COREMK(c, width)}}, {{"value", COREMK(c, BitVector(width, 0))}});
-      def->connect(dummyVal->sel("out"), def->sel("self")->sel(coreirSanitize(var->name)));
-    }
-  }
-  
   controlPath->setDef(def);
   
   cp.m = controlPath;
