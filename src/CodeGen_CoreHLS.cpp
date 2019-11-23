@@ -2624,7 +2624,8 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
-ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
+//ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
+ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const vector<CoreIR_Argument>& args) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
   // Q: What should I do here to move toward a design that can handle inner loops?
@@ -2653,10 +2654,6 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   auto sched = asapSchedule(f);
   int nStages = sched.numStages();
   cout << "Number of stages = " << nStages << endl;
-
-  //LoopNestInfoCollector cl;
-  //lp->accept(&cl);
-  //LoopNestInfo loopInfo = cl.info;
 
   // TODO: Do real traversal of instructions
   LoopNestInfo loopInfo;
@@ -4900,7 +4897,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto fp : functions) {
     auto lp = fp.first;
     HWFunction& f = fp.second;
-    ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
+    //ComputeKernel compK = moduleForKernel(context, scl.info, f, lp, args);
+    ComputeKernel compK = moduleForKernel(context, scl.info, f, args);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
     kernelModules[lp] = compK;
