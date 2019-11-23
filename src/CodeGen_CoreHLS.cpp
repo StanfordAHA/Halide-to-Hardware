@@ -2658,7 +2658,19 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   lp->accept(&cl);
   LoopNestInfo loopInfo = cl.info;
 
-  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+  // TODO: Do real traversal of instructions
+  //LoopNestInfo loopInfo;
+  //if (f.allInstrs().size() > 0) {
+    //HWInstr* fst = f.structuredOrder()[0];
+    //for (auto lp : fst->surroundingLoops) {
+      //loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+    //}
+  //} else {
+    //cout << "Error: HWFunction..." << endl;
+    //cout << f << endl;
+    //cout << "has no instructions!" << endl;
+  //}
+  //cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
   
   auto cpM = controlPathForKernel(context, info, f, loopInfo);
   cout << "Control path module..." << endl;
@@ -2893,6 +2905,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     HWInstr* initInstr = f.newI();
     initInstr->name = "init_stencil_" + pr.first;
     initInstr->operands = {};
+    //internal_assert(pr.second.size() > 0);
+    //initInstr->surroundingLoops = initialSets[0]->surroundingLoops;
 
     initInstr->operands.push_back(f.newConst(32, dims.size()));
     cout << "Dims of " << provideName << endl;
@@ -3281,7 +3295,7 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
 
   internal_assert(levelAtMax.size() == loopLevelCounters.size());
 
-  cout << "Wiring up counter enables" << endl;
+  cout << "Wiring up counter enables for " << loopLevelCounters.size() << " loop levels" << endl;
 
   for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
     vector<CoreIR::Wireable*> below;
