@@ -2002,8 +2002,7 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-//UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
-UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
 
   int defStage = 0;
 
@@ -2271,7 +2270,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context*
         auto self = def->sel("self");
         
         Wireable* val = nullptr;
-        //if (elem(coreirSanitize(name), cpm.controlVars)) {
         if (f.isLoopIndexVar(name)) {
           val = controlPath->sel(coreirSanitize(name));
         } else {
@@ -2343,7 +2341,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context*
   return m;
 }
 
-void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::Instance* controlPath) {
   internal_assert(sched.II == 1);
 
   auto def = f.mod->getDef();
@@ -2351,7 +2349,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, KernelC
 
   CoreIR::Context* context = def->getContext();
   // In this mapping I want to assign values that are 
-  UnitMapping m = createUnitMapping(f, info, context, sched, def, cpm, controlPath);
+  UnitMapping m = createUnitMapping(f, info, context, sched, def, controlPath);
   auto& unitMapping = m.unitMapping;
 
   auto self = def->sel("self");
@@ -2683,7 +2681,7 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  emitCoreIR(f, info, sched, cpM, controlPath);
+  emitCoreIR(f, info, sched, controlPath);
 
   // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
