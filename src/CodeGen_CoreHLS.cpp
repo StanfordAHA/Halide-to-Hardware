@@ -1071,18 +1071,19 @@ class NestExtractor : public IRGraphVisitor {
   protected:
     using IRGraphVisitor::visit;
     void visit(const For* l) override {
-      if (inFor) {
-        return;
-      }
-
       loops.push_back(l);
-      inFor = true;
+      //if (inFor) {
+        //return;
+      //}
 
-      l->min.accept(this);
-      l->extent.accept(this);
-      l->body.accept(this);
+      //loops.push_back(l);
+      //inFor = true;
 
-      inFor = false;
+      //l->min.accept(this);
+      //l->extent.accept(this);
+      //l->body.accept(this);
+
+      //inFor = false;
     }
 };
 
@@ -1694,8 +1695,8 @@ void removeWriteStreamArgs(StencilInfo& info, HWFunction& f);
 
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
-  OuterLoopSeparator sep;
-  perfectNest->body.accept(&sep);
+  //OuterLoopSeparator sep;
+  //perfectNest->body.accept(&sep);
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
@@ -1706,7 +1707,8 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
-  sep.body.accept(&collector);
+  perfectNest->accept(&collector);
+  //sep.body.accept(&collector);
 
   auto f = collector.f;
 
