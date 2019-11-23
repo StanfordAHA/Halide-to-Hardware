@@ -2682,13 +2682,23 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     cout << "Number of stages = " << nStages << endl;
 
     cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-    //emitCoreIR(f, info, sched, controlPath);
     emitCoreIR(f, info, sched);
 
     design->setDef(def);
     return {design, sched};
   } else {
     internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
+    // Q: What is the next step here?
+    // A: Split up the instruction groups, print them out, and print out where forks and joins
+    // are needed
+    // Q: Eager joins will just be ors, while conditional forks (branches) need a condition
+    // and two destinations, what goes in to the condition?
+    // A: Whether or not the earlier outer loop level is at its max?
+    // Maybe the control path needs to expose the increment and at max signals?
+    // Or maybe it needs to expose them for each level (though not necessarily for each variable)
+    // Note: In order to decide when to emit a valid from each function we need to analyze the
+    // code structure to find out when a value is destroyed after a use, and when it is
+    // updated later
     return {design, {}};
   }
 }
