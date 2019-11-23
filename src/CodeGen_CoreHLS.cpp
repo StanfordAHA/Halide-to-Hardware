@@ -2246,7 +2246,9 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
     }
 
     defStage++;
+  }
 
+  for (auto instr : sched.body) {
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
@@ -2306,7 +2308,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
     }
   }
  
-    cout << "Done wiring up constants" << endl;
+  cout << "Done wiring up constants and variables" << endl;
   
   int uNum = 0;
   //for (int i = 0; i < (int) sched.stages.size(); i++) {
