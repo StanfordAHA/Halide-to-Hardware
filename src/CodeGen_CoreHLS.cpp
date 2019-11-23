@@ -2343,8 +2343,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context*
   return m;
 }
 
-void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
   internal_assert(sched.II == 1);
+
+  auto def = f.mod->getDef();
+  internal_assert(def != nullptr);
 
   CoreIR::Context* context = def->getContext();
   // In this mapping I want to assign values that are 
@@ -2680,7 +2683,7 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  emitCoreIR(f, info, sched, def, cpM, controlPath);
+  emitCoreIR(f, info, sched, cpM, controlPath);
 
   // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
