@@ -2711,7 +2711,7 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   for (auto instr : body) {
   //for (auto instr : f.allInstrs()) {
     if (isCall("read_stream", instr)) {
-      auto callRep = f.newI();
+      auto callRep = f.newI(instr);
       callRep->setSigned(instr->isSigned());
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
@@ -2836,7 +2836,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
       auto instr = pr.second[i];
       cout << "\t\t" << *instr << endl;
-      auto refresh = f.newI();
+      auto refresh = f.newI(instr);
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
       f.insertAt(instr, refresh);
@@ -2958,7 +2958,7 @@ void modToShift(HWFunction& f) {
           //cout << "\t\tpower of 2 = " << value << endl;
           internal_assert(value > 0);
           // Procedure: and with 0 ^ (1 << (value - 1))
-          auto shrInstr = f.newI();
+          auto shrInstr = f.newI(instr);
           shrInstr->name = "and_bv";
           //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
           shrInstr->setSigned(instr->isSigned());
@@ -3000,7 +3000,7 @@ void divToShift(HWFunction& f) {
           cout << "\t\tand it is a power of 2" << endl;
           int value = std::ceil(std::log2(constVal));
           cout << "\t\tpower of 2 = " << value << endl;
-          auto shrInstr = f.newI();
+          auto shrInstr = f.newI(instr);
           if (instr->getOperand(0)->isSigned()) {
             shrInstr->name = "ashr";
             cout << "Operand 0 signed" << endl;
