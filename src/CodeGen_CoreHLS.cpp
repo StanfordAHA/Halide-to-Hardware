@@ -1652,7 +1652,41 @@ class KernelControlPath {
     CoreIR::Module* m;
 };
 
-KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp);
+class ForInfo {
+  public:
+    std::string name;
+    int min;
+    int extent;
+};
+
+class LoopNestInfo {
+  public:
+    std::vector<ForInfo> loops;
+};
+
+class LoopNestInfoCollector : public IRGraphVisitor {
+  public:
+
+    LoopNestInfo info;
+
+
+  protected:
+    using IRGraphVisitor::visit;
+    void visit(const For* lp) override {
+      ForInfo forInfo;
+      forInfo.name = lp->name;
+      forInfo.min = getConstInt(lp->min);
+      forInfo.extent = getConstInt(lp->extent);
+      info.loops.push_back(forInfo);
+
+      if (!isInnermostLoop(lp)) {
+        IRGraphVisitor::visit(lp);
+      }
+    }
+};
+
+KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo);
+
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
 void valueConvertProvides(StencilInfo& info, HWFunction& f);
 
@@ -2250,12 +2284,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
 
           //for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
           for (int stage = 0; stage < (int) sched.numStages(); stage++) {
-            //internal_assert(contains_key(op, m.pipelineRegisters)) << "no pipeline register for " << *op << "\n";
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
 
           // Need to decide how to map pipeline stage numbers? Maybe start from stage 1?
-          //for (int stage = 0; stage < ((int) sched.stages.size()) - 1; stage++) {
           for (int stage = 0; stage < sched.numStages() - 1; stage++) {
             cout << "stage = " << stage << endl;
             if (stage == 0) {
@@ -2278,7 +2310,6 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   int uNum = 0;
   //for (int i = 0; i < (int) sched.stages.size(); i++) {
   for (int i = 0; i < sched.numStages(); i++) {
-    //auto& stg = sched.stages[i];
     auto stg = sched.instructionsEndingInStage(i);
 
     // TODO: Remove this code to prevent misuse of start / end times,
@@ -2317,7 +2348,11 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   return m;
 }
 
-// TODO: Update schedule so that instructions have a start and an end time
+// I want to move to a system that can deal with loop nests. There are a few probems:
+// 1. The statement being scheduled is no longer just a sequence of data updates
+// 2. The unitmapping valueAt function needs to handle source code positions in the HWFunction rather than just numbers in a pipeline
+//    This might be the hardest requirement if we need to preserve low resource utilization
+// 3. Do this transformation in small
 void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
   assert(sched.II == 1);
 
@@ -2337,10 +2372,8 @@ void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sch
   def->connect(inEn, self->sel("valid"));
 
   cout << "Building connections inside each cycle\n";
-  //for (int i = 0; i < (int) sched.stages.size(); i++) {
   for (int i = 0; i < sched.numStages(); i++) {
     int stageNo = i;
-    //auto& instrsInStage = sched.stages[i];
     auto instrsInStage = sched.instructionsStartingInStage(i);
     for (auto instr : instrsInStage) {
       internal_assert(CoreIR::contains_key(instr, unitMapping));
@@ -2443,7 +2476,6 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
     cout << "\t\t" << is << endl;
     vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
     cout << "\tDispatch info..." << endl;
-    //vector<int> windowDims = streamWindowDims(is, info);
     vector<int> windowRngs = getStreamDims(is, info);
     vector<int> windowDims = getDimRanges(windowRngs);
     CoreIR::Type* base = context->BitIn()->Arr(16);
@@ -2593,20 +2625,39 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFunction& f, const For* lp, const vector<CoreIR_Argument>& args) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
+  // Q: What should I do here to move toward a design that can handle inner loops?
+  // A: I guess the first thing to do is to write a recognizer which can find
+  // each loop level instruction chunk and then synthesize them?
+  //
+  // I want to start by breaking up each block in the hwfunction in to groups
+  // by loop level, finding each loop levels external values, and then
+  // turning each one in to a new hwfunction that builds the circuits for
+  // the feedforward dags in the kernel. Then I want to insert forks and
+  // joins between chunks that are connected.
+  // Q: Where do the loop indexes fit in to this? IOW where is the loop
+  // index stored in the hwfunction during scheduling?
+  //
+  // Maybe my confusion about what to do next is driven in part by the control path
+  // being synthesized separately. Or it could be because of the fact that the schedule
+  // works on "f" rather than on a list of instructions
   auto design = f.mod;
   auto def = design->getDef();
   internal_assert(def != nullptr) << "module definition is null!\n";
   auto self = def->sel("self");
 
   cout << "Creating schedule for loop" << endl;
-
   cout << "Hardware function is..." << endl;
   cout << f << endl;
   auto sched = asapSchedule(f);
   int nStages = sched.numStages();
   cout << "Number of stages = " << nStages << endl;
 
-  auto cpM = controlPathForKernel(context, info, f, lp);
+  LoopNestInfoCollector cl;
+  lp->accept(&cl);
+  LoopNestInfo loopInfo = cl.info;
+  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+  
+  auto cpM = controlPathForKernel(context, info, f, loopInfo);
   cout << "Control path module..." << endl;
   cpM.m->print();
   auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
@@ -3123,39 +3174,6 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
   }
 }
 
-class ForInfo {
-  public:
-    std::string name;
-    int min;
-    int extent;
-};
-
-class LoopNestInfo {
-  public:
-    std::vector<ForInfo> loops;
-};
-
-class LoopNestInfoCollector : public IRGraphVisitor {
-  public:
-
-    LoopNestInfo info;
-
-
-  protected:
-    using IRGraphVisitor::visit;
-    void visit(const For* lp) override {
-      ForInfo forInfo;
-      forInfo.name = lp->name;
-      forInfo.min = getConstInt(lp->min);
-      forInfo.extent = getConstInt(lp->extent);
-      info.loops.push_back(forInfo);
-
-      if (!isInnermostLoop(lp)) {
-        IRGraphVisitor::visit(lp);
-      }
-    }
-};
-
 CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const int width, const int val) {
   return def->addInstance(name, "coreir.const", {{"width", COREMK(def->getContext(), width)}}, {{"value", COREMK(def->getContext(), BitVector(width, val))}});
 }
@@ -3186,11 +3204,11 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
   return val;
 }
 
-KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, const For* lp) {
-  LoopNestInfoCollector cl;
-  lp->accept(&cl);
-  LoopNestInfo loopInfo = cl.info;
-  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+// Maybe first change toward a inner loop handling should be to run instruction collection on outer loops
+// and thus save an activeloop list. Then generate a loopnestinfo data structure directly from that so that
+// lp is not passed around as a parameter?
+KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HWFunction& f, LoopNestInfo& loopInfo) {
+    //const For* lp) {
 
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
@@ -3248,7 +3266,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
       def->connect(counter_inst->sel("out"), self->sel(varName));
     }
     def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
-    //def->connect(counter_inst->sel("en"), def->sel("self")->sel("in_en"));
 
     auto maxValConst = mkConst(def, varName + "_max_value", width, max_value);
     auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
@@ -3270,7 +3287,6 @@ KernelControlPath controlPathForKernel(CoreIR::Context* c, StencilInfo& info, HW
     }
     CoreIR::Wireable* shouldInc = andList(def, below);
     def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
-     //shouldInc->sel("out"));
   }
   def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
