@@ -4885,9 +4885,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   //cout << "Stencil info" << endl;
   StencilInfo info = scl.info;
 
+  // Here: Find all external vars and then replace them with dummies
+  std::set<string> dummyVars;
+  for (auto a : args) {
+    if (!a.is_stencil) {
+      dummyVars.insert(a.name);
+    }
+  }
+  internal_assert(dummyVars.size() == 0);
+
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
-
   std::map<const For*, ComputeKernel> kernelModules;
   std::map<const For*, HWFunction> functions;
   for (const For* lp : extractor.loops) {
