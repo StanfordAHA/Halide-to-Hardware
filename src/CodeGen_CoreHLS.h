@@ -119,6 +119,17 @@ class HWFunction {
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
 
+    bool isLoopIndexVar(const std::string& name) const {
+      for (auto instr : allInstrs()) {
+        for (auto lp : instr->surroundingLoops) {
+          if (lp.name == name) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     HWFunction() : uniqueNum(0), mod(nullptr) {
       newBlk();
     }

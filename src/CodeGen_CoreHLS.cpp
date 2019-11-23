@@ -2002,7 +2002,8 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+//UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
 
   int defStage = 0;
 
@@ -2270,14 +2271,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
         auto self = def->sel("self");
         
         Wireable* val = nullptr;
-        if (elem(coreirSanitize(name), cpm.controlVars)) {
+        //if (elem(coreirSanitize(name), cpm.controlVars)) {
+        if (f.isLoopIndexVar(name)) {
           val = controlPath->sel(coreirSanitize(name));
-          //internal_assert(false) << name << " is a control path variable\n";
         } else {
-          //cout << "Control path vars are..." << endl;
-          //for (auto v : cpm.controlVars) {
-          //cout << "\t" << v << endl;
-          //}
           val = self->sel(coreirSanitize(name));
         }
         internal_assert(val != nullptr);
@@ -2346,12 +2343,12 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   return m;
 }
 
-void emitCoreIR(StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
   internal_assert(sched.II == 1);
 
   CoreIR::Context* context = def->getContext();
   // In this mapping I want to assign values that are 
-  UnitMapping m = createUnitMapping(info, context, sched, def, cpm, controlPath);
+  UnitMapping m = createUnitMapping(f, info, context, sched, def, cpm, controlPath);
   auto& unitMapping = m.unitMapping;
 
   auto self = def->sel("self");
@@ -2683,7 +2680,7 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   def->connect(self->sel("in_en"), controlPath->sel("in_en"));
   
   cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-  emitCoreIR(info, sched, def, cpM, controlPath);
+  emitCoreIR(f, info, sched, def, cpM, controlPath);
 
   // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
