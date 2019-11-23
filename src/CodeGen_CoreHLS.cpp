@@ -1075,7 +1075,7 @@ class NestExtractor : public IRGraphVisitor {
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   if (instr.surroundingLoops.size() > 0) {
     for (auto lp : instr.surroundingLoops) {
-      out << lp.name << " : [" << lp.min << exprString(simplify(lp.extent + lp.min - 1)) << "] ";
+      out << lp.name << " : [" << lp.min << ", " << exprString(simplify(lp.extent + lp.min - 1)) << "] ";
     }
   }
   if (instr.tp == HWINSTR_TP_VAR) {
@@ -2666,7 +2666,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     int portNo = 0;
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
-      auto rLoad = f.newI();
+      auto rLoad = f.newI(ld);
       rLoad->name = "load";
       rLoad->latency = 1;
       rLoad->operands.push_back(f.newConst(32, portNo));

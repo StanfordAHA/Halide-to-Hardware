@@ -198,6 +198,15 @@ class HWFunction {
       return ist;
     }
 
+    HWInstr* newI(HWInstr* instr) {
+      auto i = newI();
+      i->surroundingLoops = instr->surroundingLoops;
+      i->setSigned(instr->isSigned());
+      i->name = instr->name;
+      i->tp = instr->tp;
+      return i;
+    }
+
     HWInstr* newI() {
       auto in = new HWInstr();
       in->tp = HWINSTR_TP_INSTR;
