@@ -2016,7 +2016,7 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
   auto& stencilRanges = m.stencilRanges;
  
   cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
-  
+ 
   std::set<std::string> pipeVars;
   for (auto instr : sched.body) {
     if (instr->tp == HWINSTR_TP_INSTR) {
@@ -2285,7 +2285,6 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
           m.setStartTime(op, 0);
           m.setEndTime(op, 0);
 
-          //for (int stage = 0; stage < (int) sched.stages.size(); stage++) {
           for (int stage = 0; stage < (int) sched.numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
@@ -2295,7 +2294,6 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
             cout << "stage = " << stage << endl;
             if (stage == 0) {
               auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              //def->connect(m.pipelineRegisters[op][stage + 1]->sel("in"), instrValues[op]);
               def->connect(prg->sel("in"), instrValues[op]);
             } else {
               auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
@@ -2356,9 +2354,10 @@ UnitMapping createUnitMapping(StencilInfo& info, CoreIR::Context* context, HWLoo
 // 2. The unitmapping valueAt function needs to handle source code positions in the HWFunction rather than just numbers in a pipeline
 //    This might be the hardest requirement if we need to preserve low resource utilization
 // 3. Do this transformation in small
-void emitCoreIR(StencilInfo& info, CoreIR::Context* context, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
+void emitCoreIR(StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, KernelControlPath& cpm, CoreIR::Instance* controlPath) {
   assert(sched.II == 1);
 
+  CoreIR::Context* context = def->getContext();
   UnitMapping m = createUnitMapping(info, context, sched, def, cpm, controlPath);
   auto& unitMapping = m.unitMapping;
 
@@ -2723,7 +2722,7 @@ ComputeKernel moduleForKernel(CoreIR::Context* context, StencilInfo& info, HWFun
   // Now I want to simplify the creation of RTL for a group of instructions so that
   // I can generate feedforward code for compute modules without stencilinfo or 
   // a controlpath
-  emitCoreIR(info, context, sched, def, cpM, controlPath);
+  emitCoreIR(info, sched, def, cpM, controlPath);
 
   // Here: Create control path for the module, then add it to def and wire it up.
   design->setDef(def);
