@@ -378,7 +378,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
       readIdx.increment();
     }
   } else {
