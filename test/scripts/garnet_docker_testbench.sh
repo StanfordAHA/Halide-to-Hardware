@@ -1,4 +1,3 @@
-
 echo 'Running pointwise...'
 ./test/scripts/compare_app.sh pointwise
 if [ $? -neq 0]

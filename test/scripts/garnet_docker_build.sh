@@ -12,7 +12,8 @@ echo "CMD_STRING is..."
 echo $CMD_STRING
 eval $CMD_STRING
 
-# Run the testbench in docker
+# Run the testbench in docker, copy the result to the local travis machine, and
+# then stop the script if the testbench failed.
 docker exec -i halide-hw-distro bach -c "cd Halide-to-Hardware; ./test/scripts/garnet_docker_testbench.sh"
 docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/tb_res.txt ./tb_res.txt
 test_res=`cat tb_res.txt`
@@ -26,4 +27,3 @@ fi
 
 echo 'Copying built distribution to travis'
 docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/halide_distrib.tgz ./halide_distrib.tgz
-
