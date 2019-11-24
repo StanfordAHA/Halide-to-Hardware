@@ -2033,11 +2033,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& 
         unitMapping[instr] = adder;
 
       } else if (name == "mul") {
-        auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+        //auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "abs") {
-
         auto mul = def->addInstance("abs" + std::to_string(defStage), "commonlib.abs", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
@@ -2046,9 +2046,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& 
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       }else if (name == "mod") {
-
-        // TODO: Replace this with real implementation of mod!!!
-        auto mul = def->addInstance("mod" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("mod" + std::to_string(defStage), "coreir.mod", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "sub") {

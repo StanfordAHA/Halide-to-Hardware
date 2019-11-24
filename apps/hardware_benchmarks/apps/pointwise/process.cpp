@@ -29,6 +29,6 @@ int main(int argc, char **argv) {
   processor.input = Buffer<uint8_t>(inImgSize, inImgSize);
   processor.output = Buffer<uint8_t>(outImgSize, outImgSize);
   
-  processor.process_command(argc, argv);
+  return processor.process_command(argc, argv);
   
 }
