@@ -3,7 +3,7 @@ echo 'Running pointwise...'
 pw_res=$?
 echo 'Pointwise result:'
 echo $pw_res
-if [ pw_res -neq 0]
+if [ $pw_res -neq 0]
 then
   echo 'Pointwise FAILED'
   echo 'FAILED' > tb_res.txt
