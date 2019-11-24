@@ -1,4 +1,3 @@
-
 echo 'Pulling docker image'
 docker pull keyiz/garnet-flow-cad
 echo 'Running docker container'
@@ -18,8 +17,11 @@ docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardwar
 docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/pointwise_res.txt ./pointwise_res.txt
 echo 'pointwise_res.txt...'
 cat pointwise_res.txt
-pw_res=`cat pointwise_res.txt`
-if [ $pw_res = "0" ]
+awk '/./{line=$0} END{print line}' pointwise_res.txt > last_line.txt
+pw_res=`cat last_line.txt`
+echo 'Last line...'
+echo $pw_res
+if [ $pw_res = "Images are equivalent!" ]
 then
   echo 'Test passed...'
 else
