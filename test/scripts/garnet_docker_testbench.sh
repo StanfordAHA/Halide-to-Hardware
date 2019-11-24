@@ -1,11 +1,15 @@
 echo 'Running pointwise...'
 ./test/scripts/compare_app.sh pointwise
-if [ $? -neq 0]
+pw_res=$?
+echo 'Pointwise result:'
+echo $pw_res
+if [ pw_res -neq 0]
 then
   echo 'Pointwise FAILED'
   echo 'FAILED' > tb_res.txt
   exit 1
 else
+  echo 'Pointwise passed'
 fi
 
 
