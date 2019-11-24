@@ -13,7 +13,7 @@ echo $CMD_STRING
 eval $CMD_STRING
 
 echo 'Running pointwise...'
-docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_app.sh pointwise; echo $? > pointwise_res.txt"
+docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_app.sh pointwise >& pointwise_res.txt"
 docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/pointwise_res.txt ./pointwise_res.txt
 echo 'pointwise_res.txt...'
 cat pointwise_res.txt
