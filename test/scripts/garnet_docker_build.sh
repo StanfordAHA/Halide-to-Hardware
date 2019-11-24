@@ -12,30 +12,17 @@ echo "CMD_STRING is..."
 echo $CMD_STRING
 eval $CMD_STRING
 
-echo 'Running pointwise...'
-docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_app.sh pointwise; echo $?; echo \"done with pointwise\""
-#docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/pointwise_res.txt ./pointwise_res.txt
-#echo 'pointwise_res.txt...'
-#cat pointwise_res.txt
-#awk '/./{line=$0} END{print line}' pointwise_res.txt > last_line.txt
-#pw_res=`cat last_line.txt`
-#echo 'Last line...'
-#echo $pw_res
-#if [ $pw_res = "Images are equivalent!" ]
-#then
-  #echo 'Test passed...'
-#else
-  #echo 'Pointwise FAILED'
-  #exit 1
-#fi
-
-echo 'Pointwise result?'
-echo $?
-
-echo 'Running conv_3_3...'
-docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_test.sh conv_3_3;"
-echo 'Conv result?'
-echo $?
+# Run the testbench in docker
+docker exec -i halide-hw-distro bach -c "cd Halide-to-Hardware; ./test/scripts/garnet_docker_testbench.sh"
+docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/tb_res.txt ./tb_res.txt
+test_res=`cat tb_res.txt`
+if [ test_res = "passed" ]
+then
+  echo 'All Tests Passed'
+else
+  echo 'Tests FAILED'
+  exit 1
+fi
 
 echo 'Copying built distribution to travis'
 docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/halide_distrib.tgz ./halide_distrib.tgz
