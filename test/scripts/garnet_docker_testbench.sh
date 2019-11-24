@@ -3,8 +3,7 @@ echo 'Running pointwise...'
 pw_res=$?
 echo 'Pointwise result:'
 echo $pw_res
-if [ $pw_res -neq 0]
-then
+if [ $pw_res -neq 0]; then
   echo 'Pointwise FAILED'
   echo 'FAILED' > tb_res.txt
   exit 1
@@ -12,6 +11,14 @@ else
   echo 'Pointwise passed'
 fi
 
+
+if [ $pw_res ]; then
+  echo 'Pointwise FAILED'
+  echo 'FAILED' > tb_res.txt
+  exit 1
+else
+  echo 'EQ PASSED'
+fi
 
 #docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/compare_app.sh pointwise; echo $?; echo \"done with pointwise\""
 ##docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/pointwise_res.txt ./pointwise_res.txt
