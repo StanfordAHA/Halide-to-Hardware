@@ -2033,8 +2033,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& 
         unitMapping[instr] = adder;
 
       } else if (name == "mul") {
-        //auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
-        auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
+        auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
+        //auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "abs") {
