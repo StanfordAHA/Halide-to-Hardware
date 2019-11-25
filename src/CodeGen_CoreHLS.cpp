@@ -1100,8 +1100,13 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
     out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
     out << (instr.isSigned() ? "S" : "U") << ": ";
     out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
+    int opN = 0;
     for (auto op : instr.operands) {
-      out << op->compactString() << ", ";
+      out << op->compactString();
+      if (opN < ((int) instr.operands.size()) - 1) {
+        out << ", ";
+      }
+      opN++;
     }
     out << ");";
   }
