@@ -19,7 +19,9 @@ docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/Halide-to-Hardwa
 echo 'Extracting testbench files...'
 docker cp halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware/tb_res.txt ./tb_res.txt
 test_res=`cat tb_res.txt`
-if [ test_res = "passed" ]
+echo 'test_res...'
+echo $test_res
+if [ $test_res = "passed" ]
 then
   echo 'All Tests Passed'
 else
