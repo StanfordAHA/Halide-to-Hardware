@@ -8,7 +8,8 @@ docker exec -i halide-hw-distro bash -c "git clone https://github.com/StanfordAH
 
 echo 'Running Halide build...'
 # Pull the commit we want from github and build it
-CMD_STRING="docker exec -i halide-hw-distro bash -c \"cd GarnetFlow/scripts; ./build_halide_distrib.sh StanfordAHA/Halide-to-Hardware $TRAVIS_COMMIT\";"
+#CMD_STRING="docker exec -i halide-hw-distro bash -c \"cd GarnetFlow/scripts; ./build_halide_distrib.sh StanfordAHA/Halide-to-Hardware $TRAVIS_COMMIT\";"
+CMD_STRING="docker exec -i halide-hw-distro bash -c \"cd GarnetFlow/scripts; ./build_halide_distrib.sh $TRAVIS_REPO_SLUG $TRAVIS_COMMIT\";"
 echo "CMD_STRING is..."
 echo $CMD_STRING
 eval $CMD_STRING
