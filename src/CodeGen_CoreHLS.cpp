@@ -2549,14 +2549,17 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     auto v = blockGraph.addVertex(instr);
     iNodes[instr] = v;
   }
-  //for (auto instr : f.allInstrs()) {
   for (auto instr : sched.body) {
     auto v = map_get(instr, iNodes);
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_INSTR) {
-        internal_assert(contains_key(op, iNodes)) << "No node for " << *op << ", which is a dependence of " << *instr << " in function body\n";
-        auto depV = map_get(op, iNodes);
-        blockGraph.addEdge(depV, v);
+        if (contains_key(op, iNodes)) {
+          auto depV = map_get(op, iNodes);
+          blockGraph.addEdge(depV, v);
+        } else {
+          // The dependence is on an instruction outside of the given set of instructions,
+          // which is assumed to have completed before this instruction block begins
+        }
       }
     }
   }
@@ -2627,10 +2630,8 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     }
   }
 
-  //internal_assert((f.allInstrs().size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert((instrs.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
-  //for (auto instr : f.allInstrs()) {
   for (auto instr : instrs) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
     internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
@@ -2706,18 +2707,14 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     design->setDef(def);
     return {design, sched};
   } else {
+    // Now:
+    //  1. Create schedule for each group (basic block)
+    //  2. Count the number of different loop updates
+    //  3. Generalize the unitMapping to support multiple blocks in valueAt?
+    for (auto group : instrGroups) {
+      HWLoopSchedule sched = asapSchedule(group);
+    }
     internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
-    // Q: What is the next step here?
-    // A: Split up the instruction groups, print them out, and print out where forks and joins
-    // are needed
-    // Q: Eager joins will just be ors, while conditional forks (branches) need a condition
-    // and two destinations, what goes in to the condition?
-    // A: Whether or not the earlier outer loop level is at its max?
-    // Maybe the control path needs to expose the increment and at max signals?
-    // Or maybe it needs to expose them for each level (though not necessarily for each variable)
-    // Note: In order to decide when to emit a valid from each function we need to analyze the
-    // code structure to find out when a value is destroyed after a use, and when it is
-    // updated later
     return {design, {}};
   }
 }
