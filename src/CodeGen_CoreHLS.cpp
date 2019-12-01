@@ -2109,7 +2109,7 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def) {
+void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def, CoreIR::Instance* controlPath) {
   auto context = def->getContext();
   int defStage = 0;
   auto& unitMapping = m.unitMapping;
@@ -2357,6 +2357,26 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
       }
     }
   }
+  
+  //for (auto instr : sched.body()) {
+    //for (auto op : instr->operands) {
+      //if (op->tp == HWINSTR_TP_VAR) {
+        //string name = op->name;
+        //auto self = def->sel("self");
+        
+        //Wireable* val = nullptr;
+        //if (f.isLoopIndexVar(name)) {
+          //val = controlPath->sel(coreirSanitize(name));
+        //} else {
+          //val = self->sel(coreirSanitize(name));
+        //}
+        //internal_assert(val != nullptr);
+
+        //instrValues[op] = val;
+      //}
+    //}
+  //}
+ 
 }
 
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
@@ -2372,7 +2392,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   m.fSched = sched;
   m.body = sched.body();
   cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
-  createFunctionalUnitsForOperations(info, m, sched, def);
+  createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
   auto& instrValues = m.instrValues;
   
   std::set<std::string> pipeVars;
@@ -2380,14 +2400,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     //cout << "Wiring up constants" << endl;
     //int constNo = 0;
     for (auto op : instr->operands) {
-      if (op->tp == HWINSTR_TP_CONST) {
-        //int width = op->constWidth;
-        //int value = stoi(op->constValue);
-        //BitVector constVal = BitVector(width, value);
-        //auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
-        //constNo++;
-        //instrValues[op] = cInst->sel("out");
-      } else if (op->tp == HWINSTR_TP_VAR) {
+      if (op->tp == HWINSTR_TP_VAR) {
         //cout << "Wiring up var..." << op->compactString() << endl;
         string name = op->name;
         if (CoreIR::elem(name, pipeVars)) {
@@ -2412,7 +2425,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
 
-          // Need to decide how to map pipeline stage numbers? Maybe start from stage 1?
           for (int stage = 0; stage < sched.numStages() - 1; stage++) {
             cout << "stage = " << stage << endl;
             if (stage == 0) {
@@ -2430,7 +2442,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
  
   int uNum = 0;
   for (int i = 0; i < sched.numStages(); i++) {
-    auto stg = sched.instructionsEndingInStage(i);
+    //auto stg = sched.instructionsEndingInStage(i);
     for (auto instr : m.body) {
       if (m.hasOutput(instr)) {
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
