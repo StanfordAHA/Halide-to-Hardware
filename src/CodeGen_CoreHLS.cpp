@@ -433,7 +433,16 @@ std::ostream& operator<<(std::ostream& out, const std::map<K, V>& strs) {
 }
 
 template<typename T>
-//std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& strs) {
+std::ostream& operator<<(std::ostream& out, const std::set<T>& strs) {
+  out << "{";
+  for (auto str : strs) {
+    out << str << ", ";
+  }
+  out << "}";
+  return out;
+}
+
+template<typename T>
 std::ostream& operator<<(std::ostream& out, const std::vector<T>& strs) {
   out << "{";
   for (auto str : strs) {
@@ -2532,14 +2541,8 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   // TODO: Actually compute this later on
   sched.II = 1;
 
-  //HWLoopSchedule sched;
-  //sched.body = f.structuredOrder();
-  //// TODO: Actually compute this later on
-  //sched.II = 1;
-
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
-  //std::set<HWInstr*> remaining = f.allInstrs();
   std::set<HWInstr*> remaining(begin(sched.body), end(sched.body));
 
   DirectedGraph<HWInstr*, int> blockGraph;
@@ -2559,28 +2562,35 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
         } else {
           // The dependence is on an instruction outside of the given set of instructions,
           // which is assumed to have completed before this instruction block begins
+          finished.insert(op);
+          internal_assert(!elem(op, sched.body)) << "no iNode for instruction: " << *op << ", which should be schedueld as part of instrs\n";
         }
       }
     }
   }
 
   auto sortedNodes = topologicalSort(blockGraph);
-  //cout << "Instruction sort..." << endl;
-  //for (auto v : sortedNodes) {
-    //cout << "\t" << *blockGraph.getNode(v) << endl;
-  //}
+  cout << "Already finished..." << endl;
+  for (auto i : finished) {
+    cout << "\t" << *i << endl;
+  }
+  cout << "Instruction sort..." << endl;
+  for (auto v : sortedNodes) {
+    cout << "\t" << *blockGraph.getNode(v) << endl;
+  }
   //internal_assert(false);
   int currentTime = 0;
   while (remaining.size() > 0) {
-    //cout << "Current time = " << currentTime << endl;
-    //cout << "\t# Finished = " << finished.size() << endl;
-    //cout << "\tActive = " << activeToTimeRemaining << endl;
+    cout << "Current time = " << currentTime << endl;
+    cout << "\t# Finished = " << finished.size() << endl;
+    cout << "\tActive = " << activeToTimeRemaining << endl;
+    //cout << "\tRemain = " << remaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
       std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
-      //cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
-        //cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
         sched.setStartTime(toSchedule, currentTime);
         if (toSchedule->latency == 0) {
           sched.setEndTime(toSchedule, currentTime);
@@ -2593,16 +2603,17 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
         foundNextInstr = true;
         break;
       } else {
-        //cout << "Unfinished deps..." << endl;
-        //for (auto d : deps) {
-          //if (!elem(d, finished)) {
-            //cout << "\t" << *d << endl;
-          //}
-        //}
+        cout << "\tUnfinished deps..." << endl;
+        for (auto d : deps) {
+          if (!elem(d, finished)) {
+            cout << "\t\t" << *d << endl;
+          }
+        }
       }
     }
 
     if (!foundNextInstr) {
+      internal_assert(activeToTimeRemaining.size() > 0) << "cannot find new instruction to schedule i, but no instructions are in progress...\n";
       currentTime++;
       std::set<HWInstr*> doneThisCycle;
       for (auto& instr : activeToTimeRemaining) {
