@@ -2343,6 +2343,20 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
     defStage++;
   }
 
+  for (auto instr : sched.body()) {
+    //cout << "Wiring up constants" << endl;
+    int constNo = 0;
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_CONST) {
+        int width = op->constWidth;
+        int value = stoi(op->constValue);
+        BitVector constVal = BitVector(width, value);
+        auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
+        constNo++;
+        instrValues[op] = cInst->sel("out");
+      }
+    }
+  }
 }
 
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
@@ -2364,15 +2378,15 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   std::set<std::string> pipeVars;
   for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
-    int constNo = 0;
+    //int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
-        int width = op->constWidth;
-        int value = stoi(op->constValue);
-        BitVector constVal = BitVector(width, value);
-        auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
-        constNo++;
-        instrValues[op] = cInst->sel("out");
+        //int width = op->constWidth;
+        //int value = stoi(op->constValue);
+        //BitVector constVal = BitVector(width, value);
+        //auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
+        //constNo++;
+        //instrValues[op] = cInst->sel("out");
       } else if (op->tp == HWINSTR_TP_VAR) {
         //cout << "Wiring up var..." << op->compactString() << endl;
         string name = op->name;
@@ -2394,9 +2408,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         instrValues[op] = val;
         
         if (val->getType()->isOutput()) {
-          //m.setStartTime(op, 0);
-          //m.setEndTime(op, 0);
-
           for (int stage = 0; stage < (int) sched.numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
@@ -2417,14 +2428,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
  
-  cout << "Done wiring up constants and variables" << endl;
-  cout << "--- Block schedules after wiring up constants and variables..." << endl;
-  for (auto& blk : sched.blockSchedules) {
-    blk.second.print();
-  }
-
   int uNum = 0;
-  //for (int i = 0; i < (int) sched.stages.size(); i++) {
   for (int i = 0; i < sched.numStages(); i++) {
     auto stg = sched.instructionsEndingInStage(i);
 
@@ -2434,11 +2438,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         uNum++;
       }
     }
-  }
-
-  cout << "--- Block schedules after instantiating all pipeine registers..." << endl;
-  for (auto& blk : sched.blockSchedules) {
-    blk.second.print();
   }
 
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
@@ -2455,6 +2454,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       }
     }
   }
+  
   return m;
 }
 
@@ -2505,8 +2505,6 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("in0"), m.valueAtStart(arg0, instr));
       def->connect(unit->sel("in1"), m.valueAtStart(arg1, instr));
 
-      //def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
-      //def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
     } else if (instr->name == "abs") {
       auto arg = instr->getOperand(0);
       //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
@@ -2900,18 +2898,23 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   FunctionSchedule fSched = buildFunctionSchedule(f);
   internal_assert(fSched.blockSchedules.size() > 0);
 
-  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  // Check if we are in a perfect loop nest
-  if (instrGroups.size() <= 1) {
-    //emitCoreIR(f, info, sched);
-    emitCoreIR(f, info, fSched);
+  emitCoreIR(f, info, fSched);
 
-    design->setDef(def);
-    return {design, fSched};
-  } else {
-    internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
-    return {design, fSched};
-  }
+  design->setDef(def);
+  return {design, fSched};
+  
+  //auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  //// Check if we are in a perfect loop nest
+  //if (instrGroups.size() <= 1) {
+    ////emitCoreIR(f, info, sched);
+    //emitCoreIR(f, info, fSched);
+
+    //design->setDef(def);
+    //return {design, fSched};
+  //} else {
+    //internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
+    //return {design, fSched};
+  //}
 }
 
 bool isLoad(HWInstr* instr) {
