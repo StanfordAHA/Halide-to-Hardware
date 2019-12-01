@@ -1137,28 +1137,55 @@ class HWLoopSchedule {
     std::map<HWInstr*, int> endStages;
     std::map<HWInstr*, int> startStages;
 
+    void print() {
+      cout << "Schedule" << endl;
+      for (int i = 0; i < numStages(); i++) {
+        cout << "Stage " << i << endl;
+        for (auto instr : instructionsStartingInStage(i)) {
+          cout << "\tstart: " << *instr << endl;
+        }
+        for (auto instr : instructionsEndingInStage(i)) {
+          cout << "\tend  : " << *instr << endl;
+        }
+      }
+    }
+
     bool isScheduled(HWInstr* instr) const {
       return contains_key(instr, endStages) && contains_key(instr, startStages);
     }
 
     std::set<HWInstr*> instructionsStartingInStage(const int stage) const {
-      std::set<HWInstr*> instr;
-      for (auto i : startStages) {
-        if (i.second == stage) {
-          instr.insert(i.first);
+      std::set<HWInstr*> instrs;
+      for (auto instr : body) {
+        if (getStartTime(instr) == stage) {
+          instrs.insert(instr);
         }
       }
-      return instr;
+      return instrs;
+      //std::set<HWInstr*> instr;
+      //for (auto i : startStages) {
+        //if (i.second == stage) {
+          //instr.insert(i.first);
+        //}
+      //}
+      //return instr;
     }
 
     std::set<HWInstr*> instructionsEndingInStage(const int stage) const {
-      std::set<HWInstr*> instr;
-      for (auto i : endStages) {
-        if (i.second == stage) {
-          instr.insert(i.first);
+      std::set<HWInstr*> instrs;
+      for (auto instr : body) {
+        if (getEndTime(instr) == stage) {
+          instrs.insert(instr);
         }
       }
-      return instr;
+      return instrs;
+      //std::set<HWInstr*> instr;
+      //for (auto i : endStages) {
+        //if (i.second == stage) {
+          //instr.insert(i.first);
+        //}
+      //}
+      //return instr;
     }
 
     int numStages() const {
@@ -1171,12 +1198,12 @@ class HWLoopSchedule {
       return nStages + 1;
     }
 
-    int getEndTime(HWInstr* instr) {
+    int getEndTime(HWInstr* instr) const {
       internal_assert(isScheduled(instr)) << " getting end time of unscheduled instruction: " << *instr << "\n";
       return map_get(instr, endStages);
     }
 
-    int getStartTime(HWInstr* instr) {
+    int getStartTime(HWInstr* instr) const {
       internal_assert(isScheduled(instr)) << " getting start time of unscheduled instruction: " << *instr << "\n";
       return map_get(instr, startStages);
     }
@@ -1710,7 +1737,7 @@ class FunctionSchedule {
     }
 
     int getStartTime(HWInstr* instr) {
-      return onlySched().getEndTime(instr);
+      return onlySched().getStartTime(instr);
     }
 
     int getEndTime(HWInstr* instr) {
@@ -2005,14 +2032,11 @@ class UnitMapping {
   protected:
   public:
     FunctionSchedule fSched;
-    //std::map<HWInstr*, int> startStages;
-    //std::map<HWInstr*, int> endStages;
 
     std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
 
-    //std::map<HWInstr*, int> productionStages;
     std::map<HWInstr*, std::map<int, CoreIR::Instance*> > pipelineRegisters;
 
     std::vector<HWInstr*> body;
@@ -2051,8 +2075,13 @@ class UnitMapping {
     }
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
-      HWLoopSchedule& sched = fSched.getScheduleFor(sourceLocation);
-      return valueAt(arg1, sched.getStartTime(sourceLocation));
+      HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
+      cout << "Schedule container for " << *sourceLocation << endl;
+      bs.print();
+      int startTime = bs.getStartTime(sourceLocation);
+      cout << "Start time of: " << *sourceLocation << " = " << startTime << endl;
+      //return valueAt(arg1, sched.getStartTime(sourceLocation));
+      return valueAt(arg1, startTime);
     }
 
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
@@ -2535,9 +2564,13 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
         //def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
       } else if (instr->name == "load") {
         int portNo = instr->getOperand(0)->toInt();
-        //def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
-        def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
+        cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
+
+        def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
+        internal_assert(false);
+        //def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
         def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
+
       } else {
         internal_assert(false) << "no wiring procedure for " << *instr << "\n";
       }
@@ -2665,11 +2698,11 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   auto sortedNodes = topologicalSort(blockGraph);
   cout << "Already finished..." << endl;
   for (auto i : finished) {
-    cout << "\t" << *i << endl;
+    cout << "\t" << *i << ", latency: " << i->latency << endl;
   }
   cout << "Instruction sort..." << endl;
   for (auto v : sortedNodes) {
-    cout << "\t" << *blockGraph.getNode(v) << endl;
+    cout << "\t" << *blockGraph.getNode(v) << ", latency: " << (blockGraph.getNode(v))->latency << endl;
   }
   //internal_assert(false);
   int currentTime = 0;
@@ -2731,6 +2764,9 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     cout << "Stage " << i << endl;
     for (auto instr : sched.instructionsStartingInStage(i)) {
       cout << "\tstart: " << *instr << endl;
+    }
+    for (auto instr : sched.instructionsEndingInStage(i)) {
+      cout << "\tend  : " << *instr << endl;
     }
   }
 
