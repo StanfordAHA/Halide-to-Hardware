@@ -2695,9 +2695,8 @@ HWInstr* head(const std::vector<HWInstr*>& instrs) {
 
 class HWTransition {
   public:
-
     HWInstr* srcBlk;
-    HWInstr* destBlk;
+    HWInstr* dstBlk;
     int delay;
 };
 
@@ -2752,15 +2751,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     design->setDef(def);
     return {design, sched};
   } else {
-    // Now:
-    //  1. Create schedule for each group (basic block)
-    //  2. Count the number of different loop updates
-    //  3. Generalize the unitMapping to support multiple blocks in valueAt?
-    //
-    // Maybe the thing to do is to create a DAG of block schedules, each with transitions
-    // that are labeled with a delay, the delay from a statement to itself is the initiation
-    // interval of the loop, and the delay from one statement to another is pipeline latency
-    //
     FunctionSchedule fSched;
     for (auto group : instrGroups) {
       HWLoopSchedule sched = asapSchedule(group);
@@ -2775,15 +2765,31 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
       auto next = instrGroups[i + 1];
 
       if (numLoops(current) < numLoops(next)) {
-        cout << "Entering inner loop" << endl;
+        cout << "Entering loop" << endl;
         fSched.transitions.push_back({head(current), head(next), 0});
       }
       if (numLoops(current) > numLoops(next)) {
-        cout << "Exiting inner loop" << endl;
+        cout << "Exiting loop" << endl;
         fSched.transitions.push_back({head(current), head(next), 0});
-        // and add connection from this group to the next one
       }
       internal_assert(numLoops(current) != numLoops(next));
+    }
+
+    // Find companion blocks for each loop nest, then do I want to
+    // have a transition from one block to another or from one loop to itsef?
+    set<vector<string> > alreadySeenLoops;
+    for (auto group : instrGroups) {
+      auto prefix = loopNames(group);
+      if (!elem(prefix, alreadySeenLoops)) {
+        // By default assume all loops have II = 1
+        fSched.transitions.push_back({head(group), head(group), 1});
+        alreadySeenLoops.insert(prefix);
+      }
+    }
+
+    cout << "Transitions in schedule" << endl;
+    for (auto t : fSched.transitions) {
+      cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
     }
     internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
     return {design, {}};
