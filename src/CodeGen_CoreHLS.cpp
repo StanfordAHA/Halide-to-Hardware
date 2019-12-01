@@ -2506,29 +2506,36 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
         auto srcStencil = instr->getOperand(0);
         auto newVal = instr->getOperand(1);
 
-        def->connect(unit->sel("in_stencil"), m.valueAt(srcStencil, stageNo));
-        def->connect(unit->sel("new_val"), m.valueAt(newVal, stageNo));
+        def->connect(unit->sel("in_stencil"), m.valueAtStart(srcStencil, instr));
+        def->connect(unit->sel("new_val"), m.valueAtStart(newVal, instr));
+        
+        //def->connect(unit->sel("in_stencil"), m.valueAt(srcStencil, stageNo));
+        //def->connect(unit->sel("new_val"), m.valueAt(newVal, stageNo));
       } else if (instr->name == "write_stream") {
         auto strm = instr->getOperand(0);
         auto stencil = instr->getOperand(1);
 
         
-        def->connect(unit->sel("stream"), m.valueAt(strm, stageNo));
-        def->connect(unit->sel("stencil"), m.valueAt(stencil, stageNo));
+        def->connect(unit->sel("stream"), m.valueAtStart(strm, instr));
+        def->connect(unit->sel("stencil"), m.valueAtStart(stencil, instr));
         
       } else if (instr->name == "sel") {
 
-        def->connect(unit->sel("sel"), m.valueAt(instr->getOperand(0), stageNo));
-        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
-        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(2), stageNo));
+        def->connect(unit->sel("sel"), m.valueAtStart(instr->getOperand(0), instr));
+        def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
+        def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(2), instr));
 
       } else if (starts_with(instr->name, "init_stencil")) {
         // No inputs
       } else if ((instr->name == "ashr") || (instr->name == "lshr")) {
-        def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
-        def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
+        def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
+        def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
+        
+        //def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
+        //def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
       } else if (instr->name == "load") {
         int portNo = instr->getOperand(0)->toInt();
+        //def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
         def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
         def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
       } else {
