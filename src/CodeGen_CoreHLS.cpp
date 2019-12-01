@@ -2718,21 +2718,7 @@ int numLoops(const std::vector<HWInstr*>& instrs) {
   return instrs[0]->surroundingLoops.size();
 }
 
-ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
-  internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
-
-  auto design = f.mod;
-  auto def = design->getDef();
-
-  internal_assert(def != nullptr) << "module definition is null!\n";
-  if (f.allInstrs().size() == 0) {
-    auto sched = asapSchedule(f);
-    return {f.mod, sched};
-  }
-
-  cout << "Hardware function is..." << endl;
-  cout << f << endl;
-
+FunctionSchedule buildFunctionSchedule(f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
   if (instrGroups.size() == 1) {
@@ -2788,6 +2774,33 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     for (auto t : fSched.transitions) {
       cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
     }
+}
+
+ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
+  internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
+
+  auto design = f.mod;
+  auto def = design->getDef();
+
+  internal_assert(def != nullptr) << "module definition is null!\n";
+  if (f.allInstrs().size() == 0) {
+    auto sched = asapSchedule(f);
+    return {f.mod, sched};
+  }
+
+  cout << "Hardware function is..." << endl;
+  cout << f << endl;
+
+  FunctionSchedule fSched = buildFunctionSchedule(f);
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  // Check if we are in a perfect loop nest
+  if (instrGroups.size() == 1) {
+    //emitCoreIR(f, info, sched);
+    emitCoreIR(f, info, fSched);
+
+    design->setDef(def);
+    return {design, sched};
+  } else {
     internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
     return {design, {}};
   }
