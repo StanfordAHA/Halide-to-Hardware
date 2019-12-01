@@ -2688,6 +2688,35 @@ std::set<HWInstr*> allVarsUsed(const T& program) {
   return vars;
 }
 
+HWInstr* head(const std::vector<HWInstr*>& instrs) {
+  internal_assert(instrs.size() > 0);
+  return instrs[0];
+}
+
+class HWTransition {
+  public:
+
+    HWInstr* srcBlk;
+    HWInstr* destBlk;
+    int delay;
+};
+
+class FunctionSchedule {
+  public:
+
+    map<HWInstr*, HWLoopSchedule> blockSchedules;
+
+    std::vector<HWTransition> transitions;
+};
+
+std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
+  vector<string> names;
+  for (auto l : head(instrs)->surroundingLoops) {
+    names.push_back(l.name);
+  }
+  return names;
+}
+
 int numLoops(const std::vector<HWInstr*>& instrs) {
   internal_assert(instrs.size() > 0);
   return instrs[0]->surroundingLoops.size();
@@ -2731,24 +2760,27 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     // Maybe the thing to do is to create a DAG of block schedules, each with transitions
     // that are labeled with a delay, the delay from a statement to itself is the initiation
     // interval of the loop, and the delay from one statement to another is pipeline latency
+    //
+    FunctionSchedule fSched;
     for (auto group : instrGroups) {
       HWLoopSchedule sched = asapSchedule(group);
+      fSched.blockSchedules[head(group)] = sched;
     }
 
     // Transitions?
     internal_assert(instrGroups.size() > 0);
     internal_assert(instrGroups[0].size() > 0);
-    //HWInstr* first = instrGroups[0][0];
-    //HWInstr* current = first;
     for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
       auto current = instrGroups[i];
       auto next = instrGroups[i + 1];
 
       if (numLoops(current) < numLoops(next)) {
         cout << "Entering inner loop" << endl;
+        fSched.transitions.push_back({head(current), head(next), 0});
       }
       if (numLoops(current) > numLoops(next)) {
         cout << "Exiting inner loop" << endl;
+        fSched.transitions.push_back({head(current), head(next), 0});
         // and add connection from this group to the next one
       }
       internal_assert(numLoops(current) != numLoops(next));
