@@ -1732,14 +1732,6 @@ class FunctionSchedule {
       return onlySched().numStages();
     }
 
-    //void setEndTime(HWInstr* instr, const int no) {
-      //return onlySched().setEndTime(instr, no);
-    //}
-
-    //void setStartTime(HWInstr* instr, const int no) {
-      //return onlySched().setStartTime(instr, no);
-    //}
-
     int getStartTime(HWInstr* instr) {
       return onlySched().getStartTime(instr);
     }
@@ -2050,19 +2042,8 @@ class UnitMapping {
       //return map_get(instr, endStages);
     }
 
-    int getStartTime(HWInstr* instr) {
-      return fSched.getStartTime(instr);
-      //return map_get(instr, startStages);
-    }
-
-    //void setStartTime(HWInstr* instr, const int stage) {
-      //fSched.setStartTime(instr, stage);
-      ////startStages[instr] = stage;
-    //}
-
-    //void setEndTime(HWInstr* instr, const int stage) {
-      //fSched.setEndTime(instr, stage);
-      ////endStages[instr] = stage;
+    //int getStartTime(HWInstr* instr) {
+      //return fSched.getStartTime(instr);
     //}
 
     bool hasOutput(HWInstr* const arg) const {
