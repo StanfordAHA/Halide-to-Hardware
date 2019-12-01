@@ -1927,9 +1927,25 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   return {0, 1, 0, 1};
 }
 
+class HWTransition {
+  public:
+    HWInstr* srcBlk;
+    HWInstr* dstBlk;
+    int delay;
+};
+
+class FunctionSchedule {
+  public:
+
+    map<HWInstr*, HWLoopSchedule> blockSchedules;
+
+    std::vector<HWTransition> transitions;
+};
+
 class UnitMapping {
   protected:
   public:
+    FunctionSchedule fSched;
     std::map<HWInstr*, int> startStages;
     std::map<HWInstr*, int> endStages;
 
@@ -1986,9 +2002,6 @@ class UnitMapping {
       if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
         return CoreIR::map_find(arg1, instrValues);
       }
-      //if (arg1->tp == HWINSTR_TP_VAR || (arg1->tp == HWINSTR_TP_CONST)) {
-        //return CoreIR::map_find(arg1, instrValues);
-      //}
 
       int producedStage = getEndTime(arg1);
 
@@ -2048,7 +2061,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& 
 
       } else if (name == "mul") {
         auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.mul", {{"width", CoreIR::Const::make(context, 16)}});
-        //auto mul = def->addInstance("mul_" + std::to_string(defStage), "coreir.sub", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = mul->sel("out");
         unitMapping[instr] = mul;
       } else if (name == "abs") {
@@ -2692,21 +2704,6 @@ HWInstr* head(const std::vector<HWInstr*>& instrs) {
   internal_assert(instrs.size() > 0);
   return instrs[0];
 }
-
-class HWTransition {
-  public:
-    HWInstr* srcBlk;
-    HWInstr* dstBlk;
-    int delay;
-};
-
-class FunctionSchedule {
-  public:
-
-    map<HWInstr*, HWLoopSchedule> blockSchedules;
-
-    std::vector<HWTransition> transitions;
-};
 
 std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
   vector<string> names;
