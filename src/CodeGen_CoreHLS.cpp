@@ -1129,7 +1129,7 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
 class HWLoopSchedule {
   public:
     vector<HWInstr*> body;
-    //vector<vector<HWInstr*> > stages;
+    vector<vector<HWInstr*> > stages;
     int II;
 
     std::map<HWInstr*, std::string> unitMapping;
@@ -1946,8 +1946,8 @@ class UnitMapping {
   protected:
   public:
     FunctionSchedule fSched;
-    std::map<HWInstr*, int> startStages;
-    std::map<HWInstr*, int> endStages;
+    //std::map<HWInstr*, int> startStages;
+    //std::map<HWInstr*, int> endStages;
 
     std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
@@ -1959,19 +1959,23 @@ class UnitMapping {
     std::vector<HWInstr*> body;
 
     int getEndTime(HWInstr* instr) {
-      return map_get(instr, endStages);
+      return fSched.getEndTime(instr);
+      //return map_get(instr, endStages);
     }
 
     int getStartTime(HWInstr* instr) {
-      return map_get(instr, startStages);
+      return fSched.getStartTime(instr);
+      //return map_get(instr, startStages);
     }
 
     void setStartTime(HWInstr* instr, const int stage) {
-      startStages[instr] = stage;
+      fSched.setStartTime(instr, stage);
+      //startStages[instr] = stage;
     }
 
     void setEndTime(HWInstr* instr, const int stage) {
-      endStages[instr] = stage;
+      fSched.setEndTime(instr, stage);
+      //endStages[instr] = stage;
     }
 
     bool hasOutput(HWInstr* const arg) const {
@@ -2029,14 +2033,15 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
+//UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
+UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
 
   auto context = f.mod->getContext();
   int defStage = 0;
 
   UnitMapping m;
-  m.startStages = sched.startStages;
-  m.endStages = sched.endStages;
+  //m.startStages = sched.startStages;
+  //m.endStages = sched.endStages;
   
   m.body = sched.body;
   auto& unitMapping = m.unitMapping;
@@ -2366,9 +2371,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& 
   return m;
 }
 
-void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched) {
-  internal_assert(sched.II == 1);
-
+//void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched) {
+void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   auto def = f.mod->getDef();
   internal_assert(def != nullptr);
 
@@ -2718,62 +2722,51 @@ int numLoops(const std::vector<HWInstr*>& instrs) {
   return instrs[0]->surroundingLoops.size();
 }
 
-FunctionSchedule buildFunctionSchedule(f) {
+FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
-  if (instrGroups.size() == 1) {
+  FunctionSchedule fSched;
+  for (auto group : instrGroups) {
+    HWLoopSchedule sched = asapSchedule(group);
+    fSched.blockSchedules[head(group)] = sched;
+  }
 
-    auto sched = asapSchedule(f);
-    int nStages = sched.numStages();
+  // Transitions?
+  internal_assert(instrGroups.size() > 0);
+  internal_assert(instrGroups[0].size() > 0);
+  for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
+    auto current = instrGroups[i];
+    auto next = instrGroups[i + 1];
 
-    cout << "Number of stages = " << nStages << endl;
-
-    cout << "# of stages in loop schedule = " << sched.numStages() << endl;
-    emitCoreIR(f, info, sched);
-
-    design->setDef(def);
-    return {design, sched};
-  } else {
-    FunctionSchedule fSched;
-    for (auto group : instrGroups) {
-      HWLoopSchedule sched = asapSchedule(group);
-      fSched.blockSchedules[head(group)] = sched;
+    if (numLoops(current) < numLoops(next)) {
+      cout << "Entering loop" << endl;
+      fSched.transitions.push_back({head(current), head(next), 0});
     }
-
-    // Transitions?
-    internal_assert(instrGroups.size() > 0);
-    internal_assert(instrGroups[0].size() > 0);
-    for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
-      auto current = instrGroups[i];
-      auto next = instrGroups[i + 1];
-
-      if (numLoops(current) < numLoops(next)) {
-        cout << "Entering loop" << endl;
-        fSched.transitions.push_back({head(current), head(next), 0});
-      }
-      if (numLoops(current) > numLoops(next)) {
-        cout << "Exiting loop" << endl;
-        fSched.transitions.push_back({head(current), head(next), 0});
-      }
-      internal_assert(numLoops(current) != numLoops(next));
+    if (numLoops(current) > numLoops(next)) {
+      cout << "Exiting loop" << endl;
+      fSched.transitions.push_back({head(current), head(next), 0});
     }
+    internal_assert(numLoops(current) != numLoops(next));
+  }
 
-    // Find companion blocks for each loop nest, then do I want to
-    // have a transition from one block to another or from one loop to itsef?
-    set<vector<string> > alreadySeenLoops;
-    for (auto group : instrGroups) {
-      auto prefix = loopNames(group);
-      if (!elem(prefix, alreadySeenLoops)) {
-        // By default assume all loops have II = 1
-        fSched.transitions.push_back({head(group), head(group), 1});
-        alreadySeenLoops.insert(prefix);
-      }
+  // Find companion blocks for each loop nest, then do I want to
+  // have a transition from one block to another or from one loop to itsef?
+  set<vector<string> > alreadySeenLoops;
+  for (auto group : instrGroups) {
+    auto prefix = loopNames(group);
+    if (!elem(prefix, alreadySeenLoops)) {
+      // By default assume all loops have II = 1
+      fSched.transitions.push_back({head(group), head(group), 1});
+      alreadySeenLoops.insert(prefix);
     }
+  }
 
-    cout << "Transitions in schedule" << endl;
-    for (auto t : fSched.transitions) {
-      cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
-    }
+  cout << "Transitions in schedule" << endl;
+  for (auto t : fSched.transitions) {
+    cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
+  }
+
+  return fSched;
 }
 
 ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
