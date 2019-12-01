@@ -2431,7 +2431,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   int uNum = 0;
   for (int i = 0; i < sched.numStages(); i++) {
     auto stg = sched.instructionsEndingInStage(i);
-
     for (auto instr : m.body) {
       if (m.hasOutput(instr)) {
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
