@@ -1688,6 +1688,10 @@ class FunctionSchedule {
 
     std::vector<HWTransition> transitions;
 
+    HWLoopSchedule& getContainerBlock(HWInstr* const sourceLocation) {
+      return getScheduleFor(sourceLocation);
+    }
+
     HWLoopSchedule& getScheduleFor(HWInstr* const sourceLocation) {
       for (auto& blkS : blockSchedules) {
         if (elem(sourceLocation, blkS.second.body)) {
@@ -2421,7 +2425,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         instrValues[op] = val;
         
         if (val->getType()->isOutput()) {
-          for (int stage = 0; stage < (int) sched.numStages(); stage++) {
+          //for (int stage = 0; stage < (int) sched.numStages(); stage++) {
+          for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
 
@@ -2441,9 +2446,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   }
  
   int uNum = 0;
-  for (int i = 0; i < sched.numStages(); i++) {
-    //auto stg = sched.instructionsEndingInStage(i);
-    for (auto instr : m.body) {
+  for (auto instr : m.body) {
+    for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
         uNum++;
@@ -2458,7 +2462,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       int prodStage = m.getEndTime(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
-      for (int i = prodStage + 1; i < sched.numStages(); i++) {
+      for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
         CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
         def->connect(pipeReg->sel("in"), lastReg);
         lastReg = pipeReg->sel("out");
