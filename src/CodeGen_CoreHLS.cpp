@@ -1233,28 +1233,28 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const For* lp) override {
 
-      //activeLoops.push_back({lp->name, lp->min, lp->extent});
-      auto toLoop = newBr();
-      auto fromLoop = newBr();
+      activeLoops.push_back({lp->name, lp->min, lp->extent});
+      //auto toLoop = newBr();
+      //auto fromLoop = newBr();
       
-      pushInstr(toLoop);
+      //pushInstr(toLoop);
 
-      auto loopBlk = f.newBlk();
-      activeBlock = loopBlk;
+      //auto loopBlk = f.newBlk();
+      //activeBlock = loopBlk;
       IRGraphVisitor::visit(lp);
      
-      pushInstr(fromLoop);
+      //pushInstr(fromLoop);
       
-      //activeLoops.pop_back();
-      auto nextBlk = f.newBlk();
+      activeLoops.pop_back();
+      //auto nextBlk = f.newBlk();
       
-      toLoop->operands.push_back(f.newVar(loopBlk->name));
+      //toLoop->operands.push_back(f.newVar(loopBlk->name));
       
-      fromLoop->operands.push_back(f.newVar(loopBlk->name));
-      fromLoop->operands.push_back(f.newVar(nextBlk->name));
+      //fromLoop->operands.push_back(f.newVar(loopBlk->name));
+      //fromLoop->operands.push_back(f.newVar(nextBlk->name));
 
 
-      activeBlock = nextBlk;
+      //activeBlock = nextBlk;
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
     }
     
@@ -2688,6 +2688,11 @@ std::set<HWInstr*> allVarsUsed(const T& program) {
   return vars;
 }
 
+int numLoops(const std::vector<HWInstr*>& instrs) {
+  internal_assert(instrs.size() > 0);
+  return instrs[0]->surroundingLoops.size();
+}
+
 ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
@@ -2722,8 +2727,31 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
     //  1. Create schedule for each group (basic block)
     //  2. Count the number of different loop updates
     //  3. Generalize the unitMapping to support multiple blocks in valueAt?
+    //
+    // Maybe the thing to do is to create a DAG of block schedules, each with transitions
+    // that are labeled with a delay, the delay from a statement to itself is the initiation
+    // interval of the loop, and the delay from one statement to another is pipeline latency
     for (auto group : instrGroups) {
       HWLoopSchedule sched = asapSchedule(group);
+    }
+
+    // Transitions?
+    internal_assert(instrGroups.size() > 0);
+    internal_assert(instrGroups[0].size() > 0);
+    //HWInstr* first = instrGroups[0][0];
+    //HWInstr* current = first;
+    for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
+      auto current = instrGroups[i];
+      auto next = instrGroups[i + 1];
+
+      if (numLoops(current) < numLoops(next)) {
+        cout << "Entering inner loop" << endl;
+      }
+      if (numLoops(current) > numLoops(next)) {
+        cout << "Exiting inner loop" << endl;
+        // and add connection from this group to the next one
+      }
+      internal_assert(numLoops(current) != numLoops(next));
     }
     internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
     return {design, {}};
