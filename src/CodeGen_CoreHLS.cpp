@@ -2109,26 +2109,13 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
-  internal_assert(sched.blockSchedules.size() > 0);
-  cout << "--- Block schedules..." << endl;
-  for (auto& blk : sched.blockSchedules) {
-    blk.second.print();
-  }
-
-  auto context = f.mod->getContext();
+void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def) {
+  auto context = def->getContext();
   int defStage = 0;
-
-  UnitMapping m;
-  m.fSched = sched;
-  m.body = sched.body();
   auto& unitMapping = m.unitMapping;
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
- 
-  cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
- 
-  std::set<std::string> pipeVars;
+
   for (auto instr : sched.body()) {
     if (instr->tp == HWINSTR_TP_INSTR) {
       string name = instr->name;
@@ -2356,6 +2343,25 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     defStage++;
   }
 
+}
+
+UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
+  internal_assert(sched.blockSchedules.size() > 0);
+  cout << "--- Block schedules..." << endl;
+  for (auto& blk : sched.blockSchedules) {
+    blk.second.print();
+  }
+
+  auto context = f.mod->getContext();
+
+  UnitMapping m;
+  m.fSched = sched;
+  m.body = sched.body();
+  cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
+  createFunctionalUnitsForOperations(info, m, sched, def);
+  auto& instrValues = m.instrValues;
+  
+  std::set<std::string> pipeVars;
   for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
@@ -2468,7 +2474,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   def->connect(def->sel("self")->sel("reset"), controlPath->sel("reset"));
   cout << "Wiring up def in enable and control path in_en" << endl;
   def->connect(def->sel("self")->sel("in_en"), controlPath->sel("in_en"));
-  
+
   // In this mapping I want to assign values that are 
   UnitMapping m = createUnitMapping(f, info, sched, def, controlPath);
   auto& unitMapping = m.unitMapping;
@@ -2487,85 +2493,80 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body()) {
-  //for (int i = 0; i < sched.numStages(); i++) {
-    //int stageNo = i;
-    //auto instrsInStage = sched.instructionsStartingInStage(i);
-    //for (auto instr : instrsInStage) {
-      internal_assert(CoreIR::contains_key(instr, unitMapping));
-      CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
+    internal_assert(CoreIR::contains_key(instr, unitMapping));
+    CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
-      if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
-          (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and") || (instr->name == "mod") ||
-          (instr->name == "eq") || (instr->name == "neq") || (instr->name == "and_bv") || (instr->name == "absd")) {
-        auto arg0 = instr->getOperand(0);
-        auto arg1 = instr->getOperand(1);
+    if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
+        (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and") || (instr->name == "mod") ||
+        (instr->name == "eq") || (instr->name == "neq") || (instr->name == "and_bv") || (instr->name == "absd")) {
+      auto arg0 = instr->getOperand(0);
+      auto arg1 = instr->getOperand(1);
 
-        def->connect(unit->sel("in0"), m.valueAtStart(arg0, instr));
-        def->connect(unit->sel("in1"), m.valueAtStart(arg1, instr));
-        
-        //def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
-        //def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
-      } else if (instr->name == "abs") {
-        auto arg = instr->getOperand(0);
-        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
-        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
-      } else if (instr->name == "cast") {
-        auto arg = instr->getOperand(0);
-        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
-        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
-      } else if (instr->name == "rd_stream") {
-        auto arg = instr->getOperand(0);
-        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
-        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
-      } else if (instr->name == "stencil_read") {
-        auto arg = instr->getOperand(0);
+      def->connect(unit->sel("in0"), m.valueAtStart(arg0, instr));
+      def->connect(unit->sel("in1"), m.valueAtStart(arg1, instr));
 
-        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
-        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
-      } else if (starts_with(instr->name, "create_stencil")) {
-        auto srcStencil = instr->getOperand(0);
-        auto newVal = instr->getOperand(1);
+      //def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
+      //def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
+    } else if (instr->name == "abs") {
+      auto arg = instr->getOperand(0);
+      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+      def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+    } else if (instr->name == "cast") {
+      auto arg = instr->getOperand(0);
+      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+      def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+    } else if (instr->name == "rd_stream") {
+      auto arg = instr->getOperand(0);
+      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+      def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+    } else if (instr->name == "stencil_read") {
+      auto arg = instr->getOperand(0);
 
-        def->connect(unit->sel("in_stencil"), m.valueAtStart(srcStencil, instr));
-        def->connect(unit->sel("new_val"), m.valueAtStart(newVal, instr));
-        
-        //def->connect(unit->sel("in_stencil"), m.valueAt(srcStencil, stageNo));
-        //def->connect(unit->sel("new_val"), m.valueAt(newVal, stageNo));
-      } else if (instr->name == "write_stream") {
-        auto strm = instr->getOperand(0);
-        auto stencil = instr->getOperand(1);
+      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+      def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+    } else if (starts_with(instr->name, "create_stencil")) {
+      auto srcStencil = instr->getOperand(0);
+      auto newVal = instr->getOperand(1);
 
-        
-        def->connect(unit->sel("stream"), m.valueAtStart(strm, instr));
-        def->connect(unit->sel("stencil"), m.valueAtStart(stencil, instr));
-        
-      } else if (instr->name == "sel") {
+      def->connect(unit->sel("in_stencil"), m.valueAtStart(srcStencil, instr));
+      def->connect(unit->sel("new_val"), m.valueAtStart(newVal, instr));
 
-        def->connect(unit->sel("sel"), m.valueAtStart(instr->getOperand(0), instr));
-        def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
-        def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(2), instr));
+      //def->connect(unit->sel("in_stencil"), m.valueAt(srcStencil, stageNo));
+      //def->connect(unit->sel("new_val"), m.valueAt(newVal, stageNo));
+    } else if (instr->name == "write_stream") {
+      auto strm = instr->getOperand(0);
+      auto stencil = instr->getOperand(1);
 
-      } else if (starts_with(instr->name, "init_stencil")) {
-        // No inputs
-      } else if ((instr->name == "ashr") || (instr->name == "lshr")) {
-        def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
-        def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
-        
-        //def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
-        //def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
-      } else if (instr->name == "load") {
-        int portNo = instr->getOperand(0)->toInt();
-        //cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
 
-        def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
-        //internal_assert(false);
-        //def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
-        def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
+      def->connect(unit->sel("stream"), m.valueAtStart(strm, instr));
+      def->connect(unit->sel("stencil"), m.valueAtStart(stencil, instr));
 
-      } else {
-        internal_assert(false) << "no wiring procedure for " << *instr << "\n";
-      }
-    //}
+    } else if (instr->name == "sel") {
+
+      def->connect(unit->sel("sel"), m.valueAtStart(instr->getOperand(0), instr));
+      def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
+      def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(2), instr));
+
+    } else if (starts_with(instr->name, "init_stencil")) {
+      // No inputs
+    } else if ((instr->name == "ashr") || (instr->name == "lshr")) {
+      def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
+      def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
+
+      //def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
+      //def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
+    } else if (instr->name == "load") {
+      int portNo = instr->getOperand(0)->toInt();
+      //cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
+
+      def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
+      //internal_assert(false);
+      //def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
+      def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
+
+    } else {
+      internal_assert(false) << "no wiring procedure for " << *instr << "\n";
+    }
   }
 }
 
@@ -2585,7 +2586,7 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
   for (auto v : lpInfo.info.streamWrites) {
     outStreams.insert(v.first);
   }
-  
+
   for (auto v : extractHardwareVars(lp)) {
     string vName = coreirSanitize(v);
     tps.push_back({vName, context->BitIn()->Arr(16)});
