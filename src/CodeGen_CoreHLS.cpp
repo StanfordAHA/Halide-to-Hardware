@@ -1669,6 +1669,7 @@ class FunctionSchedule {
     std::set<HWInstr*> instructionsEndingInStage(const int stage) {
       return onlySched().instructionsEndingInStage(stage);
     }
+
     HWLoopSchedule& onlySched() {
       internal_assert(blockSchedules.size() > 0);
       return begin(blockSchedules)->second;
@@ -2083,6 +2084,7 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
 
 //UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
+  internal_assert(sched.blockSchedules.size() > 0);
 
   auto context = f.mod->getContext();
   int defStage = 0;
@@ -2090,7 +2092,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   UnitMapping m;
   //m.startStages = sched.startStages;
   //m.endStages = sched.endStages;
-  
+ 
+  m.fSched = sched;
   m.body = sched.body();
   auto& unitMapping = m.unitMapping;
   auto& instrValues = m.instrValues;
@@ -2421,6 +2424,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
 //void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched) {
 void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
+  internal_assert(sched.blockSchedules.size() > 0);
+
   auto def = f.mod->getDef();
   internal_assert(def != nullptr);
 
@@ -2779,6 +2784,8 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     fSched.blockSchedules[head(group)] = sched;
   }
 
+  internal_assert(fSched.blockSchedules.size() > 0);
+
   if (f.allInstrs().size() == 0) {
     internal_assert(false);
     return fSched;
@@ -2819,6 +2826,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
   }
 
+  internal_assert(fSched.blockSchedules.size() > 0);
   return fSched;
 }
 
@@ -2838,6 +2846,8 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   cout << f << endl;
 
   FunctionSchedule fSched = buildFunctionSchedule(f);
+  internal_assert(fSched.blockSchedules.size() > 0);
+
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
   if (instrGroups.size() <= 1) {
