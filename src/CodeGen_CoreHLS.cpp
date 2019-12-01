@@ -2532,14 +2532,10 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   // TODO: Actually compute this later on
   sched.II = 1;
 
-  return sched;
-}
-
-HWLoopSchedule asapSchedule(HWFunction& f) {
-  HWLoopSchedule sched;
-  sched.body = f.structuredOrder();
-  // TODO: Actually compute this later on
-  sched.II = 1;
+  //HWLoopSchedule sched;
+  //sched.body = f.structuredOrder();
+  //// TODO: Actually compute this later on
+  //sched.II = 1;
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
@@ -2631,13 +2627,21 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
     }
   }
 
-  internal_assert((f.allInstrs().size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
+  //internal_assert((f.allInstrs().size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
+  internal_assert((instrs.size() == 0) || sched.numStages() > 0) << "error, 0 stages in schedule\n";
   internal_assert(sched.startStages.size() == sched.endStages.size()) << "not every instruction with a start has an end\n";
-  for (auto instr : f.allInstrs()) {
+  //for (auto instr : f.allInstrs()) {
+  for (auto instr : instrs) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
     internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
   }
 
+  return sched;
+}
+
+HWLoopSchedule asapSchedule(HWFunction& f) {
+  auto cpy = f.structuredOrder();
+  auto sched = asapSchedule(cpy);
   return sched;
 }
 
