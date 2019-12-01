@@ -2849,7 +2849,6 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
       f.replaceAllUsesWith(targetStencil, callRep);
-      //replaceAllUsesWith(targetStencil, callRep, body);
       replacements[instr] = callRep;
     }
   }
@@ -2913,6 +2912,11 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
 
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  // We do not currently handle multiple instruction groups
+  if (instrGroups.size() != 1) {
+    return;
+  }
   // With multiple blocks:
   // - For each stencil:
   // - Find all provides for that stencil. Find all places where that stencil might have been set
