@@ -1129,10 +1129,10 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
 class HWLoopSchedule {
   public:
     vector<HWInstr*> body;
-    vector<vector<HWInstr*> > stages;
+    //vector<vector<HWInstr*> > stages;
     int II;
 
-    std::map<HWInstr*, std::string> unitMapping;
+    //std::map<HWInstr*, std::string> unitMapping;
 
     std::map<HWInstr*, int> endStages;
     std::map<HWInstr*, int> startStages;
@@ -2128,6 +2128,10 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
 
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
   internal_assert(sched.blockSchedules.size() > 0);
+  cout << "--- Block schedules..." << endl;
+  for (auto& blk : sched.blockSchedules) {
+    blk.second.print();
+  }
 
   auto context = f.mod->getContext();
   int defStage = 0;
@@ -2425,7 +2429,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   }
  
   cout << "Done wiring up constants and variables" << endl;
-  
+  cout << "--- Block schedules after wiring up constants and variables..." << endl;
+  for (auto& blk : sched.blockSchedules) {
+    blk.second.print();
+  }
+
   int uNum = 0;
   //for (int i = 0; i < (int) sched.stages.size(); i++) {
   for (int i = 0; i < sched.numStages(); i++) {
