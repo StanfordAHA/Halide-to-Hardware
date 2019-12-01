@@ -2378,6 +2378,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   m.body = sched.body();
   cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
   createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
+  cout << "Created functional units" << endl;
+
   auto& instrValues = m.instrValues;
   
   std::set<std::string> pipeVars;
@@ -2392,13 +2394,14 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           continue;
         }
         pipeVars.insert(name);
-        //cout << "Finding argument value for " << name << endl;
+        cout << "Finding argument value for " << name << endl;
         auto self = def->sel("self");
         
         Wireable* val = nullptr;
         if (f.isLoopIndexVar(name)) {
           val = controlPath->sel(coreirSanitize(name));
         } else {
+          cout << "Checking if " << name << " is local" << endl;
           internal_assert(!f.isLocalVariable(name)) << name << " is a local variable, but we are selecting it from self\n";
           val = self->sel(coreirSanitize(name));
         }
