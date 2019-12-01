@@ -1199,6 +1199,10 @@ class HWLoopSchedule {
     }
 
     int getEndTime(HWInstr* instr) const {
+      // Variables and constants are always scheduled at the start of a design
+      if (instr->tp != HWINSTR_TP_INSTR) {
+        return 0;
+      }
       internal_assert(isScheduled(instr)) << " getting end time of unscheduled instruction: " << *instr << "\n";
       return map_get(instr, endStages);
     }
@@ -2405,8 +2409,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         instrValues[op] = val;
         
         if (val->getType()->isOutput()) {
-          m.setStartTime(op, 0);
-          m.setEndTime(op, 0);
+          //m.setStartTime(op, 0);
+          //m.setEndTime(op, 0);
 
           for (int stage = 0; stage < (int) sched.numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
