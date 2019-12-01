@@ -1659,6 +1659,16 @@ class FunctionSchedule {
 
     std::vector<HWTransition> transitions;
 
+    HWLoopSchedule& getScheduleFor(HWInstr* const sourceLocation) {
+      for (auto& blkS : blockSchedules) {
+        if (elem(sourceLocation, blkS.second.body)) {
+          return blkS.second;
+        }
+      }
+      internal_assert(false) << "No container for " << *sourceLocation << "\n";
+      return begin(blockSchedules)->second;
+    }
+
     // API for special case where the entire function is on
     // basic block
     //
@@ -2039,7 +2049,12 @@ class UnitMapping {
     bool isOutputArg(HWInstr* arg) const {
       return outputType(arg)->isInput();
     }
- 
+
+    CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
+      HWLoopSchedule& sched = fSched.getScheduleFor(sourceLocation);
+      return valueAt(arg1, sched.getStartTime(sourceLocation));
+    }
+
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
       string iValStr = "{";
       for (auto kv : instrValues) {
@@ -2082,7 +2097,6 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
-//UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
   internal_assert(sched.blockSchedules.size() > 0);
 
@@ -2090,9 +2104,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   int defStage = 0;
 
   UnitMapping m;
-  //m.startStages = sched.startStages;
-  //m.endStages = sched.endStages;
- 
   m.fSched = sched;
   m.body = sched.body();
   auto& unitMapping = m.unitMapping;
@@ -2422,7 +2433,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   return m;
 }
 
-//void emitCoreIR(HWFunction& f, StencilInfo& info, HWLoopSchedule& sched) {
 void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   internal_assert(sched.blockSchedules.size() > 0);
 
@@ -2470,8 +2480,11 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
         auto arg0 = instr->getOperand(0);
         auto arg1 = instr->getOperand(1);
 
-        def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
-        def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
+        def->connect(unit->sel("in0"), m.valueAtStart(arg0, instr));
+        def->connect(unit->sel("in1"), m.valueAtStart(arg1, instr));
+        
+        //def->connect(unit->sel("in0"), m.valueAt(arg0, stageNo));
+        //def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
       } else if (instr->name == "abs") {
         auto arg = instr->getOperand(0);
         def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
