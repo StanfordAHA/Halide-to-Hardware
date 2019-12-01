@@ -1732,13 +1732,13 @@ class FunctionSchedule {
       return onlySched().numStages();
     }
 
-    void setEndTime(HWInstr* instr, const int no) {
-      return onlySched().setEndTime(instr, no);
-    }
+    //void setEndTime(HWInstr* instr, const int no) {
+      //return onlySched().setEndTime(instr, no);
+    //}
 
-    void setStartTime(HWInstr* instr, const int no) {
-      return onlySched().setStartTime(instr, no);
-    }
+    //void setStartTime(HWInstr* instr, const int no) {
+      //return onlySched().setStartTime(instr, no);
+    //}
 
     int getStartTime(HWInstr* instr) {
       return onlySched().getStartTime(instr);
@@ -2055,15 +2055,15 @@ class UnitMapping {
       //return map_get(instr, startStages);
     }
 
-    void setStartTime(HWInstr* instr, const int stage) {
-      fSched.setStartTime(instr, stage);
-      //startStages[instr] = stage;
-    }
+    //void setStartTime(HWInstr* instr, const int stage) {
+      //fSched.setStartTime(instr, stage);
+      ////startStages[instr] = stage;
+    //}
 
-    void setEndTime(HWInstr* instr, const int stage) {
-      fSched.setEndTime(instr, stage);
-      //endStages[instr] = stage;
-    }
+    //void setEndTime(HWInstr* instr, const int stage) {
+      //fSched.setEndTime(instr, stage);
+      ////endStages[instr] = stage;
+    //}
 
     bool hasOutput(HWInstr* const arg) const {
       return CoreIR::contains_key(arg, instrValues);
