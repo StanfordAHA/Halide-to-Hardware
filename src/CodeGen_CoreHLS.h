@@ -9,6 +9,8 @@
 namespace Halide {
   namespace Internal {
 
+std::string coreirSanitize(const std::string& str);
+
 enum HWInstrTp {
   HWINSTR_TP_INSTR,
   HWINSTR_TP_CONST,
@@ -118,6 +120,16 @@ class HWFunction {
     int uniqueNum;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
+
+    std::vector<std::string> argNames() const {
+      return controlVars;
+    }
+
+    bool isLocalVariable(const std::string& name) const {
+      auto sName = coreirSanitize(name);
+      std::vector<std::string> fds = mod->getType()->getFields();
+      return !CoreIR::elem(sName, fds);
+    }
 
     bool isLoopIndexVar(const std::string& name) const {
       for (auto instr : allInstrs()) {

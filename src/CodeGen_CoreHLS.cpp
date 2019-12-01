@@ -134,9 +134,6 @@ void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWIns
   }
 }
 
-namespace {
-
-
 std::string coreirSanitize(const std::string& str) {
   string san = "";
   for (auto c : str) {
@@ -150,6 +147,9 @@ std::string coreirSanitize(const std::string& str) {
   }
   return san;
 }
+
+namespace {
+
 
 template<typename TOut, typename T>
 TOut* sc(T* p) {
@@ -2362,25 +2362,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
     }
   }
   
-  //for (auto instr : sched.body()) {
-    //for (auto op : instr->operands) {
-      //if (op->tp == HWINSTR_TP_VAR) {
-        //string name = op->name;
-        //auto self = def->sel("self");
-        
-        //Wireable* val = nullptr;
-        //if (f.isLoopIndexVar(name)) {
-          //val = controlPath->sel(coreirSanitize(name));
-        //} else {
-          //val = self->sel(coreirSanitize(name));
-        //}
-        //internal_assert(val != nullptr);
-
-        //instrValues[op] = val;
-      //}
-    //}
-  //}
- 
 }
 
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
@@ -2418,6 +2399,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         if (f.isLoopIndexVar(name)) {
           val = controlPath->sel(coreirSanitize(name));
         } else {
+          internal_assert(!f.isLocalVariable(name)) << name << " is a local variable, but we are selecting it from self\n";
           val = self->sel(coreirSanitize(name));
         }
         internal_assert(val != nullptr);
@@ -2425,12 +2407,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         instrValues[op] = val;
         
         if (val->getType()->isOutput()) {
-          //for (int stage = 0; stage < (int) sched.numStages(); stage++) {
           for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
 
-          for (int stage = 0; stage < sched.numStages() - 1; stage++) {
+          for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
             cout << "stage = " << stage << endl;
             if (stage == 0) {
               auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
@@ -2446,7 +2427,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   }
  
   int uNum = 0;
-  for (auto instr : m.body) {
+  for (auto instr : sched.body()) {
     for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
