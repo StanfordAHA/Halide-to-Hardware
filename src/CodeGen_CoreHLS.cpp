@@ -2526,6 +2526,15 @@ std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
   return instrs;
 }
 
+HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
+  HWLoopSchedule sched;
+  sched.body = instrs;
+  // TODO: Actually compute this later on
+  sched.II = 1;
+
+  return sched;
+}
+
 HWLoopSchedule asapSchedule(HWFunction& f) {
   HWLoopSchedule sched;
   sched.body = f.structuredOrder();
@@ -2534,15 +2543,18 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
-  std::set<HWInstr*> remaining = f.allInstrs();
+  //std::set<HWInstr*> remaining = f.allInstrs();
+  std::set<HWInstr*> remaining(begin(sched.body), end(sched.body));
 
   DirectedGraph<HWInstr*, int> blockGraph;
   map<HWInstr*, vdisc> iNodes;
-  for (auto instr : f.allInstrs()) {
+  for (auto instr : sched.body) {
+  //for (auto instr : f.allInstrs()) {
     auto v = blockGraph.addVertex(instr);
     iNodes[instr] = v;
   }
-  for (auto instr : f.allInstrs()) {
+  //for (auto instr : f.allInstrs()) {
+  for (auto instr : sched.body) {
     auto v = map_get(instr, iNodes);
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_INSTR) {
