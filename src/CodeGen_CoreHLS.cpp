@@ -2076,10 +2076,10 @@ class UnitMapping {
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
-      cout << "Schedule container for " << *sourceLocation << endl;
-      bs.print();
+      //cout << "Schedule container for " << *sourceLocation << endl;
+      //bs.print();
       int startTime = bs.getStartTime(sourceLocation);
-      cout << "Start time of: " << *sourceLocation << " = " << startTime << endl;
+      //cout << "Start time of: " << *sourceLocation << " = " << startTime << endl;
       //return valueAt(arg1, sched.getStartTime(sourceLocation));
       return valueAt(arg1, startTime);
     }
@@ -2439,11 +2439,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   for (int i = 0; i < sched.numStages(); i++) {
     auto stg = sched.instructionsEndingInStage(i);
 
-    // TODO: Remove this code to prevent misuse of start / end times,
-    for (auto instr : stg) {
-      m.setStartTime(instr, i);
-      m.setEndTime(instr, i);
-    }
+     //TODO: Remove this code to prevent misuse of start / end times,
+    //for (auto instr : stg) {
+      //m.setStartTime(instr, i);
+      //m.setEndTime(instr, i);
+    //}
 
     for (auto instr : m.body) {
       if (m.hasOutput(instr)) {
@@ -2451,6 +2451,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         uNum++;
       }
     }
+  }
+
+  cout << "--- Block schedules after instantiating all pipeine registers..." << endl;
+  for (auto& blk : sched.blockSchedules) {
+    blk.second.print();
   }
 
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
@@ -2575,7 +2580,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
         cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
 
         def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
-        internal_assert(false);
+        //internal_assert(false);
         //def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
         def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
 
