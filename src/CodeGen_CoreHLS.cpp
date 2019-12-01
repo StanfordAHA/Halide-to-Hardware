@@ -2487,17 +2487,21 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
         //def->connect(unit->sel("in1"), m.valueAt(arg1, stageNo));
       } else if (instr->name == "abs") {
         auto arg = instr->getOperand(0);
-        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
       } else if (instr->name == "cast") {
         auto arg = instr->getOperand(0);
-        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
       } else if (instr->name == "rd_stream") {
         auto arg = instr->getOperand(0);
-        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
       } else if (instr->name == "stencil_read") {
         auto arg = instr->getOperand(0);
 
-        def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
+        def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
       } else if (starts_with(instr->name, "create_stencil")) {
         auto srcStencil = instr->getOperand(0);
         auto newVal = instr->getOperand(1);
