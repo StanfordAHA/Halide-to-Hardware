@@ -1645,10 +1645,73 @@ void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
 void removeBadStores(StoreCollector& st, HWFunction& f);
 
+class HWTransition {
+  public:
+    HWInstr* srcBlk;
+    HWInstr* dstBlk;
+    int delay;
+};
+
+class FunctionSchedule {
+  public:
+
+    map<HWInstr*, HWLoopSchedule> blockSchedules;
+
+    std::vector<HWTransition> transitions;
+
+    // API for special case where the entire function is on
+    // basic block
+    //
+    std::set<HWInstr*> instructionsStartingInStage(const int stage) {
+      return onlySched().instructionsStartingInStage(stage);
+    }
+
+    std::set<HWInstr*> instructionsEndingInStage(const int stage) {
+      return onlySched().instructionsEndingInStage(stage);
+    }
+    HWLoopSchedule& onlySched() {
+      internal_assert(blockSchedules.size() > 0);
+      return begin(blockSchedules)->second;
+    }
+
+    std::vector<HWInstr*> body() {
+      return onlySched().body;
+    }
+
+    
+    int cycleLatency() {
+      if (blockSchedules.size() == 0) {
+        return 0;
+      }
+      return onlySched().cycleLatency();
+    }
+
+    int numStages() {
+      return onlySched().numStages();
+    }
+
+    void setEndTime(HWInstr* instr, const int no) {
+      return onlySched().setEndTime(instr, no);
+    }
+
+    void setStartTime(HWInstr* instr, const int no) {
+      return onlySched().setStartTime(instr, no);
+    }
+
+    int getStartTime(HWInstr* instr) {
+      return onlySched().getEndTime(instr);
+    }
+
+    int getEndTime(HWInstr* instr) {
+      return onlySched().getEndTime(instr);
+    }
+
+};
+
 class ComputeKernel {
   public:
     CoreIR::Module* mod;
-    HWLoopSchedule sched;
+    FunctionSchedule sched;
 };
 
 std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
@@ -1927,21 +1990,6 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
   return {0, 1, 0, 1};
 }
 
-class HWTransition {
-  public:
-    HWInstr* srcBlk;
-    HWInstr* dstBlk;
-    int delay;
-};
-
-class FunctionSchedule {
-  public:
-
-    map<HWInstr*, HWLoopSchedule> blockSchedules;
-
-    std::vector<HWTransition> transitions;
-};
-
 class UnitMapping {
   protected:
   public:
@@ -2043,7 +2091,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   //m.startStages = sched.startStages;
   //m.endStages = sched.endStages;
   
-  m.body = sched.body;
+  m.body = sched.body();
   auto& unitMapping = m.unitMapping;
   auto& instrValues = m.instrValues;
   auto& stencilRanges = m.stencilRanges;
@@ -2051,7 +2099,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
  
   std::set<std::string> pipeVars;
-  for (auto instr : sched.body) {
+  for (auto instr : sched.body()) {
     if (instr->tp == HWINSTR_TP_INSTR) {
       string name = instr->name;
       //cout << "Instruction name = " << name << endl;
@@ -2278,7 +2326,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     defStage++;
   }
 
-  for (auto instr : sched.body) {
+  for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
@@ -2355,7 +2403,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   }
 
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
-  for (auto instr : sched.body) {
+  for (auto instr : sched.body()) {
     if (m.hasOutput(instr)) {
       auto fstVal = CoreIR::map_find(instr, m.instrValues);
       int prodStage = m.getEndTime(instr);
@@ -2731,6 +2779,11 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     fSched.blockSchedules[head(group)] = sched;
   }
 
+  if (f.allInstrs().size() == 0) {
+    internal_assert(false);
+    return fSched;
+  }
+
   // Transitions?
   internal_assert(instrGroups.size() > 0);
   internal_assert(instrGroups[0].size() > 0);
@@ -2776,10 +2829,10 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   auto def = design->getDef();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
-  if (f.allInstrs().size() == 0) {
-    auto sched = asapSchedule(f);
-    return {f.mod, sched};
-  }
+  //if (f.allInstrs().size() == 0) {
+    ////auto sched = asapSchedule(f);
+    //return {f.mod, {}};
+  //}
 
   cout << "Hardware function is..." << endl;
   cout << f << endl;
@@ -2787,15 +2840,15 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   FunctionSchedule fSched = buildFunctionSchedule(f);
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
-  if (instrGroups.size() == 1) {
+  if (instrGroups.size() <= 1) {
     //emitCoreIR(f, info, sched);
     emitCoreIR(f, info, fSched);
 
     design->setDef(def);
-    return {design, sched};
+    return {design, fSched};
   } else {
     internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
-    return {design, {}};
+    return {design, fSched};
   }
 }
 
