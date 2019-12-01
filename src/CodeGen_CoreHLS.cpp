@@ -210,6 +210,7 @@ bool isLinebuffer(Wireable* destBase) {
 
   return false;
 }
+
 std::string coreStr(const Wireable* w) {
   return CoreIR::toString(*w);
 }
@@ -588,110 +589,110 @@ nlohmann::json rom_init(Stmt s, string allocname) {
 }
 
   
-class AllocationUsage : public IRVisitor {
-  using IRVisitor::visit;
-  void visit(const Load *op) override {
-    if (op->name == alloc_name) {
-      num_loads++;
-      load_index_exprs.emplace_back(op->index);
+//class AllocationUsage : public IRVisitor {
+  //using IRVisitor::visit;
+  //void visit(const Load *op) override {
+    //if (op->name == alloc_name) {
+      //num_loads++;
+      //load_index_exprs.emplace_back(op->index);
       
-      if (!is_const(op->index)) {
-        uses_variable_load_index = true;
-      }
-    }
-  }
+      //if (!is_const(op->index)) {
+        //uses_variable_load_index = true;
+      //}
+    //}
+  //}
 
-  void visit(const Store *op) override {
-    if (op->name == alloc_name) {
-      num_stores++;
-      store_index_exprs.emplace_back(op->index);
+  //void visit(const Store *op) override {
+    //if (op->name == alloc_name) {
+      //num_stores++;
+      //store_index_exprs.emplace_back(op->index);
       
-      if (!is_const(op->index)) {
-        uses_variable_store_index = true;
-      }
-      if (!is_const(op->value)) {
-        uses_variable_store_value = true;
-      }
+      //if (!is_const(op->index)) {
+        //uses_variable_store_index = true;
+      //}
+      //if (!is_const(op->value)) {
+        //uses_variable_store_value = true;
+      //}
 
-    }
-  }
+    //}
+  //}
 
 
- public:
-  bool uses_variable_load_index;
-  bool uses_variable_store_index;
-  bool uses_variable_store_value;
-  bool load_index_equals_store_index;
-  uint num_loads;
-  uint num_stores;
-  vector<Expr> store_index_exprs;
-  vector<Expr> load_index_exprs;
-  string alloc_name;
+ //public:
+  //bool uses_variable_load_index;
+  //bool uses_variable_store_index;
+  //bool uses_variable_store_value;
+  //bool load_index_equals_store_index;
+  //uint num_loads;
+  //uint num_stores;
+  //vector<Expr> store_index_exprs;
+  //vector<Expr> load_index_exprs;
+  //string alloc_name;
   
-  AllocationUsage(string allocname) : uses_variable_load_index(false),
-                                      uses_variable_store_index(false),
-                                      uses_variable_store_value(false),
-                                      load_index_equals_store_index(false),
-                                      num_loads(0),
-                                      num_stores(0),
-                                      alloc_name(allocname) {}
-};
+  //AllocationUsage(string allocname) : uses_variable_load_index(false),
+                                      //uses_variable_store_index(false),
+                                      //uses_variable_store_value(false),
+                                      //load_index_equals_store_index(false),
+                                      //num_loads(0),
+                                      //num_stores(0),
+                                      //alloc_name(allocname) {}
+//};
 
-enum AllocationType {
-  NO_ALLOCATION,
-  INOUT_ALLOCATION,
-  ROM_ALLOCATION,
-  REGS_ALLOCATION,
-  SRAM_ALLOCATION,
-  RMW_ALLOCATION,
-  UNKNOWN_ALLOCATION
-};
+//enum AllocationType {
+  //NO_ALLOCATION,
+  //INOUT_ALLOCATION,
+  //ROM_ALLOCATION,
+  //REGS_ALLOCATION,
+  //SRAM_ALLOCATION,
+  //RMW_ALLOCATION,
+  //UNKNOWN_ALLOCATION
+//};
 
-AllocationType identify_allocation(Stmt s, string allocname) {
-  AllocationUsage au(allocname);
-  s.accept(&au);
+//AllocationType identify_allocation(Stmt s, string allocname) {
+  //AllocationUsage au(allocname);
+  //s.accept(&au);
 
-  if (au.num_stores == 0 || au.num_loads == 0) {
-    return INOUT_ALLOCATION;
+  //if (au.num_stores == 0 || au.num_loads == 0) {
+    //return INOUT_ALLOCATION;
     
-  } else if (!au.uses_variable_load_index &&
-             !au.uses_variable_store_value) {
-    //&& !au.uses_variable_store_value) {
-    return NO_ALLOCATION;
+  //} else if (!au.uses_variable_load_index &&
+             //!au.uses_variable_store_value) {
+    ////&& !au.uses_variable_store_value) {
+    //return NO_ALLOCATION;
 
-  } else if (au.uses_variable_load_index &&
-             !au.uses_variable_store_index &&
-             !au.uses_variable_store_value) {
-    return ROM_ALLOCATION;
+  //} else if (au.uses_variable_load_index &&
+             //!au.uses_variable_store_index &&
+             //!au.uses_variable_store_value) {
+    //return ROM_ALLOCATION;
 
-  } else if (au.uses_variable_load_index &&
-             au.uses_variable_store_index &&
-             au.load_index_equals_store_index) {
-    return RMW_ALLOCATION;
+  //} else if (au.uses_variable_load_index &&
+             //au.uses_variable_store_index &&
+             //au.load_index_equals_store_index) {
+    //return RMW_ALLOCATION;
 
-  } else if (au.uses_variable_load_index &&
-             au.uses_variable_store_index &&
-             !au.load_index_equals_store_index) {
-    return SRAM_ALLOCATION;
+  //} else if (au.uses_variable_load_index &&
+             //au.uses_variable_store_index &&
+             //!au.load_index_equals_store_index) {
+    //return SRAM_ALLOCATION;
     
-  } else {
-    return UNKNOWN_ALLOCATION;
-  }
+  //} else {
+    //return UNKNOWN_ALLOCATION;
+  //}
       
-}
+//}
   
-bool variable_index_load(Stmt s, string allocname) {
-  AllocationUsage au(allocname);
-  s.accept(&au);
-  return au.uses_variable_load_index;
-}
+//bool variable_index_load(Stmt s, string allocname) {
+  //AllocationUsage au(allocname);
+  //s.accept(&au);
+  //return au.uses_variable_load_index;
+//}
 
-bool can_use_rom(Stmt s, string allocname) {
-  AllocationUsage au(allocname);
-  s.accept(&au);
-  return (!au.uses_variable_store_index &&
-          !au.uses_variable_store_value);
-}
+//bool can_use_rom(Stmt s, string allocname) {
+  //AllocationUsage au(allocname);
+  //s.accept(&au);
+  //return (!au.uses_variable_store_index &&
+          //!au.uses_variable_store_value);
+//}
 
 
 }
@@ -1129,10 +1130,7 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
 class HWLoopSchedule {
   public:
     vector<HWInstr*> body;
-    //vector<vector<HWInstr*> > stages;
-    int II;
-
-    //std::map<HWInstr*, std::string> unitMapping;
+    //int II;
 
     std::map<HWInstr*, int> endStages;
     std::map<HWInstr*, int> startStages;
@@ -2663,7 +2661,7 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   HWLoopSchedule sched;
   sched.body = instrs;
   // TODO: Actually compute this later on
-  sched.II = 1;
+  //sched.II = 1;
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
