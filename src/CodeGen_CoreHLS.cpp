@@ -2422,12 +2422,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   for (int i = 0; i < sched.numStages(); i++) {
     auto stg = sched.instructionsEndingInStage(i);
 
-     //TODO: Remove this code to prevent misuse of start / end times,
-    //for (auto instr : stg) {
-      //m.setStartTime(instr, i);
-      //m.setEndTime(instr, i);
-    //}
-
     for (auto instr : m.body) {
       if (m.hasOutput(instr)) {
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
@@ -2492,10 +2486,11 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   def->connect(inEn, self->sel("valid"));
 
   cout << "Building connections inside each cycle\n";
-  for (int i = 0; i < sched.numStages(); i++) {
-    int stageNo = i;
-    auto instrsInStage = sched.instructionsStartingInStage(i);
-    for (auto instr : instrsInStage) {
+  for (auto instr : sched.body()) {
+  //for (int i = 0; i < sched.numStages(); i++) {
+    //int stageNo = i;
+    //auto instrsInStage = sched.instructionsStartingInStage(i);
+    //for (auto instr : instrsInStage) {
       internal_assert(CoreIR::contains_key(instr, unitMapping));
       CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
@@ -2560,7 +2555,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
         //def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
       } else if (instr->name == "load") {
         int portNo = instr->getOperand(0)->toInt();
-        cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
+        //cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
 
         def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
         //internal_assert(false);
@@ -2570,7 +2565,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       } else {
         internal_assert(false) << "no wiring procedure for " << *instr << "\n";
       }
-    }
+    //}
   }
 }
 
