@@ -209,6 +209,52 @@ std::string coreirSanitize(const std::string& str) {
   return san;
 }
 
+class IBlock {
+  public:
+    std::vector<HWInstr*> instrs;
+};
+
+HWInstr* head(const IBlock& b) {
+  return head(b.instrs);
+}
+
+bool operator==(const IBlock& b, const IBlock c) {
+  return head(b) == head(c);
+}
+
+bool operator<(const IBlock& b, const IBlock c) {
+  return head(b) < head(c);
+}
+
+set<IBlock> getIBlocks(HWFunction& f) {
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  set<IBlock> blks;
+  for (auto ig : instrGroups) {
+    blks.insert({ig});
+  }
+  return blks;
+}
+
+std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
+  set<IBlock> blocks = getIBlocks(f);
+
+  std::map<IBlock, std::set<IBlock> > dominators;
+  std::map<IBlock, std::set<IBlock> > oldDominators;
+
+  for (auto blk : blocks) {
+    dominators[blk] = {blk}; 
+  }
+
+  bool progress = true;
+  while (!progress) {
+    oldDominators = dominators;
+
+    progress = oldDominators != dominators;
+  }
+
+  return dominators;
+}
+
 namespace {
 
 
