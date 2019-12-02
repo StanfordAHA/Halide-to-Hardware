@@ -2456,7 +2456,26 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Created functional units" << endl;
 
   auto& instrValues = m.instrValues;
-  
+ 
+  for (auto op : allVarsUsed(sched.body())) {
+    string name = op->name;
+
+    cout << "Finding argument value for " << name << endl;
+    auto self = def->sel("self");
+
+    Wireable* val = nullptr;
+    if (f.isLoopIndexVar(name)) {
+      val = controlPath->sel(coreirSanitize(name));
+    } else {
+      cout << "Checking if " << name << " is local" << endl;
+      internal_assert(!f.isLocalVariable(name)) << name << " is a local variable, but we are selecting it from self\n";
+      val = self->sel(coreirSanitize(name));
+    }
+    internal_assert(val != nullptr);
+
+    instrValues[op] = val;
+  }
+
   std::set<std::string> pipeVars;
   for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
@@ -2469,21 +2488,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           continue;
         }
         pipeVars.insert(name);
-        cout << "Finding argument value for " << name << endl;
-        auto self = def->sel("self");
-        
-        Wireable* val = nullptr;
-        if (f.isLoopIndexVar(name)) {
-          val = controlPath->sel(coreirSanitize(name));
-        } else {
-          cout << "Checking if " << name << " is local" << endl;
-          internal_assert(!f.isLocalVariable(name)) << name << " is a local variable, but we are selecting it from self\n";
-          val = self->sel(coreirSanitize(name));
-        }
-        internal_assert(val != nullptr);
-
-        instrValues[op] = val;
-        
+       
+        auto val = map_find(op, instrValues);
         if (val->getType()->isOutput()) {
           for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
@@ -2493,7 +2499,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             cout << "stage = " << stage << endl;
             if (stage == 0) {
               auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              def->connect(prg->sel("in"), instrValues[op]);
+              //def->connect(prg->sel("in"), instrValues[op]);
+              def->connect(prg->sel("in"), val); 
             } else {
               auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
               def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
