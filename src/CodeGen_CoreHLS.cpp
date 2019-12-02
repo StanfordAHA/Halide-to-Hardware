@@ -3323,9 +3323,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   //if (instrGroups.size() != 1) {
     //return;
   //}
-  // With multiple blocks:
-  // - For each stencil:
-  // - Find all provides for that stencil. Find all places where that stencil might have been set
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : f.structuredOrder()) {
@@ -3354,22 +3351,72 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     cout << "Readers = " << readers << endl;
     set<IBlock> needPhi;
+    set<HWInstr*> newPhis;
+    map<IBlock, HWInstr*> headerPhis;
     for (auto blk : getIBlocks(f)) {
       if (predecessors(blk, f).size() >= 2) {
-        cout << "Checking block for phi" << endl;
-        cout << blk << endl;
-        set<HWInstr*> iSet(begin(blk.instrs), end(blk.instrs));
-        if (CoreIR::intersection(readers, iSet).size() > 0) {
+        //cout << "Checking block for phi" << endl;
+        //cout << blk << endl;
+        //set<HWInstr*> iSet(begin(blk.instrs), end(blk.instrs));
+        //if (CoreIR::intersection(readers, iSet).size() > 0) {
           cout << "Block...\n" << blk << endl << "\tneeds phi" << endl;
           needPhi.insert(blk);
-        }
+          auto phiInstr = f.newI();
+          phiInstr->name = "phi";
+          phiInstr->surroundingLoops = head(blk)->surroundingLoops;
+          headerPhis[blk] = phiInstr;
+          newPhis.insert(phiInstr);
+        //}
       }
     }
 
     cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
-    //internal_assert(needPhi.size() == 0);
+    map<HWInstr*, HWInstr*> provideReplacements;
+    int provideNum = 0;
+    for (auto instr : p.second) {
+      auto refresh = f.newI(instr);
+      refresh->operands = instr->operands;
+      refresh->name = "create_stencil_" + std::to_string(provideNum);
+      provideNum++;
+      provideReplacements[instr] = refresh;
+    }
+    
+    // Modify to insert final phi instructions
+    for (auto blk : headerPhis) {
+      f.insertAt(head(blk.first), blk.second);
+    }
+
+    cout << "Replacing " << provideReplacements.size() << " provides..." << endl;
+    // Modify to insert provide replacements
+    for (auto replacementPair : provideReplacements) {
+      f.insertAt(replacementPair.first, replacementPair.second);
+    }
+
+    auto baseInit = f.newI();
+    baseInit->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
+    baseInit->name = "init_stencil_" + p.first;
+
+    f.insertAt(f.structuredOrder()[0], baseInit);
+
+    cout << "Function after phi and provide substitution..." << endl;
+    cout << f << endl;
+
+    //cout << "Replacing references to conv at each instruction..." << endl;
+    //map<HWInstr*, HWInstr*> lastStencilDef;
+    //for (auto instr : f.structuredOrder()) {
+      //auto lastDef = nullptr;
+      //activeInstr = priorInstr(instr);
+      //while (!isFirstInstr(activeInstr)) {
+        //if (elem(activeInstr, newCreates)) {
+          //lastStencilDef[instr] = instr;
+        //} else if (elem(instr, newPhis)) {
+          //lastStencilDef[instr] = instr;
+        //}
+      //}
+    //}
+    internal_assert(false) << "Stopping so dillon can view\n";
   }
-  //internal_assert(false) << "Stopping so dillon can view\n";
+
 
   cout << "Provides" << endl;
   for (auto pr : provides) {
