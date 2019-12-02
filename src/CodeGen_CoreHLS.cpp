@@ -318,7 +318,7 @@ bool isTail(const IBlock& blk, HWFunction& f) {
 }
 
 bool isEntry(const IBlock& blk, HWFunction& f) {
-  auto blks = blockList(f);
+  auto blks = getIBlockList(f);
   internal_assert(blks.size() > 0);
 
   return blk == blks[0];
