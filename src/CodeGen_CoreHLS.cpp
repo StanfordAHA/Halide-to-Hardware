@@ -266,6 +266,13 @@ std::vector<std::string> loopNames(const IBlock& blk) {
   return loopNames(blk.instrs);
 }
 
+HWInstr* lastInstr(const IBlock& b) {
+  if (b.isEntry()) {
+    return nullptr;
+  }
+  return b.instrs.back();
+}
+
 HWInstr* head(const IBlock& b) {
   if (b.isEntry()) {
     return nullptr;
@@ -3355,20 +3362,15 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     map<IBlock, HWInstr*> headerPhis;
     for (auto blk : getIBlocks(f)) {
       if (predecessors(blk, f).size() >= 2) {
-        //cout << "Checking block for phi" << endl;
-        //cout << blk << endl;
-        //set<HWInstr*> iSet(begin(blk.instrs), end(blk.instrs));
-        //if (CoreIR::intersection(readers, iSet).size() > 0) {
-          cout << "Block...\n" << blk << endl << "\tneeds phi" << endl;
-          needPhi.insert(blk);
-          auto phiInstr = f.newI();
-          phiInstr->name = "phi";
-          phiInstr->surroundingLoops = head(blk)->surroundingLoops;
-          headerPhis[blk] = phiInstr;
-          newPhis.insert(phiInstr);
-        //}
-      }
+        cout << "Block...\n" << blk << endl << "\tneeds phi" << endl;
+        needPhi.insert(blk);
+        auto phiInstr = f.newI();
+        phiInstr->name = "phi";
+        phiInstr->surroundingLoops = head(blk)->surroundingLoops;
+        headerPhis[blk] = phiInstr;
+        newPhis.insert(phiInstr);
     }
+  }
 
     cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
     map<HWInstr*, HWInstr*> provideReplacements;
@@ -3383,15 +3385,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       provideReplacementSet.insert(refresh);
     }
    
-    // Add variable values for phi nodes
-    for (auto phi : headerPhis) {
-      auto blk = phi.first;
-      auto phiN = phi.second;
-      for (auto pred : predecessors(blk, f)) {
-        phiN->operands.push_back(f.newVar(p.first));
-      }
-    }
-
     // Modify to insert final phi instructions
     for (auto blk : headerPhis) {
       f.insertAt(head(blk.first), blk.second);
@@ -3415,9 +3408,35 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     auto currentDef = baseInit;
     auto provideVar = f.newVar(p.first);
     for (auto instr : f.structuredOrder()) {
+      if (elem(instr, newPhis)) {
+        instr->operands.push_back(f.newVar(p.first));
+      }
+      
       replaceOperand(provideVar, currentDef, instr);
       if (elem(instr, newPhis) || elem(instr, provideReplacementSet)) {
         currentDef = instr;
+      }
+
+    }
+
+    // Now: find all reverse phis
+    for (auto blk : getIBlocks(f)) {
+      for (auto instr : blk.instrs) {
+        if (elem(instr, newPhis)) {
+          cout << "Adding second operand to phi.." << endl;
+          auto tail = loopTail(blk, f);
+          auto pDef = baseInit;
+          for (auto i : f.structuredOrder()) {
+            if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
+              pDef = i;
+            }
+
+            if (i == lastInstr(tail)) {
+              break;
+            }
+          }
+          instr->operands.push_back(pDef);
+        }
       }
     }
 
