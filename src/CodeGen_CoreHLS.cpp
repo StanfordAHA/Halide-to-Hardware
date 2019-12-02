@@ -236,22 +236,40 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
 
 class IBlock {
   public:
+    bool entry;
     std::vector<HWInstr*> instrs;
+
+    IBlock(const bool entry_) : entry(entry_) {}
+    IBlock() : entry(false) {}
+
+    IBlock(vector<HWInstr*>& instrs_) : entry(false), instrs(instrs_) {}
+
+    bool isEntry() const { return entry; }
 };
 
 std::ostream& operator<<(std::ostream& out, const IBlock& blk) {
-
-  out << "--- Blk" << endl;
-  for (auto instr : blk.instrs) {
-    out << "\t" << *instr << endl;
+  if (!blk.isEntry()) {
+    out << "--- Blk" << endl;
+    for (auto instr : blk.instrs) {
+      out << "\t" << *instr << endl;
+    }
+  } else {
+    out << "--- Entry" << endl;
   }
   return out;
 }
 
 std::vector<std::string> loopNames(const IBlock& blk) {
+  if (blk.isEntry()) {
+    return {};
+  }
   return loopNames(blk.instrs);
 }
+
 HWInstr* head(const IBlock& b) {
+  if (b.isEntry()) {
+    return nullptr;
+  }
   return head(b.instrs);
 }
 
@@ -265,7 +283,7 @@ bool operator<(const IBlock& b, const IBlock c) {
 
 vector<IBlock> getIBlockList(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  vector<IBlock> blks;
+  vector<IBlock> blks{{true}};
   for (auto ig : instrGroups) {
     blks.push_back({ig});
   }
@@ -274,7 +292,7 @@ vector<IBlock> getIBlockList(HWFunction& f) {
 
 set<IBlock> getIBlocks(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  set<IBlock> blks;
+  set<IBlock> blks{{true}};
   for (auto ig : instrGroups) {
     blks.insert({ig});
   }
@@ -287,11 +305,12 @@ vector<IBlock> loopHeaders(HWFunction& f) {
 
   set<vector<string> > prefixes;
   for (auto blk : blks){
-    if (!elem(loopNames(blk.instrs), prefixes)) {
+    if (loopNames(blk).size() > 0 && !elem(loopNames(blk.instrs), prefixes)) {
       headers.push_back(blk);
       prefixes.insert(loopNames(blk.instrs));
     }
   }
+  cout << "# of headers = " << headers.size() << endl;
   return headers;
 }
 
@@ -302,11 +321,12 @@ vector<IBlock> loopTails(HWFunction& f) {
   set<vector<string> > prefixes;
   CoreIR::reverse(blks);
   for (auto blk : blks) {
-    if (!elem(loopNames(blk.instrs), prefixes)) {
+    if (loopNames(blk).size() > 0 && !elem(loopNames(blk.instrs), prefixes)) {
       tails.push_back(blk);
       prefixes.insert(loopNames(blk.instrs));
     }
   }
+  cout << "# of tails = " << tails.size() << endl;
   return tails;
 }
 
@@ -321,10 +341,7 @@ bool isTail(const IBlock& blk, HWFunction& f) {
 }
 
 bool isEntry(const IBlock& blk, HWFunction& f) {
-  auto blks = getIBlockList(f);
-  internal_assert(blks.size() > 0);
-
-  return blk == blks[0];
+  return blk.isEntry();
 }
 
 IBlock loopTail(const IBlock& blk, HWFunction& f) {
@@ -344,6 +361,10 @@ IBlock priorBlock(const IBlock& blk, HWFunction& f) {
   internal_assert(!isEntry(blk, f));
 
   auto blks = getIBlockList(f);
+  if (blk == blks[0]) {
+    return IBlock(true);
+  }
+
   for (int i = 1; i < (int) blks.size(); i++) {
     if (blks[i] == blk) {
       return blks[i - 1];
@@ -355,11 +376,7 @@ IBlock priorBlock(const IBlock& blk, HWFunction& f) {
 }
 
 set<IBlock> predecessors(const IBlock& blk, HWFunction& f) {
-  auto blks = getIBlocks(f);
-  auto headers = loopHeaders(f);
-  auto tails = loopTails(f);
-
-  if (isEntry(blk, f) && !isHeader(blk, f)) {
+  if (isEntry(blk, f)) {
     return {};
   }
 
@@ -368,10 +385,7 @@ set<IBlock> predecessors(const IBlock& blk, HWFunction& f) {
   }
 
   internal_assert(isHeader(blk, f));
-
-  if (isEntry(blk, f)) {
-    return {loopTail(blk, f)};
-  }
+  internal_assert(!isEntry(blk, f));
 
   return {priorBlock(blk, f), loopTail(blk, f)};
 }
@@ -391,19 +405,23 @@ std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
   }
 
   bool progress = true;
-  while (!progress) {
+  while (progress) {
     oldDominators = dominators;
 
     for (auto blk : blocks) {
+      cout << "Processing block" << endl << blk << endl;
       set<IBlock> newDoms = oldDominators[blk];
 
       auto predSet = predecessors(blk, f);
       vector<IBlock> preds(begin(predSet), end(predSet));
+      cout << "# of pred blocks: " << preds.size() << endl;
+      
       if (preds.size() == 0) {
         continue;
       }
- 
+
       set<IBlock> commonPreds = map_find(preds[0], oldDominators);
+      cout << "# dominators in first pred: " << commonPreds.size() << endl;
       for (size_t i = 1; i < preds.size(); i++) {
         commonPreds = CoreIR::intersection(commonPreds, map_find(preds[i], oldDominators));
       }
@@ -3362,9 +3380,10 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   auto doms = blockDominators(f);
   cout << "Dominators..." << endl;
   for (auto d : doms) {
-    cout << "\t" << d.first << " has dominators..." << endl;
+    cout << "\t" << d.first << " has " << d.second.size() << "dominators..." << endl;
+    cout << "----------------------------------------------------" << endl;
     for (auto blk : d.second) {
-      cout << "\t\t" << blk << endl;
+      cout << blk << endl;
     }
   }
 
