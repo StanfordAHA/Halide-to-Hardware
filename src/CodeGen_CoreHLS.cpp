@@ -2597,6 +2597,11 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         internal_assert(fromGenerator("halidehw.ROM", inst));
         instrValues[instr] = instr->getUnit()->sel("rdata")->sel(portNo);
         cout << "Done." << endl;
+      } else if (name == "phi") {
+        // TODO: Replace this with real code for a multiplexer
+        auto sel = def->addInstance("sel_" + std::to_string(defStage), "coreir.mux", {{"width", CoreIR::Const::make(context, 16)}});
+        instrValues[instr] = sel->sel("out");
+        unitMapping[instr] = sel;
       } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
