@@ -3430,10 +3430,39 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     }
 
     auto baseInit = f.newI();
-    baseInit->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
-    baseInit->name = "init_stencil_" + p.first;
+    {
+      auto provideValue = CoreIR::map_find(p.first, stencilDecls);
+      auto provideName = provideValue->operands[0]->compactString();
 
-    f.insertAt(f.structuredOrder()[0], baseInit);
+      vector<int> dims = stencilDimsInBody(info, f, provideName);
+      vector<HWInstr*> initialSets;
+      for (auto instr : p.second) {
+        auto operands = instr->operands;
+        if (allConst(1, operands.size(), operands)) {
+          initialSets.push_back(instr);
+        } else {
+          break;
+        }
+      }
+
+      baseInit->operands.push_back(f.newConst(32, dims.size()));
+      cout << "Dims of " << provideName << endl;
+      for (auto c : dims) {
+        cout << "\t" << c << endl;
+        baseInit->operands.push_back(f.newConst(32, c));
+      }
+
+      for (auto initI : initialSets) {
+        for (int i = 1; i < (int) initI->operands.size(); i++) {
+          baseInit->operands.push_back(initI->operands[i]);
+        }
+      }
+
+      baseInit->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
+      baseInit->name = "init_stencil_" + p.first;
+
+      f.insertAt(f.structuredOrder()[0], baseInit);
+    }
 
     cout << "Function after phi and provide substitution..." << endl;
     cout << f << endl;
