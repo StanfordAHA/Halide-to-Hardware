@@ -3382,7 +3382,16 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       provideReplacements[instr] = refresh;
       provideReplacementSet.insert(refresh);
     }
-    
+   
+    // Add variable values for phi nodes
+    for (auto phi : headerPhis) {
+      auto blk = phi.first;
+      auto phiN = phi.second;
+      for (auto pred : predecessors(blk, f)) {
+        phiN->operands.push_back(f.newVar(p.first));
+      }
+    }
+
     // Modify to insert final phi instructions
     for (auto blk : headerPhis) {
       f.insertAt(head(blk.first), blk.second);
