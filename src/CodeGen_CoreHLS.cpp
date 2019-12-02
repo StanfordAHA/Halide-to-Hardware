@@ -3414,70 +3414,74 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     cout << "After replacing references to " << p.first << endl;
     cout << f << endl;
-    internal_assert(false) << "Stopping so dillon can view\n";
+    //internal_assert(false) << "Stopping so dillon can view\n";
   }
 
 
-  cout << "Provides" << endl;
-  for (auto pr : provides) {
-    auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
-    auto provideName = provideValue->operands[0]->compactString();
+  //cout << "Provides" << endl;
+  //for (auto pr : provides) {
+    //auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
+    //auto provideName = provideValue->operands[0]->compactString();
 
-    vector<int> dims = stencilDimsInBody(info, f, provideName);
-    vector<HWInstr*> initialSets;
-    for (auto instr : pr.second) {
-      auto operands = instr->operands;
-      if (allConst(1, operands.size(), operands)) {
-        initialSets.push_back(instr);
-      } else {
-        break;
-      }
-    }
+    //vector<int> dims = stencilDimsInBody(info, f, provideName);
+    //vector<HWInstr*> initialSets;
+    //for (auto instr : pr.second) {
+      //auto operands = instr->operands;
+      //if (allConst(1, operands.size(), operands)) {
+        //initialSets.push_back(instr);
+      //} else {
+        //break;
+      //}
+    //}
 
-    HWInstr* initInstr = f.newI();
-    initInstr->name = "init_stencil_" + pr.first;
-    initInstr->operands = {};
+    //HWInstr* initInstr = f.newI();
+    //initInstr->name = "init_stencil_" + pr.first;
+    //initInstr->operands = {};
 
-    initInstr->operands.push_back(f.newConst(32, dims.size()));
-    cout << "Dims of " << provideName << endl;
-    for (auto c : dims) {
-      cout << "\t" << c << endl;
-      initInstr->operands.push_back(f.newConst(32, c));
-    }
+    //initInstr->operands.push_back(f.newConst(32, dims.size()));
+    //cout << "Dims of " << provideName << endl;
+    //for (auto c : dims) {
+      //cout << "\t" << c << endl;
+      //initInstr->operands.push_back(f.newConst(32, c));
+    //}
 
-    for (auto initI : initialSets) {
-      for (int i = 1; i < (int) initI->operands.size(); i++) {
-        initInstr->operands.push_back(initI->operands[i]);
-      }
-    }
+    //for (auto initI : initialSets) {
+      //for (int i = 1; i < (int) initI->operands.size(); i++) {
+        //initInstr->operands.push_back(initI->operands[i]);
+      //}
+    //}
 
-    initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
-    f.insert(0, initInstr);
-    // Assume that initInstr has same containing loops as the first instruction
-    // in the HWFunction
-    internal_assert(f.structuredOrder().size() > 0);
-    HWInstr* activeProvide = initInstr;
-    f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
-    cout << "done with set values..." << endl;
-    int provideNum = 0;
-    for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
-      auto instr = pr.second[i];
-      cout << "\t\t" << *instr << endl;
-      auto refresh = f.newI(instr);
-      refresh->operands = instr->operands;
-      refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
-      f.insertAt(instr, refresh);
-      f.replaceAllUsesAfter(refresh, activeProvide, refresh);
-      activeProvide = refresh;
-      provideNum++;
-    }
-  }
+    //initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
+    //f.insert(0, initInstr);
+    //// Assume that initInstr has same containing loops as the first instruction
+    //// in the HWFunction
+    //internal_assert(f.structuredOrder().size() > 0);
+    //HWInstr* activeProvide = initInstr;
+    //f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
+    //cout << "done with set values..." << endl;
+    //int provideNum = 0;
+    //for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
+      //auto instr = pr.second[i];
+      //cout << "\t\t" << *instr << endl;
+      //auto refresh = f.newI(instr);
+      //refresh->operands = instr->operands;
+      //refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
+      //f.insertAt(instr, refresh);
+      //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
+      //activeProvide = refresh;
+      //provideNum++;
+    //}
+  //}
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {
       f.deleteInstr(instr);
     }
   }
+
+  cout << "After cleanup..." << endl;
+  cout << f << endl;
+  internal_assert(false) << "Stopping here so dillon can view\n";
 }
 
 std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
