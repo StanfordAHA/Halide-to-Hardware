@@ -248,6 +248,9 @@ std::ostream& operator<<(std::ostream& out, const IBlock& blk) {
   return out;
 }
 
+std::vector<std::string> loopNames(const IBlock& blk) {
+  return loopNames(blk.instrs);
+}
 HWInstr* head(const IBlock& b) {
   return head(b.instrs);
 }
@@ -324,6 +327,33 @@ bool isEntry(const IBlock& blk, HWFunction& f) {
   return blk == blks[0];
 }
 
+IBlock loopTail(const IBlock& blk, HWFunction& f) {
+  internal_assert(isHeader(blk, f));
+
+  for (auto tailBlock : loopTails(f)) {
+    if (loopNames(tailBlock) == loopNames(blk)) {
+      return tailBlock;
+    }
+  }
+
+  internal_assert(false);
+  return blk;
+}
+
+IBlock priorBlock(const IBlock& blk, HWFunction& f) {
+  internal_assert(!isEntry(blk, f));
+
+  auto blks = getIBlockList(f);
+  for (int i = 1; i < (int) blks.size(); i++) {
+    if (blks[i] == blk) {
+      return blks[i - 1];
+    }
+  }
+
+  internal_assert(false);
+  return blk;
+}
+
 set<IBlock> predecessors(const IBlock& blk, HWFunction& f) {
   auto blks = getIBlocks(f);
   auto headers = loopHeaders(f);
@@ -334,10 +364,14 @@ set<IBlock> predecessors(const IBlock& blk, HWFunction& f) {
   }
 
   if (!isHeader(blk, f)) {
-    return priorBlock(blk, f);
+    return {priorBlock(blk, f)};
   }
 
   internal_assert(isHeader(blk, f));
+
+  if (isEntry(blk, f)) {
+    return {loopTail(blk, f)};
+  }
 
   return {priorBlock(blk, f), loopTail(blk, f)};
 }
@@ -349,7 +383,11 @@ std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
   std::map<IBlock, std::set<IBlock> > oldDominators;
 
   for (auto blk : blocks) {
-    dominators[blk] = {blk}; 
+    if (isEntry(blk, f)) {
+      dominators[blk] = {blk}; 
+    } else {
+      dominators[blk] = {};
+    }
   }
 
   bool progress = true;
@@ -358,10 +396,20 @@ std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
 
     for (auto blk : blocks) {
       set<IBlock> newDoms = oldDominators[blk];
-      for (auto p : predecessors(blk, f)) {
-        for (auto e : map_find(p, oldDominators)) {
-          newDoms.insert(e);
-        }
+
+      auto predSet = predecessors(blk, f);
+      vector<IBlock> preds(begin(predSet), end(predSet));
+      if (preds.size() == 0) {
+        continue;
+      }
+ 
+      set<IBlock> commonPreds = map_find(preds[0], oldDominators);
+      for (size_t i = 1; i < preds.size(); i++) {
+        commonPreds = CoreIR::intersection(commonPreds, map_find(preds[i], oldDominators));
+      }
+
+      for (auto p : commonPreds) {
+        newDoms.insert(p);
       }
 
       dominators[blk] = newDoms;
