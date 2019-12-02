@@ -3367,11 +3367,10 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     }
 
     cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
-
+    //internal_assert(needPhi.size() == 0);
   }
-  internal_assert(false) << "Stopping so dillon can view\n";
+  //internal_assert(false) << "Stopping so dillon can view\n";
 
-  std::map<std::string, HWInstr*> initProvides;
   cout << "Provides" << endl;
   for (auto pr : provides) {
     auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
