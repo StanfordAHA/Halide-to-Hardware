@@ -2028,7 +2028,15 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
 
 class UnitMapping {
   protected:
+    // Closed form of unit mapping would be a map from
+    // - HWInstrs that appear in the program to maps from Instructions to selects
+    // - Note that values that are defined in more than one place (conv.stencil in a reduce) will
+    //   need a mux output as their value at some locations
   public:
+
+    std::map<HWInstr*, std::map<HWInstr*, CoreIR::Wireable*> > hwStartValues;
+    std::map<HWInstr*, std::map<HWInstr*, CoreIR::Wireable*> > hwEndValues;
+
     FunctionSchedule fSched;
 
     std::map<HWInstr*, CoreIR::Wireable*> instrValues;
@@ -2041,7 +2049,6 @@ class UnitMapping {
 
     int getEndTime(HWInstr* instr) {
       return fSched.getEndTime(instr);
-      //return map_get(instr, endStages);
     }
 
     //int getStartTime(HWInstr* instr) {
@@ -2061,6 +2068,13 @@ class UnitMapping {
       return outputType(arg)->isInput();
     }
 
+    void valueIsAlways(HWInstr* const arg1, CoreIR::Wireable* w) {
+      for (auto instr : fSched.body()) {
+        hwStartValues[arg1][instr] = w;
+        hwEndValues[arg1][instr] = w;
+      }
+    }
+
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
       //cout << "Schedule container for " << *sourceLocation << endl;
@@ -2069,6 +2083,10 @@ class UnitMapping {
       //cout << "Start time of: " << *sourceLocation << " = " << startTime << endl;
       //return valueAt(arg1, sched.getStartTime(sourceLocation));
       return valueAt(arg1, startTime);
+    }
+
+    CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
+      return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
@@ -2358,8 +2376,13 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
         instrValues[op] = cInst->sel("out");
+        m.valueIsAlways(instr, cInst->sel("out"));
       }
     }
+  }
+
+  for (auto v : instrValues) {
+    m.hwEndValues[v.first][v.first] = v.second;
   }
   
 }
@@ -2442,7 +2465,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto instr : sched.body()) {
     if (m.hasOutput(instr)) {
-      auto fstVal = CoreIR::map_find(instr, m.instrValues);
+      auto fstVal = m.valueAtEnd(instr, instr);
+      //CoreIR::map_find(instr, m.instrValues);
       int prodStage = m.getEndTime(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
