@@ -209,10 +209,44 @@ std::string coreirSanitize(const std::string& str) {
   return san;
 }
 
+std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
+  if (instr.surroundingLoops.size() > 0) {
+    for (auto lp : instr.surroundingLoops) {
+      out << lp.name << " : [" << lp.min << ", " << exprString(simplify(lp.extent + lp.min - 1)) << "] ";
+    }
+  }
+  if (instr.tp == HWINSTR_TP_VAR) {
+    out << instr.name;
+  } else {
+    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
+    out << (instr.isSigned() ? "S" : "U") << ": ";
+    out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
+    int opN = 0;
+    for (auto op : instr.operands) {
+      out << op->compactString();
+      if (opN < ((int) instr.operands.size()) - 1) {
+        out << ", ";
+      }
+      opN++;
+    }
+    out << ");";
+  }
+  return out;
+}
+
 class IBlock {
   public:
     std::vector<HWInstr*> instrs;
 };
+
+std::ostream& operator<<(std::ostream& out, const IBlock& blk) {
+
+  out << "--- Blk" << endl;
+  for (auto instr : blk.instrs) {
+    out << "\t" << *instr << endl;
+  }
+  return out;
+}
 
 HWInstr* head(const IBlock& b) {
   return head(b.instrs);
@@ -226,6 +260,15 @@ bool operator<(const IBlock& b, const IBlock c) {
   return head(b) < head(c);
 }
 
+vector<IBlock> getIBlockList(HWFunction& f) {
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  vector<IBlock> blks;
+  for (auto ig : instrGroups) {
+    blks.push_back({ig});
+  }
+  return blks;
+}
+
 set<IBlock> getIBlocks(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   set<IBlock> blks;
@@ -233,6 +276,70 @@ set<IBlock> getIBlocks(HWFunction& f) {
     blks.insert({ig});
   }
   return blks;
+}
+
+vector<IBlock> loopHeaders(HWFunction& f) {
+  auto blks = getIBlockList(f);
+  vector<IBlock> headers;
+
+  set<vector<string> > prefixes;
+  for (auto blk : blks){
+    if (!elem(loopNames(blk.instrs), prefixes)) {
+      headers.push_back(blk);
+      prefixes.insert(loopNames(blk.instrs));
+    }
+  }
+  return headers;
+}
+
+vector<IBlock> loopTails(HWFunction& f) {
+  auto blks = getIBlockList(f);
+  vector<IBlock> tails;
+
+  set<vector<string> > prefixes;
+  CoreIR::reverse(blks);
+  for (auto blk : blks) {
+    if (!elem(loopNames(blk.instrs), prefixes)) {
+      tails.push_back(blk);
+      prefixes.insert(loopNames(blk.instrs));
+    }
+  }
+  return tails;
+}
+
+bool isHeader(const IBlock& blk, HWFunction& f) {
+  auto h = loopHeaders(f);
+  return elem(blk, h);
+}
+
+bool isTail(const IBlock& blk, HWFunction& f) {
+  auto t = loopTails(f);
+  return elem(blk, t);
+}
+
+bool isEntry(const IBlock& blk, HWFunction& f) {
+  auto blks = blockList(f);
+  internal_assert(blks.size() > 0);
+
+  return blk == blks[0];
+}
+
+set<IBlock> predecessors(const IBlock& blk, HWFunction& f) {
+  auto blks = getIBlocks(f);
+  auto headers = loopHeaders(f);
+  auto tails = loopTails(f);
+
+  if (isEntry(blk, f) && !isHeader(blk, f)) {
+    return {};
+  }
+
+  if (!isHeader(blk, f)) {
+    return priorBlock(blk, f);
+  }
+
+  internal_assert(isHeader(blk, f));
+
+  return {priorBlock(blk, f), loopTail(blk, f)};
 }
 
 std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
@@ -248,6 +355,17 @@ std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
   bool progress = true;
   while (!progress) {
     oldDominators = dominators;
+
+    for (auto blk : blocks) {
+      set<IBlock> newDoms = oldDominators[blk];
+      for (auto p : predecessors(blk, f)) {
+        for (auto e : map_find(p, oldDominators)) {
+          newDoms.insert(e);
+        }
+      }
+
+      dominators[blk] = newDoms;
+    }
 
     progress = oldDominators != dominators;
   }
@@ -1204,31 +1322,6 @@ class NestExtractor : public IRGraphVisitor {
       //inFor = false;
     }
 };
-
-std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
-  if (instr.surroundingLoops.size() > 0) {
-    for (auto lp : instr.surroundingLoops) {
-      out << lp.name << " : [" << lp.min << ", " << exprString(simplify(lp.extent + lp.min - 1)) << "] ";
-    }
-  }
-  if (instr.tp == HWINSTR_TP_VAR) {
-    out << instr.name;
-  } else {
-    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
-    out << (instr.isSigned() ? "S" : "U") << ": ";
-    out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
-    int opN = 0;
-    for (auto op : instr.operands) {
-      out << op->compactString();
-      if (opN < ((int) instr.operands.size()) - 1) {
-        out << ", ";
-      }
-      opN++;
-    }
-    out << ");";
-  }
-  return out;
-}
 
 // Now: Schedule and collect the output
 // Q: What is the schedule going to look like?
@@ -3217,6 +3310,16 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       cout << "\t\t" << *u << endl;
     }
   }
+
+  auto doms = blockDominators(f);
+  cout << "Dominators..." << endl;
+  for (auto d : doms) {
+    cout << "\t" << d.first << " has dominators..." << endl;
+    for (auto blk : d.second) {
+      cout << "\t\t" << blk << endl;
+    }
+  }
+
   internal_assert(false) << "Stopping so dillon can view\n";
 
   std::map<std::string, HWInstr*> initProvides;
