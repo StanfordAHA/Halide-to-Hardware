@@ -2515,7 +2515,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           }
         }
       } else {
-        // Do nothing
+        internal_assert(!f.isLocalVariable(name));
       }
     }
   }
