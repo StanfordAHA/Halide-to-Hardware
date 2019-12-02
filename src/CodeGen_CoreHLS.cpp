@@ -277,6 +277,10 @@ bool operator==(const IBlock& b, const IBlock c) {
   return head(b) == head(c);
 }
 
+bool operator!=(const IBlock& b, const IBlock c) {
+  return !(b == c);
+}
+
 bool operator<(const IBlock& b, const IBlock c) {
   return head(b) < head(c);
 }
@@ -391,52 +395,20 @@ set<IBlock> predecessors(const IBlock& blk, HWFunction& f) {
 }
 
 std::map<IBlock, std::set<IBlock> > blockDominators(HWFunction& f) {
-  set<IBlock> blocks = getIBlocks(f);
-
+  auto blocks = getIBlockList(f);
   std::map<IBlock, std::set<IBlock> > dominators;
-  std::map<IBlock, std::set<IBlock> > oldDominators;
-
-  for (auto blk : blocks) {
-    if (isEntry(blk, f)) {
-      dominators[blk] = {blk}; 
-    } else {
-      dominators[blk] = {};
+  for (size_t i = 0; i < blocks.size(); i++) {
+    dominators[blocks[i]] = {};
+    for (size_t j = 0; j <= i; j++) {
+      dominators[blocks[i]].insert(blocks[j]);
     }
-  }
-
-  bool progress = true;
-  while (progress) {
-    oldDominators = dominators;
-
-    for (auto blk : blocks) {
-      cout << "Processing block" << endl << blk << endl;
-      set<IBlock> newDoms = oldDominators[blk];
-
-      auto predSet = predecessors(blk, f);
-      vector<IBlock> preds(begin(predSet), end(predSet));
-      cout << "# of pred blocks: " << preds.size() << endl;
-      
-      if (preds.size() == 0) {
-        continue;
-      }
-
-      set<IBlock> commonPreds = map_find(preds[0], oldDominators);
-      cout << "# dominators in first pred: " << commonPreds.size() << endl;
-      for (size_t i = 1; i < preds.size(); i++) {
-        commonPreds = CoreIR::intersection(commonPreds, map_find(preds[i], oldDominators));
-      }
-
-      for (auto p : commonPreds) {
-        newDoms.insert(p);
-      }
-
-      dominators[blk] = newDoms;
-    }
-
-    progress = oldDominators != dominators;
   }
 
   return dominators;
+}
+
+IBlock idom(const IBlock& blk, HWFunction& f) {
+  return priorBlock(blk, f);
 }
 
 namespace {
@@ -3371,22 +3343,32 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       cout << "\t\t" << *c << endl;
     }
     set<HWInstr*> users = allVarUsers(p.first, f.structuredOrder());
+    set<HWInstr*> readers;
     cout << "\tUsers of: " << p.first << endl;
     for (auto u : users) {
       cout << "\t\t" << *u << endl;
+      if (u->name != "provide") {
+        readers.insert(u);
+      }
     }
-  }
 
-  auto doms = blockDominators(f);
-  cout << "Dominators..." << endl;
-  for (auto d : doms) {
-    cout << "\t" << d.first << " has " << d.second.size() << "dominators..." << endl;
-    cout << "----------------------------------------------------" << endl;
-    for (auto blk : d.second) {
-      cout << blk << endl;
+    cout << "Readers = " << readers << endl;
+    set<IBlock> needPhi;
+    for (auto blk : getIBlocks(f)) {
+      if (predecessors(blk, f).size() >= 2) {
+        cout << "Checking block for phi" << endl;
+        cout << blk << endl;
+        set<HWInstr*> iSet(begin(blk.instrs), end(blk.instrs));
+        if (CoreIR::intersection(readers, iSet).size() > 0) {
+          cout << "Block...\n" << blk << endl << "\tneeds phi" << endl;
+          needPhi.insert(blk);
+        }
+      }
     }
-  }
 
+    cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
+
+  }
   internal_assert(false) << "Stopping so dillon can view\n";
 
   std::map<std::string, HWInstr*> initProvides;
