@@ -3372,6 +3372,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
     map<HWInstr*, HWInstr*> provideReplacements;
+    set<HWInstr*> provideReplacementSet;
     int provideNum = 0;
     for (auto instr : p.second) {
       auto refresh = f.newI(instr);
@@ -3379,6 +3380,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->name = "create_stencil_" + std::to_string(provideNum);
       provideNum++;
       provideReplacements[instr] = refresh;
+      provideReplacementSet.insert(refresh);
     }
     
     // Modify to insert final phi instructions
@@ -3401,19 +3403,17 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     cout << "Function after phi and provide substitution..." << endl;
     cout << f << endl;
 
-    //cout << "Replacing references to conv at each instruction..." << endl;
-    //map<HWInstr*, HWInstr*> lastStencilDef;
-    //for (auto instr : f.structuredOrder()) {
-      //auto lastDef = nullptr;
-      //activeInstr = priorInstr(instr);
-      //while (!isFirstInstr(activeInstr)) {
-        //if (elem(activeInstr, newCreates)) {
-          //lastStencilDef[instr] = instr;
-        //} else if (elem(instr, newPhis)) {
-          //lastStencilDef[instr] = instr;
-        //}
-      //}
-    //}
+    auto currentDef = baseInit;
+    auto provideVar = f.newVar(p.first);
+    for (auto instr : f.structuredOrder()) {
+      replaceOperand(provideVar, currentDef, instr);
+      if (elem(instr, newPhis) || elem(instr, provideReplacementSet)) {
+        currentDef = instr;
+      }
+    }
+
+    cout << "After replacing references to " << p.first << endl;
+    cout << f << endl;
     internal_assert(false) << "Stopping so dillon can view\n";
   }
 
