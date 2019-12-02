@@ -2597,20 +2597,15 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
     } else if (instr->name == "abs") {
       auto arg = instr->getOperand(0);
-      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (instr->name == "cast") {
       auto arg = instr->getOperand(0);
-      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (instr->name == "rd_stream") {
       auto arg = instr->getOperand(0);
-      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (instr->name == "stencil_read") {
       auto arg = instr->getOperand(0);
-
-      //def->connect(unit->sel("in"), m.valueAt(arg, stageNo));
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (starts_with(instr->name, "create_stencil")) {
       auto srcStencil = instr->getOperand(0);
@@ -2619,8 +2614,6 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("in_stencil"), m.valueAtStart(srcStencil, instr));
       def->connect(unit->sel("new_val"), m.valueAtStart(newVal, instr));
 
-      //def->connect(unit->sel("in_stencil"), m.valueAt(srcStencil, stageNo));
-      //def->connect(unit->sel("new_val"), m.valueAt(newVal, stageNo));
     } else if (instr->name == "write_stream") {
       auto strm = instr->getOperand(0);
       auto stencil = instr->getOperand(1);
@@ -2641,15 +2634,9 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
       def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
 
-      //def->connect(unit->sel("in1"), m.valueAt(instr->getOperand(1), stageNo));
-      //def->connect(unit->sel("in0"), m.valueAt(instr->getOperand(0), stageNo));
     } else if (instr->name == "load") {
       int portNo = instr->getOperand(0)->toInt();
-      //cout << "Stage number of load: " << *instr << " is " << stageNo << endl;
-
       def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
-      //internal_assert(false);
-      //def->connect(unit->sel("raddr")->sel(portNo), m.valueAt(instr->getOperand(2), stageNo));
       def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
 
     } else {
@@ -3117,7 +3104,6 @@ std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo
     cout << "\twrName = " << wrName << endl;
     if (wrName == name) {
       users.insert(exprString(wr.first->args[0]));
-      //users.insert(wrName);
     }
   }
   return users;
@@ -3137,14 +3123,29 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
   return toInts(map_get(user, info.streamParams));
 }
 
+template<typename T>
+set<HWInstr*> allVarUsers(const std::string& name, const T& program) {
+  set<HWInstr*> users;
+  for (auto instr : program) {
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_VAR) {
+        if (op->name == name) {
+          users.insert(instr);
+        }
+      }
+    }
+  }
+  return users;
+}
+
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // We do not currently handle multiple instruction groups
-  if (instrGroups.size() != 1) {
-    return;
-  }
+  //if (instrGroups.size() != 1) {
+    //return;
+  //}
   // With multiple blocks:
   // - For each stencil:
   // - Find all provides for that stencil. Find all places where that stencil might have been set
@@ -3157,6 +3158,20 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       stencilDecls[target] = instr;
     }
   }
+
+  cout << "Provides..." << endl;
+  for (auto p : provides) {
+    cout << "\t" << p.first << endl;
+    for (auto c : p.second) {
+      cout << "\t\t" << *c << endl;
+    }
+    set<HWInstr*> users = allVarUsers(p.first, f.structuredOrder());
+    cout << "\tUsers of: " << p.first << endl;
+    for (auto u : users) {
+      cout << "\t\t" << *u << endl;
+    }
+  }
+  internal_assert(false) << "Stopping so dillon can view\n";
 
   std::map<std::string, HWInstr*> initProvides;
   cout << "Provides" << endl;
