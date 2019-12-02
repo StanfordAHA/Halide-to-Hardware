@@ -134,6 +134,55 @@ void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWIns
   }
 }
 
+template<typename T>
+std::set<HWInstr*> allValuesDefined(const T& program) {
+  set<HWInstr*> vars;
+  for (auto instr : program) {
+    vars.insert(instr);
+  }
+  return vars;
+}
+
+template<typename T>
+std::set<HWInstr*> allValuesUsed(const T& program) {
+  set<HWInstr*> vars;
+  for (auto instr : program) {
+    for (auto op : instr->operands) {
+      vars.insert(op);
+    }
+  }
+  return vars;
+}
+
+template<typename T>
+std::set<HWInstr*> allVarsUsed(const T& program) {
+  set<HWInstr*> vars;
+  for (auto v : allValuesUsed(program)) {
+    if (v->tp == HWINSTR_TP_VAR) {
+      vars.insert(v);
+    }
+  }
+  return vars;
+}
+
+HWInstr* head(const std::vector<HWInstr*>& instrs) {
+  internal_assert(instrs.size() > 0);
+  return instrs[0];
+}
+
+std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
+  vector<string> names;
+  for (auto l : head(instrs)->surroundingLoops) {
+    names.push_back(l.name);
+  }
+  return names;
+}
+
+int numLoops(const std::vector<HWInstr*>& instrs) {
+  internal_assert(instrs.size() > 0);
+  return instrs[0]->surroundingLoops.size();
+}
+
 std::string coreirSanitize(const std::string& str) {
   string san = "";
   for (auto c : str) {
@@ -2027,11 +2076,6 @@ vector<int> getStreamDims(const std::string& str, StencilInfo& info) {
 }
 
 class UnitMapping {
-  protected:
-    // Closed form of unit mapping would be a map from
-    // - HWInstrs that appear in the program to maps from Instructions to selects
-    // - Note that values that are defined in more than one place (conv.stencil in a reduce) will
-    //   need a mux output as their value at some locations
   public:
 
     std::map<HWInstr*, std::map<HWInstr*, CoreIR::Wireable*> > hwStartValues;
@@ -2365,6 +2409,14 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
     defStage++;
   }
 
+  // Constants and pre-bound instructions / variables
+  // are always bound to the same wire
+  //
+  // Local variables can be bound at any place where they are provided
+  // Loop index variables are trickier because they are bound to the output of a counter
+  // at some location, but then they are defined somewhere else
+
+
   for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
@@ -2466,7 +2518,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   for (auto instr : sched.body()) {
     if (m.hasOutput(instr)) {
       auto fstVal = m.valueAtEnd(instr, instr);
-      //CoreIR::map_find(instr, m.instrValues);
       int prodStage = m.getEndTime(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
@@ -2797,55 +2848,6 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   auto cpy = f.structuredOrder();
   auto sched = asapSchedule(cpy);
   return sched;
-}
-
-template<typename T>
-std::set<HWInstr*> allValuesDefined(const T& program) {
-  set<HWInstr*> vars;
-  for (auto instr : program) {
-    vars.insert(instr);
-  }
-  return vars;
-}
-
-template<typename T>
-std::set<HWInstr*> allValuesUsed(const T& program) {
-  set<HWInstr*> vars;
-  for (auto instr : program) {
-    for (auto op : instr->operands) {
-      vars.insert(op);
-    }
-  }
-  return vars;
-}
-
-template<typename T>
-std::set<HWInstr*> allVarsUsed(const T& program) {
-  set<HWInstr*> vars;
-  for (auto v : allValuesUsed(program)) {
-    if (v->tp == HWINSTR_TP_VAR) {
-      vars.insert(v);
-    }
-  }
-  return vars;
-}
-
-HWInstr* head(const std::vector<HWInstr*>& instrs) {
-  internal_assert(instrs.size() > 0);
-  return instrs[0];
-}
-
-std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
-  vector<string> names;
-  for (auto l : head(instrs)->surroundingLoops) {
-    names.push_back(l.name);
-  }
-  return names;
-}
-
-int numLoops(const std::vector<HWInstr*>& instrs) {
-  internal_assert(instrs.size() > 0);
-  return instrs[0]->surroundingLoops.size();
 }
 
 FunctionSchedule buildFunctionSchedule(HWFunction& f) {
