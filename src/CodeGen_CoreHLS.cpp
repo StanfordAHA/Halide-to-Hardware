@@ -155,6 +155,18 @@ std::set<HWInstr*> allValuesUsed(const T& program) {
 }
 
 template<typename T>
+HWInstr* getUser(HWInstr* op, const T& program) {
+  for (auto instr : program) {
+    for (auto v : instr->operands) {
+      if (v == op) {
+        return instr;
+      }
+    }
+  }
+  return nullptr;
+}
+
+template<typename T>
 std::set<HWInstr*> allVarsUsed(const T& program) {
   set<HWInstr*> vars;
   for (auto v : allValuesUsed(program)) {
@@ -2456,7 +2468,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Created functional units" << endl;
 
   auto& instrValues = m.instrValues;
- 
+
   for (auto op : allVarsUsed(sched.body())) {
     string name = op->name;
 
@@ -2469,24 +2481,20 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       internal_assert(!f.isLocalVariable(name)) << name << " is a local variable, but we are selecting it from self\n";
       val = self->sel(coreirSanitize(name));
       internal_assert(val != nullptr);
-      
+
       m.valueIsAlways(op, val);
       instrValues[op] = val;
     }
   }
 
-  std::set<std::string> pipeVars;
-  for (auto instr : sched.body()) {
-    for (auto op : instr->operands) {
-      if (op->tp == HWINSTR_TP_VAR) {
-        //cout << "Wiring up var..." << op->compactString() << endl;
-        string name = op->name;
-        if (CoreIR::elem(name, pipeVars)) {
-          continue;
-        }
-        pipeVars.insert(name);
+  for (auto op : allVarsUsed(sched.body())) {
+    if (op->tp == HWINSTR_TP_VAR) {
+      //cout << "Wiring up var..." << op->compactString() << endl;
+      string name = op->name;
 
-        if (f.isLoopIndexVar(name)) {
+      if (f.isLoopIndexVar(name)) {
+        auto instr = getUser(op, sched.body());
+        if (instr != nullptr) {
           auto val = controlPath->sel(coreirSanitize(name));
           instrValues[op] = val;
           if (val->getType()->isOutput()) {
@@ -2505,13 +2513,13 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
               }
             }
           }
-        } else {
-          // Do nothing
         }
+      } else {
+        // Do nothing
       }
     }
   }
- 
+
   int uNum = 0;
   for (auto instr : sched.body()) {
     for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
