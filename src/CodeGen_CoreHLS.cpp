@@ -2912,6 +2912,19 @@ std::set<HWInstr*> instrsUsedBy(HWInstr* instr) {
   return instrs;
 }
 
+std::set<HWInstr*> dependencies(HWInstr* toSchedule,
+    map<HWInstr*, vdisc> iNodes,
+    DirectedGraph<HWInstr*, int>& depGraph) {
+  set<HWInstr*> deps;
+  auto v = map_find(toSchedule, iNodes);
+  auto inEdges = depGraph.inEdges(v);
+  for (auto e : inEdges) {
+    auto src = depGraph.source(e);
+    deps.insert(depGraph.getNode(src));
+  }
+  return deps;
+}
+
 HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   HWLoopSchedule sched;
   sched.body = instrs;
@@ -2934,8 +2947,27 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_INSTR) {
         if (contains_key(op, iNodes)) {
-          auto depV = map_get(op, iNodes);
-          blockGraph.addEdge(depV, v);
+          if (instr->name == "phi") {
+            bool definedBefore = false;
+            for (auto iVal : instrs) {
+              if (*iVal == *op) {
+                definedBefore = true;
+                break;
+              }
+              if (*iVal == *instr) {
+                break;
+              }
+            }
+            if (definedBefore) {
+              auto depV = map_get(op, iNodes);
+              blockGraph.addEdge(depV, v);
+            } else {
+              cout << "Not adding " << *op << " as dependence of " << *instr << " because it finishes lexically later" << endl;
+            }
+          } else {
+            auto depV = map_get(op, iNodes);
+            blockGraph.addEdge(depV, v);
+          }
         } else {
           // The dependence is on an instruction outside of the given set of instructions,
           // which is assumed to have completed before this instruction block begins
@@ -2964,7 +2996,8 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     //cout << "\tRemain = " << remaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
-      std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
+      //std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
+      std::set<HWInstr*> deps = dependencies(toSchedule, iNodes, blockGraph);
       cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
         cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
@@ -3509,7 +3542,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   cout << "After cleanup..." << endl;
   cout << f << endl;
-  internal_assert(false) << "Stopping here so dillon can view\n";
+  //internal_assert(false) << "Stopping here so dillon can view\n";
 }
 
 std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
