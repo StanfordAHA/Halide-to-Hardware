@@ -2460,21 +2460,19 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   for (auto op : allVarsUsed(sched.body())) {
     string name = op->name;
 
-    cout << "Finding argument value for " << name << endl;
-    auto self = def->sel("self");
+    if (!f.isLocalVariable(name)) {
+      cout << "Finding argument value for " << name << endl;
+      auto self = def->sel("self");
 
-    Wireable* val = nullptr;
-    if (f.isLoopIndexVar(name)) {
-      val = controlPath->sel(coreirSanitize(name));
-    } else {
+      Wireable* val = nullptr;
       cout << "Checking if " << name << " is local" << endl;
       internal_assert(!f.isLocalVariable(name)) << name << " is a local variable, but we are selecting it from self\n";
       val = self->sel(coreirSanitize(name));
+      internal_assert(val != nullptr);
+      
       m.valueIsAlways(op, val);
+      instrValues[op] = val;
     }
-    internal_assert(val != nullptr);
-
-    instrValues[op] = val;
   }
 
   std::set<std::string> pipeVars;
@@ -2489,7 +2487,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         pipeVars.insert(name);
 
         if (f.isLoopIndexVar(name)) {
-          auto val = map_find(op, instrValues);
+          auto val = controlPath->sel(coreirSanitize(name));
+          instrValues[op] = val;
           if (val->getType()->isOutput()) {
             for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
               m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
