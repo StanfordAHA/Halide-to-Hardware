@@ -2803,9 +2803,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
+  cout << "Wired up non local variables" << endl;
+
   for (auto op : allVarsUsed(sched.body())) {
     if (op->tp == HWINSTR_TP_VAR) {
-      //cout << "Wiring up var..." << op->compactString() << endl;
+      cout << "Wiring up var..." << op->compactString() << endl;
       string name = op->name;
 
       if (f.isLoopIndexVar(name)) {
@@ -2836,6 +2838,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
+  cout << "Populating pipeline registers..." << endl;
   int uNum = 0;
   for (auto instr : sched.body()) {
     for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
@@ -2846,6 +2849,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
+  cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto instr : sched.body()) {
     if (m.hasOutput(instr)) {
