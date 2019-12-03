@@ -93,6 +93,15 @@ int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
   return -1;
 }
 
+void HWFunction::insertAfter(HWInstr* pos, HWInstr* newInstr) {
+  for (auto blk : blocks) {
+    if (elem(pos, blk->instrs)) {
+      int position = instructionPosition(pos, blk->instrs);
+      assert(position >= 0);
+      Halide::Internal::insert(blk->instrs, position + 1, newInstr);
+    }
+  }
+}
 void HWFunction::insertAt(HWInstr* pos, HWInstr* newInstr) {
   for (auto blk : blocks) {
     if (elem(pos, blk->instrs)) {
@@ -5476,8 +5485,36 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   set<HWInstr*> delayInsertionSites;
   for (auto instr : f.structuredOrder()) {
     if (hwInfo.criticalPath(instr->name) > (cp / 3)) {
-      internal_assert(false) << "found operation: " << *instr << ", which must be registered\n";
+      delayInsertionSites.insert(instr);
     }
+  }
+
+  std::map<HWInstr*, HWInstr*> delayRegister;
+  for (auto s : delayInsertionSites) {
+    auto delay = f.newI();
+    delay->name = "delay";
+    delay->surroundingLoops = s->surroundingLoops;
+    delay->resType = f.mod->getContext()->Bit()->Arr(16);
+    delayRegister[s] = delay;
+  }
+
+  for (auto s : delayRegister) {
+    f.insertAfter(s.first, s.second);
+    //f.replaceAllUsesWith(s.first, s.second);
+  }
+
+  for (auto s : delayRegister) {
+    s.second->operands.push_back(s.first);
+  }
+
+  // Now: For each delay register: insert it after its replacement
+  // then: replace all uses of target with delay register
+  // then: connect each delay
+
+  if (delayRegister.size() > 0) {
+    cout << "Function after delay register insertion..." << endl;
+    cout << f << endl;
+    internal_assert(false);
   }
 }
 
