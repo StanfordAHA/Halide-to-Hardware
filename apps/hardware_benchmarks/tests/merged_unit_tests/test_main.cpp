@@ -12,6 +12,8 @@
 #include <fstream>
 #include "test_utils.h"
 
+#define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
+
 using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
@@ -146,6 +148,7 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
 
 
 }
+
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
   runHWKernel("self.in_arg_0_0_0", m, hwInputBuf, outputBuf);
@@ -158,7 +161,7 @@ CoreIR::Context* hwContext() {
   return context;
 }
 
-CoreIR::Module* buildModule(bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+CoreIR::Module* buildModule(Halide::Internal::HardwareInfo& info, bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
   if (!useUbuffer) {
@@ -172,7 +175,6 @@ CoreIR::Module* buildModule(bool useUbuffer, CoreIR::Context* context, const std
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
     f.body.accept(&gen);
   }
-  //hwOutput.compile_to_coreir(name, args, fName, t);
 
   if (!loadFromFile(context, "./conv_3_3_app.json")) {
     cout << "Error: Could not load json for unit test!" << endl;
@@ -185,8 +187,16 @@ CoreIR::Module* buildModule(bool useUbuffer, CoreIR::Context* context, const std
   return m;
 }
 
+CoreIR::Module* buildModule(const bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  Halide::Internal::HardwareInfo info;
+  info.hasCriticalPathTarget = false;
+  return buildModule(info, useUbuffer, context, name, args, fName, hwOutput);
+}
+
 CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
-  return buildModule(false, context, name, args, fName, hwOutput);
+  Halide::Internal::HardwareInfo info;
+  info.hasCriticalPathTarget = false;
+  return buildModule(info, false, context, name, args, fName, hwOutput);
 }
 
 template<typename T>
@@ -1580,9 +1590,138 @@ void small_conv_3_3_not_unrolled_test() {
   assert(false);
 }
 
+void small_conv_3_3_critical_path_test() {
+  ImageParam input(type_of<uint8_t>(), 2);
+  Func output;
+
+  Var x("x"), y("y");
+
+  Func kernel("kernel");
+  Func conv("conv");
+  RDom r(0, 3,
+      0, 3);
+
+  kernel(x,y) = 0;
+  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+
+  conv(x, y) = 0;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(conv(x, y));
+  output(x, y) = hw_output(x,y);
+
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  int inTileSize = 4;
+  int outTileSize = inTileSize - 2;
+
+  hw_output.bound(x, 0, outTileSize);
+  hw_output.bound(y, 0, outTileSize);
+
+  output.bound(x, 0, outTileSize);
+  output.bound(y, 0, outTileSize);
+
+  // Creating input data
+  Halide::Buffer<uint8_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(4, 4, 1);
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      for (int b = 0; b < 1; b++) {
+        inputBuf(i, j, b) = i + j*2;
+        hwInputBuf(i, j, b) = inputBuf(i, j, b);
+      }
+    }
+  }
+ 
+  // Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(2, 2);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  
+  Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+  
+  int tileSize = 4;
+  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
+    .hw_accelerate(xi, xo);
+
+  kernel.compute_at(hw_output, xo)
+    .unroll(x).unroll(y);
+
+  conv.update()
+    .unroll(r.x, 3)
+    .unroll(r.y, 3);
+  conv.linebuffer();
+
+  hw_input.stream_to_accelerator();
+
+  // Generate CoreIR
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  cout << "Module = " << endl;
+  m->print();
+
+  SimulatorState state(m);
+  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  state.setClock("self.clk", 0, 1);
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
+  
+
+  std::string inputName = "self.in_arg_0_0_0";
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+
+  compare_buffers(outputBuf, cpuOutput);
+  //cout << "final buffer" << endl;
+  //for (int i = 0; i < 2; i++) {
+    //for (int j = 0; j < 2; j++) {
+      //for (int b = 0; b < 1; b++) {
+        //cout << (int) outputBuf(i, j, b) << " ";
+        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      //}
+    //}
+    //cout << endl;
+  //}
+  deleteContext(context);
+ 
+  PRINT_PASSED("Conv 3x3 with critical path test passed");
+  assert(false);
+}
+
 void small_conv_3_3_test() {
   ImageParam input(type_of<uint8_t>(), 2);
-  //ImageParam output(type_of<uint8_t>(), 2);
   Func output;
 
   Var x("x"), y("y");
@@ -2508,7 +2647,6 @@ void simple_unsharp_test() {
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
 }
 
-#define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
 
 void different_latency_kernels_test() {
   ImageParam input(type_of<uint8_t>(), 2);
@@ -3059,6 +3197,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
+  small_conv_3_3_critical_path_test();
   //small_conv_3_3_not_unrolled_test();
   control_path_test();
   control_path_xy_test();
