@@ -19,6 +19,13 @@ namespace Internal {
       int criticalPathTarget;
       // Technology library
       Techlib techlib;
+
+      int criticalPath(const std::string& opname) const {
+        if (techlib.criticalPath.count(opname) > 0) {
+          return techlib.criticalPath.at(opname);
+        }
+        return 0;
+      }
   };
 
 

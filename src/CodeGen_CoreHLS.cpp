@@ -5465,8 +5465,20 @@ void flattenExcluding(CoreIR::Context* c, vector<string>& generatorNames) {
   }
 }
 
+// Heuristic method to hit the critical path: Add a register in front of
+// every operation that has a critical path that is "large", meaning at
+// least 1/3 of the critical path in this case
 void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
-
+  if (!hwInfo.hasCriticalPathTarget) {
+    return;
+  }
+  int cp = hwInfo.criticalPathTarget;
+  set<HWInstr*> delayInsertionSites;
+  for (auto instr : f.structuredOrder()) {
+    if (hwInfo.criticalPath(instr->name) > (cp / 3)) {
+      internal_assert(false) << "found operation: " << *instr << ", which must be registered\n";
+    }
+  }
 }
 
 // Now: Need to print out arguments and their info, actually use the arguments to form
