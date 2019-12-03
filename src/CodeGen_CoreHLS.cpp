@@ -424,6 +424,24 @@ IBlock loopTail(const IBlock& blk, HWFunction& f) {
   return blk;
 }
 
+IBlock nextBlock(const IBlock& blk, HWFunction& f) {
+  internal_assert(!isEntry(blk, f));
+
+  auto blks = getIBlockList(f);
+  if (blk == blks[0]) {
+    return IBlock(true);
+  }
+
+  for (int i = 0; i < ((int) blks.size()) - 1; i++) {
+    if (blks[i] == blk) {
+      return blks[i + 1];
+    }
+  }
+
+  internal_assert(false);
+  return blk;
+}
+
 IBlock priorBlock(const IBlock& blk, HWFunction& f) {
   internal_assert(!isEntry(blk, f));
 
@@ -2802,21 +2820,72 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   return m;
 }
 
+IBlock containerBlock(HWInstr* instr, HWFunction& f) {
+  for (auto b : getIBlocks(f)) {
+    if (elem(instr, b.instrs)) {
+      return b;
+    }
+  }
+
+  internal_assert(false);
+  return *(begin(getIBlocks(f)));
+}
+
+Expr loopLatency(const std::vector<std::string>& prefixVars, const IBlock& blk, FunctionSchedule& sched) {
+  return 0;
+}
+
+IBlock innermostLoopContainerHeader(HWInstr* instr, HWFunction& f) {
+  auto blk = containerBlock(instr, f);
+  for (auto possibleHeader : getIBlocks(f)) {
+    if (isHeader(possibleHeader, f) && loopNames(possibleHeader) == loopNames(blk)) {
+      return possibleHeader;
+    }
+  }
+  internal_assert(false);
+  return blk;
+}
+
+Expr delayFromIterationStartToInstr(HWInstr* instr, FunctionSchedule& sched) {
+  auto& f = *(sched.f);
+  IBlock header = innermostLoopContainerHeader(instr, f);
+  IBlock container = containerBlock(instr, f);
+
+  internal_assert(loopNames(header) == loopNames(container));
+
+  Expr delay = 0;
+  IBlock activeBlock = header;
+  vector<string> excludedVars = loopNames(header);
+  while (activeBlock != container) {
+    delay += loopLatency(excludedVars, activeBlock, sched);
+    activeBlock = nextBlock(activeBlock, f);
+  }
+  return delay;
+}
+
 Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
+  // What is the container iteration start time?
+  // Time from root of the program to the x, yth iteration of the loop containing this
+  // expression
   Expr s = 0;
+  // Assume initiation interval of 1
   for (auto lp : instr->surroundingLoops) {
-    s += 2*Variable::make(Int(16), lp.name);
+    s += 1*Variable::make(Int(32), lp.name);
   }
   return s;
 }
 
+// Actually we also need to add the time from the container loop nest to the current block?
+// which is the sum of the execution times of all inner loops
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
   Expr cs = containerIterationStart(instr, sched);
+  Expr bd = delayFromIterationStartToInstr(instr, sched);
   return cs + sched.getEndStage(instr);
 }
 
 Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   Expr cs = containerIterationStart(instr, sched);
+  Expr bd = delayFromIterationStartToInstr(instr, sched);
   return cs + sched.getStartStage(instr);
 }
 
