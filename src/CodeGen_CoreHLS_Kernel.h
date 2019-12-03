@@ -3,7 +3,7 @@
 
 #include <sstream>
 
-#include "HWTechlib.h"
+#include "HWTechLib.h"
 #include "IRVisitor.h"
 #include "Module.h"
 #include "Scope.h"
