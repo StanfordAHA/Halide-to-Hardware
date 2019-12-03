@@ -2089,6 +2089,23 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
 void valueConvertProvides(StencilInfo& info, HWFunction& f);
 
 void removeWriteStreamArgs(StencilInfo& info, HWFunction& f);
+void addDynamicStencilReads(HWFunction& f) {
+  for (auto instr : f.structuredOrder()) {
+    if (instr->name == "stencil_read") {
+      bool allConstant = true;
+      for (size_t i = 1; i < instr->operands.size(); i++) {
+        if (instr->getOperand(i)->tp != HWINSTR_TP_CONST) {
+          allConstant = false;
+          break;
+        }
+      }
+
+      if (!allConstant) {
+        instr->name = "dynamic_stencil_read";
+      }
+    }
+  }
+}
 
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
@@ -2134,6 +2151,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   removeWriteStreamArgs(info, f);
   divToShift(f);
   modToShift(f);
+  addDynamicStencilReads(f);
   //cout << "After stream read conversion..." << endl;
   //for (auto instr : body) {
   //cout << "\t\t\t" << *instr << endl;
