@@ -761,232 +761,127 @@ std::vector<int> toInts(const std::vector<std::string>& strs) {
   return ints;
 }
 
-class ContainForLoop : public IRVisitor {
+//class ContainForLoop : public IRVisitor {
 
-  protected:
-    using IRVisitor::visit;
-    void visit(const For *op) override {
-      found = true;
-      varnames.push_back(op->name);
-    }
+  //protected:
+    //using IRVisitor::visit;
+    //void visit(const For *op) override {
+      //found = true;
+      //varnames.push_back(op->name);
+    //}
 
-public:
-  bool found;
-  vector<string> varnames;
-  ContainForLoop() : found(false) {}
-};
+//public:
+  //bool found;
+  //vector<string> varnames;
+  //ContainForLoop() : found(false) {}
+//};
 
-// identifies for loops in code statement
-bool contain_for_loop(Stmt s) {
-  ContainForLoop cfl;
-  s.accept(&cfl);
-  return cfl.found;
-}
+//// identifies for loops in code statement
+//bool contain_for_loop(Stmt s) {
+  //ContainForLoop cfl;
+  //s.accept(&cfl);
+  //return cfl.found;
+//}
 
-// Identifies for loop name in code statement.
-//  Gives name of first for loop
-string name_for_loop(Stmt s) {
-  ContainForLoop cfl;
-  s.accept(&cfl);
-  return cfl.varnames[0];
-}
+//// Identifies for loop name in code statement.
+////  Gives name of first for loop
+//string name_for_loop(Stmt s) {
+  //ContainForLoop cfl;
+  //s.accept(&cfl);
+  //return cfl.varnames[0];
+//}
 
-// Identifies all for loop names in code statement.
-vector<string> contained_for_loop_names(Stmt s) {
-  ContainForLoop cfl;
-  s.accept(&cfl);
-  return cfl.varnames;
-}
+//// Identifies all for loop names in code statement.
+//vector<string> contained_for_loop_names(Stmt s) {
+  //ContainForLoop cfl;
+  //s.accept(&cfl);
+  //return cfl.varnames;
+//}
 
 
-class UsesVariable : public IRVisitor {
-  using IRVisitor::visit;
-  void visit(const Variable *op) override {
-    if (op->name == varname) {
-      used = true;
-    }
-    return;
-  }
-
-  void visit(const Call *op) override {
-    // only go first two variables, not loop bound checks
-    if (op->name == "write_stream" && op->args.size() > 2) {
-      op->args[0].accept(this);
-      op->args[1].accept(this);
-    } else {
-      IRVisitor::visit(op);
-    }
-  }
-
-public:
-  bool used;
-  string varname;
-  UsesVariable(string varname) : used(false), varname(varname) {}
-};
-
-// identifies target variable string in code statement
-bool variable_used(Stmt s, string varname) {
-  UsesVariable uv(varname);
-  s.accept(&uv);
-  return uv.used;
-}
-
-class ROMInit : public IRVisitor {
-  using IRVisitor::visit;
-
-  bool is_const(const Expr e) {
-    if (e.as<IntImm>() || e.as<UIntImm>()) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  int id_const_value(const Expr e) {
-    if (const IntImm* e_int = e.as<IntImm>()) {
-      return e_int->value;
-
-    } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-      return e_uint->value;
-
-    } else {
-      return -1;
-    }
-  }
-  
-  void visit(const Store *op) override {
-    if (op->name == allocname) {
-      auto value_expr = op->value;
-      auto index_expr = op->index;
-      internal_assert(is_const(value_expr) && is_const(index_expr));
-
-      int index = id_const_value(index_expr);
-      int value = id_const_value(value_expr);
-      init_values["init"][index] = value;
-      //init_values["init"][index] = std::to_string(value);
-      //init_values["init"].emplace_back(std::to_string(value));
-    }
-  }
-
-public:
-  nlohmann::json init_values;
-  string allocname;
-  ROMInit(string allocname) : allocname(allocname) {}
-};
-
-// returns a map with all the initialization values for a rom
-nlohmann::json rom_init(Stmt s, string allocname) {
-  ROMInit rom_init(allocname);
-  s.accept(&rom_init);
-  return rom_init.init_values;
-}
-
-  
-//class AllocationUsage : public IRVisitor {
+//class UsesVariable : public IRVisitor {
   //using IRVisitor::visit;
-  //void visit(const Load *op) override {
-    //if (op->name == alloc_name) {
-      //num_loads++;
-      //load_index_exprs.emplace_back(op->index);
-      
-      //if (!is_const(op->index)) {
-        //uses_variable_load_index = true;
-      //}
+  //void visit(const Variable *op) override {
+    //if (op->name == varname) {
+      //used = true;
+    //}
+    //return;
+  //}
+
+  //void visit(const Call *op) override {
+    //// only go first two variables, not loop bound checks
+    //if (op->name == "write_stream" && op->args.size() > 2) {
+      //op->args[0].accept(this);
+      //op->args[1].accept(this);
+    //} else {
+      //IRVisitor::visit(op);
     //}
   //}
 
+//public:
+  //bool used;
+  //string varname;
+  //UsesVariable(string varname) : used(false), varname(varname) {}
+//};
+
+//// identifies target variable string in code statement
+//bool variable_used(Stmt s, string varname) {
+  //UsesVariable uv(varname);
+  //s.accept(&uv);
+  //return uv.used;
+//}
+
+//class ROMInit : public IRVisitor {
+  //using IRVisitor::visit;
+
+  //bool is_const(const Expr e) {
+    //if (e.as<IntImm>() || e.as<UIntImm>()) {
+      //return true;
+    //} else {
+      //return false;
+    //}
+  //}
+
+  //int id_const_value(const Expr e) {
+    //if (const IntImm* e_int = e.as<IntImm>()) {
+      //return e_int->value;
+
+    //} else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+      //return e_uint->value;
+
+    //} else {
+      //return -1;
+    //}
+  //}
+  
   //void visit(const Store *op) override {
-    //if (op->name == alloc_name) {
-      //num_stores++;
-      //store_index_exprs.emplace_back(op->index);
-      
-      //if (!is_const(op->index)) {
-        //uses_variable_store_index = true;
-      //}
-      //if (!is_const(op->value)) {
-        //uses_variable_store_value = true;
-      //}
+    //if (op->name == allocname) {
+      //auto value_expr = op->value;
+      //auto index_expr = op->index;
+      //internal_assert(is_const(value_expr) && is_const(index_expr));
 
+      //int index = id_const_value(index_expr);
+      //int value = id_const_value(value_expr);
+      //init_values["init"][index] = value;
+      ////init_values["init"][index] = std::to_string(value);
+      ////init_values["init"].emplace_back(std::to_string(value));
     //}
   //}
 
-
- //public:
-  //bool uses_variable_load_index;
-  //bool uses_variable_store_index;
-  //bool uses_variable_store_value;
-  //bool load_index_equals_store_index;
-  //uint num_loads;
-  //uint num_stores;
-  //vector<Expr> store_index_exprs;
-  //vector<Expr> load_index_exprs;
-  //string alloc_name;
-  
-  //AllocationUsage(string allocname) : uses_variable_load_index(false),
-                                      //uses_variable_store_index(false),
-                                      //uses_variable_store_value(false),
-                                      //load_index_equals_store_index(false),
-                                      //num_loads(0),
-                                      //num_stores(0),
-                                      //alloc_name(allocname) {}
+//public:
+  //nlohmann::json init_values;
+  //string allocname;
+  //ROMInit(string allocname) : allocname(allocname) {}
 //};
 
-//enum AllocationType {
-  //NO_ALLOCATION,
-  //INOUT_ALLOCATION,
-  //ROM_ALLOCATION,
-  //REGS_ALLOCATION,
-  //SRAM_ALLOCATION,
-  //RMW_ALLOCATION,
-  //UNKNOWN_ALLOCATION
-//};
-
-//AllocationType identify_allocation(Stmt s, string allocname) {
-  //AllocationUsage au(allocname);
-  //s.accept(&au);
-
-  //if (au.num_stores == 0 || au.num_loads == 0) {
-    //return INOUT_ALLOCATION;
-    
-  //} else if (!au.uses_variable_load_index &&
-             //!au.uses_variable_store_value) {
-    ////&& !au.uses_variable_store_value) {
-    //return NO_ALLOCATION;
-
-  //} else if (au.uses_variable_load_index &&
-             //!au.uses_variable_store_index &&
-             //!au.uses_variable_store_value) {
-    //return ROM_ALLOCATION;
-
-  //} else if (au.uses_variable_load_index &&
-             //au.uses_variable_store_index &&
-             //au.load_index_equals_store_index) {
-    //return RMW_ALLOCATION;
-
-  //} else if (au.uses_variable_load_index &&
-             //au.uses_variable_store_index &&
-             //!au.load_index_equals_store_index) {
-    //return SRAM_ALLOCATION;
-    
-  //} else {
-    //return UNKNOWN_ALLOCATION;
-  //}
-      
+//// returns a map with all the initialization values for a rom
+//nlohmann::json rom_init(Stmt s, string allocname) {
+  //ROMInit rom_init(allocname);
+  //s.accept(&rom_init);
+  //return rom_init.init_values;
 //}
+
   
-//bool variable_index_load(Stmt s, string allocname) {
-  //AllocationUsage au(allocname);
-  //s.accept(&au);
-  //return au.uses_variable_load_index;
-//}
-
-//bool can_use_rom(Stmt s, string allocname) {
-  //AllocationUsage au(allocname);
-  //s.accept(&au);
-  //return (!au.uses_variable_store_index &&
-          //!au.uses_variable_store_value);
-//}
-
 
 }
 
@@ -2366,9 +2261,9 @@ class UnitMapping {
 
     std::vector<HWInstr*> body;
 
-    //int getEndTime(HWInstr* instr) {
-      //return fSched.getEndTime(instr);
-    //}
+    int getEndTime(HWInstr* instr) {
+      return fSched.getEndTime(instr);
+    }
 
     //int getStartTime(HWInstr* instr) {
       //return fSched.getStartTime(instr);
@@ -2424,8 +2319,8 @@ class UnitMapping {
         return CoreIR::map_find(arg1, instrValues);
       }
 
-      //int producedStage = getEndTime(arg1);
-      int producedStage = fSched.getEndStage(arg1);
+      int producedStage = getEndTime(arg1);
+      //int producedStage = fSched.getEndStage(arg1);
 
       internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
       if (stageNo == producedStage) {
