@@ -1967,7 +1967,7 @@ class HWTransition {
 
 class FunctionSchedule {
   public:
-
+    HWFunction* f;
     map<HWInstr*, HWLoopSchedule> blockSchedules;
 
     std::vector<HWTransition> transitions;
@@ -1986,9 +1986,7 @@ class FunctionSchedule {
       return begin(blockSchedules)->second;
     }
 
-    // API for special case where the entire function is on
-    // basic block
-    //
+    // API for special case where the entire function is one basic block
     std::set<HWInstr*> instructionsStartingInStage(const int stage) {
       return onlySched().instructionsStartingInStage(stage);
     }
@@ -2003,7 +2001,8 @@ class FunctionSchedule {
     }
 
     std::vector<HWInstr*> body() {
-      return onlySched().body;
+      return f->structuredOrder();
+      //return onlySched().body;
     }
 
     
@@ -3153,6 +3152,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
   FunctionSchedule fSched;
+  fSched.f = &f;
   for (auto group : instrGroups) {
     HWLoopSchedule sched = asapSchedule(group);
     fSched.blockSchedules[head(group)] = sched;
