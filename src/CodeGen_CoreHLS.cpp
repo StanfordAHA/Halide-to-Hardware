@@ -3287,6 +3287,27 @@ class NestSchedule {
     }
 };
 
+int tripCountInt(const std::string& var, HWFunction& f) {
+  for (auto instr : f.allInstrs()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (lp.name == var) {
+        Expr tc = simplify(lp.extent);
+        return func_id_const_value(tc);
+      }
+    }
+  }
+  internal_assert(false);
+  return -1;
+}
+
+int headerLatencyInt(const std::string& name, HWFunction& f, FunctionSchedule& fSched) {
+  return 0;
+}
+
+int tailLatencyInt(const std::string& name, HWFunction& f, FunctionSchedule& fSched) {
+  return 0;
+}
+
 FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
@@ -3316,16 +3337,16 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   CoreIR::reverse(nestVars);
 
   vector<NestSchedule> schedules;
-  // TODO: Actually compute these
-  int tc0 = 3;
-  int latency0 = 1;
+  int tc0 = tripCountInt(nestVars[0], f);
+  int latency0 = fSched.getScheduleFor(head(deepest)).cycleLatency();
   schedules.push_back({nestVars[0], 1, latency0, tc0});
+
   for (int i = 1; i < (int) nestVars.size(); i++) {
     // Create nest schedule
 
-    int tc = 3;
-    int headerLatency = 0;
-    int tailLatency = 0;
+    int tc = tripCountInt(nestVars[i], f);
+    int headerLatency = headerLatencyInt(nestVars[i], f, fSched);
+    int tailLatency = tailLatencyInt(nestVars[i], f, fSched);
     int II = headerLatency + schedules.back().completionTime() + tailLatency;
     int L = II; // Execute outer loops sequentially;
 
