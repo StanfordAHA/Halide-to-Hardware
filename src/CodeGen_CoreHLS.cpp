@@ -2813,8 +2813,17 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   // This should be removed and it should be replaced with valid signals wired up
   // from the write stream output of the kernel, whose delay is by construction equal
   // to the number of stages in the design
+  // New algo: Collect read and write instructions
+  // then check that they are all in the same loop level
+  // check that all reads are in the same schedule position
+  // then find the gap between a read instance and a write instance
+  // (this gap should be constant if they are all in the same loop level)
+  // then create the delay that is needed
+  cout << "Wiring up enables" << endl;
+  int validDelay = sched.numStages() - 1;
+  cout << "Got valid delay" << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
-  for (int i = 0; i < sched.numStages() - 1; i++) {
+  for (int i = 0; i < validDelay; i++) {
     auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
     def->connect(inEn, vR->sel("in"));
     inEn = vR->sel("out");
