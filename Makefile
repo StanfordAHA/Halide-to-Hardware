@@ -626,6 +626,7 @@ HEADER_FILES = \
   Generator.h \
   HexagonOffload.h \
   HexagonOptimize.h \
+  HWTechlib.h \
   ImageParam.h \
   InferArguments.h \
   InjectHostDevBufferCopies.h \

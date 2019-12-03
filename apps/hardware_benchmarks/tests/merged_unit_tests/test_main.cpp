@@ -173,6 +173,7 @@ CoreIR::Module* buildModule(Halide::Internal::HardwareInfo& info, bool useUbuffe
   for (auto f : hm.functions()) {
     cout << "Generating coreir for function " << f.name << endl;
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
+    gen.info = info;
     f.body.accept(&gen);
   }
 
@@ -1668,7 +1669,12 @@ void small_conv_3_3_critical_path_test() {
   // Generate CoreIR
   auto context = hwContext();
   vector<Argument> args{input};
-  auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  Halide::Internal::HardwareInfo info;
+  info.techlib.criticalPath["mul"] = 100;
+  info.techlib.criticalPath["add"] = 100;
+  info.hasCriticalPathTarget = true;
+  info.criticalPathTarget = 150;
+  auto m = buildModule(info, false, context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
   cout << "Module = " << endl;
   m->print();
 
@@ -1704,16 +1710,6 @@ void small_conv_3_3_critical_path_test() {
   }
 
   compare_buffers(outputBuf, cpuOutput);
-  //cout << "final buffer" << endl;
-  //for (int i = 0; i < 2; i++) {
-    //for (int j = 0; j < 2; j++) {
-      //for (int b = 0; b < 1; b++) {
-        //cout << (int) outputBuf(i, j, b) << " ";
-        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
-      //}
-    //}
-    //cout << endl;
-  //}
   deleteContext(context);
  
   PRINT_PASSED("Conv 3x3 with critical path test passed");

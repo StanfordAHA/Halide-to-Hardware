@@ -1,6 +1,7 @@
 #ifndef HALIDE_CODEGEN_COREHLS_H
 #define HALIDE_CODEGEN_COREHLS_H
 
+#include "HWTechlib.h"
 #include "IR.h"
 #include "PreprocessHWLoops.h"
 
@@ -277,6 +278,7 @@ struct CoreIR_Argument;
     void loadHalideLib(CoreIR::Context* context);
     
     CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
+        HardwareInfo& info,
         Stmt stmt,
         const std::string& name,
         const std::vector<CoreIR_Argument>& args);

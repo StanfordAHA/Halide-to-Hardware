@@ -5468,6 +5468,7 @@ void flattenExcluding(CoreIR::Context* c, vector<string>& generatorNames) {
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
     Stmt stmt,
     const std::string& name,
     const vector<CoreIR_Argument>& args) {

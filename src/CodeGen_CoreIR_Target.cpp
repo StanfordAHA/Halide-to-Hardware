@@ -678,10 +678,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     return;
   } else {
     global_ns = context->getNamespace("global");
-    design = createCoreIRForStmt(context, stmt, name, args);
+    HardwareInfo info;
+    info.hasCriticalPathTarget = false;
+    design = createCoreIRForStmt(context, info, stmt, name, args);
     def = design->getDef();
-    //design = global_ns->newModuleDecl("DesignTop", design_type);
-    //design->print();
     self = def->sel("self");
     return;
   }

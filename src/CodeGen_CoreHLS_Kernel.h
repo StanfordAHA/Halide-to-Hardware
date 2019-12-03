@@ -3,6 +3,7 @@
 
 #include <sstream>
 
+#include "HWTechlib.h"
 #include "IRVisitor.h"
 #include "Module.h"
 #include "Scope.h"
@@ -10,19 +11,6 @@
 
 namespace Halide {
 namespace Internal {
-
-  class Techlib {
-    public:
-      std::map<std::string, int> cycleLatency;
-      std::map<std::string, int> criticalPath;
-  };
-
-  class HardwareInfo {
-    public:
-      bool hasCriticalPathTarget;
-      int criticalPathTarget;
-      Techlib lib;
-  };
 
   class CodeGen_CoreHLS_Kernel : public IRGraphVisitor {
     public:
