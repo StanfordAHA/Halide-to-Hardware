@@ -3566,6 +3566,10 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         instr->resType = instr->getOperand(0)->resType;
         internal_assert(instr->resType != nullptr);
       }
+      if (elem(instr, provideReplacementSet)) {
+        instr->resType = instr->getOperand(0)->resType;
+        internal_assert(instr->resType != nullptr);
+      }
     }
     // Now: find all reverse phis
     for (auto blk : getIBlocks(f)) {
