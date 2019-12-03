@@ -3275,6 +3275,18 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
+class NestSchedule {
+  public:
+    string name;
+    int II;
+    int L;
+    int TC;
+
+    int completionTime() const {
+      return (II*(TC - 1)) + L;
+    }
+};
+
 FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
@@ -3285,6 +3297,49 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     fSched.blockSchedules[head(group)] = sched;
   }
 
+  // Compute IIs here
+  // How? first find loop variable order or the instruction with largest
+  // number of loop variables
+  // Then: iterate backward over this loop variable set computing IIs?
+
+  IBlock deepest(true);
+  for (auto blk : getIBlocks(f)) {
+    if (loopNames(blk).size() >= loopNames(deepest).size()) {
+      deepest = blk;
+    }
+  }
+
+  cout << "Deepest loop nest block:" << endl;
+  cout << deepest << endl;
+
+  vector<string> nestVars = loopNames(deepest);
+  CoreIR::reverse(nestVars);
+
+  vector<NestSchedule> schedules;
+  // TODO: Actually compute these
+  int tc0 = 3;
+  int latency0 = 1;
+  schedules.push_back({nestVars[0], 1, latency0, tc0});
+  for (int i = 1; i < (int) nestVars.size(); i++) {
+    // Create nest schedule
+
+    int tc = 3;
+    int headerLatency = 0;
+    int tailLatency = 0;
+    int II = headerLatency + schedules.back().completionTime() + tailLatency;
+    int L = II; // Execute outer loops sequentially;
+
+    schedules.push_back({nestVars[i], II, L, tc});
+  }
+  cout << "Nest schedules..." << endl;
+  for (auto sched : schedules) {
+    cout << "\t" << sched.name << endl;
+    cout << "\t\tII = " << sched.II << endl;
+    cout << "\t\tTC = " << sched.TC << endl;
+    cout << "\t\tL  = " << sched.L << endl;
+    cout << "\t\tC  = " << sched.completionTime() << endl;
+  }
+  internal_assert(false);
   internal_assert(fSched.blockSchedules.size() > 0);
 
   if (f.allInstrs().size() == 0) {
