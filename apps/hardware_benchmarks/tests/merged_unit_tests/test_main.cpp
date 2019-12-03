@@ -1713,7 +1713,6 @@ void small_conv_3_3_critical_path_test() {
   deleteContext(context);
  
   PRINT_PASSED("Conv 3x3 with critical path test passed");
-  assert(false);
 }
 
 void small_conv_3_3_test() {

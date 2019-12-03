@@ -2638,6 +2638,13 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         auto sel = def->addInstance("phi" + std::to_string(defStage), "halidehw.passthrough", {{"type", COREMK(context, instr->resType)}});
         instrValues[instr] = sel->sel("out");
         unitMapping[instr] = sel;
+      } else if (name == "delay") {
+        auto tp = instr->resType;
+        internal_assert(tp != nullptr);
+        auto rname = "delay_reg_" + context->getUnique();
+        Instance* inst = pipelineRegister(context, def, rname, tp);
+        unitMapping[instr] = inst;
+        instrValues[instr] = inst->sel("out");
       } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
@@ -2688,7 +2695,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   UnitMapping m;
   m.fSched = sched;
   m.body = sched.body();
-  cout << "Creating unit mapping for " << def->getModule()->getName() << endl;
+  cout << "Creating unit mapping for " << def->getModule()->getName() << "\n";
   createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
   cout << "Created functional units" << endl;
 
@@ -2816,7 +2823,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body()) {
-    internal_assert(CoreIR::contains_key(instr, unitMapping));
+    internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit mapping for " << *instr << "\n";
     CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
     if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
@@ -2829,6 +2836,9 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("in1"), m.valueAtStart(arg1, instr));
 
     } else if (instr->name == "abs") {
+      auto arg = instr->getOperand(0);
+      def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+    } else if (instr->name == "delay") {
       auto arg = instr->getOperand(0);
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (instr->name == "cast") {
@@ -5493,6 +5503,7 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   for (auto s : delayInsertionSites) {
     auto delay = f.newI();
     delay->name = "delay";
+    delay->latency = 1;
     delay->surroundingLoops = s->surroundingLoops;
     delay->resType = f.mod->getContext()->Bit()->Arr(16);
     delayRegister[s] = delay;
@@ -5514,7 +5525,7 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   if (delayRegister.size() > 0) {
     cout << "Function after delay register insertion..." << endl;
     cout << f << endl;
-    internal_assert(false);
+    //internal_assert(false);
   }
 }
 
