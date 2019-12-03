@@ -2005,6 +2005,10 @@ class FunctionSchedule {
       return begin(blockSchedules)->second;
     }
 
+    int getEndStage(HWInstr* instr) {
+      return getContainerBlock(instr).getEndTime(instr);
+    }
+
     // API for special case where the entire function is one basic block
     std::set<HWInstr*> instructionsStartingInStage(const int stage) {
       return onlySched().instructionsStartingInStage(stage);
@@ -2362,9 +2366,9 @@ class UnitMapping {
 
     std::vector<HWInstr*> body;
 
-    int getEndTime(HWInstr* instr) {
-      return fSched.getEndTime(instr);
-    }
+    //int getEndTime(HWInstr* instr) {
+      //return fSched.getEndTime(instr);
+    //}
 
     //int getStartTime(HWInstr* instr) {
       //return fSched.getStartTime(instr);
@@ -2420,7 +2424,8 @@ class UnitMapping {
         return CoreIR::map_find(arg1, instrValues);
       }
 
-      int producedStage = getEndTime(arg1);
+      //int producedStage = getEndTime(arg1);
+      int producedStage = fSched.getEndStage(arg1);
 
       internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
       if (stageNo == producedStage) {
@@ -2852,9 +2857,12 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto instr : sched.body()) {
+    cout << "Connecting registers for " << *instr << endl;
     if (m.hasOutput(instr)) {
+      cout << "\tGetting value at end" << endl;
       auto fstVal = m.valueAtEnd(instr, instr);
-      int prodStage = m.getEndTime(instr);
+      cout << "\tGetting prod stage" << endl;
+      int prodStage = sched.getEndStage(instr);
 
       CoreIR::Wireable* lastReg = fstVal;
       for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
@@ -2864,7 +2872,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       }
     }
   }
-  
+ 
+  cout << "Done connecting register chains" << endl;
   return m;
 }
 
@@ -4982,10 +4991,6 @@ Wireable* dataOut(StreamNode& src, std::string& stream) {
   }
 
   return src.getWireable();
-  //getBase(src.getWireable());
-  //->sel("in_en");
-  //internal_assert(false);
-  //return src.getWireable();
 }
 
 std::set<const Call*> collectCalls(const std::string& name, const Stmt& stmt) {
@@ -5036,7 +5041,6 @@ class StreamSubset {
     }
 };
 
-//vector<int> findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
 StreamSubset findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
   auto sd = map_get(streamStr, info.streamDispatches);
   internal_assert(sd.size() > 0);
@@ -5723,11 +5727,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   context->runPasses({"rungenerators"});
 
   flattenExcluding(context, generatorNames);
-  //context->runPasses({"flatten"});
-  //for (auto inst : def->getInstances) {
-
-  //}
-  //, "flatten",
   context->runPasses({"deletedeadinstances"});
   //cout << "Top module" << endl;
   //topMod->print();
