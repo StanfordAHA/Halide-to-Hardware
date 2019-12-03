@@ -2356,11 +2356,11 @@ class UnitMapping {
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
-      //cout << "Schedule container for " << *sourceLocation << endl;
-      //bs.print();
+      if (arg1->tp == HWINSTR_TP_INSTR) {
+        HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
+        internal_assert(head(bs.body) == head(argSched.body));
+      }
       int startTime = bs.getStartTime(sourceLocation);
-      //cout << "Start time of: " << *sourceLocation << " = " << startTime << endl;
-      //return valueAt(arg1, sched.getStartTime(sourceLocation));
       return valueAt(arg1, startTime);
     }
 
@@ -5464,7 +5464,7 @@ void flattenExcluding(ModuleDef* def, vector<string>& generatorNames) {
       }
 
       if (!fromAnyGen) {
-        cout << "Instance: " << coreStr(instP.second) << " is not any of: " << generatorNames << endl;
+        //cout << "Instance: " << coreStr(instP.second) << " is not any of: " << generatorNames << endl;
         changed = inlineInstance(instP.second);
         if (changed) {
           break;
@@ -5480,8 +5480,8 @@ void flattenExcluding(CoreIR::Context* c, vector<string>& generatorNames) {
     for (auto m : ns.second->getModules()) {
       if (m.second->hasDef()) {
         flattenExcluding(m.second->getDef(), generatorNames);
-        cout << m.first << "After selective flattening..." << endl;
-        m.second->print();
+        //cout << m.first << "After selective flattening..." << endl;
+        //m.second->print();
       }
     }
   }
