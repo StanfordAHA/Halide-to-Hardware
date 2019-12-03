@@ -3360,7 +3360,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     cout << "\t\tL  = " << sched.L << endl;
     cout << "\t\tC  = " << sched.completionTime() << endl;
   }
-  internal_assert(false);
+  internal_assert(schedules.size() < 2);
   internal_assert(fSched.blockSchedules.size() > 0);
 
   if (f.allInstrs().size() == 0) {
