@@ -2599,9 +2599,9 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         cout << "Built dimranges" << endl;
 
       } else if (starts_with(name, "stencil_read")) {
-        internal_assert(instr->getOperand(0)->resType == nullptr);
-
         cout << "Creating stencil read from: " << *(instr->getOperand(0)) << endl;
+        internal_assert(instr->getOperand(0)->resType != nullptr);
+
         vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
         //vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
         internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
@@ -3347,6 +3347,13 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
       callRep->name = "rd_stream";
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
+      auto dims = getStreamDims(instr->operands[0]->name, info);
+      callRep->resType = f.mod->getContext()->Bit()->Arr(16);
+      vector<int> dimRanges = getDimRanges(dims);
+      for (auto d : dimRanges) {
+        callRep->resType = callRep->resType->Arr(d);
+      }
+
       f.replaceAllUsesWith(targetStencil, callRep);
       replacements[instr] = callRep;
     }
