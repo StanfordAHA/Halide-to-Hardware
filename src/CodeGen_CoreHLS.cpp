@@ -209,6 +209,41 @@ std::string coreirSanitize(const std::string& str) {
   return san;
 }
 
+
+template<typename TOut, typename T>
+TOut* sc(T* p) {
+  return static_cast<TOut*>(p);
+}
+
+CoreIR::Values getGenArgs(Wireable* p) {
+  internal_assert(isa<Instance>(p));
+  auto inst = toInstance(p);
+  internal_assert(inst->getModuleRef()->isGenerated());
+  return inst->getModuleRef()->getGenArgs();
+}
+
+vector<int> arrayDims(CoreIR::Type* tp) {
+  internal_assert(isa<CoreIR::ArrayType>(tp));
+  auto arrTp = sc<CoreIR::ArrayType>(tp);
+  if (!isa<CoreIR::ArrayType>(arrTp->getElemType())) {
+    vector<int> dims;
+    dims.push_back(arrTp->getLen());
+    return dims;
+  } else {
+    auto tps = arrayDims(arrTp->getElemType());
+    tps.push_back(arrTp->getLen());
+    return tps;
+  }
+}
+
+std::string coreStr(const Wireable* w) {
+  return CoreIR::toString(*w);
+}
+
+std::string coreStr(const CoreIR::Type* w) {
+  return CoreIR::toString(*w);
+}
+
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   if (instr.surroundingLoops.size() > 0) {
     for (auto lp : instr.surroundingLoops) {
@@ -220,6 +255,7 @@ std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   } else {
     out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
     out << (instr.isSigned() ? "S" : "U") << ": ";
+    out << (instr.resType == nullptr ? "<UNK>" : coreStr(instr.resType)) << ": ";
     out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
     int opN = 0;
     for (auto op : instr.operands) {
@@ -421,11 +457,6 @@ IBlock idom(const IBlock& blk, HWFunction& f) {
 namespace {
 
 
-template<typename TOut, typename T>
-TOut* sc(T* p) {
-  return static_cast<TOut*>(p);
-}
-
 bool fromGenerator(const std::string& genName, Instance* inst) {
   if (!inst->getModuleRef()->isGenerated()) {
     return false;
@@ -479,14 +510,6 @@ bool isLinebuffer(Wireable* destBase) {
   }
 
   return false;
-}
-
-std::string coreStr(const Wireable* w) {
-  return CoreIR::toString(*w);
-}
-
-std::string coreStr(const CoreIR::Type* w) {
-  return CoreIR::toString(*w);
 }
 
 class ContainsCall : public IRGraphVisitor {
@@ -970,6 +993,22 @@ nlohmann::json rom_init(Stmt s, string allocname) {
 void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
+  {
+    CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+    CoreIR::TypeGen* srTg = hns->newTypeGen("passthrough", srParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto t = args.at("type")->get<CoreIR::Type*>();
+        return c->Record({
+            {"in", t->getFlipped()},
+            {"out", t}
+            });
+        });
+    auto srGen = hns->newGeneratorDecl("passthrough", srTg, srParams);
+    srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto self = def->sel("self");
+        def->connect(self->sel("in"), self->sel("out"));
+        });
+  }
   {
     CoreIR::Params srParams{{"width", context->Int()}};
     CoreIR::TypeGen* srTg = hns->newTypeGen("cast", srParams,
@@ -2381,7 +2420,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   for (auto instr : sched.body()) {
     if (instr->tp == HWINSTR_TP_INSTR) {
       string name = instr->name;
-      //cout << "Instruction name = " << name << endl;
+      cout << "Creating unit for " << *instr << endl;
       if (name == "add") {
         auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = adder->sel("out");
@@ -2525,54 +2564,68 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           unitMapping[instr] = initS;
         }
       } else if (starts_with(name, "create_stencil")) {
-
-
-        cout << "Making createstencil from " << *instr << endl;
+        cout << "Making create stencil from " << *instr << endl;
         cout << "Operand 0 = " << *(instr->getOperand(0)) << endl;
-        auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
+
+        internal_assert(instr->getOperand(0)->resType != nullptr);
+        auto dimRanges = arrayDims(instr->getOperand(0)->resType);
+
+        //auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
 
         cout << "dimRanges = " << dimRanges << endl;
-        if (dimRanges.size() == 2) {
+        //internal_assert(false);
+        if (dimRanges.size() == 3) {
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
-          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
 
           stencilRanges[instr] = dimRanges;
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
         } else {
-          internal_assert(dimRanges.size() == 3);
+          internal_assert(dimRanges.size() == 4);
 
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
           int selChan = instr->getOperand(4)->toInt();
-          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
+          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
+          auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
 
           stencilRanges[instr] = dimRanges;
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
         }
+        cout << "Built dimranges" << endl;
 
       } else if (starts_with(name, "stencil_read")) {
-        vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
+        internal_assert(instr->getOperand(0)->resType == nullptr);
+
+        cout << "Creating stencil read from: " << *(instr->getOperand(0)) << endl;
+        vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
+        //vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
         internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
 
-        if (dimRanges.size() == 2) {
+        if (dimRanges.size() == 3) {
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
-          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}});
+          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
         } else {
-          internal_assert(dimRanges.size() == 3);
+          internal_assert(dimRanges.size() == 4);
           
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
           int selChan = instr->getOperand(3)->toInt();
+          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
+              //"halidehw.stencil_read_3",
+              //{{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
+              //{"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
               "halidehw.stencil_read_3",
-              {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
+              {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])},
               {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
@@ -2599,7 +2652,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         cout << "Done." << endl;
       } else if (name == "phi") {
         // TODO: Replace this with real code for a multiplexer
-        auto sel = def->addInstance("sel_" + std::to_string(defStage), "coreir.mux", {{"width", CoreIR::Const::make(context, 16)}});
+        internal_assert(instr->resType != nullptr);
+        auto sel = def->addInstance("phi" + std::to_string(defStage), "halidehw.passthrough", {{"type", COREMK(context, instr->resType)}});
         instrValues[instr] = sel->sel("out");
         unitMapping[instr] = sel;
       } else {
@@ -2828,6 +2882,9 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
       def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
 
+    } else if (instr->name == "phi") {
+      // TODO: Replace with real mux code
+      def->connect(unit->sel("in"), m.valueAtStart(instr->getOperand(0), instr));
     } else {
       internal_assert(false) << "no wiring procedure for " << *instr << "\n";
     }
@@ -3132,6 +3189,11 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
 
 ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
+
+  // Check that all instructions resTypes
+  //for (auto instr : f.structuredOrder()) {
+    //internal_assert(instr->resType != nullptr) << *instr << " has no resType\n";
+  //}
 
   auto design = f.mod;
   auto def = design->getDef();
@@ -3450,6 +3512,11 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         }
       }
 
+      baseInit->resType = f.mod->getContext()->Bit()->Arr(16);
+      for (size_t i = 0; i < dims.size(); i += 2) {
+        auto d = dims[i + 1] - dims[i];
+        baseInit->resType = baseInit->resType->Arr(d);
+      }
       baseInit->operands.push_back(f.newConst(32, dims.size()));
       cout << "Dims of " << provideName << endl;
       for (auto c : dims) {
@@ -3486,6 +3553,13 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     }
 
+    // Set all phi output types
+    for (auto instr : f.structuredOrder()) {
+      if (elem(instr, newPhis)) {
+        instr->resType = instr->getOperand(0)->resType;
+        internal_assert(instr->resType != nullptr);
+      }
+    }
     // Now: find all reverse phis
     for (auto blk : getIBlocks(f)) {
       for (auto instr : blk.instrs) {
@@ -4255,27 +4329,6 @@ edisc firstInputEdge(Wireable* producer, AppGraph& g) {
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g);
-
-CoreIR::Values getGenArgs(Wireable* p) {
-  internal_assert(isa<Instance>(p));
-  auto inst = toInstance(p);
-  internal_assert(inst->getModuleRef()->isGenerated());
-  return inst->getModuleRef()->getGenArgs();
-}
-
-vector<int> arrayDims(CoreIR::Type* tp) {
-  internal_assert(isa<CoreIR::ArrayType>(tp));
-  auto arrTp = sc<CoreIR::ArrayType>(tp);
-  if (!isa<CoreIR::ArrayType>(arrTp->getElemType())) {
-    vector<int> dims;
-    dims.push_back(arrTp->getLen());
-    return dims;
-  } else {
-    auto tps = arrayDims(arrTp->getElemType());
-    tps.push_back(arrTp->getLen());
-    return tps;
-  }
-}
 
 vector<int> inImageDims(Wireable* ld) {
   auto param = getGenArgs(ld).at("image_type")->get<CoreIR::Type*>();
