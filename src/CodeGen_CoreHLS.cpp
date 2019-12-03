@@ -5500,7 +5500,7 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
 
   for (auto s : delayRegister) {
     f.insertAfter(s.first, s.second);
-    //f.replaceAllUsesWith(s.first, s.second);
+    f.replaceAllUsesWith(s.first, s.second);
   }
 
   for (auto s : delayRegister) {
