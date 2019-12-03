@@ -2847,40 +2847,42 @@ IBlock innermostLoopContainerHeader(HWInstr* instr, HWFunction& f) {
 }
 
 Expr delayFromIterationStartToInstr(HWInstr* instr, FunctionSchedule& sched) {
-  cout << "Getting delay from iteration start to instr for: " << *instr << endl;
-  auto& f = *(sched.f);
-  IBlock header = innermostLoopContainerHeader(instr, f);
+  return 0;
+  //cout << "Getting delay from iteration start to instr for: " << *instr << endl;
+  //auto& f = *(sched.f);
+  //IBlock header = innermostLoopContainerHeader(instr, f);
   
-  cout << "Header..." << endl;
-  cout << header << endl;
+  //cout << "Header..." << endl;
+  //cout << header << endl;
   
-  IBlock container = containerBlock(instr, f);
+  //IBlock container = containerBlock(instr, f);
   
-  cout << "Container..." << endl;
-  cout << header << endl;
+  //cout << "Container..." << endl;
+  //cout << header << endl;
   
-  internal_assert(loopNames(header) == loopNames(container));
+  //internal_assert(loopNames(header) == loopNames(container));
 
-  Expr delay = 0;
-  IBlock activeBlock = header;
-  vector<string> excludedVars = loopNames(header);
-  while (activeBlock != container) {
-    delay += loopLatency(excludedVars, activeBlock, sched);
-    activeBlock = nextBlock(activeBlock, f);
-  }
-  return delay;
+  //Expr delay = 0;
+  //IBlock activeBlock = header;
+  //vector<string> excludedVars = loopNames(header);
+  //while (activeBlock != container) {
+    //delay += loopLatency(excludedVars, activeBlock, sched);
+    //activeBlock = nextBlock(activeBlock, f);
+  //}
+  //return delay;
 }
 
 Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
-  // What is the container iteration start time?
-  // Time from root of the program to the x, yth iteration of the loop containing this
-  // expression
-  Expr s = 0;
-  // Assume initiation interval of 1
-  for (auto lp : instr->surroundingLoops) {
-    s += 1*Variable::make(Int(32), lp.name);
-  }
-  return s;
+  return 0;
+  //// What is the container iteration start time?
+  //// Time from root of the program to the x, yth iteration of the loop containing this
+  //// expression
+  //Expr s = 0;
+  //// Assume initiation interval of 1
+  //for (auto lp : instr->surroundingLoops) {
+    //s += 1*Variable::make(Int(32), lp.name);
+  //}
+  //return s;
 }
 
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
@@ -2930,20 +2932,26 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   set<HWInstr*> streamReads = allInstrs("rd_stream", sched.body());
   set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
 
-  internal_assert(streamWrites.size() == 1);
-  HWInstr* read = *begin(streamReads);
-  HWInstr* write = *begin(streamWrites);
-  Expr latency = endTime(write, sched) - startTime(read, sched);
-  cout << "Read  = " << *read << endl;
-  cout << "Write = " << *write << endl;
-  cout << "\tSymbolic latency  : " << latency << endl;
-  Expr simplifiedLatency = simplify(latency);
-  cout << "\tSimplified latency: " << simplifiedLatency << endl;
-  //internal_assert(false);
+  int validDelay = 0;
+  internal_assert(streamWrites.size() == 1 ||
+      streamWrites.size() == 0);
+  if (streamWrites.size() == 1) {
+    HWInstr* read = *begin(streamReads);
+    HWInstr* write = *begin(streamWrites);
+    Expr latency = endTime(write, sched) - startTime(read, sched);
+    cout << "Read  = " << *read << endl;
+    cout << "Write = " << *write << endl;
+    cout << "\tSymbolic latency  : " << latency << endl;
+    Expr simplifiedLatency = simplify(latency);
+    cout << "\tSimplified latency: " << simplifiedLatency << endl;
+    //internal_assert(false);
 
-  int validDelay = func_id_const_value(simplifiedLatency);
+    validDelay = func_id_const_value(simplifiedLatency);
+  } else {
+    validDelay = 0;
+  }
   internal_assert(validDelay >= 0);
-  internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
+  //internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
 
   //int validDelay = sched.numStages() - 1;
   cout << "Got valid delay" << endl;
