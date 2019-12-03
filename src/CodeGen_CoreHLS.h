@@ -1,7 +1,7 @@
 #ifndef HALIDE_CODEGEN_COREHLS_H
 #define HALIDE_CODEGEN_COREHLS_H
 
-#include "HWTechlib.h"
+#include "HWTechLib.h"
 #include "IR.h"
 #include "PreprocessHWLoops.h"
 
