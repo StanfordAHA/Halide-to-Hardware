@@ -1098,6 +1098,7 @@ void loadHalideLib(CoreIR::Context* context) {
   CoreIR::Params romParams{{"width", context->Int()}, {"depth", context->Int()}, {"nports", context->Int()}};
   CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
   CoreIR::Params widthDimParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()}};
+  CoreIR::Params dynamicStencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
   CoreIR::Params stencilReadParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()},
     {"r", context->Int()}, {"c", context->Int()}};
   CoreIR::Params stencilReadParams3{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}, {"nchannels", context->Int()},
@@ -1260,6 +1261,24 @@ void loadHalideLib(CoreIR::Context* context) {
         }
         });
   }
+
+  {
+    CoreIR::TypeGen* ws = hns->newTypeGen("dynamic_stencil_read", dynamicStencilReadParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto nr = args.at("nrows")->get<int>();
+        auto nc = args.at("ncols")->get<int>();
+        auto width = args.at("width")->get<int>();
+        return c->Record({{"in", c->BitIn()->Arr(width)->Arr(nr)->Arr(nc)}, {"r", c->BitIn()->Arr(16)}, {"c", c->BitIn()->Arr(16)}, {"out", c->Bit()->Arr(width)}});
+        });
+
+    auto readStencil = hns->newGeneratorDecl("dynamic_stencil_read", ws, dynamicStencilReadParams);
+    readStencil->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+
+        //def->connect(def->sel("self")->sel("in")->sel(col)->sel(row), def->sel("self")->sel("out"));
+        //def->connect(def->sel("self")->sel("in")->sel(0)->sel(row), def->sel("self")->sel("out"));
+        });
+  }
+
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("stencil_read", stencilReadParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
@@ -2619,6 +2638,27 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         }
         cout << "Built dimranges" << endl;
 
+      } else if (starts_with(name, "dynamic_stencil_read")) {
+
+        cout << "Creating stencil read: " << *instr << endl;
+        cout << "\tread from: " << *(instr->getOperand(0)) << endl;
+        internal_assert(instr->getOperand(0)->resType != nullptr);
+
+        vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
+        internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
+
+        if (dimRanges.size() == 3) {
+          auto cS = def->addInstance("dynamic_stencil_read_" + std::to_string(defStage), "halidehw.dynamic_stencil_read", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}});
+          instrValues[instr] = cS->sel("out");
+          unitMapping[instr] = cS;
+        } else {
+          internal_assert(dimRanges.size() == 4);
+          auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
+              "halidehw.dynamic_stencil_read_3",
+              {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])}});
+          instrValues[instr] = cS->sel("out");
+          unitMapping[instr] = cS;
+        }
       } else if (starts_with(name, "stencil_read")) {
         cout << "Creating stencil read: " << *instr << endl;
         cout << "\tread from: " << *(instr->getOperand(0)) << endl;
