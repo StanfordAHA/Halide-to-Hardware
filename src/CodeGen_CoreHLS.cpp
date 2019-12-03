@@ -144,6 +144,17 @@ void HWFunction::replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWIns
 }
 
 template<typename T>
+std::set<HWInstr*> allInstrs(const std::string& name, const T& program) {
+  set<HWInstr*> vars;
+  for (auto instr : program) {
+    if (instr->name == name) {
+      vars.insert(instr);
+    }
+  }
+  return vars;
+}
+
+template<typename T>
 std::set<HWInstr*> allValuesDefined(const T& program) {
   set<HWInstr*> vars;
   for (auto instr : program) {
@@ -1909,6 +1920,9 @@ class FunctionSchedule {
       return begin(blockSchedules)->second;
     }
 
+    int getStartStage(HWInstr* instr) {
+      return getContainerBlock(instr).getStartTime(instr);
+    }
     int getEndStage(HWInstr* instr) {
       return getContainerBlock(instr).getEndTime(instr);
     }
@@ -2788,6 +2802,24 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   return m;
 }
 
+Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
+  Expr s = 0;
+  for (auto lp : instr->surroundingLoops) {
+    s += 2*Variable::make(Int(16), lp.name);
+  }
+  return s;
+}
+
+Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
+  Expr cs = containerIterationStart(instr, sched);
+  return cs + sched.getEndStage(instr);
+}
+
+Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
+  Expr cs = containerIterationStart(instr, sched);
+  return cs + sched.getStartStage(instr);
+}
+
 void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   internal_assert(sched.blockSchedules.size() > 0);
 
@@ -2820,6 +2852,18 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   // (this gap should be constant if they are all in the same loop level)
   // then create the delay that is needed
   cout << "Wiring up enables" << endl;
+  set<HWInstr*> streamReads = allInstrs("rd_stream", sched.body());
+  set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
+
+  internal_assert(streamWrites.size() == 1);
+  HWInstr* read = *begin(streamReads);
+  HWInstr* write = *begin(streamReads);
+  Expr latency = endTime(write, sched) - startTime(read, sched);
+  cout << "Read  = " << *read << endl;
+  cout << "Write = " << *write << endl;
+  cout << "\tSymbolic latency: " << latency << endl;
+  internal_assert(false);
+
   int validDelay = sched.numStages() - 1;
   cout << "Got valid delay" << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
