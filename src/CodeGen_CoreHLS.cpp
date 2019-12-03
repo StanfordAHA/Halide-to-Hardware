@@ -1917,11 +1917,24 @@ class HWTransition {
     int delay;
 };
 
+class NestSchedule {
+  public:
+    string name;
+    int II;
+    int L;
+    int TC;
+
+    int completionTime() const {
+      return (II*(TC - 1)) + L;
+    }
+};
+
 class FunctionSchedule {
   public:
     HWFunction* f;
     map<HWInstr*, HWLoopSchedule> blockSchedules;
 
+    std::vector<NestSchedule> nestSchedules;
     std::vector<HWTransition> transitions;
 
     HWLoopSchedule& getContainerBlock(HWInstr* const sourceLocation) {
@@ -3275,18 +3288,6 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
-class NestSchedule {
-  public:
-    string name;
-    int II;
-    int L;
-    int TC;
-
-    int completionTime() const {
-      return (II*(TC - 1)) + L;
-    }
-};
-
 int tripCountInt(const std::string& var, HWFunction& f) {
   for (auto instr : f.allInstrs()) {
     for (auto lp : instr->surroundingLoops) {
@@ -3360,7 +3361,8 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     cout << "\t\tL  = " << sched.L << endl;
     cout << "\t\tC  = " << sched.completionTime() << endl;
   }
-  internal_assert(schedules.size() < 2);
+
+  fSched.nestSchedules = schedules;
   internal_assert(fSched.blockSchedules.size() > 0);
 
   if (f.allInstrs().size() == 0) {
