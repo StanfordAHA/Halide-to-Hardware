@@ -2832,7 +2832,7 @@ IBlock containerBlock(HWInstr* instr, HWFunction& f) {
 }
 
 Expr loopLatency(const std::vector<std::string>& prefixVars, const IBlock& blk, FunctionSchedule& sched) {
-  return 0;
+  return 234;
 }
 
 IBlock innermostLoopContainerHeader(HWInstr* instr, HWFunction& f) {
@@ -2847,10 +2847,18 @@ IBlock innermostLoopContainerHeader(HWInstr* instr, HWFunction& f) {
 }
 
 Expr delayFromIterationStartToInstr(HWInstr* instr, FunctionSchedule& sched) {
+  cout << "Getting delay from iteration start to instr for: " << *instr << endl;
   auto& f = *(sched.f);
   IBlock header = innermostLoopContainerHeader(instr, f);
+  
+  cout << "Header..." << endl;
+  cout << header << endl;
+  
   IBlock container = containerBlock(instr, f);
-
+  
+  cout << "Container..." << endl;
+  cout << header << endl;
+  
   internal_assert(loopNames(header) == loopNames(container));
 
   Expr delay = 0;
@@ -2875,18 +2883,16 @@ Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
   return s;
 }
 
-// Actually we also need to add the time from the container loop nest to the current block?
-// which is the sum of the execution times of all inner loops
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
   Expr cs = containerIterationStart(instr, sched);
   Expr bd = delayFromIterationStartToInstr(instr, sched);
-  return cs + sched.getEndStage(instr);
+  return cs + bd + sched.getEndStage(instr);
 }
 
 Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   Expr cs = containerIterationStart(instr, sched);
   Expr bd = delayFromIterationStartToInstr(instr, sched);
-  return cs + sched.getStartStage(instr);
+  return cs + bd + sched.getStartStage(instr);
 }
 
 void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
@@ -2926,14 +2932,20 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
   internal_assert(streamWrites.size() == 1);
   HWInstr* read = *begin(streamReads);
-  HWInstr* write = *begin(streamReads);
+  HWInstr* write = *begin(streamWrites);
   Expr latency = endTime(write, sched) - startTime(read, sched);
   cout << "Read  = " << *read << endl;
   cout << "Write = " << *write << endl;
-  cout << "\tSymbolic latency: " << latency << endl;
-  internal_assert(false);
+  cout << "\tSymbolic latency  : " << latency << endl;
+  Expr simplifiedLatency = simplify(latency);
+  cout << "\tSimplified latency: " << simplifiedLatency << endl;
+  //internal_assert(false);
 
-  int validDelay = sched.numStages() - 1;
+  int validDelay = func_id_const_value(simplifiedLatency);
+  internal_assert(validDelay >= 0);
+  internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
+
+  //int validDelay = sched.numStages() - 1;
   cout << "Got valid delay" << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
   for (int i = 0; i < validDelay; i++) {
