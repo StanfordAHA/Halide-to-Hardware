@@ -5465,6 +5465,10 @@ void flattenExcluding(CoreIR::Context* c, vector<string>& generatorNames) {
   }
 }
 
+void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
+
+}
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -5584,6 +5588,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto fp : functions) {
     auto lp = fp.first;
     HWFunction& f = fp.second;
+    insertCriticalPathTargetRegisters(hwInfo, f);
     ComputeKernel compK = moduleForKernel(scl.info, f);
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
