@@ -75,6 +75,7 @@ class HWInstr {
       internal_assert(unit != nullptr) << "unit is null in HWInstr\n";
       return unit;
     }
+
     int toInt() const {
       internal_assert(tp == HWINSTR_TP_CONST);
       internal_assert(constWidth <= 32);

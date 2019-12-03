@@ -1998,7 +1998,7 @@ class FunctionSchedule {
     }
 
     HWLoopSchedule& onlySched() {
-      internal_assert(blockSchedules.size() > 0);
+      internal_assert(blockSchedules.size() == 1);
       return begin(blockSchedules)->second;
     }
 
@@ -2358,7 +2358,7 @@ class UnitMapping {
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
       if (arg1->tp == HWINSTR_TP_INSTR) {
         HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
-        internal_assert(head(bs.body) == head(argSched.body));
+        internal_assert(head(bs.body) == head(argSched.body)) << *arg1 << " is not produced in the same block as " << *sourceLocation << "\n";
       }
       int startTime = bs.getStartTime(sourceLocation);
       return valueAt(arg1, startTime);
@@ -2411,6 +2411,10 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
 }
 
 void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def, CoreIR::Instance* controlPath) {
+  cout << "# of instructions in body when creating functional units: " << sched.body().size() << endl;
+  for (auto i : sched.body()) {
+    cout << "\t" << *i << endl;
+  }
   auto context = def->getContext();
   int defStage = 0;
   auto& unitMapping = m.unitMapping;
@@ -2599,7 +2603,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         cout << "Built dimranges" << endl;
 
       } else if (starts_with(name, "stencil_read")) {
-        cout << "Creating stencil read from: " << *(instr->getOperand(0)) << endl;
+        cout << "Creating stencil read: " << *instr << endl;
+        cout << "\tread from: " << *(instr->getOperand(0)) << endl;
         internal_assert(instr->getOperand(0)->resType != nullptr);
 
         vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
@@ -2607,6 +2612,10 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
 
         if (dimRanges.size() == 3) {
+          internal_assert(instr->getOperand(1)->tp == HWINSTR_TP_CONST);
+          internal_assert(instr->getOperand(2)->tp == HWINSTR_TP_CONST);
+          cout << "\tOperands 1 and 2 of " << *instr << " are constants" << endl;
+
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
           //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
@@ -2615,6 +2624,12 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           unitMapping[instr] = cS;
         } else {
           internal_assert(dimRanges.size() == 4);
+          
+          internal_assert(instr->getOperand(1)->tp == HWINSTR_TP_CONST);
+          internal_assert(instr->getOperand(2)->tp == HWINSTR_TP_CONST);
+          internal_assert(instr->getOperand(3)->tp == HWINSTR_TP_CONST);
+
+          cout << "\tOperands 1, 2and 3 of " << *instr << " are constants" << endl;
           
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
@@ -2639,6 +2654,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         instrValues[instr] = shr->sel("out");
         unitMapping[instr] = shr;
       } else if (name == "load") {
+        internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_CONST);
         int portNo = instr->getOperand(0)->toInt();
         unitMapping[instr] = instr->getUnit();
         cout << "Connecting " << *instr << endl;
@@ -2878,6 +2894,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
 
     } else if (instr->name == "load") {
+      internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_CONST);
       int portNo = instr->getOperand(0)->toInt();
       def->connect(unit->sel("raddr")->sel(portNo), m.valueAtStart(instr->getOperand(2), instr));
       def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
