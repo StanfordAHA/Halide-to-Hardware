@@ -8,7 +8,6 @@
  */
 
 #include <map>
-#include <vector>
 
 #include "IR.h"
 
@@ -20,15 +19,6 @@ namespace Internal {
  * have provably already been computed by a previous iteration.
  */
 Stmt sliding_window(Stmt s, const std::map<std::string, Function> &env);
-
-
-struct SlidingStencils {
-  std::vector<Expr> output_stencil_box;
-  std::vector<Expr> input_chunk_box;
-  std::vector<Expr> output_min_pos;
-};
-
-std::map<std::string, SlidingStencils> extract_sliding_stencils(Stmt s, Function f);
 
 }  // namespace Internal
 }  // namespace Halide

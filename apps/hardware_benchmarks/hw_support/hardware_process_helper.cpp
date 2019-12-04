@@ -23,22 +23,22 @@ int ProcessController<T>::process_command(int argc, char **argv) {
   std::vector<std::string> full_args(argv, argv + argc);
   std::string command = full_args[1];
   std::vector<std::string> args(argv + 2, argv + argc);
-
+  
   if (command == "image") {
     return make_image_def(args);
-
+    
   } else if (command == "run") {
     return make_run_def(args);
-
+    
   } else if (command == "compare") {
     return make_compare_def(args);
-
+    
   } else if (command == "test") {
     return make_test_def(args);
-
+    
   } else if (command == "eval") {
     return make_eval_def(args);
-
+    
   } else {
     print_usage();
     return 1;
@@ -126,7 +126,7 @@ template <class T>
 int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args) {
   // Check hardware name used exists in run_calls
   bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
-
+  
   // Input image: create or load
   if (args.size() == 1 && hw_name_defined) {
     create_image(&input);
@@ -166,7 +166,7 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
 template <class T>
 int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> args) {
   Buffer<T> output_comparison(output);
-
+    
   // Input image: create or load images
   if (args.size() == 2) {
     output = load_and_convert_image(args[0]);
@@ -187,7 +187,7 @@ int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> 
     std::cout << GREEN << "Images are equivalent!" << RESET << std::endl;
     return 0;
   } else {
-    std::cout << RED << "Images are different... hhhh" << RESET << std::endl;
+    std::cout << RED << "Images are different..." << RESET << std::endl;
     return 1;
   }
 
@@ -203,7 +203,7 @@ template <class T>
 int OneInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> args) {
   // Check hardware name used exists in run_calls
   bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
-
+    
   // Input image: create or load
   if (args.size() == 1 && hw_name_defined) {
     create_image(&input);

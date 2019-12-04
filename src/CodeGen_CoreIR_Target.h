@@ -175,7 +175,6 @@ namespace Halide {
         void visit(const ProducerConsumer *op);  // store linebuffer wires for counters
 
         void visit_linebuffer(const Call *op);
-        void visit_hwbuffer(const Call *op);
         void visit_write_stream(const Call *op);
         void visit_read_stream(const Call *op);
         void visit_dispatch_stream(const Call *op);
