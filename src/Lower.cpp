@@ -20,6 +20,7 @@
 #include "Deinterleave.h"
 #include "EarlyFree.h"
 #include "ExtractHWKernelDAG.h"
+#include "ExtractHWBuffers.h"
 #include "EmulateFloat16Math.h"
 #include "FindCalls.h"
 #include "Func.h"
@@ -34,6 +35,7 @@
 #include "InjectHostDevBufferCopies.h"
 #include "InjectOpenGLIntrinsics.h"
 #include "Inline.h"
+#include "InsertHWBuffers.h"
 #include "LICM.h"
 #include "LoopCarry.h"
 #include "LowerWarpShuffles.h"
@@ -191,17 +193,17 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = allocation_bounds_inference(s, env, func_bounds);
     debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
 
-    std::cout << "doing sliding window lowering pass\n";
+    //std::cout << "doing sliding window lowering pass\n";
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
       s_sliding = sliding_window(s, env);
       //s = sliding_window(s, env);
-      std::cout << "finished sliding window lowering pass\n" << s;
+      //std::cout << "finished sliding window lowering pass\n" << s;
     } else {
       //s = sliding_window(s, env);
     }
 
-    std::cout << "extracting hw buffers\n";
+    //std::cout << "extracting hw buffers\n";
     //auto buffers = extract_hw_buffers(s, env);
     
     //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
@@ -219,12 +221,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    cout << "Should use ubuffer ? " << use_ubuffer << endl;
+    //cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
       //s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
-      cout << "Pre-unrolled: " << endl;
-      cout << s << endl;
+      //cout << "Pre-unrolled: " << endl;
+      //cout << s << endl;
       //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       //xcels = extract_hw_accelerators(s, env, inlined_stages);
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
@@ -243,13 +245,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
       if (use_ubuffer) {
-          std::cout << "--- Before inserting hwbuffers" << std::endl;
-          std::cout << s << std::endl;
+          //std::cout << "--- Before inserting hwbuffers" << std::endl;
+          //std::cout << s << std::endl;
         for (const HWXcel &xcel : xcels) {
           s = insert_hwbuffers(s, xcel);
         }
-          std::cout << "--- After inserting hwbuffers" << std::endl;
-          std::cout << s << std::endl;
+          //std::cout << "--- After inserting hwbuffers" << std::endl;
+          //std::cout << s << std::endl;
           //internal_assert(false);
       } else {
        vector<HWKernelDAG> dags;
@@ -270,14 +272,14 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Simplifying...\n";
     //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
 
-    cout << "Lowering befre first simplification:\n" << s << "\n\n";
+    //cout << "Lowering befre first simplification:\n" << s << "\n\n";
     
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
-    cout << "Lowering after first simplification:\n" << s << "\n\n";
+    //cout << "Lowering after first simplification:\n" << s << "\n\n";
     
-    std::cout << "Before storage folding...\n" << s << "\n\n";
+    //std::cout << "Before storage folding...\n" << s << "\n\n";
     debug(1) << "Performing storage folding optimization...\n";
       s = storage_folding(s, env);
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
@@ -317,7 +319,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     }
 
     debug(1) << "Performing storage flattening...\n";
-    std::cout << "Before storage flattening...\n" << s << "\n\n";
+    //std::cout << "Before storage flattening...\n" << s << "\n\n";
     
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
