@@ -1885,27 +1885,6 @@ class InstructionCollector : public IRGraphVisitor {
 
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
-//class OuterLoopSeparator : public IRGraphVisitor {
-  //using IRGraphVisitor::visit;
-  //public:
-
-    //std::vector<const For*> outerLoops;
-    //Stmt body;
-
-  //protected:
-
-    //void visit(const For* lp) {
-      //outerLoops.push_back(lp);
-
-      //if (lp->body->node_type == IRNodeType::For) {
-        //lp->body.accept(this);
-      //} else {
-        //body = lp->body;
-      //}
-    //}
-
-//};
-
 void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
 void removeBadStores(StoreCollector& st, HWFunction& f);
@@ -2345,10 +2324,14 @@ class UnitMapping {
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
       if (arg1->tp == HWINSTR_TP_CONST) {
+        internal_assert(contains_key(arg1, hwStartValues)) << "no value for constant " << arg1->compactString() << " at " << *sourceLocation << "\n";
+        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
         return hwStartValues[arg1][sourceLocation];
       }
 
       if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        internal_assert(contains_key(arg1, hwStartValues)) << "no value for variable " << arg1->compactString() << " at " << *sourceLocation << "\n";
+        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
         return hwStartValues[arg1][sourceLocation];
       }
       
@@ -2363,10 +2346,14 @@ class UnitMapping {
 
     CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
       if (arg1->tp == HWINSTR_TP_CONST) {
+        internal_assert(contains_key(arg1, hwEndValues));
+        internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
         return hwEndValues[arg1][sourceLocation];
       }
 
       if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        internal_assert(contains_key(arg1, hwStartValues));
+        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
         return hwEndValues[arg1][sourceLocation];
       }
       
@@ -2729,7 +2716,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
         instrValues[op] = cInst->sel("out");
-        m.valueIsAlways(instr, cInst->sel("out"));
+        m.valueIsAlways(op, cInst->sel("out"));
       }
     }
   }
