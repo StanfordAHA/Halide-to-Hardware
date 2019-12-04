@@ -2802,7 +2802,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //  2. Group the users by block and state
           //  3. For each usergroup (or user state) find the piece of storage that is needed for that value
           instrValues[op] = val;
-          if (val->getType()->isOutput()) {
+          //if (val->getType()->isOutput()) {
             for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
               m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
             }
@@ -2817,7 +2817,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
                 def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
               }
             }
-          }
+          //}
         }
       } else {
         internal_assert(!f.isLocalVariable(name));
