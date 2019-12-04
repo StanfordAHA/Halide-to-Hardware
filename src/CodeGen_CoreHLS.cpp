@@ -1933,6 +1933,7 @@ class FunctionSchedule {
     int getStartStage(HWInstr* instr) {
       return getContainerBlock(instr).getStartTime(instr);
     }
+    
     int getEndStage(HWInstr* instr) {
       return getContainerBlock(instr).getEndTime(instr);
     }
@@ -1977,6 +1978,17 @@ class FunctionSchedule {
     }
 
 };
+
+IBlock containerBlock(HWInstr* instr, HWFunction& f) {
+  for (auto b : getIBlocks(f)) {
+    if (elem(instr, b.instrs)) {
+      return b;
+    }
+  }
+
+  internal_assert(false);
+  return *(begin(getIBlocks(f)));
+}
 
 class ComputeKernel {
   public:
@@ -2771,7 +2783,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       internal_assert(val != nullptr);
 
       m.valueIsAlways(op, val);
-      //instrValues[op] = val;
     }
   }
 
@@ -2805,6 +2816,12 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //  Need to find the header of the loop for this variable, and then set the hwStartValue of the loop
           //  for all instructions in that state to the value of the counter output
           instrValues[op] = val;
+          auto blk = containerBlock(instr, *(sched.f));
+          int iStage = m.fSched.getStartStage(head(blk));
+          for (auto instr : m.fSched.instructionsStartingInStage(iStage)) {
+            m.hwStartValues[op][instr] = val;
+          }
+
           for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
           }
@@ -2847,17 +2864,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
  
   cout << "Done connecting register chains" << endl;
   return m;
-}
-
-IBlock containerBlock(HWInstr* instr, HWFunction& f) {
-  for (auto b : getIBlocks(f)) {
-    if (elem(instr, b.instrs)) {
-      return b;
-    }
-  }
-
-  internal_assert(false);
-  return *(begin(getIBlocks(f)));
 }
 
 Expr loopLatency(const std::vector<std::string>& prefixVars, const IBlock& blk, FunctionSchedule& sched) {
