@@ -8,7 +8,7 @@ echo 'Cloning GarnetFlow into container'
 docker exec -i halide-hw-distro bash -c "git clone --branch cp_based_halide_build https://github.com/StanfordAHA/GarnetFlow.git;"
 
 echo 'Copying Halide-to-Hardware into docker container...'
-docker cp Halide-to-Hardware/ halide-hw-distro:/GarnetFlow/scripts/
+docker cp ./ halide-hw-distro:/GarnetFlow/scripts/
 
 echo 'Running Halide build...'
 docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts; ./build_halide_distrib.sh"
