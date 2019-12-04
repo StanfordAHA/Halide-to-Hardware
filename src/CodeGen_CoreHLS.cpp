@@ -2801,23 +2801,24 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //  1. Find all users of the var
           //  2. Group the users by block and state
           //  3. For each usergroup (or user state) find the piece of storage that is needed for that value
+          //
+          //  Need to find the header of the loop for this variable, and then set the hwStartValue of the loop
+          //  for all instructions in that state to the value of the counter output
           instrValues[op] = val;
-          //if (val->getType()->isOutput()) {
-            for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
-              m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
-            }
+          for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
+            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
+          }
 
-            for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
-              cout << "stage = " << stage << endl;
-              if (stage == 0) {
-                auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-                def->connect(prg->sel("in"), val); 
-              } else {
-                auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-                def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
-              }
+          for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
+            cout << "stage = " << stage << endl;
+            if (stage == 0) {
+              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              def->connect(prg->sel("in"), val); 
+            } else {
+              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
             }
-          //}
+          }
         }
       } else {
         internal_assert(!f.isLocalVariable(name));

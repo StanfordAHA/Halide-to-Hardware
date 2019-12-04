@@ -7,8 +7,14 @@ docker run -itd --name halide-hw-distro keyiz/garnet-flow-cad bash
 echo 'Cloning GarnetFlow into container'
 docker exec -i halide-hw-distro bash -c "git clone --branch cp_based_halide_build https://github.com/StanfordAHA/GarnetFlow.git;"
 
+echo 'Creating Halide-to-Hardware directory'
+docker exec -i halide-hw-distro bash -c "mkdir /GarnetFlow/scripts/Halide-to-Hardware/"
+
 echo 'Copying Halide-to-Hardware into docker container...'
-docker cp ./ halide-hw-distro:/GarnetFlow/scripts/
+docker cp ./ halide-hw-distro:/GarnetFlow/scripts/Halide-to-Hardware
+
+docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts"
+docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/Halide-to-Hardware/"
 
 echo 'Running Halide build...'
 docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts; ./build_halide_distrib.sh"
