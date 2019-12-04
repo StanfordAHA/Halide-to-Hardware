@@ -1,16 +1,22 @@
 echo 'Pulling docker image'
 docker pull keyiz/garnet-flow-cad
+
 echo 'Running docker container'
 docker run -itd --name halide-hw-distro keyiz/garnet-flow-cad bash
+
 echo 'Cloning GarnetFlow into container'
-docker exec -i halide-hw-distro bash -c "git clone https://github.com/StanfordAHA/GarnetFlow.git;"
+docker exec -i halide-hw-distro bash -c "git clone --branch cp_based_halide_build https://github.com/StanfordAHA/GarnetFlow.git;"
+
+echo 'Copying Halide-to-Hardware into docker container...'
+docker cp Halide-to-Hardware/ halide-hw-distro:/GarnetFlow/scripts/
 
 echo 'Running Halide build...'
+docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts; ./build_halide_distrib.sh"
 # Pull the commit we want from github and build it
-CMD_STRING="docker exec -i halide-hw-distro bash -c \"cd GarnetFlow/scripts; ./build_halide_distrib.sh $TRAVIS_REPO_SLUG $TRAVIS_COMMIT\";"
-echo "CMD_STRING is..."
-echo $CMD_STRING
-eval $CMD_STRING
+#CMD_STRING="docker exec -i halide-hw-distro bash -c \"cd GarnetFlow/scripts; ./build_halide_distrib.sh $TRAVIS_REPO_SLUG $TRAVIS_COMMIT\";"
+#echo "CMD_STRING is..."
+#echo $CMD_STRING
+#eval $CMD_STRING
 
 # Run the testbench in docker, copy the result to the local travis machine, and
 # then stop the script if the testbench failed.
