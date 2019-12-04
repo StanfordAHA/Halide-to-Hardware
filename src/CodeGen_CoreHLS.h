@@ -130,7 +130,12 @@ class HWFunction {
     bool isLocalVariable(const std::string& name) const {
       auto sName = coreirSanitize(name);
       std::vector<std::string> fds = mod->getType()->getFields();
-      return !CoreIR::elem(sName, fds);
+      bool isLocal = !CoreIR::elem(sName, fds);
+
+      if (!isLocal) {
+        internal_assert(!isLoopIndexVar(name)) << name << " is not a local variable but it is a loop index variable of:\n" << name << "\n";
+      }
+      return isLocal;
     }
 
     bool isLoopIndexVar(const std::string& name) const {

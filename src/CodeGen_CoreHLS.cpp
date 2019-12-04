@@ -610,7 +610,7 @@ class HWVarExtractor : public IRGraphVisitor {
     }
 
     void visit(const For* lp) override {
-      addVar(lp->name);
+      //addVar(lp->name);
 
       IRGraphVisitor::visit(lp);
     }
@@ -1985,7 +1985,11 @@ class ComputeKernel {
 };
 
 std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
-  out << "@" << f.name << endl;
+  out << "@" << f.name << "(";
+  for (auto v : f.controlVars) {
+    out << v << ", ";
+  }
+  out << ")\n";
   for (auto blk : f.getBlocks()) {
     out << "--- Blk " << blk->name << endl;
     for (auto instr : blk->instrs) {
@@ -2330,10 +2334,14 @@ class UnitMapping {
       }
 
       if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable of:\n" << *(fSched.f) << "\n";
         internal_assert(contains_key(arg1, hwStartValues)) << "no value for variable " << arg1->compactString() << " at " << *sourceLocation << "\n";
         internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
         return hwStartValues[arg1][sourceLocation];
       }
+
+      internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
+      internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
       
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
       if (arg1->tp == HWINSTR_TP_INSTR) {
@@ -2352,11 +2360,15 @@ class UnitMapping {
       }
 
       if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
         internal_assert(contains_key(arg1, hwStartValues));
         internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
         return hwEndValues[arg1][sourceLocation];
       }
       
+      internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
+      internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
+
       return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
@@ -2372,8 +2384,8 @@ class UnitMapping {
 
       //if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
 
-      //int producedStage = getEndTime(arg1);
-      int producedStage = fSched.getEndStage(arg1);
+      int producedStage = getEndTime(arg1);
+      //int producedStage = fSched.getEndStage(arg1);
 
       internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
       if (stageNo == producedStage) {
