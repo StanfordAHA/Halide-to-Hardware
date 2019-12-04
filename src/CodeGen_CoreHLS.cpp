@@ -2344,6 +2344,14 @@ class UnitMapping {
     }
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
+      if (arg1->tp == HWINSTR_TP_CONST) {
+        return hwStartValues[arg1][sourceLocation];
+      }
+
+      if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        return hwStartValues[arg1][sourceLocation];
+      }
+      
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
       if (arg1->tp == HWINSTR_TP_INSTR) {
         HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
@@ -2354,10 +2362,20 @@ class UnitMapping {
     }
 
     CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
+      if (arg1->tp == HWINSTR_TP_CONST) {
+        return hwEndValues[arg1][sourceLocation];
+      }
+
+      if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        return hwEndValues[arg1][sourceLocation];
+      }
+      
       return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
     CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
+      cout << "Getting valueAt for " << *arg1 << " in stage " << stageNo << endl;
+
       string iValStr = "{";
       for (auto kv : instrValues) {
         iValStr += "\t{" + kv.first->compactString() + " -> " + CoreIR::toString(*(kv.second)) + "}, " + "\n";
@@ -2365,16 +2383,10 @@ class UnitMapping {
       iValStr += "}";
       internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues: " << iValStr << "\n";
 
-      if (arg1->tp == HWINSTR_TP_CONST) {
-        return CoreIR::map_find(arg1, instrValues);
-      }
+      //if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
 
-      if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
-        return CoreIR::map_find(arg1, instrValues);
-      }
-
-      int producedStage = getEndTime(arg1);
-      //int producedStage = fSched.getEndStage(arg1);
+      //int producedStage = getEndTime(arg1);
+      int producedStage = fSched.getEndStage(arg1);
 
       internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
       if (stageNo == producedStage) {
@@ -3045,6 +3057,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       internal_assert(false) << "no wiring procedure for " << *instr << "\n";
     }
   }
+  cout << "Done building connections in body" << endl;
 }
 
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
@@ -5745,7 +5758,6 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   if (delayRegister.size() > 0) {
     cout << "Function after delay register insertion..." << endl;
     cout << f << endl;
-    //internal_assert(false);
   }
 }
 
