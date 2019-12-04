@@ -5,15 +5,11 @@ BIN ?= ./bin
 IMAGES ?= ../../../images
 LDFLAGS ?=
 COREIR_DIR ?= ../../../../../coreir
+FUNCBUF_DIR ?= ../../../../../BufferMapping/cfunc
 
 include ../../../support/Makefile.inc
 
 # For CoreIR generation
-COREIR_CXX_FLAGS = -I $(COREIR_DIR)/include -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -Wno-int-in-bool-context
-
-USE_CXX11_ABI ?=
-ifeq ($(USE_CXX11_ABI), 0)
-     COREIR_CXX_FLAGS += -D_GLIBCXX_USE_CXX11_ABI=0 -Wno-int-in-bool-context
-endif
-
+COREIR_CXX_FLAGS = -I $(COREIR_DIR)/include -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
+COREIR_CXX_FLAGS += -I $(FUNCBUF_DIR)/include -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin
 CXXFLAGS += $(COREIR_CXX_FLAGS)

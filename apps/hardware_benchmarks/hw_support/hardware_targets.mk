@@ -16,7 +16,7 @@ GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
 HALIDE_SRC_PATH ?= ../../../..
-#LDFLAGS += -lfuncubuf
+LDFLAGS += -lfuncubuf
 #LDFLAGS += -L$(FUNCUBUF_PATH)/bin -Wl,-rpath,$(FUNCUBUF_PATH) -lfuncubuf
 #LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
 #-Wl,-rpath,$(FUNCUBUF_PATH) -lfuncubuf
