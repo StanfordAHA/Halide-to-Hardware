@@ -229,6 +229,7 @@ std::string coreirSanitize(const std::string& str) {
   return san;
 }
 
+
 template<typename TOut, typename T>
 TOut* sc(T* p) {
   return static_cast<TOut*>(p);
@@ -717,7 +718,7 @@ bool isStreamWrite(HWInstr* const instr) {
 
 std::vector<HWInstr*> outputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       ins.push_back(instr->getOperand(0));
     }
@@ -728,7 +729,7 @@ std::vector<HWInstr*> outputStreams(HWFunction& f) {
 
 std::vector<HWInstr*> inputStreams(HWFunction& f) {
   vector<HWInstr*> ins;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("rd_stream", instr)) {
       ins.push_back(instr->getOperand(0));
     }
@@ -1470,7 +1471,7 @@ class InstructionCollector : public IRGraphVisitor {
     std::vector<LoopSpec> activeLoops;
     Scope<std::vector<std::string> > activeRealizations;
     
-    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr) {}
+    InstructionCollector() : lastValue(nullptr), currentPredicate(nullptr), activeBlock(nullptr) {}
 
     HWInstr* newI() {
       auto ist = f.newI();
@@ -1480,7 +1481,11 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     void pushInstr(HWInstr* instr) {
-      f.body.push_back(instr);
+      if (activeBlock == nullptr) {
+        internal_assert(false);
+      } else {
+        activeBlock->instrs.push_back(instr);
+      }
     }
 
   protected:
@@ -1516,7 +1521,7 @@ class InstructionCollector : public IRGraphVisitor {
 
       //activeBlock = nextBlk;
       //internal_assert(false) << "code generation assumes the loop nest for each kernel is perfect already, but we encountered a for loop: " << lp->name << "\n";
-    //}
+    }
     
     void visit(const Realize* op) override {
       if (ends_with(op->name, ".stencil")) {
@@ -2074,6 +2079,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   //OuterLoopSeparator sep;
   //perfectNest->body.accept(&sep);
   InstructionCollector collector;
+  collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
   auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
@@ -3295,11 +3301,6 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     internal_assert(sched.isScheduled(instr)) << "instruction: " << *instr << " is not scheduled!\n";
     internal_assert((sched.getEndTime(instr) - sched.getStartTime(instr)) == instr->latency) << "latency in schedule does not match for " << *instr << "\n";
   }
-  //cout << "Total schedule time = " << sched.getLatency() << endl;
-  //sched.stages.push_back({});
-  //for (auto instr : f.body) {
-    //sched.stages[0].push_back(instr);
-  //}
 
   return sched;
 }
@@ -3485,68 +3486,25 @@ bool isConstant(HWInstr* instr) {
 }
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
-  auto& body = f.body;
   for (auto ldNewVal : loadsToConstants) {
     //cout << "Replace " << *(ldNewVal.first) << " with " << ldNewVal.second->compactString() << endl;
     if (!(ldNewVal.second->tp == HWINSTR_TP_CONST)) {
-      insertAt(ldNewVal.first, ldNewVal.second, f.body);
+      f.insertAt(ldNewVal.first, ldNewVal.second);
     }
     f.replaceAllUsesWith(ldNewVal.first, ldNewVal.second);
   }
 
   for (auto ldNewVal : loadsToConstants) {
-    CoreIR::remove(ldNewVal.first, body);
+    f.deleteInstr(ldNewVal.first);
   }
 
-  CoreIR::delete_if(body, [](HWInstr* instr) { return isStore(instr); });
+  f.deleteAll([](HWInstr* instr) { return isStore(instr); });
 }
 
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
-  auto& body = f.body;
-  //vector<HWInstr*> constLoads;
-  //std::map<HWInstr*, HWInstr*> loadsToConstants;
-  ////std::map<string, std::map<int, int> > storedValues;
-  //int pos = 0;
-  //for (auto instr : body) {
-    //if (isLoad(instr)) {
-      ////auto location = instr->operands[2];
-      //for (auto instr : body) {
-        //if (isLoad(instr)) {
-          //auto location = instr->operands[2];
-          ////cout << "Load " << *instr << " from location: " << location->compactString() << endl;
-          //if (isConstant(location)) {
-            ////cout << "Getting value for store to " << instr->getOperand(0)->compactString() << ", " << instr->getOperand(1)->compactString() << "[" << location->toInt() << "]" << endl;
-            //int newValue = map_get(location->toInt(), map_get(instr->getOperand(0)->strConst, storeCollector.constStores));
-
-            ////cout << "Replacing load from " << instr->getOperand(0)->compactString() << " " << location->compactString() << " with value " << newValue << endl;
-            //HWInstr* lastStoreToLoc = new HWInstr();
-            //lastStoreToLoc->tp = HWINSTR_TP_CONST;
-            //lastStoreToLoc->constWidth = 16;
-            //lastStoreToLoc->constValue = std::to_string(newValue);
-            //constLoads.push_back(instr);
-
-            //if (lastStoreToLoc) {
-              //loadsToConstants[instr] = lastStoreToLoc;
-            //}
-          //}
-        //}
-      //}
-      //pos++;
-    //}
-  //}
-
-  //replaceAll(loadsToConstants, f);
-
-  //cout << "Stored Values.." << endl;
-  //for (auto m : storedValues) {
-    //cout << "\t" << m.first << " has values" << endl;
-    //for (auto v : m.second) {
-      //cout << "\t\t[" << v.first << "] = " << v.second << endl;
-    //}
-  //}
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
-  for (auto instr : body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("load", instr)) {
       cout << "Found load..." << *instr << endl;
       romLoads[instr->getOperand(0)->compactString()].push_back(instr);
@@ -3569,11 +3527,13 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     string curveName = m.first.substr(1, m.first.size() - 2);
     //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
-    Json romVals;
+    //Json romVals;
+    nlohmann::json romVals;
     for (int i = 0; i < (int) values.size(); i++) {
       //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
-      romVals["init"].emplace_back(val);
+      //romVals["init"][i] = val;
+      romVals["init"].emplace_back(std::to_string(val));
       //romVals["init"].emplace_back(200);
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
@@ -3606,24 +3566,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   f.mod->print();
 }
 
-void insert(const int i, HWInstr* instr, vector<HWInstr*>& body) {
-  body.insert(std::begin(body) + i, instr);
-}
-
-int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
-  for (int pos = 0; pos < (int) body.size(); pos++) {
-    if (body[pos] == instr) {
-      return pos;
-    }
-  }
-  return -1;
-}
-void insertAt(HWInstr* instr, HWInstr* refresh, vector<HWInstr*>& body) {
-  int position = instructionPosition(instr, body);
-  assert(position >= 0);
-  insert(position, refresh, body);
-}
-
 void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
   int startPos = instructionPosition(refresh, body);
   for (int i = startPos + 1; i < (int) body.size(); i++) {
@@ -3631,12 +3573,8 @@ void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacem
  }
 }
 
-vector<HWInstr*> allInstructions(HWFunction& f) {
-  return f.body;
-}
-
 void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
-  for (auto instr : allInstructions(f)) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("write_stream", instr)) {
       instr->operands = {instr->operands[0], instr->operands[1]};
     }
@@ -3644,10 +3582,10 @@ void removeWriteStreamArgs(StencilInfo& info, HWFunction& f) {
 }
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
-//vector<HWInstr*>& body) {
-  auto& body = f.body;
+  auto body = f.structuredOrder();
   std::map<HWInstr*, HWInstr*> replacements;
   for (auto instr : body) {
+  //for (auto instr : f.allInstrs()) {
     if (isCall("read_stream", instr)) {
       auto callRep = f.newI(instr);
       callRep->setSigned(instr->isSigned());
@@ -3667,13 +3605,12 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
   }
 
   for (auto rp : replacements) {
-    insertAt(rp.first, rp.second, body);
+    f.insertAt(rp.first, rp.second);
   }
-  CoreIR::delete_if(body, [replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
+  f.deleteAll([replacements](HWInstr* ir) { return CoreIR::contains_key(ir, replacements); });
 }
 
 bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
-  //for (auto instr : hwInstr) {
   internal_assert(start >= 0);
   internal_assert(end <= (int) hwInstr.size());
   for (int i = start; i < end; i++) {
@@ -3687,9 +3624,15 @@ bool allConst(const int start, const int end, vector<HWInstr*>& hwInstr) {
 }
 
 std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo& info) {
+  cout << "Getting streams that use " << name << endl;
   std::set<std::string> users;
   for (auto wr : info.streamReadCallRealizations) {
-    users.insert(exprString(wr.first->args[0]));
+    string rdName = exprString(wr.first->args[1]);
+    cout << "\trdName = " << rdName << endl;
+    if (rdName == name) {
+      users.insert(exprString(wr.first->args[0]));
+      //users.insert(rdName);
+    }
   }
 
   for (auto wr : info.streamWriteCallRealizations) {
@@ -3703,10 +3646,15 @@ std::set<std::string> streamsThatUseStencil(const std::string& name, StencilInfo
 }
 
 vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::string& stencilName) {
+  cout << "Getting stencilDimsInBody of " << stencilName << endl;
   std::set<std::string> streamUsers = streamsThatUseStencil(stencilName, info);
   std::set<std::string> streamsInF = allStreamNames(f);
   std::set<std::string> streamUsersInF = CoreIR::intersection(streamUsers, streamsInF);
   internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  cout << "Streams that use " << stencilName << "..." << endl;
+  for (auto user : streamUsersInF) {
+    cout << "\t" << user << endl;
+  }
   auto user = *std::begin(streamUsersInF);
   return toInts(map_get(user, info.streamParams));
 }
@@ -3736,7 +3684,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   //}
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
-  for (auto instr : body) {
+  for (auto instr : f.structuredOrder()) {
     if (isCall("provide", instr)) {
       string target = instr->operands[0]->compactString();
       provides[target].push_back(instr);
@@ -3952,7 +3900,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {
-      CoreIR::remove(instr, body);
+      f.deleteInstr(instr);
     }
   }
 
@@ -4082,13 +4030,13 @@ void modToShift(HWFunction& f) {
   }
 
   for (auto r : replacements) {
-    insertAt(r.first, r.second, f.body);
-    replaceAllUsesWith(r.first, r.second, f.body);
+    f.insertAt(r.first, r.second);
+    f.replaceAllUsesWith(r.first, r.second);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
-    CoreIR::remove(i, f.body);
+    f.deleteInstr(i);
   }
 }
 
@@ -4098,7 +4046,7 @@ void divToShift(HWFunction& f) {
 
   std::set<HWInstr*> toErase;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
-  for (auto instr : f.body) {
+  for (auto instr : f.allInstrs()) {
     if (isCall("div", instr)) {
       cout << "Found div: " << *instr << endl;
       if (isConstant(instr->getOperand(1))) {
@@ -4119,7 +4067,6 @@ void divToShift(HWFunction& f) {
           shrInstr->setSigned(instr->isSigned());
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, value)};
           replacements.push_back({instr, shrInstr});
-          //replacements[instr] = shrInstr;
         }
       }
     }
@@ -4127,13 +4074,13 @@ void divToShift(HWFunction& f) {
 
   CoreIR::reverse(replacements);
   for (auto r : replacements) {
-    insertAt(r.first, r.second, f.body);
-    replaceAllUsesWith(r.first, r.second, f.body);
+    f.insertAt(r.first, r.second);
+    f.replaceAllUsesWith(r.first, r.second);
     toErase.insert(r.first);
   }
 
   for (auto i : toErase) {
-    CoreIR::remove(i, f.body);
+    f.deleteInstr(i);
   }
 }
 

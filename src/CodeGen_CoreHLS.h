@@ -105,11 +105,21 @@ class HWInstr {
     }
 };
 
+class HWBlock {
+  public:
+    std::string name;
+    int tripCount;
+    std::vector<HWInstr*> instrs;
+};
+
 class HWFunction {
+
+  protected:
+    std::vector<HWBlock*> blocks;
+
   public:
     std::string name;
     int uniqueNum;
-    std::vector<HWInstr*> body;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
 
@@ -209,6 +219,13 @@ class HWFunction {
       ist->tp = HWINSTR_TP_CONST;
       ist->constWidth = width;
       ist->constValue = std::to_string(value);
+      return ist;
+    }
+    HWInstr* newVar(const std::string& name) {
+      auto ist = newI();
+      ist->latency = 0;
+      ist->tp = HWINSTR_TP_VAR;
+      ist->name = name;
       return ist;
     }
 
