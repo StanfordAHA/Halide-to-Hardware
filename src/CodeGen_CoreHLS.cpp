@@ -2775,6 +2775,17 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
+  cout << "Populating pipeline registers..." << endl;
+  int uNum = 0;
+  for (auto instr : sched.body()) {
+    for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
+      if (m.hasOutput(instr)) {
+        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
+        uNum++;
+      }
+    }
+  }
+
   cout << "Wired up non local variables" << endl;
 
   for (auto op : allVarsUsed(sched.body())) {
@@ -2786,6 +2797,10 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         auto instr = getUser(op, sched.body());
         if (instr != nullptr) {
           auto val = controlPath->sel(coreirSanitize(name));
+          // Now: Need proper pipeline register wiring here. Better algorithm:
+          //  1. Find all users of the var
+          //  2. Group the users by block and state
+          //  3. For each usergroup (or user state) find the piece of storage that is needed for that value
           instrValues[op] = val;
           if (val->getType()->isOutput()) {
             for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
@@ -2806,17 +2821,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
       } else {
         internal_assert(!f.isLocalVariable(name));
-      }
-    }
-  }
-
-  cout << "Populating pipeline registers..." << endl;
-  int uNum = 0;
-  for (auto instr : sched.body()) {
-    for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
-      if (m.hasOutput(instr)) {
-        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
-        uNum++;
       }
     }
   }
