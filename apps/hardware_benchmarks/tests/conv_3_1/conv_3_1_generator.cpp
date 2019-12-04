@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -19,29 +20,27 @@ public:
         RDom r(0, 1,
                0, 3);
 
-        kernel(x,y) = 0;
-        kernel(0,0) = 11;
-        kernel(1,0) = 14;
-        kernel(2,0) = 17;
+        kernel(x,y) = uint16_t(0);
+        kernel(0,0) = uint16_t(11);
+        kernel(1,0) = uint16_t(14);
+        kernel(2,0) = uint16_t(17);
 
-        conv(x, y) = 0;
+        conv(x, y) = uint16_t(0);
 
-        Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        Func input16("input16");
+        input16(x, y) = cast<uint16_t>(input(x, y));
+        conv(x, y)  += kernel(r.x, r.y) * input(x + r.x, y + r.y);
 
-        Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        output(x, y) = cast<uint8_t>(conv(x, y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
-          hw_output.compute_root();
+          input.in().compute_root();
+          output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
+          output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             .hw_accelerate(xi, xo);
 
           conv.update()
@@ -50,7 +49,7 @@ public:
 
           conv.linebuffer();
 
-          hw_input.stream_to_accelerator();
+          input.in().stream_to_accelerator();
           
         } else {  // schedule to CPU
           kernel.compute_root();

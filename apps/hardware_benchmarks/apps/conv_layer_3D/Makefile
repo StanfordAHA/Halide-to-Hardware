@@ -1,34 +1,17 @@
-#### Halide flags
-HALIDE_BIN_PATH := ../../../..
-HALIDE_SRC_PATH := ../../../..
-include ../../../support/Makefile.inc
+include ../../hw_support/Makefile.inc
 
-BIN ?= bin
+TESTNAME = conv_layer
+USE_COREIR_VALID ?= 1
 
-all: $(BIN)/process
+include ../../hw_support/hardware_targets.mk
 
-$(BIN)/conv_layer.generator: conv_layer_generator.cpp $(GENERATOR_DEPS)
-	@-mkdir -p $(BIN)
-	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
-
-$(BIN)/conv_layer.a: $(BIN)/conv_layer.generator
-	@-mkdir -p $(BIN)
-	$^ -g conv_layer -o $(BIN) -f conv_layer target=$(HL_TARGET) auto_schedule=false
-
-$(BIN)/conv_layer_auto_schedule.a: $(BIN)/conv_layer.generator
-	@-mkdir -p $(BIN)
-	$^ -g conv_layer -o $(BIN) -f conv_layer_auto_schedule target=$(HL_TARGET)-no_runtime auto_schedule=true
-
-#$(BIN)/process: process.cpp $(BIN)/conv_layer.a $(BIN)/conv_layer_auto_schedule.a
-$(BIN)/process: process.cpp $(BIN)/conv_layer.a 
-	@-mkdir -p $(BIN)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -Wall -O3 $^ -o $@ $(LDFLAGS)
-
-run: $(BIN)/process
-	@-mkdir -p $(BIN)
-	$(BIN)/process
-
-clean:
-	rm -rf $(BIN)
-
-test: run
+# Usage:
+#  make all:       compiles all code without running
+#       generator: create Halide generator
+#       design:    create cpu design
+#       image:     create an image with random data
+#       run:       run cpu design with image
+#       compare:   compare two output images
+#       test:      run and compare to cpu output
+#       eval:      evaluate runtime
+#       clean:     remove bin directory
