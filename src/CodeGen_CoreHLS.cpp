@@ -2727,7 +2727,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         BitVector constVal = BitVector(width, value);
         auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
-        instrValues[op] = cInst->sel("out");
+        //instrValues[op] = cInst->sel("out");
         m.valueIsAlways(op, cInst->sel("out"));
       }
     }
