@@ -2771,7 +2771,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       internal_assert(val != nullptr);
 
       m.valueIsAlways(op, val);
-      instrValues[op] = val;
+      //instrValues[op] = val;
     }
   }
 
