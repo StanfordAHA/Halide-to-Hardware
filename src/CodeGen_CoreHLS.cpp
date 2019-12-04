@@ -2340,7 +2340,7 @@ class UnitMapping {
         return hwStartValues[arg1][sourceLocation];
       }
 
-      internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
+      //internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
       internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
       
       HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
@@ -2366,7 +2366,7 @@ class UnitMapping {
         return hwEndValues[arg1][sourceLocation];
       }
       
-      internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
+      //internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
       internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
 
       return map_find(sourceLocation, map_find(arg1, hwEndValues));
