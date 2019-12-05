@@ -17,13 +17,6 @@ HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
 HALIDE_SRC_PATH ?= ../../../..
 LDFLAGS += -lfuncubuf
-#LDFLAGS += -L$(FUNCUBUF_PATH)/bin -Wl,-rpath,$(FUNCUBUF_PATH) -lfuncubuf
-#LDFLAGS += -L$(FUNCUBUF_PATH)/bin -lfuncubuf
-#-Wl,-rpath,$(FUNCUBUF_PATH) -lfuncubuf
-#ifeq ($(UNAME), Darwin)
-	#LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs)
-#else
-#endif
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
@@ -51,7 +44,6 @@ $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_hel
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
-#$(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
