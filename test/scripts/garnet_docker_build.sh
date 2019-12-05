@@ -5,7 +5,7 @@ echo 'Running docker container'
 docker run -itd --name halide-hw-distro keyiz/garnet-flow-cad bash
 
 echo 'Cloning GarnetFlow into container'
-docker exec -i halide-hw-distro bash -c "git clone --branch cp_based_halide_build https://github.com/StanfordAHA/GarnetFlow.git;"
+docker exec -i halide-hw-distro bash -c "git clone https://github.com/StanfordAHA/GarnetFlow.git;"
 
 echo 'Creating Halide-to-Hardware directory'
 docker exec -i halide-hw-distro bash -c "mkdir /GarnetFlow/scripts/Halide-to-Hardware/"
