@@ -2352,61 +2352,28 @@ class UnitMapping {
       internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
       internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
       return map_get(sourceLocation, map_get(arg1, hwStartValues));
-      //if (arg1->tp == HWINSTR_TP_CONST) {
-        //internal_assert(contains_key(arg1, hwStartValues)) << "no value for constant " << arg1->compactString() << " at " << *sourceLocation << "\n";
-        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        //return hwStartValues[arg1][sourceLocation];
-      //}
-
-      //if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        //internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable of:\n" << *(fSched.f) << "\n";
-        //internal_assert(contains_key(arg1, hwStartValues)) << "no value for variable " << arg1->compactString() << " at " << *sourceLocation << "\n";
-        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        //return hwStartValues[arg1][sourceLocation];
-      //}
-
-      //internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
-      
-      //HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
-      //if (arg1->tp == HWINSTR_TP_INSTR) {
-        //HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
-        //internal_assert(head(bs.body) == head(argSched.body)) << *arg1 << " is not produced in the same block as " << *sourceLocation << "\n";
-      //}
-      //int stageNo = bs.getStartTime(sourceLocation);
-      //int producedStage = getEndTime(arg1);
-
-      //internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      //if (stageNo == producedStage) {
-        //internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
-        //internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
-        //return map_get(sourceLocation, map_get(arg1, hwStartValues));
-      //} else {
-        //internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
-        //auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
-
-        //internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
-
-        //return CoreIR::map_find(stageNo, pregs)->sel("out");
-      //}
     }
 
     CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
-      if (arg1->tp == HWINSTR_TP_CONST) {
-        internal_assert(contains_key(arg1, hwEndValues));
-        internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
-        return hwEndValues[arg1][sourceLocation];
-      }
+      internal_assert(contains_key(arg1, hwEndValues));
+      internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
+      return hwEndValues[arg1][sourceLocation];
+      //if (arg1->tp == HWINSTR_TP_CONST) {
+        //internal_assert(contains_key(arg1, hwEndValues));
+        //internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
+        //return hwEndValues[arg1][sourceLocation];
+      //}
 
-      if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
-        internal_assert(contains_key(arg1, hwStartValues));
-        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        return hwEndValues[arg1][sourceLocation];
-      }
-      
-      internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
+      //if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        //internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
+        //internal_assert(contains_key(arg1, hwStartValues));
+        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
+        //return hwEndValues[arg1][sourceLocation];
+      //}
 
-      return map_find(sourceLocation, map_find(arg1, hwEndValues));
+      //internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
+
+      //return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
 };
@@ -2725,8 +2692,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   // Local variables can be bound at any place where they are provided
   // Loop index variables are trickier because they are bound to the output of a counter
   // at some location, but then they are defined somewhere else
-
-
   for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
@@ -2831,6 +2796,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //  for all instructions in that state to the value of the counter output
           //instrValues[op] = val;
           m.hwStartValues[op][instr] = val;
+          m.hwEndValues[op][op] = val;
           auto blk = containerBlock(instr, *(sched.f));
           int iStage = m.fSched.getStartStage(head(blk));
           for (auto instr : m.fSched.instructionsStartingInStage(iStage)) {
@@ -2845,16 +2811,16 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
           }
 
-          for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
-            cout << "stage = " << stage << endl;
-            if (stage == 0) {
-              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              def->connect(prg->sel("in"), val); 
-            } else {
-              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
-            }
-          }
+          //for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
+            //cout << "stage = " << stage << endl;
+            //if (stage == 0) {
+              //auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              //def->connect(prg->sel("in"), val); 
+            //} else {
+              //auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              //def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
+            //}
+          //}
         }
       } else {
         internal_assert(!f.isLocalVariable(name));
@@ -2864,9 +2830,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
-  for (auto instr : sched.body()) {
-    cout << "Connecting registers for " << *instr << endl;
-    if (m.hasOutput(instr)) {
+  for (auto pr : m.pipelineRegisters) {
+    auto instr = pr.first;
+  //for (auto instr : sched.body()) {
+    //cout << "Connecting registers for " << *instr << endl;
+    //if (m.hasOutput(instr)) {
       cout << "\tGetting value at end" << endl;
       auto fstVal = m.valueAtEnd(instr, instr);
       cout << "\tGetting prod stage" << endl;
@@ -2878,7 +2846,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         def->connect(pipeReg->sel("in"), lastReg);
         lastReg = pipeReg->sel("out");
       }
-    }
+    //}
   }
  
   cout << "Done connecting register chains" << endl;
