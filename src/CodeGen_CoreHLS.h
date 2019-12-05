@@ -232,6 +232,7 @@ class HWFunction {
     HWInstr* newI(HWInstr* instr) {
       auto i = newI();
       i->surroundingLoops = instr->surroundingLoops;
+      i->resType = instr->resType;
       i->setSigned(instr->isSigned());
       i->name = instr->name;
       i->tp = instr->tp;

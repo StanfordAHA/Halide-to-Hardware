@@ -1561,6 +1561,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->constWidth = 16;
       ist->constValue = std::to_string(imm->value);
       ist->setSigned(true);
+      ist->resType = f.mod->getContext()->Bit()->Arr(16);
       lastValue = ist;
     }
 
@@ -1648,22 +1649,27 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const GE* a) override {
       visit_binop("gte", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
 
     void visit(const LE* a) override {
       visit_binop("lte", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const LT* a) override {
       visit_binop("lt", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
 
     void visit(const GT* a) override {
       visit_binop("gt", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const And* a) override {
       visit_binop("and", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
 
     HWInstr* codegen(const Expr e) {
@@ -1682,6 +1688,8 @@ class InstructionCollector : public IRGraphVisitor {
       ist->name = "sel";
       ist->operands = {c, tv, fv};
       lastValue = ist;
+      internal_assert(tv->resType != nullptr) << *tv << " has null result type\n";
+      lastValue->resType = tv->resType;
       pushInstr(lastValue);
       //instrs.push_back(lastValue);
     }
@@ -1746,6 +1754,7 @@ class InstructionCollector : public IRGraphVisitor {
       operands.push_back(codegen(ld->predicate));
       operands.push_back(codegen(ld->index));
       ist->operands = operands;
+      ist->resType = f.mod->getContext()->Bit()->Arr(16);
       pushInstr(ist);
       //instrs.push_back(ist);
       lastValue = ist;
@@ -1797,10 +1806,12 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const EQ* a) override {
       visit_binop("eq", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const NE* a) override {
       visit_binop("neq", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const Mul* b) override {
@@ -1819,6 +1830,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto andOp = newI();
       andOp->name = "and";
       andOp->operands = {a, b};
+      lastValue->resType = f.mod->getContext()->Bit();
       pushInstr(andOp);
       //instrs.push_back(andOp);
       return andOp;
@@ -1840,8 +1852,10 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "linebuf_decl";
       } else if (op->name == "absd") {
         ist->name = "absd";
+        ist->resType = f.mod->getContext()->Bit()->Arr(16);
       } else if (op->name == "abs") {
         ist->name = "abs";
+        ist->resType = f.mod->getContext()->Bit()->Arr(16);
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
         assert(callOperands.size() > 1);
@@ -2331,14 +2345,14 @@ class UnitMapping {
       return CoreIR::contains_key(arg, instrValues);
     }
 
-    CoreIR::Type* outputType(HWInstr* const arg) const {
-      internal_assert(CoreIR::contains_key(arg, instrValues));
-      return CoreIR::map_find(arg, instrValues)->getType();
-    }
+    //CoreIR::Type* outputType(HWInstr* const arg) const {
+      //internal_assert(CoreIR::contains_key(arg, instrValues));
+      //return CoreIR::map_find(arg, instrValues)->getType();
+    //}
 
-    bool isOutputArg(HWInstr* arg) const {
-      return outputType(arg)->isInput();
-    }
+    //bool isOutputArg(HWInstr* arg) const {
+      //return outputType(arg)->isInput();
+    //}
 
     void valueIsAlways(HWInstr* const arg1, CoreIR::Wireable* w) {
       for (auto instr : fSched.body()) {
@@ -2858,7 +2872,10 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           }
 
           for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
-            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
+            //internal_assert(op->resType != nullptr) << *op << " has null result type\n";
+            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
+            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), op->resType);
+            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
           }
 
           for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
@@ -4051,6 +4068,7 @@ void modToShift(HWFunction& f) {
           // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI(instr);
           shrInstr->name = "and_bv";
+          shrInstr->resType = f.mod->getContext()->Bit();
           //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
           shrInstr->setSigned(instr->isSigned());
 
