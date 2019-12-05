@@ -12,6 +12,8 @@
 #include <fstream>
 #include "test_utils.h"
 
+#define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
+
 using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
@@ -146,6 +148,7 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
 
 
 }
+
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
   runHWKernel("self.in_arg_0_0_0", m, hwInputBuf, outputBuf);
@@ -158,15 +161,21 @@ CoreIR::Context* hwContext() {
   return context;
 }
 
-CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+CoreIR::Module* buildModule(Halide::Internal::HardwareInfo& info, bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
+  if (!useUbuffer) {
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
+  }
   auto hm = hwOutput.compile_to_module(args, name, t);
+  cout << "Compiled to module..." << endl;
+  cout << hm << endl;
   for (auto f : hm.functions()) {
+    cout << "Generating coreir for function " << f.name << endl;
     Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
+    gen.info = info;
     f.body.accept(&gen);
   }
-  //hwOutput.compile_to_coreir(name, args, fName, t);
 
   if (!loadFromFile(context, "./conv_3_3_app.json")) {
     cout << "Error: Could not load json for unit test!" << endl;
@@ -177,6 +186,18 @@ CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, s
   cout << "Module after wiring clocks ..." << endl;
   m->print();
   return m;
+}
+
+CoreIR::Module* buildModule(const bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  Halide::Internal::HardwareInfo info;
+  info.hasCriticalPathTarget = false;
+  return buildModule(info, useUbuffer, context, name, args, fName, hwOutput);
+}
+
+CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
+  Halide::Internal::HardwareInfo info;
+  info.hasCriticalPathTarget = false;
+  return buildModule(info, false, context, name, args, fName, hwOutput);
 }
 
 template<typename T>
@@ -584,6 +605,7 @@ void offset_window_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
       //cout << "Module before consolidation..." << endl;
@@ -724,6 +746,7 @@ void small_demosaic_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
 
       for (auto& f : mod.functions()) {
@@ -1089,8 +1112,9 @@ void mod2_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "mod2 test passed" << RESET << endl;
 }
+
 void shiftRight_test() {
   ImageParam input(type_of<int16_t>(), 2);
   ImageParam output(type_of<int16_t>(), 2);
@@ -1142,7 +1166,7 @@ void shiftRight_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "shiftRight test passed" << RESET << endl;
 }
 
 void rom_read_test() {
@@ -1261,7 +1285,7 @@ void clamp_test() {
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
-  cout << GREEN << "Clamp test passed" << RESET << endl;
+  cout << GREEN << "clamp test passed" << RESET << endl;
 }
 
 void small_harris_test() {
@@ -1537,7 +1561,6 @@ void small_conv_3_3_not_unrolled_test() {
   Halide::Buffer<uint8_t> inputBuf(tileSize + 2, tileSize + 2);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   indexTestPatternRandom(inputBuf, hwInputBuf);
-  //indexTestPattern2D(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
   
@@ -1559,50 +1582,18 @@ void small_conv_3_3_not_unrolled_test() {
   auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
 
   string accelName = getInputAlias("accel_interface_info.json");
-  //runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
 
   cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
-  //Target t;
-  //t = t.with_feature(Target::Feature::CoreIR);
-  //vector<Argument> args{input};
-  //auto mod = hw_output.compile_to_module(args, "hw_output", t);
-
-  //cout << "Module before consolidation..." << endl;
-  //cout << mod << endl;
-
-  //for (auto f : mod.functions()) {
-    //cout << "Preprocessed body for " << f.name << endl;
-    //HWRegionFinder finder;
-    //f.body.accept(&finder);
-    //if (finder.foundRegion) {
-      //Stmt s = preprocessHWLoops(finder.region->body);
-      //cout << "---- Found hw region..." << endl;
-      //cout << s << endl;
-
-      //MemoryInfoCollector mic;
-      //s.accept(&mic);
-
-      //cout << "----- Memory info..." << endl;
-      //for (auto op : mic.memOps) {
-        //cout << "\t" << op << endl;
-      //}
-
-      //cout << "----- ROMS..." << endl;
-      //for (auto r : mic.roms()) {
-        //cout << r << endl;
-      //}
-    //}
-  //}
   assert(false);
 }
 
-void small_conv_3_3_test() {
+void small_conv_3_3_critical_path_test() {
   ImageParam input(type_of<uint8_t>(), 2);
-  ImageParam output(type_of<uint8_t>(), 2);
+  Func output;
 
   Var x("x"), y("y");
 
@@ -1630,6 +1621,139 @@ void small_conv_3_3_test() {
 
   hw_input.compute_root();
   hw_output.compute_root();
+
+  int inTileSize = 4;
+  int outTileSize = inTileSize - 2;
+
+  hw_output.bound(x, 0, outTileSize);
+  hw_output.bound(y, 0, outTileSize);
+
+  output.bound(x, 0, outTileSize);
+  output.bound(y, 0, outTileSize);
+
+  // Creating input data
+  Halide::Buffer<uint8_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(4, 4, 1);
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      for (int b = 0; b < 1; b++) {
+        inputBuf(i, j, b) = i + j*2;
+        hwInputBuf(i, j, b) = inputBuf(i, j, b);
+      }
+    }
+  }
+ 
+  // Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(2, 2);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+  
+  Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
+  
+  int tileSize = 4;
+  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
+    .hw_accelerate(xi, xo);
+
+  kernel.compute_at(hw_output, xo)
+    .unroll(x).unroll(y);
+
+  conv.update()
+    .unroll(r.x, 3)
+    .unroll(r.y, 3);
+  conv.linebuffer();
+
+  hw_input.stream_to_accelerator();
+
+  // Generate CoreIR
+  auto context = hwContext();
+  vector<Argument> args{input};
+  Halide::Internal::HardwareInfo info;
+  info.techlib.criticalPath["mul"] = 100;
+  info.techlib.criticalPath["add"] = 100;
+  info.hasCriticalPathTarget = true;
+  info.criticalPathTarget = 150;
+  auto m = buildModule(info, false, context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  cout << "Module = " << endl;
+  m->print();
+
+  SimulatorState state(m);
+  state.setValue("self.in_arg_0_0_0", BitVector(16, 0));
+  state.setValue("self.in_en", BitVector(1, 0));
+  state.setClock("self.clk", 0, 1);
+  state.setValue("self.reset", BitVector(1, 1));
+
+  state.resetCircuit();
+
+  state.setValue("self.reset", BitVector(1, 0));
+
+  int maxCycles = 100;
+  int cycles = 0;
+  
+
+  std::string inputName = "self.in_arg_0_0_0";
+  std::string outputName = "self.out_0_0";
+  CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
+  CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
+  
+  while (cycles < maxCycles && !readIdx.allDone()) {
+    cout << "Read index = " << readIdx.coordString() << endl;
+    cout << "Cycles     = " << cycles << endl;
+
+
+    run_for_cycle(writeIdx, readIdx,
+        hwInputBuf, outputBuf,
+        inputName, outputName,
+        state);
+    cycles++;
+  }
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+ 
+  PRINT_PASSED("Conv 3x3 with critical path test passed");
+}
+
+void small_conv_3_3_test() {
+  ImageParam input(type_of<uint8_t>(), 2);
+  Func output;
+
+  Var x("x"), y("y");
+
+  Func kernel("kernel");
+  Func conv("conv");
+  RDom r(0, 3,
+      0, 3);
+
+  kernel(x,y) = 0;
+  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+
+  conv(x, y) = 0;
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+  conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(conv(x, y));
+  output(x, y) = hw_output(x,y);
+
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  int inTileSize = 4;
+  int outTileSize = inTileSize - 2;
+
+  hw_output.bound(x, 0, outTileSize);
+  hw_output.bound(y, 0, outTileSize);
+
+  output.bound(x, 0, outTileSize);
+  output.bound(y, 0, outTileSize);
 
   // Creating input data
   Halide::Buffer<uint8_t> inputBuf(4, 4);
@@ -1670,6 +1794,7 @@ void small_conv_3_3_test() {
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  //auto m = buildModule(true, context, "coreir_conv_3_3", args, "conv_3_3", output);
   cout << "Module = " << endl;
   m->print();
 
@@ -1717,36 +1842,43 @@ void small_conv_3_3_test() {
   deleteContext(context);
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
-
-  //assert(false);
 }
 
 void pointwise_add_test() {
 
-    Var x, y;
-    Var xo, yo, xi, yi;
-
     ImageParam input(type_of<uint8_t>(), 2);
+    Func output;
+    //ImageParam output(type_of<uint8_t>(), 2);
 
-    Func hwInput("hw_input");
-    Func hwOutput("hw_output");
-    Func brighter("brighter");
-    
-    hwInput(x, y) = input(x, y);
-    brighter(x, y) = hwInput(x, y) + 10;
-    hwOutput(x, y) = brighter(x, y);
+    Var x, y;
 
-    hwInput.compute_root();
-    hwOutput.compute_root();
+    Func hw_input, hw_output;
+    Func mult("mult");
+    hw_input(x, y) = cast<uint16_t>(input(x, y));
 
-    hwOutput.tile(x, y, xo, yo, xi, yi, 4, 4).hw_accelerate(xi, xo);
-    brighter.linebuffer();
-    
-    hwInput.stream_to_accelerator();
+    mult(x, y) = hw_input(x,y) + 10;
+    hw_output(x, y) = cast<uint8_t>(mult(x, y));
+    output(x, y) = hw_output(x, y);
+
+    Var xi,yi, xo,yo;
+
+    hw_input.compute_root();
+    hw_output.compute_root();
+
+    int tileSize = 1;
+    hw_output.tile(x,y, xo,yo, xi,yi, 1, 1)
+      .hw_accelerate(xi, xo);
+    hw_output.bound(x, 0, 1);
+    hw_output.bound(y, 0, 1);
+
+    output.bound(x, 0, 1);
+    output.bound(y, 0, 1);
+    hw_input.stream_to_accelerator();
     
     Context* context = newContext();
     vector<Argument> args{input};
-    auto m = buildModule(context, "coreir_brighter", args, "brighter", hwOutput);
+    //auto m = buildModule(true, context, "coreir_brighter", args, "brighter", dummyOut);
+    auto m = buildModule(true, context, "coreir_brighter", args, "brighter", output);
     SimulatorState state(m);
 
     state.setValue("self.reset", BitVector(1, 1));
@@ -1776,6 +1908,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   {
     Target t;
     t = t.with_feature(Target::Feature::CoreIR);
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
     auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
     //cout << "Module before consolidation..." << endl;
@@ -1949,7 +2082,7 @@ Expr avg(Expr a, Expr b) {
 }
 
 Func demosaic(Func raw) {
-  Var x, y, c;
+  Var x("x"), y("y"), c("c");
   // The demosaic algorithm is optimized for HLS schedule
   // such that the bound analysis can derive a constant window
   // and shift step without needed to unroll 'demosaic' into
@@ -2169,7 +2302,7 @@ void curve_16_lookup_test() {
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
 
-  cout << GREEN << "Curve lookup test passed" << RESET << endl;
+  cout << GREEN << "Curve 16 lookup test passed" << RESET << endl;
 }
 void curve_lookup_test() {
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
@@ -2509,7 +2642,6 @@ void simple_unsharp_test() {
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
 }
 
-#define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
 
 void different_latency_kernels_test() {
   ImageParam input(type_of<uint8_t>(), 2);
@@ -2536,7 +2668,6 @@ void different_latency_kernels_test() {
   Halide::Buffer<uint8_t> inputBuf(outTileSize, outTileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   indexTestPatternRandom(inputBuf, hwInputBuf);
-  //indexTestPattern2D(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(outTileSize, outTileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
 
@@ -2561,25 +2692,10 @@ void different_latency_kernels_test() {
   auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
 
   string accelName = getInputAlias("accel_interface_info.json");
-  //json j;
-  //ifstream inFile("accel_interface_info.json");
-  //inFile >> j;
-  //cout << "JSON..." << endl;
-  //cout << j << endl;
-
-  //auto aliasMap = j["aliasMap"];
-  //cout << "Alias map = " << aliasMap << endl;
-  //assert(aliasMap.size() == 1);
-
-  //string inS = begin(aliasMap)->get<string>();
-  //cout << "inS = " << inS << endl;
-  //string outS = "hw_output.stencil.stream";
-  //string accelName = "self.in_" + inS + "_0_0";
 
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
   PRINT_PASSED("Different latency kernels");
-  //assert(false);
 }
 
 void real_unsharp_test() {
@@ -2690,6 +2806,87 @@ void real_unsharp_test() {
   //assert(false);
 }
 
+class ProducerFinder : public IRGraphVisitor {
+  public:
+    std::string target;
+    bool foundTarget;
+    const ProducerConsumer* result;
+
+    ProducerFinder() : foundTarget(false) {}
+
+    using IRGraphVisitor::visit;
+
+    void visit(const ProducerConsumer* pc) {
+      if (pc->is_producer && pc->name == target) {
+        foundTarget = true;
+        result = pc;
+      } else {
+        IRGraphVisitor::visit(pc);
+      }
+    }
+};
+
+const ProducerConsumer* findProducer(const std::string& name, Stmt& stmt) {
+  ProducerFinder f;
+  f.target = name;
+  stmt.accept(&f);
+
+  assert(f.foundTarget);
+
+  return f.result;
+}
+
+class PolyStmt {
+  public:
+
+    std::vector<const For*> surroundingLoops;
+    bool isAssign;
+    const Store* store;
+    std::string varName;
+    Expr varVal;
+};
+
+std::ostream& operator<<(std::ostream& out, const PolyStmt& s) {
+  for (auto lp : s.surroundingLoops) {
+    out << lp->name << " : " << lp->min << ", " << lp->extent << "; ";
+  }
+  if (s.isAssign) {
+    out << s.varName << " = " << s.varVal;
+  } else {
+    auto store = s.store;
+    out << store->name << "[" << store->index << "] = " << store->value << " if " << store->predicate;
+  }
+  return out;
+}
+
+class PolyhedralStmts : public IRGraphVisitor {
+  public:
+
+    using IRGraphVisitor::visit;
+
+    std::vector<const For*> activeLoops;
+    std::vector<PolyStmt> stmts;
+
+    void visit(const For* lp) override {
+      activeLoops.push_back(lp);
+
+      lp->body.accept(this);
+
+      activeLoops.pop_back();
+    }
+
+    void visit(const LetStmt* lt) override {
+      stmts.push_back({activeLoops, true, nullptr, lt->name, lt->value});
+      lt->body.accept(this);
+    }
+
+    void visit(const Store* st) override {
+      stmts.push_back({activeLoops, false, st});
+    }
+
+
+};
+
 void conv_layer_mobile_test() {
   ImageParam input(type_of<int8_t>(), 3);
   ImageParam output(type_of<int8_t>(), 3);
@@ -2790,7 +2987,7 @@ void conv_layer_mobile_test() {
   hw_output.print_loop_nest();
 
   Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
+  //t = t.with_feature(Target::Feature::CoreIR);
   vector<Argument> args{input};
   auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
@@ -2818,48 +3015,217 @@ void conv_layer_mobile_test() {
       for (auto r : mic.roms()) {
         cout << r << endl;
       }
+    } else {
+
+    }
+
+    const ProducerConsumer* hwRegion =
+      findProducer("hw_output", f.body);
+    cout << "HWRegion..." << endl;
+    cout << hwRegion->body << endl;
+
+    Closure c(hwRegion->body);
+    cout << "Closure variables..." << endl;
+    for (auto vars : c.vars) {
+      cout << "\t" << vars.first << endl;
+    }
+    cout << "Closure buffers..." << endl;
+    for (auto buffers : c.buffers) {
+      cout << "\t" << buffers.first << endl;
+    }
+
+    MemoryInfoCollector mic;
+    hwRegion->body.accept(&mic);
+    cout << "----- Memory info..." << endl;
+    for (auto op : mic.memOps) {
+      cout << "\t" << op << endl;
+    }
+
+    cout << "----- ROMS..." << endl;
+    for (auto r : mic.roms()) {
+      cout << r << endl;
+    }
+
+    PolyhedralStmts ps;
+    hwRegion->body.accept(&ps);
+
+    cout << "Polyhedral statements..." << endl;
+    for (auto stmt : ps.stmts) {
+      cout << "\t" << stmt << endl;
     }
   }
 
   //cout << "Postprocessed module" << endl;
   //cout << 
   //auto context = hwContext();
-  //auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
   PRINT_PASSED("Conv layer mobile");
   //assert(false);
+}
+
+void ushift_test() {
+
+  ImageParam input(type_of<uint16_t>(), 2);
+  ImageParam output(type_of<uint16_t>(), 2);
+  
+  Var x("x"), y("y");
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<uint16_t>(input(x, y));
+
+  Func res;
+  res(x, y) = hw_input(x, y) >> 9;
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint16_t>(res(x, y));
+  output(x, y) = hw_output(x,y);
+
+   // Creating input data
+  Halide::Buffer<uint16_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint16_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint16_t> outputBuf(4, 4, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = 0xffff - i - j;
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
   }
 
-int main(int argc, char **argv) {
+   //Creating CPU reference output
+  Halide::Buffer<uint16_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
 
-  small_conv_3_3_test();
+  /* THE HARDWARE SCHEDULE */
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.bound(x, 0, 4);
+  hw_output.bound(y, 0, 4);
+
+  hw_output.tile(x,y, xo,yo, xi,yi, 4, 4)
+    .hw_accelerate(xi, xo);
+
+  hw_input.stream_to_accelerator();
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "arith_coreir", args, "arith", hw_output);
+
+  string accelName = getInputAlias("accel_interface_info.json");
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  PRINT_PASSED("ushift test passed");
+  //assert(false);
+}
+
+void arith_test() {
+
+  ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
+  
+  Var x("x"), y("y");
+
+  Func hw_input("hw_input");
+  hw_input(x, y) = cast<int16_t>(input(x, y));
+
+  Func mult, div, add, sub, mod;
+  mult(x,y) = hw_input(x,y) * 13;
+  div(x,y) = hw_input(x,y) / 4;
+  mod(x,y) = hw_input(x,y) % 16;
+  add(x,y) = div(x,y) + mod(x,y);
+  //add(x,y) = div(x,y);
+  sub(x,y) = mult(x,y) - add(x,y);
+  //sub(x,y) = mult(x,y) + add(x,y);
+
+  Func hw_output("hw_output");
+  hw_output(x, y) = cast<uint8_t>(sub(x, y));
+  output(x, y) = hw_output(x,y);
+
+   // Creating input data
+  Halide::Buffer<uint8_t> inputBuf(4, 4);
+  Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.height(), inputBuf.width(), 1);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(4, 4, 1);
+  for (int i = 0; i < inputBuf.height(); i++) {
+    for (int j = 0; j < inputBuf.width(); j++) {
+      inputBuf(i, j) = rand();
+      hwInputBuf(i, j, 0) = inputBuf(i, j);
+    }
+  }
+
+   //Creating CPU reference output
+  Halide::Buffer<uint8_t> cpuOutput(4, 4);
+  ParamMap rParams;
+  rParams.set(input, inputBuf);
+  Target t;
+  hw_output.realize(cpuOutput, t, rParams);
+
+  /* THE HARDWARE SCHEDULE */
+  Var xi,yi, xo,yo;
+
+  hw_input.compute_root();
+  hw_output.compute_root();
+
+  hw_output.bound(x, 0, 4);
+  hw_output.bound(y, 0, 4);
+
+  hw_output.tile(x,y, xo,yo, xi,yi, 4, 4)
+    .hw_accelerate(xi, xo);
+
+  hw_input.stream_to_accelerator();
+  auto context = hwContext();
+  vector<Argument> args{input};
+  auto m = buildModule(context, "arith_coreir", args, "arith", hw_output);
+
+  string accelName = getInputAlias("accel_interface_info.json");
+  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+
+  compare_buffers(outputBuf, cpuOutput);
+  deleteContext(context);
+
+  PRINT_PASSED("Arith test passed");
+}
+
+int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
-  conv_layer_mobile_test();
+  small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
-  rom_read_test();
-  real_unsharp_test();
-  //assert(false);
   different_latency_kernels_test();
+  shiftRight_test();
+  ushift_test();
+  arith_test();
+  small_conv_3_3_test();
+
+  pointwise_add_test();
+  mod2_test();
+  clamp_test();
+  
+  small_cascade_test();
+ 
+  // Experimenta tests
+  //conv_layer_mobile_test();
+  
+  double_unsharp_test();
+  real_unsharp_test();
+  
+  rom_read_test();
   curve_16_lookup_test();
-  //assert(false);
   camera_pipeline_test();
   simple_unsharp_test();
-  double_unsharp_test();
   hot_pixel_suppression_test();
-  //assert(false);
   accel_interface_test();
   accel_soc_test();
   curve_lookup_test();
+  
   offset_window_test();  
   small_demosaic_test();
   multi_channel_conv_test();
-  pointwise_add_test();
-  mod2_test();
-  shiftRight_test();
-  clamp_test();
-  //clamped_grad_x_test();
-  small_cascade_test();
-  //small_harris_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;

@@ -3,6 +3,7 @@
 
 #include <sstream>
 
+#include "HWTechLib.h"
 #include "IRVisitor.h"
 #include "Module.h"
 #include "Scope.h"
@@ -16,6 +17,7 @@ namespace Internal {
       std::string outName;
 
       Scope<Stencil_Type> stencils;  // scope of stencils and streams of stencils
+      HardwareInfo info;
       CodeGen_CoreHLS_Kernel(const std::string& outFileName) : outName(outFileName) {}
     protected:
 

@@ -171,12 +171,15 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 
 # Compiling for CoreIR requires some extra links
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
+FUNCBUF_DIR ?= $(ROOT_DIR)/../BufferMapping/cfunc
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
+COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
+COREIR_LD_FLAGS += -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -lfuncubuf
 COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
-CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-unknown-warning-option -Wno-psabi
+CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare
 ifneq (,$(findstring g++,$(CXX_VERSION)))
 GCC_MAJOR_VERSION := $(shell $(CXX) -dumpfullversion -dumpversion | cut -f1 -d.)
 GCC_MINOR_VERSION := $(shell $(CXX) -dumpfullversion -dumpversion | cut -f2 -d.)
@@ -424,6 +427,7 @@ SOURCE_FILES = \
   EliminateBoolVectors.cpp \
   EmulateFloat16Math.cpp \
   Error.cpp \
+  ExtractHWBuffers.cpp \
   ExtractHWKernelDAG.cpp \
   FastIntegerDivide.cpp \
   FindCalls.cpp \
@@ -435,6 +439,7 @@ SOURCE_FILES = \
   Generator.cpp \
   HexagonOffload.cpp \
   HexagonOptimize.cpp \
+	HWUtils.cpp \
   ImageParam.cpp \
   InferArguments.cpp \
   InjectHostDevBufferCopies.cpp \
@@ -444,6 +449,7 @@ SOURCE_FILES = \
   IntegerDivisionTable.cpp \
   Interval.cpp \
   Introspection.cpp \
+  InsertHWBuffers.cpp \
   IR.cpp \
   IREquality.cpp \
   IRMatch.cpp \
@@ -609,6 +615,7 @@ HEADER_FILES = \
   Generator.h \
   HexagonOffload.h \
   HexagonOptimize.h \
+  HWTechLib.h \
   ImageParam.h \
   InferArguments.h \
   InjectHostDevBufferCopies.h \
@@ -854,7 +861,11 @@ $(BUILD_DIR)/llvm_objects/list: $(OBJECTS) $(INITIAL_MODULES)
 	# object files in which archives it uses to resolve
 	# symbols. We only care about the libLLVM ones.
 	@mkdir -p $(@D)
+ifeq ($(UNAME), Darwin)
 	$(CXX) -o /dev/null -shared $(OBJECTS) $(INITIAL_MODULES) -Wl,-t $(LLVM_STATIC_LIBS) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) 2>&1| egrep "libLLVM" > $(BUILD_DIR)/llvm_objects/list.new
+else
+	$(CXX) -o /dev/null -shared $(OBJECTS) $(INITIAL_MODULES) -Wl,-t,--verbose $(LLVM_STATIC_LIBS) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) 2>&1| egrep "libLLVM.*\)" > $(BUILD_DIR)/llvm_objects/list.new
+endif
 	# if the list has changed since the previous build, or there
 	# is no list from a previous build, then delete any old object
 	# files and re-extract the required object files
@@ -882,6 +893,7 @@ $(BIN_DIR)/libHalide.$(SHARED_EXT): $(OBJECTS) $(INITIAL_MODULES)
 	$(CXX) -shared $(OBJECTS) $(INITIAL_MODULES) $(LLVM_LIBS_FOR_SHARED_LIBHALIDE) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) $(INSTALL_NAME_TOOL_LD_FLAGS) -o $(BIN_DIR)/libHalide.$(SHARED_EXT)
 ifeq ($(UNAME), Darwin)
 	install_name_tool -id $(CURDIR)/$(BIN_DIR)/libHalide.$(SHARED_EXT) $(BIN_DIR)/libHalide.$(SHARED_EXT)
+	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $(CURDIR)/$(BIN_DIR)/libHalide.$(SHARED_EXT)
 endif
 
 $(INCLUDE_DIR)/Halide.h: $(SRC_DIR)/../LICENSE.txt $(HEADERS) $(BIN_DIR)/build_halide_h
@@ -1164,11 +1176,18 @@ $(BIN_DIR)/%/runtime.a: $(BIN_DIR)/runtime.generator
 $(BIN_DIR)/test_internal: $(ROOT_DIR)/test/internal.cpp $(BIN_DIR)/libHalide.$(SHARED_EXT)
 	@mkdir -p $(@D)
 	$(CXX) $(TEST_CXX_FLAGS) $< -I$(SRC_DIR) $(TEST_LD_FLAGS) -o $@
+ifeq ($(UNAME), Darwin)
+	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $(CURDIR)/$(BIN_DIR)/test_internal
+endif
 
 # Correctness test that link against libHalide
 $(BIN_DIR)/correctness_%: $(ROOT_DIR)/test/correctness/%.cpp $(BIN_DIR)/libHalide.$(SHARED_EXT) $(INCLUDE_DIR)/Halide.h $(RUNTIME_EXPORTED_INCLUDES)
 	@mkdir -p $(@D)
 	$(CXX) $(TEST_CXX_FLAGS) -I$(ROOT_DIR) $(OPTIMIZE_FOR_BUILD_TIME) $< -I$(INCLUDE_DIR) $(TEST_LD_FLAGS) -o $@
+
+$(BIN_DIR)/correctness_hwbuffer: $(ROOT_DIR)/test/correctness/hwbuffer.cpp $(BIN_DIR)/libHalide.$(SHARED_EXT) $(INCLUDE_DIR)/Halide.h $(RUNTIME_EXPORTED_INCLUDES)
+	@mkdir -p $(@D)
+	$(CXX) $(TEST_CXX_FLAGS) -I$(SRC_DIR) -I$(ROOT_DIR) $(OPTIMIZE_FOR_BUILD_TIME) $< -I$(INCLUDE_DIR) $(TEST_LD_FLAGS) -o $@
 
 # Correctness tests that do NOT link against libHalide
 $(BIN_DIR)/correctness_plain_c_includes: $(ROOT_DIR)/test/correctness/plain_c_includes.c $(RUNTIME_EXPORTED_INCLUDES)
@@ -2052,7 +2071,7 @@ distrib: $(DISTRIB_DIR)/halide.tgz
 
 $(DISTRIB_DIR)/halide_config.make: $(BUILD_DIR)/halide_config.make
 	@-mkdir -p $(@D)
-	cp $(BUILD_DIR)/halide_config.make $(DISTRIB_DIR)/halide_config.make
+	cp $(BUILD_DIR)/halide_config.make $(DISTRIB_DIR)
 $(DISTRIB_DIR)/lib/libHalide.a: $(LIB_DIR)/libHalide.a
 	@-mkdir -p $(@D)
 	cp $(LIB_DIR)/libHalide.a $(DISTRIB_DIR)/lib

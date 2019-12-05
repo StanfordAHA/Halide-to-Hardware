@@ -6,6 +6,9 @@ namespace {
 
 using namespace Halide;
 
+int inImgSize = 64;
+int outImgSize = inImgSize;
+
 class PointwiseMultiplication : public Halide::Generator<PointwiseMultiplication> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
@@ -32,8 +35,12 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
+          hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
             .hw_accelerate(xi, xo);
+          //hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
+            //.hw_accelerate(xi, xo);
+          hw_output.bound(x, 0, outImgSize);
+          hw_output.bound(y, 0, outImgSize);
 
           hw_input.stream_to_accelerator();
 

@@ -161,6 +161,7 @@ namespace {
       demosaicked(x, y, c) = select(c == 0, r(x, y),
                                     c == 1, g(x, y),
                                     b(x, y));
+      demosaicked.bound(c, 0, 3);
       return demosaicked;
     }
 
@@ -191,14 +192,16 @@ namespace {
     Func apply_curve(Func input, Func curve) {
       // copied from FCam
 
-      Func hw_output("hw_output");
+      Func curved("curved");
       Expr in_val = clamp(input(x, y, c), 0, 1023);
-      //hw_output(c, x, y) = select(input(x, y, c) < 0, 0,
-      //                            input(x, y, c) >= 1024, 255,
-      //                            curve(in_val));
-      hw_output(c, x, y) = curve(in_val);
+      curved(x, y, c) = select(input(x, y, c) < 0, 0,
+                               input(x, y, c) >= 1024, 255,
+                               curve(in_val));
 
-      return hw_output;
+      curved.reorder(x,y,c);
+      //curved.bound(c, 0, 3);
+      //curved.reorder(x,y,c).unroll(c);
+      return curved;
     }
 
     
@@ -231,29 +234,39 @@ namespace {
       Func hw_output;
       hw_output = apply_curve(color_corrected, curve);
 
-      output(x, y, c) = hw_output(c, x, y);
-      hw_output.bound(c, 0, 3);
+      output(x, y, c) = hw_output(x, y, c);
+
+      curve.bound(x, 0, 255);
+      output.bound(c, 0, 3);
+      output.bound(x, 0, 58);
+      output.bound(y, 0, 58);
+
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
         hw_input.compute_root();
         hw_output.compute_root();
-          
-        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6);
-          
-        denoised.linebuffer()
-          .unroll(x).unroll(y);
-        demosaicked.linebuffer()
-          .unroll(c).unroll(x).unroll(y);
-
-        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
 
         hw_output.accelerate({hw_input}, xi, xo, {});
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
+          .reorder(c,xi,yi,xo,yo);;
+
         //hw_output.unroll(c).unroll(xi, 2);
         hw_output.unroll(c);
+        
+        demosaicked.linebuffer();
+        demosaicked.unroll(c);
+        //demosaicked.reorder(c, x, y);
+
+        denoised.linebuffer();
+        //.unroll(x).unroll(y);
+
+        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+        
+        hw_input.stream_to_accelerator();
           
       } else {    // schedule to CPU
-        output.tile(x, y, xo, yo, xi, yi, 64-6, 64-6)
+        output.tile(x, y, xo, yo, xi, yi, 58,58)
           .compute_root();
 
         output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
@@ -264,4 +277,3 @@ namespace {
 }  // namespace
 
 HALIDE_REGISTER_GENERATOR(CameraPipeline, camera_pipeline)
-

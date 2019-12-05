@@ -36,6 +36,8 @@ public:
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
           
         } else {  // schedule to CPU
           output.compute_root();

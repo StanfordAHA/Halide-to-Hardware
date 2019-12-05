@@ -10,7 +10,7 @@ namespace {
 using namespace Halide;
 
 // Size of blur for gradients.
-int blockSize = 5;
+const int blockSize = 5;
 
 class GaussianBlur : public Halide::Generator<GaussianBlur> {
 public:
@@ -55,6 +55,11 @@ public:
         Func hw_output;
         hw_output(x, y) = cast<uint8_t>( blur(x, y) );
         output(x, y) = hw_output(x, y);
+
+        hw_output.bound(x, 0, 60);
+        hw_output.bound(y, 0, 60);
+        output.bound(x, 0, 60);
+        output.bound(x, 0, 60);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

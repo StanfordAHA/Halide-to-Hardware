@@ -20,6 +20,7 @@
 #include "Deinterleave.h"
 #include "EarlyFree.h"
 #include "ExtractHWKernelDAG.h"
+#include "ExtractHWBuffers.h"
 #include "EmulateFloat16Math.h"
 #include "FindCalls.h"
 #include "Func.h"
@@ -34,6 +35,7 @@
 #include "InjectHostDevBufferCopies.h"
 #include "InjectOpenGLIntrinsics.h"
 #include "Inline.h"
+#include "InsertHWBuffers.h"
 #include "LICM.h"
 #include "LoopCarry.h"
 #include "LowerWarpShuffles.h"
@@ -191,6 +193,23 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = allocation_bounds_inference(s, env, func_bounds);
     debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
 
+    //std::cout << "doing sliding window lowering pass\n";
+    Stmt s_sliding;
+    if (t.has_feature(Target::CoreIR)) {
+      s_sliding = sliding_window(s, env);
+      //s = sliding_window(s, env);
+      //std::cout << "finished sliding window lowering pass\n" << s;
+    } else {
+      //s = sliding_window(s, env);
+    }
+
+    //std::cout << "extracting hw buffers\n";
+    //auto buffers = extract_hw_buffers(s, env);
+    
+    //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
+    bool use_ubuffer = false;
+    //!t.has_feature(Target::UseExtractHWKernel);
+
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -202,9 +221,22 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    if (t.has_feature(Target::CoreIRHLS) || t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
-
-      //std::cout << "Now we are doing HLS specific optimizations" << std::endl;
+    //cout << "Should use ubuffer ? " << use_ubuffer << endl;
+    vector<HWXcel> xcels;
+    if (t.has_feature(Target::CoreIR) && use_ubuffer) {
+      //s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
+      //cout << "Pre-unrolled: " << endl;
+      //cout << s << endl;
+      //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
+      //xcels = extract_hw_accelerators(s, env, inlined_stages);
+      xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+      //for (auto hwbuffer : xcels.at(0).hwbuffers) {
+        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+      //}
+    }
+    
+    Stmt s_ub;
+    if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
@@ -212,9 +244,25 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
-      for(const HWKernelDAG &dag : dags) {
-        s = stream_opt(s, dag);
-        //s = replace_image_param(s, dag);
+      if (use_ubuffer) {
+          //std::cout << "--- Before inserting hwbuffers" << std::endl;
+          //std::cout << s << std::endl;
+        for (const HWXcel &xcel : xcels) {
+          s = insert_hwbuffers(s, xcel);
+        }
+          //std::cout << "--- After inserting hwbuffers" << std::endl;
+          //std::cout << s << std::endl;
+          //internal_assert(false);
+      } else {
+       vector<HWKernelDAG> dags;
+       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+       
+       //std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+       
+       for(const HWKernelDAG &dag : dags) {
+         s = stream_opt(s, dag);
+         //s = replace_image_param(s, dag);
+       }
       }
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
@@ -222,9 +270,16 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     }
     
     debug(1) << "Simplifying...\n";
+    //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
+
+    //cout << "Lowering befre first simplification:\n" << s << "\n\n";
+    
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
+    //cout << "Lowering after first simplification:\n" << s << "\n\n";
+    
+    //std::cout << "Before storage folding...\n" << s << "\n\n";
     debug(1) << "Performing storage folding optimization...\n";
       s = storage_folding(s, env);
     debug(2) << "Lowering after storage folding:\n" << s << '\n';
@@ -265,6 +320,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     debug(1) << "Performing storage flattening...\n";
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
+    
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
     //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";

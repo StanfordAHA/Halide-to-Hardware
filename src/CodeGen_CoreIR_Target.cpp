@@ -3,6 +3,7 @@
 #include <limits>
 #include <algorithm>
 
+#include "CodeGen_CoreHLS.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
 #include "Debug.h"
@@ -291,6 +292,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
+  loadHalideLib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", "linebuffer",
                                              "muxn", "abs", "absd",
@@ -545,6 +547,21 @@ uint num_bits(uint N) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
+
+  cout << "---- Creating kernel for stmt..." << endl;
+  cout << stmt << endl;
+
+  if (is_header()) {
+    return;
+  } else {
+    global_ns = context->getNamespace("global");
+    HardwareInfo info;
+    info.hasCriticalPathTarget = false;
+    design = createCoreIRForStmt(context, info, stmt, name, args);
+    def = design->getDef();
+    self = def->sel("self");
+    return;
+  }
 
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
@@ -1915,7 +1932,7 @@ class RenameAllocation : public IRMutator {
     }
   }
 
-  Stmt visit(const Store *op) {
+  Stmt visit(const Store *op) override {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
@@ -1925,7 +1942,7 @@ class RenameAllocation : public IRMutator {
     }
   }
 
-  Stmt visit(const Free *op) {
+  Stmt visit(const Free *op) override {
     if (op->name == orig_name) {
       return Free::make(new_name);
     } else {
@@ -2357,6 +2374,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_linebuffer(const Call *op) {
     CoreIR::Wireable* lb_wen = def->addInstance(lb_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
     def->connect(lb_wen->sel("out"), coreir_lb->sel("wen"));
   }
+  //def->addInstance(lb_name + "_flush", gens["bitconst"], {{"value", CoreIR::Const::make(context,false)}});
+  //def->connect({lb_name + "_flush", "out"}, {lb_name, "flush"});
+
+  
   //hw_wire_set[lb_out_name] = coreir_lb->sel("out");
 
 }

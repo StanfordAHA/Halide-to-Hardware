@@ -49,7 +49,7 @@ using std::map;
         CoreIRLoadLibrary_commonlib(context);
         CoreIRLoadLibrary_float(context);
         // TODO: Move save to json file from CodeGen_CoreHLS.cpp to here
-        createCoreIRForStmt(context, hw_body, ip_name, args);
+        createCoreIRForStmt(context, info, hw_body, ip_name, args);
         CoreIR::deleteContext(context);
 
         // emits the target function call

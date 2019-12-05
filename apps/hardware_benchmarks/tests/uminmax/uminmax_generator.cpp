@@ -36,6 +36,9 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
+
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

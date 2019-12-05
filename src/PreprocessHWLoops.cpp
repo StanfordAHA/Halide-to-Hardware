@@ -36,7 +36,6 @@ bool isInnermostLoop(const For* f) {
   return !c.foundSubLoop;
 }
 
-
 class LetPusher : public IRMutator {
   public:
 

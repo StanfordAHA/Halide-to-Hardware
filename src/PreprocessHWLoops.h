@@ -9,6 +9,19 @@
 namespace Halide {
   namespace Internal {
 
+class ProvideCollector : public IRGraphVisitor {
+  public:
+
+    std::set<const Provide*> provides;
+
+  protected:
+    using IRGraphVisitor::visit;
+
+    void visit(const Provide* p) {
+      provides.insert(p);
+    }
+};
+
 class MemOp {
   public:
 
