@@ -2838,13 +2838,32 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       cout << "\tGetting value at end" << endl;
       auto fstVal = m.valueAtEnd(instr, instr);
       cout << "\tGetting prod stage" << endl;
-      int prodStage = sched.getEndStage(instr);
+      //int prodStage = sched.getEndStage(instr);
 
-      CoreIR::Wireable* lastReg = fstVal;
-      for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-        CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
-        def->connect(pipeReg->sel("in"), lastReg);
-        lastReg = pipeReg->sel("out");
+      //CoreIR::Wireable* lastReg = fstVal;
+      //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
+      //int fstIndex = m.pipelineRegisters[instr].size();
+      //for (auto elem : m.pipelineRegisters[instr]) {
+        //if (elem.first < fstIndex) {
+          //fstIndex = elem.first;
+        //}
+      //}
+      //cout << "fstIndex for " << *instr << " = " << fstIndex << endl;
+      ////internal_assert(false);
+      //for (size_t i = (size_t) fstIndex; i < m.pipelineRegisters[instr].size(); i++) {
+        //cout << "\ti = " << i << endl;
+      for (auto pReg : m.pipelineRegisters[instr]) {
+        int index = pReg.first;
+        auto pipeReg = pReg.second;
+        if (contains_key(index - 1, m.pipelineRegisters[instr])) {
+          def->connect(pipeReg->sel("in"), m.pipelineRegisters[instr][index - 1]->sel("out"));
+        } else {
+          def->connect(pipeReg->sel("in"), fstVal);
+        }
+        //internal_assert(contains_key((int) i, m.pipelineRegisters[instr])) << i << " is not an index of a pipeline register\n";
+        //CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
+        //def->connect(pipeReg->sel("in"), lastReg);
+        //lastReg = pipeReg->sel("out");
       }
     //}
   }
