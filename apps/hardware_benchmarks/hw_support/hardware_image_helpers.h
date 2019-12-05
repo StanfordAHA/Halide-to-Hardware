@@ -73,7 +73,6 @@ template <typename T>
 bool compare_images(const Halide::Runtime::Buffer<T>& image0,
                     const Halide::Runtime::Buffer<T>& image1) {
   bool equal_images = true;
-  std::cout << "come to here" <<std::endl;
 
   if (image0.height() != image1.height() ||
       image0.width() != image1.width()) {
