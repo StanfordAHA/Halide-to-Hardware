@@ -1570,6 +1570,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto operand = codegen(c->value);
       ist->operands = {operand};
       ist->setSigned(!(c->type.is_uint()));
+      ist->resType = f.mod->getContext()->Bit()->Arr(16);
       pushInstr(ist);
       lastValue = ist;
     }
@@ -1767,26 +1768,31 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Min* m) override {
       visit_binop("min", m->a, m->b);
       lastValue->setSigned(!(m->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
     
     void visit(const Max* m) override {
       visit_binop("max", m->a, m->b);
       lastValue->setSigned(!(m->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Mod* d) override {
       visit_binop("mod", d->a, d->b);
       lastValue->setSigned(!(d->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Div* d) override {
       visit_binop("div", d->a, d->b);
       lastValue->setSigned(!(d->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Add* a) override {
       visit_binop("add", a->a, a->b);
       lastValue->setSigned(!(a->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const EQ* a) override {
@@ -1800,11 +1806,13 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Mul* b) override {
       visit_binop("mul", b->a, b->b);
       lastValue->setSigned(!(b->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Sub* b) override {
       visit_binop("sub", b->a, b->b);
       lastValue->setSigned(!(b->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     HWInstr* andHW(HWInstr* a, HWInstr* b) {
@@ -1866,6 +1874,7 @@ class InstructionCollector : public IRGraphVisitor {
         //cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
        
         ist->setSigned(!(op->type.is_uint()));
+        ist->resType = f.mod->getContext()->Bit()->Arr(16);
         //callOp->strConst = calledStencil;
         callOperands.insert(std::begin(callOperands), callOp);
 
@@ -2360,8 +2369,25 @@ class UnitMapping {
         HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
         internal_assert(head(bs.body) == head(argSched.body)) << *arg1 << " is not produced in the same block as " << *sourceLocation << "\n";
       }
-      int startTime = bs.getStartTime(sourceLocation);
-      return valueAt(arg1, startTime);
+      int stageNo = bs.getStartTime(sourceLocation);
+      int producedStage = getEndTime(arg1);
+      //int producedStage = fSched.getEndStage(arg1);
+
+      internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
+      if (stageNo == producedStage) {
+        internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
+        internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
+        return map_get(sourceLocation, map_get(arg1, hwStartValues));
+        //return CoreIR::map_find(arg1, instrValues);
+      } else {
+        internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
+        auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
+
+        internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
+
+        return CoreIR::map_find(stageNo, pregs)->sel("out");
+      }
+      //return valueAt(arg1, startTime);
     }
 
     CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
@@ -2384,33 +2410,34 @@ class UnitMapping {
       return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
-    CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
-      cout << "Getting valueAt for " << *arg1 << " in stage " << stageNo << endl;
+    //CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
+      //cout << "Getting valueAt for " << *arg1 << " in stage " << stageNo << endl;
 
-      string iValStr = "{";
-      for (auto kv : instrValues) {
-        iValStr += "\t{" + kv.first->compactString() + " -> " + CoreIR::toString(*(kv.second)) + "}, " + "\n";
-      }
-      iValStr += "}";
-      internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues: " << iValStr << "\n";
+      ////string iValStr = "{";
+      ////for (auto kv : instrValues) {
+        ////iValStr += "\t{" + kv.first->compactString() + " -> " + CoreIR::toString(*(kv.second)) + "}, " + "\n";
+      ////}
+      ////iValStr += "}";
+      ////internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues: " << iValStr << "\n";
 
-      //if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
+      ////if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
 
-      int producedStage = getEndTime(arg1);
-      //int producedStage = fSched.getEndStage(arg1);
+      //int producedStage = getEndTime(arg1);
+      ////int producedStage = fSched.getEndStage(arg1);
 
-      internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      if (stageNo == producedStage) {
-        return CoreIR::map_find(arg1, instrValues);
-      } else {
-        internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
-        auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
+      //internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
+      //if (stageNo == producedStage) {
+        ////return map_get(arg1, hwStartValues);
+        //return CoreIR::map_find(arg1, instrValues);
+      //} else {
+        //internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
+        //auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
 
-        internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
+        //internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
 
-        return CoreIR::map_find(stageNo, pregs)->sel("out");
-      }
-    }
+        //return CoreIR::map_find(stageNo, pregs)->sel("out");
+      //}
+    //}
 };
 
 CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
@@ -2739,7 +2766,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         BitVector constVal = BitVector(width, value);
         auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
-        //instrValues[op] = cInst->sel("out");
         m.valueIsAlways(op, cInst->sel("out"));
       }
     }
@@ -2747,6 +2773,12 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
   for (auto v : instrValues) {
     m.hwEndValues[v.first][v.first] = v.second;
+    auto op = v.first;
+    auto val = v.second;
+    int endStage = sched.getEndStage(op);
+    for (auto instr : sched.instructionsStartingInStage(endStage)) {
+      m.hwStartValues[op][instr] = val;
+    }
   }
   
 }
@@ -2767,7 +2799,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
   cout << "Created functional units" << endl;
 
-  auto& instrValues = m.instrValues;
+  //auto& instrValues = m.instrValues;
 
   for (auto op : allVarsUsed(sched.body())) {
     string name = op->name;
@@ -2791,7 +2823,9 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   for (auto instr : sched.body()) {
     for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
-        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
+        internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
+        //m.outputType(instr));
         uNum++;
       }
     }
@@ -2815,7 +2849,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //
           //  Need to find the header of the loop for this variable, and then set the hwStartValue of the loop
           //  for all instructions in that state to the value of the counter output
-          instrValues[op] = val;
+          //instrValues[op] = val;
+          m.hwStartValues[op][instr] = val;
           auto blk = containerBlock(instr, *(sched.f));
           int iStage = m.fSched.getStartStage(head(blk));
           for (auto instr : m.fSched.instructionsStartingInStage(iStage)) {
