@@ -2792,7 +2792,9 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Populating pipeline registers..." << endl;
   int uNum = 0;
   for (auto instr : sched.body()) {
-    for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
+    int prodStage = sched.getEndStage(instr);
+    //for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
+    for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
         internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
         internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
@@ -2835,7 +2837,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             m.hwStartValues[op][instr] = val;
           }
 
-          for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
+          //for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
+          for (int stage = 1; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
             //internal_assert(op->resType != nullptr) << *op << " has null result type\n";
             //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
             //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), op->resType);
