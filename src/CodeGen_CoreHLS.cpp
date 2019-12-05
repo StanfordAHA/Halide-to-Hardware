@@ -2337,22 +2337,9 @@ class UnitMapping {
       return fSched.getEndTime(instr);
     }
 
-    //int getStartTime(HWInstr* instr) {
-      //return fSched.getStartTime(instr);
-    //}
-
     bool hasOutput(HWInstr* const arg) const {
       return CoreIR::contains_key(arg, instrValues);
     }
-
-    //CoreIR::Type* outputType(HWInstr* const arg) const {
-      //internal_assert(CoreIR::contains_key(arg, instrValues));
-      //return CoreIR::map_find(arg, instrValues)->getType();
-    //}
-
-    //bool isOutputArg(HWInstr* arg) const {
-      //return outputType(arg)->isInput();
-    //}
 
     void valueIsAlways(HWInstr* const arg1, CoreIR::Wireable* w) {
       for (auto instr : fSched.body()) {
@@ -2362,46 +2349,45 @@ class UnitMapping {
     }
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
-      if (arg1->tp == HWINSTR_TP_CONST) {
-        internal_assert(contains_key(arg1, hwStartValues)) << "no value for constant " << arg1->compactString() << " at " << *sourceLocation << "\n";
-        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        return hwStartValues[arg1][sourceLocation];
-      }
+      internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
+      internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
+      return map_get(sourceLocation, map_get(arg1, hwStartValues));
+      //if (arg1->tp == HWINSTR_TP_CONST) {
+        //internal_assert(contains_key(arg1, hwStartValues)) << "no value for constant " << arg1->compactString() << " at " << *sourceLocation << "\n";
+        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
+        //return hwStartValues[arg1][sourceLocation];
+      //}
 
-      if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable of:\n" << *(fSched.f) << "\n";
-        internal_assert(contains_key(arg1, hwStartValues)) << "no value for variable " << arg1->compactString() << " at " << *sourceLocation << "\n";
-        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        return hwStartValues[arg1][sourceLocation];
-      }
+      //if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        //internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable of:\n" << *(fSched.f) << "\n";
+        //internal_assert(contains_key(arg1, hwStartValues)) << "no value for variable " << arg1->compactString() << " at " << *sourceLocation << "\n";
+        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
+        //return hwStartValues[arg1][sourceLocation];
+      //}
 
-      //internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
-      internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
+      //internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
       
-      HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
-      if (arg1->tp == HWINSTR_TP_INSTR) {
-        HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
-        internal_assert(head(bs.body) == head(argSched.body)) << *arg1 << " is not produced in the same block as " << *sourceLocation << "\n";
-      }
-      int stageNo = bs.getStartTime(sourceLocation);
-      int producedStage = getEndTime(arg1);
-      //int producedStage = fSched.getEndStage(arg1);
+      //HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
+      //if (arg1->tp == HWINSTR_TP_INSTR) {
+        //HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
+        //internal_assert(head(bs.body) == head(argSched.body)) << *arg1 << " is not produced in the same block as " << *sourceLocation << "\n";
+      //}
+      //int stageNo = bs.getStartTime(sourceLocation);
+      //int producedStage = getEndTime(arg1);
 
-      internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      if (stageNo == producedStage) {
-        internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
-        internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
-        return map_get(sourceLocation, map_get(arg1, hwStartValues));
-        //return CoreIR::map_find(arg1, instrValues);
-      } else {
-        internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
-        auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
+      //internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
+      //if (stageNo == producedStage) {
+        //internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
+        //internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
+        //return map_get(sourceLocation, map_get(arg1, hwStartValues));
+      //} else {
+        //internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
+        //auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
 
-        internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
+        //internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
 
-        return CoreIR::map_find(stageNo, pregs)->sel("out");
-      }
-      //return valueAt(arg1, startTime);
+        //return CoreIR::map_find(stageNo, pregs)->sel("out");
+      //}
     }
 
     CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
@@ -2418,40 +2404,11 @@ class UnitMapping {
         return hwEndValues[arg1][sourceLocation];
       }
       
-      //internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
       internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
 
       return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
-    //CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
-      //cout << "Getting valueAt for " << *arg1 << " in stage " << stageNo << endl;
-
-      ////string iValStr = "{";
-      ////for (auto kv : instrValues) {
-        ////iValStr += "\t{" + kv.first->compactString() + " -> " + CoreIR::toString(*(kv.second)) + "}, " + "\n";
-      ////}
-      ////iValStr += "}";
-      ////internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues: " << iValStr << "\n";
-
-      ////if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
-
-      //int producedStage = getEndTime(arg1);
-      ////int producedStage = fSched.getEndStage(arg1);
-
-      //internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      //if (stageNo == producedStage) {
-        ////return map_get(arg1, hwStartValues);
-        //return CoreIR::map_find(arg1, instrValues);
-      //} else {
-        //internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
-        //auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
-
-        //internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
-
-        //return CoreIR::map_find(stageNo, pregs)->sel("out");
-      //}
-    //}
 };
 
 CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
@@ -2837,8 +2794,15 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   for (auto instr : sched.body()) {
     for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
+        internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
         internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
+        for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        }
+        for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        }
         //m.outputType(instr));
         uNum++;
       }
