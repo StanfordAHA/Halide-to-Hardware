@@ -2338,7 +2338,8 @@ class UnitMapping {
     }
 
     bool hasOutput(HWInstr* const arg) const {
-      return CoreIR::contains_key(arg, instrValues);
+      return arg->resType != nullptr;
+      //return CoreIR::contains_key(arg, instrValues);
     }
 
     void valueIsAlways(HWInstr* const arg1, CoreIR::Wireable* w) {
