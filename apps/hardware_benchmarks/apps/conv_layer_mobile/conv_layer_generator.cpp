@@ -51,24 +51,24 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-          output.bound(x, 0, 14);
-          output.bound(y, 0, 14);
+          output.bound(x, 0, 16);
+          output.bound(y, 0, 16);
           output.bound(k, 0, 4);
 
-          hw_output.bound(x, 0, 14);
-          hw_output.bound(y, 0, 14);
+          hw_output.bound(x, 0, 16);
+          hw_output.bound(y, 0, 16);
           hw_output.bound(k, 0, 4);
 
-          bias_dw.bound(c, 0, 4);
-          bias_pw.bound(k, 0, 4);
-        
-          filter_dw.bound(c, 0, 4);
-          filter_pw.bound(c, 0, 4);
-          filter_pw.bound(k, 0, 4);
-
-          pw_conv.bound(x, 0, 14);
-          pw_conv.bound(y, 0, 14);
-          pw_conv.bound(k, 0, 4);
+          //bias_dw.bound(c, 0, 4);
+          //bias_pw.bound(k, 0, 4);
+          //
+          //filter_dw.bound(c, 0, 4);
+          //filter_pw.bound(c, 0, 4);
+          //filter_pw.bound(k, 0, 4);
+          //
+          //pw_conv.bound(x, 0, 16);
+          //pw_conv.bound(y, 0, 16);
+          //pw_conv.bound(k, 0, 4);
           
           // Blocking spatially on X Y dim
           Var xo("xo"), xi("xi"), yo("yo"), yi("yi");
@@ -121,9 +121,10 @@ public:
 
           //add input stream
           hw_input.stream_to_accelerator();//.reorder_storage(c, x, y);
+          hw_input.compute_root();
           //hw_input.store_root().compute_at(pw_conv, x);
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
-          hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);
+          //hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);
         }
 
   }

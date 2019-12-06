@@ -199,7 +199,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR)) {
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
-      for (auto hwbuffer : xcels.at(0).hwbuffers) {
+      for (auto& hwbuffer : xcels.at(0).hwbuffers) {
         std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       }
     }
@@ -333,7 +333,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = unify_duplicate_lets(s);
     s = remove_trivial_for_loops(s);
     debug(2) << "Lowering after second simplifcation:\n" << s << "\n\n";
-    std::cout << "Lowering after second simplifcation:\n" << s << "\n\n";
+    //std::cout << "Lowering after second simplifcation:\n" << s << "\n\n";
 
     debug(1) << "Reduce prefetch dimension...\n";
     s = reduce_prefetch_dimension(s, t);

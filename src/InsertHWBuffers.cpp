@@ -502,6 +502,10 @@ bool need_hwbuffer(const HWBuffer &kernel) {
     //    break;
     //  }
     //}
+    if (kernel.name == "hw_input") {
+      return true;
+    }
+    
     std::cout << "checking if kernel " << kernel.name << " needs a hwbuffer...\n";
 
     std::cout << " this buffer has num_accum=" << kernel.num_accum_iters << std::endl;
@@ -541,7 +545,6 @@ bool need_hwbuffer(const HWBuffer &kernel) {
                 << kernel.num_accum_iters << " iterations" << std::endl;
       //ret = true;
     }
-
      
     return ret;
 }
@@ -614,7 +617,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
             num_updates += 1;
           }
         }
-        internal_assert(num_ostreams < 2);
+        //internal_assert(num_ostreams < 2);
 
         hwbuffer_args.push_back(num_updates);
         for (const auto& ostream_p : kernel.ostreams) {
@@ -705,7 +708,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
     Stmt ret;
 
     std::cout << "transforming:\n";
-    std::cout << s << "\n";
+    //std::cout << s << "\n";
     
     if (const Block *op = s.as<Block>()) {
       //Stmt pc_block_stmt = find_pcblock(s);
@@ -806,9 +809,8 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Expr stream_var = Variable::make(Handle(), stream_name);
 
         // replacing the references to the original realization with refences to stencils
-        std::cout << "replacing some refs: " << produce_node->body << std::endl;
+        //std::cout << "replacing some refs: " << produce_node->body << std::endl;
         Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(produce_node->body);
-        std::cout << "continuing\n";
         //Stmt update = ReplaceReferencesWitBufferhStencil(kernel, xcel, &scope).mutate(op->update);
 
         // syntax for write_stream()
@@ -829,14 +831,12 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         }
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, step_bounds, const_true(), stencil_pc);
 
-        std::cout << "write streams created\n";
         // add read_stream for each input stencil (producers fed to func)
         for (const string& s : kernel.input_streams) {
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
         }
-        std::cout << "read streams created\n";
 
         // insert scan loops
         Stmt scan_loops = stencil_realize;
@@ -903,7 +903,6 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         }
 
     } else {
-        std::cout << "this is output\n";        
         // this is the output kernel of the xcel
         const HWBuffer &kernel = xcel.hwbuffers.find(xcel.name)->second;
         std::cout << "this is output: " << xcel.name << "=" << kernel.name << std::endl;        
@@ -915,7 +914,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Expr stencil_var = Variable::make(Handle(), stencil_name);
 
         // replacing the references to the original realization with refences to stencils
-        std::cout << "replacing some output refs: " << s << std::endl;
+        //std::cout << "replacing some output refs: " << s << std::endl;
         Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(s);
 
         // syntax for write_stream()
@@ -999,7 +998,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Stmt ret_consume = ProducerConsumer::make_consume(stream_name, Evaluate::make(0));
         Stmt ret_pc = Block::make(ret_produce, ret_consume);
         ret = ret_pc;
-        std::cout << "finished with output stencil:\n" << ret_pc;
+        //std::cout << "finished with output stencil:\n" << ret_pc;
     }
     return ret;
 }
@@ -1095,7 +1094,6 @@ class InsertHWBuffers : public IRMutator2 {
               
             // insert hardware buffers for input streams
             for (const string &input_name : xcel.input_streams) {
-
                 std::cout << "let's add input stream " << input_name << std::endl;
                 const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
                 //const HWBuffer &input_kernel = xcel.hwbuffers.at(input_name);
@@ -1136,6 +1134,13 @@ class InsertHWBuffers : public IRMutator2 {
             Stmt new_body = mutate(body);
             std::cout << body << std::endl;
             //Stmt new_body = transform_hwkernel(body, xcel, scope);
+            // insert hardware buffers for input streams
+            //for (const string &input_name : xcel.input_streams) {
+            //  std::cout << "let's add input stream " << input_name << std::endl;
+            //  const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
+            //  //const HWBuffer &input_kernel = xcel.hwbuffers.at(input_name);
+            //  new_body = add_hwbuffer(new_body, input_kernel, xcel, scope);
+            //}
 
             //stmt = For::make(xcel.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
             Stmt new_body_produce = ProducerConsumer::make_produce("_hls_target." + xcel.name, new_body);
@@ -1182,6 +1187,8 @@ class InsertHWBuffers : public IRMutator2 {
                 }
                 new_body = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), Block::make(stream_subimg, new_body));
             }
+
+            
         
 
             /*

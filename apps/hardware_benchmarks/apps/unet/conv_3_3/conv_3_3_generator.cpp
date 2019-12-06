@@ -11,9 +11,9 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     int ksize = 3;
-    int imgsize = 62;
-    int k_z = 4;
-    int k_w = 4;
+    int imgsize = 14;
+    int k_z = 3;
+    int k_w = 3;
 
     void generate() {
         /* THE ALGORITHM */
@@ -43,26 +43,32 @@ public:
         clamp_input(z, x, y) = input(z, clamp(x, 0, width - 1), clamp(y, 0, height - 1));
 
         Func hw_kernel;
-        hw_kernel(z, x, y, w) = kernel(z, x, y, w);
+        hw_kernel(z, w, x, y) = kernel(z, w, x, y);
         //hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
         hw_input(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
         //conv(x, y, w) += hw_kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
         conv(x, y, w) += hw_kernel(r.z, r.x, r.y, w) * hw_input(r.z, x + r.x, y + r.y);
+        //conv(w, x, y) += hw_kernel(w, r.z, r.x, r.y) * hw_input(r.z, x + r.x, y + r.y);
 
         Func hw_output("hw_output");
+        //hw_output(w, x, y) = cast<uint8_t>(conv(w, x, y));
         hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
+        //output(w, x, y) = max(0, hw_output(w, x, y));
         output(x, y, w) = max(0, hw_output(x, y, w));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          // loop order: r.z, r.x, r.y, xi, yi, xo, yo, w
+          
           output.bound(x, 0, imgsize);
           output.bound(y, 0, imgsize);
           output.bound(w, 0, k_w);
           hw_output.bound(w, 0, k_w);
           //clamp_input.bound(z, 0, k_z);
           //kernel.bound(w, 0, k_w);
-          //kernel.bound(z, 0, k_z);
-          //hw_input.bound(z, 0, k_z);
+          hw_kernel.bound(z, 0, k_z);
+          hw_input.bound(z, 0, k_z);
+          hw_kernel.bound(w, 0, k_w);
           
           Var xi,yi, xo,yo;
           
@@ -75,46 +81,59 @@ public:
             .hw_accelerate(xi, xo) //.unroll(w, k_w); 
             //   order reorder from inner to outermost
             //.reorder(xi,w,yi,xo,yo);
-            //.reorder(xi,yi,w,xo,yo);
+            .reorder(xi,yi,w,xo,yo);
             //.reorder(xi,w,yi,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
             //.reorder(w,xi,yi,xo,yo);
-            .reorder_storage(x,y,w).reorder(xi,yi,w,xo,yo);
+          //.reorder_storage(x,y,w).reorder(xi,yi,xo,yo,w);
             //.reorder(w,xi,yi,xo,yo);
 
           hw_kernel
-            .reorder_storage(z,x,y,w)
-            .reorder(z,x,y,w);
+            .reorder_storage(z,w,x,y)
+            .reorder(z,w,x,y);
           
           hw_input
             .reorder_storage(z,x,y)
             .reorder(z,x,y);
           //.unroll(z, k_z);
           
-          conv.reorder(x,y,w)
-            .reorder_storage(x,y,w);
+          conv.reorder(w,x,y)
+            .reorder_storage(w,x,y);
 
           conv.update()
             //.reorder(r.z,r.x,r.y,w,x,y);
             //.reorder(r.x,r.y,r.z,w,x,y);
-            //.reorder(r.x,r.y,r.z,w,x,y);
             //.reorder(w,r.x,r.y,r.z,x,y);
             //.reorder(r.z,w,r.x,r.y,x,y);
             //.reorder(r.z,r.x,r.y,w,x,y);
-            .reorder(r.z,r.x,r.y,w,x,y);
+            //.reorder(r.z,r.x,r.y,x,y,w);
+            //.reorder(x,y,r.z,r.x,r.y,w);
+
+            //.reorder(r.x,r.y,r.z,w,x,y);
+            //.reorder(w,r.z,r.x,r.y,x,y);
+            //.reorder(r.y,y,w,r.z,r.x,r.z,y);
+            .reorder(x,y,w,r.z,r.x,r.y);
           
           conv.update()
-            //.unroll(r.z, k_z);                       // unroll input channel
+            //.unroll(r.z, k_z/2);                     // unroll input channel
+            //.unroll(r.z);                            // unroll input channel
+            //.unroll(r.z).unroll(r.x);                // unroll input channel, x dim
+            //.unroll(r.z).unroll(r.x).unroll(r.y);    // unroll all rdoms
+            //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 2);    // unroll all rdoms, x2
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // unroll conv
             //.unroll(r.x, ksize);                     // unroll conv x
             //.unroll(w, k_w);                         // unroll output channel
+            //.unroll(w, ksize).unroll(r.z, ksize);    // unroll channels
+            //.unroll(x, ksize).unroll(y, ksize);    // unroll output values
             //.unroll(w, k_w).unroll();                // unroll for multiple memories?
-            .unroll(r.x).unroll(r.y).unroll(r.z);    // unroll all rdoms
+            //.unroll(r.x).unroll(r.y).unroll(r.z);    // unroll all rdoms
             //.unroll(r.x).unroll(r.y).unroll(r.z, k_z/2);       // unroll all rdoms, partial for r.z
             //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 4); // unroll all rdoms, x4
-            
-            //.unroll(w, k_w).unroll(r.x, ksize);
-            //.unroll(r.y, ksize);
+
+            //.unroll(r.x, ksize).unroll(r.y, ksize);  // weight stationary
+            //.unroll(w, ksize).unroll(r.z, ksize);    // channel weight stationary
+            //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
+            .unroll(x, ksize).unroll(y, ksize);      // output stationary
 
 
           conv.linebuffer();
@@ -124,6 +143,9 @@ public:
           //hw_input.unroll(x, 3);
           hw_kernel.stream_to_accelerator();
           hw_input.stream_to_accelerator();
+          //hw_kernel.unroll(w, ksize);
+          //hw_input.unroll(x, ksize);
+          //hw_output.unroll(w, ksize);
 
         } else {  // schedule to CPU
           conv.compute_root();

@@ -418,7 +418,7 @@ class AttemptStorageFoldingOfFunction : public IRMutator2 {
     }
 
     Stmt visit(const For *op) override {
-      std::cout << op->name << " is being looked at\n";
+        //std::cout << op->name << " is being looked at\n";
         if (op->for_type != ForType::Serial && op->for_type != ForType::Unrolled) {
             // We can't proceed into a parallel for loop.
 
@@ -506,11 +506,11 @@ class AttemptStorageFoldingOfFunction : public IRMutator2 {
                      << "Max: " << max << '\n'
                      << "Extent: " << extent << '\n'
                      << "explicit_factor: " << explicit_factor << '\n';
-            std::cout << "\nConsidering folding " << func.name() << " over for loop over " << op->name << " dimension " << i - 1 << '\n'
-                     << "Min: " << min << '\n'
-                     << "Max: " << max << '\n'
-                     << "Extent: " << extent << '\n'
-                     << "explicit_factor: " << explicit_factor << '\n';
+            //std::cout << "\nConsidering folding " << func.name() << " over for loop over " << op->name << " dimension " << i - 1 << '\n'
+            //         << "Min: " << min << '\n'
+            //         << "Max: " << max << '\n'
+            //         << "Extent: " << extent << '\n'
+            //         << "explicit_factor: " << explicit_factor << '\n';
 
             // First, attempt to detect if the loop is monotonically
             // increasing or decreasing (if we allow automatic folding).

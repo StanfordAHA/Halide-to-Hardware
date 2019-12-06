@@ -150,9 +150,8 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
 
 int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   h_assert(hwbuffer.name == ref.name, "wrong name for hwbuffer: " + hwbuffer.name + " vs ref=" + ref.name);
-  
-  //std::cout << "loop is " << hwbuffer.store_looplevel.lock() << " and " << hwbuffer.compute_looplevel.lock() << std::endl;
-  //std::cout << "loop has compute " << hwbuffer.compute_looplevel.lock() << std::endl;
+
+  // check store, compute, and streaming loops
   h_assert(hwbuffer.store_level == ref.store_level,
            hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
   h_assert(hwbuffer.compute_level == ref.compute_level,
@@ -164,11 +163,7 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
              hwbuffer.name + " has the wrong streaming loop"  + to_string(i) + " name: " + hwbuffer.streaming_loops.at(i));
   }
 
-  //h_assert(hwbuffer.consumer_buffers.size() == ref.consumer_buffers.size(),
-  //         hwbuffer.name + " has a different number of consumer buffers");
-  // iterate over all keys in the consumer map
-
-
+  // check logical, stencil, chunk, and block sizes
   h_assert(hwbuffer.dims.size() == ref.dims.size(), "doesn't have correct num of dims");
   for (size_t i=0; i<ref.dims.size(); ++i) {
     check_param(hwbuffer.name + " logical size dim" + to_string(i), hwbuffer.ldims.at(i).logical_size, ref.ldims.at(i).logical_size);
@@ -184,6 +179,19 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   }
   for (size_t i=0; i<ref.dims.size(); ++i) {
     check_param(hwbuffer.name + " input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
+  }
+
+  // check linear address loops
+  std::cout << "linear address loop length is " << hwbuffer.linear_addr.size() << std::endl;
+  check_param(hwbuffer.name + " num of linear addr loops", hwbuffer.linear_addr.size(), ref.linear_addr.size());
+  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+    check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer.linear_addr.at(i).range, ref.linear_addr.at(i).range);
+  }
+  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+    check_param(hwbuffer.name + " stride loop" + to_string(i), hwbuffer.linear_addr.at(i).stride, ref.linear_addr.at(i).stride);
+  }
+  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+    check_param(hwbuffer.name + " dim_ref loop" + to_string(i), hwbuffer.linear_addr.at(i).dim_ref, ref.linear_addr.at(i).dim_ref);
   }
 
   // Note: the number of consumer streams includes the update
@@ -261,12 +269,14 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                       {ksize, ksize}, {ksize, ksize},
                                       {1, 1}, {1, 1});
+    auto addrs = create_linear_addr({imgsize, imgsize},
+                                    {1, 1}, {0, 1});
     vector<string> loops;
     vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
     for (auto loopvar : loopvars) {
       loops.emplace_back("hw_output" + suffix + loopvar);
     }
-    HWBuffer ref_hwbuffer = HWBuffer("hw_input" + suffix, dims,
+    HWBuffer ref_hwbuffer = HWBuffer("hw_input" + suffix, dims, addrs,
                                      loops, 0, 2,
                                      false, true,
                                      "", "conv"+suffix);
@@ -368,6 +378,9 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
       auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                         {ksize, ksize}, {ksize, ksize},
                                         {1, 1}, {1, 1});
+      int range = ref_logsize - (ksizes.at(i) - 1); // range does not include the last conv size
+      auto addrs = create_linear_addr({range, range},
+                                      {1, 1}, {0, 1});
       vector<string> loops;
       vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
       for (auto loopvar : loopvars) {
@@ -380,7 +393,7 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
       int store_index = 0; //i==0 ? 0 : 0;
       int compute_index = 2;
 
-      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims,
+      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims, addrs,
                                        loops, store_index, compute_index,
                                        false, false,
                                        producer_name, consumer_name);
@@ -525,6 +538,8 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
       auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                         {ksize, ksize}, {ksize, ksize},
                                         {1, 1}, {1, 1});
+      auto addrs = create_linear_addr({ref_logsize, ref_logsize},
+                                      {1, 1}, {0, 1});
       vector<string> loops;
       vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
       for (auto loopvar : loopvars) {
@@ -537,7 +552,7 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
       int store_index = 0; //i==0 ? 0 : 0;
       int compute_index = 2;
 
-      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims,
+      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims, addrs,
                                        loops, store_index, compute_index,
                                        false, false,
                                        producer_name, consumer_name);
@@ -586,6 +601,35 @@ int main(int argc, char **argv) {
     //if (forked_pipeline_hwbuffer_test(3, {1, 1}, 3, 64) != 0) { return -1; }
     //if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
     //if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
+
+    printf("Running compute level hwbuffer tests\n");
+    printf("    checking hwbuffers...\n");
+    // line buffer
+    // double buffer
+    // something in between
+
+    printf("Running loop reordering hwbuffer tests\n");
+    printf("    checking hwbuffers...\n");
+    // no reorder
+    // reordering with loops unrolled
+    // something in between
+    
+    printf("Running sampling hwbuffer tests\n");
+    printf("    checking hwbuffers...\n");
+    // downsample
+    // upsample
+    // up and down sampling
+
+    printf("Running multi-pixel hwbuffer tests\n");
+    printf("    checking hwbuffers...\n");
+    // 1 pixel/cycle
+    // 2 pixels/cycle
+    
+    printf("Running rolled hwbuffer tests\n");
+    printf("    checking hwbuffers...\n");
+    // input block equal to input chunk
+    // row of stencil at a time (3 cycles)
+    // pixel of stencil at a time (9 cycles)
     
     printf("Success!\n");
     return 0;

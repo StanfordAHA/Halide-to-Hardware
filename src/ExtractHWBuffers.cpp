@@ -55,6 +55,22 @@ std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec) {
   return os;
 };
 
+std::ostream& operator<<(std::ostream& os, const std::vector<AccessDimSize>& vec) {
+  vector<Expr> range, stride, dim_ref;
+  for (const auto& dim : vec) {
+    range.emplace_back(dim.range);
+    stride.emplace_back(dim.stride);
+    dim_ref.emplace_back(dim.dim_ref);
+  }
+  
+  os << "Range: " << range << std::endl
+     << "Stride: " << stride << std::endl
+     << "Dim Ref: " << dim_ref << std::endl;
+  
+  return os;
+};
+
+
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
   vector<Expr> output_stencil_box, output_block_box, output_min_pos;
@@ -98,6 +114,9 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
      << "Output Block: " << output_block_box << std::endl
      << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl;
     //<< "Output Min Pos: " << output_min_pos << std::endl;
+
+  os << buffer.linear_addr << std::endl;
+  
   for (const auto& omp_pair : ostream_output_mins) {
     os << "Ostream " << omp_pair.first << " Min Pos: "
        << omp_pair.second << std::endl;
@@ -129,6 +148,56 @@ int to_int(Expr expr) {
   }
 }
 
+HWBuffer::HWBuffer(string name, vector<MergedDimSize> mdims, vector<AccessDimSize> linear_addr,
+                   vector<string> loops, int store_index, int compute_index, bool is_inlined, bool is_output,
+                   string iname, string oname) :
+  name(name), store_level(store_index < 0 ? "" : loops[store_index]),
+  compute_level(compute_index < 0 ? "" : loops[compute_index]),
+  is_inlined(is_inlined), is_output(is_output), linear_addr(linear_addr) {
+  loops.erase(loops.begin());
+  streaming_loops = loops;
+
+  ldims = std::vector<LogicalDimSize>(mdims.size());
+  for (size_t i=0; i<mdims.size(); ++i) {
+    ldims[i].logical_size = mdims[i].logical_size;
+    ldims[i].logical_min = mdims[i].logical_min;
+  }
+
+  InputStream istream;
+  istream.idims = std::vector<InputDimSize>(mdims.size());
+    
+  OutputStream ostream;
+  ostream.odims = std::vector<OutputDimSize>(mdims.size());
+    
+  dims = std::vector<InOutDimSize>(mdims.size());
+  for (size_t i=0; i<mdims.size(); ++i) {
+    istream.idims.at(i).loop_name       = mdims.at(i).loop_name;
+    istream.idims.at(i).input_chunk     = mdims.at(i).input_chunk;
+    istream.idims.at(i).input_block     = mdims.at(i).input_block;
+      
+    ostream.odims.at(i).loop_name      = mdims.at(i).loop_name;
+    ostream.odims.at(i).output_stencil = mdims.at(i).output_stencil;
+    ostream.odims.at(i).output_block   = mdims.at(i).output_block;
+    ostream.odims.at(i).output_min_pos = mdims.at(i).output_min_pos;
+    ostream.odims.at(i).output_max_pos = mdims.at(i).output_max_pos;
+  }
+  istreams[iname] = istream;
+  ostreams[oname] = ostream;
+
+  // old way
+  dims = std::vector<InOutDimSize>(mdims.size());
+  for (size_t i=0; i<mdims.size(); ++i) {
+    dims[i].loop_name      = mdims[i].loop_name;
+    dims[i].input_chunk    = mdims[i].input_chunk;
+    dims[i].input_block    = mdims[i].input_block;
+    dims[i].output_stencil = mdims[i].output_stencil;
+    dims[i].output_block   = mdims[i].output_block;
+    //dims[i].output_min_pos = mdims[i].output_min_pos;
+    //dims[i].output_max_pos = mdims[i].output_max_pos;
+  }
+    
+};
+
 std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
                                                  std::vector<int> output_stencil, std::vector<int> output_block,
                                                  std::vector<int> input_chunk, std::vector<int> input_block) {
@@ -147,6 +216,22 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
    
    return dims;
 }
+
+std::vector<AccessDimSize> create_linear_addr(std::vector<int> ranges,
+                                              std::vector<int> strides,
+                                              std::vector<int> dim_refs) {
+   internal_assert(ranges.size() == strides.size());
+   internal_assert(ranges.size() == dim_refs.size());
+
+   std::vector<AccessDimSize> dims(ranges.size());
+
+   for (size_t i=0; i < ranges.size(); ++i) {
+     dims[i] = AccessDimSize({Expr(ranges.at(i)), Expr(strides.at(i)), Expr(dim_refs.at(i))});
+   }
+   
+   return dims;
+}
+
 
 std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
     std::vector<std::string> tokens;
@@ -205,6 +290,29 @@ std::string first_for_name(Stmt s) {
   FirstForName ffn;
   s.accept(&ffn);
   return ffn.var;
+}
+
+class ContainsCall : public IRVisitor {
+  string var;
+  
+  using IRVisitor::visit;
+  
+  void visit(const Call *op) {
+    if (op->name == var) {
+      found = true;
+    } else {
+      IRVisitor::visit(op);
+    }
+  }
+public:
+  bool found;
+  ContainsCall(string var) : var(var), found(false) {}
+};
+
+bool contains_call(Stmt s, string var) {
+  ContainsCall cc(var);
+  s.accept(&cc);
+  return cc.found;
 }
 
 class ExamineLoopLevel : public IRVisitor {
@@ -366,25 +474,71 @@ class CountBufferUsers : public IRVisitor {
   }
 
   void visit(const For *op) override {
-    // add this for loop to read address loop
-    For *previous_for = current_for;
-    Stmt for_stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, op->body);
-    if (current_for == nullptr) {
-      full_stmt = for_stmt;
-      //std::cout << "added first for loop: " << op->name << std::endl;
+    if (contains_call(op->body, var)) {
+      // add this for loop to read address loop
+      For *previous_for = current_for;
+      Stmt for_stmt = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, op->body);
+      if (current_for == nullptr) {
+        full_stmt = for_stmt;
+        std::cout << "added first for loop: " << op->name << " for " << var << std::endl;
 
-      auto box_read = box_required(op->body, var);
-      auto interval = box_read;
-      for (size_t dim=0; dim<interval.size(); ++dim) {
-        auto assertstmt = AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope)));
-        //std::cout << "min pos in dim " << dim << ":" << assertstmt;
+        auto box_read = box_required(op->body, var);
+        auto interval = box_read;
+        for (size_t dim=0; dim<interval.size(); ++dim) {
+          auto assertstmt = AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope)));
+          //std::cout << "min pos in dim " << dim << ":" << assertstmt;
+        }
+      } else if (!is_parallelized(op)) {
+        current_for->body = for_stmt;
+        std::cout << "added nonparallel for loop: " << op->name << std::endl;
       }
-    } else if (!is_parallelized(op)) {
-      current_for->body = for_stmt;
-      //std::cout << "added for loop: " << op->name << std::endl;
-    }
-    current_for = const_cast<For *>(for_stmt.as<For>());
+      current_for = const_cast<For *>(for_stmt.as<For>());
 
+      
+      IRVisitor::visit(op);
+
+
+      if (call_at_level(op->body, var)) {
+        std::cout << op->name << " call found for reader loopnest\n";
+      }
+    
+      // look at the readers (reader ports, read address gen)
+      if (call_at_level(op->body, var) && !is_parallelized(op)) {
+        auto box_read = box_required(op->body, var);
+        //std::cout << "readers inside loop " << op->name << std::endl;
+        std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
+        //std::cout << Stmt(op->body) << std::endl;
+        std::cout << "HWBuffer Parameter: reader ports - "
+                  << "box extent=[";
+        auto interval = box_read;
+
+        vector<Stmt> stmts;
+        output_block_box = vector<Expr>(interval.size());
+        for (size_t dim=0; dim<interval.size(); ++dim) {
+          Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+          Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
+          Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
+          output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
+          stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
+          std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
+        }
+        std::cout << "]\n";
+
+        const vector<Stmt> &const_stmts = stmts;
+        current_for->body = Block::make(const_stmts);
+        reader_loopnest = simplify(expand_expr(full_stmt, scope));
+        std::cout << "HWBuffer Parameter - " << var << " nested reader loop:\n" << reader_loopnest << std::endl;
+
+      }
+
+
+      // remove for loop to read address loop
+      current_for = previous_for;
+      return;
+    }
+    
+
+    //std::cout << "added for loop: " << op->name << std::endl;
     IRVisitor::visit(op);
 
     // look at the writers (writer ports)
@@ -408,38 +562,6 @@ class CountBufferUsers : public IRVisitor {
 
     }
 
-    // look at the readers (reader ports, read address gen)
-    if (call_at_level(op->body, var) && !is_parallelized(op)) {
-      auto box_read = box_required(op->body, var);
-      //std::cout << "readers inside loop " << op->name << std::endl;
-      std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-      //std::cout << Stmt(op->body) << std::endl;
-      std::cout << "HWBuffer Parameter: reader ports - "
-                << "box extent=[";
-      auto interval = box_read;
-
-      vector<Stmt> stmts;
-      output_block_box = vector<Expr>(interval.size());
-      for (size_t dim=0; dim<interval.size(); ++dim) {
-        Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
-        Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
-        Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
-        output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
-        stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
-        std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
-      }
-      std::cout << "]\n";
-
-      const vector<Stmt> &const_stmts = stmts;
-      current_for->body = Block::make(const_stmts);
-      reader_loopnest = simplify(expand_expr(full_stmt, scope));
-      std::cout << "HWBuffer Parameter - " << var << " nested reader loop:\n" << reader_loopnest << std::endl;
-
-    }
-
-
-    // remove for loop to read address loop
-    current_for = previous_for;
     
   }
   
@@ -1088,13 +1210,17 @@ class HWBuffers : public IRMutator2 {
 
           //std::cout << "counting lbed:\n" << new_body << std::endl;
           CountBufferUsers counter(op->name);
+          ReplaceForBounds rfb;
+          auto replaced_body = rfb.mutate(new_body);
           //std::cout << "looking for those access patterns for buffer named: " << op->name << new_body;
-          new_body.accept(&counter);
+          //new_body.accept(&counter);
+          replaced_body.accept(&counter);
           
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
           auto input_block_box = counter.input_block_box;
           auto reader_loopnest = counter.reader_loopnest;
+          std::cout << hwbuffer.name << " has reader loopnest:\n" << reader_loopnest;
 
           //auto boxes_write = boxes_provided(new_body);
           //for (auto box_entry : boxes_write) {
@@ -1195,7 +1321,7 @@ map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &en
   HWBuffers ehb(env, xcel->streaming_loop_levels, xcel);
   ehb.mutate(s);
 
-  for (auto hwbuffer : ehb.buffers) {
+  for (auto& hwbuffer : ehb.buffers) {
     std::cout << hwbuffer.first << " is ehb w/ inline=" << hwbuffer.second.is_inlined << std::endl;
     std::cout << hwbuffer.second << std::endl;
   }
@@ -1314,16 +1440,18 @@ void set_output_params(HWXcel *xcel,
     }
 
     // run through hwbuffers looking for a particular name
-    auto iterator = std::find_if(hwbuffers.begin(), hwbuffers.end(), [stage](const std::pair<std::string, HWBuffer>& buffer_pair){
-        if (stage.name == buffer_pair.first) {
-          return true;
-        } else {
-          return false;
-        }
-      });
-    internal_assert(iterator != hwbuffers.end());
-    auto &hwbuffer = iterator->second;
-    internal_assert(hwbuffer.name == iterator->first);
+    //auto iterator = std::find_if(hwbuffers.begin(), hwbuffers.end(), [stage](const std::pair<std::string, HWBuffer>& buffer_pair){
+    //    if (stage.name == buffer_pair.first) {
+    //      return true;
+    //    } else {
+    //      return false;
+    //    }
+    //  });
+    //internal_assert(iterator != hwbuffers.end());
+    //auto &hwbuffer = iterator->second;
+    //internal_assert(hwbuffer.name == iterator->first);
+    auto& hwbuffer = hwbuffers.at(stage.name);
+    internal_assert(hwbuffer.name == stage.name);
     
     std::cout << hwbuffer.name << " before func\n";
 
@@ -1394,7 +1522,8 @@ void set_output_params(HWXcel *xcel,
       //if (hwbuffers.count(consumer.name)) {
         std::cout << "adding " << hwbuffer.name << " as an input of " << consumer.name << "\n";
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
-        hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = std::make_shared<HWBuffer>(hwbuffer);
+        //hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = std::make_shared<HWBuffer>(hwbuffer);
+        hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = &hwbuffer;
       } else {
         std::cout << "couldn't find consumer " << consumer.name << std::endl;
       }
@@ -1417,8 +1546,10 @@ void set_output_params(HWXcel *xcel,
 
       std::cout << "for kernel " << hwbuffer.name << ", adding consumer "
                 << consumer_name << " based on kernel " << consumer.name << std::endl;
-      hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
-      ostream.hwref = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
+      //hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
+      hwbuffer.consumer_buffers[consumer_name] = &hwbuffers.at(consumer.name);
+      //ostream.hwref = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
+      ostream.hwref = &hwbuffers.at(consumer.name);
       
       std::string func_compute_level = hwbuffer.compute_level;
       const FuncSchedule &sched = cur_func.schedule();
@@ -1551,7 +1682,8 @@ void set_output_params(HWXcel *xcel,
         //          << " and output=" << hwbuffer.dims.at(idx).output_stencil << std::endl;
       }
 
-      std::cout << "right before " << consumer.name << " inputs\n";
+      std::cout << "right before " << consumer.name << " replacements\n"
+                << hwbuffer.output_access_pattern;
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
@@ -1559,6 +1691,10 @@ void set_output_params(HWXcel *xcel,
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
         ostream.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
       }
+      std::cout << "right after " << consumer.name << " replacements\n"
+                << hwbuffer.output_access_pattern;
+
+      
     }
 
     // save the bounds values in scope
@@ -1747,6 +1883,83 @@ IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &
     
     std::cout << "going to be looking for range and strides where storage=" << storage_names << std::endl;
   }
+/*
+void linearize_address_space(HWBuffer &kernel) {
+  for (auto& istream_pair : kernel.producer_buffers) {
+    auto& istream = *istream_pair.second;
+
+    IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
+    istream.output_access_pattern.accept(&id_addr);
+
+    if (istream.name != kernel.name) {
+      std::cout << istream.output_access_pattern;
+      std::cout << istream.name << " is a producer for " << kernel.name << std::endl
+                << "  range: " << id_addr.ranges << std::endl
+                << "  stride: " << id_addr.strides_in_dim << std::endl
+                << "  dim_refs: " << id_addr.dim_refs << std::endl;
+
+      auto num_access_levels = id_addr.ranges.size();
+      assert(num_access_levels == id_addr.strides_in_dim.size());
+      assert(num_access_levels == id_addr.dim_refs.size());
+      
+      std::vector<AccessDimSize> linear_addr(num_access_levels);
+      size_t j = 0;
+      for (size_t i=0; i<num_access_levels; ++i) {
+        if (id_addr.ranges.at(i) != 1) {
+          linear_addr.at(j).range = id_addr.ranges.at(i);
+          linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
+          linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
+          j += 1;
+        }
+      }
+      linear_addr.resize(j);
+      istream_pair.second->linear_addr = linear_addr;
+      //kernel.linear_addr = linear_addr;
+      std::cout << istream.name << " getting linear addr " << istream.linear_addr << std::endl;
+      std::cout << istream << std::endl;
+    }
+  }
+}
+*/
+
+void linearize_address_space(HWBuffer &kernel) {
+  for (auto& istream_pair : kernel.producer_buffers) {
+    HWBuffer& istream = *istream_pair.second;
+    //std::shared_ptr<HWBuffer> istream = istream_pair.second;
+
+    IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
+    istream.output_access_pattern.accept(&id_addr);
+
+    if (istream.name != kernel.name) {
+      std::cout << istream.output_access_pattern;
+      std::cout << istream.name << " is a producer for " << kernel.name << std::endl
+                << "  range: " << id_addr.ranges << std::endl
+                << "  stride: " << id_addr.strides_in_dim << std::endl
+                << "  dim_refs: " << id_addr.dim_refs << std::endl;
+
+      auto num_access_levels = id_addr.ranges.size();
+      assert(num_access_levels == id_addr.strides_in_dim.size());
+      assert(num_access_levels == id_addr.dim_refs.size());
+      
+      //istream_pair.second->linear_addr = std::vector<AccessDimSize>(num_access_levels);
+      istream.linear_addr.resize(num_access_levels);
+      //auto linear_addr = std::vector<AccessDimSize>(num_access_levels);
+      size_t j = 0;
+      for (size_t i=0; i<num_access_levels; ++i) {
+        if (id_addr.ranges.at(i) != 1) {
+          istream.linear_addr.at(j).range = id_addr.ranges.at(i);
+          istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
+          istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
+          j += 1;
+        }
+      }
+      istream.linear_addr.resize(j);
+      //kernel.linear_addr = istream.linear_addr;
+      std::cout << istream.linear_addr << std::endl << istream;
+      std::cout << &istream << std::endl;
+    }
+  }
+}
 
 void calculate_accumulation(HWBuffer &kernel) {
     bool has_accum = kernel.ostreams.count(kernel.name) > 0;
@@ -1757,7 +1970,7 @@ void calculate_accumulation(HWBuffer &kernel) {
     }
     
     for (auto& istream_pair : kernel.producer_buffers) {
-      auto istream = *istream_pair.second;
+      auto& istream = *istream_pair.second;
 
       IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
       istream.output_access_pattern.accept(&id_addr);
@@ -1812,13 +2025,15 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   set_output_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
+    linearize_address_space(hwbuffer_pair.second);
     calculate_accumulation(hwbuffer_pair.second);
-    
+  }
+  for (auto &hwbuffer_pair : xcel->hwbuffers) {
     std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << hwbuffer_pair.second.is_inlined
               << " and num_dims=" << hwbuffer_pair.second.dims.size() << std::endl;
     std::cout << "Final buffer:\n" << hwbuffer_pair.second;
 
-    auto kernel = hwbuffer_pair.second;
+    auto& kernel = hwbuffer_pair.second;
     auto num_inputs = kernel.func.updates().size() + 1;
     auto num_outputs = kernel.consumer_buffers.size();
     std::cout << "num_in=" << num_inputs << "   num_out=" << num_outputs << std::endl;

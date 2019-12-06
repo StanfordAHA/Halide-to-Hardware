@@ -118,7 +118,7 @@ run-vhls: $(BIN)/process
 	$(BIN)/process run vhls input.png
 
 compare compare-cpu-coreir compare-coreir-cpu: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
-	$(BIN)/process compare $(BIN)/output_coreir.png $(BIN)/output_cpu.png
+	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)

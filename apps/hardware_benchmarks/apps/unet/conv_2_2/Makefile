@@ -13,7 +13,7 @@ include ../../../../support/Makefile.inc
 COREIR_CXX_FLAGS = -I $(COREIR_DIR)/include -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
 CXXFLAGS += $(COREIR_CXX_FLAGS)
 
-TESTNAME = conv_3_3
+TESTNAME = conv_2_2
 USE_COREIR_VALID ?= 1
 
 INPUT = 

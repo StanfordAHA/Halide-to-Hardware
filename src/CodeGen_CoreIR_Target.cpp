@@ -524,7 +524,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_C::~CodeGen_CoreIR_C() {
 
     //context->runPasses({"rungenerators", "removewires"});
     context->runPasses({"rungenerators","flatten","removewires"});
-    context->runPasses({"verifyconnectivity --onlyinputs --noclkrst"},{"global","commonlib","memory","mantle"});
+    //context->runPasses({"verifyconnectivity --onlyinputs --noclkrst"},{"global","commonlib","memory","mantle"});
     //context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
     cout << "Validating json" << endl;
@@ -2524,7 +2524,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   internal_assert(num_streaming_dims <= access_dim_refs.size());
   internal_assert(num_streaming_dims <= access_ranges.size());
   for (size_t i=0; i<num_streaming_dims; ++i) {
-    output_stride.at(i) = //access_strides.at(i) * 
+    output_stride.at(i) = access_strides.at(i) * 
       flat_dim_strides.at(access_dim_refs.at(i));
     output_range.at(i) = access_ranges.at(i);
   }
@@ -3292,7 +3292,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_stencil(const Call *op) {
           stencil_mux_pairs = new_pairs;
 
         } else {
-          stream << "// couldn't find selectStr " << std::to_string(index) << endl;
+          stream << "// ERROR- couldn't find selectStr " << std::to_string(index) << endl;
           //cout << "couldn't find selectStr " << to_string(index) << endl;
                 
           stencil_mux_pairs.clear();
