@@ -2397,7 +2397,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   auto context = def->getContext();
   int defStage = 0;
   auto& unitMapping = m.unitMapping;
-  auto& instrValues = m.instrValues;
+  //auto& instrValues = m.instrValues;
+  map<HWInstr*, CoreIR::Wireable*> instrValues;
   auto& stencilRanges = m.stencilRanges;
 
   for (auto instr : sched.body()) {
