@@ -2325,7 +2325,7 @@ class UnitMapping {
 
     FunctionSchedule fSched;
 
-    std::map<HWInstr*, CoreIR::Wireable*> instrValues;
+    //std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
 
@@ -2359,22 +2359,6 @@ class UnitMapping {
       internal_assert(contains_key(arg1, hwEndValues));
       internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
       return hwEndValues[arg1][sourceLocation];
-      //if (arg1->tp == HWINSTR_TP_CONST) {
-        //internal_assert(contains_key(arg1, hwEndValues));
-        //internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
-        //return hwEndValues[arg1][sourceLocation];
-      //}
-
-      //if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        //internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
-        //internal_assert(contains_key(arg1, hwStartValues));
-        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        //return hwEndValues[arg1][sourceLocation];
-      //}
-
-      //internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
-
-      //return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
 };
@@ -2789,14 +2773,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         auto instr = getUser(op, sched.body());
         if (instr != nullptr) {
           auto val = controlPath->sel(coreirSanitize(name));
-          // Now: Need proper pipeline register wiring here. Better algorithm:
-          //  1. Find all users of the var
-          //  2. Group the users by block and state
-          //  3. For each usergroup (or user state) find the piece of storage that is needed for that value
-          //
-          //  Need to find the header of the loop for this variable, and then set the hwStartValue of the loop
-          //  for all instructions in that state to the value of the counter output
-          //instrValues[op] = val;
           m.hwStartValues[op][instr] = val;
           m.hwEndValues[op][op] = val;
           auto blk = containerBlock(instr, *(sched.f));
@@ -2805,24 +2781,10 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             m.hwStartValues[op][instr] = val;
           }
 
-          //for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
           for (int stage = 1; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
-            //internal_assert(op->resType != nullptr) << *op << " has null result type\n";
-            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
-            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), op->resType);
             m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
           }
 
-          //for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
-            //cout << "stage = " << stage << endl;
-            //if (stage == 0) {
-              //auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              //def->connect(prg->sel("in"), val); 
-            //} else {
-              //auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              //def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
-            //}
-          //}
         }
       } else {
         internal_assert(!f.isLocalVariable(name));
@@ -2834,26 +2796,9 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto pr : m.pipelineRegisters) {
     auto instr = pr.first;
-  //for (auto instr : sched.body()) {
-    //cout << "Connecting registers for " << *instr << endl;
-    //if (m.hasOutput(instr)) {
       cout << "\tGetting value at end" << endl;
       auto fstVal = m.valueAtEnd(instr, instr);
       cout << "\tGetting prod stage" << endl;
-      //int prodStage = sched.getEndStage(instr);
-
-      //CoreIR::Wireable* lastReg = fstVal;
-      //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-      //int fstIndex = m.pipelineRegisters[instr].size();
-      //for (auto elem : m.pipelineRegisters[instr]) {
-        //if (elem.first < fstIndex) {
-          //fstIndex = elem.first;
-        //}
-      //}
-      //cout << "fstIndex for " << *instr << " = " << fstIndex << endl;
-      ////internal_assert(false);
-      //for (size_t i = (size_t) fstIndex; i < m.pipelineRegisters[instr].size(); i++) {
-        //cout << "\ti = " << i << endl;
       for (auto pReg : m.pipelineRegisters[instr]) {
         int index = pReg.first;
         auto pipeReg = pReg.second;
@@ -2862,12 +2807,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         } else {
           def->connect(pipeReg->sel("in"), fstVal);
         }
-        //internal_assert(contains_key((int) i, m.pipelineRegisters[instr])) << i << " is not an index of a pipeline register\n";
-        //CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
-        //def->connect(pipeReg->sel("in"), lastReg);
-        //lastReg = pipeReg->sel("out");
       }
-    //}
   }
  
   cout << "Done connecting register chains" << endl;
