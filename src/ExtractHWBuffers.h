@@ -143,10 +143,11 @@ struct HWBuffer {
   Stmt input_access_pattern;
   Stmt output_access_pattern;
   std::map<std::string, HWBuffer*> producer_buffers;
+  //std::map<std::string, std::shared_ptr<HWBuffer>> producer_buffers;
   std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
+  //std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
   std::map<std::string, Stride> stride_map;
-  //std::shared_ptr<std::vector<AccessDimSize>> linear_addr;
   std::vector<AccessDimSize> linear_addr;
 
   // dimensions for the hwbuffer

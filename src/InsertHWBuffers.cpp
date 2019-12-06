@@ -420,8 +420,8 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
     dispatch_args.push_back((int)kernel.ostreams.size());
     std::cout << "   going to " << kernel.ostreams.size() << " consumers: ";
     for (const auto& p : kernel.ostreams) {
-      auto ostream = p.second;
-      auto cptr = p.second.hwref;
+      auto& ostream = p.second;
+      auto cptr = ostream.hwref;
       std::cout << p.first << "(" << cptr->ldims.size() << " dims)" << ", \n";
       dispatch_args.push_back(p.first);
       //internal_assert(kernel.consumer_fifo_depths.count(p.first));
@@ -429,15 +429,21 @@ Stmt create_hwbuffer_dispatch_call(const HWBuffer& kernel, int min_fifo_depth = 
       dispatch_args.push_back(0); // assume a 0 fifo_depth
       //internal_assert(p.second->dims.size() == kernel.dims.size()); FIXME, should this be the case?
 
+      std::cout << "start this loop of " << kernel.dims.size() << "\n";
       //for (size_t i = 0; i < cptr->ldims.size(); i++) {
       for (size_t i = 0; i < kernel.dims.size(); i++) {
         //dispatch_args.push_back(simplify(p.second->dims.at(i).logical_min - kernel.dims.at(i).output_min_pos)); FIXME
         //dispatch_args.push_back(p.second->dims.at(i).logical_min);
         //dispatch_args.push_back(p.second->dims.at(i).logical_size);
         //internal_assert(cptr->ldims.size() == ostream.odims.size()) << kernel.name << " ldims=" << cptr->ldims.size() << " while odims=" << ostream.odims.size();
-        dispatch_args.push_back(i >= ostream.odims.size() ? 0 : ostream.odims.at(i).output_stencil);
-        dispatch_args.push_back(i >= cptr->ldims.size() ? 0 : cptr->ldims.at(i).logical_min);
-        dispatch_args.push_back(i >= cptr->ldims.size() ? 0 : cptr->ldims.at(i).logical_size);
+        
+        //dispatch_args.push_back(i >= ostream.odims.size() ? 0 : ostream.odims.at(i).output_stencil);
+        //dispatch_args.push_back(i >= cptr->ldims.size() ? 0 : cptr->ldims.at(i).logical_min);
+        //dispatch_args.push_back(i >= cptr->ldims.size() ? 0 : cptr->ldims.at(i).logical_size);
+        dispatch_args.push_back(0);
+        dispatch_args.push_back(0);
+        dispatch_args.push_back(0);
+                        
           
         //FIXME: ... Expr store_offset = simplify(p.second.dims[i].store_bound.min - kernel.dims[i].store_bound.min);
         //Expr store_extent = simplify(p.second[i].store_bound.max - p.second[i].store_bound.min + 1);
@@ -528,7 +534,7 @@ bool need_hwbuffer(const HWBuffer &kernel) {
     }
 
     // check if there are loops that repeat
-    for (auto stride_pair : kernel.stride_map) {
+    for (const auto& stride_pair : kernel.stride_map) {
       std::cout << stride_pair.first << " has stride=";
       if (stride_pair.second.is_inverse) {
         std::cout << "1/";

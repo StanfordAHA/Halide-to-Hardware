@@ -563,7 +563,122 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     return 0;
 }
 
+int doublebuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize) {
+    std::string suffix = "_db_";
+    for (auto ksize : ksizes) {
+      suffix += to_string(ksize) + "_";
+    }
+    suffix += to_string(imgsize) + "_" + to_string(tilesize);
 
+    size_t num_conv = ksizes.size();
+    Func kernel[num_conv];
+    Func conv[num_conv];
+    RDom r[num_conv];
+    for (size_t i=0; i<num_conv; ++i) {
+      std::string ii = to_string(i);
+      kernel[i] = Func("kernel"+ii+suffix);
+      conv[i] = Func("conv"+ii+suffix);
+      r[i] = RDom(0, ksizes.at(i), 0, ksizes.at(i));
+    }
+    Func hw_input("hw_input"+suffix), hw_output("hw_output"+suffix), output("output"+suffix);
+    Var x("x"), y("y");
+    Var xi("xi"), yi("yi"), xo("xo"), yo("yo");
+
+    hw_input(x, y) = x + y;
+    
+    for (size_t i=0; i<num_conv; ++i) {
+      kernel[i](x, y) = Expr(7*i) + 5*x + y;
+
+      if (i > 0) {
+        conv[i](x, y) += conv[i-1](x+r[i].x, y+r[i].y) * kernel[i](r[i].x, r[i].y);
+      } else {
+        conv[i](x, y) += hw_input(x+r[i].x, y+r[i].y) * kernel[i](r[i].x, r[i].y);
+      }
+    }
+
+    hw_output(x, y) = conv[num_conv-1](x, y);
+    output(x, y) = hw_output(x, y);
+
+    //// Schedule ////
+    output.bound(x, 0, imgsize);
+    output.bound(y, 0, imgsize);
+    hw_output.compute_root();
+          
+    hw_output.tile(x,y, xo,yo, xi,yi, tilesize, tilesize)
+      .hw_accelerate(xi, xo);
+
+    //hw_input.store_at(hw_output, xo).compute_at(conv[0], x);
+    hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
+    hw_output.bound(x, 0, imgsize);
+    hw_output.bound(y, 0, imgsize);
+
+    for (uint i=0; i < num_conv; ++i) {
+      conv[i].store_at(hw_output, xo).compute_at(hw_output, xo);
+      kernel[i].compute_at(hw_output, xo);
+      conv[i].update().unroll(r[i].x).unroll(r[i].y);
+		}
+
+    hw_input.stream_to_accelerator();
+
+
+    //// Run through compiler and find hardware buffer
+    auto hwxcels = lower_to_hwbuffer({output.function()}, "doublebuffer_test",
+                                     Target().with_feature(Target::CoreIR),
+                                     {output.infer_arguments()});
+
+    h_assert(hwxcels.size() == 1, "Incorrect number of xcels found");
+    auto xcel = hwxcels.at(0);
+    h_assert(xcel.hwbuffers.size() == 2 + 2*num_conv, "Incorrect number of hwbuffers found");
+    h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
+    std::cout << "done with hwbuffer creation of doublebuffer" << suffix << "\n";
+      
+    //// Create ref buffer and check the hardware buffers
+    vector<string> buffer_names = vector<string>(num_conv);
+    for (size_t i=0; i<num_conv; ++i) {
+      string hwbuffer_name = i==0 ? "hw_input" + suffix : "conv" + to_string(i-1) + suffix;
+      buffer_names[i] = hwbuffer_name;
+    }
+    
+    for (size_t i=0; i<num_conv; ++i) {
+      string hwbuffer_name = buffer_names.at(i);
+      string producer_name = i==0 ? "" : buffer_names.at(i-1);
+      string consumer_name = i==num_conv-1 ? "conv"+std::to_string(i)+suffix : buffer_names.at(i+1);
+      h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
+      auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
+      
+      int ref_logsize = tilesize;
+      for (size_t j=i; j<num_conv; ++j) {
+        ref_logsize += ksizes.at(j) - 1;
+      }
+      int ksize = ksizes.at(i);
+      auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
+                                        {ksize, ksize}, {ksize, ksize},
+                                        {1, 1}, {1, 1});
+      int range = ref_logsize - (ksizes.at(i) - 1); // range does not include the last conv size
+      auto addrs = create_linear_addr({range, range},
+                                      {1, 1}, {0, 1});
+      vector<string> loops;
+      vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
+      for (auto loopvar : loopvars) {
+        if (i == 0) {
+          loops.emplace_back("hw_output" + suffix + loopvar.substr(0));
+        } else {
+          loops.emplace_back("hw_output" + suffix + loopvar);
+        }
+      }
+      int store_index = 0; //i==0 ? 0 : 0;
+      int compute_index = 2;
+
+      HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims, addrs,
+                                       loops, store_index, compute_index,
+                                       false, false,
+                                       producer_name, consumer_name);
+      int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
+      if (output_value != 0) { return output_value; }
+    }
+    
+    return 0;
+}
 
 }  // namespace
 
@@ -604,7 +719,7 @@ int main(int argc, char **argv) {
 
     printf("Running compute level hwbuffer tests\n");
     printf("    checking hwbuffers...\n");
-    // line buffer
+    if (tiled_pipeline_hwbuffer_test({3, 4}, 64, 32) != 0) { return -1; }
     // double buffer
     // something in between
 
