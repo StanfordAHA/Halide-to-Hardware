@@ -1561,6 +1561,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->constWidth = 16;
       ist->constValue = std::to_string(imm->value);
       ist->setSigned(true);
+      ist->resType = f.mod->getContext()->Bit()->Arr(16);
       lastValue = ist;
     }
 
@@ -1570,6 +1571,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto operand = codegen(c->value);
       ist->operands = {operand};
       ist->setSigned(!(c->type.is_uint()));
+      ist->resType = f.mod->getContext()->Bit()->Arr(16);
       pushInstr(ist);
       lastValue = ist;
     }
@@ -1647,22 +1649,27 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const GE* a) override {
       visit_binop("gte", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
 
     void visit(const LE* a) override {
       visit_binop("lte", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const LT* a) override {
       visit_binop("lt", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
 
     void visit(const GT* a) override {
       visit_binop("gt", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const And* a) override {
       visit_binop("and", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
 
     HWInstr* codegen(const Expr e) {
@@ -1681,6 +1688,8 @@ class InstructionCollector : public IRGraphVisitor {
       ist->name = "sel";
       ist->operands = {c, tv, fv};
       lastValue = ist;
+      internal_assert(tv->resType != nullptr) << *tv << " has null result type\n";
+      lastValue->resType = tv->resType;
       pushInstr(lastValue);
       //instrs.push_back(lastValue);
     }
@@ -1745,6 +1754,7 @@ class InstructionCollector : public IRGraphVisitor {
       operands.push_back(codegen(ld->predicate));
       operands.push_back(codegen(ld->index));
       ist->operands = operands;
+      ist->resType = f.mod->getContext()->Bit()->Arr(16);
       pushInstr(ist);
       //instrs.push_back(ist);
       lastValue = ist;
@@ -1767,50 +1777,60 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Min* m) override {
       visit_binop("min", m->a, m->b);
       lastValue->setSigned(!(m->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
     
     void visit(const Max* m) override {
       visit_binop("max", m->a, m->b);
       lastValue->setSigned(!(m->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Mod* d) override {
       visit_binop("mod", d->a, d->b);
       lastValue->setSigned(!(d->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Div* d) override {
       visit_binop("div", d->a, d->b);
       lastValue->setSigned(!(d->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Add* a) override {
       visit_binop("add", a->a, a->b);
       lastValue->setSigned(!(a->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const EQ* a) override {
       visit_binop("eq", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const NE* a) override {
       visit_binop("neq", a->a, a->b);
+      lastValue->resType = f.mod->getContext()->Bit();
     }
     
     void visit(const Mul* b) override {
       visit_binop("mul", b->a, b->b);
       lastValue->setSigned(!(b->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     void visit(const Sub* b) override {
       visit_binop("sub", b->a, b->b);
       lastValue->setSigned(!(b->type.is_uint()));
+      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
     }
 
     HWInstr* andHW(HWInstr* a, HWInstr* b) {
       auto andOp = newI();
       andOp->name = "and";
       andOp->operands = {a, b};
+      lastValue->resType = f.mod->getContext()->Bit();
       pushInstr(andOp);
       //instrs.push_back(andOp);
       return andOp;
@@ -1832,8 +1852,10 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "linebuf_decl";
       } else if (op->name == "absd") {
         ist->name = "absd";
+        ist->resType = f.mod->getContext()->Bit()->Arr(16);
       } else if (op->name == "abs") {
         ist->name = "abs";
+        ist->resType = f.mod->getContext()->Bit()->Arr(16);
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
         assert(callOperands.size() > 1);
@@ -1866,6 +1888,7 @@ class InstructionCollector : public IRGraphVisitor {
         //cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
        
         ist->setSigned(!(op->type.is_uint()));
+        ist->resType = f.mod->getContext()->Bit()->Arr(16);
         //callOp->strConst = calledStencil;
         callOperands.insert(std::begin(callOperands), callOp);
 
@@ -2314,21 +2337,8 @@ class UnitMapping {
       return fSched.getEndTime(instr);
     }
 
-    //int getStartTime(HWInstr* instr) {
-      //return fSched.getStartTime(instr);
-    //}
-
     bool hasOutput(HWInstr* const arg) const {
       return CoreIR::contains_key(arg, instrValues);
-    }
-
-    CoreIR::Type* outputType(HWInstr* const arg) const {
-      internal_assert(CoreIR::contains_key(arg, instrValues));
-      return CoreIR::map_find(arg, instrValues)->getType();
-    }
-
-    bool isOutputArg(HWInstr* arg) const {
-      return outputType(arg)->isInput();
     }
 
     void valueIsAlways(HWInstr* const arg1, CoreIR::Wireable* w) {
@@ -2339,78 +2349,33 @@ class UnitMapping {
     }
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
-      if (arg1->tp == HWINSTR_TP_CONST) {
-        internal_assert(contains_key(arg1, hwStartValues)) << "no value for constant " << arg1->compactString() << " at " << *sourceLocation << "\n";
-        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        return hwStartValues[arg1][sourceLocation];
-      }
-
-      if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable of:\n" << *(fSched.f) << "\n";
-        internal_assert(contains_key(arg1, hwStartValues)) << "no value for variable " << arg1->compactString() << " at " << *sourceLocation << "\n";
-        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        return hwStartValues[arg1][sourceLocation];
-      }
-
-      //internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
-      internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
-      
-      HWLoopSchedule& bs = fSched.getScheduleFor(sourceLocation);
-      if (arg1->tp == HWINSTR_TP_INSTR) {
-        HWLoopSchedule& argSched = fSched.getScheduleFor(arg1);
-        internal_assert(head(bs.body) == head(argSched.body)) << *arg1 << " is not produced in the same block as " << *sourceLocation << "\n";
-      }
-      int startTime = bs.getStartTime(sourceLocation);
-      return valueAt(arg1, startTime);
+      internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
+      internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
+      return map_get(sourceLocation, map_get(arg1, hwStartValues));
     }
 
     CoreIR::Wireable* valueAtEnd(HWInstr* const arg1, HWInstr* const sourceLocation) {
-      if (arg1->tp == HWINSTR_TP_CONST) {
-        internal_assert(contains_key(arg1, hwEndValues));
-        internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
-        return hwEndValues[arg1][sourceLocation];
-      }
+      internal_assert(contains_key(arg1, hwEndValues));
+      internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
+      return hwEndValues[arg1][sourceLocation];
+      //if (arg1->tp == HWINSTR_TP_CONST) {
+        //internal_assert(contains_key(arg1, hwEndValues));
+        //internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
+        //return hwEndValues[arg1][sourceLocation];
+      //}
 
-      if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
-        internal_assert(contains_key(arg1, hwStartValues));
-        internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        return hwEndValues[arg1][sourceLocation];
-      }
-      
-      //internal_assert(arg1->tp == HWINSTR_TP_INSTR) << "Argument: " << arg1->compactString() << " is not an instruction\n";
-      internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
+      //if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
+        //internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
+        //internal_assert(contains_key(arg1, hwStartValues));
+        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
+        //return hwEndValues[arg1][sourceLocation];
+      //}
 
-      return map_find(sourceLocation, map_find(arg1, hwEndValues));
+      //internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
+
+      //return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
-    CoreIR::Wireable* valueAt(HWInstr* const arg1, const int stageNo) {
-      cout << "Getting valueAt for " << *arg1 << " in stage " << stageNo << endl;
-
-      string iValStr = "{";
-      for (auto kv : instrValues) {
-        iValStr += "\t{" + kv.first->compactString() + " -> " + CoreIR::toString(*(kv.second)) + "}, " + "\n";
-      }
-      iValStr += "}";
-      internal_assert(CoreIR::contains_key(arg1, instrValues)) << *arg1 << " is not in instrValues: " << iValStr << "\n";
-
-      //if (arg1->tp == HWINSTR_TP_VAR && isOutputArg(arg1)) {
-
-      int producedStage = getEndTime(arg1);
-      //int producedStage = fSched.getEndStage(arg1);
-
-      internal_assert(producedStage <= stageNo) << "Error: " << *arg1 << " is produced in stage " << producedStage << " but we try to consume it in stage " << stageNo << "\n";
-      if (stageNo == producedStage) {
-        return CoreIR::map_find(arg1, instrValues);
-      } else {
-        internal_assert(CoreIR::contains_key(arg1, pipelineRegisters)) << "no pipeline register for " << *arg1 << "\n";
-        auto pregs = CoreIR::map_find(arg1, pipelineRegisters);
-
-        internal_assert(CoreIR::contains_key(stageNo, pregs)) << "no register for " << *arg1 << " at stage " << stageNo << "\n";
-
-        return CoreIR::map_find(stageNo, pregs)->sel("out");
-      }
-    }
 };
 
 CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
@@ -2727,8 +2692,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   // Local variables can be bound at any place where they are provided
   // Loop index variables are trickier because they are bound to the output of a counter
   // at some location, but then they are defined somewhere else
-
-
   for (auto instr : sched.body()) {
     //cout << "Wiring up constants" << endl;
     int constNo = 0;
@@ -2739,7 +2702,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         BitVector constVal = BitVector(width, value);
         auto cInst = def->addInstance("const_" + context->getUnique() + "_" + std::to_string(constNo), "coreir.const", {{"width", CoreIR::Const::make(context, width)}},  {{"value", CoreIR::Const::make(context, BitVector(width, value))}});
         constNo++;
-        //instrValues[op] = cInst->sel("out");
         m.valueIsAlways(op, cInst->sel("out"));
       }
     }
@@ -2747,6 +2709,12 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
   for (auto v : instrValues) {
     m.hwEndValues[v.first][v.first] = v.second;
+    auto op = v.first;
+    auto val = v.second;
+    int endStage = sched.getEndStage(op);
+    for (auto instr : sched.instructionsStartingInStage(endStage)) {
+      m.hwStartValues[op][instr] = val;
+    }
   }
   
 }
@@ -2767,7 +2735,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
   cout << "Created functional units" << endl;
 
-  auto& instrValues = m.instrValues;
+  //auto& instrValues = m.instrValues;
 
   for (auto op : allVarsUsed(sched.body())) {
     string name = op->name;
@@ -2789,9 +2757,20 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Populating pipeline registers..." << endl;
   int uNum = 0;
   for (auto instr : sched.body()) {
-    for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
+    int prodStage = sched.getEndStage(instr);
+    //for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
+    for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
-        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), m.outputType(instr));
+        internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
+        internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
+        for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        }
+        for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        }
+        //m.outputType(instr));
         uNum++;
       }
     }
@@ -2815,27 +2794,33 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //
           //  Need to find the header of the loop for this variable, and then set the hwStartValue of the loop
           //  for all instructions in that state to the value of the counter output
-          instrValues[op] = val;
+          //instrValues[op] = val;
+          m.hwStartValues[op][instr] = val;
+          m.hwEndValues[op][op] = val;
           auto blk = containerBlock(instr, *(sched.f));
           int iStage = m.fSched.getStartStage(head(blk));
           for (auto instr : m.fSched.instructionsStartingInStage(iStage)) {
             m.hwStartValues[op][instr] = val;
           }
 
-          for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
-            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
+          //for (int stage = 0; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
+          for (int stage = 1; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
+            //internal_assert(op->resType != nullptr) << *op << " has null result type\n";
+            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), m.outputType(op));
+            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), op->resType);
+            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
           }
 
-          for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
-            cout << "stage = " << stage << endl;
-            if (stage == 0) {
-              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              def->connect(prg->sel("in"), val); 
-            } else {
-              auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
-              def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
-            }
-          }
+          //for (int stage = 0; stage < sched.getContainerBlock(instr).numStages() - 1; stage++) {
+            //cout << "stage = " << stage << endl;
+            //if (stage == 0) {
+              //auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              //def->connect(prg->sel("in"), val); 
+            //} else {
+              //auto prg = map_get(stage + 1, map_get(op, m.pipelineRegisters));
+              //def->connect(prg->sel("in"), m.pipelineRegisters[op][stage]->sel("out"));
+            //}
+          //}
         }
       } else {
         internal_assert(!f.isLocalVariable(name));
@@ -2845,21 +2830,42 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
-  for (auto instr : sched.body()) {
-    cout << "Connecting registers for " << *instr << endl;
-    if (m.hasOutput(instr)) {
+  for (auto pr : m.pipelineRegisters) {
+    auto instr = pr.first;
+  //for (auto instr : sched.body()) {
+    //cout << "Connecting registers for " << *instr << endl;
+    //if (m.hasOutput(instr)) {
       cout << "\tGetting value at end" << endl;
       auto fstVal = m.valueAtEnd(instr, instr);
       cout << "\tGetting prod stage" << endl;
-      int prodStage = sched.getEndStage(instr);
+      //int prodStage = sched.getEndStage(instr);
 
-      CoreIR::Wireable* lastReg = fstVal;
-      for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-        CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
-        def->connect(pipeReg->sel("in"), lastReg);
-        lastReg = pipeReg->sel("out");
+      //CoreIR::Wireable* lastReg = fstVal;
+      //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
+      //int fstIndex = m.pipelineRegisters[instr].size();
+      //for (auto elem : m.pipelineRegisters[instr]) {
+        //if (elem.first < fstIndex) {
+          //fstIndex = elem.first;
+        //}
+      //}
+      //cout << "fstIndex for " << *instr << " = " << fstIndex << endl;
+      ////internal_assert(false);
+      //for (size_t i = (size_t) fstIndex; i < m.pipelineRegisters[instr].size(); i++) {
+        //cout << "\ti = " << i << endl;
+      for (auto pReg : m.pipelineRegisters[instr]) {
+        int index = pReg.first;
+        auto pipeReg = pReg.second;
+        if (contains_key(index - 1, m.pipelineRegisters[instr])) {
+          def->connect(pipeReg->sel("in"), m.pipelineRegisters[instr][index - 1]->sel("out"));
+        } else {
+          def->connect(pipeReg->sel("in"), fstVal);
+        }
+        //internal_assert(contains_key((int) i, m.pipelineRegisters[instr])) << i << " is not an index of a pipeline register\n";
+        //CoreIR::Instance* pipeReg = m.pipelineRegisters[instr][i];
+        //def->connect(pipeReg->sel("in"), lastReg);
+        //lastReg = pipeReg->sel("out");
       }
-    }
+    //}
   }
  
   cout << "Done connecting register chains" << endl;
@@ -4016,6 +4022,7 @@ void modToShift(HWFunction& f) {
           // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI(instr);
           shrInstr->name = "and_bv";
+          shrInstr->resType = f.mod->getContext()->Bit();
           //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
           shrInstr->setSigned(instr->isSigned());
 
