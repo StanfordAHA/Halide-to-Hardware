@@ -943,8 +943,25 @@ void loadHalideLib(CoreIR::Context* context) {
         });
     auto srGen = hns->newGeneratorDecl("unpack", srTg, srParams);
     srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto tIn = args.at("type")->get<CoreIR::Type*>();
+        int totalWidth = 1;
+        vector<int> output_dims = arrayDims(tIn);
+        auto dims = output_dims;
+        for (auto d : output_dims) {
+        totalWidth *= d;
+        }
+
+        auto self = def->sel("self");
+        if (totalWidth == dims[0]) {
+        auto zeroThOut = self->sel("out");
+        for (int i = 0; i < ((int) dims.size()) - 1; i++) {
+        zeroThOut = zeroThOut->sel(0);
+        }
+        def->connect(zeroThOut, self->sel("in"));
+        } else {
         auto self = def->sel("self");
         def->connect(self->sel("in"), self->sel("out"));
+        }
         });
   }
 
@@ -965,8 +982,23 @@ void loadHalideLib(CoreIR::Context* context) {
         });
     auto srGen = hns->newGeneratorDecl("pack", srTg, srParams);
     srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto t = args.at("type")->get<CoreIR::Type*>();
+        int totalWidth = 1;
+        vector<int> dims = arrayDims(t);
+        for (auto d : dims) {
+        totalWidth *= d;
+        }
+        auto self = def->sel("self");
+        if (totalWidth == dims[0]) {
+        auto zeroThOut = self->sel("in");
+        for (int i = 0; i < ((int) dims.size()) - 1; i++) {
+        zeroThOut = zeroThOut->sel(0);
+        }
+        def->connect(zeroThOut, self->sel("out"));
+        } else {
         auto self = def->sel("self");
         def->connect(self->sel("in"), self->sel("out"));
+        }
         });
   }
 
