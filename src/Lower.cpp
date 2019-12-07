@@ -250,9 +250,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         for (const HWXcel &xcel : xcels) {
           s = insert_hwbuffers(s, xcel);
         }
-          //std::cout << "--- After inserting hwbuffers" << std::endl;
-          //std::cout << s << std::endl;
-          //internal_assert(false);
+          std::cout << "--- After inserting hwbuffers" << std::endl;
+          std::cout << s << std::endl;
+          internal_assert(false);
       } else {
        vector<HWKernelDAG> dags;
        s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
