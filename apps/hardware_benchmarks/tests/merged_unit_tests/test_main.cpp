@@ -165,7 +165,7 @@ CoreIR::Module* buildModule(Halide::Internal::HardwareInfo& info, bool useUbuffe
   Target t;
   t = t.with_feature(Target::Feature::CoreIR);
   if (!useUbuffer) {
-    //t = t.with_feature(Target::Feature::UseExtractHWKernel);
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
   }
   auto hm = hwOutput.compile_to_module(args, name, t);
   cout << "Compiled to module..." << endl;
@@ -605,7 +605,7 @@ void offset_window_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
-      //t = t.with_feature(Target::Feature::UseExtractHWKernel);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
       //cout << "Module before consolidation..." << endl;
@@ -746,7 +746,7 @@ void small_demosaic_test() {
     {
       Target t;
       t = t.with_feature(Target::Feature::CoreIR);
-      //t = t.with_feature(Target::Feature::UseExtractHWKernel);
+      t = t.with_feature(Target::Feature::UseExtractHWKernel);
       auto mod = hw_output.compile_to_module(args, "hw_demosaic", t);
 
       for (auto& f : mod.functions()) {
@@ -1907,7 +1907,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   {
     Target t;
     t = t.with_feature(Target::Feature::CoreIR);
-    //t = t.with_feature(Target::Feature::UseExtractHWKernel);
+    t = t.with_feature(Target::Feature::UseExtractHWKernel);
     auto mod = hw_output.compile_to_module(args, "hw_output", t);
 
     //cout << "Module before consolidation..." << endl;
