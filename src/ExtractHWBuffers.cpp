@@ -208,11 +208,20 @@ class HWBuffers : public IRMutator {
         // use sliding window to get stencil sizes
         auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
         new_body = mutate(new_body);
+        cout << "New body..." << endl << new_body << endl;
 
         std::string for_namer = first_for_name(new_body);
 
         // Simplification possible when compute and store is the same level
         if (sched.compute_level() == sched.store_level()) {
+
+          cout << "Simplification possible for " << hwbuffer.name << endl;
+          //FindOutputStencil fos(op->name, func, xcel_store_level);
+          FindOutputStencil fos(op->name, xcel_store_level);
+          new_body.accept(&fos);
+
+          CountBufferUsers counter(op->name);
+          new_body.accept(&counter);
 
           auto boxes_write = boxes_provided(new_body);
           auto boxes_read = boxes_required(new_body);
@@ -224,13 +233,6 @@ class HWBuffers : public IRMutator {
             Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
             box[i] = extent;
           }
-
-          //FindOutputStencil fos(op->name, func, xcel_store_level);
-          FindOutputStencil fos(op->name, xcel_store_level);
-          new_body.accept(&fos);
-
-          CountBufferUsers counter(op->name);
-          new_body.accept(&counter);
 
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
@@ -259,11 +261,13 @@ class HWBuffers : public IRMutator {
             hwbuffer.dims[i].input_block = input_block_box.at(i);
 
             hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
+            cout << "\t" << hwbuffer.name << ", output_min_pos " << i << " = " << hwbuffer.dims[i].output_min_pos << endl;
             hwbuffer.dims[i].loop_name = i < loop_names.size() ? loop_names.at(i) : unique_name("loopvar");
           }
           hwbuffer.output_access_pattern = reader_loopnest;
           
         } else {
+          cout << "Simplification impossible for " << hwbuffer.name << endl;
           // look for a sliding window that can be used in a line buffer
 
           // use sliding window to get stencil sizes
@@ -317,6 +321,7 @@ class HWBuffers : public IRMutator {
         }
 
         if (buffers.count(hwbuffer.name) == 0) {
+          cout << "In HWBuffers creating buffer for " << hwbuffer.name << endl;
           buffers[hwbuffer.name] = hwbuffer;
         }
 
@@ -505,7 +510,10 @@ void set_opt_params(HWXcel *xcel,
         } else {
         }
 
-        hwbuffer.dims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
+        auto out_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
+        cout << "For buffer: " << hwbuffer.name << " output_min_pos " << idx << " = " << out_min_pos << endl;
+        hwbuffer.dims.at(idx).output_min_pos = out_min_pos;
+        //simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
         hwbuffer.dims.at(idx).output_max_pos = simplify(expand_expr(consumer_bounds[idx].max, stencil_bounds));
         auto loop_range = simplify(expand_expr(consumer_bounds[idx].max - consumer_bounds[idx].min + 1, stencil_bounds));
       }

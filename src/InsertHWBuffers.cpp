@@ -107,7 +107,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
     }
 
     Stmt visit(const Provide *op) {
-        //std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
+        std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
         if(op->name != kernel.name) {
           return IRMutator::visit(op);
         } else {
@@ -120,7 +120,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
             // Replace the arguments. e.g.
             //   func.s0.x -> func.stencil.x
             for (size_t i = 0; i < op->args.size(); i++) {
-              //std::cout << "op->arg " << op->args[i] << " - " << kernel.dims.at(i).output_min_pos << std::endl;
+              std::cout << "\top->arg " << op->args[i] << " - " << kernel.dims.at(i).output_min_pos << std::endl;
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
               // Culprit here is output_min_pos is not correct
@@ -503,6 +503,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
         internal_assert(xcel.hwbuffers.count(produce_node->name));
         const HWBuffer &kernel = xcel.hwbuffers.at(produce_node->name);
+        cout << "kernel for " << produce_node->name << " is " << kernel.name << endl;
 
         internal_assert(!kernel.is_output);
 
@@ -635,9 +636,10 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         }
 
     } else {
-        //std::cout << "this is output\n";        
+        std::cout << "this is output\n";        
         // this is the output kernel of the xcel
         const HWBuffer &kernel = xcel.hwbuffers.find(xcel.name)->second;
+        cout << "kernel for " << xcel.name << " is " << kernel.name << endl;
         //std::cout << "this is output: " << xcel.name << "=" << kernel.name << std::endl;        
         internal_assert(kernel.is_output);
 
