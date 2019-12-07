@@ -107,6 +107,7 @@ struct Target {
         CoreIRValid = halide_target_feature_coreir_valid,
         CoreIRHLS = halide_target_feature_coreir_hls,
         HLS = halide_target_feature_hls,
+        UseExtractHWKernel = halide_target_feature_use_extract_hw_kernel,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}
