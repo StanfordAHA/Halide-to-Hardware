@@ -256,6 +256,10 @@ vector<int> arrayDims(CoreIR::Type* tp) {
   }
 }
 
+vector<int> arrayDims(CoreIR::Wireable* w) {
+  return arrayDims(w->getType());
+}
+
 std::string coreStr(const Wireable* w) {
   return CoreIR::toString(*w);
 }
@@ -923,6 +927,40 @@ std::vector<int> toInts(const std::vector<std::string>& strs) {
 
 }
 
+vector<Wireable*> getSelects(CoreIR::Wireable* w) {
+  auto dims = arrayDims(w);
+  if (dims.size() == 1) {
+    return {w};
+  }
+  vector<Wireable*> sels;
+  for (int i = 0; i < dims.back(); i++) {
+    sels.push_back(w->sel(i));
+  }
+  return sels;
+}
+
+vector<Wireable*> flatSelects(CoreIR::Wireable* w) {
+  if (arrayDims(w).size() == 1) {
+    return {w};
+  }
+
+  vector<Wireable*> lSels = getSelects(w);
+  vector<Wireable*> finalSels;
+  for (auto s : lSels) {
+    for (auto sr : flatSelects(s)) {
+      finalSels.push_back(sr);
+    }
+  }
+  return finalSels;
+}
+
+int bitWidth(CoreIR::Wireable* w) {
+  auto tp = w->getType();
+  internal_assert(isa<CoreIR::ArrayType>(tp));
+  auto arrTp = sc<CoreIR::ArrayType>(tp);
+  return arrTp->getLen();
+}
+
 void loadHalideLib(CoreIR::Context* context) {
   auto hns = context->newNamespace("halidehw");
 
@@ -996,8 +1034,28 @@ void loadHalideLib(CoreIR::Context* context) {
         }
         def->connect(zeroThOut, self->sel("out"));
         } else {
+        vector<Wireable*> arrayElems = flatSelects(self->sel("in"));
+        cout << "# of array elements: " << arrayElems.size() << endl;
+        for (auto e : arrayElems) {
+        cout << "\t" << coreStr(e) << endl;
+        }
+        internal_assert(arrayElems.size() > 0);
+        auto activeSel = arrayElems[0];
         auto self = def->sel("self");
-        def->connect(self->sel("in"), self->sel("out"));
+        for (int i = 1; i < ((int) arrayElems.size()); i++) {
+        int w = bitWidth(activeSel);
+        int arrayW = bitWidth(arrayElems[i]);
+        auto cc =
+          def->addInstance("pack_concat_" + c->getUnique(),
+              "coreir.concat",
+              {{"width0", COREMK(c, w)}, {"width1", COREMK(c, arrayW)}});
+
+        def->connect(cc->sel("in0"), activeSel);
+        def->connect(cc->sel("in1"), arrayElems[i]);
+        activeSel = cc->sel("out");
+        }
+        //internal_assert(bitWidth(activeSel), bitWidth(self->sel("out"))) << "bit widths do not match\n";
+        def->connect(activeSel, self->sel("out"));
         }
         });
   }
