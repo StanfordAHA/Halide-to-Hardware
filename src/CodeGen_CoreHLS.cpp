@@ -981,7 +981,8 @@ void loadHalideLib(CoreIR::Context* context) {
         totalWidth *= d;
         }
         return c->Record({
-            {"in", c->BitIn()->Arr(totalWidth)},
+            {"in0", tIn->getFlipped()},
+            {"in1", tIn->getFlipped()},
             {"out", tIn},
             });
         });
@@ -2736,9 +2737,9 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         instrValues[instr] = instr->getUnit()->sel("rdata")->sel(portNo);
         cout << "Done." << endl;
       } else if (name == "phi") {
-        // TODO: Replace this with real code for a multiplexer
         internal_assert(instr->resType != nullptr);
-        auto sel = def->addInstance("phi" + std::to_string(defStage), "halidehw.passthrough", {{"type", COREMK(context, instr->resType)}});
+        auto sel = def->addInstance("phi_" + std::to_string(defStage), "halidehw.mux", {{"type", COREMK(context, instr->resType)}});
+        //auto sel = def->addInstance("phi" + std::to_string(defStage), "halidehw.passthrough", {{"type", COREMK(context, instr->resType)}});
         instrValues[instr] = sel->sel("out");
         unitMapping[instr] = sel;
       } else if (name == "delay") {
@@ -2756,6 +2757,15 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
     defStage++;
   }
 
+  for (auto v : instrValues) {
+    m.hwEndValues[v.first][v.first] = v.second;
+    auto op = v.first;
+    auto val = v.second;
+    int endStage = sched.getEndStage(op);
+    for (auto instr : sched.instructionsStartingInStage(endStage)) {
+      m.hwStartValues[op][instr] = val;
+    }
+  }
   // Constants and pre-bound instructions / variables
   // are always bound to the same wire
   //
@@ -2777,15 +2787,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
     }
   }
 
-  for (auto v : instrValues) {
-    m.hwEndValues[v.first][v.first] = v.second;
-    auto op = v.first;
-    auto val = v.second;
-    int endStage = sched.getEndStage(op);
-    for (auto instr : sched.instructionsStartingInStage(endStage)) {
-      m.hwStartValues[op][instr] = val;
-    }
-  }
   
 }
 
@@ -3094,7 +3095,8 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
     } else if (instr->name == "phi") {
       // TODO: Replace with real mux code
-      def->connect(unit->sel("in"), m.valueAtStart(instr->getOperand(0), instr));
+      def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
+      def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
     } else {
       internal_assert(false) << "no wiring procedure for " << *instr << "\n";
     }
