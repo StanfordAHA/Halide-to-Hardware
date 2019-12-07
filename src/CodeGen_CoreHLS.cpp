@@ -928,6 +928,28 @@ void loadHalideLib(CoreIR::Context* context) {
 
   {
     CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+    CoreIR::TypeGen* srTg = hns->newTypeGen("pack", srParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto t = args.at("type")->get<CoreIR::Type*>();
+        int totalWidth = 1;
+        vector<int> dims = arrayDims(t);
+        for (auto d : dims) {
+        totalWidth *= d;
+        }
+        return c->Record({
+            {"in", t->getFlipped()},
+            {"out", c->Bit()->Arr(totalWidth)}
+            });
+        });
+    auto srGen = hns->newGeneratorDecl("passthrough", srTg, srParams);
+    srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto self = def->sel("self");
+        def->connect(self->sel("in"), self->sel("out"));
+        });
+  }
+
+  {
+    CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
     CoreIR::TypeGen* srTg = hns->newTypeGen("passthrough", srParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         auto t = args.at("type")->get<CoreIR::Type*>();
