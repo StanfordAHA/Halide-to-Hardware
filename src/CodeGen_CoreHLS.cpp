@@ -2122,6 +2122,10 @@ class NestSchedule {
     }
 };
 
+class FunctionSchedule;
+Expr endTime(HWInstr* instr, FunctionSchedule& sched);
+Expr startTime(HWInstr* instr, FunctionSchedule& sched);
+
 class FunctionSchedule {
   public:
     HWFunction* f;
@@ -2172,9 +2176,33 @@ class FunctionSchedule {
 
     
     int cycleLatency() {
-      if (blockSchedules.size() == 0) {
-        return 0;
-      }
+      //if (blockSchedules.size() == 0) {
+        //return 0;
+      //}
+      //set<HWInstr*> streamReads = allInstrs("rd_stream", body());
+      //set<HWInstr*> streamWrites = allInstrs("write_stream", body());
+      //int validDelay = 0;
+      //internal_assert(streamWrites.size() == 1 ||
+          //streamWrites.size() == 0);
+      //if (streamWrites.size() == 1) {
+        //HWInstr* read = *begin(streamReads);
+        //HWInstr* write = *begin(streamWrites);
+        //Expr latency = endTime(write, *this) - startTime(read, *this);
+        //cout << "Read  = " << *read << endl;
+        //cout << "Write = " << *write << endl;
+        //cout << "\tSymbolic latency  : " << latency << endl;
+        //Expr simplifiedLatency = simplify(latency);
+        //cout << "\tSimplified latency: " << simplifiedLatency << endl;
+        ////internal_assert(false);
+
+        //validDelay = func_id_const_value(simplifiedLatency);
+      //} else {
+        //validDelay = 0;
+      //}
+      //internal_assert(validDelay >= 0);
+      ////internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
+
+      //return validDelay;
       return onlySched().cycleLatency();
     }
 
@@ -3121,30 +3149,8 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   // (this gap should be constant if they are all in the same loop level)
   // then create the delay that is needed
   cout << "Wiring up enables" << endl;
-  set<HWInstr*> streamReads = allInstrs("rd_stream", sched.body());
-  set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
 
-  int validDelay = 0;
-  internal_assert(streamWrites.size() == 1 ||
-      streamWrites.size() == 0);
-  if (streamWrites.size() == 1) {
-    HWInstr* read = *begin(streamReads);
-    HWInstr* write = *begin(streamWrites);
-    Expr latency = endTime(write, sched) - startTime(read, sched);
-    cout << "Read  = " << *read << endl;
-    cout << "Write = " << *write << endl;
-    cout << "\tSymbolic latency  : " << latency << endl;
-    Expr simplifiedLatency = simplify(latency);
-    cout << "\tSimplified latency: " << simplifiedLatency << endl;
-    //internal_assert(false);
-
-    validDelay = func_id_const_value(simplifiedLatency);
-  } else {
-    validDelay = 0;
-  }
-  internal_assert(validDelay >= 0);
-  //internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
-
+  int validDelay = sched.cycleLatency();
   //int validDelay = sched.numStages() - 1;
   cout << "Got valid delay" << endl;
   CoreIR::Wireable* inEn = self->sel("in_en");
