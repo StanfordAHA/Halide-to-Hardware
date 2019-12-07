@@ -928,6 +928,28 @@ void loadHalideLib(CoreIR::Context* context) {
 
   {
     CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+    CoreIR::TypeGen* srTg = hns->newTypeGen("unpack", srParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto tIn = args.at("type")->get<CoreIR::Type*>();
+        int totalWidth = 1;
+        vector<int> output_dims = arrayDims(tIn);
+        for (auto d : output_dims) {
+        totalWidth *= d;
+        }
+        return c->Record({
+            {"in", c->BitIn()->Arr(totalWidth)},
+            {"out", tIn},
+            });
+        });
+    auto srGen = hns->newGeneratorDecl("unpack", srTg, srParams);
+    srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto self = def->sel("self");
+        def->connect(self->sel("in"), self->sel("out"));
+        });
+  }
+
+  {
+    CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
     CoreIR::TypeGen* srTg = hns->newTypeGen("pack", srParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         auto t = args.at("type")->get<CoreIR::Type*>();
@@ -941,10 +963,50 @@ void loadHalideLib(CoreIR::Context* context) {
             {"out", c->Bit()->Arr(totalWidth)}
             });
         });
-    auto srGen = hns->newGeneratorDecl("passthrough", srTg, srParams);
+    auto srGen = hns->newGeneratorDecl("pack", srTg, srParams);
     srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
         auto self = def->sel("self");
         def->connect(self->sel("in"), self->sel("out"));
+        });
+  }
+
+  {
+    CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+    CoreIR::TypeGen* srTg = hns->newTypeGen("mux", srParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto tIn = args.at("type")->get<CoreIR::Type*>();
+        int totalWidth = 1;
+        vector<int> output_dims = arrayDims(tIn);
+        for (auto d : output_dims) {
+        totalWidth *= d;
+        }
+        return c->Record({
+            {"in", c->BitIn()->Arr(totalWidth)},
+            {"out", tIn},
+            });
+        });
+
+    auto srGen = hns->newGeneratorDecl("mux", srTg, srParams);
+
+    srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto self = def->sel("self");
+        auto pack0 = def->addInstance("pack0", "halidehw.pack", {{"type", COREMK(c, def->sel("in0")->getType())}});
+        auto pack1 = def->addInstance("pack1", "halidehw.pack", {{"type", COREMK(c, def->sel("in1")->getType())}});
+        auto unpack = def->addInstance("unpack", "halidehw.unpack", {{"type", COREMK(c, def->sel("in0")->getType())}});
+
+        auto ad = arrayDims(unpack->sel("out")->getType());
+        internal_assert(ad.size() == 1);
+
+        int outWidth = ad[0];
+        auto mux = def->addInstance("mux", "coreir.mux", {{"width", COREMK(c, outWidth)}});
+        def->connect(mux->sel("in0"), pack0->sel("out"));
+        def->connect(mux->sel("in1"), pack1->sel("out"));
+        def->connect(mux->sel("out"), unpack->sel("in"));
+
+        def->connect(self->sel("in0"), pack0->sel("in"));
+        def->connect(self->sel("in1"), pack1->sel("in"));
+        def->connect(self->sel("sel"), mux->sel("sel"));
+        def->connect(self->sel("out"), unpack->sel("out"));
         });
   }
 
