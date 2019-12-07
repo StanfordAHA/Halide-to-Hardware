@@ -997,8 +997,23 @@ void loadHalideLib(CoreIR::Context* context) {
         }
         def->connect(zeroThOut, self->sel("in"));
         } else {
-        auto self = def->sel("self");
-        def->connect(self->sel("in"), self->sel("out"));
+
+        vector<Wireable*> arrayElems = flatSelects(self->sel("out"));
+        internal_assert(arrayElems.size() > 0);
+
+        auto activeSel = self->sel("in");
+        // Inverse of packing is to slice the value off in reverse order?
+        for (int i = ((int) arrayElems.size()) - 1; i >= 0; i--) {
+        int w = bitWidth(activeSel);
+        int arrayW = bitWidth(arrayElems[i]);
+        auto cc =
+          def->addInstance("unpack_slice_" + c->getUnique(),
+              "coreir.slice",
+              {{"lo", COREMK(c, w - arrayW)}, {"hi", COREMK(c, w)}, {"width", COREMK(c, w)}});
+
+        def->connect(cc->sel("in"), activeSel);
+        def->connect(cc->sel("out"), arrayElems[i]);
+        }
         }
         });
   }
