@@ -2828,6 +2828,10 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Populating pipeline registers..." << endl;
   int uNum = 0;
   for (auto instr : sched.body()) {
+    if (instr->name == "phi") {
+      internal_assert(m.hasOutput(instr));
+    }
+
     int prodStage = sched.getEndStage(instr);
     //for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
     for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
