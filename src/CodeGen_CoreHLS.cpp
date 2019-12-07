@@ -3618,19 +3618,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
 
   design->setDef(def);
   return {design, fSched};
-  
-  //auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  //// Check if we are in a perfect loop nest
-  //if (instrGroups.size() <= 1) {
-    ////emitCoreIR(f, info, sched);
-    //emitCoreIR(f, info, fSched);
-
-    //design->setDef(def);
-    //return {design, fSched};
-  //} else {
-    //internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
-    //return {design, fSched};
-  //}
 }
 
 bool isLoad(HWInstr* instr) {
@@ -6035,7 +6022,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
-  for (auto fp : functions) {
+  for (auto& fp : functions) {
     auto lp = fp.first;
     HWFunction& f = fp.second;
     insertCriticalPathTargetRegisters(hwInfo, f);
