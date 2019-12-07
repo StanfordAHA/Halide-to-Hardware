@@ -2167,10 +2167,10 @@ class FunctionSchedule {
       //return onlySched().instructionsEndingInStage(stage);
     //}
 
-    HWLoopSchedule& onlySched() {
-      internal_assert(blockSchedules.size() == 1);
-      return begin(blockSchedules)->second;
-    }
+    //HWLoopSchedule& onlySched() {
+      //internal_assert(blockSchedules.size() == 1);
+      //return begin(blockSchedules)->second;
+    //}
 
     std::vector<HWInstr*> body() {
       return f->structuredOrder();
@@ -2206,10 +2206,12 @@ class FunctionSchedule {
       }
       internal_assert(validDelay >= 0);
 
-      int iLatency = onlySched().cycleLatency();
-      internal_assert(iLatency == validDelay) << "Only sched latency: " << iLatency << ", validDelay = " << validDelay << "\n";
+      return validDelay;
 
-      return iLatency;
+      //int iLatency = onlySched().cycleLatency();
+      //internal_assert(iLatency == validDelay) << "Only sched latency: " << iLatency << ", validDelay = " << validDelay << "\n";
+
+      //return iLatency;
       //internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
 
       //return validDelay;
