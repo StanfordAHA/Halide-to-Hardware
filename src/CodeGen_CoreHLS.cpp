@@ -2152,14 +2152,14 @@ class FunctionSchedule {
       return getContainerBlock(instr).getEndTime(instr);
     }
 
-    // API for special case where the entire function is one basic block
-    std::set<HWInstr*> instructionsStartingInStage(const int stage) {
-      return onlySched().instructionsStartingInStage(stage);
-    }
+    //// API for special case where the entire function is one basic block
+    //std::set<HWInstr*> instructionsStartingInStage(const int stage) {
+      //return onlySched().instructionsStartingInStage(stage);
+    //}
 
-    std::set<HWInstr*> instructionsEndingInStage(const int stage) {
-      return onlySched().instructionsEndingInStage(stage);
-    }
+    //std::set<HWInstr*> instructionsEndingInStage(const int stage) {
+      //return onlySched().instructionsEndingInStage(stage);
+    //}
 
     HWLoopSchedule& onlySched() {
       internal_assert(blockSchedules.size() == 1);
@@ -2168,7 +2168,6 @@ class FunctionSchedule {
 
     std::vector<HWInstr*> body() {
       return f->structuredOrder();
-      //return onlySched().body;
     }
 
     
@@ -2867,8 +2866,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
     m.hwEndValues[v.first][v.first] = v.second;
     auto op = v.first;
     auto val = v.second;
-    int endStage = sched.getEndStage(op);
-    for (auto instr : sched.instructionsStartingInStage(endStage)) {
+    int endStage = sched.getContainerBlock(op).getEndTime(op);
+    for (auto instr : sched.getContainerBlock(op).instructionsStartingInStage(endStage)) {
       m.hwStartValues[op][instr] = val;
     }
   }
@@ -2987,7 +2986,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           m.hwEndValues[op][op] = val;
           auto blk = containerBlock(instr, *(sched.f));
           int iStage = m.fSched.getStartStage(head(blk));
-          for (auto instr : m.fSched.instructionsStartingInStage(iStage)) {
+          for (auto instr : m.fSched.getContainerBlock(instr).instructionsStartingInStage(iStage)) {
             m.hwStartValues[op][instr] = val;
           }
 
