@@ -819,128 +819,6 @@ std::vector<int> toInts(const std::vector<std::string>& strs) {
   return ints;
 }
 
-//class ContainForLoop : public IRVisitor {
-
-  //protected:
-    //using IRVisitor::visit;
-    //void visit(const For *op) override {
-      //found = true;
-      //varnames.push_back(op->name);
-    //}
-
-//public:
-  //bool found;
-  //vector<string> varnames;
-  //ContainForLoop() : found(false) {}
-//};
-
-//// identifies for loops in code statement
-//bool contain_for_loop(Stmt s) {
-  //ContainForLoop cfl;
-  //s.accept(&cfl);
-  //return cfl.found;
-//}
-
-//// Identifies for loop name in code statement.
-////  Gives name of first for loop
-//string name_for_loop(Stmt s) {
-  //ContainForLoop cfl;
-  //s.accept(&cfl);
-  //return cfl.varnames[0];
-//}
-
-//// Identifies all for loop names in code statement.
-//vector<string> contained_for_loop_names(Stmt s) {
-  //ContainForLoop cfl;
-  //s.accept(&cfl);
-  //return cfl.varnames;
-//}
-
-
-//class UsesVariable : public IRVisitor {
-  //using IRVisitor::visit;
-  //void visit(const Variable *op) override {
-    //if (op->name == varname) {
-      //used = true;
-    //}
-    //return;
-  //}
-
-  //void visit(const Call *op) override {
-    //// only go first two variables, not loop bound checks
-    //if (op->name == "write_stream" && op->args.size() > 2) {
-      //op->args[0].accept(this);
-      //op->args[1].accept(this);
-    //} else {
-      //IRVisitor::visit(op);
-    //}
-  //}
-
-//public:
-  //bool used;
-  //string varname;
-  //UsesVariable(string varname) : used(false), varname(varname) {}
-//};
-
-//// identifies target variable string in code statement
-//bool variable_used(Stmt s, string varname) {
-  //UsesVariable uv(varname);
-  //s.accept(&uv);
-  //return uv.used;
-//}
-
-//class ROMInit : public IRVisitor {
-  //using IRVisitor::visit;
-
-  //bool is_const(const Expr e) {
-    //if (e.as<IntImm>() || e.as<UIntImm>()) {
-      //return true;
-    //} else {
-      //return false;
-    //}
-  //}
-
-  //int id_const_value(const Expr e) {
-    //if (const IntImm* e_int = e.as<IntImm>()) {
-      //return e_int->value;
-
-    //} else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-      //return e_uint->value;
-
-    //} else {
-      //return -1;
-    //}
-  //}
-  
-  //void visit(const Store *op) override {
-    //if (op->name == allocname) {
-      //auto value_expr = op->value;
-      //auto index_expr = op->index;
-      //internal_assert(is_const(value_expr) && is_const(index_expr));
-
-      //int index = id_const_value(index_expr);
-      //int value = id_const_value(value_expr);
-      //init_values["init"][index] = value;
-      ////init_values["init"][index] = std::to_string(value);
-      ////init_values["init"].emplace_back(std::to_string(value));
-    //}
-  //}
-
-//public:
-  //nlohmann::json init_values;
-  //string allocname;
-  //ROMInit(string allocname) : allocname(allocname) {}
-//};
-
-//// returns a map with all the initialization values for a rom
-//nlohmann::json rom_init(Stmt s, string allocname) {
-  //ROMInit rom_init(allocname);
-  //s.accept(&rom_init);
-  //return rom_init.init_values;
-//}
-
-  
-
 }
 
 vector<Wireable*> getSelects(CoreIR::Wireable* w) {
@@ -2158,20 +2036,6 @@ class FunctionSchedule {
       return getContainerBlock(instr).getEndTime(instr);
     }
 
-    //// API for special case where the entire function is one basic block
-    //std::set<HWInstr*> instructionsStartingInStage(const int stage) {
-      //return onlySched().instructionsStartingInStage(stage);
-    //}
-
-    //std::set<HWInstr*> instructionsEndingInStage(const int stage) {
-      //return onlySched().instructionsEndingInStage(stage);
-    //}
-
-    //HWLoopSchedule& onlySched() {
-      //internal_assert(blockSchedules.size() == 1);
-      //return begin(blockSchedules)->second;
-    //}
-
     std::vector<HWInstr*> body() {
       return f->structuredOrder();
     }
@@ -2208,27 +2072,7 @@ class FunctionSchedule {
 
       return validDelay;
 
-      //int iLatency = onlySched().cycleLatency();
-      //internal_assert(iLatency == validDelay) << "Only sched latency: " << iLatency << ", validDelay = " << validDelay << "\n";
-
-      //return iLatency;
-      //internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
-
-      //return validDelay;
-      //return onlySched().cycleLatency();
     }
-
-    //int numStages() {
-      //return onlySched().numStages();
-    //}
-
-    //int getStartTime(HWInstr* instr) {
-      //return onlySched().getStartTime(instr);
-    //}
-
-    //int getEndTime(HWInstr* instr) {
-      //return onlySched().getEndTime(instr);
-    //}
 
 };
 
