@@ -52,6 +52,55 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+std::string coreStr(const Wireable* w) {
+  return CoreIR::toString(*w);
+}
+
+std::string coreStr(const CoreIR::Type* w) {
+  return CoreIR::toString(*w);
+}
+
+std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
+  if (instr.surroundingLoops.size() > 0) {
+    for (auto lp : instr.surroundingLoops) {
+      out << lp.name << " : [" << lp.min << ", " << exprString(simplify(lp.extent + lp.min - 1)) << "] ";
+    }
+  }
+  if (instr.tp == HWINSTR_TP_VAR) {
+    out << instr.name;
+  } else {
+    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
+    out << (instr.isSigned() ? "S" : "U") << ": ";
+    out << (instr.resType == nullptr ? "<UNK>" : coreStr(instr.resType)) << ": ";
+    out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
+    int opN = 0;
+    for (auto op : instr.operands) {
+      out << op->compactString();
+      if (opN < ((int) instr.operands.size()) - 1) {
+        out << ", ";
+      }
+      opN++;
+    }
+    out << ");";
+  }
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
+  out << "@" << f.name << "(";
+  for (auto v : f.controlVars) {
+    out << v << ", ";
+  }
+  out << ")\n";
+  for (auto blk : f.getBlocks()) {
+    out << "--- Blk " << blk->name << endl;
+    for (auto instr : blk->instrs) {
+      out << "\t" << *instr << endl;
+    }
+  }
+  return out;
+}
+
 bool operator==(const HWInstr& a, const HWInstr& b) {
   if (a.tp != b.tp) {
     return false;
@@ -258,40 +307,6 @@ vector<int> arrayDims(CoreIR::Type* tp) {
 
 vector<int> arrayDims(CoreIR::Wireable* w) {
   return arrayDims(w->getType());
-}
-
-std::string coreStr(const Wireable* w) {
-  return CoreIR::toString(*w);
-}
-
-std::string coreStr(const CoreIR::Type* w) {
-  return CoreIR::toString(*w);
-}
-
-std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
-  if (instr.surroundingLoops.size() > 0) {
-    for (auto lp : instr.surroundingLoops) {
-      out << lp.name << " : [" << lp.min << ", " << exprString(simplify(lp.extent + lp.min - 1)) << "] ";
-    }
-  }
-  if (instr.tp == HWINSTR_TP_VAR) {
-    out << instr.name;
-  } else {
-    out << (instr.predicate == nullptr ? "T" : instr.predicate->compactString()) << ": ";
-    out << (instr.isSigned() ? "S" : "U") << ": ";
-    out << (instr.resType == nullptr ? "<UNK>" : coreStr(instr.resType)) << ": ";
-    out << ("%" + std::to_string(instr.uniqueNum)) << " = " << instr.name << "(";
-    int opN = 0;
-    for (auto op : instr.operands) {
-      out << op->compactString();
-      if (opN < ((int) instr.operands.size()) - 1) {
-        out << ", ";
-      }
-      opN++;
-    }
-    out << ");";
-  }
-  return out;
 }
 
 class IBlock {
@@ -787,6 +802,7 @@ std::ostream& operator<<(std::ostream& out, const std::vector<T>& strs) {
   out << "}";
   return out;
 }
+
 vector<int> getDimRanges(const vector<int>& ranges) {
   vector<int> rngs;
   for (int i = 0; i < (int) (ranges.size() / 2); i++) {
@@ -1587,13 +1603,6 @@ class HWLoopSchedule {
         }
       }
       return instrs;
-      //std::set<HWInstr*> instr;
-      //for (auto i : startStages) {
-        //if (i.second == stage) {
-          //instr.insert(i.first);
-        //}
-      //}
-      //return instr;
     }
 
     std::set<HWInstr*> instructionsEndingInStage(const int stage) const {
@@ -1604,13 +1613,6 @@ class HWLoopSchedule {
         }
       }
       return instrs;
-      //std::set<HWInstr*> instr;
-      //for (auto i : endStages) {
-        //if (i.second == stage) {
-          //instr.insert(i.first);
-        //}
-      //}
-      //return instr;
     }
 
     int numStages() const {
@@ -2176,34 +2178,42 @@ class FunctionSchedule {
 
     
     int cycleLatency() {
-      //if (blockSchedules.size() == 0) {
-        //return 0;
-      //}
-      //set<HWInstr*> streamReads = allInstrs("rd_stream", body());
-      //set<HWInstr*> streamWrites = allInstrs("write_stream", body());
-      //int validDelay = 0;
-      //internal_assert(streamWrites.size() == 1 ||
-          //streamWrites.size() == 0);
-      //if (streamWrites.size() == 1) {
-        //HWInstr* read = *begin(streamReads);
-        //HWInstr* write = *begin(streamWrites);
-        //Expr latency = endTime(write, *this) - startTime(read, *this);
-        //cout << "Read  = " << *read << endl;
-        //cout << "Write = " << *write << endl;
-        //cout << "\tSymbolic latency  : " << latency << endl;
-        //Expr simplifiedLatency = simplify(latency);
-        //cout << "\tSimplified latency: " << simplifiedLatency << endl;
-        ////internal_assert(false);
+      if (blockSchedules.size() == 0) {
+        return 0;
+      }
+      set<HWInstr*> streamReads = allInstrs("rd_stream", body());
+      set<HWInstr*> streamWrites = allInstrs("write_stream", body());
+      int validDelay = 0;
+      internal_assert(streamWrites.size() == 1 ||
+          streamWrites.size() == 0);
+      if (streamWrites.size() == 1) {
+        HWInstr* read = *begin(streamReads);
+        HWInstr* write = *begin(streamWrites);
+        Expr latency = endTime(write, *this) - startTime(read, *this);
+        cout << "Read  = " << *read << endl;
+        cout << "Write = " << *write << endl;
+        cout << "\tSymbolic latency  : " << latency << endl;
+        Expr simplifiedLatency = simplify(latency);
+        cout << "\tSimplified latency: " << simplifiedLatency << endl;
+        //internal_assert(false);
 
-        //validDelay = func_id_const_value(simplifiedLatency);
-      //} else {
-        //validDelay = 0;
-      //}
-      //internal_assert(validDelay >= 0);
-      ////internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
+        validDelay = func_id_const_value(simplifiedLatency);
+      } else {
+        cout << "# of stream writes: " << streamWrites.size() << endl;
+        cout << "Function..." << endl;
+        cout << *f << endl;
+        validDelay = 0;
+      }
+      internal_assert(validDelay >= 0);
+
+      int iLatency = onlySched().cycleLatency();
+      internal_assert(iLatency == validDelay) << "Only sched latency: " << iLatency << ", validDelay = " << validDelay << "\n";
+
+      return iLatency;
+      //internal_assert(validDelay == 0) << "Valid delay: " << validDelay << "\n";
 
       //return validDelay;
-      return onlySched().cycleLatency();
+      //return onlySched().cycleLatency();
     }
 
     //int numStages() {
@@ -2236,21 +2246,6 @@ class ComputeKernel {
     CoreIR::Module* mod;
     FunctionSchedule sched;
 };
-
-std::ostream& operator<<(std::ostream& out, const HWFunction& f) {
-  out << "@" << f.name << "(";
-  for (auto v : f.controlVars) {
-    out << v << ", ";
-  }
-  out << ")\n";
-  for (auto blk : f.getBlocks()) {
-    out << "--- Blk " << blk->name << endl;
-    for (auto instr : blk->instrs) {
-      out << "\t" << *instr << endl;
-    }
-  }
-  return out;
-}
 
 class KernelControlPath {
   public:
@@ -4840,18 +4835,6 @@ int relativeProductionTime(Wireable* producer, const int outputIndex, AppGraph& 
 
   return outputIndex % numOutImageCols(producer) +
     std::floor(outputIndex / numOutImageCols(producer)) * numInImageCols(producer);
-  //int delay = 0;
-  //if (outputIndex == 0) {
-    //delay = 0;
-    //return 0;
-    ////return linebufferDelay(producer);
-  //} else if (outputIndex % numOutImageCols(producer) != 0) {
-    //delay = relativeProductionTime(producer, outputIndex - 1, g) + 1;
-  //} else {
-    //delay = relativeProductionTime(producer, outputIndex - 1, g) + 1 + (numInImageCols(producer) - numOutImageCols(producer));
-  //}
-  ////cout << "Delay for " << coreStr(producer) << "'s " << outputIndex << "(th) element = " << delay << endl;
-  //return delay;
 }
 
 int productionTime(Wireable* producer, const int outputIndex, AppGraph& g) {
