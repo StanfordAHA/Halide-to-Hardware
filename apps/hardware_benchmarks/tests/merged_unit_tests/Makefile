@@ -1,6 +1,6 @@
 PNG_LIB = $(shell libpng-config --cflags --ldflags)
 
-COREIR_DIR = ~/CppWorkspace/coreir
+COREIR_DIR = $(ROOT_DIR)/coreir
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
 
