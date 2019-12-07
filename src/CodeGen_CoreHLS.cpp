@@ -983,6 +983,7 @@ void loadHalideLib(CoreIR::Context* context) {
         return c->Record({
             {"in0", tIn->getFlipped()},
             {"in1", tIn->getFlipped()},
+            {"sel", c->BitIn()},
             {"out", tIn},
             });
         });
@@ -991,12 +992,12 @@ void loadHalideLib(CoreIR::Context* context) {
 
     srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
         auto self = def->sel("self");
-        auto pack0 = def->addInstance("pack0", "halidehw.pack", {{"type", COREMK(c, def->sel("in0")->getType())}});
-        auto pack1 = def->addInstance("pack1", "halidehw.pack", {{"type", COREMK(c, def->sel("in1")->getType())}});
-        auto unpack = def->addInstance("unpack", "halidehw.unpack", {{"type", COREMK(c, def->sel("in0")->getType())}});
+        auto pack0 = def->addInstance("pack0", "halidehw.pack", {{"type", COREMK(c, self->sel("in0")->getType())}});
+        auto pack1 = def->addInstance("pack1", "halidehw.pack", {{"type", COREMK(c, self->sel("in1")->getType())}});
+        auto unpack = def->addInstance("unpack", "halidehw.unpack", {{"type", COREMK(c, self->sel("in0")->getType())}});
 
-        auto ad = arrayDims(unpack->sel("out")->getType());
-        internal_assert(ad.size() == 1);
+        auto ad = arrayDims(unpack->sel("in")->getType());
+        internal_assert(ad.size() == 1) << "Output type: " << coreStr(unpack->sel("in")->getType()) << " has " << ad.size() << " dims\n";
 
         int outWidth = ad[0];
         auto mux = def->addInstance("mux", "coreir.mux", {{"width", COREMK(c, outWidth)}});
@@ -2410,11 +2411,11 @@ class UnitMapping {
 
     FunctionSchedule fSched;
 
-    //std::map<HWInstr*, CoreIR::Wireable*> instrValues;
     std::map<HWInstr*, vector<int> > stencilRanges;
     std::map<HWInstr*, CoreIR::Instance*> unitMapping;
 
     std::map<HWInstr*, std::map<int, CoreIR::Instance*> > pipelineRegisters;
+    std::map<HWInstr*, CoreIR::Instance*> nonPipelineRegisters;
 
     std::vector<HWInstr*> body;
 
@@ -2828,12 +2829,12 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   cout << "Populating pipeline registers..." << endl;
   int uNum = 0;
   for (auto instr : sched.body()) {
+    cout << "Creating registers for: " << *instr << endl;
     if (instr->name == "phi") {
       internal_assert(m.hasOutput(instr));
     }
 
     int prodStage = sched.getEndStage(instr);
-    //for (int i = 0; i < sched.getContainerBlock(instr).numStages(); i++) {
     for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
       if (m.hasOutput(instr)) {
         internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
@@ -2845,7 +2846,22 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
           m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
         }
-        //m.outputType(instr));
+        uNum++;
+      }
+    }
+
+    if (m.hasOutput(instr)) {
+      cout << "Creating non pipeline registers..." << endl;
+      m.nonPipelineRegisters[instr] = pipelineRegister(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
+      def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
+      for (int i = 0; i < prodStage; i++) {
+        internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+        for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+        for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
         uNum++;
       }
     }
