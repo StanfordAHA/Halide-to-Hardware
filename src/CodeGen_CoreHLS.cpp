@@ -2178,17 +2178,17 @@ class FunctionSchedule {
       return onlySched().cycleLatency();
     }
 
-    int numStages() {
-      return onlySched().numStages();
-    }
+    //int numStages() {
+      //return onlySched().numStages();
+    //}
 
-    int getStartTime(HWInstr* instr) {
-      return onlySched().getStartTime(instr);
-    }
+    //int getStartTime(HWInstr* instr) {
+      //return onlySched().getStartTime(instr);
+    //}
 
-    int getEndTime(HWInstr* instr) {
-      return onlySched().getEndTime(instr);
-    }
+    //int getEndTime(HWInstr* instr) {
+      //return onlySched().getEndTime(instr);
+    //}
 
 };
 
@@ -2524,7 +2524,7 @@ class UnitMapping {
     std::vector<HWInstr*> body;
 
     int getEndTime(HWInstr* instr) {
-      return fSched.getEndTime(instr);
+      return fSched.getContainerBlock(instr).getEndTime(instr);
     }
 
     bool hasOutput(HWInstr* const arg) const {
