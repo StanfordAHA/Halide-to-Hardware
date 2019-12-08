@@ -385,6 +385,17 @@ set<IBlock> getIBlocks(HWFunction& f) {
   return blks;
 }
 
+IBlock containerBlock(HWInstr* instr, HWFunction& f) {
+  for (auto b : getIBlocks(f)) {
+    if (elem(instr, b.instrs)) {
+      return b;
+    }
+  }
+
+  internal_assert(false);
+  return *(begin(getIBlocks(f)));
+}
+
 vector<IBlock> loopHeaders(HWFunction& f) {
   auto blks = getIBlockList(f);
   vector<IBlock> headers;
@@ -2014,6 +2025,10 @@ class FunctionSchedule {
     std::vector<NestSchedule> nestSchedules;
     std::vector<HWTransition> transitions;
 
+    bool inSameBlock(HWInstr* const a, HWInstr* const b) {
+      return head(containerBlock(a, *f)) == head(containerBlock(b, *f));
+    }
+
     HWLoopSchedule& getContainerBlock(HWInstr* const sourceLocation) {
       return getScheduleFor(sourceLocation);
     }
@@ -2075,17 +2090,6 @@ class FunctionSchedule {
     }
 
 };
-
-IBlock containerBlock(HWInstr* instr, HWFunction& f) {
-  for (auto b : getIBlocks(f)) {
-    if (elem(instr, b.instrs)) {
-      return b;
-    }
-  }
-
-  internal_assert(false);
-  return *(begin(getIBlocks(f)));
-}
 
 class ComputeKernel {
   public:
@@ -2824,18 +2828,26 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
 
     if (m.hasOutput(instr)) {
-      cout << "Creating non pipeline registers..." << endl;
+      cout << "Creating non pipeline registers for " << *instr << "..." << endl;
       m.nonPipelineRegisters[instr] = pipelineRegister(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
       def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
       for (int i = 0; i < prodStage; i++) {
         internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
         for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
           m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
         for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
           m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
         uNum++;
+      }
+
+      for (auto otherInstr : sched.body()) {
+        if (!sched.inSameBlock(instr, otherInstr)) {
+          m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
       }
     }
   }

@@ -3191,7 +3191,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
-  //small_conv_3_3_not_unrolled_test();
+  small_conv_3_3_not_unrolled_test();
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
