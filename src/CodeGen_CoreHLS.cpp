@@ -4175,25 +4175,33 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
   return val;
 }
 
-// Maybe first change toward a inner loop handling should be to run instruction collection on outer loops
-// and thus save an activeloop list. Then generate a loopnestinfo data structure directly from that so that
-// lp is not passed around as a parameter?
+// Now: Need to add handling for inner loop changes.
+// the innermost loop should be used instead of the lexically
+// first instruction, but even that will just patch the problem
 KernelControlPath controlPathForKernel(HWFunction& f) {
 
-  // TODO: Do real traversal of instructions
+  set<string> allLoopNames;
   LoopNestInfo loopInfo;
-  if (f.allInstrs().size() > 0) {
-    HWInstr* fst = f.structuredOrder()[0];
-    cout << "Adding surrounding loops from: " << *fst << endl;
-    for (auto lp : fst->surroundingLoops) {
-      loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+  for (auto instr : f.structuredOrder()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (!elem(lp.name, allLoopNames)) {
+        loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+        allLoopNames.insert(lp.name);
+      }
     }
-  } else {
-    cout << "Error: HWFunction..." << endl;
-    cout << f << endl;
-    cout << "has no instructions!" << endl;
-    internal_assert(false);
   }
+  //if (f.allInstrs().size() > 0) {
+    //HWInstr* fst = f.structuredOrder()[0];
+    //cout << "Adding surrounding loops from: " << *fst << endl;
+    //for (auto lp : fst->surroundingLoops) {
+      //loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+    //}
+  //} else {
+    //cout << "Error: HWFunction..." << endl;
+    //cout << f << endl;
+    //cout << "has no instructions!" << endl;
+    //internal_assert(false);
+  //}
   cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
   
   auto c = f.mod->getContext();
