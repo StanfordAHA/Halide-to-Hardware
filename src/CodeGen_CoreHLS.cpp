@@ -2410,7 +2410,7 @@ class UnitMapping {
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
       internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
-      internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
+      internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues(" << *arg1 << ")\n";
       return map_get(sourceLocation, map_get(arg1, hwStartValues));
     }
 
