@@ -2650,13 +2650,52 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
         }
+      } else if (starts_with(name, "dynamic_stencil_read")) {
+
+        cout << "Creating dynamic stencil read: " << *instr << endl;
+        cout << "\tread from: " << *(instr->getOperand(0)) << endl;
+        internal_assert(instr->getOperand(0)->resType != nullptr);
+
+        vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
+        internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
+
+        Instance* cS = nullptr;
+        if (dimRanges.size() == 3) {
+          //internal_assert(instr->getOperand(1)->tp == HWINSTR_TP_CONST);
+          //internal_assert(instr->getOperand(2)->tp == HWINSTR_TP_CONST);
+          cout << "\tOperands 1 and 2 of " << *instr << " are constants" << endl;
+
+          // TODO: Add real offsets
+          int selRow = 0;
+          int selCol = 0;
+          cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
+        } else {
+          internal_assert(dimRanges.size() == 4);
+          
+          //internal_assert(instr->getOperand(1)->tp == HWINSTR_TP_CONST);
+          //internal_assert(instr->getOperand(2)->tp == HWINSTR_TP_CONST);
+          //internal_assert(instr->getOperand(3)->tp == HWINSTR_TP_CONST);
+
+          cout << "\tOperands 1, 2and 3 of " << *instr << " are constants" << endl;
+         
+          // TODO: Add real offset wiring
+          int selRow = 0;
+          int selCol = 0;
+          int selChan = 0;
+          cS = def->addInstance("stencil_read_" + std::to_string(defStage),
+              "halidehw.stencil_read_3",
+              {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])},
+              {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
+        }
+        internal_assert(cS != nullptr);
+        instrValues[instr] = cS->sel("out");
+        unitMapping[instr] = cS;
       } else if (starts_with(name, "stencil_read")) {
         cout << "Creating stencil read: " << *instr << endl;
         cout << "\tread from: " << *(instr->getOperand(0)) << endl;
         internal_assert(instr->getOperand(0)->resType != nullptr);
 
         vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
-        //vector<int> dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
         internal_assert(dimRanges.size() > 1) << "dimranges has size: " << dimRanges.size() << "\n";
 
         if (dimRanges.size() == 3) {
@@ -2666,7 +2705,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
@@ -2682,10 +2720,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
           int selChan = instr->getOperand(3)->toInt();
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
-              //"halidehw.stencil_read_3",
-              //{{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
-              //{"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
               "halidehw.stencil_read_3",
               {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])},
@@ -3041,6 +3075,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       auto arg = instr->getOperand(0);
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (instr->name == "stencil_read") {
+      auto arg = instr->getOperand(0);
+      def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+    } else if (instr->name == "dynamic_stencil_read") {
+      // TODO: Actually handle index wiring
       auto arg = instr->getOperand(0);
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (starts_with(instr->name, "create_stencil")) {

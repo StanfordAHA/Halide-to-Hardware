@@ -3192,6 +3192,7 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
+  small_conv_3_3_test();
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
@@ -3199,7 +3200,6 @@ int main(int argc, char **argv) {
   shiftRight_test();
   ushift_test();
   arith_test();
-  small_conv_3_3_test();
 
   pointwise_add_test();
   mod2_test();
