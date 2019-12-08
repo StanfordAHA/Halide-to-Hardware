@@ -1305,6 +1305,7 @@ void loadHalideLib(CoreIR::Context* context) {
 
         //def->connect(def->sel("self")->sel("in")->sel(col)->sel(row), def->sel("self")->sel("out"));
         //def->connect(def->sel("self")->sel("in")->sel(0)->sel(row), def->sel("self")->sel("out"));
+        def->connect(def->sel("self")->sel("in")->sel(0)->sel(0), def->sel("self")->sel("out"));
         });
   }
 
@@ -5890,11 +5891,19 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     cout << "Module after optimization" << endl;
     m->print();
+    
     auto kI = def->addInstance("compute_module_" + m->getName(), m);
         //k.second.mod);
     def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
     kernels[lp] = kI;
   }
+
+  //context->runPasses({"rungenerators", "flatten"});
+  //for (auto k : kernels) {
+    //cout << "After optimization..." << endl;
+    //k.second->getModuleRef()->print();
+  //}
+  //internal_assert(false);
 
   context->runPasses({"rungenerators"});
   vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
