@@ -2751,7 +2751,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
       } else if (name == "phi") {
         internal_assert(instr->resType != nullptr);
         auto sel = def->addInstance("phi_" + std::to_string(defStage), "halidehw.mux", {{"type", COREMK(context, instr->resType)}});
-        //auto sel = def->addInstance("phi" + std::to_string(defStage), "halidehw.passthrough", {{"type", COREMK(context, instr->resType)}});
         instrValues[instr] = sel->sel("out");
         unitMapping[instr] = sel;
       } else if (name == "delay") {
@@ -3118,6 +3117,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       // TODO: Replace with real mux code
       def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
       def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
+      // TODO: Create real control value
+      auto lastState = def->addInstance("dummy_phi_sel_input" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
+      Wireable* selectControl = lastState->sel("out");
+      def->connect(unit->sel("sel"), selectControl);
     } else {
       internal_assert(false) << "no wiring procedure for " << *instr << "\n";
     }
