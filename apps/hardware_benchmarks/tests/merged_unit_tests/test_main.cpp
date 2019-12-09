@@ -1556,14 +1556,14 @@ void small_conv_3_3_not_unrolled_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  int tileSize = 4;
-  Halide::Buffer<uint8_t> inputBuf(tileSize + 2, tileSize + 2);
+  int inTileSize = 4;
+  Halide::Buffer<uint8_t> inputBuf(inTileSize, inTileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   indexTestPatternRandom(inputBuf, hwInputBuf);
-  Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
+  Halide::Runtime::Buffer<uint8_t> outputBuf(inTileSize - 2, inTileSize - 2);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
   
-  hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
+  hw_output.tile(x,y, xo,yo, xi,yi, inTileSize - 2, inTileSize - 2)
     .hw_accelerate(xi, xo);
 
   kernel.compute_at(hw_output, xo)
@@ -3191,8 +3191,10 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
-  //small_conv_3_3_not_unrolled_test();
+  small_conv_3_3_not_unrolled_test();
+  assert(false);
   small_conv_3_3_test();
+  assert(false);
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();

@@ -5899,10 +5899,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
 
   //context->runPasses({"rungenerators", "flatten"});
-  //for (auto k : kernels) {
-    //cout << "After optimization..." << endl;
-    //k.second->getModuleRef()->print();
-  //}
   //internal_assert(false);
 
   context->runPasses({"rungenerators"});
@@ -5920,6 +5916,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   topMod->setDef(def);
 
   cout << "Top module before inlining" << endl;
+  topMod->print();
+  
+  flattenExcluding(context, generatorNames);
+  cout << "Top module after inlining" << endl;
   topMod->print();
   
   context->runPasses({"rungenerators"});
