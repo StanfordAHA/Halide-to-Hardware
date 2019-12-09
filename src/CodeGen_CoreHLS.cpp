@@ -2623,7 +2623,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         if (dimRanges.size() == 3) {
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
-          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
 
           stencilRanges[instr] = dimRanges;
@@ -2635,7 +2634,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
           int selChan = instr->getOperand(4)->toInt();
-          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
 
           stencilRanges[instr] = dimRanges;
@@ -4215,26 +4213,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   
   auto c = f.mod->getContext();
 
-  // KernelControlPath needs a map from state indexes to wires that indicate
-  // whether that state is active.
-  // We also need to deal with the fact that the top level loop is driven by a valid signal
-  // from outside of the accelerator, while all of the others are driven by
-  // conditions on internally generated counters.
-  //
-  // Outermost loop increments in stage 0 (by definition) because all loops increment in the
-  // stage where the first instruction that references them executes
-  //
-  // Actually all of the loops that are in the top instruction transition are triggered
-  // by in_en, not just the first loop in the nest
-  //
-  // stage 0 is active is connected to the input valid signal (in_en)
-  // stage 1, ...., (N - 1) active signals in a given loop level are just the active
-  // signal from the prior stage at the same level
-  //
-  // the first stage of a given loop level is activated when:
-  //   in_en comes in (if this is the first loop level in the program)
-  //   the delay on the time from the first iteration of the level loop has elapsed
-  //   II_l cycles have elapsed since the last iteration of the loop
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   for (int i = 0; i < sched.numLinearStages(); i++) {
@@ -4265,6 +4243,36 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   // For stage 0, set the active value to be in_en,
   // for the others set it to be a new pipeline register?
   internal_assert(sched.numLinearStages() >= 0);
+  set<int> stages;
+  for (int i = 0; i < sched.numLinearStages(); i++) {
+    stages.insert(i);
+  }
+
+  // Q: What are the predecessors of each stage?
+  // Q: What does predecessors mean? Stages which contain instructions that would lexically
+  //    precede instructions in the current stage?
+  // Q: Is an instruction the entry instruction, the other question is: how many different
+  //    loop header instructions start in it and how many loop tail instructions start in it?
+  // Maybe we should build transition conditions from stages to stages based on conditions
+  // For example in a loop header stage we transition back to the same loop if the loop is
+  // not at its max, in a loop header or middle stage we transition to the next stage in the
+  // loop on a delay of 1
+  // For a loop stage that is wrapped, if we are at the last iteration of the loop
+  // we transition to the tail of the container with delay d
+
+  //cout << "#### Stage schedules" << endl;
+  //for (auto s : stages) {
+    //// Get all loop header blocks that start in this stage (bc IIs are start -> start, and inner loop starts are start -> start)
+    //// Get all loop tail blocks whose start instructions start in this stage
+    //// Get representative of all loop levels that are active in this stage and
+    //// still active in the lexically next stage
+    //set<HWInstr*> starting = sched.instructionsStartingAtStage(s);
+    //set<HWInstr*> ending = sched.instructionsEndingAtStage(s);
+    //// Find transitions out of this stage?
+    //// First find all loop levels ending in this stage
+    //// Find all loop levels starting in this stage ()
+  //}
+  //internal_assert(false);
 
   auto context = def->getContext();
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
