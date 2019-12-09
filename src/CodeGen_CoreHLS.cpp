@@ -804,16 +804,6 @@ std::ostream& operator<<(std::ostream& out, const std::set<T>& strs) {
   return out;
 }
 
-template<typename T>
-std::ostream& operator<<(std::ostream& out, const std::vector<T>& strs) {
-  out << "{";
-  for (auto str : strs) {
-    out << str << ", ";
-  }
-  out << "}";
-  return out;
-}
-
 vector<int> getDimRanges(const vector<int>& ranges) {
   vector<int> rngs;
   for (int i = 0; i < (int) (ranges.size() / 2); i++) {
@@ -2985,41 +2975,10 @@ IBlock innermostLoopContainerHeader(HWInstr* instr, HWFunction& f) {
 
 Expr delayFromIterationStartToInstr(HWInstr* instr, FunctionSchedule& sched) {
   return 0;
-  //cout << "Getting delay from iteration start to instr for: " << *instr << endl;
-  //auto& f = *(sched.f);
-  //IBlock header = innermostLoopContainerHeader(instr, f);
-  
-  //cout << "Header..." << endl;
-  //cout << header << endl;
-  
-  //IBlock container = containerBlock(instr, f);
-  
-  //cout << "Container..." << endl;
-  //cout << header << endl;
-  
-  //internal_assert(loopNames(header) == loopNames(container));
-
-  //Expr delay = 0;
-  //IBlock activeBlock = header;
-  //vector<string> excludedVars = loopNames(header);
-  //while (activeBlock != container) {
-    //delay += loopLatency(excludedVars, activeBlock, sched);
-    //activeBlock = nextBlock(activeBlock, f);
-  //}
-  //return delay;
 }
 
 Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
   return 0;
-  //// What is the container iteration start time?
-  //// Time from root of the program to the x, yth iteration of the loop containing this
-  //// expression
-  //Expr s = 0;
-  //// Assume initiation interval of 1
-  //for (auto lp : instr->surroundingLoops) {
-    //s += 1*Variable::make(Int(32), lp.name);
-  //}
-  //return s;
 }
 
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
@@ -4311,35 +4270,47 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
     int nextS = s + 1;
     if (nextS < sched.numLinearStages()) {
-      set<vector<string> > activeLoops;
+      set<vector<string> > activeLoopSet;
       for (auto instr : sched.allInstructionsInStage(s)) {
         cout << "Adding " << *instr << " to active loops" << endl;
-        activeLoops.insert(loopNames(instr));
+        cout << "Surrounding loops..." << endl;
+        for (auto lp : instr->surroundingLoops) {
+          cout << "\t" << lp.name << endl;
+        }
+        vector<string> names = loopNames(instr);
+        cout << "\t# of loop names = " << names.size() << nedl;
+        cout << "\tLoop names      = " << names << endl;
+        cout << "\tSingle print names..." << endl;
+        for (auto n : names) {
+          cout << "\t\t" << n << endl;
+        }
+        //activeLoopSet.insert(names);
       }
-      cout << "Active loops size = " << activeLoops.size() << endl;
-      for (auto a : activeLoops) {
-        cout << "\t" << a << endl;
-      }
-      set<vector<string> > nextLoops;
-      for (auto other : sched.allInstructionsInStage(nextS)) {
-        cout << "Adding " << *other << " to next loops" << endl;
-        nextLoops.insert(loopNames(other));
-      }
-      cout << "Next loops: " << endl;
-      for (auto a : nextLoops) {
-        cout << "\t" << a << endl;
-      }
+      //cout << "Active loops size = " << activeLoopSet.size() << endl;
+      //for (auto a : activeLoopSet) {
+        //cout << "\t" << a << endl;
+      //}
+      //set<vector<string> > nextLoops;
+      //for (auto other : sched.allInstructionsInStage(nextS)) {
+        //cout << "Adding " << *other << " to next loops" << endl;
+        //nextLoops.insert(loopNames(other));
+      //}
+      //cout << "Next loops: " << endl;
+      //for (auto a : nextLoops) {
+        //cout << "\t" << a << endl;
+      //}
 
-      auto stillActive = CoreIR::intersection(nextLoops, activeLoops);
-      cout << "\tLoops that are still active in the next stage" << endl;
-      for (auto s : stillActive) {
-        cout << "\t\t" << s << endl;
-      }
+      //auto stillActive = CoreIR::intersection(nextLoops, activeLoops);
+      //cout << "\tLoops that are still active in the next stage" << endl;
+      //for (auto s : stillActive) {
+        //cout << "\t\t" << s << endl;
+      //}
     } else {
       cout << "No later stages" << endl;
     }
 
   }
+  //internal_assert(false);
 
   auto context = def->getContext();
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
