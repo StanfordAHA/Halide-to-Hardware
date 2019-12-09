@@ -1653,6 +1653,7 @@ void set_output_params(HWXcel *xcel,
           std::cout << "replaced output stencil for " << hwbuffer.name << " based on consumer " << consumer.name << std::endl;
           std::cout << "output min position is: " << fos.output_min_pos_box.at(idx) << std::endl;
 
+          //std::cout << odims.at(idx).output_min_pos << " + " << fos.output_min_pos_box.at(idx) << std::endl;
           if (!consumer_buffer.is_output) {
             std::cout << odims.at(idx).output_min_pos << " + " << fos.output_min_pos_box.at(idx) << std::endl;
             //hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
@@ -1684,9 +1685,10 @@ void set_output_params(HWXcel *xcel,
 
       std::cout << "right before " << consumer.name << " replacements\n"
                 << hwbuffer.output_access_pattern;
-    // std::vector<std::string> input_streams;  // used when inserting read_stream calls      
+    // std::vector<std::string> input_streams;  // used when inserting read_stream calls
+      const auto& input_streams = hwbuffers.at(consumer.name).input_streams;
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
-        hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
+        //hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
         ostream.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);

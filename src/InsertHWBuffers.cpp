@@ -838,6 +838,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, step_bounds, const_true(), stencil_pc);
 
         // add read_stream for each input stencil (producers fed to func)
+        std::cout << "input streams not for the output has length " << kernel.input_streams.size() << std::endl;
         for (const string& s : kernel.input_streams) {
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
@@ -962,6 +963,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), stencil_pc);
 
         // add read_stream for each input stencil (producers fed to func)
+        std::cout << "input streams for the output has length " << kernel.input_streams.size() << std::endl;
         for (const string& s : kernel.input_streams) {
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
