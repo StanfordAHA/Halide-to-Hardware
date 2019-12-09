@@ -2026,6 +2026,11 @@ class FunctionSchedule {
     std::vector<NestSchedule> nestSchedules;
     std::vector<HWTransition> transitions;
 
+    int numLinearStages() const {
+      internal_assert(blockSchedules.size() == 1);
+      return begin(blockSchedules)->second.numStages();
+    }
+
     bool inSameBlock(HWInstr* const a, HWInstr* const b) {
       return head(containerBlock(a, *f)) == head(containerBlock(b, *f));
     }
@@ -2102,6 +2107,11 @@ class KernelControlPath {
   public:
     std::vector<std::string> controlVars;
     CoreIR::Module* m;
+    std::map<int, string> stageIsActiveMap;
+
+    std::string activeSignal(const int i) const {
+      return "self." + map_get(i, stageIsActiveMap);
+    }
 };
 
 class ForInfo {
@@ -2137,7 +2147,6 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
-//KernelControlPath controlPathForKernel(HWFunction& f);
 KernelControlPath controlPathForKernel(FunctionSchedule& f);
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
@@ -3453,40 +3462,40 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     return fSched;
   }
 
-  // Transitions?
-  internal_assert(instrGroups.size() > 0);
-  internal_assert(instrGroups[0].size() > 0);
-  for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
-    auto current = instrGroups[i];
-    auto next = instrGroups[i + 1];
+  //// Transitions?
+  //internal_assert(instrGroups.size() > 0);
+  //internal_assert(instrGroups[0].size() > 0);
+  //for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
+    //auto current = instrGroups[i];
+    //auto next = instrGroups[i + 1];
 
-    if (numLoops(current) < numLoops(next)) {
-      cout << "Entering loop" << endl;
-      fSched.transitions.push_back({head(current), head(next), 0});
-    }
-    if (numLoops(current) > numLoops(next)) {
-      cout << "Exiting loop" << endl;
-      fSched.transitions.push_back({head(current), head(next), 0});
-    }
-    internal_assert(numLoops(current) != numLoops(next));
-  }
+    //if (numLoops(current) < numLoops(next)) {
+      //cout << "Entering loop" << endl;
+      //fSched.transitions.push_back({head(current), head(next), 0});
+    //}
+    //if (numLoops(current) > numLoops(next)) {
+      //cout << "Exiting loop" << endl;
+      //fSched.transitions.push_back({head(current), head(next), 0});
+    //}
+    //internal_assert(numLoops(current) != numLoops(next));
+  //}
 
-  // Find companion blocks for each loop nest, then do I want to
-  // have a transition from one block to another or from one loop to itsef?
-  set<vector<string> > alreadySeenLoops;
-  for (auto group : instrGroups) {
-    auto prefix = loopNames(group);
-    if (!elem(prefix, alreadySeenLoops)) {
-      // By default assume all loops have II = 1
-      fSched.transitions.push_back({head(group), head(group), 1});
-      alreadySeenLoops.insert(prefix);
-    }
-  }
+  //// Find companion blocks for each loop nest, then do I want to
+  //// have a transition from one block to another or from one loop to itsef?
+  //set<vector<string> > alreadySeenLoops;
+  //for (auto group : instrGroups) {
+    //auto prefix = loopNames(group);
+    //if (!elem(prefix, alreadySeenLoops)) {
+      //// By default assume all loops have II = 1
+      //fSched.transitions.push_back({head(group), head(group), 1});
+      //alreadySeenLoops.insert(prefix);
+    //}
+  //}
 
-  cout << "Transitions in schedule" << endl;
-  for (auto t : fSched.transitions) {
-    cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
-  }
+  //cout << "Transitions in schedule" << endl;
+  //for (auto t : fSched.transitions) {
+    //cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
+  //}
 
   internal_assert(fSched.blockSchedules.size() > 0);
   return fSched;
@@ -4180,7 +4189,6 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
-//KernelControlPath controlPathForKernel(HWFunction& f) {
 KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto& f = *(sched.f);
   set<string> allLoopNames;
@@ -4218,9 +4226,15 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   //   the delay on the time from the first iteration of the level loop has elapsed
   //   II_l cycles have elapsed since the last iteration of the loop
   KernelControlPath cp;
+  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
+  for (int i = 0; i < sched.numLinearStages(); i++) {
+    string s = "stage_" + to_string(i) + "_active";
+    tps.push_back({s, c->Bit()});
+    cp.stageIsActiveMap[i] = s;
+  }
+
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
-  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   std::set<string> vars;
   for (auto instr : f.allInstrs()) {
     for (auto lp : instr->surroundingLoops) {
@@ -4234,8 +4248,24 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     tps.push_back({coreirSanitize(var), c->Bit()->Arr(width)});
   }
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
+  cp.m = controlPath;
 
   auto def = controlPath->newModuleDef();
+
+  // For stage 0, set the active value to be in_en,
+  // for the others set it to be a new pipeline register?
+  internal_assert(sched.numLinearStages() >= 0);
+
+  auto context = def->getContext();
+  def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
+  auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
+  def->connect(def->sel("self.in_en"), vr->sel("in"));
+  for (int i = 1; i < sched.numLinearStages(); i++) {
+    def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
+    auto oldVr = vr;
+    vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
+    def->connect(oldVr->sel("out"), vr->sel("in"));
+  }
 
   int width = 16;
 
