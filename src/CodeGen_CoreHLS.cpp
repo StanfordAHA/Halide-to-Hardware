@@ -2109,6 +2109,10 @@ class KernelControlPath {
     CoreIR::Module* m;
     std::map<int, string> stageIsActiveMap;
 
+    std::string activeSignalOutput(const int i) const {
+      return map_get(i, stageIsActiveMap);
+    }
+
     std::string activeSignal(const int i) const {
       return "self." + map_get(i, stageIsActiveMap);
     }
@@ -2812,7 +2816,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   
 }
 
-UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
+UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath, KernelControlPath& cpM) {
   internal_assert(sched.blockSchedules.size() > 0);
   cout << "--- Block schedules..." << endl;
   for (auto& blk : sched.blockSchedules) {
@@ -3032,10 +3036,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   def->connect(def->sel("self")->sel("in_en"), controlPath->sel("in_en"));
 
   // In this mapping I want to assign values that are 
-  UnitMapping m = createUnitMapping(f, info, sched, def, controlPath);
+  UnitMapping m = createUnitMapping(f, info, sched, def, controlPath, cpM);
   auto& unitMapping = m.unitMapping;
 
-  auto self = def->sel("self");
+  //auto self = def->sel("self");
   // This should be removed and it should be replaced with valid signals wired up
   // from the write stream output of the kernel, whose delay is by construction equal
   // to the number of stages in the design
@@ -3047,16 +3051,22 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   // then create the delay that is needed
   cout << "Wiring up enables" << endl;
 
-  int validDelay = sched.cycleLatency();
-  //int validDelay = sched.numStages() - 1;
-  cout << "Got valid delay" << endl;
-  CoreIR::Wireable* inEn = self->sel("in_en");
-  for (int i = 0; i < validDelay; i++) {
-    auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
-    def->connect(inEn, vR->sel("in"));
-    inEn = vR->sel("out");
+  //int validDelay = sched.cycleLatency();
+  ////int validDelay = sched.numStages() - 1;
+  //cout << "Got valid delay" << endl;
+  //CoreIR::Wireable* inEn = self->sel("in_en");
+  //for (int i = 0; i < validDelay; i++) {
+    //auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
+    //def->connect(inEn, vR->sel("in"));
+    //inEn = vR->sel("out");
+  //}
+  set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
+  if (streamWrites.size() == 1) {
+    HWInstr* writeInstr = *begin(streamWrites);
+    def->connect(controlPath->sel(cpM.activeSignalOutput(sched.getEndStage(writeInstr))), def->sel("self.valid"));
+  } else {
+    def->connect(def->sel("self.in_en"), def->sel("self.valid"));
   }
-  def->connect(inEn, self->sel("valid"));
 
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body()) {
