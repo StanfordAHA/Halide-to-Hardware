@@ -2026,6 +2026,11 @@ class FunctionSchedule {
     std::vector<NestSchedule> nestSchedules;
     std::vector<HWTransition> transitions;
 
+    set<HWInstr*> instructionsStartingInStage(const int stageNo) const {
+      internal_assert(blockSchedules.size() == 1);
+      return begin(blockSchedules)->second.instructionsStartingInStage(stageNo);
+    }
+    
     int numLinearStages() const {
       internal_assert(blockSchedules.size() == 1);
       return begin(blockSchedules)->second.numStages();
@@ -4261,18 +4266,39 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   // we transition to the tail of the container with delay d
 
   //cout << "#### Stage schedules" << endl;
-  //for (auto s : stages) {
-    //// Get all loop header blocks that start in this stage (bc IIs are start -> start, and inner loop starts are start -> start)
-    //// Get all loop tail blocks whose start instructions start in this stage
-    //// Get representative of all loop levels that are active in this stage and
-    //// still active in the lexically next stage
-    //set<HWInstr*> starting = sched.instructionsStartingAtStage(s);
-    //set<HWInstr*> ending = sched.instructionsEndingAtStage(s);
-    //// Find transitions out of this stage?
-    //// First find all loop levels ending in this stage
-    //// Find all loop levels starting in this stage ()
-  //}
-  //internal_assert(false);
+  vector<IBlock> headers = loopHeaders(f);
+  set<HWInstr*> heads;
+  for (auto h : headers) {
+    heads.insert(head(h));
+  }
+  vector<IBlock> tailers = loopTails(f);
+  set<HWInstr*> tails;
+  for (auto t : tailers) {
+    tails.insert(head(t));
+  }
+  cout << "Stage transitions" << endl;
+  for (auto s : stages) {
+    // Get all loop header blocks that start in this stage (bc IIs are start -> start, and inner loop starts are start -> start)
+    // Get all loop tail blocks whose start instructions start in this stage
+    // Get representative of all loop levels that are active in this stage and
+    // still active in the lexically next stage
+    set<HWInstr*> starting = sched.instructionsStartingInStage(s);
+    set<HWInstr*> loopHeadsStarting;
+    for (auto s : starting) {
+      if (elem(s, heads)) {
+        loopHeadsStarting.insert(s);
+      }
+    }
+    cout << "\tLoop headers starting in " << s << endl;
+    for (auto l : loopHeadsStarting) {
+      cout << "\t\t" << *l << endl;
+    }
+    //set<HWInstr*> ending = sched.instructionsEndingInStage(s);
+    // Find transitions out of this stage?
+    // First find all loop levels ending in this stage
+    // Find all loop levels starting in this stage ()
+  }
+  internal_assert(false);
 
   auto context = def->getContext();
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
