@@ -135,6 +135,7 @@ struct HWBuffer {
   Function func;
   bool is_inlined = false;
   bool is_output = false;
+  std::vector<Expr> output_kernel_min_pos;
   int num_accum_iters = 0;
   
   // old parameters for the HWBuffer

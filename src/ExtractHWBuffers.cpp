@@ -1686,7 +1686,7 @@ void set_output_params(HWXcel *xcel,
       std::cout << "right before " << consumer.name << " replacements\n"
                 << hwbuffer.output_access_pattern;
     // std::vector<std::string> input_streams;  // used when inserting read_stream calls
-      const auto& input_streams = hwbuffers.at(consumer.name).input_streams;
+      //const auto& input_streams = hwbuffers.at(consumer.name).input_streams;
       if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
         //hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);

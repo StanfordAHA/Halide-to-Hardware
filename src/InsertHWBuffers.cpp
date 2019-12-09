@@ -179,7 +179,15 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
               //std::cout << "op->arg " << op->args[i] << " - " << kernel.dims.at(i).output_min_pos << std::endl;
 
               const auto rand_ostream = kernel.ostreams.cbegin(); // FIXME: probably should be a specific ostream?
-              auto offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
+              Expr offset;
+              
+              string output_min_name = kernel.name + ".output_min_pos." + std::to_string(i);
+              // check if this is an output that where we saved the min_pos
+              if (scope.contains(output_min_name)) {
+                offset = scope.get(output_min_name);
+              } else {
+                offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
+              }
               
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
@@ -912,8 +920,14 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
     } else {
         // this is the output kernel of the xcel
         const HWBuffer &kernel = xcel.hwbuffers.find(xcel.name)->second;
-        std::cout << "this is output: " << xcel.name << "=" << kernel.name << std::endl;        
+        std::cout << "this is output: " << xcel.name << "=" << kernel.name << std::endl;
+        //std::cout << kernel.my_stmt << "\n and the statement we are looking at is " << s;
         internal_assert(kernel.is_output);
+
+        Box box = box_provided(s, xcel.name);
+        for (size_t i = 0; i < kernel.ldims.size(); i++) {
+          scope.push(kernel.name + ".output_min_pos." + std::to_string(i), box[i].min);
+        }
 
         string stencil_name = kernel.name + ".stencil";
         string stream_name = kernel.name + ".stencil.stream";
