@@ -3194,7 +3194,7 @@ int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
   //assert(false);
   small_conv_3_3_test();
-  assert(false);
+  //assert(false);
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();

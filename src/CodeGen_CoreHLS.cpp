@@ -2137,7 +2137,8 @@ class LoopNestInfoCollector : public IRGraphVisitor {
     }
 };
 
-KernelControlPath controlPathForKernel(HWFunction& f);
+//KernelControlPath controlPathForKernel(HWFunction& f);
+KernelControlPath controlPathForKernel(FunctionSchedule& f);
 
 void valueConvertStreamReads(StencilInfo& info, HWFunction& f);
 void valueConvertProvides(StencilInfo& info, HWFunction& f);
@@ -3013,7 +3014,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   CoreIR::Context* context = def->getContext();
  
   // Create control path
-  auto cpM = controlPathForKernel(f);
+  auto cpM = controlPathForKernel(sched);
   cout << "Control path module..." << endl;
   cpM.m->print();
   auto controlPath = def->addInstance("control_path_module_" + f.name, cpM.m);
@@ -4179,8 +4180,9 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
-KernelControlPath controlPathForKernel(HWFunction& f) {
-
+//KernelControlPath controlPathForKernel(HWFunction& f) {
+KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
+  auto& f = *(sched.f);
   set<string> allLoopNames;
   LoopNestInfo loopInfo;
   for (auto instr : f.structuredOrder()) {
@@ -4191,18 +4193,6 @@ KernelControlPath controlPathForKernel(HWFunction& f) {
       }
     }
   }
-  //if (f.allInstrs().size() > 0) {
-    //HWInstr* fst = f.structuredOrder()[0];
-    //cout << "Adding surrounding loops from: " << *fst << endl;
-    //for (auto lp : fst->surroundingLoops) {
-      //loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
-    //}
-  //} else {
-    //cout << "Error: HWFunction..." << endl;
-    //cout << f << endl;
-    //cout << "has no instructions!" << endl;
-    //internal_assert(false);
-  //}
   cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
   
   auto c = f.mod->getContext();
@@ -4231,7 +4221,7 @@ KernelControlPath controlPathForKernel(HWFunction& f) {
 
   std::vector<CoreIR::Wireable*> loopLevelCounters;
   std::vector<CoreIR::Wireable*> levelAtMax;
-  std::set<std::string> loopVarNames;
+  std::map<std::string, Instance*> loopVarNames;
   auto self = def->sel("self");
   for (auto l : loopInfo.loops) {
     int min_value = l.min;
@@ -4243,9 +4233,9 @@ KernelControlPath controlPathForKernel(HWFunction& f) {
       {"max",CoreIR::Const::make(c, max_value)},
       {"inc",CoreIR::Const::make(c, inc_value)}};
 
-    loopVarNames.insert(l.name);
     string varName = coreirSanitize(l.name);
-    CoreIR::Wireable* counter_inst = def->addInstance(varName, "commonlib.counter", args);
+    CoreIR::Instance* counter_inst = def->addInstance(varName, "commonlib.counter", args);
+    loopVarNames[l.name] = counter_inst;
     loopLevelCounters.push_back(counter_inst);
 
     // If this loop variable is actually used in the kernel then connect it to the outside world
