@@ -3229,8 +3229,6 @@ std::set<HWInstr*> dependencies(HWInstr* toSchedule,
 HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   HWLoopSchedule sched;
   sched.body = instrs;
-  // TODO: Actually compute this later on
-  //sched.II = 1;
 
   std::map<HWInstr*, int> activeToTimeRemaining;
   std::set<HWInstr*> finished;
@@ -3397,11 +3395,13 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   // Check if we are in a perfect loop nest
   FunctionSchedule fSched;
   fSched.f = &f;
-  for (auto group : instrGroups) {
-    HWLoopSchedule sched = asapSchedule(group);
-    fSched.blockSchedules[head(group)] = sched;
-  }
+  //for (auto group : instrGroups) {
+    //HWLoopSchedule sched = asapSchedule(group);
+    //fSched.blockSchedules[head(group)] = sched;
+  //}
 
+  HWLoopSchedule sched = asapSchedule(f);
+  fSched.blockSchedules[head(f.structuredOrder())] = sched;
   // Compute IIs here
   // How? first find loop variable order or the instruction with largest
   // number of loop variables
@@ -4197,6 +4197,26 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   
   auto c = f.mod->getContext();
 
+  // KernelControlPath needs a map from state indexes to wires that indicate
+  // whether that state is active.
+  // We also need to deal with the fact that the top level loop is driven by a valid signal
+  // from outside of the accelerator, while all of the others are driven by
+  // conditions on internally generated counters.
+  //
+  // Outermost loop increments in stage 0 (by definition) because all loops increment in the
+  // stage where the first instruction that references them executes
+  //
+  // Actually all of the loops that are in the top instruction transition are triggered
+  // by in_en, not just the first loop in the nest
+  //
+  // stage 0 is active is connected to the input valid signal (in_en)
+  // stage 1, ...., (N - 1) active signals in a given loop level are just the active
+  // signal from the prior stage at the same level
+  //
+  // the first stage of a given loop level is activated when:
+  //   in_en comes in (if this is the first loop level in the program)
+  //   the delay on the time from the first iteration of the level loop has elapsed
+  //   II_l cycles have elapsed since the last iteration of the loop
   KernelControlPath cp;
   std::set<std::string> streamNames = allStreamNames(f);
   auto globalNs = c->getNamespace("global");
