@@ -2026,6 +2026,19 @@ class FunctionSchedule {
     std::vector<NestSchedule> nestSchedules;
     std::vector<HWTransition> transitions;
 
+    set<HWInstr*> allInstructionsInStage(const int stageNo) const {
+      auto s = instructionsStartingInStage(stageNo);
+      for (auto e : instructionsEndingInStage(stageNo)) {
+        s.insert(e);
+      }
+      return s;
+    }
+
+    set<HWInstr*> instructionsEndingInStage(const int stageNo) const {
+      internal_assert(blockSchedules.size() == 1);
+      return begin(blockSchedules)->second.instructionsEndingInStage(stageNo);
+    }
+
     set<HWInstr*> instructionsStartingInStage(const int stageNo) const {
       internal_assert(blockSchedules.size() == 1);
       return begin(blockSchedules)->second.instructionsStartingInStage(stageNo);
@@ -4293,12 +4306,40 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     for (auto l : loopHeadsStarting) {
       cout << "\t\t" << *l << endl;
     }
-    //set<HWInstr*> ending = sched.instructionsEndingInStage(s);
-    // Find transitions out of this stage?
-    // First find all loop levels ending in this stage
-    // Find all loop levels starting in this stage ()
+
+    // Now: Find all loops continuing in the next stage
+
+    int nextS = s + 1;
+    if (nextS < sched.numLinearStages()) {
+      set<vector<string> > activeLoops;
+      for (auto instr : sched.allInstructionsInStage(s)) {
+        cout << "Adding " << *instr << " to active loops" << endl;
+        activeLoops.insert(loopNames(instr));
+      }
+      cout << "Active loops size = " << activeLoops.size() << endl;
+      for (auto a : activeLoops) {
+        cout << "\t" << a << endl;
+      }
+      set<vector<string> > nextLoops;
+      for (auto other : sched.allInstructionsInStage(nextS)) {
+        cout << "Adding " << *other << " to next loops" << endl;
+        nextLoops.insert(loopNames(other));
+      }
+      cout << "Next loops: " << endl;
+      for (auto a : nextLoops) {
+        cout << "\t" << a << endl;
+      }
+
+      auto stillActive = CoreIR::intersection(nextLoops, activeLoops);
+      cout << "\tLoops that are still active in the next stage" << endl;
+      for (auto s : stillActive) {
+        cout << "\t\t" << s << endl;
+      }
+    } else {
+      cout << "No later stages" << endl;
+    }
+
   }
-  internal_assert(false);
 
   auto context = def->getContext();
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
