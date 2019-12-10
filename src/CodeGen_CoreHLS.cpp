@@ -4404,31 +4404,31 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   cout << "Connecting stage active wires..." << endl;
 
-  for (auto s : stages) {
-    vector<Wireable*> transitionWires;
-    for (auto t : transitions) {
-      if (t.dst == s) {
-        transitionWires.push_back(map_get(t, transitionHappenedWires));
-      }
-    }
-    auto isActive = andList(def, transitionWires);
-    def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
+  //for (auto s : stages) {
+    //vector<Wireable*> transitionWires;
+    //for (auto t : transitions) {
+      //if (t.dst == s) {
+        //transitionWires.push_back(map_get(t, transitionHappenedWires));
+      //}
+    //}
+    //auto isActive = andList(def, transitionWires);
+    //def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
 
-    def->connect(map_get(s, isActiveWires)->sel("out"), def->sel(cp.activeSignal(s)));
-  }
+    //def->connect(map_get(s, isActiveWires)->sel("out"), def->sel(cp.activeSignal(s)));
+  //}
 
   cout << "Connecting stage active wires..." << endl;
 
-  //def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
+  def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
 
-  //auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
-  //def->connect(def->sel("self.in_en"), vr->sel("in"));
-  //for (int i = 1; i < sched.numLinearStages(); i++) {
-    //def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
-    //auto oldVr = vr;
-    //vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
-    //def->connect(oldVr->sel("out"), vr->sel("in"));
-  //}
+  auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
+  def->connect(def->sel("self.in_en"), vr->sel("in"));
+  for (int i = 1; i < sched.numLinearStages(); i++) {
+    def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
+    auto oldVr = vr;
+    vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
+    def->connect(oldVr->sel("out"), vr->sel("in"));
+  }
 
   int width = 16;
 
