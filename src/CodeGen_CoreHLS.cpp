@@ -2483,10 +2483,12 @@ vector<CoreIR::Instance*> pipelineRegisterChain(CoreIR::ModuleDef* def, const st
   auto context = def->getContext();
   vector<Instance*> registers;
   auto activeReg = pipelineRegister(context, def, name + "_0", type);
+  registers.push_back(activeReg);
   for (int i = 1; i < depth - 1; i++) {
     auto nextReg = pipelineRegister(context, def, name + "_" + to_string(i), type);
     def->connect(activeReg->sel("out"), nextReg->sel("in"));
     activeReg = nextReg;
+    registers.push_back(activeReg);
   }
   return registers;
 }
@@ -4376,24 +4378,31 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "\t" << t.name << ": " << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
   }
 
+  cout << "Creating activewires..." << endl;
   auto context = def->getContext();
   map<int, Instance*> isActiveWires;
   for (auto s : stages) {
     isActiveWires[s] = def->addInstance("stage_" + to_string(s) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
   }
 
+
+  cout << "Creating transition wires..." << endl;
   map<FSMTransition, Wireable*> transitionHappenedWires;
   map<FSMTransition, Instance*> transitionHappenedInputs;
   for (auto t : transitions) {
+    cout << "Building transition: " << t.name << endl;
     // TODO: Add special case for transitions governed by a valid signal
     vector<Instance*> regs =
-      pipelineRegisterChain(def, "transition_" + t.name + "_" + to_string(t.src) + "_" + to_string(t.dst) + "_" + to_string(t.delay), def->getContext()->Bit(), t.delay);
+      pipelineRegisterChain(def, "transition_" + coreirSanitize(t.name) + "_" + to_string(t.src) + "_" + to_string(t.dst) + "_" + to_string(t.delay), def->getContext()->Bit(), t.delay);
+    cout << "Created pipeline chain" << endl;
     transitionHappenedInputs[t] = regs[0];
     transitionHappenedWires[t] = regs.back()->sel("out");
 
     // TODO: Add *and* with transition condition here
-    def->connect(transitionHappenedInputs[t]->sel("in"), map_get(t.src, isActiveWires));
+    def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(t.src, isActiveWires)->sel("out"));
   }
+
+  cout << "Connecting stage active wires..." << endl;
 
   for (auto s : stages) {
     vector<Wireable*> transitionWires;
@@ -4404,21 +4413,22 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     }
     auto isActive = andList(def, transitionWires);
     def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
-    // Wire that to the output
+
+    def->connect(map_get(s, isActiveWires)->sel("out"), def->sel(cp.activeSignal(s)));
   }
 
-  // Transition happened wires: wires for each transition carrying the active signal of the source
-  // conjoined with the transition condition at the time of execution of the source stage
-  def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
+  cout << "Connecting stage active wires..." << endl;
 
-  auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
-  def->connect(def->sel("self.in_en"), vr->sel("in"));
-  for (int i = 1; i < sched.numLinearStages(); i++) {
-    def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
-    auto oldVr = vr;
-    vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
-    def->connect(oldVr->sel("out"), vr->sel("in"));
-  }
+  //def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
+
+  //auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
+  //def->connect(def->sel("self.in_en"), vr->sel("in"));
+  //for (int i = 1; i < sched.numLinearStages(); i++) {
+    //def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
+    //auto oldVr = vr;
+    //vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
+    //def->connect(oldVr->sel("out"), vr->sel("in"));
+  //}
 
   int width = 16;
 
@@ -4456,7 +4466,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     def->connect(atMax->sel("in1"), counter_inst->sel("out"));
     loopVarAtMax[l.name] = atMax->sel("out");
 
-    auto notAtMax = def->addInstance(varName + "_not_at_max", "corebit.neg");
+    auto notAtMax = def->addInstance(varName + "_not_at_max", "corebit.not");
     def->connect(notAtMax->sel("in"), atMax->sel("out"));
     loopVarNotAtMax[l.name] = notAtMax->sel("out");
 
