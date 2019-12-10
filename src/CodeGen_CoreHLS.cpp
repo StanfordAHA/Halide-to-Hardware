@@ -4179,6 +4179,13 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
   return val;
 }
 
+class FSMTransition {
+  public:
+    int src;
+    int dst;
+    int delay;
+};
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
@@ -4257,6 +4264,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     tails.insert(head(t));
   }
   cout << "Stage transitions" << endl;
+  vector<FSMTransition> transitions;
   for (auto s : stages) {
     // Get all loop header blocks that start in this stage (bc IIs are start -> start, and inner loop starts are start -> start)
     // Get all loop tail blocks whose start instructions start in this stage
@@ -4272,6 +4280,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "\tLoop headers starting in " << s << endl;
     for (auto l : loopHeadsStarting) {
       cout << "\t\t" << *l << endl;
+      // Need to find all variables that start at this instruction?
+      //transitions.insert({s, s, sched.II(l.name)});
     }
 
     // Now: Find all loops continuing in the next stage
@@ -4322,6 +4332,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         }
       }
       cout << "\tLast shared loop: " << lastSharedLoop << endl;
+      transitions.push_back({s, nextS, 1});
       // This shared loop defines a transition
       // And: Each loop that starts in this stage defines a backward transition
       // (if it is not one of the stage 0 loops, which are signaled by in_en).
@@ -4337,6 +4348,10 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   }
   //internal_assert(false);
+  cout << "Transitions..." << endl;
+  for (auto t : transitions) {
+    cout << "\t" << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
+  }
 
   auto context = def->getContext();
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
