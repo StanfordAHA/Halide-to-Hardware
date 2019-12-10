@@ -2024,6 +2024,16 @@ class FunctionSchedule {
     std::vector<NestSchedule> nestSchedules;
     std::vector<HWTransition> transitions;
 
+    int II(const std::string& loopName) const {
+      for (auto n : nestSchedules) {
+        if (n.name == loopName) {
+          return n.II;
+        }
+      }
+      internal_assert(false) << "No II for: " << loopName << "\n";
+      return -1;
+    }
+
     set<HWInstr*> allInstructionsInStage(const int stageNo) const {
       auto s = instructionsStartingInStage(stageNo);
       for (auto e : instructionsEndingInStage(stageNo)) {
@@ -4184,6 +4194,7 @@ class FSMTransition {
     int src;
     int dst;
     int delay;
+    std::string name;
 };
 
 // Now: Need to add handling for inner loop changes.
@@ -4232,27 +4243,13 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   auto def = controlPath->newModuleDef();
 
-  // For stage 0, set the active value to be in_en,
-  // for the others set it to be a new pipeline register?
   internal_assert(sched.numLinearStages() >= 0);
   set<int> stages;
   for (int i = 0; i < sched.numLinearStages(); i++) {
     stages.insert(i);
   }
 
-  // Q: What are the predecessors of each stage?
-  // Q: What does predecessors mean? Stages which contain instructions that would lexically
-  //    precede instructions in the current stage?
-  // Q: Is an instruction the entry instruction, the other question is: how many different
-  //    loop header instructions start in it and how many loop tail instructions start in it?
-  // Maybe we should build transition conditions from stages to stages based on conditions
-  // For example in a loop header stage we transition back to the same loop if the loop is
-  // not at its max, in a loop header or middle stage we transition to the next stage in the
-  // loop on a delay of 1
-  // For a loop stage that is wrapped, if we are at the last iteration of the loop
-  // we transition to the tail of the container with delay d
-
-  //cout << "#### Stage schedules" << endl;
+  cout << "#### Stage schedules" << endl;
   vector<IBlock> headers = loopHeaders(f);
   set<HWInstr*> heads;
   for (auto h : headers) {
@@ -4278,10 +4275,19 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
     }
     cout << "\tLoop headers starting in " << s << endl;
+    set<string> added;
     for (auto l : loopHeadsStarting) {
       cout << "\t\t" << *l << endl;
+      // TODO: Actually check what loops have already started
+      for (auto loop : l->surroundingLoops) {
+        // TODO: Add conditions for each transition
+        if (elem(loop.name, added)) {
+          continue;
+        }
+        transitions.push_back({s, s, sched.II(loop.name), loop.name});
+        added.insert(loop.name);
+      }
       // Need to find all variables that start at this instruction?
-      //transitions.insert({s, s, sched.II(l.name)});
     }
 
     // Now: Find all loops continuing in the next stage
@@ -4332,25 +4338,16 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         }
       }
       cout << "\tLast shared loop: " << lastSharedLoop << endl;
-      transitions.push_back({s, nextS, 1});
-      // This shared loop defines a transition
-      // And: Each loop that starts in this stage defines a backward transition
-      // (if it is not one of the stage 0 loops, which are signaled by in_en).
-      // Also: the transitions for each loop are conditional on: the loop start
-      // stage being active (a given), and the loop update variable not being
-      // at its maximum
-      // Also: We need to find the transition from the end stage of the loop
-      // to the lower loop level outside of it, but that will not matter for the
-      // current conv case
+      transitions.push_back({s, nextS, 1, "default"});
     } else {
       cout << "No later stages" << endl;
     }
 
   }
-  //internal_assert(false);
+  
   cout << "Transitions..." << endl;
   for (auto t : transitions) {
-    cout << "\t" << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
+    cout << "\t" << t.name << ": " << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
   }
 
   // Q: Can I rework this code to use the computed transitions?
@@ -4381,6 +4378,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   std::vector<CoreIR::Wireable*> loopLevelCounters;
   std::vector<CoreIR::Wireable*> levelAtMax;
   std::map<std::string, Instance*> loopVarNames;
+  std::map<string, Wireable*> loopVarAtMax;
+  std::map<string, Wireable*> loopVarNotAtMax;
   auto self = def->sel("self");
   for (auto l : loopInfo.loops) {
     int min_value = l.min;
@@ -4407,9 +4406,13 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
     def->connect(atMax->sel("in0"), maxValConst->sel("out"));
     def->connect(atMax->sel("in1"), counter_inst->sel("out"));
+    loopVarAtMax[l.name] = atMax->sel("out");
+
+    auto notAtMax = def->addInstance(varName + "_not_at_max", "corebit.neg");
+    def->connect(notAtMax->sel("in"), atMax->sel("out"));
+    loopVarNotAtMax[l.name] = notAtMax->sel("out");
 
     levelAtMax.push_back(atMax);
-
   }
 
   internal_assert(levelAtMax.size() == loopLevelCounters.size());
