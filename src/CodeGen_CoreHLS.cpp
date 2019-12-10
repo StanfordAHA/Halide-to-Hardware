@@ -4350,9 +4350,11 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "\t" << t.name << ": " << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
   }
 
-  // Q: Can I rework this code to use the computed transitions?
-  // Q: Where would the entry transition fit in?
   auto context = def->getContext();
+  map<int, Instance*> isActiveWires;
+  for (auto s : stages) {
+    isActiveWires[s] = def->addInstance("stage_" + to_string(s) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
+  }
   // Entry transition
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
 
