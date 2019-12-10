@@ -4293,27 +4293,28 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
           cout << "\t\t" << n << endl;
         }
         internal_assert(names.size() == instr->surroundingLoops.size());
-        //activeLoopSet.insert(names);
+        activeLoopSet.insert(names);
       }
-      //cout << "Active loops size = " << activeLoopSet.size() << endl;
-      //for (auto a : activeLoopSet) {
-        //cout << "\t" << a << endl;
-      //}
-      //set<vector<string> > nextLoops;
-      //for (auto other : sched.allInstructionsInStage(nextS)) {
-        //cout << "Adding " << *other << " to next loops" << endl;
-        //nextLoops.insert(loopNames(other));
-      //}
-      //cout << "Next loops: " << endl;
-      //for (auto a : nextLoops) {
-        //cout << "\t" << a << endl;
-      //}
+      cout << "Active loops size = " << activeLoopSet.size() << endl;
+      for (auto a : activeLoopSet) {
+        cout << "\t" << a << endl;
+      }
+      set<vector<string> > nextLoops;
+      for (auto other : sched.allInstructionsInStage(nextS)) {
+        cout << "Adding " << *other << " to next loops" << endl;
+        nextLoops.insert(loopNames(other));
+      }
+      cout << "Next loops: " << endl;
+      for (auto a : nextLoops) {
+        cout << "\t" << a << endl;
+      }
 
-      //auto stillActive = CoreIR::intersection(nextLoops, activeLoops);
-      //cout << "\tLoops that are still active in the next stage" << endl;
-      //for (auto s : stillActive) {
-        //cout << "\t\t" << s << endl;
-      //}
+      auto stillActive = CoreIR::intersection(nextLoops, activeLoopSet);
+      cout << "\tLoops that are still active in the next stage" << endl;
+      for (auto s : stillActive) {
+        cout << "\t\t" << s << endl;
+      }
+      internal_assert(false);
     } else {
       cout << "No later stages" << endl;
     }
