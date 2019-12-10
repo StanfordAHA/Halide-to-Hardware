@@ -4294,19 +4294,17 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, LoopNestInfo& loopInfo) {
 // first instruction, but even that will just patch the problem
 KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto& f = *(sched.f);
-  set<string> allLoopNames;
-  LoopNestInfo loopInfo;
-  for (auto instr : f.structuredOrder()) {
-    for (auto lp : instr->surroundingLoops) {
-      if (!elem(lp.name, allLoopNames)) {
-        loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
-        allLoopNames.insert(lp.name);
-      }
+  auto c = f.mod->getContext();
+
+  set<string> outerLoops;
+  if (f.structuredOrder().size() > 0) {
+    HWInstr* base = f.structuredOrder()[0];
+    for (auto lp : base->surroundingLoops) {
+      outerLoops.insert(lp.name);
     }
   }
-  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
-  
-  auto c = f.mod->getContext();
+
+  cout << "Outer loops: " << outerLoops << endl;
 
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
@@ -4500,6 +4498,18 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   //int width = 16;
 
   // enable on each counter should be wired to the atInstrStart signal?
+  set<string> allLoopNames;
+  LoopNestInfo loopInfo;
+  for (auto instr : f.structuredOrder()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (!elem(lp.name, allLoopNames)) {
+        loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+        allLoopNames.insert(lp.name);
+      }
+    }
+  }
+  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+  
   LoopCounters counters = buildLoopCounters(def, loopInfo);
 
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
