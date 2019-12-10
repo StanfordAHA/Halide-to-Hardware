@@ -4229,6 +4229,66 @@ bool operator<(const FSMTransition& a, const FSMTransition& b) {
   return a.name < b.name;
 }
 
+class LoopCounters {
+  public:
+    std::vector<CoreIR::Wireable*> loopLevelCounters;
+    std::vector<CoreIR::Wireable*> levelAtMax;
+    std::map<std::string, Instance*> loopVarNames;
+    std::map<string, Wireable*> loopVarAtMax;
+    std::map<string, Wireable*> loopVarNotAtMax;
+};
+
+LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, LoopNestInfo& loopInfo) {
+
+  int width = 16;
+  auto c = def->getContext();
+  auto self = def->sel("self");
+
+  LoopCounters counters;
+  //std::vector<CoreIR::Wireable*> loopLevelCounters;
+  //std::vector<CoreIR::Wireable*> levelAtMax;
+  //std::map<std::string, Instance*> loopVarNames;
+  //std::map<string, Wireable*> loopVarAtMax;
+  //std::map<string, Wireable*> loopVarNotAtMax;
+  for (auto l : loopInfo.loops) {
+    int min_value = l.min;
+    int max_value = min_value + l.extent - 1;
+    int inc_value = 1;
+
+    CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+      {"min",CoreIR::Const::make(c, min_value)},
+      {"max",CoreIR::Const::make(c, max_value)},
+      {"inc",CoreIR::Const::make(c, inc_value)}};
+
+    string varName = coreirSanitize(l.name);
+    CoreIR::Instance* counter_inst = def->addInstance(varName, "commonlib.counter", args);
+    counters.loopVarNames[l.name] = counter_inst;
+    counters.loopLevelCounters.push_back(counter_inst);
+
+    // If this loop variable is actually used in the kernel then connect it to the outside world
+    if (self->canSel(varName)) {
+      def->connect(counter_inst->sel("out"), self->sel(varName));
+    }
+    def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+
+    auto maxValConst = mkConst(def, varName + "_max_value", width, max_value);
+    auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
+    def->connect(atMax->sel("in0"), maxValConst->sel("out"));
+    def->connect(atMax->sel("in1"), counter_inst->sel("out"));
+    counters.loopVarAtMax[l.name] = atMax->sel("out");
+
+    auto notAtMax = def->addInstance(varName + "_not_at_max", "corebit.not");
+    def->connect(notAtMax->sel("in"), atMax->sel("out"));
+    counters.loopVarNotAtMax[l.name] = notAtMax->sel("out");
+
+    counters.levelAtMax.push_back(atMax);
+  }
+
+  internal_assert(counters.levelAtMax.size() == counters.loopLevelCounters.size());
+
+  return counters;
+}
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
@@ -4437,62 +4497,23 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     //def->connect(oldVr->sel("out"), vr->sel("in"));
   //}
 
-  int width = 16;
+  //int width = 16;
 
   // enable on each counter should be wired to the atInstrStart signal?
-  std::vector<CoreIR::Wireable*> loopLevelCounters;
-  std::vector<CoreIR::Wireable*> levelAtMax;
-  std::map<std::string, Instance*> loopVarNames;
-  std::map<string, Wireable*> loopVarAtMax;
-  std::map<string, Wireable*> loopVarNotAtMax;
+  LoopCounters counters = buildLoopCounters(def, loopInfo);
+
+  cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
+
   auto self = def->sel("self");
-  for (auto l : loopInfo.loops) {
-    int min_value = l.min;
-    int max_value = min_value + l.extent - 1;
-    int inc_value = 1;
-
-    CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
-      {"min",CoreIR::Const::make(c, min_value)},
-      {"max",CoreIR::Const::make(c, max_value)},
-      {"inc",CoreIR::Const::make(c, inc_value)}};
-
-    string varName = coreirSanitize(l.name);
-    CoreIR::Instance* counter_inst = def->addInstance(varName, "commonlib.counter", args);
-    loopVarNames[l.name] = counter_inst;
-    loopLevelCounters.push_back(counter_inst);
-
-    // If this loop variable is actually used in the kernel then connect it to the outside world
-    if (self->canSel(varName)) {
-      def->connect(counter_inst->sel("out"), self->sel(varName));
-    }
-    def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
-
-    auto maxValConst = mkConst(def, varName + "_max_value", width, max_value);
-    auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
-    def->connect(atMax->sel("in0"), maxValConst->sel("out"));
-    def->connect(atMax->sel("in1"), counter_inst->sel("out"));
-    loopVarAtMax[l.name] = atMax->sel("out");
-
-    auto notAtMax = def->addInstance(varName + "_not_at_max", "corebit.not");
-    def->connect(notAtMax->sel("in"), atMax->sel("out"));
-    loopVarNotAtMax[l.name] = notAtMax->sel("out");
-
-    levelAtMax.push_back(atMax);
-  }
-
-  internal_assert(levelAtMax.size() == loopLevelCounters.size());
-
-  cout << "Wiring up counter enables for " << loopLevelCounters.size() << " loop levels" << endl;
-
-  for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
+  for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
     vector<CoreIR::Wireable*> below;
-    for (int j = i + 1; j < (int) loopLevelCounters.size(); j++) {
-      below.push_back(levelAtMax[j]->sel("out"));
+    for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
+      below.push_back(counters.levelAtMax[j]->sel("out"));
     }
     CoreIR::Wireable* shouldInc = andList(def, below);
-    def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
+    def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
   }
-  def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
+  def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
   controlPath->setDef(def);
   
