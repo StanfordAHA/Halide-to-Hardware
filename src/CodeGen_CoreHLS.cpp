@@ -4399,36 +4399,43 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     transitionHappenedWires[t] = regs.back()->sel("out");
 
     // TODO: Add *and* with transition condition here
-    def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(t.src, isActiveWires)->sel("out"));
+    // TODO: For more complex control paths we will need to check
+    // if src and dst correspond to top level loops
+    if (t.src == t.dst) {
+      transitionHappenedWires[t] = def->sel("self.in_en");
+      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
+    } else {
+      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(t.src, isActiveWires)->sel("out"));
+    }
   }
 
   cout << "Connecting stage active wires..." << endl;
 
-  //for (auto s : stages) {
-    //vector<Wireable*> transitionWires;
-    //for (auto t : transitions) {
-      //if (t.dst == s) {
-        //transitionWires.push_back(map_get(t, transitionHappenedWires));
-      //}
-    //}
-    //auto isActive = andList(def, transitionWires);
-    //def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
+  for (auto s : stages) {
+    vector<Wireable*> transitionWires;
+    for (auto t : transitions) {
+      if (t.dst == s) {
+        transitionWires.push_back(map_get(t, transitionHappenedWires));
+      }
+    }
+    auto isActive = andList(def, transitionWires);
+    def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
 
-    //def->connect(map_get(s, isActiveWires)->sel("out"), def->sel(cp.activeSignal(s)));
+    def->connect(map_get(s, isActiveWires)->sel("out"), def->sel(cp.activeSignal(s)));
+  }
+
+  cout << "Connecting stage active wires..." << endl;
+
+  //def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
+
+  //auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
+  //def->connect(def->sel("self.in_en"), vr->sel("in"));
+  //for (int i = 1; i < sched.numLinearStages(); i++) {
+    //def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
+    //auto oldVr = vr;
+    //vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
+    //def->connect(oldVr->sel("out"), vr->sel("in"));
   //}
-
-  cout << "Connecting stage active wires..." << endl;
-
-  def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
-
-  auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
-  def->connect(def->sel("self.in_en"), vr->sel("in"));
-  for (int i = 1; i < sched.numLinearStages(); i++) {
-    def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
-    auto oldVr = vr;
-    vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
-    def->connect(oldVr->sel("out"), vr->sel("in"));
-  }
 
   int width = 16;
 
