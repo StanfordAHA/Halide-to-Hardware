@@ -4353,8 +4353,19 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "\t" << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
   }
 
+  // Q: Can I rework this code to use the computed transitions?
+  // Q: Where would the entry transition fit in?
   auto context = def->getContext();
+  // Entry transition
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
+
+  // What is a translation algorithm that would work for all cases:
+  // for each transition of delay N from src create a register chain of
+  // length n out of eval_cond_at_src
+  // for each destination conjunct all entry conditions and set
+  // the active condition to the output of that conjunction?
+  // then also have a one-hot mux to indicate which one was the source of
+  // the current activation?
   auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
   def->connect(def->sel("self.in_en"), vr->sel("in"));
   for (int i = 1; i < sched.numLinearStages(); i++) {
@@ -4366,6 +4377,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   int width = 16;
 
+  // enable on each counter should be wired to the atInstrStart signal?
   std::vector<CoreIR::Wireable*> loopLevelCounters;
   std::vector<CoreIR::Wireable*> levelAtMax;
   std::map<std::string, Instance*> loopVarNames;
