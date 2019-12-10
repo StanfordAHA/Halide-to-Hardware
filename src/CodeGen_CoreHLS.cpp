@@ -259,6 +259,14 @@ std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
   return names;
 }
 
+std::vector<std::string> loopNames(const HWInstr* instr) {
+  vector<string> names;
+  for (auto l : instr->surroundingLoops) {
+    names.push_back(l.name);
+  }
+  return names;
+}
+
 int numLoops(const std::vector<HWInstr*>& instrs) {
   internal_assert(instrs.size() > 0);
   return instrs[0]->surroundingLoops.size();
@@ -4275,7 +4283,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         cout << "Adding " << *instr << " to active loops" << endl;
         cout << "Surrounding loops..." << endl;
         for (auto lp : instr->surroundingLoops) {
-          cout << "\t" << lp.name << endl;
+          cout << "\t\t" << lp.name << endl;
         }
         vector<string> names = loopNames(instr);
         cout << "\t# of loop names = " << names.size() << endl;
@@ -4284,6 +4292,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         for (auto n : names) {
           cout << "\t\t" << n << endl;
         }
+        internal_assert(names.size() == instr->surroundingLoops.size());
         //activeLoopSet.insert(names);
       }
       //cout << "Active loops size = " << activeLoopSet.size() << endl;
