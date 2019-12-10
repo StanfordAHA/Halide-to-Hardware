@@ -2477,6 +2477,20 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
   return r;
 }
 
+vector<CoreIR::Instance*> pipelineRegisterChain(CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type, int depth) {
+  internal_assert(depth >= 0) << "trying to create pipeline register chain of depth 0, name: " << name << "\n";
+
+  auto context = def->getContext();
+  vector<Instance*> registers;
+  auto activeReg = pipelineRegister(context, def, name + "_0", type);
+  for (int i = 1; i < depth - 1; i++) {
+    auto nextReg = pipelineRegister(context, def, name + "_" + to_string(i), type);
+    def->connect(activeReg->sel("out"), nextReg->sel("in"));
+    activeReg = nextReg;
+  }
+  return registers;
+}
+
 void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def, CoreIR::Instance* controlPath) {
   cout << "# of instructions in body when creating functional units: " << sched.body().size() << endl;
   for (auto i : sched.body()) {
@@ -4197,6 +4211,22 @@ class FSMTransition {
     std::string name;
 };
 
+bool operator<(const FSMTransition& a, const FSMTransition& b) {
+  if (a.src != b.src) {
+    return a.src < b.src;
+  }
+
+  if (a.dst != b.dst) {
+    return a.dst < b.dst;
+  }
+
+  if (a.delay != b.delay) {
+    return a.delay < b.delay;
+  }
+
+  return a.name < b.name;
+}
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
@@ -4263,10 +4293,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "Stage transitions" << endl;
   vector<FSMTransition> transitions;
   for (auto s : stages) {
-    // Get all loop header blocks that start in this stage (bc IIs are start -> start, and inner loop starts are start -> start)
-    // Get all loop tail blocks whose start instructions start in this stage
-    // Get representative of all loop levels that are active in this stage and
-    // still active in the lexically next stage
     set<HWInstr*> starting = sched.instructionsStartingInStage(s);
     set<HWInstr*> loopHeadsStarting;
     for (auto s : starting) {
@@ -4355,16 +4381,36 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   for (auto s : stages) {
     isActiveWires[s] = def->addInstance("stage_" + to_string(s) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
   }
-  // Entry transition
+
+  map<FSMTransition, Wireable*> transitionHappenedWires;
+  map<FSMTransition, Instance*> transitionHappenedInputs;
+  for (auto t : transitions) {
+    // TODO: Add special case for transitions governed by a valid signal
+    vector<Instance*> regs =
+      pipelineRegisterChain(def, "transition_" + t.name + "_" + to_string(t.src) + "_" + to_string(t.dst) + "_" + to_string(t.delay), def->getContext()->Bit(), t.delay);
+    transitionHappenedInputs[t] = regs[0];
+    transitionHappenedWires[t] = regs.back()->sel("out");
+
+    // TODO: Add *and* with transition condition here
+    def->connect(transitionHappenedInputs[t]->sel("in"), map_get(t.src, isActiveWires));
+  }
+
+  for (auto s : stages) {
+    vector<Wireable*> transitionWires;
+    for (auto t : transitions) {
+      if (t.dst == s) {
+        transitionWires.push_back(map_get(t, transitionHappenedWires));
+      }
+    }
+    auto isActive = andList(def, transitionWires);
+    def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
+    // Wire that to the output
+  }
+
+  // Transition happened wires: wires for each transition carrying the active signal of the source
+  // conjoined with the transition condition at the time of execution of the source stage
   def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
 
-  // What is a translation algorithm that would work for all cases:
-  // for each transition of delay N from src create a register chain of
-  // length n out of eval_cond_at_src
-  // for each destination conjunct all entry conditions and set
-  // the active condition to the output of that conjunction?
-  // then also have a one-hot mux to indicate which one was the source of
-  // the current activation?
   auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
   def->connect(def->sel("self.in_en"), vr->sel("in"));
   for (int i = 1; i < sched.numLinearStages(); i++) {
