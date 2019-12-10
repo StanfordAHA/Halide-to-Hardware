@@ -4278,7 +4278,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
           cout << "\t" << lp.name << endl;
         }
         vector<string> names = loopNames(instr);
-        cout << "\t# of loop names = " << names.size() << nedl;
+        cout << "\t# of loop names = " << names.size() << endl;
         cout << "\tLoop names      = " << names << endl;
         cout << "\tSingle print names..." << endl;
         for (auto n : names) {
