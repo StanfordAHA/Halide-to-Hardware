@@ -4322,7 +4322,15 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         }
       }
       cout << "\tLast shared loop: " << lastSharedLoop << endl;
-      internal_assert(false);
+      // This shared loop defines a transition
+      // And: Each loop that starts in this stage defines a backward transition
+      // (if it is not one of the stage 0 loops, which are signaled by in_en).
+      // Also: the transitions for each loop are conditional on: the loop start
+      // stage being active (a given), and the loop update variable not being
+      // at its maximum
+      // Also: We need to find the transition from the end stage of the loop
+      // to the lower loop level outside of it, but that will not matter for the
+      // current conv case
     } else {
       cout << "No later stages" << endl;
     }

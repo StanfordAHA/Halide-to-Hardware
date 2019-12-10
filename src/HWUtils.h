@@ -571,6 +571,31 @@ public:
 };
 
 
+typedef uint64_t vd;
+typedef uint64_t ed;
+
+template<typename V, typename E>
+class DGraph {
+
+  uint64_t nv;
+  uint64_t ne;
+
+  public:
+
+    std::map<vd, V> vertLabels;
+    std::map<ed, E> edgeLabels;
+
+    DGraph() : nv(0), ne(0) {}
+
+    vd addVert(const V& label) {
+      auto v = nv;
+      nv++;
+      vertLabels[v] = label;
+
+      return v;
+    }
+};
+
 std::string exprString(const Expr e);
 
   }
