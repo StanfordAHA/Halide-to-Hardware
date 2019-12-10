@@ -4314,6 +4314,14 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       for (auto s : stillActive) {
         cout << "\t\t" << s << endl;
       }
+
+      vector<string> lastSharedLoop;
+      for (auto s : stillActive) {
+        if (s.size() > lastSharedLoop.size()) {
+          lastSharedLoop = s;
+        }
+      }
+      cout << "\tLast shared loop: " << lastSharedLoop << endl;
       internal_assert(false);
     } else {
       cout << "No later stages" << endl;
