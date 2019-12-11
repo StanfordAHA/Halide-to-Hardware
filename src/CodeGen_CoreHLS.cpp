@@ -4342,7 +4342,9 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
 
       if (t && (tail(blk) == instr)) {
-        for (auto lp : instr->surroundingLoops) {
+        auto surrounding = instr->surroundingLoops;
+        CoreIR::reverse(surrounding);
+        for (auto lp : surrounding) {
           string loopName = lp.name;
           if (!elem(loopName, tailLevelsSeen)) {
             positions.push_back({instr, loopName, false, true});
@@ -4352,8 +4354,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
     }
   }
-
-  //internal_assert(positions.size() == f.structuredOrder().size());
 
   cout << "Program positions..." << endl;
   for (auto p : positions) {
