@@ -4443,6 +4443,7 @@ bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
   return false;
 }
 
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
@@ -4546,13 +4547,25 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
     cout << "Out of stage transitions..." << endl;
     for (auto t : outOfStage) {
-      cout << "\t" << t << endl;
+      cout << t << endl;
     }
     cout << endl;
     cout << "Within stage transitions..." << endl;
     for (auto t : inStage) {
-      cout << "\t" << t << endl;
+      cout << t << endl;
     }
+
+    // Now: for each stage and each instruction group in
+    // each stage we need to create an "active" wire.
+    // The active wire will be the and of all transition
+    // conditions to that program position (really loop level + isTail + isHead)
+    //
+    // Transitions in the same stage and group will be ignored
+    // Transitions in the same stage between groups will become combinational "is_active" logic
+    // Transitions between stages will become counter / delay logic
+    //
+    // Really ought to come up with 2 mappings stage+group (chunk) to whether they are active after reset
+    // And a transition mapping (the set of possible signals that could trigger this group / stage)
   }
   internal_assert(false) << "Stopping so Dillon can view\n";
 
