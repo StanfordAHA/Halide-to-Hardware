@@ -4449,6 +4449,21 @@ class IChunk {
     std::vector<ProgramPosition> instrs;
 };
 
+int chunkIdx(ProgramPosition& pos, vector<IChunk>& chunks) {
+  int ind = 0;
+  for (auto sc : chunks) {
+    for (auto other : sc.instrs) {
+      if (other == pos) {
+        return ind;
+      }
+    }
+    ind++;
+  }
+  internal_assert(false) << "No chunk for: ";
+  //<< pos << "\n";
+  return -1;
+}
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
@@ -4594,11 +4609,29 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
     }
 
-    // Now: for each stage and each instruction group in
-    // each stage we need to create an "active" wire.
-    // The active wire will be the and of all transition
-    // conditions to that program position (really loop level + isTail + isHead)
-    //
+    vector<IChunk> chunkList;
+    for (auto sc : chunks) {
+      for (auto c : sc.second) {
+        chunkList.push_back(c);
+      }
+    }
+
+    // Now: Delete transitions within chunks
+    //      For each transition across chunks, but inside of a stage we need comb logic
+    //      For each transition across chunks and across stages we need sequential logic
+    //      to delay the transition
+    vector<SWTransition> relevantTransitions;
+    for (auto t : transitions) {
+      int startChunk = chunkIdx(t.src, chunkList);
+      int endChunk = chunkIdx(t.dst, chunkList);
+      if (startChunk != endChunk) {
+        relevantTransitions.push_back(t);
+      }
+    }
+    cout << "Relevant transitions..." << endl;
+    for (auto t : relevantTransitions) {
+      cout << t << endl;
+    }
     // Transitions in the same stage and group will be ignored
     // Transitions in the same stage between groups will become combinational "is_active" logic
     // Transitions between stages will become counter / delay logic
