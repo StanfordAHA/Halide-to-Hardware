@@ -4451,7 +4451,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
       if (lessThan(current.loopLevel, next.loopLevel, f)) {
         transitions.push_back({current, next, unconditional()});
-      } else if (lessThan(current.loopLevel, next.loopLevel, f)) {
+      } else if (lessThan(next.loopLevel, current.loopLevel, f)) {
         transitions.push_back({current, next, atMax(current.loopLevel)});
       } else if (current.loopLevel == next.loopLevel) {
         transitions.push_back({current, next, unconditional()});
