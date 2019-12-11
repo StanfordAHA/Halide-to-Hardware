@@ -4330,7 +4330,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     bool t = isTail(blk, f);
     for (auto instr : blk.instrs) {
       internal_assert(instr->surroundingLoops.size() > 0);
-      string ll = instr->surroundingLoops[0].name;
       if (h && (head(blk) == instr)) {
         for (auto lp : instr->surroundingLoops) {
           string loopName = lp.name;
@@ -4351,6 +4350,11 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
             tailLevelsSeen.insert(loopName);
           }
         }
+      }
+
+      if (!(t && (tail(blk) == instr)) && !(h && (head(blk) == instr))) {
+        string ll = instr->surroundingLoops.back().name;
+        positions.push_back({instr, ll, false, false});
       }
     }
   }
