@@ -246,6 +246,11 @@ std::set<HWInstr*> allVarsUsed(const T& program) {
   return vars;
 }
 
+HWInstr* tail(const std::vector<HWInstr*>& instrs) {
+  internal_assert(instrs.size() > 0);
+  return instrs.back();
+}
+
 HWInstr* head(const std::vector<HWInstr*>& instrs) {
   internal_assert(instrs.size() > 0);
   return instrs[0];
@@ -363,6 +368,12 @@ HWInstr* head(const IBlock& b) {
   return head(b.instrs);
 }
 
+HWInstr* tail(const IBlock& b) {
+  if (b.isEntry()) {
+    return nullptr;
+  }
+  return tail(b.instrs);
+}
 bool operator==(const IBlock& b, const IBlock c) {
   return head(b) == head(c);
 }
@@ -4289,11 +4300,67 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, LoopNestInfo& loopInfo) {
   return counters;
 }
 
+class ProgramPosition {
+  public:
+    HWInstr* instr;
+    std::string loopLevel;
+    bool head;
+    bool tail;
+};
+
+std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
+  out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << *(pos.instr);
+  return out;
+}
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
 KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto& f = *(sched.f);
+  set<string> headLevelsSeen;
+  set<string> tailLevelsSeen;
+  vector<ProgramPosition> positions;
+  for (auto blk : getIBlockList(f)) {
+    if (blk.isEntry()) {
+      continue;
+    }
+
+    bool h = isHeader(blk, f);
+    bool t = isTail(blk, f);
+    for (auto instr : blk.instrs) {
+      internal_assert(instr->surroundingLoops.size() > 0);
+      string ll = instr->surroundingLoops[0].name;
+      if (h && (head(blk) == instr)) {
+        for (auto lp : instr->surroundingLoops) {
+          string loopName = lp.name;
+          if (!elem(loopName, headLevelsSeen)) {
+            positions.push_back({instr, loopName, true, false});
+            headLevelsSeen.insert(loopName);
+          }
+        }
+      }
+
+      if (t && (tail(blk) == instr)) {
+        for (auto lp : instr->surroundingLoops) {
+          string loopName = lp.name;
+          if (!elem(loopName, tailLevelsSeen)) {
+            positions.push_back({instr, loopName, false, true});
+            tailLevelsSeen.insert(loopName);
+          }
+        }
+      }
+    }
+  }
+
+  //internal_assert(positions.size() == f.structuredOrder().size());
+
+  cout << "Program positions..." << endl;
+  for (auto p : positions) {
+    cout << p << endl;
+  }
+  internal_assert(false) << "Stopping so Dillon can view\n";
+
   auto c = f.mod->getContext();
 
   set<string> outerLoops;
@@ -4345,11 +4412,13 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   for (auto h : headers) {
     heads.insert(head(h));
   }
+  
   vector<IBlock> tailers = loopTails(f);
   set<HWInstr*> tails;
   for (auto t : tailers) {
     tails.insert(head(t));
   }
+
   cout << "Stage transitions" << endl;
   vector<FSMTransition> transitions;
   for (auto s : stages) {
