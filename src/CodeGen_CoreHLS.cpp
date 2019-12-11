@@ -4443,6 +4443,11 @@ bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
   return false;
 }
 
+class IChunk {
+  public:
+    int stage;
+    std::vector<ProgramPosition> instrs;
+};
 
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
@@ -4553,6 +4558,40 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "Within stage transitions..." << endl;
     for (auto t : inStage) {
       cout << t << endl;
+    }
+
+    map<int, vector<IChunk> > chunks;
+    for (auto p : positions) {
+      int s = sched.getStartStage(p.instr);
+      if (contains_key(s, chunks)) {
+        auto& chunkList = chunks.at(s);
+        bool foundChunk = false;
+        for (auto& chunk : chunkList) {
+          internal_assert(chunk.instrs.size() > 0) << "chunk has no instructions\n";
+          auto representative = chunk.instrs.at(0);
+          if (representative.loopLevel == p.loopLevel &&
+              (representative.isOp() || p.isOp())) {
+              //representative.isHead() == p.isHead() &&
+              //representative.isTail() == p.isTail()) {
+            foundChunk = true;
+            chunk.instrs.push_back(p);
+          }
+        }
+        if (!foundChunk) {
+          chunkList.push_back({s, {p}});
+        }
+      } else {
+        chunks[s] = {{s, {p}}};
+      }
+    }
+    cout << "All instruction chunks..." << endl;
+    for (auto cs : chunks) {
+      for (auto chunk : cs.second) {
+        cout << "\t" << chunk.stage << endl;
+        for (auto pos : chunk.instrs) {
+          cout << "\t\t" << pos << endl;
+        }
+      }
     }
 
     // Now: for each stage and each instruction group in
@@ -6418,13 +6457,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     m->print();
     
     auto kI = def->addInstance("compute_module_" + m->getName(), m);
-        //k.second.mod);
     def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
     kernels[lp] = kI;
   }
-
-  //context->runPasses({"rungenerators", "flatten"});
-  //internal_assert(false);
 
   context->runPasses({"rungenerators"});
   vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
