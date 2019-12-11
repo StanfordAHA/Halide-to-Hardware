@@ -4370,6 +4370,22 @@ std::ostream& operator<<(std::ostream& out, SWTransition& pos) {
 }
 
 bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
+  if (ll0 == ll1) {
+    return false;
+  }
+
+  for (auto instr : f.structuredOrder()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (lp.name == ll1) {
+        return false;
+      }
+
+      if (lp.name == ll0) {
+        return true;
+      }
+      
+    }
+  }
   return false;
 }
 
