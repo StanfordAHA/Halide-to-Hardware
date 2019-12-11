@@ -4307,6 +4307,14 @@ class ProgramPosition {
     bool head;
     bool tail;
 
+    bool isTail() const {
+      return tail;
+    }
+
+    bool isHead() const {
+      return head;
+    }
+
     bool isOp() const {
       return loopLevel == instr->surroundingLoops.back().name;
     }
@@ -4319,6 +4327,50 @@ std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
     out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << "<NOOP>";
   }
   return out;
+}
+
+class Condition {
+  public:
+    bool isUnconditional;
+    std::string loopCounter;
+    bool atMax;
+};
+
+Condition atMax(const std::string& n) {
+  return {false, n, true};
+}
+
+Condition notAtMax(const std::string& n) {
+  return {false, n, false};
+}
+
+Condition unconditional() {
+  return {true, "", false};
+}
+
+std::ostream& operator<<(std::ostream& out, Condition& c) {
+  if (c.isUnconditional) {
+    out << "True";
+  } else {
+    out << (c.atMax ? "" : "!") << "atMax(" << c.loopCounter << ")";
+  }
+  return out;
+}
+
+class SWTransition {
+  public:
+    ProgramPosition src;
+    ProgramPosition dst;
+    Condition cond;
+};
+
+std::ostream& operator<<(std::ostream& out, SWTransition& pos) {
+  out << "if (" << pos.cond << ")\n\t" << pos.src << "\n\t" << pos.dst;
+  return out;
+}
+
+bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
+  return false;
 }
 
 // Now: Need to add handling for inner loop changes.
@@ -4370,6 +4422,30 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "Program positions..." << endl;
   for (auto p : positions) {
     cout << p << endl;
+  }
+
+  {
+    vector<SWTransition> transitions;
+    for (int i = 0; i < ((int) positions.size() - 1); i++) {
+      ProgramPosition current = positions[i];
+      ProgramPosition next = positions[i + 1];
+      if (current.isHead()) {
+        transitions.push_back({current, current, notAtMax(current.loopLevel)});
+      }
+
+      if (lessThan(current.loopLevel, next.loopLevel, f)) {
+        transitions.push_back({current, next, unconditional()});
+      } else if (lessThan(current.loopLevel, next.loopLevel, f)) {
+        transitions.push_back({current, next, atMax(current.loopLevel)});
+      } else if (current.loopLevel == next.loopLevel) {
+        transitions.push_back({current, next, unconditional()});
+      }
+    }
+
+    cout << "Software transitions..." << endl;
+    for (auto t : transitions) {
+      cout << t << endl;
+    }
   }
   internal_assert(false) << "Stopping so Dillon can view\n";
 
