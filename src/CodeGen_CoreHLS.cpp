@@ -4320,6 +4320,39 @@ class ProgramPosition {
     }
 };
 
+bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
+  if (a.instr != b.instr) {
+    return false;
+  }
+  if (a.loopLevel != b.loopLevel) {
+    return false;
+  }
+  if (a.head != b.head) {
+    return false;
+  }
+  if (a.tail != b.tail) {
+    return false;
+  }
+  return true;
+}
+
+bool operator!=(const ProgramPosition& a, const ProgramPosition& b) {
+  return !(a == b);
+}
+
+bool operator<(const ProgramPosition& a, const ProgramPosition& b) {
+  if (a.instr != b.instr) {
+    return a.instr < b.instr;
+  }
+  if (a.loopLevel != b.loopLevel) {
+    return a.loopLevel < b.loopLevel;
+  }
+  if (a.head != b.head) {
+    return a.head < b.head;
+  }
+  return a.tail < b.tail;
+}
+
 std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
   if (pos.isOp()) {
     out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << *(pos.instr);
@@ -4335,6 +4368,16 @@ class Condition {
     std::string loopCounter;
     bool atMax;
 };
+
+bool operator<(const Condition& a, const Condition& b) {
+  if (a.isUnconditional != b.isUnconditional) {
+    return a.isUnconditional < b.isUnconditional;
+  }
+  if (a.loopCounter != b.loopCounter) {
+    return a.loopCounter < b.loopCounter;
+  }
+  return a.atMax < b.atMax;
+}
 
 Condition atMax(const std::string& n) {
   return {false, n, true};
@@ -4363,6 +4406,17 @@ class SWTransition {
     ProgramPosition dst;
     Condition cond;
 };
+
+bool operator<(const SWTransition& a, const SWTransition& b) {
+  if (a.src != b.src) {
+    return a.src < b.src;
+  }
+
+  if (a.dst != b.dst) {
+    return a.dst < b.dst;
+  }
+  return a.cond < b.cond;
+}
 
 std::ostream& operator<<(std::ostream& out, SWTransition& pos) {
   out << "if (" << pos.cond << ")\n\t" << pos.src << "\n\t" << pos.dst;
@@ -4461,6 +4515,43 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "Software transitions..." << endl;
     for (auto t : transitions) {
       cout << t << endl;
+    }
+
+    // Now: classify transitions by start and end stage + delay
+    map<SWTransition, int> srcStages;
+    map<SWTransition, int> dstStages;
+    map<SWTransition, int> delays;
+    vector<SWTransition> inStage;
+    vector<SWTransition> outOfStage;
+    for (auto t : transitions) {
+      int src = sched.getStartStage(t.src.instr);
+      int dst = sched.getStartStage(t.dst.instr);
+      int delay = dst - src;
+      if (t.src == t.dst) {
+        delay = sched.II(t.src.loopLevel);
+      }
+      srcStages[t] = src;
+      dstStages[t] = dst;
+      delays[t] = delay;
+      if (src != dst) {
+        outOfStage.push_back(t);
+      } else {
+        if (delay == 0) {
+          inStage.push_back(t);
+        } else {
+          outOfStage.push_back(t);
+        }
+      }
+    }
+
+    cout << "Out of stage transitions..." << endl;
+    for (auto t : outOfStage) {
+      cout << "\t" << t << endl;
+    }
+    cout << endl;
+    cout << "Within stage transitions..." << endl;
+    for (auto t : inStage) {
+      cout << "\t" << t << endl;
     }
   }
   internal_assert(false) << "Stopping so Dillon can view\n";
