@@ -4306,10 +4306,18 @@ class ProgramPosition {
     std::string loopLevel;
     bool head;
     bool tail;
+
+    bool isOp() const {
+      return loopLevel == instr->surroundingLoops.back().name;
+    }
 };
 
 std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
-  out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << *(pos.instr);
+  if (pos.isOp()) {
+    out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << *(pos.instr);
+  } else {
+    out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << "<NOOP>";
+  }
   return out;
 }
 
