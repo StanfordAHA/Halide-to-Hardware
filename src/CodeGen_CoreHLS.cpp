@@ -4904,6 +4904,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
     }
     cout << "Creating isActive vaue for chunk" << endl;
+    internal_assert(transitionWires.size() > 0) << "No transition wires for chunk\n";
     auto isActive = andList(def, transitionWires);
     def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
 
