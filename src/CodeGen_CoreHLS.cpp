@@ -4572,132 +4572,121 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << p << endl;
   }
 
-  //{
-    vector<SWTransition> transitions;
-    for (int i = 0; i < ((int) positions.size() - 1); i++) {
-      ProgramPosition current = positions[i];
-      ProgramPosition next = positions[i + 1];
-      if (current.isHead()) {
-        transitions.push_back({current, current, notAtMax(current.loopLevel)});
-      }
-
-      if (lessThan(current.loopLevel, next.loopLevel, f)) {
-        transitions.push_back({current, next, unconditional()});
-      } else if (lessThan(next.loopLevel, current.loopLevel, f)) {
-        transitions.push_back({current, next, atMax(current.loopLevel)});
-      } else if (current.loopLevel == next.loopLevel) {
-        // We will handle default transitions later on
-        //transitions.push_back({current, next, unconditional()});
-      }
+  vector<SWTransition> transitions;
+  for (int i = 0; i < ((int) positions.size() - 1); i++) {
+    ProgramPosition current = positions[i];
+    ProgramPosition next = positions[i + 1];
+    if (current.isHead()) {
+      transitions.push_back({current, current, notAtMax(current.loopLevel)});
     }
 
-    cout << "Software transitions..." << endl;
-    for (auto t : transitions) {
-      cout << t << endl;
+    if (lessThan(current.loopLevel, next.loopLevel, f)) {
+      transitions.push_back({current, next, unconditional()});
+    } else if (lessThan(next.loopLevel, current.loopLevel, f)) {
+      transitions.push_back({current, next, atMax(current.loopLevel)});
+    } else if (current.loopLevel == next.loopLevel) {
+      // We will handle default transitions later on
     }
+  }
 
-    map<int, vector<IChunk> > chunks;
-    for (auto p : positions) {
-      int s = sched.getStartStage(p.instr);
-      if (contains_key(s, chunks)) {
-        auto& chunkList = chunks.at(s);
-        bool foundChunk = false;
-        for (auto& chunk : chunkList) {
-          internal_assert(chunk.instrs.size() > 0) << "chunk has no instructions\n";
-          auto representative = chunk.instrs.at(0);
-          if (representative.loopLevel == p.loopLevel &&
-              (representative.isOp() || p.isOp())) {
-            foundChunk = true;
-            chunk.instrs.push_back(p);
-          }
-        }
-        if (!foundChunk) {
-          chunkList.push_back({s, {p}});
-        }
-      } else {
-        chunks[s] = {{s, {p}}};
-      }
-    }
-    cout << "All instruction chunks..." << endl;
-    for (auto cs : chunks) {
-      for (auto chunk : cs.second) {
-        cout << "\t" << chunk.stage << endl;
-        for (auto pos : chunk.instrs) {
-          cout << "\t\t" << pos << endl;
+  cout << "Software transitions..." << endl;
+  for (auto t : transitions) {
+    cout << t << endl;
+  }
+
+  map<int, vector<IChunk> > chunks;
+  for (auto p : positions) {
+    int s = sched.getStartStage(p.instr);
+    if (contains_key(s, chunks)) {
+      auto& chunkList = chunks.at(s);
+      bool foundChunk = false;
+      for (auto& chunk : chunkList) {
+        internal_assert(chunk.instrs.size() > 0) << "chunk has no instructions\n";
+        auto representative = chunk.instrs.at(0);
+        if (representative.loopLevel == p.loopLevel &&
+            (representative.isOp() || p.isOp())) {
+          foundChunk = true;
+          chunk.instrs.push_back(p);
         }
       }
+      if (!foundChunk) {
+        chunkList.push_back({s, {p}});
+      }
+    } else {
+      chunks[s] = {{s, {p}}};
     }
-
-    vector<IChunk> chunkList;
-    for (auto sc : chunks) {
-      for (auto c : sc.second) {
-        chunkList.push_back(c);
+  }
+  cout << "All instruction chunks..." << endl;
+  for (auto cs : chunks) {
+    for (auto chunk : cs.second) {
+      cout << "\t" << chunk.stage << endl;
+      for (auto pos : chunk.instrs) {
+        cout << "\t\t" << pos << endl;
       }
     }
+  }
 
-    // Now: Delete transitions within chunks
-    //      For each transition across chunks, but inside of a stage we need comb logic
-    //      For each transition across chunks and across stages we need sequential logic
-    //      to delay the transition
-    vector<SWTransition> relevantTransitions;
-    for (auto t : transitions) {
-      int startChunk = chunkIdx(t.src, chunkList);
-      int endChunk = chunkIdx(t.dst, chunkList);
-      if (startChunk != endChunk || (t.src == t.dst)) {
-        relevantTransitions.push_back(t);
-      }
+  vector<IChunk> chunkList;
+  for (auto sc : chunks) {
+    for (auto c : sc.second) {
+      chunkList.push_back(c);
     }
+  }
 
-    // Add default transitions
-    for (auto sc : chunks) {
-      int stage = sc.first;
-      vector<IChunk> chunksInStage = sc.second;
-      int next = stage + 1;
-      if (contains_key(next, chunks)) {
-        vector<IChunk> nextChunks = map_get(next, chunks);
+  // Now: Delete transitions within chunks
+  //      For each transition across chunks, but inside of a stage we need comb logic
+  //      For each transition across chunks and across stages we need sequential logic
+  //      to delay the transition
+  vector<SWTransition> relevantTransitions;
+  for (auto t : transitions) {
+    int startChunk = chunkIdx(t.src, chunkList);
+    int endChunk = chunkIdx(t.dst, chunkList);
+    if (startChunk != endChunk || (t.src == t.dst)) {
+      relevantTransitions.push_back(t);
+    }
+  }
 
-        for (auto c : chunksInStage) {
-          for (auto n : nextChunks) {
-            ProgramPosition rep = c.getRep();
-            ProgramPosition nextRep = n.getRep();
-            if (rep.loopLevel == nextRep.loopLevel) {
-              relevantTransitions.push_back({rep, nextRep, unconditional()});
-            }
+  // Add default transitions
+  for (auto sc : chunks) {
+    int stage = sc.first;
+    vector<IChunk> chunksInStage = sc.second;
+    int next = stage + 1;
+    if (contains_key(next, chunks)) {
+      vector<IChunk> nextChunks = map_get(next, chunks);
+
+      for (auto c : chunksInStage) {
+        for (auto n : nextChunks) {
+          ProgramPosition rep = c.getRep();
+          ProgramPosition nextRep = n.getRep();
+          if (rep.loopLevel == nextRep.loopLevel) {
+            relevantTransitions.push_back({rep, nextRep, unconditional()});
           }
         }
       }
     }
-    
-    // Now: classify transitions by start and end stage + delay
-    map<SWTransition, int> srcStages;
-    map<SWTransition, int> dstStages;
-    map<SWTransition, int> delays;
-    for (auto t : relevantTransitions) {
-      int src = sched.getStartStage(t.src.instr);
-      int dst = sched.getStartStage(t.dst.instr);
-      int delay = dst - src;
-      if (t.src == t.dst) {
-        delay = sched.II(t.src.loopLevel);
-      }
-      internal_assert(delay >= 0) << delay << " is negative!\n";
-      srcStages[t] = src;
-      dstStages[t] = dst;
-      delays[t] = delay;
-    }
+  }
 
-    cout << "Relevant transitions..." << endl;
-    for (auto t : relevantTransitions) {
-      cout << t << endl;
+  // Now: classify transitions by start and end stage + delay
+  map<SWTransition, int> srcStages;
+  map<SWTransition, int> dstStages;
+  map<SWTransition, int> delays;
+  for (auto t : relevantTransitions) {
+    int src = sched.getStartStage(t.src.instr);
+    int dst = sched.getStartStage(t.dst.instr);
+    int delay = dst - src;
+    if (t.src == t.dst) {
+      delay = sched.II(t.src.loopLevel);
     }
-    // Transitions in the same stage and group will be ignored
-    // Transitions in the same stage between groups will become combinational "is_active" logic
-    // Transitions between stages will become counter / delay logic
-    //
-    // Really ought to come up with 2 mappings stage+group (chunk) to whether they are active after reset
-    // And a transition mapping (the set of possible signals that could trigger this group / stage)
-  //}
-  //internal_assert(false) << "Stopping so Dillon can view\n";
+    internal_assert(delay >= 0) << delay << " is negative!\n";
+    srcStages[t] = src;
+    dstStages[t] = dst;
+    delays[t] = delay;
+  }
 
+  cout << "Relevant transitions..." << endl;
+  for (auto t : relevantTransitions) {
+    cout << t << endl;
+  }
   auto c = f.mod->getContext();
 
   set<string> outerLoops;
@@ -4766,6 +4755,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // TODO: For more complex control paths we will need to check
     // if src and dst correspond to top level loops
     if (t.src == t.dst) {
+      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
       transitionHappenedWires[t] = def->sel("self.in_en");
     } else {
       def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
@@ -4810,7 +4800,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
   controlPath->setDef(def);
-  
+
   cp.m = controlPath;
   return cp;
 }
