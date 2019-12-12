@@ -4799,6 +4799,14 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << "\t" << v.first << " = " << v.second << " valids" << endl;
   }
 
+  // Do I want to phrase each transition in
+  // terms of the valid signals, or do I want to
+  // directly wire inputs for some isActive signals
+  // and not for others?
+  //
+  // For the base chunk isActive == in_en
+  // For higher chunks isActive == (in_en count % II == 0)
+  // For other chunks
   // For higher (earlier) levels the isActiveWire
   // should be connected to a counter
 
@@ -4890,9 +4898,9 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   for (auto loopLevel : loopNames(f.structuredOrder())) {
     ProgramPosition readLoopHead = getHead(loopLevel, positions);
     IChunk baseC = getChunk(readLoopHead, chunkList);
-    int updateStage = chunkIdx(baseC, chunkList);
+    int updateChunk = chunkIdx(baseC, chunkList);
     def->connect(counters.loopVarNames[loopLevel]->sel("en"),
-        isActiveWires[updateStage]->sel("out"));
+        isActiveWires[updateChunk]->sel("out"));
   }
   //def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
   controlPath->setDef(def);
