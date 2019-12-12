@@ -2202,11 +2202,31 @@ std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
   return out;
 }
 
+ProgramPosition getHead(std::string& loopLevel, vector<ProgramPosition>& positions) {
+  for (auto p : positions) {
+    if (p.isHead() &&
+        p.loopLevel == loopLevel) {
+      return p;
+    }
+  }
+
+  internal_assert(false) << "No head for instr\n";
+  return {};
+}
+
 class Condition {
   public:
     bool isUnconditional;
     std::string loopCounter;
     bool atMax;
+
+    bool isNotAtMax() const {
+      return !isUnconditional && !atMax;
+    }
+
+    bool isAtMax() const {
+      return !isUnconditional && atMax;
+    }
 };
 
 bool operator<(const Condition& a, const Condition& b) {
@@ -2283,6 +2303,18 @@ bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
   return false;
 }
 
+set<string> earlierLevels(const std::string& ll, HWFunction& f) {
+  set<string> earlier;
+  for (auto instr : f.structuredOrder()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (lessThan(lp.name, ll, f)) {
+        earlier.insert(lp.name);
+      }
+    }
+  }
+  return earlier;
+}
+
 class IChunk {
   public:
     int stage;
@@ -2321,6 +2353,7 @@ int chunkIdx(const IChunk& c, const vector<IChunk>& chunks) {
 IChunk getChunk(ProgramPosition& pos, vector<IChunk>& chunks) {
   return chunks.at(chunkIdx(pos, chunks));
 }
+
 class KernelControlPath {
   public:
     std::vector<std::string> controlVars;
@@ -4740,6 +4773,23 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     isActiveWires[i] = def->addInstance("stage_" + to_string(i) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
   }
 
+  LoopCounters counters = buildLoopCounters(def, f);
+
+  // Find out which loops controllers will be built from the valid signal
+  // and which will be built from the clock
+  auto reads = allInstrs("rd_stream", f.structuredOrder());
+  if (reads.size() == 1) {
+    auto read = *(begin(reads));
+    ProgramPosition readLoopHead = getHead(read->surroundingLoops.back().name, positions);
+    IChunk c = getChunk(readLoopHead, chunkList);
+    //int idx = chunkIdx(c, chunkList);
+    string level = c.getRep().loopLevel;
+    set<string> earlier = earlierLevels(level, f);
+    cout << "Valid level = " << level << endl;
+    cout << "Earlier levels..." << earlier << endl;
+    internal_assert(false) << "Stopping so dillon can view\n";
+  }
+
   cout << "Creating transition wires..." << endl;
   map<SWTransition, Wireable*> transitionHappenedWires;
   map<SWTransition, Instance*> transitionHappenedInputs;
@@ -4754,18 +4804,50 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // TODO: Add *and* with transition condition here
     // TODO: For more complex control paths we will need to check
     // if src and dst correspond to top level loops
+    Wireable* transitionCondition =
+      def->addInstance("unconditional_transition" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out");
+    if (t.cond.isAtMax()) {
+      transitionCondition =
+        map_get(t.src.loopLevel, counters.loopVarAtMax);
+    } else if (t.cond.isNotAtMax()) {
+      transitionCondition =
+        map_get(t.src.loopLevel, counters.loopVarNotAtMax);
+    }
     if (t.src == t.dst) {
       //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
-      transitionHappenedWires[t] = def->sel("self.in_en");
+      // For the outer loop (say y) the transition condition is not that !(y.atMax()) && in_en, because
+      // in_en pulses x times for each time that we want to update y, because in_en indicates the inner
+      // loop being active.
+      //
+      // What we want for the transition condition is !(y.atMax()) && (in_en has come in x times since the last activation).
+      // So maybe the way get this signal is to have an extra counter which counts when in_en arrives.
+      // The shift registers that create all of these delays in the CFSM express delay as a function of time (number of clock edges), what we want
+      // is to be able to write the delay from one activation of stage_y to another as a function of the number of activations of
+      // stage_x.
+      //
+      // So in general the algorithm should be something like:
+      // Find the stream read in the kernel
+      // Find the chunk of that stream read
+      // Set that chunk active signal to be the valid signal
+      // Find the loop level of that chunk
+      // Find all loop levels above that chunk
+      // For each of those loop levels write the II (clock edge delay) as a function of
+      //   the 
+      auto cond = andList(def, {transitionCondition, def->sel("self.in_en")});
+      transitionHappenedWires[t] = cond;
+      //transitionHappenedWires[t] = def->sel("self.in_en");
     } else {
-      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
+      auto h =
+        map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
+      auto cond = andList(def, {transitionCondition, h});
+      transitionHappenedWires[t] = cond;
+      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), cond);
+      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
     }
   }
 
   cout << "Connecting stage active wires..." << endl;
 
-  // TODO: Replace this with chunks
-  //for (auto s : stages) {
   for (auto c : chunkList) {
     cout << "Connecting stage for chunk: " << c.stage << ", " << c.instrs << endl;
     vector<Wireable*> transitionWires;
@@ -4783,10 +4865,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     def->connect(map_get(chunkIdx(c, chunkList), isActiveWires)->sel("out"), def->sel(cp.activeSignal(c)));
   }
 
-  cout << "Connecting stage active wires..." << endl;
-
-
-  LoopCounters counters = buildLoopCounters(def, f);
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
   auto self = def->sel("self");
   for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
