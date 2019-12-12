@@ -2287,6 +2287,11 @@ class IChunk {
   public:
     int stage;
     std::vector<ProgramPosition> instrs;
+
+    ProgramPosition getRep() const {
+      internal_assert(instrs.size() > 0) << "No instructions in chunk for stage: " << stage << "\n";
+      return instrs.at(0);
+    }
 };
 
 bool operator==(const IChunk& a, const IChunk& b) {
@@ -4591,44 +4596,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       cout << t << endl;
     }
 
-    // Now: classify transitions by start and end stage + delay
-    map<SWTransition, int> srcStages;
-    map<SWTransition, int> dstStages;
-    map<SWTransition, int> delays;
-    //vector<SWTransition> inStage;
-    //vector<SWTransition> outOfStage;
-    for (auto t : transitions) {
-      int src = sched.getStartStage(t.src.instr);
-      int dst = sched.getStartStage(t.dst.instr);
-      int delay = dst - src;
-      if (t.src == t.dst) {
-        delay = sched.II(t.src.loopLevel);
-      }
-      internal_assert(delay >= 0) << delay << " is negative!\n";
-      srcStages[t] = src;
-      dstStages[t] = dst;
-      delays[t] = delay;
-      //if (src != dst) {
-        //outOfStage.push_back(t);
-      //} else {
-        //if (delay == 0) {
-          //inStage.push_back(t);
-        //} else {
-          //outOfStage.push_back(t);
-        //}
-      //}
-    }
-
-    //cout << "Out of stage transitions..." << endl;
-    //for (auto t : outOfStage) {
-      //cout << t << endl;
-    //}
-    //cout << endl;
-    //cout << "Within stage transitions..." << endl;
-    //for (auto t : inStage) {
-      //cout << t << endl;
-    //}
-
     map<int, vector<IChunk> > chunks;
     for (auto p : positions) {
       int s = sched.getStartStage(p.instr);
@@ -4640,8 +4607,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
           auto representative = chunk.instrs.at(0);
           if (representative.loopLevel == p.loopLevel &&
               (representative.isOp() || p.isOp())) {
-              //representative.isHead() == p.isHead() &&
-              //representative.isTail() == p.isTail()) {
             foundChunk = true;
             chunk.instrs.push_back(p);
           }
@@ -4683,11 +4648,43 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
     }
 
-    // TODO: Find and add default transitions
-    // For each stage find possible end chunks
-    //  For each possible end chunk check if
-    //  the same looplevel is active in the next
-    //  stage
+    // Add default transitions
+    for (auto sc : chunks) {
+      int stage = sc.first;
+      vector<IChunk> chunksInStage = sc.second;
+      int next = stage + 1;
+      if (contains_key(next, chunks)) {
+        vector<IChunk> nextChunks = map_get(next, chunks);
+
+        for (auto c : chunksInStage) {
+          for (auto n : nextChunks) {
+            ProgramPosition rep = c.getRep();
+            ProgramPosition nextRep = n.getRep();
+            if (rep.loopLevel == nextRep.loopLevel) {
+              relevantTransitions.push_back({rep, nextRep, unconditional()});
+            }
+          }
+        }
+      }
+    }
+    
+    // Now: classify transitions by start and end stage + delay
+    map<SWTransition, int> srcStages;
+    map<SWTransition, int> dstStages;
+    map<SWTransition, int> delays;
+    for (auto t : relevantTransitions) {
+      int src = sched.getStartStage(t.src.instr);
+      int dst = sched.getStartStage(t.dst.instr);
+      int delay = dst - src;
+      if (t.src == t.dst) {
+        delay = sched.II(t.src.loopLevel);
+      }
+      internal_assert(delay >= 0) << delay << " is negative!\n";
+      srcStages[t] = src;
+      dstStages[t] = dst;
+      delays[t] = delay;
+    }
+
     cout << "Relevant transitions..." << endl;
     for (auto t : relevantTransitions) {
       cout << t << endl;
@@ -4715,7 +4712,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
-  //for (int i = 0; i < sched.numLinearStages(); i++) {
   for (int i = 0; i < (int) chunkList.size(); i++) {
     string s = "chunk_" + to_string(i) + "_active";
     tps.push_back({s, c->Bit()});
@@ -4747,105 +4743,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     stages.insert(i);
   }
 
-  //cout << "#### Stage schedules" << endl;
-  //vector<IBlock> headers = loopHeaders(f);
-  //set<HWInstr*> heads;
-  //for (auto h : headers) {
-    //heads.insert(head(h));
-  //}
-  
-  //vector<IBlock> tailers = loopTails(f);
-  //set<HWInstr*> tails;
-  //for (auto t : tailers) {
-    //tails.insert(head(t));
-  //}
-
-  //cout << "Stage transitions" << endl;
-  //vector<FSMTransition> transitions;
-  //for (auto s : stages) {
-    //set<HWInstr*> starting = sched.instructionsStartingInStage(s);
-    //set<HWInstr*> loopHeadsStarting;
-    //for (auto s : starting) {
-      //if (elem(s, heads)) {
-        //loopHeadsStarting.insert(s);
-      //}
-    //}
-    //cout << "\tLoop headers starting in " << s << endl;
-    //set<string> added;
-    //for (auto l : loopHeadsStarting) {
-      //cout << "\t\t" << *l << endl;
-      //// TODO: Actually check what loops have already started
-      //for (auto loop : l->surroundingLoops) {
-        //// TODO: Add conditions for each transition
-        //if (elem(loop.name, added)) {
-          //continue;
-        //}
-        //transitions.push_back({s, s, sched.II(loop.name), loop.name});
-        //added.insert(loop.name);
-      //}
-      //// Need to find all variables that start at this instruction?
-    //}
-
-    //// Now: Find all loops continuing in the next stage
-
-    //int nextS = s + 1;
-    //if (nextS < sched.numLinearStages()) {
-      //set<vector<string> > activeLoopSet;
-      //for (auto instr : sched.allInstructionsInStage(s)) {
-        //cout << "Adding " << *instr << " to active loops" << endl;
-        //cout << "Surrounding loops..." << endl;
-        //for (auto lp : instr->surroundingLoops) {
-          //cout << "\t\t" << lp.name << endl;
-        //}
-        //vector<string> names = loopNames(instr);
-        //cout << "\t# of loop names = " << names.size() << endl;
-        //cout << "\tLoop names      = " << names << endl;
-        //cout << "\tSingle print names..." << endl;
-        //for (auto n : names) {
-          //cout << "\t\t" << n << endl;
-        //}
-        //internal_assert(names.size() == instr->surroundingLoops.size());
-        //activeLoopSet.insert(names);
-      //}
-      //cout << "Active loops size = " << activeLoopSet.size() << endl;
-      //for (auto a : activeLoopSet) {
-        //cout << "\t" << a << endl;
-      //}
-      //set<vector<string> > nextLoops;
-      //for (auto other : sched.allInstructionsInStage(nextS)) {
-        //cout << "Adding " << *other << " to next loops" << endl;
-        //nextLoops.insert(loopNames(other));
-      //}
-      //cout << "Next loops: " << endl;
-      //for (auto a : nextLoops) {
-        //cout << "\t" << a << endl;
-      //}
-
-      //auto stillActive = CoreIR::intersection(nextLoops, activeLoopSet);
-      //cout << "\tLoops that are still active in the next stage" << endl;
-      //for (auto s : stillActive) {
-        //cout << "\t\t" << s << endl;
-      //}
-
-      //vector<string> lastSharedLoop;
-      //for (auto s : stillActive) {
-        //if (s.size() > lastSharedLoop.size()) {
-          //lastSharedLoop = s;
-        //}
-      //}
-      //cout << "\tLast shared loop: " << lastSharedLoop << endl;
-      //transitions.push_back({s, nextS, 1, "default"});
-    //} else {
-      //cout << "No later stages" << endl;
-    //}
-
-  //}
-  
-  //cout << "Transitions..." << endl;
-  //for (auto t : transitions) {
-    //cout << "\t" << t.name << ": " << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
-  //}
-
   cout << "Creating activewires..." << endl;
   auto context = def->getContext();
   map<int, Instance*> isActiveWires;
@@ -4855,28 +4752,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
 
   cout << "Creating transition wires..." << endl;
-  //map<FSMTransition, Wireable*> transitionHappenedWires;
-  //map<FSMTransition, Instance*> transitionHappenedInputs;
-  //for (auto t : transitions) {
-    //cout << "Building transition: " << t.name << endl;
-    //// TODO: Add special case for transitions governed by a valid signal
-    //vector<Instance*> regs =
-      //pipelineRegisterChain(def, "transition_" + coreirSanitize(t.name) + "_" + to_string(t.src) + "_" + to_string(t.dst) + "_" + to_string(t.delay), def->getContext()->Bit(), t.delay);
-    //cout << "Created pipeline chain" << endl;
-    //transitionHappenedInputs[t] = regs[0];
-    //transitionHappenedWires[t] = regs.back()->sel("out");
-
-    //// TODO: Add *and* with transition condition here
-    //// TODO: For more complex control paths we will need to check
-    //// if src and dst correspond to top level loops
-    //if (t.src == t.dst) {
-      //transitionHappenedWires[t] = def->sel("self.in_en");
-      ////def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
-    //} else {
-      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(t.src, isActiveWires)->sel("out"));
-    //}
-  //}
-
   map<SWTransition, Wireable*> transitionHappenedWires;
   map<SWTransition, Instance*> transitionHappenedInputs;
   for (auto t : relevantTransitions) {
