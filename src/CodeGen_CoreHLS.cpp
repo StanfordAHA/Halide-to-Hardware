@@ -4639,7 +4639,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // Really ought to come up with 2 mappings stage+group (chunk) to whether they are active after reset
     // And a transition mapping (the set of possible signals that could trigger this group / stage)
   }
-  internal_assert(false) << "Stopping so Dillon can view\n";
+  //internal_assert(false) << "Stopping so Dillon can view\n";
 
   auto c = f.mod->getContext();
 
