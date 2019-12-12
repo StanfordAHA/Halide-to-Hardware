@@ -4682,6 +4682,12 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         relevantTransitions.push_back(t);
       }
     }
+
+    // TODO: Find and add default transitions
+    // For each stage find possible end chunks
+    //  For each possible end chunk check if
+    //  the same looplevel is active in the next
+    //  stage
     cout << "Relevant transitions..." << endl;
     for (auto t : relevantTransitions) {
       cout << t << endl;
