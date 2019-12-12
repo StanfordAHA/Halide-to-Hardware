@@ -3710,7 +3710,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     int tc = tripCountInt(nestVars[i], f);
     int headerLatency = headerLatencyInt(nestVars[i], f, fSched);
     int tailLatency = tailLatencyInt(nestVars[i], f, fSched);
-    int II = headerLatency + schedules.back().completionTime() + tailLatency;
+    int II = headerLatency + schedules.back().completionTime() + tailLatency + 1;
     int L = II; // Execute outer loops sequentially;
 
     schedules.push_back({nestVars[i], II, L, tc});
@@ -4165,7 +4165,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     cout << "After replacing references to " << p.first << endl;
     cout << f << endl;
-    //internal_assert(false) << "Stopping so dillon can view\n";
   }
 
   for (auto pr : provides) {
@@ -4176,7 +4175,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   cout << "After cleanup..." << endl;
   cout << f << endl;
-  //internal_assert(false) << "Stopping here so dillon can view\n";
 }
 
 std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
@@ -4799,11 +4797,13 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "II intervals as functions of valid arrival:" << endl;
   for (auto v : validPulsesPerII) {
     cout << "\t" << v.first << " = " << v.second << " valids" << endl;
+    if (v.second > 1) {
+      internal_assert(false);
+    }
   }
 
   // For higher (earlier) levels the isActiveWire
   // should be connected to a counter
-  internal_assert(false) << "Stopping so dillon can view\n";
 
   cout << "Creating transition wires..." << endl;
   map<SWTransition, Wireable*> transitionHappenedWires;
