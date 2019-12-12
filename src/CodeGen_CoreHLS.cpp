@@ -2140,19 +2140,216 @@ class ComputeKernel {
     FunctionSchedule sched;
 };
 
+class ProgramPosition {
+  public:
+    HWInstr* instr;
+    std::string loopLevel;
+    bool head;
+    bool tail;
+
+    bool isTail() const {
+      return tail;
+    }
+
+    bool isHead() const {
+      return head;
+    }
+
+    bool isOp() const {
+      return loopLevel == instr->surroundingLoops.back().name;
+    }
+};
+
+bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
+  if (a.instr != b.instr) {
+    return false;
+  }
+  if (a.loopLevel != b.loopLevel) {
+    return false;
+  }
+  if (a.head != b.head) {
+    return false;
+  }
+  if (a.tail != b.tail) {
+    return false;
+  }
+  return true;
+}
+
+bool operator!=(const ProgramPosition& a, const ProgramPosition& b) {
+  return !(a == b);
+}
+
+bool operator<(const ProgramPosition& a, const ProgramPosition& b) {
+  if (a.instr != b.instr) {
+    return a.instr < b.instr;
+  }
+  if (a.loopLevel != b.loopLevel) {
+    return a.loopLevel < b.loopLevel;
+  }
+  if (a.head != b.head) {
+    return a.head < b.head;
+  }
+  return a.tail < b.tail;
+}
+
+std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
+  if (pos.isOp()) {
+    out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << *(pos.instr);
+  } else {
+    out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << "<NOOP>";
+  }
+  return out;
+}
+
+class Condition {
+  public:
+    bool isUnconditional;
+    std::string loopCounter;
+    bool atMax;
+};
+
+bool operator<(const Condition& a, const Condition& b) {
+  if (a.isUnconditional != b.isUnconditional) {
+    return a.isUnconditional < b.isUnconditional;
+  }
+  if (a.loopCounter != b.loopCounter) {
+    return a.loopCounter < b.loopCounter;
+  }
+  return a.atMax < b.atMax;
+}
+
+Condition atMax(const std::string& n) {
+  return {false, n, true};
+}
+
+Condition notAtMax(const std::string& n) {
+  return {false, n, false};
+}
+
+Condition unconditional() {
+  return {true, "", false};
+}
+
+std::ostream& operator<<(std::ostream& out, Condition& c) {
+  if (c.isUnconditional) {
+    out << "True";
+  } else {
+    out << (c.atMax ? "" : "!") << "atMax(" << c.loopCounter << ")";
+  }
+  return out;
+}
+
+class SWTransition {
+  public:
+    ProgramPosition src;
+    ProgramPosition dst;
+    Condition cond;
+};
+
+bool operator<(const SWTransition& a, const SWTransition& b) {
+  if (a.src != b.src) {
+    return a.src < b.src;
+  }
+
+  if (a.dst != b.dst) {
+    return a.dst < b.dst;
+  }
+  return a.cond < b.cond;
+}
+
+std::ostream& operator<<(std::ostream& out, SWTransition& pos) {
+  out << "if (" << pos.cond << ")\n\t" << pos.src << "\n\t" << pos.dst;
+  return out;
+}
+
+bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
+  if (ll0 == ll1) {
+    return false;
+  }
+
+  for (auto instr : f.structuredOrder()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (lp.name == ll1) {
+        return false;
+      }
+
+      if (lp.name == ll0) {
+        return true;
+      }
+      
+    }
+  }
+  return false;
+}
+
+class IChunk {
+  public:
+    int stage;
+    std::vector<ProgramPosition> instrs;
+};
+
+bool operator==(const IChunk& a, const IChunk& b) {
+  return a.stage == b.stage && a.instrs == b.instrs;
+}
+
+int chunkIdx(const ProgramPosition& pos, const vector<IChunk>& chunks) {
+  int ind = 0;
+  for (auto sc : chunks) {
+    for (auto other : sc.instrs) {
+      if (other == pos) {
+        return ind;
+      }
+    }
+    ind++;
+  }
+  internal_assert(false) << "No chunk for: ";
+  //<< pos << "\n";
+  return -1;
+}
+
+int chunkIdx(const IChunk& c, const vector<IChunk>& chunks) {
+  internal_assert(c.instrs.size() > 0);
+  return chunkIdx(c.instrs.at(0), chunks);
+}
+
+IChunk getChunk(ProgramPosition& pos, vector<IChunk>& chunks) {
+  return chunks.at(chunkIdx(pos, chunks));
+}
 class KernelControlPath {
   public:
     std::vector<std::string> controlVars;
     CoreIR::Module* m;
     std::map<int, string> stageIsActiveMap;
+    vector<IChunk> chunkList;
 
-    std::string activeSignalOutput(const int i) const {
-      return map_get(i, stageIsActiveMap);
+    std::string activeSignalOutput(const HWInstr* instr) const {
+      for (auto c : chunkList) {
+        for (auto p : c.instrs) {
+          if (p.instr == instr) {
+            return activeSignalOutput(c);
+          }
+        }
+      }
+      internal_assert(false) << "no chunk for " << *instr << "\n";
+      return "";
     }
 
-    std::string activeSignal(const int i) const {
-      return "self." + map_get(i, stageIsActiveMap);
+    std::string activeSignalOutput(const IChunk& chunk) const {
+      return map_get(chunkIdx(chunk, chunkList), stageIsActiveMap);
     }
+
+    std::string activeSignal(const IChunk& chunk) const {
+      return "self." + map_get(chunkIdx(chunk, chunkList), stageIsActiveMap);
+    }
+
+    //std::string activeSignalOutput(const int i) const {
+      //return map_get(i, stageIsActiveMap);
+    //}
+
+    //std::string activeSignal(const int i) const {
+      //return "self." + map_get(i, stageIsActiveMap);
+    //}
 };
 
 class ForInfo {
@@ -2489,9 +2686,13 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
 }
 
 vector<CoreIR::Instance*> pipelineRegisterChain(CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type, int depth) {
-  internal_assert(depth >= 0) << "trying to create pipeline register chain of depth 0, name: " << name << "\n";
-
   auto context = def->getContext();
+  if (depth == 0) {
+    return {def->addInstance("passthrough_" + name, "halidehw.passthrough", {{"type", COREMK(context, type)}})};
+  }
+  
+  internal_assert(depth > 0) << "trying to create pipeline register chain of depth " << depth << ", name: " << name << "\n";
+
   vector<Instance*> registers;
   auto activeReg = pipelineRegister(context, def, name + "_0", type);
   registers.push_back(activeReg);
@@ -3083,7 +3284,8 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
   if (streamWrites.size() == 1) {
     HWInstr* writeInstr = *begin(streamWrites);
-    def->connect(controlPath->sel(cpM.activeSignalOutput(sched.getEndStage(writeInstr))), def->sel("self.valid"));
+    //def->connect(controlPath->sel(cpM.activeSignalOutput(sched.getEndStage(writeInstr))), def->sel("self.valid"));
+    def->connect(controlPath->sel(cpM.activeSignalOutput(writeInstr)), def->sel("self.valid"));
   } else {
     def->connect(def->sel("self.in_en"), def->sel("self.valid"));
   }
@@ -4313,169 +4515,6 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
   return counters;
 }
 
-class ProgramPosition {
-  public:
-    HWInstr* instr;
-    std::string loopLevel;
-    bool head;
-    bool tail;
-
-    bool isTail() const {
-      return tail;
-    }
-
-    bool isHead() const {
-      return head;
-    }
-
-    bool isOp() const {
-      return loopLevel == instr->surroundingLoops.back().name;
-    }
-};
-
-bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
-  if (a.instr != b.instr) {
-    return false;
-  }
-  if (a.loopLevel != b.loopLevel) {
-    return false;
-  }
-  if (a.head != b.head) {
-    return false;
-  }
-  if (a.tail != b.tail) {
-    return false;
-  }
-  return true;
-}
-
-bool operator!=(const ProgramPosition& a, const ProgramPosition& b) {
-  return !(a == b);
-}
-
-bool operator<(const ProgramPosition& a, const ProgramPosition& b) {
-  if (a.instr != b.instr) {
-    return a.instr < b.instr;
-  }
-  if (a.loopLevel != b.loopLevel) {
-    return a.loopLevel < b.loopLevel;
-  }
-  if (a.head != b.head) {
-    return a.head < b.head;
-  }
-  return a.tail < b.tail;
-}
-
-std::ostream& operator<<(std::ostream& out, ProgramPosition& pos) {
-  if (pos.isOp()) {
-    out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << *(pos.instr);
-  } else {
-    out << "ll[" << pos.loopLevel << "] " << (pos.head ? "HEAD " : "") << (pos.tail ? "TAIL " : "") << "<NOOP>";
-  }
-  return out;
-}
-
-class Condition {
-  public:
-    bool isUnconditional;
-    std::string loopCounter;
-    bool atMax;
-};
-
-bool operator<(const Condition& a, const Condition& b) {
-  if (a.isUnconditional != b.isUnconditional) {
-    return a.isUnconditional < b.isUnconditional;
-  }
-  if (a.loopCounter != b.loopCounter) {
-    return a.loopCounter < b.loopCounter;
-  }
-  return a.atMax < b.atMax;
-}
-
-Condition atMax(const std::string& n) {
-  return {false, n, true};
-}
-
-Condition notAtMax(const std::string& n) {
-  return {false, n, false};
-}
-
-Condition unconditional() {
-  return {true, "", false};
-}
-
-std::ostream& operator<<(std::ostream& out, Condition& c) {
-  if (c.isUnconditional) {
-    out << "True";
-  } else {
-    out << (c.atMax ? "" : "!") << "atMax(" << c.loopCounter << ")";
-  }
-  return out;
-}
-
-class SWTransition {
-  public:
-    ProgramPosition src;
-    ProgramPosition dst;
-    Condition cond;
-};
-
-bool operator<(const SWTransition& a, const SWTransition& b) {
-  if (a.src != b.src) {
-    return a.src < b.src;
-  }
-
-  if (a.dst != b.dst) {
-    return a.dst < b.dst;
-  }
-  return a.cond < b.cond;
-}
-
-std::ostream& operator<<(std::ostream& out, SWTransition& pos) {
-  out << "if (" << pos.cond << ")\n\t" << pos.src << "\n\t" << pos.dst;
-  return out;
-}
-
-bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
-  if (ll0 == ll1) {
-    return false;
-  }
-
-  for (auto instr : f.structuredOrder()) {
-    for (auto lp : instr->surroundingLoops) {
-      if (lp.name == ll1) {
-        return false;
-      }
-
-      if (lp.name == ll0) {
-        return true;
-      }
-      
-    }
-  }
-  return false;
-}
-
-class IChunk {
-  public:
-    int stage;
-    std::vector<ProgramPosition> instrs;
-};
-
-int chunkIdx(ProgramPosition& pos, vector<IChunk>& chunks) {
-  int ind = 0;
-  for (auto sc : chunks) {
-    for (auto other : sc.instrs) {
-      if (other == pos) {
-        return ind;
-      }
-    }
-    ind++;
-  }
-  internal_assert(false) << "No chunk for: ";
-  //<< pos << "\n";
-  return -1;
-}
 
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
@@ -4528,7 +4567,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     cout << p << endl;
   }
 
-  {
+  //{
     vector<SWTransition> transitions;
     for (int i = 0; i < ((int) positions.size() - 1); i++) {
       ProgramPosition current = positions[i];
@@ -4564,6 +4603,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       if (t.src == t.dst) {
         delay = sched.II(t.src.loopLevel);
       }
+      internal_assert(delay >= 0) << delay << " is negative!\n";
       srcStages[t] = src;
       dstStages[t] = dst;
       delays[t] = delay;
@@ -4651,7 +4691,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     //
     // Really ought to come up with 2 mappings stage+group (chunk) to whether they are active after reset
     // And a transition mapping (the set of possible signals that could trigger this group / stage)
-  }
+  //}
   //internal_assert(false) << "Stopping so Dillon can view\n";
 
   auto c = f.mod->getContext();
@@ -4668,8 +4708,9 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
-  for (int i = 0; i < sched.numLinearStages(); i++) {
-    string s = "stage_" + to_string(i) + "_active";
+  //for (int i = 0; i < sched.numLinearStages(); i++) {
+  for (int i = 0; i < (int) chunkList.size(); i++) {
+    string s = "chunk_" + to_string(i) + "_active";
     tps.push_back({s, c->Bit()});
     cp.stageIsActiveMap[i] = s;
   }
@@ -4690,7 +4731,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
   cp.m = controlPath;
-
+  cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
   internal_assert(sched.numLinearStages() >= 0);
@@ -4699,121 +4740,142 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     stages.insert(i);
   }
 
-  cout << "#### Stage schedules" << endl;
-  vector<IBlock> headers = loopHeaders(f);
-  set<HWInstr*> heads;
-  for (auto h : headers) {
-    heads.insert(head(h));
-  }
+  //cout << "#### Stage schedules" << endl;
+  //vector<IBlock> headers = loopHeaders(f);
+  //set<HWInstr*> heads;
+  //for (auto h : headers) {
+    //heads.insert(head(h));
+  //}
   
-  vector<IBlock> tailers = loopTails(f);
-  set<HWInstr*> tails;
-  for (auto t : tailers) {
-    tails.insert(head(t));
-  }
+  //vector<IBlock> tailers = loopTails(f);
+  //set<HWInstr*> tails;
+  //for (auto t : tailers) {
+    //tails.insert(head(t));
+  //}
 
-  cout << "Stage transitions" << endl;
-  vector<FSMTransition> transitions;
-  for (auto s : stages) {
-    set<HWInstr*> starting = sched.instructionsStartingInStage(s);
-    set<HWInstr*> loopHeadsStarting;
-    for (auto s : starting) {
-      if (elem(s, heads)) {
-        loopHeadsStarting.insert(s);
-      }
-    }
-    cout << "\tLoop headers starting in " << s << endl;
-    set<string> added;
-    for (auto l : loopHeadsStarting) {
-      cout << "\t\t" << *l << endl;
-      // TODO: Actually check what loops have already started
-      for (auto loop : l->surroundingLoops) {
-        // TODO: Add conditions for each transition
-        if (elem(loop.name, added)) {
-          continue;
-        }
-        transitions.push_back({s, s, sched.II(loop.name), loop.name});
-        added.insert(loop.name);
-      }
-      // Need to find all variables that start at this instruction?
-    }
+  //cout << "Stage transitions" << endl;
+  //vector<FSMTransition> transitions;
+  //for (auto s : stages) {
+    //set<HWInstr*> starting = sched.instructionsStartingInStage(s);
+    //set<HWInstr*> loopHeadsStarting;
+    //for (auto s : starting) {
+      //if (elem(s, heads)) {
+        //loopHeadsStarting.insert(s);
+      //}
+    //}
+    //cout << "\tLoop headers starting in " << s << endl;
+    //set<string> added;
+    //for (auto l : loopHeadsStarting) {
+      //cout << "\t\t" << *l << endl;
+      //// TODO: Actually check what loops have already started
+      //for (auto loop : l->surroundingLoops) {
+        //// TODO: Add conditions for each transition
+        //if (elem(loop.name, added)) {
+          //continue;
+        //}
+        //transitions.push_back({s, s, sched.II(loop.name), loop.name});
+        //added.insert(loop.name);
+      //}
+      //// Need to find all variables that start at this instruction?
+    //}
 
-    // Now: Find all loops continuing in the next stage
+    //// Now: Find all loops continuing in the next stage
 
-    int nextS = s + 1;
-    if (nextS < sched.numLinearStages()) {
-      set<vector<string> > activeLoopSet;
-      for (auto instr : sched.allInstructionsInStage(s)) {
-        cout << "Adding " << *instr << " to active loops" << endl;
-        cout << "Surrounding loops..." << endl;
-        for (auto lp : instr->surroundingLoops) {
-          cout << "\t\t" << lp.name << endl;
-        }
-        vector<string> names = loopNames(instr);
-        cout << "\t# of loop names = " << names.size() << endl;
-        cout << "\tLoop names      = " << names << endl;
-        cout << "\tSingle print names..." << endl;
-        for (auto n : names) {
-          cout << "\t\t" << n << endl;
-        }
-        internal_assert(names.size() == instr->surroundingLoops.size());
-        activeLoopSet.insert(names);
-      }
-      cout << "Active loops size = " << activeLoopSet.size() << endl;
-      for (auto a : activeLoopSet) {
-        cout << "\t" << a << endl;
-      }
-      set<vector<string> > nextLoops;
-      for (auto other : sched.allInstructionsInStage(nextS)) {
-        cout << "Adding " << *other << " to next loops" << endl;
-        nextLoops.insert(loopNames(other));
-      }
-      cout << "Next loops: " << endl;
-      for (auto a : nextLoops) {
-        cout << "\t" << a << endl;
-      }
+    //int nextS = s + 1;
+    //if (nextS < sched.numLinearStages()) {
+      //set<vector<string> > activeLoopSet;
+      //for (auto instr : sched.allInstructionsInStage(s)) {
+        //cout << "Adding " << *instr << " to active loops" << endl;
+        //cout << "Surrounding loops..." << endl;
+        //for (auto lp : instr->surroundingLoops) {
+          //cout << "\t\t" << lp.name << endl;
+        //}
+        //vector<string> names = loopNames(instr);
+        //cout << "\t# of loop names = " << names.size() << endl;
+        //cout << "\tLoop names      = " << names << endl;
+        //cout << "\tSingle print names..." << endl;
+        //for (auto n : names) {
+          //cout << "\t\t" << n << endl;
+        //}
+        //internal_assert(names.size() == instr->surroundingLoops.size());
+        //activeLoopSet.insert(names);
+      //}
+      //cout << "Active loops size = " << activeLoopSet.size() << endl;
+      //for (auto a : activeLoopSet) {
+        //cout << "\t" << a << endl;
+      //}
+      //set<vector<string> > nextLoops;
+      //for (auto other : sched.allInstructionsInStage(nextS)) {
+        //cout << "Adding " << *other << " to next loops" << endl;
+        //nextLoops.insert(loopNames(other));
+      //}
+      //cout << "Next loops: " << endl;
+      //for (auto a : nextLoops) {
+        //cout << "\t" << a << endl;
+      //}
 
-      auto stillActive = CoreIR::intersection(nextLoops, activeLoopSet);
-      cout << "\tLoops that are still active in the next stage" << endl;
-      for (auto s : stillActive) {
-        cout << "\t\t" << s << endl;
-      }
+      //auto stillActive = CoreIR::intersection(nextLoops, activeLoopSet);
+      //cout << "\tLoops that are still active in the next stage" << endl;
+      //for (auto s : stillActive) {
+        //cout << "\t\t" << s << endl;
+      //}
 
-      vector<string> lastSharedLoop;
-      for (auto s : stillActive) {
-        if (s.size() > lastSharedLoop.size()) {
-          lastSharedLoop = s;
-        }
-      }
-      cout << "\tLast shared loop: " << lastSharedLoop << endl;
-      transitions.push_back({s, nextS, 1, "default"});
-    } else {
-      cout << "No later stages" << endl;
-    }
+      //vector<string> lastSharedLoop;
+      //for (auto s : stillActive) {
+        //if (s.size() > lastSharedLoop.size()) {
+          //lastSharedLoop = s;
+        //}
+      //}
+      //cout << "\tLast shared loop: " << lastSharedLoop << endl;
+      //transitions.push_back({s, nextS, 1, "default"});
+    //} else {
+      //cout << "No later stages" << endl;
+    //}
 
-  }
+  //}
   
-  cout << "Transitions..." << endl;
-  for (auto t : transitions) {
-    cout << "\t" << t.name << ": " << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
-  }
+  //cout << "Transitions..." << endl;
+  //for (auto t : transitions) {
+    //cout << "\t" << t.name << ": " << t.src << " -> " << t.dst << ": delay = " << t.delay << endl;
+  //}
 
   cout << "Creating activewires..." << endl;
   auto context = def->getContext();
   map<int, Instance*> isActiveWires;
-  for (auto s : stages) {
-    isActiveWires[s] = def->addInstance("stage_" + to_string(s) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
+  //for (auto s : stages) {
+  for (int i = 0; i < (int) chunkList.size(); i++) {
+    isActiveWires[i] = def->addInstance("stage_" + to_string(i) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
   }
 
-
   cout << "Creating transition wires..." << endl;
-  map<FSMTransition, Wireable*> transitionHappenedWires;
-  map<FSMTransition, Instance*> transitionHappenedInputs;
-  for (auto t : transitions) {
-    cout << "Building transition: " << t.name << endl;
-    // TODO: Add special case for transitions governed by a valid signal
+  //map<FSMTransition, Wireable*> transitionHappenedWires;
+  //map<FSMTransition, Instance*> transitionHappenedInputs;
+  //for (auto t : transitions) {
+    //cout << "Building transition: " << t.name << endl;
+    //// TODO: Add special case for transitions governed by a valid signal
+    //vector<Instance*> regs =
+      //pipelineRegisterChain(def, "transition_" + coreirSanitize(t.name) + "_" + to_string(t.src) + "_" + to_string(t.dst) + "_" + to_string(t.delay), def->getContext()->Bit(), t.delay);
+    //cout << "Created pipeline chain" << endl;
+    //transitionHappenedInputs[t] = regs[0];
+    //transitionHappenedWires[t] = regs.back()->sel("out");
+
+    //// TODO: Add *and* with transition condition here
+    //// TODO: For more complex control paths we will need to check
+    //// if src and dst correspond to top level loops
+    //if (t.src == t.dst) {
+      //transitionHappenedWires[t] = def->sel("self.in_en");
+      ////def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
+    //} else {
+      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(t.src, isActiveWires)->sel("out"));
+    //}
+  //}
+
+  map<SWTransition, Wireable*> transitionHappenedWires;
+  map<SWTransition, Instance*> transitionHappenedInputs;
+  for (auto t : relevantTransitions) {
+    int delay = map_get(t, delays);
     vector<Instance*> regs =
-      pipelineRegisterChain(def, "transition_" + coreirSanitize(t.name) + "_" + to_string(t.src) + "_" + to_string(t.dst) + "_" + to_string(t.delay), def->getContext()->Bit(), t.delay);
+      pipelineRegisterChain(def, "transition_" + def->getContext()->getUnique() + "_" + to_string(delay), def->getContext()->Bit(), delay);
     cout << "Created pipeline chain" << endl;
     transitionHappenedInputs[t] = regs[0];
     transitionHappenedWires[t] = regs.back()->sel("out");
@@ -4823,48 +4885,36 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // if src and dst correspond to top level loops
     if (t.src == t.dst) {
       transitionHappenedWires[t] = def->sel("self.in_en");
-      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
     } else {
-      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(t.src, isActiveWires)->sel("out"));
+      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
     }
   }
 
   cout << "Connecting stage active wires..." << endl;
 
-  for (auto s : stages) {
+  // TODO: Replace this with chunks
+  //for (auto s : stages) {
+  for (auto c : chunkList) {
+    cout << "Connecting stage for chunk: " << c.stage << ", " << c.instrs << endl;
     vector<Wireable*> transitionWires;
-    for (auto t : transitions) {
-      if (t.dst == s) {
+    for (auto t : relevantTransitions) {
+      if (getChunk(t.dst, chunkList) == c) {
         transitionWires.push_back(map_get(t, transitionHappenedWires));
       }
     }
+    cout << "Creating isActive vaue for chunk" << endl;
     auto isActive = andList(def, transitionWires);
-    def->connect(isActive, map_get(s, isActiveWires)->sel("in"));
+    def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
 
-    def->connect(map_get(s, isActiveWires)->sel("out"), def->sel(cp.activeSignal(s)));
+    internal_assert(contains_key(chunkIdx(c, chunkList), isActiveWires)) << chunkIdx(c, chunkList) << " is not in activeWires\n";
+    def->connect(map_get(chunkIdx(c, chunkList), isActiveWires)->sel("out"), def->sel(cp.activeSignal(c)));
   }
 
   cout << "Connecting stage active wires..." << endl;
 
-  //def->connect(def->sel("self.in_en"), def->sel(cp.activeSignal(0)));
 
-  //auto vr = pipelineRegister(context, def, "state_active_" + to_string(0), context->Bit());
-  //def->connect(def->sel("self.in_en"), vr->sel("in"));
-  //for (int i = 1; i < sched.numLinearStages(); i++) {
-    //def->connect(vr->sel("out"), def->sel(cp.activeSignal(i)));
-    //auto oldVr = vr;
-    //vr = pipelineRegister(context, def, "state_active_" + to_string(i), context->Bit());
-    //def->connect(oldVr->sel("out"), vr->sel("in"));
-  //}
-
-  //int width = 16;
-
-  // enable on each counter should be wired to the atInstrStart signal?
-  //LoopCounters counters = buildLoopCounters(def, loopInfo);
   LoopCounters counters = buildLoopCounters(def, f);
-
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
-
   auto self = def->sel("self");
   for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
     vector<CoreIR::Wireable*> below;
