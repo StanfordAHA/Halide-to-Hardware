@@ -4581,7 +4581,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       } else if (lessThan(next.loopLevel, current.loopLevel, f)) {
         transitions.push_back({current, next, atMax(current.loopLevel)});
       } else if (current.loopLevel == next.loopLevel) {
-        transitions.push_back({current, next, unconditional()});
+        // We will handle default transitions later on
+        //transitions.push_back({current, next, unconditional()});
       }
     }
 
@@ -4594,8 +4595,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     map<SWTransition, int> srcStages;
     map<SWTransition, int> dstStages;
     map<SWTransition, int> delays;
-    vector<SWTransition> inStage;
-    vector<SWTransition> outOfStage;
+    //vector<SWTransition> inStage;
+    //vector<SWTransition> outOfStage;
     for (auto t : transitions) {
       int src = sched.getStartStage(t.src.instr);
       int dst = sched.getStartStage(t.dst.instr);
@@ -4607,26 +4608,26 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       srcStages[t] = src;
       dstStages[t] = dst;
       delays[t] = delay;
-      if (src != dst) {
-        outOfStage.push_back(t);
-      } else {
-        if (delay == 0) {
-          inStage.push_back(t);
-        } else {
-          outOfStage.push_back(t);
-        }
-      }
+      //if (src != dst) {
+        //outOfStage.push_back(t);
+      //} else {
+        //if (delay == 0) {
+          //inStage.push_back(t);
+        //} else {
+          //outOfStage.push_back(t);
+        //}
+      //}
     }
 
-    cout << "Out of stage transitions..." << endl;
-    for (auto t : outOfStage) {
-      cout << t << endl;
-    }
-    cout << endl;
-    cout << "Within stage transitions..." << endl;
-    for (auto t : inStage) {
-      cout << t << endl;
-    }
+    //cout << "Out of stage transitions..." << endl;
+    //for (auto t : outOfStage) {
+      //cout << t << endl;
+    //}
+    //cout << endl;
+    //cout << "Within stage transitions..." << endl;
+    //for (auto t : inStage) {
+      //cout << t << endl;
+    //}
 
     map<int, vector<IChunk> > chunks;
     for (auto p : positions) {
