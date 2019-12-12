@@ -4249,8 +4249,21 @@ class LoopCounters {
     std::map<string, Wireable*> loopVarNotAtMax;
 };
 
-LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, LoopNestInfo& loopInfo) {
+//LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, LoopNestInfo& loopInfo) {
+LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
 
+  set<string> allLoopNames;
+  LoopNestInfo loopInfo;
+  for (auto instr : f.structuredOrder()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (!elem(lp.name, allLoopNames)) {
+        loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
+        allLoopNames.insert(lp.name);
+      }
+    }
+  }
+  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
+  
   int width = 16;
   auto c = def->getContext();
   auto self = def->sel("self");
@@ -4847,19 +4860,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   //int width = 16;
 
   // enable on each counter should be wired to the atInstrStart signal?
-  set<string> allLoopNames;
-  LoopNestInfo loopInfo;
-  for (auto instr : f.structuredOrder()) {
-    for (auto lp : instr->surroundingLoops) {
-      if (!elem(lp.name, allLoopNames)) {
-        loopInfo.loops.push_back({lp.name, func_id_const_value(lp.min), func_id_const_value(lp.extent)});
-        allLoopNames.insert(lp.name);
-      }
-    }
-  }
-  cout << "# of levels in loop for control path = " << loopInfo.loops.size() << endl;
-  
-  LoopCounters counters = buildLoopCounters(def, loopInfo);
+  //LoopCounters counters = buildLoopCounters(def, loopInfo);
+  LoopCounters counters = buildLoopCounters(def, f);
 
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
 
