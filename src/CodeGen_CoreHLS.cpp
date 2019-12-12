@@ -4778,17 +4778,32 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   // Find out which loops controllers will be built from the valid signal
   // and which will be built from the clock
   auto reads = allInstrs("rd_stream", f.structuredOrder());
-  if (reads.size() == 1) {
-    auto read = *(begin(reads));
-    ProgramPosition readLoopHead = getHead(read->surroundingLoops.back().name, positions);
-    IChunk c = getChunk(readLoopHead, chunkList);
-    //int idx = chunkIdx(c, chunkList);
-    string level = c.getRep().loopLevel;
-    set<string> earlier = earlierLevels(level, f);
-    cout << "Valid level = " << level << endl;
-    cout << "Earlier levels..." << earlier << endl;
-    internal_assert(false) << "Stopping so dillon can view\n";
+  
+  internal_assert(reads.size() == 1);
+  
+  auto read = *(begin(reads));
+  ProgramPosition readLoopHead = getHead(read->surroundingLoops.back().name, positions);
+  IChunk baseC = getChunk(readLoopHead, chunkList);
+  string level = baseC.getRep().loopLevel;
+  set<string> earlier = earlierLevels(level, f);
+
+  map<string, int> validPulsesPerII;
+  validPulsesPerII[level] = sched.II(level);
+  for (auto s : earlier) {
+    int quot = sched.II(s) * sched.II(level);
+    validPulsesPerII[s] = quot;
   }
+  cout << "Valid level = " << level << endl;
+  cout << "Earlier levels..." << earlier << endl;
+
+  cout << "II intervals as functions of valid arrival:" << endl;
+  for (auto v : validPulsesPerII) {
+    cout << "\t" << v.first << " = " << v.second << " valids" << endl;
+  }
+
+  // For higher (earlier) levels the isActiveWire
+  // should be connected to a counter
+  internal_assert(false) << "Stopping so dillon can view\n";
 
   cout << "Creating transition wires..." << endl;
   map<SWTransition, Wireable*> transitionHappenedWires;
