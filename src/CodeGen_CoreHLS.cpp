@@ -4624,7 +4624,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     for (auto t : transitions) {
       int startChunk = chunkIdx(t.src, chunkList);
       int endChunk = chunkIdx(t.dst, chunkList);
-      if (startChunk != endChunk) {
+      if (startChunk != endChunk || (t.src == t.dst)) {
         relevantTransitions.push_back(t);
       }
     }
