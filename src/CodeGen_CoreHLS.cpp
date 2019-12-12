@@ -4797,9 +4797,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "II intervals as functions of valid arrival:" << endl;
   for (auto v : validPulsesPerII) {
     cout << "\t" << v.first << " = " << v.second << " valids" << endl;
-    if (v.second > 1) {
-      internal_assert(false);
-    }
   }
 
   // For higher (earlier) levels the isActiveWire
@@ -4828,37 +4825,37 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       transitionCondition =
         map_get(t.src.loopLevel, counters.loopVarNotAtMax);
     }
-    if (t.src == t.dst) {
-      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
-      // For the outer loop (say y) the transition condition is not that !(y.atMax()) && in_en, because
-      // in_en pulses x times for each time that we want to update y, because in_en indicates the inner
-      // loop being active.
-      //
-      // What we want for the transition condition is !(y.atMax()) && (in_en has come in x times since the last activation).
-      // So maybe the way get this signal is to have an extra counter which counts when in_en arrives.
-      // The shift registers that create all of these delays in the CFSM express delay as a function of time (number of clock edges), what we want
-      // is to be able to write the delay from one activation of stage_y to another as a function of the number of activations of
-      // stage_x.
-      //
-      // So in general the algorithm should be something like:
-      // Find the stream read in the kernel
-      // Find the chunk of that stream read
-      // Set that chunk active signal to be the valid signal
-      // Find the loop level of that chunk
-      // Find all loop levels above that chunk
-      // For each of those loop levels write the II (clock edge delay) as a function of
-      //   the 
-      auto cond = andList(def, {transitionCondition, def->sel("self.in_en")});
-      transitionHappenedWires[t] = cond;
-      //transitionHappenedWires[t] = def->sel("self.in_en");
-    } else {
+    //if (t.src == t.dst) {
+      ////def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
+      //// For the outer loop (say y) the transition condition is not that !(y.atMax()) && in_en, because
+      //// in_en pulses x times for each time that we want to update y, because in_en indicates the inner
+      //// loop being active.
+      ////
+      //// What we want for the transition condition is !(y.atMax()) && (in_en has come in x times since the last activation).
+      //// So maybe the way get this signal is to have an extra counter which counts when in_en arrives.
+      //// The shift registers that create all of these delays in the CFSM express delay as a function of time (number of clock edges), what we want
+      //// is to be able to write the delay from one activation of stage_y to another as a function of the number of activations of
+      //// stage_x.
+      ////
+      //// So in general the algorithm should be something like:
+      //// Find the stream read in the kernel
+      //// Find the chunk of that stream read
+      //// Set that chunk active signal to be the valid signal
+      //// Find the loop level of that chunk
+      //// Find all loop levels above that chunk
+      //// For each of those loop levels write the II (clock edge delay) as a function of
+      ////   the 
+      //auto cond = andList(def, {transitionCondition, def->sel("self.in_en")});
+      //transitionHappenedWires[t] = cond;
+      ////transitionHappenedWires[t] = def->sel("self.in_en");
+    //} else {
       auto h =
         map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
       auto cond = andList(def, {transitionCondition, h});
       transitionHappenedWires[t] = cond;
       def->connect(map_get(t, transitionHappenedInputs)->sel("in"), cond);
       //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
-    }
+    //}
   }
 
   cout << "Connecting stage active wires..." << endl;
@@ -4881,17 +4878,23 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
 
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
-  auto self = def->sel("self");
-  for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
-    vector<CoreIR::Wireable*> below;
-    for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
-      below.push_back(counters.levelAtMax[j]->sel("out"));
-    }
-    CoreIR::Wireable* shouldInc = andList(def, below);
-    def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
+  //auto self = def->sel("self");
+  //for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
+    //vector<CoreIR::Wireable*> below;
+    //for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
+      //below.push_back(counters.levelAtMax[j]->sel("out"));
+    //}
+    //CoreIR::Wireable* shouldInc = andList(def, below);
+    //def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
+   
+  for (auto loopLevel : loopNames(f.structuredOrder())) {
+    ProgramPosition readLoopHead = getHead(loopLevel, positions);
+    IChunk baseC = getChunk(readLoopHead, chunkList);
+    int updateStage = chunkIdx(baseC, chunkList);
+    def->connect(counters.loopVarNames[loopLevel]->sel("en"),
+        isActiveWires[updateStage]->sel("out"));
   }
-  def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
-
+  //def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
   controlPath->setDef(def);
 
   cp.m = controlPath;
