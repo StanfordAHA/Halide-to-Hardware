@@ -4904,20 +4904,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   for (auto c : chunkList) {
     cout << "Connecting stage for chunk: " << c.stage << ", " << c.instrs << endl;
-    vector<Wireable*> transitionWires;
-    for (auto t : relevantTransitions) {
-      if (getChunk(t.dst, chunkList) == c) {
-        transitionWires.push_back(map_get(t, transitionHappenedWires));
-      }
-    }
-    cout << "Creating isActive vaue for chunk" << endl;
-    internal_assert(transitionWires.size() > 0) << "No transition wires for chunk\n";
-    auto isActive = andList(def, transitionWires);
-    def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
-
-    internal_assert(contains_key(chunkIdx(c, chunkList), isActiveWires)) << chunkIdx(c, chunkList) << " is not in activeWires\n";
-    def->connect(map_get(chunkIdx(c, chunkList), isActiveWires)->sel("out"), def->sel(cp.activeSignal(c)));
-    
     if (c.containsHeader()) {
       // TODO: Check if this is an outer loop level or not
       string name = c.getRep().loopLevel;
@@ -4934,7 +4920,23 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       CoreIR::Wireable* shouldInc = andList(def, below);
       int i = counters.index(name);
       def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
+
+    } 
+
+    vector<Wireable*> transitionWires;
+    for (auto t : relevantTransitions) {
+      if (getChunk(t.dst, chunkList) == c) {
+        transitionWires.push_back(map_get(t, transitionHappenedWires));
+      }
     }
+    cout << "Creating isActive vaue for chunk" << endl;
+    internal_assert(transitionWires.size() > 0) << "No transition wires for chunk\n";
+    auto isActive = andList(def, transitionWires);
+    def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
+
+    internal_assert(contains_key(chunkIdx(c, chunkList), isActiveWires)) << chunkIdx(c, chunkList) << " is not in activeWires\n";
+    def->connect(map_get(chunkIdx(c, chunkList), isActiveWires)->sel("out"), def->sel(cp.activeSignal(c)));
+
   }
    
   controlPath->setDef(def);
