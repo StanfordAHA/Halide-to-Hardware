@@ -4897,6 +4897,10 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
 
   cout << "Connecting stage active wires..." << endl;
+  
+  cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
+  auto self = def->sel("self");
+  auto in_en = self->sel("in_en");
 
   for (auto c : chunkList) {
     cout << "Connecting stage for chunk: " << c.stage << ", " << c.instrs << endl;
@@ -4913,68 +4917,26 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
     internal_assert(contains_key(chunkIdx(c, chunkList), isActiveWires)) << chunkIdx(c, chunkList) << " is not in activeWires\n";
     def->connect(map_get(chunkIdx(c, chunkList), isActiveWires)->sel("out"), def->sel(cp.activeSignal(c)));
-  }
-
-  cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
-  auto self = def->sel("self");
-  auto in_en = self->sel("in_en");
-  for (auto c : chunkList) {
+    
     if (c.containsHeader()) {
       // TODO: Check if this is an outer loop level or not
       string name = c.getRep().loopLevel;
-      int i = counters.index(name);
       vector<CoreIR::Wireable*> below;
-      //for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
-        //below.push_back(counters.levelAtMax[j]->sel("out"));
-      //}
-
-      //vector<CoreIR::Wireable*> belowLT;
       for (auto lp : loopNames(f.structuredOrder())) {
         if (lessThan(name, lp, f)) {
           below.push_back(counters.levelAtMax[counters.index(lp)]->sel("out"));
         }
       }
 
-      //int iSize = CoreIR::intersection(belowLT, below).size();
-      //if (iSize != belowLT.size() || iSize != below.size()) {
-        //cout << "Error: lessThan com produces different loops in below than old indexed version" << endl;
-        //cout << "belowLT = " << belowLT << endl;
-        //cout << "below   = " << below << endl;
-        //internal_assert(false);
-      //}
-
       if (below.size() == 0) {
         below.push_back(in_en);
       }
       CoreIR::Wireable* shouldInc = andList(def, below);
+      int i = counters.index(name);
       def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
-
-      //vector<CoreIR::Wireable*> belowLT;
-      //for (auto lp : loopNames(f.structuredOrder())) {
-        //if (lessThan(name, lp, f)) {
-          //belowLT.push_back(counters.levelAtMax[counters.index(name)]->sel("out"));
-        //}
-      //}
-      //if (below.size() == 0) {
-        //below.push_back(in_en);
-      //}
-      //CoreIR::Wireable* shouldInc = andList(def, below);
-      //def->connect(counters.loopLevelCounters[counters.index(name)]->sel("en"), shouldInc);
     }
   }
    
-  //def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
-  //for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
-    //vector<CoreIR::Wireable*> below;
-    //for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
-      //below.push_back(counters.levelAtMax[j]->sel("out"));
-    //}
-    //CoreIR::Wireable* shouldInc = andList(def, below);
-    //def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
-  //}
-   
-  //def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
-  
   controlPath->setDef(def);
 
   cp.m = controlPath;
