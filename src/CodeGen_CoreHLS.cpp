@@ -4487,6 +4487,18 @@ class LoopCounters {
     std::map<string, Wireable*> loopVarNotAtMax;
 };
 
+Instance* buildCounter(CoreIR::ModuleDef* def, const std::string& name, int min_value, int max_value, int inc) {
+  auto c = def->getContext();
+  int width = 16;
+  CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+    {"min",CoreIR::Const::make(c, min_value)},
+    {"max",CoreIR::Const::make(c, max_value)},
+    {"inc",CoreIR::Const::make(c, inc)}};
+
+  CoreIR::Instance* counter_inst = def->addInstance(name, "commonlib.counter", args);
+  return counter_inst;
+}
+
 //LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, LoopNestInfo& loopInfo) {
 LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
 
@@ -4507,23 +4519,19 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
   auto self = def->sel("self");
 
   LoopCounters counters;
-  //std::vector<CoreIR::Wireable*> loopLevelCounters;
-  //std::vector<CoreIR::Wireable*> levelAtMax;
-  //std::map<std::string, Instance*> loopVarNames;
-  //std::map<string, Wireable*> loopVarAtMax;
-  //std::map<string, Wireable*> loopVarNotAtMax;
   for (auto l : loopInfo.loops) {
     int min_value = l.min;
     int max_value = min_value + l.extent - 1;
     int inc_value = 1;
 
-    CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
-      {"min",CoreIR::Const::make(c, min_value)},
-      {"max",CoreIR::Const::make(c, max_value)},
-      {"inc",CoreIR::Const::make(c, inc_value)}};
-
     string varName = coreirSanitize(l.name);
-    CoreIR::Instance* counter_inst = def->addInstance(varName, "commonlib.counter", args);
+    auto counter_inst = buildCounter(def, varName, min_value, max_value, inc_value);
+    //CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+      //{"min",CoreIR::Const::make(c, min_value)},
+      //{"max",CoreIR::Const::make(c, max_value)},
+      //{"inc",CoreIR::Const::make(c, inc_value)}};
+
+    //CoreIR::Instance* counter_inst = def->addInstance(varName, "commonlib.counter", args);
     counters.loopVarNames[l.name] = counter_inst;
     counters.loopLevelCounters.push_back(counter_inst);
 
@@ -4833,37 +4841,37 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       transitionCondition =
         map_get(t.src.loopLevel, counters.loopVarNotAtMax);
     }
-    //if (t.src == t.dst) {
-      ////def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
-      //// For the outer loop (say y) the transition condition is not that !(y.atMax()) && in_en, because
-      //// in_en pulses x times for each time that we want to update y, because in_en indicates the inner
-      //// loop being active.
-      ////
-      //// What we want for the transition condition is !(y.atMax()) && (in_en has come in x times since the last activation).
-      //// So maybe the way get this signal is to have an extra counter which counts when in_en arrives.
-      //// The shift registers that create all of these delays in the CFSM express delay as a function of time (number of clock edges), what we want
-      //// is to be able to write the delay from one activation of stage_y to another as a function of the number of activations of
-      //// stage_x.
-      ////
-      //// So in general the algorithm should be something like:
-      //// Find the stream read in the kernel
-      //// Find the chunk of that stream read
-      //// Set that chunk active signal to be the valid signal
-      //// Find the loop level of that chunk
-      //// Find all loop levels above that chunk
-      //// For each of those loop levels write the II (clock edge delay) as a function of
-      ////   the 
+    if (t.src == t.dst) {
+      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), def->sel("self.in_en"));
+      // For the outer loop (say y) the transition condition is not that !(y.atMax()) && in_en, because
+      // in_en pulses x times for each time that we want to update y, because in_en indicates the inner
+      // loop being active.
+      //
+      // What we want for the transition condition is !(y.atMax()) && (in_en has come in x times since the last activation).
+      // So maybe the way get this signal is to have an extra counter which counts when in_en arrives.
+      // The shift registers that create all of these delays in the CFSM express delay as a function of time (number of clock edges), what we want
+      // is to be able to write the delay from one activation of stage_y to another as a function of the number of activations of
+      // stage_x.
+      //
+      // So in general the algorithm should be something like:
+      // Find the stream read in the kernel
+      // Find the chunk of that stream read
+      // Set that chunk active signal to be the valid signal
+      // Find the loop level of that chunk
+      // Find all loop levels above that chunk
+      // For each of those loop levels write the II (clock edge delay) as a function of
+      //   the 
       //auto cond = andList(def, {transitionCondition, def->sel("self.in_en")});
       //transitionHappenedWires[t] = cond;
-      ////transitionHappenedWires[t] = def->sel("self.in_en");
-    //} else {
-      auto h =
-        map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
-      auto cond = andList(def, {transitionCondition, h});
-      transitionHappenedWires[t] = cond;
-      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), cond);
-      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
-    //}
+      transitionHappenedWires[t] = def->sel("self.in_en");
+    } else {
+      //auto h =
+        //map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
+      //auto cond = andList(def, {transitionCondition, h});
+      //transitionHappenedWires[t] = cond;
+      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), cond);
+      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
+    }
   }
 
   cout << "Connecting stage active wires..." << endl;
@@ -4886,23 +4894,25 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
 
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
-  //auto self = def->sel("self");
-  //for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
-    //vector<CoreIR::Wireable*> below;
-    //for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
-      //below.push_back(counters.levelAtMax[j]->sel("out"));
-    //}
-    //CoreIR::Wireable* shouldInc = andList(def, below);
-    //def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
-   
-  for (auto loopLevel : loopNames(f.structuredOrder())) {
-    ProgramPosition readLoopHead = getHead(loopLevel, positions);
-    IChunk baseC = getChunk(readLoopHead, chunkList);
-    int updateChunk = chunkIdx(baseC, chunkList);
-    def->connect(counters.loopVarNames[loopLevel]->sel("en"),
-        isActiveWires[updateChunk]->sel("out"));
+  auto self = def->sel("self");
+  for (int i = 0; i < ((int) counters.loopLevelCounters.size()) - 1; i++) {
+    vector<CoreIR::Wireable*> below;
+    for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
+      below.push_back(counters.levelAtMax[j]->sel("out"));
+    }
+    CoreIR::Wireable* shouldInc = andList(def, below);
+    def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
   }
-  //def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
+   
+  def->connect(counters.loopLevelCounters.back()->sel("en"), self->sel("in_en"));
+  
+  //for (auto loopLevel : loopNames(f.structuredOrder())) {
+    //ProgramPosition readLoopHead = getHead(loopLevel, positions);
+    //IChunk baseC = getChunk(readLoopHead, chunkList);
+    //int updateChunk = chunkIdx(baseC, chunkList);
+    //def->connect(counters.loopVarNames[loopLevel]->sel("en"),
+        //isActiveWires[updateChunk]->sel("out"));
+  //}
   controlPath->setDef(def);
 
   cp.m = controlPath;
