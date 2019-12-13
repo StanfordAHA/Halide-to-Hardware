@@ -4586,7 +4586,7 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
 
   auto& f = *(sched.f);
   set<string> headLevelsSeen;
-  set<string> tailLevelsSeen;
+  //set<string> tailLevelsSeen;
   vector<ProgramPosition> positions;
   for (auto blk : getIBlockList(f)) {
     if (blk.isEntry()) {
@@ -4596,8 +4596,11 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
     bool h = isHeader(blk, f);
     bool t = isTail(blk, f);
     for (auto instr : blk.instrs) {
+      cout << "Creating positions for " << *instr << endl;
+
       internal_assert(instr->surroundingLoops.size() > 0);
       if (h && (head(blk) == instr)) {
+        cout << "\tIs head of header" << endl;
         for (auto lp : instr->surroundingLoops) {
           string loopName = lp.name;
           if (!elem(loopName, headLevelsSeen)) {
@@ -4608,18 +4611,20 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
       }
 
       if (t && (tail(blk) == instr)) {
+        cout << "\tIs tail of tail" << endl;
         auto surrounding = instr->surroundingLoops;
         CoreIR::reverse(surrounding);
         for (auto lp : surrounding) {
           string loopName = lp.name;
-          if (!elem(loopName, tailLevelsSeen)) {
+          if (elem(loopName, headLevelsSeen)) {
             positions.push_back({instr, loopName, false, true});
-            tailLevelsSeen.insert(loopName);
+            //tailLevelsSeen.insert(loopName);
           }
         }
       }
 
       if (!(t && (tail(blk) == instr)) && !(h && (head(blk) == instr))) {
+        cout << "Not head of header or tail of tail" << endl;
         string ll = instr->surroundingLoops.back().name;
         positions.push_back({instr, ll, false, false});
       }
