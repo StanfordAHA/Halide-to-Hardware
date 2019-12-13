@@ -4809,14 +4809,14 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // TODO: Add *and* with transition condition here
     // TODO: For more complex control paths we will need to check
     if (t.src == t.dst) {
-      internal_assert(false);
+      //internal_assert(false);
     } else {
       int delay = map_get(t, delays);
       vector<Instance*> regs =
         pipelineRegisterChain(def, "transition_" + def->getContext()->getUnique() + "_" + to_string(delay), def->getContext()->Bit(), delay);
       cout << "Created pipeline chain" << endl;
       transitionHappenedWires[t] = regs.back()->sel("out");
-      def->connect(map_get(t, regs[0])->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
+      def->connect(regs[0]->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
     }
   }
 
