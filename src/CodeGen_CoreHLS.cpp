@@ -4819,34 +4819,34 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   // Find out which loops controllers will be built from the valid signal
   // and which will be built from the clock
-  auto reads = allInstrs("rd_stream", f.structuredOrder());
+  //auto reads = allInstrs("rd_stream", f.structuredOrder());
 
-  ProgramPosition readLoopHead;
-  if (reads.size() == 1) {
-    internal_assert(reads.size() == 1);
-    auto read = *(begin(reads));
-    readLoopHead = getHead(read->surroundingLoops.back().name, positions);
-  } else {
-    internal_assert(f.structuredOrder().size() > 0);
-    readLoopHead = getHead(f.structuredOrder()[0]->surroundingLoops.back().name, positions);
-  }
-  IChunk baseC = getChunk(readLoopHead, chunkList);
-  string level = baseC.getRep().loopLevel;
-  set<string> earlier = earlierLevels(level, f);
+  //ProgramPosition readLoopHead;
+  //if (reads.size() == 1) {
+    //internal_assert(reads.size() == 1);
+    //auto read = *(begin(reads));
+    //readLoopHead = getHead(read->surroundingLoops.back().name, positions);
+  //} else {
+    //internal_assert(f.structuredOrder().size() > 0);
+    //readLoopHead = getHead(f.structuredOrder()[0]->surroundingLoops.back().name, positions);
+  //}
+  //IChunk baseC = getChunk(readLoopHead, chunkList);
+  //string level = baseC.getRep().loopLevel;
+  //set<string> earlier = earlierLevels(level, f);
 
-  map<string, int> validPulsesPerII;
-  validPulsesPerII[level] = sched.II(level);
-  for (auto s : earlier) {
-    int quot = sched.II(s) * sched.II(level);
-    validPulsesPerII[s] = quot;
-  }
-  cout << "Valid level = " << level << endl;
-  cout << "Earlier levels..." << earlier << endl;
+  //map<string, int> validPulsesPerII;
+  //validPulsesPerII[level] = sched.II(level);
+  //for (auto s : earlier) {
+    //int quot = sched.II(s) * sched.II(level);
+    //validPulsesPerII[s] = quot;
+  //}
+  //cout << "Valid level = " << level << endl;
+  //cout << "Earlier levels..." << earlier << endl;
 
-  cout << "II intervals as functions of valid arrival:" << endl;
-  for (auto v : validPulsesPerII) {
-    cout << "\t" << v.first << " = " << v.second << " valids" << endl;
-  }
+  //cout << "II intervals as functions of valid arrival:" << endl;
+  //for (auto v : validPulsesPerII) {
+    //cout << "\t" << v.first << " = " << v.second << " valids" << endl;
+  //}
 
   // Do I want to phrase each transition in
   // terms of the valid signals, or do I want to
