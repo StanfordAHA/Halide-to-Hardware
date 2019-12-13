@@ -4766,16 +4766,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
   auto c = f.mod->getContext();
 
-  //set<string> outerLoops;
-  //if (f.structuredOrder().size() > 0) {
-    //HWInstr* base = f.structuredOrder()[0];
-    //for (auto lp : base->surroundingLoops) {
-      //outerLoops.insert(lp.name);
-    //}
-  //}
-
-  //cout << "Outer loops: " << outerLoops << endl;
-
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
   for (int i = 0; i < (int) chunkList.size(); i++) {
@@ -4804,12 +4794,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
-  //internal_assert(sched.numLinearStages() >= 0);
-  //set<int> stages;
-  //for (int i = 0; i < sched.numLinearStages(); i++) {
-    //stages.insert(i);
-  //}
-
   cout << "Creating activewires..." << endl;
   auto context = def->getContext();
   map<int, Instance*> isActiveWires;
@@ -4821,38 +4805,18 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   cout << "Creating transition wires..." << endl;
   map<SWTransition, Wireable*> transitionHappenedWires;
-  map<SWTransition, Instance*> transitionHappenedInputs;
   for (auto t : relevantTransitions) {
-    int delay = map_get(t, delays);
-    vector<Instance*> regs =
-      pipelineRegisterChain(def, "transition_" + def->getContext()->getUnique() + "_" + to_string(delay), def->getContext()->Bit(), delay);
-    cout << "Created pipeline chain" << endl;
-    transitionHappenedInputs[t] = regs[0];
-    transitionHappenedWires[t] = regs.back()->sel("out");
-
     // TODO: Add *and* with transition condition here
     // TODO: For more complex control paths we will need to check
-    // if src and dst correspond to top level loops
-    //Wireable* transitionCondition =
-      //def->addInstance("unconditional_transition" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out");
-    //if (t.cond.isAtMax()) {
-      //transitionCondition =
-        //map_get(t.src.loopLevel, counters.loopVarAtMax);
-    //} else if (t.cond.isNotAtMax()) {
-      //transitionCondition =
-        //map_get(t.src.loopLevel, counters.loopVarNotAtMax);
-    //}
     if (t.src == t.dst) {
-      //auto cond = andList(def, {transitionCondition, def->sel("self.in_en")});
-      //transitionHappenedWires[t] = cond;
-      //transitionHappenedWires[t] = def->sel("self.in_en");
+      internal_assert(false);
     } else {
-      //auto h =
-        //map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
-      //auto cond = andList(def, {transitionCondition, h});
-      //transitionHappenedWires[t] = cond;
-      //def->connect(map_get(t, transitionHappenedInputs)->sel("in"), cond);
-      def->connect(map_get(t, transitionHappenedInputs)->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
+      int delay = map_get(t, delays);
+      vector<Instance*> regs =
+        pipelineRegisterChain(def, "transition_" + def->getContext()->getUnique() + "_" + to_string(delay), def->getContext()->Bit(), delay);
+      cout << "Created pipeline chain" << endl;
+      transitionHappenedWires[t] = regs.back()->sel("out");
+      def->connect(map_get(t, regs[0])->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
     }
   }
 
