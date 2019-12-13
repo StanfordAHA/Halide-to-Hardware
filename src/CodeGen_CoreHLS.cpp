@@ -4800,6 +4800,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
   CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
   cp.m = controlPath;
+
   cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
@@ -4832,19 +4833,19 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // TODO: Add *and* with transition condition here
     // TODO: For more complex control paths we will need to check
     // if src and dst correspond to top level loops
-    Wireable* transitionCondition =
-      def->addInstance("unconditional_transition" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out");
-    if (t.cond.isAtMax()) {
-      transitionCondition =
-        map_get(t.src.loopLevel, counters.loopVarAtMax);
-    } else if (t.cond.isNotAtMax()) {
-      transitionCondition =
-        map_get(t.src.loopLevel, counters.loopVarNotAtMax);
-    }
+    //Wireable* transitionCondition =
+      //def->addInstance("unconditional_transition" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out");
+    //if (t.cond.isAtMax()) {
+      //transitionCondition =
+        //map_get(t.src.loopLevel, counters.loopVarAtMax);
+    //} else if (t.cond.isNotAtMax()) {
+      //transitionCondition =
+        //map_get(t.src.loopLevel, counters.loopVarNotAtMax);
+    //}
     if (t.src == t.dst) {
       //auto cond = andList(def, {transitionCondition, def->sel("self.in_en")});
       //transitionHappenedWires[t] = cond;
-      transitionHappenedWires[t] = def->sel("self.in_en");
+      //transitionHappenedWires[t] = def->sel("self.in_en");
     } else {
       //auto h =
         //map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
