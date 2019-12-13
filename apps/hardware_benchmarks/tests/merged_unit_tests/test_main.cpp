@@ -1605,6 +1605,20 @@ void small_conv_3_3_not_unrolled_test() {
     auto m = buildModule(name, context, "coreir_curve", args, "curve", hw_output);
     cout << "Compute kernel_0" << endl;
     m->print();
+
+    SimulatorState state(m);
+    vector<string> inputNames;
+    string baseName = "self.hw_input_stencil_stream";
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        inputNames.push_back(baseName + "_" + to_string(i) + "_" + to_string(j));
+      }
+    }
+    resetSim(inputNames, m, state);
+
+    assert(state.getBitVec("self.conv_stencil_stream_0_0") == BitVec(16, 0));
+    assert(state.getBitVec("self.valid") == BitVec(1, 0));
+
     PRINT_PASSED("One valid in, one valid out");
     assert(false);
   } 

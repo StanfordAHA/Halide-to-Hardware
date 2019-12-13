@@ -17,7 +17,6 @@ bool hasClock(CoreIR::Module* m) {
 }
 
 static inline
-//void resetSim(const std::string& inputName, CoreIR::Module* m, CoreIR::SimulatorState& state) {
 void resetSim(const std::vector<std::string>& inputNames, CoreIR::Module* m, CoreIR::SimulatorState& state) {
 
   for (auto inputName : inputNames) {
