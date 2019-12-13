@@ -4741,6 +4741,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     }
   }
 
+  // Delete transitions for valid loops -> valid loops?
+
   // Now: classify transitions by start and end stage + delay
   map<SWTransition, int> srcStages;
   map<SWTransition, int> dstStages;
@@ -4764,15 +4766,15 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
   auto c = f.mod->getContext();
 
-  set<string> outerLoops;
-  if (f.structuredOrder().size() > 0) {
-    HWInstr* base = f.structuredOrder()[0];
-    for (auto lp : base->surroundingLoops) {
-      outerLoops.insert(lp.name);
-    }
-  }
+  //set<string> outerLoops;
+  //if (f.structuredOrder().size() > 0) {
+    //HWInstr* base = f.structuredOrder()[0];
+    //for (auto lp : base->surroundingLoops) {
+      //outerLoops.insert(lp.name);
+    //}
+  //}
 
-  cout << "Outer loops: " << outerLoops << endl;
+  //cout << "Outer loops: " << outerLoops << endl;
 
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
