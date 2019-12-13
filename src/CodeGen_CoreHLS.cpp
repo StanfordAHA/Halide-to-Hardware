@@ -4630,6 +4630,18 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
   for (auto p : positions) {
     cout << p << endl;
   }
+
+  for (auto instr : f.structuredOrder()) {
+    bool found = false;
+    for (auto p : positions) {
+      if (p.instr == instr) {
+        found = true;
+        break;
+      }
+    }
+
+    internal_assert(found) << "Did not create position containing: " << *instr << "\n";
+  }
   return positions;
 }
 
