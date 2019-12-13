@@ -4924,19 +4924,35 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       string name = c.getRep().loopLevel;
       int i = counters.index(name);
       vector<CoreIR::Wireable*> below;
-      for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
-        below.push_back(counters.levelAtMax[j]->sel("out"));
+      //for (int j = i + 1; j < (int) counters.loopLevelCounters.size(); j++) {
+        //below.push_back(counters.levelAtMax[j]->sel("out"));
+      //}
+
+      //vector<CoreIR::Wireable*> belowLT;
+      for (auto lp : loopNames(f.structuredOrder())) {
+        if (lessThan(name, lp, f)) {
+          below.push_back(counters.levelAtMax[counters.index(lp)]->sel("out"));
+        }
       }
+
+      //int iSize = CoreIR::intersection(belowLT, below).size();
+      //if (iSize != belowLT.size() || iSize != below.size()) {
+        //cout << "Error: lessThan com produces different loops in below than old indexed version" << endl;
+        //cout << "belowLT = " << belowLT << endl;
+        //cout << "below   = " << below << endl;
+        //internal_assert(false);
+      //}
+
       if (below.size() == 0) {
         below.push_back(in_en);
       }
       CoreIR::Wireable* shouldInc = andList(def, below);
       def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
 
-      //vector<CoreIR::Wireable*> below;
+      //vector<CoreIR::Wireable*> belowLT;
       //for (auto lp : loopNames(f.structuredOrder())) {
         //if (lessThan(name, lp, f)) {
-          //below.push_back(counters.levelAtMax[counters.index(name)]->sel("out"));
+          //belowLT.push_back(counters.levelAtMax[counters.index(name)]->sel("out"));
         //}
       //}
       //if (below.size() == 0) {
