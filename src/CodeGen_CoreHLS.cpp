@@ -3728,7 +3728,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   vector<NestSchedule> schedules;
   int tc0 = tripCountInt(nestVars[0], f);
   int latency0 = fSched.getScheduleFor(head(deepest)).cycleLatency();
-  schedules.push_back({nestVars[0], 1, latency0, tc0});
+  schedules.push_back({nestVars[0], latency0 + 1, latency0, tc0});
 
   for (int i = 1; i < (int) nestVars.size(); i++) {
     // Create nest schedule
