@@ -2340,6 +2340,10 @@ bool lessThan(const std::string& ll0, const std::string& ll1, HWFunction& f) {
   return false;
 }
 
+bool lessThanOrEqual(const std::string& ll0, const std::string& ll1, HWFunction& f) {
+  return lessThan(ll0, ll1, f) || (ll0 == ll1);
+}
+
 set<string> earlierLevels(const std::string& ll, HWFunction& f) {
   set<string> earlier;
   for (auto instr : f.structuredOrder()) {
@@ -4805,24 +4809,66 @@ Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
   //return cs + bd + sched.getEndStage(instr);
 }
 
-Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
-  auto positions = buildProgramPositions(sched);
-  vector<SWTransition> transitions =
-    hwTransitions(sched);
-
-  Expr startTime = Expr(0);
-  ProgramPosition startPos;
-  bool foundStart = false;
-  for (auto pos : positions) {
-    if (pos.isOp() && pos.instr == instr) {
-      startPos = pos;
-      foundStart = true;
-      break;
+Expr tripCount(std::string loop, HWInstr* instr) {
+  for (auto lp : instr->surroundingLoops) {
+    if (lp.name == loop) {
+      return lp.extent;
     }
   }
+  internal_assert(false) << "no trip count for " << loop << " in " << *instr << "\n";
+  return Expr(0);
+}
+
+vector<SWTransition> outTransitions(const ProgramPosition& pos, const vector<SWTransition>& transitions) {
+  vector<SWTransition> outs;
+  for (auto t : transitions) {
+    if (t.src == pos) {
+      outs.push_back(t);
+    }
+  }
+  return outs;
+}
+
+Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
+  string instrLoopLevel = instr->surroundingLoops.back().name;
+
+  auto f = *(sched.f);
+  auto positions = buildProgramPositions(sched);
+  auto transitions = hwTransitions(sched);
+
+  internal_assert(positions.size() > 0) << "no program positions\n";
+
+  Expr startTime = Expr(0);
+  int i = 0;
+  ProgramPosition pos = positions[i];
+  bool foundTarget = false;
+  do {
+    bool currentPosIsTarget = pos.isOp() && (pos.instr == instr);
+
+    auto outgoing =
+      outTransitions(pos, transitions);
+
+    if (pos.isHead()) {
+      for (auto t : outgoing) {
+        if (t.src == t.dst) {
+          if (pos.isHead() && lessThanOrEqual(pos.loopLevel, instrLoopLevel, f)) {
+            startTime += sched.II(pos.loopLevel)*(Variable::make(Int(32), pos.loopLevel));
+          } else if (pos.isHead() && lessThan(pos.loopLevel, instrLoopLevel, f)) {
+            startTime += sched.II(pos.loopLevel)*(tripCount(pos.loopLevel, instr) - 1);
+          }
+        }
+      }
+    }
+
+    foundTarget = currentPosIsTarget;
+
+    pos = positions[i];
+    i++;
+
+  } while (!foundTarget);
 
   cout << "Start time for " << *instr << " = " << startTime << endl;
-  internal_assert(foundStart) << "could not find start time for " << *instr << "\n";
+  internal_assert(foundTarget) << "could not find start time for " << *instr << "\n";
 
   Expr cs = containerIterationStart(instr, sched);
   Expr bd = delayFromIterationStartToInstr(instr, sched);
