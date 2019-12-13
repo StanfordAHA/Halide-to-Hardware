@@ -4801,16 +4801,15 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
-  internal_assert(sched.numLinearStages() >= 0);
-  set<int> stages;
-  for (int i = 0; i < sched.numLinearStages(); i++) {
-    stages.insert(i);
-  }
+  //internal_assert(sched.numLinearStages() >= 0);
+  //set<int> stages;
+  //for (int i = 0; i < sched.numLinearStages(); i++) {
+    //stages.insert(i);
+  //}
 
   cout << "Creating activewires..." << endl;
   auto context = def->getContext();
   map<int, Instance*> isActiveWires;
-  //for (auto s : stages) {
   for (int i = 0; i < (int) chunkList.size(); i++) {
     isActiveWires[i] = def->addInstance("stage_" + to_string(i) + "_is_active", "halidehw.passthrough", {{"type", COREMK(context, context->Bit())}});
   }
