@@ -76,6 +76,19 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     return result;
 }
 
+std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+
 // Perform sliding window optimization for a function over a
 // particular serial for loop
 class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
@@ -131,6 +144,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
             for (int i = 0; i < func.dimensions(); i++) {
+              std::cout << "looking at dim " << i << " for " << func.name() << std::endl;
+              
                 // Look up the region required of this function's last stage
                 string var = prefix + func_args[i];
                 internal_assert(scope.contains(var + ".min") && scope.contains(var + ".max"));
@@ -208,7 +223,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
 
             if (!can_slide_up && !can_slide_down) {
                 debug(3) << "Not sliding " << func.name()
-                         << " over dimension " << dim
+                         << " over dimension " << dim << "=" << std::to_string(dim_idx)
                          << " along loop variable " << loop_var
                          << " because I couldn't prove it moved monotonically along that dimension\n"
                          << "Min is " << min_required << "\n"
@@ -239,11 +254,13 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator2 {
             //Expr input_chunk_size = simplify(expand_expr(max_required + 1 - prev_max_plus_one, scope));
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
             input_chunk_size = is_zero(input_chunk_size) ? 1 : input_chunk_size;
-            std::cout << "input stencil: " << input_chunk_size << std::endl;
-            input_chunk_box.push_back(input_chunk_size);
+            std::cout << "input stencil: " << input_chunk_size << " for dim_idx=" << dim_idx << std::endl;
+            input_chunk_box.emplace_back(input_chunk_size);
+            //input_chunk_box[dim_idx] = input_chunk_size;
+            std::cout << "input chunk so far for " << func.name() << " is " << input_chunk_box << std::endl;
 
             std::cout << "Sliding " << func.name()
-                      << " over dimension " << dim
+                      << " over dimension " << dim << "=" << std::to_string(dim_idx)
                       << " along loop variable " << loop_var << "\n"
                       << " where min=" << min_required << "  max=" << max_required
                       << " max_prev_plus_one=" << prev_max_plus_one << "\n"
@@ -372,7 +389,9 @@ public:
     std::vector<Expr> output_min_pos;
     std::vector<Expr> input_chunk_box;
     SlidingWindowOnFunctionAndLoop(Function f, string v, Expr v_min) :
-      func(f), loop_var(v), loop_min(v_min) {}
+      func(f), loop_var(v), loop_min(v_min) {
+      //input_chunk_box = std::vector<Expr>(2);
+    }
 
     // define the copy constructor without Scope (whose copy constructor is private)
     SlidingWindowOnFunctionAndLoop(const SlidingWindowOnFunctionAndLoop &obj) {
