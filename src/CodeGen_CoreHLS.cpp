@@ -2107,11 +2107,14 @@ class FunctionSchedule {
       if (blockSchedules.size() == 0) {
         return 0;
       }
+
       set<HWInstr*> streamReads = allInstrs("rd_stream", body());
       set<HWInstr*> streamWrites = allInstrs("write_stream", body());
       int validDelay = 0;
+
       internal_assert(streamWrites.size() == 1 ||
           streamWrites.size() == 0);
+
       if (streamWrites.size() == 1) {
         HWInstr* read = *begin(streamReads);
         HWInstr* write = *begin(streamWrites);
@@ -2121,7 +2124,6 @@ class FunctionSchedule {
         cout << "\tSymbolic latency  : " << latency << endl;
         Expr simplifiedLatency = simplify(latency);
         cout << "\tSimplified latency: " << simplifiedLatency << endl;
-        //internal_assert(false);
 
         validDelay = func_id_const_value(simplifiedLatency);
       } else {
