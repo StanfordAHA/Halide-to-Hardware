@@ -3879,7 +3879,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     string curveName = m.first.substr(1, m.first.size() - 2);
     //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
-    //Json romVals;
     nlohmann::json romVals;
     for (int i = 0; i < (int) values.size(); i++) {
       //cout << "Getting " << i << " from " << values << endl;
@@ -6520,9 +6519,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       }
     }
   }
-  ofstream interfaceInfo("accel_interface_info.json");
-  interfaceInfo << aliasInfo;
-  interfaceInfo.close();
 
   stmt = preprocessHWLoops(stmt);
 
@@ -6594,6 +6590,8 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     HWFunction& f = fp.second;
     insertCriticalPathTargetRegisters(hwInfo, f);
     ComputeKernel compK = moduleForKernel(scl.info, f);
+
+    aliasInfo["kernel_info"][f.mod->getName()].emplace_back(compK.sched.cycleLatency());
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
     kernelModules[lp] = compK;
@@ -6639,6 +6637,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   context->runPasses({"deletedeadinstances"});
   //cout << "Top module" << endl;
   //topMod->print();
+
+  // Save accelerator metadata
+  ofstream interfaceInfo("accel_interface_info.json");
+  interfaceInfo << aliasInfo;
+  interfaceInfo.close();
 
   if (!saveToFile(global_ns, "conv_3_3_app.json")) {
     cout << "Could not save global namespace" << endl;
