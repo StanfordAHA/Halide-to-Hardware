@@ -4798,10 +4798,11 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
 }
 
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
-  // This should be start time + a constant
-  Expr cs = containerIterationStart(instr, sched);
-  Expr bd = delayFromIterationStartToInstr(instr, sched);
-  return cs + bd + sched.getEndStage(instr);
+  return startTime(instr, sched) + instr->latency;
+  //// This should be start time + a constant
+  //Expr cs = containerIterationStart(instr, sched);
+  //Expr bd = delayFromIterationStartToInstr(instr, sched);
+  //return cs + bd + sched.getEndStage(instr);
 }
 
 Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
