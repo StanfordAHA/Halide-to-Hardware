@@ -473,6 +473,10 @@ IBlock loopTail(const IBlock& blk, HWFunction& f) {
   return blk;
 }
 
+bool lastBlock(const IBlock& blk, HWFunction& f) {
+  return blk == getIBlockList(f).back();
+}
+
 IBlock nextBlock(const IBlock& blk, HWFunction& f) {
   internal_assert(!isEntry(blk, f));
 
@@ -2239,6 +2243,16 @@ class Condition {
     }
 };
 
+bool operator==(const Condition& a, const Condition& b) {
+  if (a.isUnconditional != b.isUnconditional) {
+    return false;
+  }
+  if (a.loopCounter != b.loopCounter) {
+    return false;
+  }
+  return a.atMax == b.atMax;
+}
+
 bool operator<(const Condition& a, const Condition& b) {
   if (a.isUnconditional != b.isUnconditional) {
     return a.isUnconditional < b.isUnconditional;
@@ -2276,6 +2290,17 @@ class SWTransition {
     ProgramPosition dst;
     Condition cond;
 };
+
+bool operator==(const SWTransition& a, const SWTransition& b) {
+  if (a.src != b.src) {
+    return false;
+  }
+
+  if (a.dst != b.dst) {
+    return false;
+  }
+  return a.cond == b.cond;
+}
 
 bool operator<(const SWTransition& a, const SWTransition& b) {
   if (a.src != b.src) {
@@ -2347,6 +2372,14 @@ class IChunk {
 
 bool operator==(const IChunk& a, const IChunk& b) {
   return a.stage == b.stage && a.instrs == b.instrs;
+}
+
+std::ostream& operator<<(std::ostream& out, const IChunk& chunk) {
+  out << chunk.stage << endl;
+  for (auto i : chunk.instrs) {
+    out << "\t" << i << endl;
+  }
+  return out;
 }
 
 int chunkIdx(const ProgramPosition& pos, const vector<IChunk>& chunks) {
@@ -3317,27 +3350,8 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   UnitMapping m = createUnitMapping(f, info, sched, def, controlPath, cpM);
   auto& unitMapping = m.unitMapping;
 
-  //auto self = def->sel("self");
-  // This should be removed and it should be replaced with valid signals wired up
-  // from the write stream output of the kernel, whose delay is by construction equal
-  // to the number of stages in the design
-  // New algo: Collect read and write instructions
-  // then check that they are all in the same loop level
-  // check that all reads are in the same schedule position
-  // then find the gap between a read instance and a write instance
-  // (this gap should be constant if they are all in the same loop level)
-  // then create the delay that is needed
   cout << "Wiring up enables" << endl;
 
-  //int validDelay = sched.cycleLatency();
-  ////int validDelay = sched.numStages() - 1;
-  //cout << "Got valid delay" << endl;
-  //CoreIR::Wireable* inEn = self->sel("in_en");
-  //for (int i = 0; i < validDelay; i++) {
-    //auto vR = def->addInstance("valid_delay_reg_" + std::to_string(i), "corebit.reg");
-    //def->connect(inEn, vR->sel("in"));
-    //inEn = vR->sel("out");
-  //}
   set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
   if (streamWrites.size() == 1) {
     HWInstr* writeInstr = *begin(streamWrites);
@@ -4596,7 +4610,7 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
 
   auto& f = *(sched.f);
   set<string> headLevelsSeen;
-  //set<string> tailLevelsSeen;
+  set<string> tailLevelsSeen;
   vector<ProgramPosition> positions;
   for (auto blk : getIBlockList(f)) {
     if (blk.isEntry()) {
@@ -4626,7 +4640,12 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
         CoreIR::reverse(surrounding);
         for (auto lp : surrounding) {
           string loopName = lp.name;
-          if (elem(loopName, headLevelsSeen)) {
+          vector<string> nextLoops;
+          if (!lastBlock(blk, f)) {
+            nextLoops = loopNames(head(nextBlock(blk, f)));
+          }
+          if (elem(loopName, headLevelsSeen) &&
+              !elem(loopName, nextLoops)) {
             positions.push_back({instr, loopName, false, true});
           }
         }
@@ -4695,6 +4714,17 @@ vector<SWTransition> buildSWTransitions(vector<ProgramPosition>& positions, HWFu
   }
 
   return transitions;
+}
+
+ProgramPosition headerPosition(const std::string& level, const vector<ProgramPosition>& positions) {
+  for (auto p : positions) {
+    if (p.isHead() && p.loopLevel == level) {
+      return p;
+    }
+  }
+
+  internal_assert(false) << "No headerPosition for " << level << "\n";
+  return *(begin(positions));
 }
 
 // Now: Need to add handling for inner loop changes.
@@ -4779,6 +4809,35 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   }
 
   // Delete transitions for valid loops -> valid loops?
+  auto reads = allInstrs("rd_stream", f.structuredOrder());
+  ProgramPosition readPos;
+  if (reads.size() == 0) {
+    internal_assert(f.structuredOrder().size() > 0) << "no instructions in function\n";
+    readPos = headerPosition(f.structuredOrder()[0]->surroundingLoops.back().name, positions);
+  } else {
+    auto read = *(begin(reads));
+    readPos = headerPosition(read->surroundingLoops.back().name, positions);
+  }
+
+  string enTriggeredLevel = readPos.loopLevel;
+  set<string> earlier = earlierLevels(enTriggeredLevel, f);
+  set<string> enTriggeredLevels = earlier;
+  enTriggeredLevels.insert(enTriggeredLevel);
+
+  // Now what do I want to do?
+  // Split up enable triggered loops and internally triggered loops
+  // Remove enable triggered loop backward transitions from transitions?
+  vector<SWTransition> enTriggered;
+  for (auto t : relevantTransitions) {
+    if (t.src.isHead() &&
+        t.dst.isHead() &&
+        elem(t.src.loopLevel, enTriggeredLevels) &&
+        elem(t.dst.loopLevel, enTriggeredLevels)) {
+      enTriggered.push_back(t);
+    }
+  }
+
+  CoreIR::subtract(relevantTransitions, enTriggered);
 
   // Now: classify transitions by start and end stage + delay
   map<SWTransition, int> srcStages;
@@ -4846,7 +4905,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     // TODO: Add *and* with transition condition here
     // TODO: For more complex control paths we will need to check
     if (t.src == t.dst) {
-      //internal_assert(false);
+      internal_assert(false) << "No support for backedges between non-enable triggered loops\n";
     } else {
       int delay = map_get(t, delays);
       vector<Instance*> regs =
@@ -4889,7 +4948,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
           transitionWires.push_back(map_get(t, transitionHappenedWires));
         }
       }
-      cout << "Creating isActive vaue for chunk" << endl;
+      cout << "Creating isActive value for chunk" << endl;
+      cout << c << endl;
       internal_assert(transitionWires.size() > 0) << "No transition wires for chunk\n";
       auto isActive = andList(def, transitionWires);
       def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
