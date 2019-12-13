@@ -4817,48 +4817,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   LoopCounters counters = buildLoopCounters(def, f);
 
-  // Find out which loops controllers will be built from the valid signal
-  // and which will be built from the clock
-  //auto reads = allInstrs("rd_stream", f.structuredOrder());
-
-  //ProgramPosition readLoopHead;
-  //if (reads.size() == 1) {
-    //internal_assert(reads.size() == 1);
-    //auto read = *(begin(reads));
-    //readLoopHead = getHead(read->surroundingLoops.back().name, positions);
-  //} else {
-    //internal_assert(f.structuredOrder().size() > 0);
-    //readLoopHead = getHead(f.structuredOrder()[0]->surroundingLoops.back().name, positions);
-  //}
-  //IChunk baseC = getChunk(readLoopHead, chunkList);
-  //string level = baseC.getRep().loopLevel;
-  //set<string> earlier = earlierLevels(level, f);
-
-  //map<string, int> validPulsesPerII;
-  //validPulsesPerII[level] = sched.II(level);
-  //for (auto s : earlier) {
-    //int quot = sched.II(s) * sched.II(level);
-    //validPulsesPerII[s] = quot;
-  //}
-  //cout << "Valid level = " << level << endl;
-  //cout << "Earlier levels..." << earlier << endl;
-
-  //cout << "II intervals as functions of valid arrival:" << endl;
-  //for (auto v : validPulsesPerII) {
-    //cout << "\t" << v.first << " = " << v.second << " valids" << endl;
-  //}
-
-  // Do I want to phrase each transition in
-  // terms of the valid signals, or do I want to
-  // directly wire inputs for some isActive signals
-  // and not for others?
-  //
-  // For the base chunk isActive == in_en
-  // For higher chunks isActive == (in_en count % II == 0)
-  // For other chunks
-  // For higher (earlier) levels the isActiveWire
-  // should be connected to a counter
-
   cout << "Creating transition wires..." << endl;
   map<SWTransition, Wireable*> transitionHappenedWires;
   map<SWTransition, Instance*> transitionHappenedInputs;
@@ -4920,23 +4878,23 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       CoreIR::Wireable* shouldInc = andList(def, below);
       int i = counters.index(name);
       def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);
-
-    } 
-
-    vector<Wireable*> transitionWires;
-    for (auto t : relevantTransitions) {
-      if (getChunk(t.dst, chunkList) == c) {
-        transitionWires.push_back(map_get(t, transitionHappenedWires));
+      def->connect(shouldInc, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
+    }  else {
+      vector<Wireable*> transitionWires;
+      for (auto t : relevantTransitions) {
+        if (getChunk(t.dst, chunkList) == c) {
+          transitionWires.push_back(map_get(t, transitionHappenedWires));
+        }
       }
+      cout << "Creating isActive vaue for chunk" << endl;
+      internal_assert(transitionWires.size() > 0) << "No transition wires for chunk\n";
+      auto isActive = andList(def, transitionWires);
+      def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
+
+      internal_assert(contains_key(chunkIdx(c, chunkList), isActiveWires)) << chunkIdx(c, chunkList) << " is not in activeWires\n";
     }
-    cout << "Creating isActive vaue for chunk" << endl;
-    internal_assert(transitionWires.size() > 0) << "No transition wires for chunk\n";
-    auto isActive = andList(def, transitionWires);
-    def->connect(isActive, map_get(chunkIdx(c, chunkList), isActiveWires)->sel("in"));
 
-    internal_assert(contains_key(chunkIdx(c, chunkList), isActiveWires)) << chunkIdx(c, chunkList) << " is not in activeWires\n";
     def->connect(map_get(chunkIdx(c, chunkList), isActiveWires)->sel("out"), def->sel(cp.activeSignal(c)));
-
   }
    
   controlPath->setDef(def);
