@@ -3312,18 +3312,6 @@ Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
   return 0;
 }
 
-Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
-  Expr cs = containerIterationStart(instr, sched);
-  Expr bd = delayFromIterationStartToInstr(instr, sched);
-  return cs + bd + sched.getEndStage(instr);
-}
-
-Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
-  Expr cs = containerIterationStart(instr, sched);
-  Expr bd = delayFromIterationStartToInstr(instr, sched);
-  return cs + bd + sched.getStartStage(instr);
-}
-
 void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   internal_assert(sched.blockSchedules.size() > 0);
 
@@ -4671,7 +4659,7 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
       auto other = positions[j];
       if (i != j) {
         internal_assert(other != p) << "Duplicate program positions\n";
-        cout << p << " is not equal to:\n" << other << endl;
+        //cout << p << " is not equal to:\n" << other << endl;
       }
     }
   }
@@ -4728,10 +4716,7 @@ ProgramPosition headerPosition(const std::string& level, const vector<ProgramPos
   return *(begin(positions));
 }
 
-// Now: Need to add handling for inner loop changes.
-// the innermost loop should be used instead of the lexically
-// first instruction, but even that will just patch the problem
-KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
+vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
   auto& f = *(sched.f);
   vector<ProgramPosition> positions = buildProgramPositions(sched);
   vector<SWTransition> transitions =
@@ -4808,6 +4793,122 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       }
     }
   }
+
+  return relevantTransitions;
+}
+
+Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
+  // This should be start time + a constant
+  Expr cs = containerIterationStart(instr, sched);
+  Expr bd = delayFromIterationStartToInstr(instr, sched);
+  return cs + bd + sched.getEndStage(instr);
+}
+
+Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
+  auto positions = buildProgramPositions(sched);
+  vector<SWTransition> transitions =
+    hwTransitions(sched);
+
+  Expr startTime = Expr(0);
+  ProgramPosition startPos;
+  bool foundStart = false;
+  for (auto pos : positions) {
+    if (pos.isOp() && pos.instr == instr) {
+      startPos = pos;
+      foundStart = true;
+      break;
+    }
+  }
+
+  cout << "Start time for " << *instr << " = " << startTime << endl;
+  internal_assert(foundStart) << "could not find start time for " << *instr << "\n";
+
+  Expr cs = containerIterationStart(instr, sched);
+  Expr bd = delayFromIterationStartToInstr(instr, sched);
+  return cs + bd + sched.getStartStage(instr);
+}
+
+// Now: Need to add handling for inner loop changes.
+// the innermost loop should be used instead of the lexically
+// first instruction, but even that will just patch the problem
+KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
+  auto& f = *(sched.f);
+  vector<ProgramPosition> positions = buildProgramPositions(sched);
+  vector<SWTransition> transitions =
+    buildSWTransitions(positions, f);
+
+  map<int, vector<IChunk> > chunks;
+  for (auto p : positions) {
+    int s = sched.getStartStage(p.instr);
+    if (contains_key(s, chunks)) {
+      auto& chunkList = chunks.at(s);
+      bool foundChunk = false;
+      for (auto& chunk : chunkList) {
+        internal_assert(chunk.instrs.size() > 0) << "chunk has no instructions\n";
+        auto representative = chunk.instrs.at(0);
+        if (representative.loopLevel == p.loopLevel &&
+            (representative.isOp() || p.isOp())) {
+          foundChunk = true;
+          chunk.instrs.push_back(p);
+        }
+      }
+      if (!foundChunk) {
+        chunkList.push_back({s, {p}});
+      }
+    } else {
+      chunks[s] = {{s, {p}}};
+    }
+  }
+  cout << "All instruction chunks..." << endl;
+  for (auto cs : chunks) {
+    for (auto chunk : cs.second) {
+      cout << "\t" << chunk.stage << endl;
+      for (auto pos : chunk.instrs) {
+        cout << "\t\t" << pos << endl;
+      }
+    }
+  }
+
+  vector<IChunk> chunkList;
+  for (auto sc : chunks) {
+    for (auto c : sc.second) {
+      chunkList.push_back(c);
+    }
+  }
+
+  //// Now: Delete transitions within chunks
+  ////      For each transition across chunks, but inside of a stage we need comb logic
+  ////      For each transition across chunks and across stages we need sequential logic
+  ////      to delay the transition
+  vector<SWTransition> relevantTransitions =
+    hwTransitions(sched);
+  //for (auto t : transitions) {
+    //int startChunk = chunkIdx(t.src, chunkList);
+    //int endChunk = chunkIdx(t.dst, chunkList);
+    //if (startChunk != endChunk || (t.src == t.dst)) {
+      //relevantTransitions.push_back(t);
+    //}
+  //}
+
+  //// Add default transitions
+  //for (auto sc : chunks) {
+    //int stage = sc.first;
+    //vector<IChunk> chunksInStage = sc.second;
+    //int next = stage + 1;
+    //if (contains_key(next, chunks)) {
+      //vector<IChunk> nextChunks = map_get(next, chunks);
+
+      //for (auto c : chunksInStage) {
+        //for (auto n : nextChunks) {
+          //ProgramPosition rep = c.getRep();
+          //ProgramPosition nextRep = n.getRep();
+          //if (rep.loopLevel == nextRep.loopLevel) {
+            //relevantTransitions.push_back({rep, nextRep, unconditional()});
+          //}
+        //}
+      //}
+    //}
+  //}
 
   // Delete transitions for valid loops -> valid loops?
   auto reads = allInstrs("rd_stream", f.structuredOrder());
