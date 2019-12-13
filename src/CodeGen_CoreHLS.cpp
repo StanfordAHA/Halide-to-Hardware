@@ -2161,6 +2161,12 @@ class ProgramPosition {
 };
 
 bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
+  if (!a.isOp() && !b.isOp()) {
+    return a.loopLevel == b.loopLevel &&
+      a.head == b.head &&
+      a.tail == b.tail;
+  }
+
   if (a.instr != b.instr) {
     return false;
   }
@@ -2181,6 +2187,10 @@ bool operator!=(const ProgramPosition& a, const ProgramPosition& b) {
 }
 
 bool operator<(const ProgramPosition& a, const ProgramPosition& b) {
+  if (a == b) {
+    return false;
+  }
+
   if (a.instr != b.instr) {
     return a.instr < b.instr;
   }
@@ -4618,7 +4628,6 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
           string loopName = lp.name;
           if (elem(loopName, headLevelsSeen)) {
             positions.push_back({instr, loopName, false, true});
-            //tailLevelsSeen.insert(loopName);
           }
         }
       }
@@ -4634,6 +4643,17 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
   cout << "Program positions..." << endl;
   for (auto p : positions) {
     cout << p << endl;
+  }
+
+  for (int i = 0; i < (int) positions.size(); i++) {
+    auto p = positions[i];
+    for (int j = 0; j < (int) positions.size(); j++) {
+      auto other = positions[j];
+      if (i != j) {
+        internal_assert(other != p) << "Duplicate program positions\n";
+        cout << p << " is not equal to:\n" << other << endl;
+      }
+    }
   }
 
   for (auto instr : f.structuredOrder()) {
