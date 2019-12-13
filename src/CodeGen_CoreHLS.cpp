@@ -4559,11 +4559,8 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
   return counters;
 }
 
+vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
 
-// Now: Need to add handling for inner loop changes.
-// the innermost loop should be used instead of the lexically
-// first instruction, but even that will just patch the problem
-KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto& f = *(sched.f);
   set<string> headLevelsSeen;
   set<string> tailLevelsSeen;
@@ -4610,6 +4607,10 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   for (auto p : positions) {
     cout << p << endl;
   }
+  return positions;
+}
+
+vector<SWTransition> buildSWTransitions(vector<ProgramPosition>& positions, HWFunction& f) {
 
   vector<SWTransition> transitions;
   for (int i = 0; i < ((int) positions.size() - 1); i++) {
@@ -4632,6 +4633,18 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   for (auto t : transitions) {
     cout << t << endl;
   }
+
+  return transitions;
+}
+
+// Now: Need to add handling for inner loop changes.
+// the innermost loop should be used instead of the lexically
+// first instruction, but even that will just patch the problem
+KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
+  auto& f = *(sched.f);
+  vector<ProgramPosition> positions = buildProgramPositions(sched);
+  vector<SWTransition> transitions =
+    buildSWTransitions(positions, f);
 
   map<int, vector<IChunk> > chunks;
   for (auto p : positions) {
