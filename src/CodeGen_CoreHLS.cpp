@@ -2433,13 +2433,6 @@ class KernelControlPath {
       return "self." + map_get(chunkIdx(chunk, chunkList), stageIsActiveMap);
     }
 
-    //std::string activeSignalOutput(const int i) const {
-      //return map_get(i, stageIsActiveMap);
-    //}
-
-    //std::string activeSignal(const int i) const {
-      //return "self." + map_get(i, stageIsActiveMap);
-    //}
 };
 
 class ForInfo {
@@ -4487,6 +4480,13 @@ CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wire
   return val;
 }
 
+CoreIR::Wireable* andList(const std::vector<CoreIR::Wireable*>& vals) {
+  internal_assert(vals.size() > 0) << "No values to and\n";
+
+  auto def = vals[0]->getContainer();
+  return andList(def, vals);
+}
+
 class FSMTransition {
   public:
     int src;
@@ -4903,17 +4903,45 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   map<SWTransition, Wireable*> transitionHappenedWires;
   for (auto t : relevantTransitions) {
     // TODO: Add *and* with transition condition here
-    // TODO: For more complex control paths we will need to check
-    if (t.src == t.dst) {
-      internal_assert(false) << "No support for backedges between non-enable triggered loops\n";
+    Wireable* transitionCondition = nullptr;
+
+    // TODO: Use datapath in unitmapping to get the wire
+    // for atMax / not atMax registers
+    if (t.cond.isUnconditional) {
+      transitionCondition =
+        def->addInstance("unconditional_transition_" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out");
+    } else if (t.cond.isAtMax()) {
+      transitionCondition =
+        map_get(t.src.loopLevel, counters.loopVarAtMax);
     } else {
-      int delay = map_get(t, delays);
-      vector<Instance*> regs =
-        pipelineRegisterChain(def, "transition_" + def->getContext()->getUnique() + "_" + to_string(delay), def->getContext()->Bit(), delay);
-      cout << "Created pipeline chain" << endl;
-      transitionHappenedWires[t] = regs.back()->sel("out");
-      def->connect(regs[0]->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
+      internal_assert(t.cond.isNotAtMax());
+      transitionCondition =
+        map_get(t.src.loopLevel, counters.loopVarNotAtMax);
     }
+
+    internal_assert(transitionCondition != nullptr) << "transition condition is null\n";
+
+    int delay = map_get(t, delays);
+    vector<Instance*> regs =
+      pipelineRegisterChain(def,
+          "transition_" + def->getContext()->getUnique() + "_" + to_string(delay),
+          def->getContext()->Bit(), delay);
+
+    //if (t.src == t.dst) {
+      ////internal_assert(false) << "No support for backedges between non-enable triggered loops\n";
+      IChunk srcChunk = getChunk(t.src, chunkList);
+      auto chunkActive =
+        map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
+      vector<Wireable*> conds = {chunkActive, transitionCondition};
+      auto doTransition = andList(conds);
+      def->connect(regs[0]->sel("in"), doTransition);
+      
+      transitionHappenedWires[t] = regs.back()->sel("out");
+    //} else {
+      //cout << "Created pipeline chain" << endl;
+      //transitionHappenedWires[t] = regs.back()->sel("out");
+      //def->connect(regs[0]->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
+    //}
   }
 
   cout << "Connecting stage active wires..." << endl;
