@@ -4875,14 +4875,8 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   return cs + bd + sched.getStartStage(instr);
 }
 
-// Now: Need to add handling for inner loop changes.
-// the innermost loop should be used instead of the lexically
-// first instruction, but even that will just patch the problem
-KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
-  auto& f = *(sched.f);
-  vector<ProgramPosition> positions = buildProgramPositions(sched);
-  vector<SWTransition> transitions =
-    buildSWTransitions(positions, f);
+map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
+    FunctionSchedule& sched) {
 
   map<int, vector<IChunk> > chunks;
   for (auto p : positions) {
@@ -4906,6 +4900,26 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       chunks[s] = {{s, {p}}};
     }
   }
+  return chunks;
+}
+
+// Now: Need to add handling for inner loop changes.
+// the innermost loop should be used instead of the lexically
+// first instruction, but even that will just patch the problem
+KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
+  auto& f = *(sched.f);
+  vector<ProgramPosition> positions = buildProgramPositions(sched);
+  vector<SWTransition> transitions =
+    buildSWTransitions(positions, f);
+
+  map<int, vector<IChunk> > chunks = getChunks(positions, sched);
+  vector<IChunk> chunkList;
+  for (auto sc : chunks) {
+    for (auto c : sc.second) {
+      chunkList.push_back(c);
+    }
+  }
+  
   cout << "All instruction chunks..." << endl;
   for (auto cs : chunks) {
     for (auto chunk : cs.second) {
@@ -4916,46 +4930,12 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     }
   }
 
-  vector<IChunk> chunkList;
-  for (auto sc : chunks) {
-    for (auto c : sc.second) {
-      chunkList.push_back(c);
-    }
-  }
-
   //// Now: Delete transitions within chunks
   ////      For each transition across chunks, but inside of a stage we need comb logic
   ////      For each transition across chunks and across stages we need sequential logic
   ////      to delay the transition
   vector<SWTransition> relevantTransitions =
     hwTransitions(sched);
-  //for (auto t : transitions) {
-    //int startChunk = chunkIdx(t.src, chunkList);
-    //int endChunk = chunkIdx(t.dst, chunkList);
-    //if (startChunk != endChunk || (t.src == t.dst)) {
-      //relevantTransitions.push_back(t);
-    //}
-  //}
-
-  //// Add default transitions
-  //for (auto sc : chunks) {
-    //int stage = sc.first;
-    //vector<IChunk> chunksInStage = sc.second;
-    //int next = stage + 1;
-    //if (contains_key(next, chunks)) {
-      //vector<IChunk> nextChunks = map_get(next, chunks);
-
-      //for (auto c : chunksInStage) {
-        //for (auto n : nextChunks) {
-          //ProgramPosition rep = c.getRep();
-          //ProgramPosition nextRep = n.getRep();
-          //if (rep.loopLevel == nextRep.loopLevel) {
-            //relevantTransitions.push_back({rep, nextRep, unconditional()});
-          //}
-        //}
-      //}
-    //}
-  //}
 
   // Delete transitions for valid loops -> valid loops?
   auto reads = allInstrs("rd_stream", f.structuredOrder());
