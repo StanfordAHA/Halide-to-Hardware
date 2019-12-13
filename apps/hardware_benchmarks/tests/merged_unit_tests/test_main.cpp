@@ -64,7 +64,6 @@ void indexTestPattern2D(T0& inputBuf, T1& hwInputBuf) {
 std::string getInputAlias(const std::string& jsonFile) {
   json j;
   ifstream inFile(jsonFile);
-  //"accel_interface_info.json");
   inFile >> j;
   cout << "JSON..." << endl;
   cout << j << endl;
@@ -78,6 +77,21 @@ std::string getInputAlias(const std::string& jsonFile) {
   string outS = "hw_output.stencil.stream";
   string accelName = "self.in_" + inS + "_0_0";
   return accelName;
+}
+
+int getKernelLatency(const std::string& kernelName) {
+  string jsonFile = "accel_interface_info.json";
+  json j;
+  ifstream inFile(jsonFile);
+  inFile >> j;
+  cout << "JSON..." << endl;
+  cout << j << endl;
+
+  auto aliasMap = j["kernel_info"][kernelName][0];
+  cout << "latency: " << aliasMap << endl;
+
+  int latency = begin(aliasMap)->get<int>();
+  return latency;
 }
 
 template<typename T, typename OT>
@@ -1603,7 +1617,11 @@ void small_conv_3_3_not_unrolled_test() {
     cout << "Calling buildModule parameterized by name" << endl;
     string name = "compute_kernel_0";
     auto m = buildModule(name, context, "coreir_curve", args, "curve", hw_output);
-    cout << "Compute kernel_0" << endl;
+    int latency = getKernelLatency("compute_kernel_0");
+   
+    cout << "Latency = " << latency << endl;
+    assert(latency > 3);
+
     m->print();
 
     SimulatorState state(m);
