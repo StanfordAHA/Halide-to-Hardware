@@ -4784,11 +4784,16 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   // Find out which loops controllers will be built from the valid signal
   // and which will be built from the clock
   auto reads = allInstrs("rd_stream", f.structuredOrder());
-  
-  internal_assert(reads.size() == 1);
-  
-  auto read = *(begin(reads));
-  ProgramPosition readLoopHead = getHead(read->surroundingLoops.back().name, positions);
+
+  ProgramPosition readLoopHead;
+  if (reads.size() == 1) {
+    internal_assert(reads.size() == 1);
+    auto read = *(begin(reads));
+    readLoopHead = getHead(read->surroundingLoops.back().name, positions);
+  } else {
+    internal_assert(f.structuredOrder().size() > 0);
+    readLoopHead = getHead(f.structuredOrder()[0]->surroundingLoops.back().name, positions);
+  }
   IChunk baseC = getChunk(readLoopHead, chunkList);
   string level = baseC.getRep().loopLevel;
   set<string> earlier = earlierLevels(level, f);
@@ -6500,6 +6505,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
 
+    auto reads = allInstrs("rd_stream", f.structuredOrder());
+    auto writes = allInstrs("write_stream", f.structuredOrder());
+
     functions[lp] = f;
 
     kernelN++;
@@ -6511,6 +6519,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
   for (auto& fp : functions) {
+
     auto lp = fp.first;
     HWFunction& f = fp.second;
     insertCriticalPathTargetRegisters(hwInfo, f);
