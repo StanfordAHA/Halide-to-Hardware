@@ -4808,7 +4808,9 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
         for (auto n : nextChunks) {
           ProgramPosition rep = c.getRep();
           ProgramPosition nextRep = n.getRep();
-          if (rep.loopLevel == nextRep.loopLevel) {
+          if ((rep.loopLevel == nextRep.loopLevel) ) {
+              //rep.isHead() == nextRep.isHead() &&
+              //rep.isTail() == nextRep.isTail()) {
             relevantTransitions.push_back({rep, nextRep, unconditional()});
           }
         }
