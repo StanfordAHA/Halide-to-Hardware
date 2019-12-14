@@ -4965,13 +4965,20 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
         startTime += sched.II(c.getRep().loopLevel) * (tripCount(c.getRep().loopLevel, c.getRep().instr) - 1);
       }
     }
+
+    if (i < ((int) forwardPath.size()) - 1) {
+      IChunk nextChunk = forwardPath[i + 1];
+      int stageDiff = nextChunk.stage - c.stage;
+      internal_assert(0 <= stageDiff && stageDiff <= 1) << "stage diff: " << stageDiff << "\n";
+      startTime += (nextChunk.stage - c.stage);
+    }
   }
   cout << "Start time for " << *instr << " = " << startTime << endl;
-  //internal_assert(foundTarget) << "could not find start time for " << *instr << "\n";
 
-  Expr cs = containerIterationStart(instr, sched);
-  Expr bd = delayFromIterationStartToInstr(instr, sched);
-  return cs + bd + sched.getStartStage(instr);
+  return simplify(startTime);
+  //Expr cs = containerIterationStart(instr, sched);
+  //Expr bd = delayFromIterationStartToInstr(instr, sched);
+  //return cs + bd + sched.getStartStage(instr);
 }
 
 map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
