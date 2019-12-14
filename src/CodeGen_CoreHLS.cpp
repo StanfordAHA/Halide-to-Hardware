@@ -4927,7 +4927,6 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   ProgramPosition pos = positions[0];
   IChunk next = getChunk(pos, chunkList);
   vector<IChunk> forwardPath;
-  //bool foundTarget = false;
   do {
     cout << "Getting forward transitions for..." << endl;
     cout << next << endl;
@@ -4952,8 +4951,22 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
     next = getChunk(forward[0].dst, chunkList);
   } while (true);
 
-  //Expr startTime = Expr(0);
-  //cout << "Start time for " << *instr << " = " << startTime << endl;
+  cout << "Forward path length: " << forwardPath.size() << endl;
+  // Now how do we compute startTime?
+  // First: walk over checking for backedges and adding them
+  // And: add delays on chunk -> chunk codes
+  Expr startTime = Expr(0);
+  for (int i = 0; i < (int) forwardPath.size(); i++) {
+    IChunk c = forwardPath[i];
+    if (c.containsHeader()) {
+      if (lessThanOrEqual(c.getRep().loopLevel, instrLoopLevel, f)) {
+        startTime += sched.II(c.getRep().loopLevel) * Variable::make(Int(32), c.getRep().loopLevel);
+      } else {
+        startTime += sched.II(c.getRep().loopLevel) * (tripCount(c.getRep().loopLevel, c.getRep().instr) - 1);
+      }
+    }
+  }
+  cout << "Start time for " << *instr << " = " << startTime << endl;
   //internal_assert(foundTarget) << "could not find start time for " << *instr << "\n";
 
   Expr cs = containerIterationStart(instr, sched);
