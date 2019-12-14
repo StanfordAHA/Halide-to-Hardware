@@ -4907,8 +4907,9 @@ vector<SWTransition> forwardTransition(const IChunk& next, const vector<SWTransi
 map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
     FunctionSchedule& sched);
 
-Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
-  string instrLoopLevel = instr->surroundingLoops.back().name;
+//Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
+Expr startTime(const ProgramPosition& targetPos, FunctionSchedule& sched) {
+  string instrLoopLevel = targetPos.loopLevel;
 
   auto f = *(sched.f);
   auto positions = buildProgramPositions(sched);
@@ -4939,12 +4940,12 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
 
     internal_assert(forward.size() <= 1);
     if (forward.size() == 0) {
-      internal_assert(next.containsInstr(instr));
+      internal_assert(next.containsPos(targetPos));
     }
 
     forwardPath.push_back(next);
 
-    if (next.containsInstr(instr)) {
+    if (next.containsPos(targetPos)) {
       break;
     }
 
@@ -4979,6 +4980,22 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   //Expr cs = containerIterationStart(instr, sched);
   //Expr bd = delayFromIterationStartToInstr(instr, sched);
   //return cs + bd + sched.getStartStage(instr);
+}
+
+ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions) {
+  for (auto p : positions) {
+    if (p.isOp() && p.instr == instr) {
+      return p;
+    }
+  }
+  internal_assert(false) << "No position for: " << *instr << "\n";
+  return positions.back();
+}
+
+Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
+  vector<ProgramPosition> positions = buildProgramPositions(sched);
+  ProgramPosition pos = getPosition(instr, positions);
+  return startTime(pos, sched);
 }
 
 map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
@@ -5032,7 +5049,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       cout << "\tStage: " << chunk.stage << endl;
       for (auto pos : chunk.instrs) {
         cout << "\t\t" << pos << endl;
-        cout << "\t\t\tStart time: " << startTime(chunk.getRep().instr, sched) << endl;
+        cout << "\t\t\tStart time: " << startTime(chunk.getRep(), sched) << endl;
       }
     }
   }
