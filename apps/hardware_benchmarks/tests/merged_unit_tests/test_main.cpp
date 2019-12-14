@@ -1617,11 +1617,6 @@ void small_conv_3_3_not_unrolled_test() {
     cout << "Calling buildModule parameterized by name" << endl;
     string name = "compute_kernel_0";
     auto m = buildModule(name, context, "coreir_curve", args, "curve", hw_output);
-    int latency = getKernelLatency("compute_kernel_0");
-   
-    cout << "Latency = " << latency << endl;
-    assert(latency > 3);
-
     m->print();
 
     SimulatorState state(m);
@@ -1638,6 +1633,28 @@ void small_conv_3_3_not_unrolled_test() {
     assert(state.getBitVec("self.valid") == BitVec(1, 0));
 
     PRINT_PASSED("One valid in, one valid out");
+
+    int latency = getKernelLatency("compute_kernel_0");
+   
+    cout << "Latency = " << latency << endl;
+    assert(latency > 3);
+
+    state.setValue("self.in_en", BitVec(1, 1));
+
+    for (int i = 0; i < latency + 100; i++) {
+      cout << "i = " << i << endl;
+      assert(state.getBitVec("self.valid") == BitVec(1, 0));
+
+      state.exeCombinational();
+      state.exeSequential();
+      
+      //state.setValue("self.in_en", BitVec(1, 0));
+    }
+
+    assert(state.getBitVec("self.valid") == BitVec(1, 1));
+
+    PRINT_PASSED("enable -> valid time matches latency");
+
     assert(false);
   } 
   //vector<Argument> args{input};

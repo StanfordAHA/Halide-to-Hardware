@@ -427,7 +427,7 @@ vector<IBlock> loopHeaders(HWFunction& f) {
       prefixes.insert(loopNames(blk.instrs));
     }
   }
-  cout << "# of headers = " << headers.size() << endl;
+  //cout << "# of headers = " << headers.size() << endl;
   return headers;
 }
 
@@ -443,7 +443,7 @@ vector<IBlock> loopTails(HWFunction& f) {
       prefixes.insert(loopNames(blk.instrs));
     }
   }
-  cout << "# of tails = " << tails.size() << endl;
+  //cout << "# of tails = " << tails.size() << endl;
   return tails;
 }
 
@@ -4632,11 +4632,11 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
     bool h = isHeader(blk, f);
     bool t = isTail(blk, f);
     for (auto instr : blk.instrs) {
-      cout << "Creating positions for " << *instr << endl;
+      //cout << "Creating positions for " << *instr << endl;
 
       internal_assert(instr->surroundingLoops.size() > 0);
       if (h && (head(blk) == instr)) {
-        cout << "\tIs head of header" << endl;
+        //cout << "\tIs head of header" << endl;
         for (auto lp : instr->surroundingLoops) {
           string loopName = lp.name;
           if (!elem(loopName, headLevelsSeen)) {
@@ -4647,7 +4647,7 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
       }
 
       if (t && (tail(blk) == instr)) {
-        cout << "\tIs tail of tail" << endl;
+        //cout << "\tIs tail of tail" << endl;
         auto surrounding = instr->surroundingLoops;
         CoreIR::reverse(surrounding);
         for (auto lp : surrounding) {
@@ -4664,17 +4664,17 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
       }
 
       if (!(t && (tail(blk) == instr)) && !(h && (head(blk) == instr))) {
-        cout << "Not head of header or tail of tail" << endl;
+        //cout << "Not head of header or tail of tail" << endl;
         string ll = instr->surroundingLoops.back().name;
         positions.push_back({instr, ll, false, false});
       }
     }
   }
 
-  cout << "Program positions..." << endl;
-  for (auto p : positions) {
-    cout << p << endl;
-  }
+  //cout << "Program positions..." << endl;
+  //for (auto p : positions) {
+    //cout << p << endl;
+  //}
 
   for (int i = 0; i < (int) positions.size(); i++) {
     auto p = positions[i];
@@ -4720,10 +4720,10 @@ vector<SWTransition> buildSWTransitions(vector<ProgramPosition>& positions, HWFu
     }
   }
 
-  cout << "Software transitions..." << endl;
-  for (auto t : transitions) {
-    cout << t << endl;
-  }
+  //cout << "Software transitions..." << endl;
+  //for (auto t : transitions) {
+    //cout << t << endl;
+  //}
 
   return transitions;
 }
@@ -4782,15 +4782,15 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
       chunks[s] = {{s, {p}}};
     }
   }
-  cout << "All instruction chunks..." << endl;
-  for (auto cs : chunks) {
-    for (auto chunk : cs.second) {
-      cout << "\t" << chunk.stage << endl;
-      for (auto pos : chunk.instrs) {
-        cout << "\t\t" << pos << endl;
-      }
-    }
-  }
+  //cout << "All instruction chunks..." << endl;
+  //for (auto cs : chunks) {
+    //for (auto chunk : cs.second) {
+      //cout << "\t" << chunk.stage << endl;
+      //for (auto pos : chunk.instrs) {
+        //cout << "\t\t" << pos << endl;
+      //}
+    //}
+  //}
 
   vector<IChunk> chunkList;
   for (auto sc : chunks) {
@@ -4813,13 +4813,13 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
         return a.loopLevel == b.loopLevel;
         });
 
-  cout << "Program blocks" << endl;
-  for (auto blk : programBlocks) {
-    cout << "##### Block" << endl;
-    for (auto instr : blk) {
-      cout << "\t" << instr << endl;
-    }
-  }
+  //cout << "Program blocks" << endl;
+  //for (auto blk : programBlocks) {
+    //cout << "##### Block" << endl;
+    //for (auto instr : blk) {
+      //cout << "\t" << instr << endl;
+    //}
+  //}
 
   // Add default transitions
   for (auto sc : chunks) {
@@ -4837,7 +4837,7 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
           for (auto blk : programBlocks) {
             if (elem(rep, blk) &&
                 elem(nextRep, blk)) {
-              cout << "Adding default transition from\n\t" << rep << "\nto\n\t" << nextRep << endl;
+              //cout << "Adding default transition from\n\t" << rep << "\nto\n\t" << nextRep << endl;
               relevantTransitions.push_back({rep, nextRep, unconditional()});
               break;
             }
@@ -4928,14 +4928,14 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   IChunk next = getChunk(pos, chunkList);
   vector<IChunk> forwardPath;
   do {
-    cout << "Getting forward transitions for..." << endl;
-    cout << next << endl;
+    //cout << "Getting forward transitions for..." << endl;
+    //cout << next << endl;
 
     vector<SWTransition> forward = forwardTransition(next, transitions);
-    cout << "Forward transitions..." << endl;
-    for (auto f : forward) {
-      cout << f << endl;
-    }
+    //cout << "Forward transitions..." << endl;
+    //for (auto f : forward) {
+      //cout << f << endl;
+    //}
 
     internal_assert(forward.size() <= 1);
     if (forward.size() == 0) {
@@ -4951,7 +4951,7 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
     next = getChunk(forward[0].dst, chunkList);
   } while (true);
 
-  cout << "Forward path length: " << forwardPath.size() << endl;
+  //cout << "Forward path length: " << forwardPath.size() << endl;
   // Now how do we compute startTime?
   // First: walk over checking for backedges and adding them
   // And: add delays on chunk -> chunk codes
@@ -4973,7 +4973,7 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
       startTime += (nextChunk.stage - c.stage);
     }
   }
-  cout << "Start time for " << *instr << " = " << startTime << endl;
+  //cout << "Start time for " << *instr << " = " << startTime << endl;
 
   return simplify(startTime);
   //Expr cs = containerIterationStart(instr, sched);
@@ -5029,12 +5029,15 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "All instruction chunks..." << endl;
   for (auto cs : chunks) {
     for (auto chunk : cs.second) {
-      cout << "\t" << chunk.stage << endl;
+      cout << "\tStage: " << chunk.stage << endl;
       for (auto pos : chunk.instrs) {
         cout << "\t\t" << pos << endl;
+        cout << "\t\t\tStart time: " << startTime(chunk.getRep().instr, sched) << endl;
       }
     }
   }
+
+  internal_assert(false);
 
   //// Now: Delete transitions within chunks
   ////      For each transition across chunks, but inside of a stage we need comb logic
