@@ -3750,7 +3750,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     int headerLatency = headerLatencyInt(nestVars[i], f, fSched);
     int tailLatency = tailLatencyInt(nestVars[i], f, fSched);
     int II = headerLatency + schedules.back().completionTime() + tailLatency + 1;
-    int L = II; // Execute outer loops sequentially;
+    int L = II - 1; // Execute outer loops sequentially;
 
     schedules.push_back({nestVars[i], II, L, tc});
   }
