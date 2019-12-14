@@ -40,6 +40,7 @@ using std::ofstream;
 using std::cout;
 
 using CoreIR::group_unary;
+using CoreIR::split_by;
 using CoreIR::DirectedGraph;
 using CoreIR::ModuleDef;
 using CoreIR::vdisc;
@@ -4738,6 +4739,21 @@ ProgramPosition headerPosition(const std::string& level, const vector<ProgramPos
   return *(begin(positions));
 }
 
+bool isEndPosition(const ProgramPosition& active, vector<ProgramPosition>& positions) {
+  return positions.back() == active;
+}
+
+ProgramPosition nextPosition(const ProgramPosition& active, vector<ProgramPosition>& positions) {
+  for (int i = 0; i < ((int) positions.size()) - 1; i++) {
+    if (positions[i] == active) {
+      return positions[i + 1];
+    }
+  }
+
+  internal_assert(false) << " is the last position\n";
+  return active;
+}
+
 vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
   auto& f = *(sched.f);
   vector<ProgramPosition> positions = buildProgramPositions(sched);
@@ -4783,16 +4799,25 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
     }
   }
 
-  // Now: Delete transitions within chunks
-  //      For each transition across chunks, but inside of a stage we need comb logic
-  //      For each transition across chunks and across stages we need sequential logic
-  //      to delay the transition
   vector<SWTransition> relevantTransitions;
   for (auto t : transitions) {
     int startChunk = chunkIdx(t.src, chunkList);
     int endChunk = chunkIdx(t.dst, chunkList);
     if (startChunk != endChunk || (t.src == t.dst)) {
       relevantTransitions.push_back(t);
+    }
+  }
+
+  vector<vector<ProgramPosition> > programBlocks =
+    split_by(positions, [](const ProgramPosition& a, const ProgramPosition& b) {
+        return a.loopLevel == b.loopLevel;
+        });
+
+  cout << "Program blocks" << endl;
+  for (auto blk : programBlocks) {
+    cout << "##### Block" << endl;
+    for (auto instr : blk) {
+      cout << "\t" << instr << endl;
     }
   }
 
@@ -4808,11 +4833,34 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
         for (auto n : nextChunks) {
           ProgramPosition rep = c.getRep();
           ProgramPosition nextRep = n.getRep();
-          if ((rep.loopLevel == nextRep.loopLevel) ) {
-              //rep.isHead() == nextRep.isHead() &&
-              //rep.isTail() == nextRep.isTail()) {
-            relevantTransitions.push_back({rep, nextRep, unconditional()});
+
+          for (auto blk : programBlocks) {
+            if (elem(rep, blk) &&
+                elem(nextRep, blk)) {
+              cout << "Adding default transition from\n\t" << rep << "\nto\n\t" << nextRep << endl;
+              relevantTransitions.push_back({rep, nextRep, unconditional()});
+              break;
+            }
           }
+          //if ((rep.loopLevel == nextRep.loopLevel)) {
+            //// Check whether the sequential path from one instr to the next passes through any other
+            //// chunks
+            //ProgramPosition active = rep;
+            //bool foundNext = true;
+            //while (!isEndPosition(active, positions)) {
+              //ProgramPosition nextPos = nextPosition(active, positions);
+
+              //if (nextPos.loopLevel != rep.loopLevel) {
+                //foundNext = false;
+                //break;
+              //}
+              //active = nextPos;
+            //}
+            //if (foundNext) {
+              //cout << "Adding default transition from\n\t" << rep << "\nto\n\t" << nextRep << endl;
+              //relevantTransitions.push_back({rep, nextRep, unconditional()});
+            //}
+          //}
         }
       }
     }
