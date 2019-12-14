@@ -5054,6 +5054,44 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     }
   }
 
+  auto c = f.mod->getContext();
+  KernelControlPath cp;
+  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
+  for (int i = 0; i < (int) chunkList.size(); i++) {
+    string s = "chunk_" + to_string(i) + "_active";
+    tps.push_back({s, c->Bit()});
+    cp.stageIsActiveMap[i] = s;
+  }
+
+  std::set<std::string> streamNames = allStreamNames(f);
+  auto globalNs = c->getNamespace("global");
+  std::set<string> vars;
+  for (auto instr : f.allInstrs()) {
+    for (auto lp : instr->surroundingLoops) {
+      vars.insert(lp.name);
+    }
+  }
+
+  for (auto var : vars) {
+    int width = 16;
+    cp.controlVars.push_back(coreirSanitize(var));
+    tps.push_back({coreirSanitize(var), c->Bit()->Arr(width)});
+  }
+  CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
+  cp.m = controlPath;
+
+  cp.chunkList = chunkList;
+  auto def = controlPath->newModuleDef();
+
+  // Just to be safe for early tests, should really be 1 << 15 - 1
+  const int MAX_CYCLES = ((1 << 14) - 1);
+  cout << "MAX_CYCLES = " << MAX_CYCLES << endl;
+  auto cyclesSinceStartCounter =
+    buildCounter(def, "cycles_since_start", 0, MAX_CYCLES, 1);
+  // TODO: Add real step function circuit on in_en
+  auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
+  def->connect(cyclesSinceStartCounter->sel("en"), started);
+
   internal_assert(false);
 
   //// Now: Delete transitions within chunks
@@ -5115,35 +5153,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   for (auto t : relevantTransitions) {
     cout << t << endl;
   }
-  auto c = f.mod->getContext();
 
-  KernelControlPath cp;
-  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
-  for (int i = 0; i < (int) chunkList.size(); i++) {
-    string s = "chunk_" + to_string(i) + "_active";
-    tps.push_back({s, c->Bit()});
-    cp.stageIsActiveMap[i] = s;
-  }
-
-  std::set<std::string> streamNames = allStreamNames(f);
-  auto globalNs = c->getNamespace("global");
-  std::set<string> vars;
-  for (auto instr : f.allInstrs()) {
-    for (auto lp : instr->surroundingLoops) {
-      vars.insert(lp.name);
-    }
-  }
-
-  for (auto var : vars) {
-    int width = 16;
-    cp.controlVars.push_back(coreirSanitize(var));
-    tps.push_back({coreirSanitize(var), c->Bit()->Arr(width)});
-  }
-  CoreIR::Module* controlPath = globalNs->newModuleDecl(f.name + "_control_path", c->Record(tps));
-  cp.m = controlPath;
-
-  cp.chunkList = chunkList;
-  auto def = controlPath->newModuleDef();
 
   cout << "Creating activewires..." << endl;
   auto context = def->getContext();
