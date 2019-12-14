@@ -1640,17 +1640,17 @@ void small_conv_3_3_not_unrolled_test() {
     PRINT_PASSED("One valid in, one valid out");
     assert(false);
   } 
-  vector<Argument> args{input};
-  auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
+  //vector<Argument> args{input};
+  //auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
 
-  string accelName = getInputAlias("accel_interface_info.json");
-  runHWKernel(accelName, m, hwInputBuf, outputBuf);
+  //string accelName = getInputAlias("accel_interface_info.json");
+  //runHWKernel(accelName, m, hwInputBuf, outputBuf);
 
-  compare_buffers(outputBuf, cpuOutput);
-  deleteContext(context);
+  //compare_buffers(outputBuf, cpuOutput);
+  //deleteContext(context);
 
-  cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
-  assert(false);
+  //cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
+  //assert(false);
 }
 
 void small_conv_3_3_critical_path_test() {
@@ -3254,7 +3254,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
-  //small_conv_3_3_not_unrolled_test();
+  small_conv_3_3_not_unrolled_test();
   //assert(false);
   small_conv_3_3_test();
   //assert(false);
