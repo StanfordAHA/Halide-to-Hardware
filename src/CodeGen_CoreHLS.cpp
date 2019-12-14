@@ -2361,6 +2361,24 @@ class IChunk {
     int stage;
     std::vector<ProgramPosition> instrs;
 
+    bool containsInstr(HWInstr* instr) const {
+      for (auto pos : instrs) {
+        if (pos.isOp() && pos.instr == instr) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool containsPos(const ProgramPosition& pos) const {
+      for (auto instr : instrs) {
+        if (instr == pos) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     bool containsHeader() const {
       for (auto p : instrs) {
         if (p.isHead()) {
@@ -4803,10 +4821,6 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
 
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
   return startTime(instr, sched) + instr->latency;
-  //// This should be start time + a constant
-  //Expr cs = containerIterationStart(instr, sched);
-  //Expr bd = delayFromIterationStartToInstr(instr, sched);
-  //return cs + bd + sched.getEndStage(instr);
 }
 
 Expr tripCount(std::string loop, HWInstr* instr) {
@@ -4829,6 +4843,20 @@ vector<SWTransition> outTransitions(const ProgramPosition& pos, const vector<SWT
   return outs;
 }
 
+vector<SWTransition> forwardTransition(const IChunk& next, const vector<SWTransition>& transitions) {
+  vector<SWTransition> outs;
+  for (auto t : transitions) {
+    if (next.containsPos(t.src) &&
+        !next.containsPos(t.dst)) {
+      outs.push_back(t);
+    }
+  }
+  return outs;
+}
+
+map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
+    FunctionSchedule& sched);
+
 Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   string instrLoopLevel = instr->surroundingLoops.back().name;
 
@@ -4838,37 +4866,45 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
 
   internal_assert(positions.size() > 0) << "no program positions\n";
 
-  Expr startTime = Expr(0);
-  int i = 0;
-  ProgramPosition pos = positions[i];
-  bool foundTarget = false;
+  map<int, vector<IChunk> > chunks = getChunks(positions, sched);
+  vector<IChunk> chunkList;
+  for (auto sc : chunks) {
+    for (auto c : sc.second) {
+      chunkList.push_back(c);
+    }
+  }
+
+  ProgramPosition pos = positions[0];
+  IChunk next = getChunk(pos, chunkList);
+  vector<IChunk> forwardPath;
+  //bool foundTarget = false;
   do {
-    bool currentPosIsTarget = pos.isOp() && (pos.instr == instr);
+    cout << "Getting forward transitions for..." << endl;
+    cout << next << endl;
 
-    auto outgoing =
-      outTransitions(pos, transitions);
-
-    if (pos.isHead()) {
-      for (auto t : outgoing) {
-        if (t.src == t.dst) {
-          if (pos.isHead() && lessThanOrEqual(pos.loopLevel, instrLoopLevel, f)) {
-            startTime += sched.II(pos.loopLevel)*(Variable::make(Int(32), pos.loopLevel));
-          } else if (pos.isHead() && lessThan(pos.loopLevel, instrLoopLevel, f)) {
-            startTime += sched.II(pos.loopLevel)*(tripCount(pos.loopLevel, instr) - 1);
-          }
-        }
-      }
+    vector<SWTransition> forward = forwardTransition(next, transitions);
+    cout << "Forward transitions..." << endl;
+    for (auto f : forward) {
+      cout << f << endl;
     }
 
-    foundTarget = currentPosIsTarget;
+    internal_assert(forward.size() <= 1);
+    if (forward.size() == 0) {
+      internal_assert(next.containsInstr(instr));
+    }
 
-    pos = positions[i];
-    i++;
+    forwardPath.push_back(next);
 
-  } while (!foundTarget);
+    if (next.containsInstr(instr)) {
+      break;
+    }
 
-  cout << "Start time for " << *instr << " = " << startTime << endl;
-  internal_assert(foundTarget) << "could not find start time for " << *instr << "\n";
+    next = getChunk(forward[0].dst, chunkList);
+  } while (true);
+
+  //Expr startTime = Expr(0);
+  //cout << "Start time for " << *instr << " = " << startTime << endl;
+  //internal_assert(foundTarget) << "could not find start time for " << *instr << "\n";
 
   Expr cs = containerIterationStart(instr, sched);
   Expr bd = delayFromIterationStartToInstr(instr, sched);
