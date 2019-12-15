@@ -5138,7 +5138,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   auto c = f.mod->getContext();
   KernelControlPath cp;
-  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}};
+  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}, {"started", c->Bit()}};
   for (int i = 0; i < (int) chunkList.size(); i++) {
     string s = "chunk_" + to_string(i) + "_active";
     tps.push_back({s, c->Bit()});
@@ -5170,9 +5170,21 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "MAX_CYCLES = " << MAX_CYCLES << endl;
   auto cyclesSinceStartCounter =
     buildCounter(def, "cycles_since_start", 0, MAX_CYCLES, 1);
-  // TODO: Add real step function circuit on in_en
-  auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
+  
+  auto startedReg = def->addInstance("started_reg", "corebit.reg");
+  auto startedBefore = def->addInstance("started_before", "corebit.or");
+
+  def->connect(startedBefore->sel("in0"), startedReg->sel("out"));
+  def->connect(startedBefore->sel("in1"), def->sel("self.in_en"));
+
+  def->connect(startedReg->sel("in"), startedBefore->sel("out"));
+  
+  auto started = startedBefore->sel("out");
+
+  //auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
+
   def->connect(cyclesSinceStartCounter->sel("en"), started);
+  def->connect(def->sel("self.started"), started);
 
   // This is a map from loop variable names to the counter
   // for that variable which is created for the chunk that contains
@@ -5237,6 +5249,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
           }
         }
         below.push_back(doInc->sel("out"));
+        below.push_back(started);
         CoreIR::Wireable* shouldInc = andList(below);
         def->connect(map_get(lp.name, countInstances)->sel("en"), shouldInc);
       }

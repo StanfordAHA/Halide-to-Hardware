@@ -1622,6 +1622,9 @@ void small_conv_3_3_not_unrolled_test() {
     resetSim(inputNames, m, state);
     state.exeCombinational();
     state.exeSequential();
+    
+    assert(state.getBitVec("self.started") == BitVec(1, 0));
+    PRINT_PASSED("Circuit does not start until after in_en");
 
     int latency = getKernelLatency("compute_kernel_0");
 
@@ -1640,6 +1643,10 @@ void small_conv_3_3_not_unrolled_test() {
       state.exeCombinational();
       state.exeSequential();
       state.setValue("self.in_en", BitVec(1, 0));
+    
+      assert(state.getBitVec("self.started") == BitVec(1, 1));
+      PRINT_PASSED("Circuit has started");
+
       cout << "\nChunk activity after clock edge: " << i << endl;
       for (int i = 0; i < nChunks; i++) {
         cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
@@ -1661,6 +1668,8 @@ void small_conv_3_3_not_unrolled_test() {
     resetSim(inputNames, m, state);
     state.exeCombinational();
     state.exeSequential();
+    
+    assert(state.getBitVec("self.started") == BitVec(1, 0));
 
     int latency = getKernelLatency("compute_kernel_0");
 
@@ -1675,6 +1684,8 @@ void small_conv_3_3_not_unrolled_test() {
 
     state.exeCombinational();
     state.exeSequential();
+
+    assert(state.getBitVec("self.started") == BitVec(1, 1));
 
     state.setValue("self.in_en", BitVec(1, 0));
 
