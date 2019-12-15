@@ -1891,7 +1891,7 @@ void small_conv_3_3_not_unrolled_test() {
 
     PRINT_PASSED("enable to valid time matches latency");
 
-    assert(false);
+    //assert(false);
   } 
   //vector<Argument> args{input};
   //auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
@@ -2120,8 +2120,16 @@ void small_conv_3_3_test() {
   state.setValue("self.reset", BitVector(1, 1));
 
   state.resetCircuit();
+  
+  state.exeCombinational();
+  state.exeSequential();
+  state.exeCombinational();
 
   state.setValue("self.reset", BitVector(1, 0));
+
+  state.exeCombinational();
+  state.exeSequential();
+  state.exeCombinational();
 
   int maxCycles = 100;
   int cycles = 0;
@@ -2144,16 +2152,17 @@ void small_conv_3_3_test() {
     cycles++;
   }
 
-  cout << "final buffer" << endl;
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2; j++) {
-      for (int b = 0; b < 1; b++) {
-        cout << (int) outputBuf(i, j, b) << " ";
-        assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
-      }
-    }
-    cout << endl;
-  }
+  compare_buffers(outputBuf, cpuOutput);
+  //cout << "final buffer" << endl;
+  //for (int i = 0; i < 2; i++) {
+    //for (int j = 0; j < 2; j++) {
+      //for (int b = 0; b < 1; b++) {
+        //cout << (int) outputBuf(i, j, b) << " ";
+        //assert(outputBuf(i, j, b) == cpuOutput(i, j, b));
+      //}
+    //}
+    //cout << endl;
+  //}
   deleteContext(context);
  
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
@@ -3509,6 +3518,10 @@ void arith_test() {
 int main(int argc, char **argv) {
   small_conv_3_3_not_unrolled_test();
   //assert(false);
+  pointwise_add_test();
+  mod2_test();
+  clamp_test();
+  
   small_conv_3_3_test();
   //assert(false);
   small_conv_3_3_critical_path_test();
@@ -3519,10 +3532,6 @@ int main(int argc, char **argv) {
   ushift_test();
   arith_test();
 
-  pointwise_add_test();
-  mod2_test();
-  clamp_test();
-  
   small_cascade_test();
  
   // Experimenta tests
