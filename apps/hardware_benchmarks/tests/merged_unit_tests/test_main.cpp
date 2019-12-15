@@ -1838,7 +1838,7 @@ void small_conv_3_3_not_unrolled_test() {
     assert(state.getBitVec("self.started") == BitVec(1, 1));
     
     PRINT_PASSED("only conv_s1_r$x updated after clock cycle 2");
-    assert(false);
+    //assert(false);
   }
 
   // Compute logic test
@@ -1859,15 +1859,19 @@ void small_conv_3_3_not_unrolled_test() {
     }
     resetSim(inputNames, m, state);
 
+    state.exeCombinational();
+    state.exeSequential();
+    
     assert(state.getBitVec("self.conv_stencil_stream_0_0") == BitVec(16, 0));
     assert(state.getBitVec("self.valid") == BitVec(1, 0));
 
-    PRINT_PASSED("One valid in, one valid out");
+    PRINT_PASSED("Valid is zero initially after reset");
 
     int latency = getKernelLatency("compute_kernel_0");
-   
     cout << "Latency = " << latency << endl;
     assert(latency > 3);
+    
+    PRINT_PASSED("Latency is not obviously too low");
 
     state.setValue("self.in_en", BitVec(1, 1));
     state.exeCombinational();
@@ -1885,7 +1889,7 @@ void small_conv_3_3_not_unrolled_test() {
 
     assert(state.getBitVec("self.valid") == BitVec(1, 1));
 
-    PRINT_PASSED("enable -> valid time matches latency");
+    PRINT_PASSED("enable to valid time matches latency");
 
     assert(false);
   } 
