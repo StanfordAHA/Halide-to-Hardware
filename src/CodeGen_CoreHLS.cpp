@@ -5174,6 +5174,11 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
   def->connect(cyclesSinceStartCounter->sel("en"), started);
 
+  // This is a map from loop variable names to the counter
+  // for that variable which is created for the chunk that contains
+  // the head instruction of that variables loop level
+  map<string, Instance*> headLoopCounters;
+
   for (auto chunk : chunkList) {
     ProgramPosition pos = chunk.getRep();
     cout << "Creating control for chunk position: " << pos << endl;
@@ -5198,6 +5203,10 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         countVals[loop] = loopVarCounter->sel("out");
         countInstances[loop] = loopVarCounter;
       }
+    }
+
+    if (chunk.containsHeader()) {
+      headLoopCounters[chunk.getRep().loopLevel] = map_get(chunk.getRep().loopLevel, countInstances);
     }
 
     cout << "Wiring up control counter enables" << endl;
@@ -5257,15 +5266,16 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "Created value checks for chunks, now generting loop counters" << endl;
 
   for (auto loop : loopNames(f.structuredOrder())) {
-    cout << "Building counter for: " << loop << endl;
-    // TODO: Dont assume value starts at zero
-    auto loopVarCounter =
-      buildCounter(def, coreirSanitize(loop) + "_value_counter", 0, func_id_const_value(tripCount(loop, f)), 1);
+    auto loopVarCounter = map_get(loop, headLoopCounters);
+    //cout << "Building counter for: " << loop << endl;
+    //// TODO: Dont assume value starts at zero
+    //auto loopVarCounter =
+      //buildCounter(def, coreirSanitize(loop) + "_value_counter", 0, func_id_const_value(tripCount(loop, f)), 1);
 
-    ProgramPosition headerPos = headerPosition(loop, positions);
-    IChunk headerChunk = getChunk(headerPos, chunkList);
-    def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
-    cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
+    //ProgramPosition headerPos = headerPosition(loop, positions);
+    //IChunk headerChunk = getChunk(headerPos, chunkList);
+    //def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
+    //cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
     def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop)));
   }
 

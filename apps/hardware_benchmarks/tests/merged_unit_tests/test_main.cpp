@@ -1620,6 +1620,47 @@ void small_conv_3_3_not_unrolled_test() {
     SimulatorState state(m);
     vector<string> inputNames;
     resetSim(inputNames, m, state);
+    state.exeCombinational();
+    state.exeSequential();
+
+    int latency = getKernelLatency("compute_kernel_0");
+
+    // TODO: Get this from metadata file
+    const int nChunks = 8;
+    cout << "Chunk activity after reset..." << endl;
+    for (int i = 0; i < nChunks; i++) {
+      cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
+    }
+
+    state.setValue("self.in_en", BitVec(1, 1));
+    for (int i = 0; i < latency; i++) {
+      cout << "About to set clock edge " << i << endl;
+
+      assert(state.getBitVec("self.chunk_" + to_string(nChunks - 2) + "_active") == BitVec(1, 0));
+      state.exeCombinational();
+      state.exeSequential();
+      state.setValue("self.in_en", BitVec(1, 0));
+      cout << "\nChunk activity after clock edge: " << i << endl;
+      for (int i = 0; i < nChunks; i++) {
+        cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
+      }
+    }
+
+    assert(state.getBitVec("self.chunk_" + to_string(nChunks - 2) + "_active") == BitVec(1, 1));
+    PRINT_PASSED("Innermost conv completes in expected time");
+  }
+  
+  {
+    vector<Argument> args{input};
+    string name = "compute_kernel_0_control_path";
+    auto m = buildModule(name, context, "coreir_curve", args, "curve", hw_output);
+    m->print();
+
+    SimulatorState state(m);
+    vector<string> inputNames;
+    resetSim(inputNames, m, state);
+    state.exeCombinational();
+    state.exeSequential();
 
     int latency = getKernelLatency("compute_kernel_0");
 
@@ -1630,41 +1671,18 @@ void small_conv_3_3_not_unrolled_test() {
 
     PRINT_PASSED("loop counter variables all zero after reset");
 
-    const int nChunks = 8;
-    cout << "Chunk activity after reset..." << endl;
-    for (int i = 0; i < nChunks; i++) {
-      cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
-    }
-
     state.setValue("self.in_en", BitVec(1, 1));
-    for (int i = 0; i < latency + 1; i++) {
-      cout << "About to set clock edge " << i << endl;
 
-      state.exeCombinational();
-      state.exeSequential();
-      state.setValue("self.in_en", BitVec(1, 0));
-      cout << "\nChunk activity after clock edge: " << i << endl;
-      for (int i = 0; i < nChunks; i++) {
-        cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
-      }
-    }
+    state.exeCombinational();
+    state.exeSequential();
 
-    assert(state.getBitVec("self.chunk_" + to_string(nChunks - 1) + "_active") == BitVec(1, 1));
+    state.setValue("self.in_en", BitVec(1, 0));
 
-    for (int i = 0; i < 17; i++) {
-      cout << "About to set clock edge " << i << endl;
-
-      state.exeCombinational();
-      state.exeSequential();
-
-      state.setValue("self.in_en", BitVec(1, 0));
-
-      cout << "Conv xi after enable: " << state.getBitVec("self.conv_s1_r$x") << endl;
-      cout << "Conv yi after enable: " << state.getBitVec("self.conv_s1_r$y") << endl;
-
-      cout << "Conv x  after enable: " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
-      cout << "Conv y  after enable: " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
-    }
+    cout << "After first clock edge: " << endl;
+    cout << "\tself.conv_s1_r$x         = " << state.getBitVec("self.conv_s1_r$x") << endl;
+    cout << "\tself.conv_s1_r$y         = " << state.getBitVec("self.conv_s1_r$y") << endl;
+    cout << "\tself.conv_x___scan_dim_0 = " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
+    cout << "\tself.conv_y___scan_dim_1 = " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
 
     assert(state.getBitVec("self.conv_s1_r$x") == BitVec(16, 1));
     assert(state.getBitVec("self.conv_s1_r$y") == BitVec(16, 0));
@@ -1673,7 +1691,6 @@ void small_conv_3_3_not_unrolled_test() {
     
     PRINT_PASSED("conv_s1_r$x updated after first clock cycle");
 
-    PRINT_PASSED("Control path output");
     assert(false);
   }
 
