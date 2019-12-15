@@ -5138,7 +5138,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   auto c = f.mod->getContext();
   KernelControlPath cp;
-  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}, {"started", c->Bit()}};
+  vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}, {"started", c->Bit()}, {"cycles_since_start", c->Bit()->Arr(16)}};
   for (int i = 0; i < (int) chunkList.size(); i++) {
     string s = "chunk_" + to_string(i) + "_active";
     tps.push_back({s, c->Bit()});
@@ -5171,6 +5171,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto cyclesSinceStartCounter =
     buildCounter(def, "cycles_since_start", 0, MAX_CYCLES, 1);
   
+  def->connect(def->sel("self.cycles_since_start"), cyclesSinceStartCounter->sel("out"));
+
   auto startedReg = def->addInstance("started_reg", "corebit.reg");
   auto startedBefore = def->addInstance("started_before", "corebit.or");
 
@@ -5272,8 +5274,11 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     def->connect(diffZero->sel("in0"), timeDiff->sel("out"));
     def->connect(diffZero->sel("in1"), zr);
 
-    def->connect(diffZero->sel("out"), def->sel(cp.activeSignal(chunk)));
-    def->connect(diffZero->sel("out"), doInc->sel("in"));
+    auto incAnd = andList({diffZero->sel("out"), started});
+    def->connect(incAnd, def->sel(cp.activeSignal(chunk)));
+    def->connect(incAnd, doInc->sel("in"));
+    //def->connect(diffZero->sel("out"), def->sel(cp.activeSignal(chunk)));
+    //def->connect(diffZero->sel("out"), doInc->sel("in"));
   }
 
   cout << "Created value checks for chunks, now generting loop counters" << endl;
