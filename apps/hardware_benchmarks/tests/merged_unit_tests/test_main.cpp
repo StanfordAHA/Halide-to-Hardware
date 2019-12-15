@@ -1689,6 +1689,7 @@ void small_conv_3_3_not_unrolled_test() {
     SimulatorState state(m);
     vector<string> inputNames;
     resetSim(inputNames, m, state);
+
     state.exeCombinational();
     state.exeSequential();
     
@@ -1707,6 +1708,7 @@ void small_conv_3_3_not_unrolled_test() {
 
     state.exeCombinational();
     state.exeSequential();
+    state.exeCombinational();
 
     assert(state.getBitVec("self.started") == BitVec(1, 1));
 
