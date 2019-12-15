@@ -6440,18 +6440,14 @@ vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>&
 }
 
 map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>& functions,
-    //std::map<const For*, ComputeKernel>& kernelModules,
-    //std::map<const For*, CoreIR::Instance*>& kernels,
     const std::vector<CoreIR_Argument>& args,
-    AcceleratorInterface& ifc,
-    StencilInfoCollector& scl,
-    DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
+    StencilInfoCollector& scl) {
+    //DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
   map<string, StreamUseInfo> streamUseInfo;
   for (auto a : args) {
     if (a.is_stencil) {
-      cout << "\t" << a.name << endl;
       StreamNode aN = argNode(a);
-      streamGraph.addVertex(aN);
+      //streamGraph.addVertex(aN);
       if (!a.is_output) {
         streamUseInfo[a.name].writer = argNode(a);
       } else {
@@ -6467,14 +6463,13 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
     streamReads[f.first] = readStreams;
     streamWrites[f.first] = writeStreams;
     StreamNode forNode = nestNode(f.first);
-    streamGraph.addVertex(forNode);
+    //streamGraph.addVertex(forNode);
   }
 
-  for (auto lb : scl.info.linebuffers) {
-    StreamNode lbN = lbNode(lbName(lb));
-    //lb[0] + "_to_" + lb[1]);
-    streamGraph.addVertex(lbN);
-  }
+  //for (auto lb : scl.info.linebuffers) {
+    //StreamNode lbN = lbNode(lbName(lb));
+    ////streamGraph.addVertex(lbN);
+  //}
 
   cout << "Stream reads" << endl;
   for (auto r : streamReads) {
@@ -6550,10 +6545,23 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
   DirectedGraph<StreamNode, StreamSubset> streamGraph;
 
-  cout << "All args" << endl;
+  for (auto a : args) {
+    if (a.is_stencil) {
+      StreamNode aN = argNode(a);
+      streamGraph.addVertex(aN);
+    }
+  }
+  for (auto f : functions) {
+    StreamNode forNode = nestNode(f.first);
+    streamGraph.addVertex(forNode);
+  }
+  for (auto lb : scl.info.linebuffers) {
+    StreamNode lbN = lbNode(lbName(lb));
+    streamGraph.addVertex(lbN);
+  }
 
   map<string, StreamUseInfo> streamUseInfo =
-    createStreamUseInfo(functions, args, ifc, scl, streamGraph);
+    createStreamUseInfo(functions, args, scl);
   
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
