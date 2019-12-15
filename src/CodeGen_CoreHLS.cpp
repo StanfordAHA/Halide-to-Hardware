@@ -259,8 +259,13 @@ HWInstr* head(const std::vector<HWInstr*>& instrs) {
 
 std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
   vector<string> names;
-  for (auto l : head(instrs)->surroundingLoops) {
-    names.push_back(l.name);
+  //for (auto l : head(instrs)->surroundingLoops) {
+  for (auto i : instrs) {
+    for (auto lp : i->surroundingLoops) {
+      if (!elem(lp.name, names)) {
+        names.push_back(lp.name);
+      }
+    }
   }
   return names;
 }
@@ -4567,6 +4572,7 @@ Instance* buildCounter(CoreIR::ModuleDef* def, const std::string& name, int min_
     {"inc",CoreIR::Const::make(c, inc)}};
 
   CoreIR::Instance* counter_inst = def->addInstance(name, "commonlib.counter", args);
+  def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
   return counter_inst;
 }
 
@@ -4611,7 +4617,7 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
     if (self->canSel(varName)) {
       def->connect(counter_inst->sel("out"), self->sel(varName));
     }
-    def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
+    //def->connect(counter_inst->sel("reset"), def->sel("self")->sel("reset"));
 
     auto maxValConst = mkConst(def, varName + "_max_value", width, max_value);
     auto atMax = def->addInstance(varName + "_at_max", "coreir.eq", {{"width", COREMK(c, width)}});
@@ -5184,10 +5190,11 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       string loop = lp.name;
       if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
 
+        int min_value = func_id_const_value(lp.min);
+        int max_value = min_value + func_id_const_value(lp.extent) - 1;
         cout << loop << " <= " << chunk.getRep().loopLevel << endl;
-        // TODO: Dont assume value starts at zero
         auto loopVarCounter =
-          buildCounter(def, coreirSanitize(loop) + "_value_counter" + c->getUnique(), 0, func_id_const_value(tripCount(loop, f)), 1);
+          buildCounter(def, coreirSanitize(loop) + "_value_counter" + c->getUnique(), min_value, max_value, 1);
         countVals[loop] = loopVarCounter->sel("out");
         countInstances[loop] = loopVarCounter;
       }
@@ -5199,15 +5206,19 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
 
         vector<CoreIR::Wireable*> below;
-        for (auto name : loopNames(f.structuredOrder())) {
+        for (auto innerLoop : chunk.getRep().instr->surroundingLoops) {
+          string name = innerLoop.name;
           if (!lessThanOrEqual(name, lp.name, f) &&
               (lessThanOrEqual(name, chunk.getRep().loopLevel, f))) {
             
             // Create atMax circuit
             internal_assert(contains_key(name, countVals)) << "Cannot find " << name << " in count values for " << lp.name << "\n";
+
             auto countVal = map_get(name, countVals);
+            int min_value = func_id_const_value(innerLoop.min);
+            int max_value = min_value + func_id_const_value(innerLoop.extent) - 1;
             auto maxConst =
-              def->addInstance(coreirSanitize(name) + "_max_val" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, func_id_const_value(tripCount(name, f)) - 1))}});
+              def->addInstance(coreirSanitize(name) + "_max_val" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, max_value))}});
             auto atMax =
               def->addInstance(coreirSanitize(name) + "_at_max" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
             def->connect(atMax->sel("in0"), countVal);
@@ -5246,6 +5257,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "Created value checks for chunks, now generting loop counters" << endl;
 
   for (auto loop : loopNames(f.structuredOrder())) {
+    cout << "Building counter for: " << loop << endl;
     // TODO: Dont assume value starts at zero
     auto loopVarCounter =
       buildCounter(def, coreirSanitize(loop) + "_value_counter", 0, func_id_const_value(tripCount(loop, f)), 1);
@@ -5253,12 +5265,16 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     ProgramPosition headerPos = headerPosition(loop, positions);
     IChunk headerChunk = getChunk(headerPos, chunkList);
     def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
+    cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
     def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop)));
   }
 
   controlPath->setDef(def);
 
   cp.m = controlPath;
+  
+  cout << "Control path just before returning it: " << endl;
+  cp.m->print();
 
   return cp;
   // Now: build counters for each variable
