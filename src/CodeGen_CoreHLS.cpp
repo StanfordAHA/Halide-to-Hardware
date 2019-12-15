@@ -5144,7 +5144,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       cout << "\tStage: " << chunk.stage << endl;
       for (auto pos : chunk.instrs) {
         cout << "\t\t" << pos << endl;
-        cout << "\t\t\tStart time: " << startTime(chunk.getRep(), sched) << endl;
+        //cout << "\t\t\tStart time: " << startTime(chunk.getRep(), sched) << endl;
       }
     }
   }
