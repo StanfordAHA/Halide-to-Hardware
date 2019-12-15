@@ -1617,67 +1617,132 @@ void small_conv_3_3_not_unrolled_test() {
     auto m = buildModule(name, context, "coreir_curve", args, "curve", hw_output);
     m->print();
 
-    SimulatorState state(m);
-    vector<string> inputNames;
-    resetSim(inputNames, m, state);
+    {
+      SimulatorState state(m);
+      vector<string> inputNames;
+      resetSim(inputNames, m, state);
 
-    cout << "Cycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
-    assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
-
-    state.exeCombinational();
-    state.exeSequential();
-    
-    cout << "Cycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
-
-    assert(state.getBitVec("self.started") == BitVec(1, 0));
-    assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
-
-    PRINT_PASSED("Circuit does not start until after in_en");
-
-    int latency = getKernelLatency("compute_kernel_0");
-
-    state.setValue("self.in_en", BitVec(1, 1));
-    state.exeCombinational();
-
-    assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
-    assert(state.getBitVec("self.started") == BitVec(1, 1));
-
-    // TODO: Get this from metadata file
-    const int nChunks = 8;
-    cout << "Chunk activity after reset..." << endl;
-    for (int i = 0; i < nChunks; i++) {
-      cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
-    }
-
-    for (int i = 0; i < latency; i++) {
-      cout << "About to set clock edge " << i << endl;
-      
-      assert(state.getBitVec("self.started") == BitVec(1, 1));
-      cout << "Cycles since start before clock edge " << i << ": " << state.getBitVec("self.cycles_since_start") << endl;
-      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, i));
-      assert(state.getBitVec("self.chunk_" + to_string(nChunks - 2) + "_active") == BitVec(1, 0));
+      cout << "Cycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
+      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
 
       state.exeCombinational();
       state.exeSequential();
-      state.exeCombinational();
-      
-      state.setValue("self.in_en", BitVec(1, 0));
 
-      cout << "After clock edge " << i << ", cycles_since_start = " << state.getBitVec("self.cycles_since_start") << ", should be = " << BitVec(16, i + 1) << endl;
-      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, i + 1));
+      cout << "Cycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
+
+      assert(state.getBitVec("self.started") == BitVec(1, 0));
+      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
+
+      PRINT_PASSED("Circuit does not start until after in_en");
+
+      int latency = getKernelLatency("compute_kernel_0");
+
+      state.setValue("self.in_en", BitVec(1, 1));
+      state.exeCombinational();
+
+      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
       assert(state.getBitVec("self.started") == BitVec(1, 1));
 
-      PRINT_PASSED("Circuit has started");
-
-      cout << "\tCycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
-      cout << "\nChunk activity after clock edge: " << i << endl;
+      // TODO: Get this from metadata file
+      const int nChunks = 8;
+      cout << "Chunk activity after reset..." << endl;
       for (int i = 0; i < nChunks; i++) {
         cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
       }
+
+      for (int i = 0; i < latency; i++) {
+        cout << "About to set clock edge " << i << endl;
+
+        assert(state.getBitVec("self.started") == BitVec(1, 1));
+        cout << "Cycles since start before clock edge " << i << ": " << state.getBitVec("self.cycles_since_start") << endl;
+        assert(state.getBitVec("self.cycles_since_start") == BitVec(16, i));
+        assert(state.getBitVec("self.chunk_" + to_string(nChunks - 2) + "_active") == BitVec(1, 0));
+
+        state.exeCombinational();
+        state.exeSequential();
+        state.exeCombinational();
+
+        state.setValue("self.in_en", BitVec(1, 0));
+
+        cout << "After clock edge " << i << ", cycles_since_start = " << state.getBitVec("self.cycles_since_start") << ", should be = " << BitVec(16, i + 1) << endl;
+        assert(state.getBitVec("self.cycles_since_start") == BitVec(16, i + 1));
+        assert(state.getBitVec("self.started") == BitVec(1, 1));
+
+        PRINT_PASSED("Circuit has started");
+
+        cout << "\tCycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
+        cout << "\nChunk activity after clock edge: " << i << endl;
+        for (int i = 0; i < nChunks; i++) {
+          cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
+        }
+      }
+      
+      assert(state.getBitVec("self.chunk_" + to_string(nChunks - 2) + "_active") == BitVec(1, 1));
+      PRINT_PASSED("Innermost conv completes in expected time");
     }
 
-    assert(state.getBitVec("self.chunk_" + to_string(nChunks - 2) + "_active") == BitVec(1, 1));
-    PRINT_PASSED("Innermost conv completes in expected time");
+    {
+      SimulatorState state(m);
+      vector<string> inputNames;
+      resetSim(inputNames, m, state);
+
+      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
+
+      state.exeCombinational();
+      state.exeSequential();
+
+      cout << "Cycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
+
+      assert(state.getBitVec("self.started") == BitVec(1, 0));
+      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
+
+      PRINT_PASSED("Circuit does not start until after in_en");
+
+      int latency = getKernelLatency("compute_kernel_0");
+
+      state.setValue("self.in_en", BitVec(1, 1));
+      state.exeCombinational();
+
+      assert(state.getBitVec("self.cycles_since_start") == BitVec(16, 0));
+      assert(state.getBitVec("self.started") == BitVec(1, 1));
+
+      // TODO: Get this from metadata file
+      const int nChunks = 8;
+      cout << "Chunk activity after reset..." << endl;
+      for (int i = 0; i < nChunks; i++) {
+        cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
+      }
+
+      // TODO: Get from accel info json
+      const int COMPLETION_TIME = 1*36 + 35;
+      for (int i = 0; i < COMPLETION_TIME; i++) {
+        cout << "About to set clock edge " << i << endl;
+
+        assert(state.getBitVec("self.started") == BitVec(1, 1));
+        cout << "Cycles since start before clock edge " << i << ": " << state.getBitVec("self.cycles_since_start") << endl;
+        assert(state.getBitVec("self.cycles_since_start") == BitVec(16, i));
+        //assert(state.getBitVec("self.chunk_" + to_string(nChunks - 1) + "_active") == BitVec(1, 0));
+
+        state.exeCombinational();
+        state.exeSequential();
+        state.exeCombinational();
+
+        state.setValue("self.in_en", BitVec(1, 0));
+
+        cout << "After clock edge " << i << ", cycles_since_start = " << state.getBitVec("self.cycles_since_start") << ", should be = " << BitVec(16, i + 1) << endl;
+        assert(state.getBitVec("self.cycles_since_start") == BitVec(16, i + 1));
+        assert(state.getBitVec("self.started") == BitVec(1, 1));
+
+        cout << "\tCycles since start: " << state.getBitVec("self.cycles_since_start") << endl;
+        cout << "\nChunk activity after clock edge: " << i << endl;
+        for (int i = 0; i < nChunks; i++) {
+          cout << "\tchunk " << i << " active: " << state.getBitVec("self.chunk_" + to_string(i) + "_active") << endl;
+        }
+      }
+      
+      assert(state.getBitVec("self.chunk_" + to_string(nChunks - 1) + "_active") == BitVec(1, 1));
+      PRINT_PASSED("Innermost conv completes in expected time");
+    }
   }
   
   {
