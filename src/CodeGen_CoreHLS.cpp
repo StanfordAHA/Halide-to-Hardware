@@ -3687,6 +3687,19 @@ HWLoopSchedule asapSchedule(HWFunction& f) {
   return sched;
 }
 
+Expr tripCount(const std::string& var, HWFunction& f) {
+  for (auto instr : f.allInstrs()) {
+    for (auto lp : instr->surroundingLoops) {
+      if (lp.name == var) {
+        Expr tc = simplify(lp.extent);
+        return tc;
+      }
+    }
+  }
+  internal_assert(false);
+  return -1;
+}
+
 int tripCountInt(const std::string& var, HWFunction& f) {
   for (auto instr : f.allInstrs()) {
     for (auto lp : instr->surroundingLoops) {
@@ -5026,6 +5039,69 @@ map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
   return chunks;
 }
 
+class ArithGenerator : public IRGraphVisitor {
+
+  public:
+
+    ModuleDef* def;
+    Wireable* output;
+    map<string, Wireable*> varWires;
+
+    ArithGenerator(ModuleDef* def_, map<string, Wireable*>& varWires_) : def(def_), output(nullptr), varWires(varWires_) {}
+
+    Wireable* getOutput() const {
+      internal_assert(output != nullptr) << "Output is null\n";
+      return output;
+    }
+
+  protected:
+
+    using IRGraphVisitor::visit;
+    
+    void visit(const IntImm* v) {
+      auto c = def->getContext();
+      output =
+        def->addInstance("arith_const" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVector(16, v->value))}})->sel("out");
+    }
+
+    void visit(const Variable* var) {
+      output = map_get(var->name, varWires);
+    }
+
+    void visit(const Mul* add) {
+      add->a.accept(this);
+      auto op0 = getOutput();
+
+      add->b.accept(this);
+      auto op1 = getOutput();
+
+      auto c = def->getContext();
+      auto val = 
+        def->addInstance("mul" + c->getUnique(), "coreir.mul", {{"width", COREMK(c, 16)}});
+      output =
+        val->sel("out");
+      def->connect(op0, val->sel("in0"));
+      def->connect(op1, val->sel("in1"));
+    }
+
+    void visit(const Add* add) {
+      add->a.accept(this);
+      auto op0 = getOutput();
+
+      add->b.accept(this);
+      auto op1 = getOutput();
+
+      auto c = def->getContext();
+      auto val = 
+        def->addInstance("add" + c->getUnique(), "coreir.add", {{"width", COREMK(c, 16)}});
+      output =
+        val->sel("out");
+      def->connect(op0, val->sel("in0"));
+      def->connect(op1, val->sel("in1"));
+    }
+
+};
+
 // Now: Need to add handling for inner loop changes.
 // the innermost loop should be used instead of the lexically
 // first instruction, but even that will just patch the problem
@@ -5092,7 +5168,104 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
   def->connect(cyclesSinceStartCounter->sel("en"), started);
 
-  internal_assert(false);
+  for (auto chunk : chunkList) {
+    ProgramPosition pos = chunk.getRep();
+    cout << "Creating control for chunk position: " << pos << endl;
+    Expr st = startTime(pos, sched);
+
+    Instance* doInc =
+      def->addInstance("chunk_" + to_string(chunkIdx(chunk, chunkList)) + "_active",
+          "halidehw.passthrough",
+          {{"type", COREMK(c, c->Bit())}});
+
+    map<string, Wireable*> countVals;
+    map<string, Instance*> countInstances;
+    for (auto lp : chunk.getRep().instr->surroundingLoops) {
+      string loop = lp.name;
+      if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
+
+        cout << loop << " <= " << chunk.getRep().loopLevel << endl;
+        // TODO: Dont assume value starts at zero
+        auto loopVarCounter =
+          buildCounter(def, coreirSanitize(loop) + "_value_counter" + c->getUnique(), 0, func_id_const_value(tripCount(loop, f)), 1);
+        countVals[loop] = loopVarCounter->sel("out");
+        countInstances[loop] = loopVarCounter;
+      }
+    }
+
+    cout << "Wiring up control counter enables" << endl;
+    for (auto lp : chunk.getRep().instr->surroundingLoops) {
+      string loop = lp.name;
+      if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
+
+        vector<CoreIR::Wireable*> below;
+        for (auto name : loopNames(f.structuredOrder())) {
+          if (!lessThanOrEqual(name, lp.name, f) &&
+              (lessThanOrEqual(name, chunk.getRep().loopLevel, f))) {
+            
+            // Create atMax circuit
+            internal_assert(contains_key(name, countVals)) << "Cannot find " << name << " in count values for " << lp.name << "\n";
+            auto countVal = map_get(name, countVals);
+            auto maxConst =
+              def->addInstance(coreirSanitize(name) + "_max_val" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, func_id_const_value(tripCount(name, f)) - 1))}});
+            auto atMax =
+              def->addInstance(coreirSanitize(name) + "_at_max" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
+            def->connect(atMax->sel("in0"), countVal);
+            def->connect(atMax->sel("in1"), maxConst->sel("out"));
+
+            below.push_back(atMax->sel("out"));
+          }
+        }
+        below.push_back(doInc->sel("out"));
+        CoreIR::Wireable* shouldInc = andList(below);
+        def->connect(map_get(lp.name, countInstances)->sel("en"), shouldInc);
+      }
+    }
+    
+    ArithGenerator arithGen(def, countVals);
+    st.accept(&arithGen);
+
+    Wireable* schedFValue = arithGen.getOutput();
+    Instance* timeDiff =
+      def->addInstance("is_active" + c->getUnique(), "coreir.sub", {{"width", COREMK(c, 16)}});
+    def->connect(timeDiff->sel("in0"), cyclesSinceStartCounter->sel("out"));
+    def->connect(timeDiff->sel("in1"), schedFValue);
+
+    Wireable* zr =
+      def->addInstance("zr" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, 0))}})->sel("out");
+
+    Instance* diffZero =
+      def->addInstance("diff_zero" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
+    def->connect(diffZero->sel("in0"), timeDiff->sel("out"));
+    def->connect(diffZero->sel("in1"), zr);
+
+    def->connect(diffZero->sel("out"), def->sel(cp.activeSignal(chunk)));
+    def->connect(diffZero->sel("out"), doInc->sel("in"));
+  }
+
+  cout << "Created value checks for chunks, now generting loop counters" << endl;
+
+  for (auto loop : loopNames(f.structuredOrder())) {
+    // TODO: Dont assume value starts at zero
+    auto loopVarCounter =
+      buildCounter(def, coreirSanitize(loop) + "_value_counter", 0, func_id_const_value(tripCount(loop, f)), 1);
+
+    ProgramPosition headerPos = headerPosition(loop, positions);
+    IChunk headerChunk = getChunk(headerPos, chunkList);
+    def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
+    def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop)));
+  }
+
+  controlPath->setDef(def);
+
+  cp.m = controlPath;
+
+  return cp;
+  // Now: build counters for each variable
+  // Once that is done we need to wire each one
+  // to the the and of enable and lexmax
+
+  //internal_assert(false);
 
   //// Now: Delete transitions within chunks
   ////      For each transition across chunks, but inside of a stage we need comb logic
@@ -5167,7 +5340,6 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cout << "Creating transition wires..." << endl;
   map<SWTransition, Wireable*> transitionHappenedWires;
   for (auto t : relevantTransitions) {
-    // TODO: Add *and* with transition condition here
     Wireable* transitionCondition = nullptr;
 
     // TODO: Use datapath in unitmapping to get the wire
@@ -5192,25 +5364,18 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
           "transition_" + def->getContext()->getUnique() + "_" + to_string(delay),
           def->getContext()->Bit(), delay);
 
-    //if (t.src == t.dst) {
-      ////internal_assert(false) << "No support for backedges between non-enable triggered loops\n";
-      IChunk srcChunk = getChunk(t.src, chunkList);
-      auto chunkActive =
-        map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
-      vector<Wireable*> conds = {chunkActive, transitionCondition};
-      auto doTransition = andList(conds);
-      def->connect(regs[0]->sel("in"), doTransition);
-      
-      transitionHappenedWires[t] = regs.back()->sel("out");
-    //} else {
-      //cout << "Created pipeline chain" << endl;
-      //transitionHappenedWires[t] = regs.back()->sel("out");
-      //def->connect(regs[0]->sel("in"), map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out"));
-    //}
+    IChunk srcChunk = getChunk(t.src, chunkList);
+    auto chunkActive =
+      map_get(chunkIdx(t.src, chunkList), isActiveWires)->sel("out");
+    vector<Wireable*> conds = {chunkActive, transitionCondition};
+    auto doTransition = andList(conds);
+    def->connect(regs[0]->sel("in"), doTransition);
+
+    transitionHappenedWires[t] = regs.back()->sel("out");
   }
 
   cout << "Connecting stage active wires..." << endl;
-  
+
   cout << "Wiring up counter enables for " << counters.loopLevelCounters.size() << " loop levels" << endl;
   auto self = def->sel("self");
   auto in_en = self->sel("in_en");
@@ -5227,9 +5392,9 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
         }
       }
 
-      if (below.size() == 0) {
+      //if (below.size() == 0) {
         below.push_back(in_en);
-      }
+      //}
       CoreIR::Wireable* shouldInc = andList(def, below);
       int i = counters.index(name);
       def->connect(counters.loopLevelCounters[i]->sel("en"), shouldInc);

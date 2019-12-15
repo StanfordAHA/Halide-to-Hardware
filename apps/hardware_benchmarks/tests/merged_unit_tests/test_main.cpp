@@ -1648,7 +1648,7 @@ void small_conv_3_3_not_unrolled_test() {
       state.exeCombinational();
       state.exeSequential();
       
-      //state.setValue("self.in_en", BitVec(1, 0));
+      state.setValue("self.in_en", BitVec(1, 0));
     }
 
     assert(state.getBitVec("self.valid") == BitVec(1, 1));
