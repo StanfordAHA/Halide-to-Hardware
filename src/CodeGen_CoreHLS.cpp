@@ -341,6 +341,105 @@ vector<int> arrayDims(CoreIR::Wireable* w) {
   return arrayDims(w->getType());
 }
 
+enum StreamSource {
+  STREAM_SOURCE_ARG,
+  STREAM_SOURCE_LOOP,
+  STREAM_SOURCE_LB
+};
+
+class StreamSubset {
+  public:
+    int numDims;
+    vector<int> usedExtents;
+    vector<int> actualExtents;
+
+    vector<int> usedOffsets() const {
+      vector<int> off;
+      for (int i = 0; i < numDims; i++) {
+        off.push_back(usedExtents[2*i]);
+      }
+      return off;
+    }
+
+    vector<int> getUsedDims() const {
+      vector<int> dims;
+      for (size_t i = 0; i < usedExtents.size(); i += 2) {
+        dims.push_back(usedExtents.at(i + 1));
+      }
+      return dims;
+    }
+
+    vector<int> getActualDims() const {
+      vector<int> dims;
+      for (size_t i = 2; i < actualExtents.size(); i += 3) {
+        dims.push_back(actualExtents.at(i));
+      }
+      return dims;
+    }
+};
+
+class StreamNode {
+  public:
+    StreamSource ss;
+    const For* lp;
+    CoreIR_Argument arg;
+    std::string lbName;
+    CoreIR::Wireable* wire;
+
+    StreamNode() : wire(nullptr) {}
+
+    void setWireable(Wireable* w) {
+      wire = w;
+    }
+
+    bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
+    bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
+
+    CoreIR::Wireable* getWireable() const {
+      internal_assert(wire != nullptr) << "wire is null in getWireable\n";
+      if (ss == STREAM_SOURCE_ARG) {
+        return wire;
+      }
+
+      if (ss == STREAM_SOURCE_LOOP) {
+        return wire;
+      }
+
+      if (ss == STREAM_SOURCE_LB) {
+        return wire;
+      }
+      internal_assert(false);
+      return nullptr;
+    }
+
+    std::string toString() const {
+      if (ss == STREAM_SOURCE_ARG) {
+        return arg.name;
+      }
+
+      if (ss == STREAM_SOURCE_LOOP) {
+        return lp->name;
+      }
+
+      if (ss == STREAM_SOURCE_LB) {
+        return lbName;
+      }
+      internal_assert(false);
+      return "ERROR";
+    }
+};
+
+class StreamUseInfo {
+  public:
+    vector<pair<StreamNode, StreamSubset> > readers;
+    StreamNode writer;
+};
+
+
+map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>& functions,
+    const std::vector<CoreIR_Argument>& args,
+    StencilInfo& scl);
+
 class IBlock {
   public:
     bool entry;
@@ -3841,7 +3940,7 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   return fSched;
 }
 
-ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
+ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& streamInfo, HWFunction& f) {
   internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
   // Check that all instructions resTypes
@@ -6170,63 +6269,6 @@ AppGraph insertDelays(AppGraph& appGraph) {
   return delayedGraph;
 }
 
-enum StreamSource {
-  STREAM_SOURCE_ARG,
-  STREAM_SOURCE_LOOP,
-  STREAM_SOURCE_LB
-};
-
-class StreamNode {
-  public:
-    StreamSource ss;
-    const For* lp;
-    CoreIR_Argument arg;
-    std::string lbName;
-    CoreIR::Wireable* wire;
-
-    StreamNode() : wire(nullptr) {}
-
-    void setWireable(Wireable* w) {
-      wire = w;
-    }
-
-    bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
-    bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
-
-    CoreIR::Wireable* getWireable() const {
-      internal_assert(wire != nullptr) << "wire is null in getWireable\n";
-      if (ss == STREAM_SOURCE_ARG) {
-        return wire;
-      }
-
-      if (ss == STREAM_SOURCE_LOOP) {
-        return wire;
-      }
-
-      if (ss == STREAM_SOURCE_LB) {
-        return wire;
-      }
-      internal_assert(false);
-      return nullptr;
-    }
-
-    std::string toString() const {
-      if (ss == STREAM_SOURCE_ARG) {
-        return arg.name;
-      }
-
-      if (ss == STREAM_SOURCE_LOOP) {
-        return lp->name;
-      }
-
-      if (ss == STREAM_SOURCE_LB) {
-        return lbName;
-      }
-      internal_assert(false);
-      return "ERROR";
-    }
-};
-
 StreamNode lbNode(const std::string& name) {
   StreamNode node;
   node.ss = STREAM_SOURCE_LB;
@@ -6356,37 +6398,6 @@ std::string stripQuotes(const std::string& str) {
   return nStr;
 }
 
-class StreamSubset {
-  public:
-    int numDims;
-    vector<int> usedExtents;
-    vector<int> actualExtents;
-
-    vector<int> usedOffsets() const {
-      vector<int> off;
-      for (int i = 0; i < numDims; i++) {
-        off.push_back(usedExtents[2*i]);
-      }
-      return off;
-    }
-
-    vector<int> getUsedDims() const {
-      vector<int> dims;
-      for (size_t i = 0; i < usedExtents.size(); i += 2) {
-        dims.push_back(usedExtents.at(i + 1));
-      }
-      return dims;
-    }
-
-    vector<int> getActualDims() const {
-      vector<int> dims;
-      for (size_t i = 2; i < actualExtents.size(); i += 3) {
-        dims.push_back(actualExtents.at(i));
-      }
-      return dims;
-    }
-};
-
 StreamSubset findDispatch(std::string& streamStr, const std::string& dispatchName, StencilInfo& info) {
   auto sd = map_get(streamStr, info.streamDispatches);
   internal_assert(sd.size() > 0);
@@ -6421,13 +6432,6 @@ StreamSubset findDispatch(std::string& streamStr, const std::string& dispatchNam
    //" in " << info.streamDispatches << "\n";
 }
 
-class StreamUseInfo {
-  public:
-    vector<pair<StreamNode, StreamSubset> > readers;
-    StreamNode writer;
-};
-
-
 vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
   for (auto node : streamGraph.getVertNames()) {
     if (node.second == target) {
@@ -6441,8 +6445,7 @@ vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>&
 
 map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>& functions,
     const std::vector<CoreIR_Argument>& args,
-    StencilInfoCollector& scl) {
-    //DirectedGraph<StreamNode, StreamSubset>& streamGraph) {
+    StencilInfo& scl) {
   map<string, StreamUseInfo> streamUseInfo;
   for (auto a : args) {
     if (a.is_stencil) {
@@ -6466,10 +6469,6 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
     //streamGraph.addVertex(forNode);
   }
 
-  //for (auto lb : scl.info.linebuffers) {
-    //StreamNode lbN = lbNode(lbName(lb));
-    ////streamGraph.addVertex(lbN);
-  //}
 
   cout << "Stream reads" << endl;
   for (auto r : streamReads) {
@@ -6481,7 +6480,7 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
       cout << "\t\tstream = " << streamName << ", dispatch str = " << dispatchString << endl;
       string dispatchName = exprString(dispatchString);
       string streamStr = exprString(streamName);
-      StreamSubset dispatchParams = findDispatch(streamStr, dispatchName, scl.info);
+      StreamSubset dispatchParams = findDispatch(streamStr, dispatchName, scl);
       StreamNode node = nestNode(r.first);
       streamUseInfo[streamStr].readers.push_back({node, dispatchParams});
     }
@@ -6497,7 +6496,7 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
   }
 
   cout << "Stream writes by linebuffers" << endl;
-  for (auto lb : scl.info.linebuffers) {
+  for (auto lb : scl.linebuffers) {
     cout << "\t" << lb[1] << endl;
     streamUseInfo[lb[1]].writer = lbNode(lbName(lb));
     cout << "\t" << lb[0] << endl;
@@ -6505,7 +6504,7 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
   }
 
   cout << "Checking dispatch statements" << endl;
-  for (auto sd : scl.info.streamDispatches) {
+  for (auto sd : scl.streamDispatches) {
     cout << "\t" << sd.first << " -> " << sd.second << endl;
     internal_assert(sd.second.size() > 0);
     int numDims = stoi(sd.second[0]);
@@ -6561,7 +6560,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   }
 
   map<string, StreamUseInfo> streamUseInfo =
-    createStreamUseInfo(functions, args, scl);
+    createStreamUseInfo(functions, args, scl.info);
   
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
@@ -7081,12 +7080,14 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
+  auto streamUseInfo = createStreamUseInfo(functions, args, scl.info);
+
   for (auto& fp : functions) {
 
     auto lp = fp.first;
     HWFunction& f = fp.second;
     insertCriticalPathTargetRegisters(hwInfo, f);
-    ComputeKernel compK = moduleForKernel(scl.info, f);
+    ComputeKernel compK = moduleForKernel(scl.info, streamUseInfo, f);
 
     aliasInfo["kernel_info"][f.mod->getName()].emplace_back(compK.sched.cycleLatency());
     auto m = compK.mod;
