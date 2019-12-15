@@ -257,6 +257,20 @@ HWInstr* head(const std::vector<HWInstr*>& instrs) {
   return instrs[0];
 }
 
+std::vector<LoopSpec> loops(const std::vector<HWInstr*>& instrs) {
+  vector<LoopSpec> loops;
+  vector<string> names;
+  for (auto i : instrs) {
+    for (auto lp : i->surroundingLoops) {
+      if (!elem(lp.name, names)) {
+        loops.push_back(lp);
+        names.push_back(lp.name);
+      }
+    }
+  }
+  return loops;
+}
+
 std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
   vector<string> names;
   //for (auto l : head(instrs)->surroundingLoops) {
@@ -5283,18 +5297,20 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
 
   cout << "Created value checks for chunks, now generting loop counters" << endl;
 
-  for (auto loop : loopNames(f.structuredOrder())) {
-    auto loopVarCounter = map_get(loop, headLoopCounters);
+  for (auto loop : loops(f.structuredOrder())) {
+    //auto loopVarCounter = map_get(loop, headLoopCounters);
     //cout << "Building counter for: " << loop << endl;
-    //// TODO: Dont assume value starts at zero
-    //auto loopVarCounter =
-      //buildCounter(def, coreirSanitize(loop) + "_value_counter", 0, func_id_const_value(tripCount(loop, f)), 1);
+    int min_value = func_id_const_value(loop.min);
+    int max_value = min_value + func_id_const_value(loop.extent) - 1;
+    auto loopVarCounter =
+      buildCounter(def, coreirSanitize(loop.name) + "_value_counter", min_value, max_value, 1);
 
-    //ProgramPosition headerPos = headerPosition(loop, positions);
-    //IChunk headerChunk = getChunk(headerPos, chunkList);
-    //def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
+    ProgramPosition headerPos = headerPosition(loop.name, positions);
+    IChunk headerChunk = getChunk(headerPos, chunkList);
+    def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
     //cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
-    def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop)));
+
+    def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop.name)));
   }
 
   controlPath->setDef(def);
@@ -5305,6 +5321,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cp.m->print();
 
   return cp;
+
   // Now: build counters for each variable
   // Once that is done we need to wire each one
   // to the the and of enable and lexmax
