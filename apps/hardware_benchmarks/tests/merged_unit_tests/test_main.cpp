@@ -1707,24 +1707,28 @@ void small_conv_3_3_not_unrolled_test() {
     state.setValue("self.in_en", BitVec(1, 1));
 
     state.exeCombinational();
-    state.exeSequential();
-    state.exeCombinational();
+    //state.exeSequential();
+    //state.exeCombinational();
 
     assert(state.getBitVec("self.started") == BitVec(1, 1));
 
-    state.setValue("self.in_en", BitVec(1, 0));
 
-    cout << "After first clock edge: " << endl;
-    cout << "\tself.conv_s1_r$x         = " << state.getBitVec("self.conv_s1_r$x") << endl;
-    cout << "\tself.conv_s1_r$y         = " << state.getBitVec("self.conv_s1_r$y") << endl;
-    cout << "\tself.conv_x___scan_dim_0 = " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
-    cout << "\tself.conv_y___scan_dim_1 = " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
+    state.setValue("self.in_en", BitVec(1, 1));
+    for (int i = 0; i < 40; i++) {
 
-    assert(state.getBitVec("self.conv_s1_r$x") == BitVec(16, 1));
-    assert(state.getBitVec("self.conv_s1_r$y") == BitVec(16, 0));
-    assert(state.getBitVec("self.conv_x___scan_dim_0") == BitVec(16, 0));
-    assert(state.getBitVec("self.conv_y___scan_dim_1") == BitVec(16, 0));
-    
+      state.exeCombinational();
+      state.exeSequential();
+      state.exeCombinational();
+
+      cout << "After clock edge " << i << ": " << endl;
+      cout << "\tself.conv_s1_r$x         = " << state.getBitVec("self.conv_s1_r$x") << endl;
+      cout << "\tself.conv_s1_r$y         = " << state.getBitVec("self.conv_s1_r$y") << endl;
+      cout << "\tself.conv_x___scan_dim_0 = " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
+      cout << "\tself.conv_y___scan_dim_1 = " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
+      
+      state.setValue("self.in_en", BitVec(1, 0));
+    }
+
     PRINT_PASSED("conv_s1_r$x updated after first clock cycle");
 
     assert(false);
