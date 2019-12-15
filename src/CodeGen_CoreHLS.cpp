@@ -273,7 +273,6 @@ std::vector<LoopSpec> loops(const std::vector<HWInstr*>& instrs) {
 
 std::vector<std::string> loopNames(const std::vector<HWInstr*>& instrs) {
   vector<string> names;
-  //for (auto l : head(instrs)->surroundingLoops) {
   for (auto i : instrs) {
     for (auto lp : i->surroundingLoops) {
       if (!elem(lp.name, names)) {
@@ -5179,148 +5178,149 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
-  // Just to be safe for early tests, should really be 1 << 15 - 1
-  const int MAX_CYCLES = ((1 << 14) - 1);
-  cout << "MAX_CYCLES = " << MAX_CYCLES << endl;
-  auto cyclesSinceStartCounter =
-    buildCounter(def, "cycles_since_start", 0, MAX_CYCLES, 1);
-  
-  def->connect(def->sel("self.cycles_since_start"), cyclesSinceStartCounter->sel("out"));
+  if (false) {
+    // Just to be safe for early tests, should really be 1 << 15 - 1
+    const int MAX_CYCLES = ((1 << 14) - 1);
+    cout << "MAX_CYCLES = " << MAX_CYCLES << endl;
+    auto cyclesSinceStartCounter =
+      buildCounter(def, "cycles_since_start", 0, MAX_CYCLES, 1);
 
-  auto startedReg = def->addInstance("started_reg", "corebit.reg");
-  auto startedBefore = def->addInstance("started_before", "corebit.or");
+    def->connect(def->sel("self.cycles_since_start"), cyclesSinceStartCounter->sel("out"));
 
-  def->connect(startedBefore->sel("in0"), startedReg->sel("out"));
-  def->connect(startedBefore->sel("in1"), def->sel("self.in_en"));
+    auto startedReg = def->addInstance("started_reg", "corebit.reg");
+    auto startedBefore = def->addInstance("started_before", "corebit.or");
 
-  def->connect(startedReg->sel("in"), startedBefore->sel("out"));
-  
-  auto started = startedBefore->sel("out");
+    def->connect(startedBefore->sel("in0"), startedReg->sel("out"));
+    def->connect(startedBefore->sel("in1"), def->sel("self.in_en"));
 
-  //auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
+    def->connect(startedReg->sel("in"), startedBefore->sel("out"));
 
-  def->connect(cyclesSinceStartCounter->sel("en"), started);
-  def->connect(def->sel("self.started"), started);
+    auto started = startedBefore->sel("out");
 
-  // This is a map from loop variable names to the counter
-  // for that variable which is created for the chunk that contains
-  // the head instruction of that variables loop level
-  map<string, Instance*> headLoopCounters;
+    //auto started = def->addInstance("started_const_dummy", "corebit.const", {{"value", COREMK(c, true)}})->sel("out");
 
-  for (auto chunk : chunkList) {
-    ProgramPosition pos = chunk.getRep();
-    cout << "Creating control for chunk position: " << pos << endl;
-    Expr st = startTime(pos, sched);
+    def->connect(cyclesSinceStartCounter->sel("en"), started);
+    def->connect(def->sel("self.started"), started);
 
-    Instance* doInc =
-      def->addInstance("chunk_" + to_string(chunkIdx(chunk, chunkList)) + "_active",
-          "halidehw.passthrough",
-          {{"type", COREMK(c, c->Bit())}});
+    // This is a map from loop variable names to the counter
+    // for that variable which is created for the chunk that contains
+    // the head instruction of that variables loop level
+    map<string, Instance*> headLoopCounters;
 
-    map<string, Wireable*> countVals;
-    map<string, Instance*> countInstances;
-    for (auto lp : chunk.getRep().instr->surroundingLoops) {
-      string loop = lp.name;
-      if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
+    for (auto chunk : chunkList) {
+      ProgramPosition pos = chunk.getRep();
+      cout << "Creating control for chunk position: " << pos << endl;
+      Expr st = startTime(pos, sched);
 
-        int min_value = func_id_const_value(lp.min);
-        int max_value = min_value + func_id_const_value(lp.extent) - 1;
-        cout << loop << " <= " << chunk.getRep().loopLevel << endl;
-        auto loopVarCounter =
-          buildCounter(def, coreirSanitize(loop) + "_value_counter" + c->getUnique(), min_value, max_value, 1);
-        countVals[loop] = loopVarCounter->sel("out");
-        countInstances[loop] = loopVarCounter;
-      }
-    }
+      Instance* doInc =
+        def->addInstance("chunk_" + to_string(chunkIdx(chunk, chunkList)) + "_active",
+            "halidehw.passthrough",
+            {{"type", COREMK(c, c->Bit())}});
 
-    if (chunk.containsHeader()) {
-      headLoopCounters[chunk.getRep().loopLevel] = map_get(chunk.getRep().loopLevel, countInstances);
-    }
+      map<string, Wireable*> countVals;
+      map<string, Instance*> countInstances;
+      for (auto lp : chunk.getRep().instr->surroundingLoops) {
+        string loop = lp.name;
+        if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
 
-    cout << "Wiring up control counter enables" << endl;
-    for (auto lp : chunk.getRep().instr->surroundingLoops) {
-      string loop = lp.name;
-      if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
-
-        vector<CoreIR::Wireable*> below;
-        for (auto innerLoop : chunk.getRep().instr->surroundingLoops) {
-          string name = innerLoop.name;
-          if (!lessThanOrEqual(name, lp.name, f) &&
-              (lessThanOrEqual(name, chunk.getRep().loopLevel, f))) {
-            
-            // Create atMax circuit
-            internal_assert(contains_key(name, countVals)) << "Cannot find " << name << " in count values for " << lp.name << "\n";
-
-            auto countVal = map_get(name, countVals);
-            int min_value = func_id_const_value(innerLoop.min);
-            int max_value = min_value + func_id_const_value(innerLoop.extent) - 1;
-            auto maxConst =
-              def->addInstance(coreirSanitize(name) + "_max_val" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, max_value))}});
-            auto atMax =
-              def->addInstance(coreirSanitize(name) + "_at_max" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
-            def->connect(atMax->sel("in0"), countVal);
-            def->connect(atMax->sel("in1"), maxConst->sel("out"));
-
-            below.push_back(atMax->sel("out"));
-          }
+          int min_value = func_id_const_value(lp.min);
+          int max_value = min_value + func_id_const_value(lp.extent) - 1;
+          cout << loop << " <= " << chunk.getRep().loopLevel << endl;
+          auto loopVarCounter =
+            buildCounter(def, coreirSanitize(loop) + "_value_counter" + c->getUnique(), min_value, max_value, 1);
+          countVals[loop] = loopVarCounter->sel("out");
+          countInstances[loop] = loopVarCounter;
         }
-        below.push_back(doInc->sel("out"));
-        below.push_back(started);
-        CoreIR::Wireable* shouldInc = andList(below);
-        def->connect(map_get(lp.name, countInstances)->sel("en"), shouldInc);
       }
+
+      if (chunk.containsHeader()) {
+        headLoopCounters[chunk.getRep().loopLevel] = map_get(chunk.getRep().loopLevel, countInstances);
+      }
+
+      cout << "Wiring up control counter enables" << endl;
+      for (auto lp : chunk.getRep().instr->surroundingLoops) {
+        string loop = lp.name;
+        if (lessThanOrEqual(loop, chunk.getRep().loopLevel, f)) {
+
+          vector<CoreIR::Wireable*> below;
+          for (auto innerLoop : chunk.getRep().instr->surroundingLoops) {
+            string name = innerLoop.name;
+            if (!lessThanOrEqual(name, lp.name, f) &&
+                (lessThanOrEqual(name, chunk.getRep().loopLevel, f))) {
+
+              // Create atMax circuit
+              internal_assert(contains_key(name, countVals)) << "Cannot find " << name << " in count values for " << lp.name << "\n";
+
+              auto countVal = map_get(name, countVals);
+              int min_value = func_id_const_value(innerLoop.min);
+              int max_value = min_value + func_id_const_value(innerLoop.extent) - 1;
+              auto maxConst =
+                def->addInstance(coreirSanitize(name) + "_max_val" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, max_value))}});
+              auto atMax =
+                def->addInstance(coreirSanitize(name) + "_at_max" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
+              def->connect(atMax->sel("in0"), countVal);
+              def->connect(atMax->sel("in1"), maxConst->sel("out"));
+
+              below.push_back(atMax->sel("out"));
+            }
+          }
+          below.push_back(doInc->sel("out"));
+          below.push_back(started);
+          CoreIR::Wireable* shouldInc = andList(below);
+          def->connect(map_get(lp.name, countInstances)->sel("en"), shouldInc);
+        }
+      }
+
+      ArithGenerator arithGen(def, countVals);
+      st.accept(&arithGen);
+
+      Wireable* schedFValue = arithGen.getOutput();
+      Instance* timeDiff =
+        def->addInstance("is_active" + c->getUnique(), "coreir.sub", {{"width", COREMK(c, 16)}});
+      def->connect(timeDiff->sel("in0"), cyclesSinceStartCounter->sel("out"));
+      def->connect(timeDiff->sel("in1"), schedFValue);
+
+      Wireable* zr =
+        def->addInstance("zr" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, 0))}})->sel("out");
+
+      Instance* diffZero =
+        def->addInstance("diff_zero" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
+      def->connect(diffZero->sel("in0"), timeDiff->sel("out"));
+      def->connect(diffZero->sel("in1"), zr);
+
+      auto incAnd = andList({diffZero->sel("out"), started});
+      def->connect(incAnd, def->sel(cp.activeSignal(chunk)));
+      def->connect(incAnd, doInc->sel("in"));
+      //def->connect(diffZero->sel("out"), def->sel(cp.activeSignal(chunk)));
+      //def->connect(diffZero->sel("out"), doInc->sel("in"));
     }
-    
-    ArithGenerator arithGen(def, countVals);
-    st.accept(&arithGen);
 
-    Wireable* schedFValue = arithGen.getOutput();
-    Instance* timeDiff =
-      def->addInstance("is_active" + c->getUnique(), "coreir.sub", {{"width", COREMK(c, 16)}});
-    def->connect(timeDiff->sel("in0"), cyclesSinceStartCounter->sel("out"));
-    def->connect(timeDiff->sel("in1"), schedFValue);
+    cout << "Created value checks for chunks, now generting loop counters" << endl;
 
-    Wireable* zr =
-      def->addInstance("zr" + c->getUnique(), "coreir.const", {{"width", COREMK(c, 16)}}, {{"value", COREMK(c, BitVec(16, 0))}})->sel("out");
+    for (auto loop : loops(f.structuredOrder())) {
+      //auto loopVarCounter = map_get(loop, headLoopCounters);
+      //cout << "Building counter for: " << loop << endl;
+      int min_value = func_id_const_value(loop.min);
+      int max_value = min_value + func_id_const_value(loop.extent) - 1;
+      auto loopVarCounter =
+        buildCounter(def, coreirSanitize(loop.name) + "_value_counter", min_value, max_value, 1);
 
-    Instance* diffZero =
-      def->addInstance("diff_zero" + c->getUnique(), "coreir.eq", {{"width", COREMK(c, 16)}});
-    def->connect(diffZero->sel("in0"), timeDiff->sel("out"));
-    def->connect(diffZero->sel("in1"), zr);
+      ProgramPosition headerPos = headerPosition(loop.name, positions);
+      IChunk headerChunk = getChunk(headerPos, chunkList);
+      def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
+      //cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
 
-    auto incAnd = andList({diffZero->sel("out"), started});
-    def->connect(incAnd, def->sel(cp.activeSignal(chunk)));
-    def->connect(incAnd, doInc->sel("in"));
-    //def->connect(diffZero->sel("out"), def->sel(cp.activeSignal(chunk)));
-    //def->connect(diffZero->sel("out"), doInc->sel("in"));
+      def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop.name)));
+    }
+
+    controlPath->setDef(def);
+
+    cp.m = controlPath;
+
+    cout << "Control path just before returning it: " << endl;
+    cp.m->print();
+    return cp;
   }
-
-  cout << "Created value checks for chunks, now generting loop counters" << endl;
-
-  for (auto loop : loops(f.structuredOrder())) {
-    //auto loopVarCounter = map_get(loop, headLoopCounters);
-    //cout << "Building counter for: " << loop << endl;
-    int min_value = func_id_const_value(loop.min);
-    int max_value = min_value + func_id_const_value(loop.extent) - 1;
-    auto loopVarCounter =
-      buildCounter(def, coreirSanitize(loop.name) + "_value_counter", min_value, max_value, 1);
-
-    ProgramPosition headerPos = headerPosition(loop.name, positions);
-    IChunk headerChunk = getChunk(headerPos, chunkList);
-    def->connect(loopVarCounter->sel("en"), def->sel(cp.activeSignalOutput(headerChunk))->sel("out"));
-    //cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
-
-    def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop.name)));
-  }
-
-  controlPath->setDef(def);
-
-  cp.m = controlPath;
-  
-  cout << "Control path just before returning it: " << endl;
-  cp.m->print();
-
-  return cp;
 
   // Now: build counters for each variable
   // Once that is done we need to wire each one
@@ -6440,8 +6440,8 @@ vdisc getStreamNode(StreamNode& target, DirectedGraph<StreamNode, StreamSubset>&
 }
 
 map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>& functions,
-    std::map<const For*, ComputeKernel>& kernelModules,
-    std::map<const For*, CoreIR::Instance*>& kernels,
+    //std::map<const For*, ComputeKernel>& kernelModules,
+    //std::map<const For*, CoreIR::Instance*>& kernels,
     const std::vector<CoreIR_Argument>& args,
     AcceleratorInterface& ifc,
     StencilInfoCollector& scl,
@@ -6541,9 +6541,6 @@ map<string, StreamUseInfo> createStreamUseInfo(std::map<const For*, HWFunction>&
   return streamUseInfo;
 }
 
-// Now: I want to incorporate information about how streams are dispatched
-// (offsets and extents) so that I can insert hedgetrimmer elements that
-// strip portions of the stream output away.
 AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
     std::map<const For*, ComputeKernel>& kernelModules,
     std::map<const For*, CoreIR::Instance*>& kernels,
@@ -6556,7 +6553,7 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
   cout << "All args" << endl;
 
   map<string, StreamUseInfo> streamUseInfo =
-    createStreamUseInfo(functions, kernelModules, kernels, args, ifc, scl, streamGraph);
+    createStreamUseInfo(functions, args, ifc, scl, streamGraph);
   
   auto inputAliases = ifc.inputAliases;
   auto output_name = ifc.output_name;
