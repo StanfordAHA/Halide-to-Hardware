@@ -6983,49 +6983,54 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
     //auto& sched = fp.second;
     //for (auto& ns : sched.nestSchedules) {
       //if (ns.II == 2) {
-        //ns.II = 4;
+      //ns.II = 4;
       //}
-    //}
-  //}
+      //}
+      //}
 
   cout << "Populating rate info" << endl;
   // For now: Assume each loop nest has a single II
   // expression for all reads and writes
   map<string, RateInfo> produceRates;
   for (auto info : streamUseInfo) {
+    cout << "Getting info for " << info.first << endl;
     string writer = info.second.writer.toString();
+    cout << "\twriter: " << writer << endl;
     if (contains_key(writer, produceRates)) {
-      continue;
-    }
+      // Skip
+    } else {
 
-    if (info.second.writer.isLoopNest()) {
-      for (auto loop : functionSchedules) {
-        if (loop.first->name == info.second.writer.toString()) {
-          auto& sched = loop.second;
-          auto& f = *(sched.f);
-          HWInstr* writeInstr = writeTo(info.first, f);
-          RateInfo info;
-          for (auto lp : writeInstr->surroundingLoops) {
-            info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+      if (info.second.writer.isLoopNest()) {
+        for (auto loop : functionSchedules) {
+          if (loop.first->name == info.second.writer.toString()) {
+            auto& sched = loop.second;
+            auto& f = *(sched.f);
+            HWInstr* writeInstr = writeTo(info.first, f);
+            RateInfo info;
+            for (auto lp : writeInstr->surroundingLoops) {
+              info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+            }
+
+            produceRates[writer] = info;
           }
-
-          produceRates[writer] = info;
         }
+      } else if (info.second.writer.isLinebuffer()) {
+        RateInfo info;
+        info.nestSchedules.push_back({writer + "_x", 10, 10, 10});
+        info.nestSchedules.push_back({writer + "_y", 10, 10, 10});
+        produceRates[writer] = info;
+      } else if (info.second.writer.isArgument()) {
+        RateInfo info;
+        info.nestSchedules.push_back({writer + "_x", 7, 8, 9});
+        info.nestSchedules.push_back({writer + "_y", 7, 8, 9});
+        produceRates[writer] = info;
       }
-    } else if (info.second.writer.isLinebuffer()) {
-      RateInfo info;
-      info.nestSchedules.push_back({writer + "_x", 10, 10, 10});
-      info.nestSchedules.push_back({writer + "_y", 10, 10, 10});
-      produceRates[writer] = info;
-    } else if (info.second.writer.isArgument()) {
-      RateInfo info;
-      info.nestSchedules.push_back({writer + "_x", 7, 8, 9});
-      info.nestSchedules.push_back({writer + "_y", 7, 8, 9});
-      produceRates[writer] = info;
     }
 
     cout << "Getting readers for " << info.first << endl;
     for (auto reader : info.second.readers) {
+
+      cout << "reader: " << reader.first.toString() << endl;
 
       if (contains_key(reader.first.toString(), produceRates)) {
         continue;
