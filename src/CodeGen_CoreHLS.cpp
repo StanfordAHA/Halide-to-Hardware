@@ -5261,8 +5261,14 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
+  // What test should be used to decide if we need a real control
+  // path?
+  // - For now just check if all instructions have single loop level?
+
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  if (instrGroups.size() > 1) {
   //if (false) {
-  if (true) {
+  //if (true) {
     // Just to be safe for early tests, should really be 1 << 15 - 1
     const int MAX_CYCLES = ((1 << 14) - 1);
     cout << "MAX_CYCLES = " << MAX_CYCLES << endl;
@@ -6984,14 +6990,14 @@ void adjustIIs(StencilInfo& stencilInfo, map<string, StreamUseInfo>& streamUseIn
   //
   // TODO: Replace with real adjustment code
   // NOTE: This code does work for the conv examples
-  for (auto& fp : functionSchedules) {
-    auto& sched = fp.second;
-    for (auto& ns : sched.nestSchedules) {
-      if (ns.II == 2) {
-        ns.II = 4;
-      }
-    }
-  }
+  //for (auto& fp : functionSchedules) {
+    //auto& sched = fp.second;
+    //for (auto& ns : sched.nestSchedules) {
+      //if (ns.II == 2) {
+        //ns.II = 4;
+      //}
+    //}
+  //}
 
   //cout << "Populating rate info" << endl;
   //// For now: Assume each loop nest has a single II
