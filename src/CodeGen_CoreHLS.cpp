@@ -7028,7 +7028,7 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
     //}
   //}
 
-  internal_assert(false);
+  //internal_assert(false);
 }
 
 // Now: Need to print out arguments and their info, actually use the arguments to form

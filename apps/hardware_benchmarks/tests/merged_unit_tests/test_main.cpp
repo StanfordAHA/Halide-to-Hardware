@@ -3520,7 +3520,7 @@ int main(int argc, char **argv) {
   
   //assert(false);
   small_conv_3_3_test();
-  //assert(false);
+  assert(false);
   
   small_conv_3_3_critical_path_test();
   
