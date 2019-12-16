@@ -6938,6 +6938,10 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   }
 }
 
+void adjustProductionRates(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
+
+}
+
 // Now: Need to print out arguments and their info, actually use the arguments to form
 // the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
@@ -7062,9 +7066,11 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     functionSchedules[fp.first] = fSched;
   }
 
+  // TODO: Adjust production rates (II) here before RTL is emitted for each kernel
+  adjustProductionRates(scl.info, streamUseInfo, functionSchedules);
+
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
-  // TODO: Adjust production rates (II) here before RTL is emitted for each kernel
 
   for (auto& fp : functions) {
     auto lp = fp.first;
