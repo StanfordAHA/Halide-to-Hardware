@@ -3517,21 +3517,26 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
-  //assert(false);
-  pointwise_add_test();
-  mod2_test();
-  clamp_test();
   
+  //assert(false);
   small_conv_3_3_test();
   //assert(false);
+  
   small_conv_3_3_critical_path_test();
+  
   control_path_test();
   control_path_xy_test();
+  
   different_latency_kernels_test();
+  
   shiftRight_test();
   ushift_test();
   arith_test();
 
+  pointwise_add_test();
+  mod2_test();
+  clamp_test();
+  
   small_cascade_test();
  
   // Experimenta tests

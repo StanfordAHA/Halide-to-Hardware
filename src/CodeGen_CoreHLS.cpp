@@ -3838,7 +3838,7 @@ int tailLatencyInt(const std::string& name, HWFunction& f, FunctionSchedule& fSc
   return 0;
 }
 
-FunctionSchedule buildFunctionSchedule(HWFunction& f) {
+FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo, HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
   FunctionSchedule fSched;
@@ -3893,6 +3893,19 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     cout << "\t\tC  = " << sched.completionTime() << endl;
   }
 
+  // Now: Check the producer of all stream reads
+  // and then figure out the rate of production of each
+  // stream read
+
+  cout << "All reads from producers: " << endl;
+  auto reads = allInstrs("rd_stream", f.structuredOrder());
+  // Now: for each read classify the sources of the read
+  for (auto rd : reads) {
+    string streamName = rd->getOperand(0)->compactString();
+    StreamUseInfo useInfo = map_get(streamName, streamUseInfo);
+    cout << "\tSource of read from: " << streamName << " = " << useInfo.writer.toString() << endl;
+  }
+
   fSched.nestSchedules = schedules;
   internal_assert(fSched.blockSchedules.size() > 0);
 
@@ -3900,41 +3913,6 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
     internal_assert(false);
     return fSched;
   }
-
-  //// Transitions?
-  //internal_assert(instrGroups.size() > 0);
-  //internal_assert(instrGroups[0].size() > 0);
-  //for (int i = 0; i < (int) (instrGroups.size() - 1); i++) {
-    //auto current = instrGroups[i];
-    //auto next = instrGroups[i + 1];
-
-    //if (numLoops(current) < numLoops(next)) {
-      //cout << "Entering loop" << endl;
-      //fSched.transitions.push_back({head(current), head(next), 0});
-    //}
-    //if (numLoops(current) > numLoops(next)) {
-      //cout << "Exiting loop" << endl;
-      //fSched.transitions.push_back({head(current), head(next), 0});
-    //}
-    //internal_assert(numLoops(current) != numLoops(next));
-  //}
-
-  //// Find companion blocks for each loop nest, then do I want to
-  //// have a transition from one block to another or from one loop to itsef?
-  //set<vector<string> > alreadySeenLoops;
-  //for (auto group : instrGroups) {
-    //auto prefix = loopNames(group);
-    //if (!elem(prefix, alreadySeenLoops)) {
-      //// By default assume all loops have II = 1
-      //fSched.transitions.push_back({head(group), head(group), 1});
-      //alreadySeenLoops.insert(prefix);
-    //}
-  //}
-
-  //cout << "Transitions in schedule" << endl;
-  //for (auto t : fSched.transitions) {
-    //cout << "\t" << *(t.srcBlk) << " -> " << *(t.dstBlk) << ", delay: " << t.delay << endl;
-  //}
 
   internal_assert(fSched.blockSchedules.size() > 0);
   return fSched;
@@ -3952,15 +3930,11 @@ ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& str
   auto def = design->getDef();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
-  //if (f.allInstrs().size() == 0) {
-    ////auto sched = asapSchedule(f);
-    //return {f.mod, {}};
-  //}
+  
+  //cout << "Hardware function is..." << endl;
+  //cout << f << endl;
 
-  cout << "Hardware function is..." << endl;
-  cout << f << endl;
-
-  FunctionSchedule fSched = buildFunctionSchedule(f);
+  FunctionSchedule fSched = buildFunctionSchedule(streamInfo, f);
   internal_assert(fSched.blockSchedules.size() > 0);
 
   emitCoreIR(f, info, fSched);
@@ -7078,16 +7052,28 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   functions = mapFunctionsToCGRA(functions);
   auto def = topMod->newModuleDef();
 
-  // Connects up all control paths in the design
-  std::map<const For*, CoreIR::Instance*> kernels;
   auto streamUseInfo = createStreamUseInfo(functions, args, scl.info);
-
+  map<const For*, FunctionSchedule> functionSchedules;
   for (auto& fp : functions) {
-
-    auto lp = fp.first;
+    //auto lp = fp.first;
     HWFunction& f = fp.second;
     insertCriticalPathTargetRegisters(hwInfo, f);
-    ComputeKernel compK = moduleForKernel(scl.info, streamUseInfo, f);
+    FunctionSchedule fSched = buildFunctionSchedule(streamUseInfo, f);
+    functionSchedules[fp.first] = fSched;
+  }
+
+  // Connects up all control paths in the design
+  std::map<const For*, CoreIR::Instance*> kernels;
+  // TODO: Adjust production rates (II) here before RTL is emitted for each kernel
+
+  for (auto& fp : functions) {
+    auto lp = fp.first;
+    HWFunction& f = fp.second;
+    auto fSched = map_get(fp.first, functionSchedules);
+    emitCoreIR(f, info, fSched);
+    //insertCriticalPathTargetRegisters(hwInfo, f);
+    ComputeKernel compK{f.mod, fSched};
+    //cc= moduleForKernel(scl.info, streamUseInfo, f);
 
     aliasInfo["kernel_info"][f.mod->getName()].emplace_back(compK.sched.cycleLatency());
     auto m = compK.mod;
