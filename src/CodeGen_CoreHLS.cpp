@@ -2156,8 +2156,17 @@ class FunctionSchedule {
     map<HWInstr*, HWLoopSchedule> blockSchedules;
 
     std::vector<NestSchedule> nestSchedules;
-    std::vector<HWTransition> transitions;
+    //std::vector<HWTransition> transitions;
 
+    NestSchedule getNestSchedule(const std::string& loopName) const {
+      for (auto s : nestSchedules) {
+        if (s.name == loopName) {
+          return s;
+        }
+      }
+      internal_assert(false) << "no schedule for loop: " << loopName << "\n";
+      return {};
+    }
     int II(const std::string& loopName) const {
       for (auto n : nestSchedules) {
         if (n.name == loopName) {
@@ -6961,54 +6970,174 @@ HWInstr* readFrom(const std::string& streamName, HWFunction& f) {
   return nullptr;
 }
 
+class RateInfo {
+  public:
+    std::vector<NestSchedule> nestSchedules;
+};
+
 void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
   
   // TODO: Replace with real adjustment code
-  for (auto& fp : functionSchedules) {
-    auto& sched = fp.second;
-    for (auto& ns : sched.nestSchedules) {
-      if (ns.II == 2) {
-        ns.II = 4;
-      }
-    }
-  }
+  // NOTE: This code does work for the conv examples
+  //for (auto& fp : functionSchedules) {
+    //auto& sched = fp.second;
+    //for (auto& ns : sched.nestSchedules) {
+      //if (ns.II == 2) {
+        //ns.II = 4;
+      //}
+    //}
+  //}
 
-  cout << "Stream Use Info After Adjustment" << endl;
+  cout << "Populating rate info" << endl;
+  // For now: Assume each loop nest has a single II
+  // expression for all reads and writes
+  map<string, RateInfo> produceRates;
   for (auto info : streamUseInfo) {
-    cout << "\tInfo: " << info.first << endl;
-    cout << "\t\tWriter: " << info.second.writer.toString() << endl;
+    string writer = info.second.writer.toString();
+    if (contains_key(writer, produceRates)) {
+      continue;
+    }
+
     if (info.second.writer.isLoopNest()) {
       for (auto loop : functionSchedules) {
         if (loop.first->name == info.second.writer.toString()) {
           auto& sched = loop.second;
           auto& f = *(sched.f);
-          cout << "\t\t\tStart time: " << startTime(writeTo(info.first, f), sched) << endl;
+          HWInstr* writeInstr = writeTo(info.first, f);
+          RateInfo info;
+          for (auto lp : writeInstr->surroundingLoops) {
+            info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+          }
+
+          produceRates[writer] = info;
         }
       }
+    } else if (info.second.writer.isLinebuffer()) {
+      RateInfo info;
+      info.nestSchedules.push_back({writer + "_x", 10, 10, 10});
+      info.nestSchedules.push_back({writer + "_y", 10, 10, 10});
+      produceRates[writer] = info;
+    } else if (info.second.writer.isArgument()) {
+      RateInfo info;
+      info.nestSchedules.push_back({writer + "_x", 7, 8, 9});
+      info.nestSchedules.push_back({writer + "_y", 7, 8, 9});
+      produceRates[writer] = info;
     }
 
-    cout << "\t\tReaders..." << endl;
+    cout << "Getting readers for " << info.first << endl;
     for (auto reader : info.second.readers) {
-      cout << "\t\t\t" << reader.first.toString() << endl;
-      if (reader.first.isLoopNest()) {
-        for (auto loop : functionSchedules) {
-          if (loop.first->name == reader.first.toString()) {
-            auto& sched = loop.second;
-            auto& f = *(sched.f);
-            cout << "\t\t\t\tStart time: " << startTime(readFrom(info.first, f), sched) << endl;
+
+      if (contains_key(reader.first.toString(), produceRates)) {
+        continue;
+      }
+
+      string rdString = reader.first.toString();
+      for (auto loop : functionSchedules) {
+        if (loop.first->name == reader.first.toString()) {
+          auto& sched = loop.second;
+          auto& f = *(sched.f);
+          HWInstr* readInstr = readFrom(info.first, f);
+          RateInfo info;
+          for (auto lp : readInstr->surroundingLoops) {
+            info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
           }
+          produceRates[reader.first.toString()] = info;
+        } else if (info.second.writer.isLinebuffer()) {
+          RateInfo info;
+          info.nestSchedules.push_back({rdString + "_x", 10, 10, 10});
+          info.nestSchedules.push_back({rdString + "_y", 10, 10, 10});
+          produceRates[writer] = info;
+        } else if (info.second.writer.isArgument()) {
+          RateInfo info;
+          info.nestSchedules.push_back({rdString + "_x", 7, 8, 9});
+          info.nestSchedules.push_back({rdString + "_y", 7, 8, 9});
+          produceRates[writer] = info;
         }
+
       }
     }
+  }
+
+  // TODO: Add rate information for inputs / outputs
+  cout << "Rate information" << endl;
+  for (auto info : produceRates) {
+    cout << "\t" << info.first << endl;
+    for (auto nest : info.second.nestSchedules) {
+      cout << "\t\t" << nest.name << endl;
+      cout << "\t\t\tII: " << nest.II << endl;
+      cout << "\t\t\tL : " << nest.L << endl;
+      cout << "\t\t\tTC : " << nest.TC << endl;
+    }
+  }
+
+  internal_assert(false);
+
+  // Though I cannot really adjust the II of a linebuffer I guess I can
+  // adjust it indirectly by changing the in_en pattern
+  //
+  // Simpler agorithm:
+  // while (!changed) {
+  //   for (each scheduled loop) {
+  //     find all producers for the loop
+  //     find all II writes to producers
+  //     find all reads in the loop
+  //     increase producer IIs to match if they do not
+  //     adjust the IIs of downstream linebuffers to reflect new producer times
+  //     changed = true
+  //   }
+  // }
+  //
+  // Q: How do we adjust the IIs of linebuffers?
+  // A: The linebuffer is two loop nests, one writes to the cache, the other reads from the cache
+  //    The write cache loop should have the same IIs as the producer
+  //    The read from cache loop should be offset from the write to cache loop
+  //     so that the first window is read when all data is available
+  //
+  //    Initially the write loop of the linebuffer is dense, so its IIs allow an
+  //    inner loop write every single cycle
+  //
+  //    The read loop IIs are the same, but offset forward in time?
+  //
+  // Or maybe it would actually be better to go back and figure out how to
+  // use the valid signal from the linebuffer inside of the compute unit,
+  // instead of just using the start signal?
+
+  //cout << "Stream Use Info After Adjustment" << endl;
+  //for (auto info : streamUseInfo) {
+    //cout << "\tInfo: " << info.first << endl;
+    //cout << "\t\tWriter: " << info.second.writer.toString() << endl;
+    ////map<HWInstr*, NestSchedule> schedulesToMatch;
+
+    //if (info.second.writer.isLoopNest()) {
+      //for (auto loop : functionSchedules) {
+        //if (loop.first->name == info.second.writer.toString()) {
+          //auto& sched = loop.second;
+          //auto& f = *(sched.f);
+          //cout << "\t\t\tStart time: " << startTime(writeTo(info.first, f), sched) << endl;
+        //}
+      //}
+    //}
+
+    //cout << "\t\tReaders..." << endl;
+    //for (auto reader : info.second.readers) {
+      //cout << "\t\t\t" << reader.first.toString() << endl;
+      //if (reader.first.isLoopNest()) {
+        //for (auto loop : functionSchedules) {
+          //if (loop.first->name == reader.first.toString()) {
+            //auto& sched = loop.second;
+            //auto& f = *(sched.f);
+            //cout << "\t\t\t\tStart time: " << startTime(readFrom(info.firstf), sched) << endl;
+          //}
+        //}
+      //}
+    //}
 
     // Each of these becomes a group whose IIs must match
     // Special cases for IIs: inputs / outputs / linebuffers
 
-
     // For each of these groups what has to match?
     // startTime of each read with all writes?
-
-  }
+  //}
 
   //cout << "-----------------------" << endl;
   //for (auto& fp : functionSchedules) {
@@ -7028,7 +7157,7 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
     //}
   //}
 
-  //internal_assert(false);
+  internal_assert(false);
 }
 
 // Now: Need to print out arguments and their info, actually use the arguments to form
