@@ -6960,8 +6960,20 @@ HWInstr* readFrom(const std::string& streamName, HWFunction& f) {
   internal_assert(false) << "No read from " << streamName << "\n";
   return nullptr;
 }
+
 void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
-  cout << "Stream Use Info" << endl;
+  
+  // TODO: Replace with real adjustment code
+  for (auto& fp : functionSchedules) {
+    auto& sched = fp.second;
+    for (auto& ns : sched.nestSchedules) {
+      if (ns.II == 2) {
+        ns.II = 4;
+      }
+    }
+  }
+
+  cout << "Stream Use Info After Adjustment" << endl;
   for (auto info : streamUseInfo) {
     cout << "\tInfo: " << info.first << endl;
     cout << "\t\tWriter: " << info.second.writer.toString() << endl;
@@ -6998,23 +7010,23 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
 
   }
 
-  cout << "-----------------------" << endl;
-  for (auto& fp : functionSchedules) {
-    //auto& sched = fp.second;
-    auto& f = *(fp.second.f);
+  //cout << "-----------------------" << endl;
+  //for (auto& fp : functionSchedules) {
+    ////auto& sched = fp.second;
+    //auto& f = *(fp.second.f);
     
-    set<HWInstr*> reads = allInstrs("rd_stream", f.structuredOrder());
-    cout << "Stream reads..." << endl;
-    for (auto rd : reads) {
-      cout << "\t" << rd->getOperand(0)->compactString() << endl;
-    }
+    //set<HWInstr*> reads = allInstrs("rd_stream", f.structuredOrder());
+    //cout << "Stream reads..." << endl;
+    //for (auto rd : reads) {
+      //cout << "\t" << rd->getOperand(0)->compactString() << endl;
+    //}
 
-    set<HWInstr*> writes = allInstrs("write_stream", f.structuredOrder());
-    cout << "Stream writes..." << endl;
-    for (auto wr : writes) {
-      cout << "\t" << wr->getOperand(0)->compactString() << endl;
-    }
-  }
+    //set<HWInstr*> writes = allInstrs("write_stream", f.structuredOrder());
+    //cout << "Stream writes..." << endl;
+    //for (auto wr : writes) {
+      //cout << "\t" << wr->getOperand(0)->compactString() << endl;
+    //}
+  //}
 
   internal_assert(false);
 }
