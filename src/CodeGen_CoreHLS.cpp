@@ -6938,25 +6938,39 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   }
 }
 
-void adjustProductionRates(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
-  // TODO: Find all writes and reads to streams in each kernel
-  // (and virtual writes / reads by linebuffers)
-  //
-  // Set IIs for all loop variables to match 
-  //
-  // Q: What does matching really mean here?
-  // A: Create nets of writes and corresponding reads
-  //    For each element of each net create an expression for the
-  //    start time of the element (using IIs as variables, not constants)
-  //    Set all IIs so that production times for any given loop nest value
-  //    match the consumption time for all reads
-  //
-  //    Note that we should also compute offsets here since those are what
-  //    determines delay buffer sizes
-  //
-  //    Linebuffers are really two different loop nests (a read nest and a write nest)
-  //    and those nests are *required* to be interleaved so that reads happen between
-  //    the write that contains their last value and the lexically next write.
+void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
+  cout << "Stream Use Info" << endl;
+  for (auto info : streamUseInfo) {
+    cout << "\tInfo: " << info.first << endl;
+    cout << "\t\tWriter: " << info.second.writer.toString() << endl;
+    cout << "\t\tReaders..." << endl;
+    for (auto reader : info.second.readers) {
+      cout << "\t\t\t" << reader.first.toString() << endl;
+    }
+
+    // Each of these becomes a group whose IIs must match
+    // Special cases for IIs: inputs / outputs / linebuffers
+  }
+
+  cout << "-----------------------" << endl;
+  for (auto& fp : functionSchedules) {
+    //auto& sched = fp.second;
+    auto& f = *(fp.second.f);
+    
+    set<HWInstr*> reads = allInstrs("rd_stream", f.structuredOrder());
+    cout << "Stream reads..." << endl;
+    for (auto rd : reads) {
+      cout << "\t" << rd->getOperand(0)->compactString() << endl;
+    }
+
+    set<HWInstr*> writes = allInstrs("write_stream", f.structuredOrder());
+    cout << "Stream writes..." << endl;
+    for (auto wr : writes) {
+      cout << "\t" << wr->getOperand(0)->compactString() << endl;
+    }
+  }
+
+  internal_assert(false);
 }
 
 // Now: Need to print out arguments and their info, actually use the arguments to form
@@ -7083,8 +7097,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     functionSchedules[fp.first] = fSched;
   }
 
-  // TODO: Adjust production rates (II) here before RTL is emitted for each kernel
-  adjustProductionRates(scl.info, streamUseInfo, functionSchedules);
+  adjustIIs(scl.info, streamUseInfo, functionSchedules);
 
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
