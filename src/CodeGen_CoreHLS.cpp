@@ -6939,6 +6939,17 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   }
 }
 
+HWInstr* writeTo(const std::string& streamName, HWFunction& f) {
+  for (auto instr : allInstrs("write_stream", f.structuredOrder())) {
+    if (instr->getOperand(0)->compactString() == streamName) {
+      return instr;
+    }
+  }
+
+  internal_assert(false) << "No read from " << streamName << "\n";
+  return nullptr;
+}
+
 HWInstr* readFrom(const std::string& streamName, HWFunction& f) {
   for (auto instr : allInstrs("rd_stream", f.structuredOrder())) {
     if (instr->getOperand(0)->compactString() == streamName) {
@@ -6954,6 +6965,16 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
   for (auto info : streamUseInfo) {
     cout << "\tInfo: " << info.first << endl;
     cout << "\t\tWriter: " << info.second.writer.toString() << endl;
+    if (info.second.writer.isLoopNest()) {
+      for (auto loop : functionSchedules) {
+        if (loop.first->name == info.second.writer.toString()) {
+          auto& sched = loop.second;
+          auto& f = *(sched.f);
+          cout << "\t\t\tStart time: " << startTime(writeTo(info.first, f), sched) << endl;
+        }
+      }
+    }
+
     cout << "\t\tReaders..." << endl;
     for (auto reader : info.second.readers) {
       cout << "\t\t\t" << reader.first.toString() << endl;
