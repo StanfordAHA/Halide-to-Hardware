@@ -394,6 +394,7 @@ class StreamNode {
 
     bool isLoopNest() const { return ss == STREAM_SOURCE_LOOP; }
     bool isArgument() const { return ss == STREAM_SOURCE_ARG; }
+    bool isLinebuffer() const { return ss == STREAM_SOURCE_ARG; }
 
     CoreIR::Wireable* getWireable() const {
       internal_assert(wire != nullptr) << "wire is null in getWireable\n";
@@ -6938,6 +6939,16 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   }
 }
 
+HWInstr* readFrom(const std::string& streamName, HWFunction& f) {
+  for (auto instr : allInstrs("rd_stream", f.structuredOrder())) {
+    if (instr->getOperand(0)->compactString() == streamName) {
+      return instr;
+    }
+  }
+
+  internal_assert(false) << "No read from " << streamName << "\n";
+  return nullptr;
+}
 void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
   cout << "Stream Use Info" << endl;
   for (auto info : streamUseInfo) {
@@ -6946,10 +6957,24 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
     cout << "\t\tReaders..." << endl;
     for (auto reader : info.second.readers) {
       cout << "\t\t\t" << reader.first.toString() << endl;
+      if (reader.first.isLoopNest()) {
+        for (auto loop : functionSchedules) {
+          if (loop.first->name == reader.first.toString()) {
+            auto& sched = loop.second;
+            auto& f = *(sched.f);
+            cout << "\t\t\t\tStart time: " << startTime(readFrom(info.first, f), sched) << endl;
+          }
+        }
+      }
     }
 
     // Each of these becomes a group whose IIs must match
     // Special cases for IIs: inputs / outputs / linebuffers
+
+
+    // For each of these groups what has to match?
+    // startTime of each read with all writes?
+
   }
 
   cout << "-----------------------" << endl;
