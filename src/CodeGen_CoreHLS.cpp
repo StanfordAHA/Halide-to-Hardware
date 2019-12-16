@@ -7032,29 +7032,31 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
       }
 
       string rdString = reader.first.toString();
-      for (auto loop : functionSchedules) {
-        if (loop.first->name == reader.first.toString()) {
-          auto& sched = loop.second;
-          auto& f = *(sched.f);
-          HWInstr* readInstr = readFrom(info.first, f);
-          RateInfo info;
-          for (auto lp : readInstr->surroundingLoops) {
-            info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+      if (reader.first.isLoopNest()) {
+        for (auto loop : functionSchedules) {
+          if (loop.first->name == reader.first.toString()) {
+            auto& sched = loop.second;
+            auto& f = *(sched.f);
+            HWInstr* readInstr = readFrom(info.first, f);
+            RateInfo info;
+            for (auto lp : readInstr->surroundingLoops) {
+              info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+            }
+            produceRates[reader.first.toString()] = info;
           }
-          produceRates[reader.first.toString()] = info;
-        } else if (info.second.writer.isLinebuffer()) {
-          RateInfo info;
-          info.nestSchedules.push_back({rdString + "_x", 10, 10, 10});
-          info.nestSchedules.push_back({rdString + "_y", 10, 10, 10});
-          produceRates[writer] = info;
-        } else if (info.second.writer.isArgument()) {
-          RateInfo info;
-          info.nestSchedules.push_back({rdString + "_x", 7, 8, 9});
-          info.nestSchedules.push_back({rdString + "_y", 7, 8, 9});
-          produceRates[writer] = info;
         }
-
+      } else if (reader.first.isLinebuffer()) {
+        RateInfo info;
+        info.nestSchedules.push_back({rdString + "_x", 10, 10, 10});
+        info.nestSchedules.push_back({rdString + "_y", 10, 10, 10});
+        produceRates[writer] = info;
+      } else if (reader.first.isArgument()) {
+        RateInfo info;
+        info.nestSchedules.push_back({rdString + "_x", 7, 8, 9});
+        info.nestSchedules.push_back({rdString + "_y", 7, 8, 9});
+        produceRates[writer] = info;
       }
+
     }
   }
 
