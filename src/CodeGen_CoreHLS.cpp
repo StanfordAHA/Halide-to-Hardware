@@ -6939,7 +6939,24 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
 }
 
 void adjustProductionRates(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
-
+  // TODO: Find all writes and reads to streams in each kernel
+  // (and virtual writes / reads by linebuffers)
+  //
+  // Set IIs for all loop variables to match 
+  //
+  // Q: What does matching really mean here?
+  // A: Create nets of writes and corresponding reads
+  //    For each element of each net create an expression for the
+  //    start time of the element (using IIs as variables, not constants)
+  //    Set all IIs so that production times for any given loop nest value
+  //    match the consumption time for all reads
+  //
+  //    Note that we should also compute offsets here since those are what
+  //    determines delay buffer sizes
+  //
+  //    Linebuffers are really two different loop nests (a read nest and a write nest)
+  //    and those nests are *required* to be interleaved so that reads happen between
+  //    the write that contains their last value and the lexically next write.
 }
 
 // Now: Need to print out arguments and their info, actually use the arguments to form
