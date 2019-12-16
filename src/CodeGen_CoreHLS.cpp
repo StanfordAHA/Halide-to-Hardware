@@ -6975,8 +6975,12 @@ class RateInfo {
     std::vector<NestSchedule> nestSchedules;
 };
 
-void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
-  
+void adjustIIs(StencilInfo& stencilInfo, map<string, StreamUseInfo>& streamUseInfo, map<const For*, FunctionSchedule>& functionSchedules) {
+
+  // TODO: Dont assume all reads and writes in the same nest
+  // must be at the same rate, so that we can support upsample and
+  // downsample
+  //
   // TODO: Replace with real adjustment code
   // NOTE: This code does work for the conv examples
   //for (auto& fp : functionSchedules) {
@@ -7015,15 +7019,22 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
           }
         }
       } else if (info.second.writer.isLinebuffer()) {
-        RateInfo info;
-        info.nestSchedules.push_back({writer + "_x", 10, 10, 10});
-        info.nestSchedules.push_back({writer + "_y", 10, 10, 10});
-        produceRates[writer] = info;
+        for (auto lb : stencilInfo.linebuffers) {
+          string n = lbName(lb);
+          if (n == writer) {
+            cout << "Found writer for " << writer << endl;
+            string inName = lb[0];
+            vector<int> dims = getStreamDims(inName, stencilInfo);
+            vector<int> dimRanges = getDimRanges(dims);
+            internal_assert(dimRanges.size() == 2);
+            RateInfo info;
+            info.nestSchedules.push_back({writer + "_x", dimRanges[0], 10, 10});
+            info.nestSchedules.push_back({writer + "_y", dimRanges[1], 10, 10});
+            produceRates[writer] = info;
+          }
+        }
       } else if (info.second.writer.isArgument()) {
-        RateInfo info;
-        info.nestSchedules.push_back({writer + "_x", 7, 8, 9});
-        info.nestSchedules.push_back({writer + "_y", 7, 8, 9});
-        produceRates[writer] = info;
+        internal_assert(false) << info.second.writer.toString() << " is an argument, and should not have rates\n";
       }
     }
 
@@ -7051,9 +7062,12 @@ void adjustIIs(StencilInfo& info, map<string, StreamUseInfo>& streamUseInfo, map
           }
         }
       } else if (reader.first.isLinebuffer()) {
+        vector<int> dims = getStreamDims(info.first, stencilInfo);
+        vector<int> dimRanges = getDimRanges(dims);
         RateInfo info;
-        info.nestSchedules.push_back({rdString + "_x", 10, 10, 10});
-        info.nestSchedules.push_back({rdString + "_y", 10, 10, 10});
+        internal_assert(dimRanges.size() == 2);
+        info.nestSchedules.push_back({writer + "_x", dimRanges[0], 5, 5});
+        info.nestSchedules.push_back({writer + "_y", dimRanges[1], 5, 5});
         produceRates[writer] = info;
       } else if (reader.first.isArgument()) {
         RateInfo info;
