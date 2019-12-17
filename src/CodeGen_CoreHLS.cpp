@@ -1776,7 +1776,7 @@ class InstructionCollector : public IRGraphVisitor {
       ist->constWidth = 16;
       ist->constValue = std::to_string(imm->value);
       ist->setSigned(true);
-      ist->resType = f.mod->getContext()->Bit()->Arr(16);
+      ist->resType = f.getContext()->Bit()->Arr(16);
       lastValue = ist;
     }
 
@@ -1786,7 +1786,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto operand = codegen(c->value);
       ist->operands = {operand};
       ist->setSigned(!(c->type.is_uint()));
-      ist->resType = f.mod->getContext()->Bit()->Arr(16);
+      ist->resType = f.getContext()->Bit()->Arr(16);
       pushInstr(ist);
       lastValue = ist;
     }
@@ -1864,27 +1864,27 @@ class InstructionCollector : public IRGraphVisitor {
 
     void visit(const GE* a) override {
       visit_binop("gte", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
 
     void visit(const LE* a) override {
       visit_binop("lte", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
     
     void visit(const LT* a) override {
       visit_binop("lt", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
 
     void visit(const GT* a) override {
       visit_binop("gt", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
     
     void visit(const And* a) override {
       visit_binop("and", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
 
     HWInstr* codegen(const Expr e) {
@@ -1969,7 +1969,7 @@ class InstructionCollector : public IRGraphVisitor {
       operands.push_back(codegen(ld->predicate));
       operands.push_back(codegen(ld->index));
       ist->operands = operands;
-      ist->resType = f.mod->getContext()->Bit()->Arr(16);
+      ist->resType = f.getContext()->Bit()->Arr(16);
       pushInstr(ist);
       //instrs.push_back(ist);
       lastValue = ist;
@@ -1992,60 +1992,60 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Min* m) override {
       visit_binop("min", m->a, m->b);
       lastValue->setSigned(!(m->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
     
     void visit(const Max* m) override {
       visit_binop("max", m->a, m->b);
       lastValue->setSigned(!(m->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
 
     void visit(const Mod* d) override {
       visit_binop("mod", d->a, d->b);
       lastValue->setSigned(!(d->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
 
     void visit(const Div* d) override {
       visit_binop("div", d->a, d->b);
       lastValue->setSigned(!(d->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
 
     void visit(const Add* a) override {
       visit_binop("add", a->a, a->b);
       lastValue->setSigned(!(a->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
 
     void visit(const EQ* a) override {
       visit_binop("eq", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
     
     void visit(const NE* a) override {
       visit_binop("neq", a->a, a->b);
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
     }
     
     void visit(const Mul* b) override {
       visit_binop("mul", b->a, b->b);
       lastValue->setSigned(!(b->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
 
     void visit(const Sub* b) override {
       visit_binop("sub", b->a, b->b);
       lastValue->setSigned(!(b->type.is_uint()));
-      lastValue->resType = f.mod->getContext()->Bit()->Arr(16);
+      lastValue->resType = f.getContext()->Bit()->Arr(16);
     }
 
     HWInstr* andHW(HWInstr* a, HWInstr* b) {
       auto andOp = newI();
       andOp->name = "and";
       andOp->operands = {a, b};
-      lastValue->resType = f.mod->getContext()->Bit();
+      lastValue->resType = f.getContext()->Bit();
       pushInstr(andOp);
       //instrs.push_back(andOp);
       return andOp;
@@ -2067,10 +2067,10 @@ class InstructionCollector : public IRGraphVisitor {
         ist->name = "linebuf_decl";
       } else if (op->name == "absd") {
         ist->name = "absd";
-        ist->resType = f.mod->getContext()->Bit()->Arr(16);
+        ist->resType = f.getContext()->Bit()->Arr(16);
       } else if (op->name == "abs") {
         ist->name = "abs";
-        ist->resType = f.mod->getContext()->Bit()->Arr(16);
+        ist->resType = f.getContext()->Bit()->Arr(16);
       } else if (op->name == "write_stream") {
         ist->name = "write_stream";
         assert(callOperands.size() > 1);
@@ -2103,7 +2103,7 @@ class InstructionCollector : public IRGraphVisitor {
         //cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
        
         ist->setSigned(!(op->type.is_uint()));
-        ist->resType = f.mod->getContext()->Bit()->Arr(16);
+        ist->resType = f.getContext()->Bit()->Arr(16);
         //callOp->strConst = calledStencil;
         callOperands.insert(std::begin(callOperands), callOp);
 
@@ -3323,7 +3323,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     blk.second.print();
   }
 
-  auto context = f.mod->getContext();
+  auto context = f.getContext();
 
   UnitMapping m;
   m.fSched = sched;
@@ -4093,7 +4093,7 @@ void valueConvertStreamReads(StencilInfo& info, HWFunction& f) {
       callRep->operands = {instr->operands[0]};
       auto targetStencil = instr->operands[1];
       auto dims = getStreamDims(instr->operands[0]->name, info);
-      callRep->resType = f.mod->getContext()->Bit()->Arr(16);
+      callRep->resType = f.getContext()->Bit()->Arr(16);
       vector<int> dimRanges = getDimRanges(dims);
       for (auto d : dimRanges) {
         callRep->resType = callRep->resType->Arr(d);
@@ -4264,7 +4264,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         }
       }
 
-      baseInit->resType = f.mod->getContext()->Bit()->Arr(16);
+      baseInit->resType = f.getContext()->Bit()->Arr(16);
       for (size_t i = 0; i < dims.size(); i += 2) {
         auto d = dims[i + 1] - dims[i];
         baseInit->resType = baseInit->resType->Arr(d);
@@ -4458,7 +4458,7 @@ void modToShift(HWFunction& f) {
           // Procedure: and with 0 ^ (1 << (value - 1))
           auto shrInstr = f.newI(instr);
           shrInstr->name = "and_bv";
-          shrInstr->resType = f.mod->getContext()->Bit()->Arr(16);
+          shrInstr->resType = f.getContext()->Bit()->Arr(16);
           //shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, 1 << (value - 1))};
           shrInstr->setSigned(instr->isSigned());
 
@@ -5251,7 +5251,7 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     }
   }
 
-  auto c = f.mod->getContext();
+  auto c = f.getContext();
   KernelControlPath cp;
   vector<std::pair<std::string, CoreIR::Type*> > tps{{"reset", c->BitIn()}, {"in_en", c->BitIn()}, {"started", c->Bit()}, {"cycles_since_start", c->Bit()->Arr(16)}};
   for (int i = 0; i < (int) chunkList.size(); i++) {
@@ -6965,7 +6965,7 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
     delay->name = "delay";
     delay->latency = 1;
     delay->surroundingLoops = s->surroundingLoops;
-    delay->resType = f.mod->getContext()->Bit()->Arr(16);
+    delay->resType = f.getContext()->Bit()->Arr(16);
     delayRegister[s] = delay;
   }
 
