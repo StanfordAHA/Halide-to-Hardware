@@ -3993,6 +3993,8 @@ void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
   f.deleteAll([](HWInstr* instr) { return isStore(instr); });
 }
 
+// I want to be able to map to modules when coreir is emitted for a design
+// Maybe just create a modulewrapper?
 void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   cout << "Allocate ROMs..." << endl;
   std::map<std::string, vector<HWInstr*> > romLoads;
@@ -4003,33 +4005,25 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     }
   }
 
-  //cout << "All loads..." << endl;
-  // Now: Here I want to create a new instance inside the moduledef which
-  // will represent the ram, and it will have a generator based on the number of different loads
-  // each load is going to get its own port, which will be indicated by an argument?
-  // And then that will allow loads and stores to different regions
   auto def = f.getDef();
   auto context = def->getContext();
 
   std::map<HWInstr*, HWInstr*> loadsToReplacements;
   for (auto m : romLoads) {
-    //cout << "\tTo rom: " << m.first << endl;
-    //cout << "StoredValues = " << storeCollector.constStores << endl;
-    //auto values = map_get("\"" + (m.first) + "\"", storeCollector.constStores);
     string curveName = m.first.substr(1, m.first.size() - 2);
-    //cout << "Getting value for " << curveName << endl;
     auto values = map_get(curveName, storeCollector.constStores);
     nlohmann::json romVals;
     for (int i = 0; i < (int) values.size(); i++) {
-      //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
-      //romVals["init"][i] = val;
       romVals["init"].emplace_back(std::to_string(val));
-      //romVals["init"].emplace_back(200);
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
+    CoreIR::Values params{{"init", COREMK(context, romVals)}};
+
+    InstanceWrapper romWrapper{coreirSanitize(m.first), "halidehw.ROM", vals, params};
     auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals, {{"init", COREMK(context, romVals)}});
     internal_assert(fromGenerator("halidehw.ROM", rom)) << "Did not produce a ROM in load optimization\n";
+
     int portNo = 0;
     for (auto ld : m.second) {
       cout << "\t\t" << *ld << endl;
@@ -7305,9 +7299,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     // Actual scheduling here
     HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
-
-    auto reads = allInstrs("rd_stream", f.structuredOrder());
-    auto writes = allInstrs("write_stream", f.structuredOrder());
 
     functions[lp] = f;
 

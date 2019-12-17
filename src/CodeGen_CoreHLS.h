@@ -34,6 +34,15 @@ class LoopSpec {
     Expr extent;
 };
 
+class InstanceWrapper {
+  public:
+
+    std::string instName;
+    std::string modName;
+    CoreIR::Values args;
+    CoreIR::Values params;
+};
+
 class HWInstr {
   public:
     std::vector<LoopSpec> surroundingLoops;
@@ -42,6 +51,7 @@ class HWInstr {
     HWInstrTp tp;
     CoreIR::Module* opType;
     CoreIR::Instance* unit;
+    InstanceWrapper inst;
     
     bool preBound;
     std::string boundTargetName;
