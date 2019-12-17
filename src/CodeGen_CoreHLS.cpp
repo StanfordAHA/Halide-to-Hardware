@@ -823,18 +823,18 @@ vector<std::string> extractHardwareVars(const For* lp) {
 }
 
 
-  int func_id_const_value(const Expr e) {
-    if (const IntImm* e_int = e.as<IntImm>()) {
-      return e_int->value;
+int func_id_const_value(const Expr e) {
+  if (const IntImm* e_int = e.as<IntImm>()) {
+    return e_int->value;
 
-    } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
-      return e_uint->value;
+  } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
+    return e_uint->value;
 
-    } else {
-      return -1;
-    }
+  } else {
+    return -1;
   }
-  
+}
+
 template<typename K>
 bool subset(K& a, K& b) {
   return CoreIR::intersection(a, b).size() == a.size();
@@ -2122,6 +2122,7 @@ class InstructionCollector : public IRGraphVisitor {
 };
 
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
+vector<pair<string, CoreIR::Type*> > moduleFieldsForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
 void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
@@ -3601,7 +3602,7 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   cout << "Done building connections in body" << endl;
 }
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
+vector<pair<string, CoreIR::Type*> > moduleFieldsForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
@@ -3670,6 +3671,12 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
 
   tps.push_back({"in_en", context->BitIn()});
   tps.push_back({"valid", context->Bit()});
+
+  return tps;
+}
+
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
+  auto tps = moduleFieldsForKernel(context, info, lp, args);
   CoreIR::Type* design_type = context->Record(tps);
   return design_type;
 }
