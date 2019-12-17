@@ -147,6 +147,11 @@ int instructionPosition(HWInstr* instr, vector<HWInstr*>& body) {
   return -1;
 }
 
+int instructionPosition(HWInstr* instr, HWFunction& f) {
+  auto ord = f.structuredOrder();
+  return instructionPosition(instr, ord);
+}
+
 void HWFunction::insertAfter(HWInstr* pos, HWInstr* newInstr) {
   for (auto blk : blocks) {
     if (elem(pos, blk->instrs)) {
@@ -3385,44 +3390,107 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
 
     if (m.hasOutput(instr)) {
+
+      // Get production stage
       int prodStage = sched.getEndStage(instr);
+
+      // Create storage for this instr
+      cout << "Creating non pipeline registers for " << *instr << "..." << endl;
+      m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
+      def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
+      def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(instr)));
+
       for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
         internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
         internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
-        for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
-          m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
-        }
-        for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
-          m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
-        }
         uNum++;
       }
 
-      cout << "Creating non pipeline registers for " << *instr << "..." << endl;
-      m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
-
-      def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
-      def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(instr)));
-
-      for (int i = 0; i < prodStage; i++) {
-        internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-        for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
-          cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
-          m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        }
-        for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
-          m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        }
-        uNum++;
-      }
+      auto& startValues = m.hwStartValues[instr];
 
       for (auto otherInstr : sched.body()) {
-        if (!sched.inSameBlock(instr, otherInstr)) {
-          m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        // TODO: Ignore otherInstr if it does not use instr
+        if (otherInstr == instr) {
+          continue;
         }
+
+        int otherStartStage = sched.getStartStage(otherInstr);
+        if (prodStage == otherStartStage) {
+          if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
+            // otherInstr is lexically later
+            startValues[otherInstr] = m.valueAtEnd(instr, instr);
+          } else {
+            //internal_assert(otherInstr->name == "phi") << "non phi instr: " << *otherInstr << " uses " << *instr << ", but is lexically earlier\n";
+            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          }
+        } else {
+          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+
+
+        //int otherEndStage = otherInstr.getEndStage(otherInstr);
+        //if (prodStage == otherEndStage) {
+          //if (instructionPosition(instr) < instructionPosition(otherInstr)) {
+            //// otherInstr is lexically later
+            //endValues[otherInstr] = m.valueAtEnd(instr, instr);
+          //} else {
+            //internal_assert(otherInstr->name == "phi") << "non phi instr: " << *otherInstr << " uses " << *instr << ", but is lexically earlier\n";
+            //startValues[otherInstr] = m.nonPipelinedRegisters[instr];
+          //}
+        //} else {
+          //startValues[otherInstr] = m.nonPipelinedRegisters[instr];
+        //}
       }
+
+      // Really what should this algorithm be?
+      // Classify users as lexically earlier or lexically later
+      // Users that are lexically later in the same chunk
+      //  should use the output of the producing functional unit
+      //
+      // Users that are lexically later in the same stage should use
+      //   the output of the producing functional unit
+      //
+      // Users that are lexically earlier in the same stage at different loop levels
+      //   should use the non-pipelined output
+      //
+      // Q: Are the only instructions that use the functional unit output
+      //    as the instruction value the ones that are lexically later in the same
+      //    stage?
+      //
+      // Q: Are the only lexically earlier users of an instruction phi nodes?
+      // A: Yes
+      //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
+        ////internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
+        ////internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+        ////m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
+        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          //m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        //}
+        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          //m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        //}
+        //uNum++;
+      //}
+
+      //for (int i = 0; i < prodStage; i++) {
+        //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          //cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
+          //m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        //}
+        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          //m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        //}
+        //uNum++;
+      //}
+
+      //for (auto otherInstr : sched.body()) {
+        //if (!sched.inSameBlock(instr, otherInstr)) {
+          //m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          //m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        //}
+      //}
     }
   }
 
@@ -3619,8 +3687,8 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
 
     } else if (instr->name == "phi") {
-      def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
-      def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
+      def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(0), instr));
+      def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(1), instr));
       IChunk c = getChunk(getPosition(instr, positions), chunkList);
       Wireable* selectControl = controlPath->sel(cpM.phiOutput(c));
       def->connect(unit->sel("sel"), selectControl);
