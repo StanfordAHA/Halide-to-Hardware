@@ -173,7 +173,7 @@ class HWFunction {
 
     bool isLocalVariable(const std::string& name) const {
       auto sName = coreirSanitize(name);
-      std::vector<std::string> fds = mod->getType()->getFields();
+      std::vector<std::string> fds = getMod()->getType()->getFields();
       bool isLocal = !CoreIR::elem(sName, fds);
 
       if (!isLocal) {
@@ -252,7 +252,7 @@ class HWFunction {
     }
 
     CoreIR::ModuleDef* getDef() const {
-      auto def = mod->getDef();
+      auto def = getMod()->getDef();
       internal_assert(def != nullptr) << "module def is null\n";
       return def;
     }

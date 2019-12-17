@@ -2662,16 +2662,9 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   collector.f.name = name;
   collector.f.context = context;
   
-  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
-  auto global_ns = context->getNamespace("global");
-  auto design = global_ns->newModuleDecl(collector.f.name, design_type);
-  auto def = design->newModuleDef();
-  design->setDef(def);
-  //collector.f.mod = nullptr;
-  collector.f.mod = design;
   perfectNest->accept(&collector);
 
-  auto f = collector.f;
+  auto& f = collector.f;
 
   auto hwVars = extractHardwareVars(perfectNest);
   for (auto arg : args) {
@@ -2698,6 +2691,15 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   modToShift(f);
   addDynamicStencilReads(f);
   
+  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
+  auto global_ns = context->getNamespace("global");
+  auto design = global_ns->newModuleDecl(collector.f.name, design_type);
+  auto def = design->newModuleDef();
+  design->setDef(def);
+  f.mod = design;
+
+  internal_assert(f.mod != nullptr) << "mod is null after buildHWBody\n";
+
   return f;
 }
 
@@ -3486,7 +3488,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
     }
   }
 
-  auto def = f.mod->getDef();
+  cout << "Getting def" << endl;
+  auto def = f.getDef();
+  cout << "Got def" << endl;
+  //auto def = f.mod->getDef();
   internal_assert(def != nullptr);
 
   CoreIR::Context* context = def->getContext();
@@ -3928,14 +3933,14 @@ FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo
   // and then figure out the rate of production of each
   // stream read
 
-  cout << "All reads from producers: " << endl;
-  auto reads = allInstrs("rd_stream", f.structuredOrder());
-  // Now: for each read classify the sources of the read
-  for (auto rd : reads) {
-    string streamName = rd->getOperand(0)->compactString();
-    StreamUseInfo useInfo = map_get(streamName, streamUseInfo);
-    cout << "\tSource of read from: " << streamName << " = " << useInfo.writer.toString() << endl;
-  }
+  //cout << "All reads from producers: " << endl;
+  //auto reads = allInstrs("rd_stream", f.structuredOrder());
+  //// Now: for each read classify the sources of the read
+  //for (auto rd : reads) {
+    //string streamName = rd->getOperand(0)->compactString();
+    //StreamUseInfo useInfo = map_get(streamName, streamUseInfo);
+    //cout << "\tSource of read from: " << streamName << " = " << useInfo.writer.toString() << endl;
+  //}
 
   fSched.nestSchedules = schedules;
   internal_assert(fSched.blockSchedules.size() > 0);
@@ -3946,33 +3951,36 @@ FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo
   }
 
   internal_assert(fSched.blockSchedules.size() > 0);
+
+  cout << "Returning schedule" << endl;
   return fSched;
 }
 
-ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& streamInfo, HWFunction& f) {
-  internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
+//ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& streamInfo, HWFunction& f) {
+  ////internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
 
-  // Check that all instructions resTypes
-  //for (auto instr : f.structuredOrder()) {
-    //internal_assert(instr->resType != nullptr) << *instr << " has no resType\n";
-  //}
+  //// Check that all instructions resTypes
+  ////for (auto instr : f.structuredOrder()) {
+    ////internal_assert(instr->resType != nullptr) << *instr << " has no resType\n";
+  ////}
 
-  auto design = f.getMod();
-  auto def = design->getDef();
+  //auto design = f.getMod();
+  //auto def = design->getDef();
 
-  internal_assert(def != nullptr) << "module definition is null!\n";
+  //internal_assert(def != nullptr) << "module definition is null!\n";
   
-  //cout << "Hardware function is..." << endl;
-  //cout << f << endl;
+  ////cout << "Hardware function is..." << endl;
+  ////cout << f << endl;
 
-  FunctionSchedule fSched = buildFunctionSchedule(streamInfo, f);
-  internal_assert(fSched.blockSchedules.size() > 0);
+  //FunctionSchedule fSched = buildFunctionSchedule(streamInfo, f);
+  //cout << "Built function schedule" << endl;
+  //internal_assert(fSched.blockSchedules.size() > 0);
 
-  emitCoreIR(f, info, fSched);
+  //emitCoreIR(f, info, fSched);
 
-  design->setDef(def);
-  return {design, fSched};
-}
+  //design->setDef(def);
+  //return {design, fSched};
+//}
 
 bool isLoad(HWInstr* instr) {
   return isCall("load", instr);
@@ -4013,8 +4021,9 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     }
   }
 
-  auto def = f.getDef();
-  auto context = def->getContext();
+  //auto def = f.getDef();
+  //auto context = def->getContext();
+  auto context = f.getContext();
 
   std::map<HWInstr*, HWInstr*> loadsToReplacements;
   for (auto m : romLoads) {
@@ -7321,6 +7330,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   map<const For*, FunctionSchedule> functionSchedules;
   for (auto& fp : functions) {
     HWFunction& f = fp.second;
+    internal_assert(f.mod != nullptr) << "mod is null just before inserting critical path target registers\n";
     insertCriticalPathTargetRegisters(hwInfo, f);
     FunctionSchedule fSched = buildFunctionSchedule(streamUseInfo, f);
     functionSchedules[fp.first] = fSched;
