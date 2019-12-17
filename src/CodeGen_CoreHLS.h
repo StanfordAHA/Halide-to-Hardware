@@ -131,6 +131,7 @@ class HWFunction {
     }
 
     CoreIR::Module* getMod() const {
+      internal_assert(mod != nullptr) << "mod is not set in hwfunction: " << name << "\n";
       return mod;
     }
 

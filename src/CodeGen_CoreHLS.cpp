@@ -2667,6 +2667,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
   design->setDef(def);
+  //collector.f.mod = nullptr;
   collector.f.mod = design;
   perfectNest->accept(&collector);
 
@@ -3948,7 +3949,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& str
     //internal_assert(instr->resType != nullptr) << *instr << " has no resType\n";
   //}
 
-  //auto design = f.mod;
   auto design = f.getMod();
   auto def = design->getDef();
 
@@ -4048,13 +4048,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
 
   replaceAll(loadsToReplacements, f);
 
-  // Now: Need to add code to HWInstr that will allow use to bind a specific functional unit to it
-  // A given instruction needs to have a hardware module associated with it by name, and needs to have
-  // a latency (eventually), a port which is the output of the instruction, and an identifier for
-  // the module which it will be bound to, and a procedure for wiring up the operands of the
-  // instruction to names of ports on the target module
-  //cout << "Module def..." << endl;
-  //f.mod->print();
 }
 
 void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
