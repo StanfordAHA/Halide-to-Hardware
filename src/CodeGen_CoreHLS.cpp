@@ -2294,6 +2294,8 @@ class ProgramPosition {
     }
 };
 
+ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions);
+
 bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
   if (!a.isOp() && !b.isOp()) {
     return a.loopLevel == b.loopLevel &&
@@ -2357,6 +2359,8 @@ ProgramPosition getHead(std::string& loopLevel, vector<ProgramPosition>& positio
   internal_assert(false) << "No head for instr\n";
   return {};
 }
+
+vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched);
 
 class Condition {
   public:
@@ -2522,6 +2526,9 @@ class IChunk {
     }
 };
 
+map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
+    FunctionSchedule& sched);
+
 bool operator==(const IChunk& a, const IChunk& b) {
   return a.stage == b.stage && a.instrs == b.instrs;
 }
@@ -2554,7 +2561,7 @@ int chunkIdx(const IChunk& c, const vector<IChunk>& chunks) {
   return chunkIdx(c.instrs.at(0), chunks);
 }
 
-IChunk getChunk(ProgramPosition& pos, vector<IChunk>& chunks) {
+IChunk getChunk(const ProgramPosition& pos, vector<IChunk>& chunks) {
   return chunks.at(chunkIdx(pos, chunks));
 }
 
@@ -2565,6 +2572,10 @@ class KernelControlPath {
     std::map<int, string> stageIsActiveMap;
     std::map<int, string> chunkPhiInputMap;
     vector<IChunk> chunkList;
+
+    std::string phiOutput(const IChunk& c) const {
+      return map_get(chunkIdx(c, chunkList), chunkPhiInputMap);
+    }
 
     std::string activeSignalOutput(const HWInstr* instr) const {
       for (auto c : chunkList) {
@@ -3466,6 +3477,15 @@ Expr containerIterationStart(HWInstr* instr, FunctionSchedule& sched) {
 void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   internal_assert(sched.blockSchedules.size() > 0);
 
+  vector<ProgramPosition> positions = buildProgramPositions(sched);
+  map<int, vector<IChunk> > chunks = getChunks(positions, sched);
+  vector<IChunk> chunkList;
+  for (auto sc : chunks) {
+    for (auto c : sc.second) {
+      chunkList.push_back(c);
+    }
+  }
+
   auto def = f.mod->getDef();
   internal_assert(def != nullptr);
 
@@ -3562,12 +3582,12 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("ren")->sel(portNo), def->addInstance("ld_bitconst_" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}})->sel("out"));
 
     } else if (instr->name == "phi") {
-      // TODO: Replace with real mux code
       def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
       def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
-      // TODO: Create real control value
-      auto lastState = def->addInstance("dummy_phi_sel_input" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
-      Wireable* selectControl = lastState->sel("out");
+      //auto lastState = def->addInstance("dummy_phi_sel_input" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
+      //cplastState->sel("out");
+      IChunk c = getChunk(getPosition(instr, positions), chunkList);
+      Wireable* selectControl = controlPath->sel(cpM.phiOutput(c));
       def->connect(unit->sel("sel"), selectControl);
     } else {
       internal_assert(false) << "no wiring procedure for " << *instr << "\n";
@@ -5019,9 +5039,6 @@ vector<SWTransition> forwardTransition(const IChunk& next, const vector<SWTransi
   }
   return outs;
 }
-
-map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
-    FunctionSchedule& sched);
 
 //Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
 Expr startTime(const ProgramPosition& targetPos, FunctionSchedule& sched) {
