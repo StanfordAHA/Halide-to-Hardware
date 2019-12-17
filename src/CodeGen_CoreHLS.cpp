@@ -3373,9 +3373,9 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       internal_assert(m.hasOutput(instr));
     }
 
-    int prodStage = sched.getEndStage(instr);
-    for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-      if (m.hasOutput(instr)) {
+    if (m.hasOutput(instr)) {
+      int prodStage = sched.getEndStage(instr);
+      for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
         internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
         internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
         m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
@@ -3387,9 +3387,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
         uNum++;
       }
-    }
 
-    if (m.hasOutput(instr)) {
       cout << "Creating non pipeline registers for " << *instr << "..." << endl;
       m.nonPipelineRegisters[instr] = pipelineRegister(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
       def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
@@ -3539,7 +3537,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
     CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
     if (instr->resType != nullptr) {
-      def->connect(def->sel("self")->sel(dbgName(instr)), m.valueAtEnd(instr, instr));
+      std::vector<std::string> fds = f.getMod()->getType()->getFields();
+      if (elem(dbgName(instr), fds)) {
+          def->connect(def->sel("self")->sel(dbgName(instr)), m.valueAtEnd(instr, instr));
+      }
     }
 
     if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
