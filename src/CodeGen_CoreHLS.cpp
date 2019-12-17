@@ -2563,6 +2563,7 @@ class KernelControlPath {
     std::vector<std::string> controlVars;
     CoreIR::Module* m;
     std::map<int, string> stageIsActiveMap;
+    std::map<int, string> chunkPhiInputMap;
     vector<IChunk> chunkList;
 
     std::string activeSignalOutput(const HWInstr* instr) const {
@@ -5239,6 +5240,12 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
     string s = "chunk_" + to_string(i) + "_active";
     tps.push_back({s, c->Bit()});
     cp.stageIsActiveMap[i] = s;
+
+    {
+      string s = "chunk_phi_" + to_string(i) + "_at_zero";
+      tps.push_back({s, c->Bit()});
+      cp.chunkPhiInputMap[i] = s;
+    }
   }
 
   std::set<std::string> streamNames = allStreamNames(f);
@@ -5401,6 +5408,13 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       //cout << "Connecting counter for " << loop << " to " << coreStr(def->sel("self")->sel(coreirSanitize(loop))) << endl;
 
       def->connect(loopVarCounter->sel("out"), def->sel("self")->sel(coreirSanitize(loop.name)));
+
+      auto eqz =
+        def->addInstance(coreirSanitize(loop.name) + "_phi_use_one", "coreir.eq", {{"width", COREMK(c, 16)}});
+      def->connect(eqz->sel("in0"), mkConst(def, "phi_one" + c->getUnique(), 16, 0)->sel("out"));
+      def->connect(eqz->sel("in1"), loopVarCounter->sel("out"));
+
+      // TODO: Wire up the chunk
     }
 
     controlPath->setDef(def);
