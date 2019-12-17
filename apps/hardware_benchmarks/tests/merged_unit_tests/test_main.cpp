@@ -29,6 +29,29 @@ bool is2D(T& buf) {
 }
 
 template<typename T0, typename T1>
+void indexTestPatternConstant(const int& value, T0& inputBuf, T1& hwInputBuf) {
+
+  if (is2D(inputBuf)) {
+    for (int i = 0; i < inputBuf.width(); i++) {
+      for (int j = 0; j < inputBuf.height(); j++) {
+        hwInputBuf(i, j, 0) = value;
+        inputBuf(i, j) = hwInputBuf(i, j);
+      }
+    }
+  } else {
+    assert(inputBuf.dimensions() == 3);
+    for (int i = 0; i < inputBuf.width(); i++) {
+      for (int j = 0; j < inputBuf.height(); j++) {
+        for (int b = 0; b < inputBuf.channels(); b++) {
+          hwInputBuf(i, j, b) = value;
+          inputBuf(i, j, b) = hwInputBuf(i, j, b);
+        }
+      }
+    }
+  }
+}
+
+template<typename T0, typename T1>
 void indexTestPatternRandom(T0& inputBuf, T1& hwInputBuf) {
 
   if (is2D(inputBuf)) {
@@ -1558,6 +1581,13 @@ void small_cascade_test() {
 }
 
 void small_conv_3_3_not_unrolled_test() {
+  // Several different problems that need to be fixed
+  //  1. Set test data to all ones to simplify test result
+  //  3. Add real logic for dynamic_stencil_read
+  //  4. Fix phi test variables
+  //  5. Add enable to datapath registers
+  //  6. Maybe: temporarily remove pipline datapath registers
+  //     since there is no pipelining in this example
   cout << "Starting not unrolled test..." << endl;
 
   ImageParam input(type_of<uint8_t>(), 2);
@@ -1570,10 +1600,10 @@ void small_conv_3_3_not_unrolled_test() {
   RDom r(0, 3,
       0, 3);
 
-  kernel(x,y) = 0;
-  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
-  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
-  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+  kernel(x,y) = 1;
+  //kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  //kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  //kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
 
   conv(x, y) = 0;
 
@@ -1593,7 +1623,7 @@ void small_conv_3_3_not_unrolled_test() {
   int inTileSize = 4;
   Halide::Buffer<uint8_t> inputBuf(inTileSize, inTileSize);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
-  indexTestPatternRandom(inputBuf, hwInputBuf);
+  indexTestPatternConstant(1, inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(inTileSize - 2, inTileSize - 2);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
   
@@ -1911,16 +1941,8 @@ void small_conv_3_3_not_unrolled_test() {
     PRINT_PASSED("enable to valid time matches latency");
 
 
-    //assert(false);
+    assert(false);
   } 
-  //vector<Argument> args{input};
-  //auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
-
-  //string accelName = getInputAlias("accel_interface_info.json");
-  //runHWKernel(accelName, m, hwInputBuf, outputBuf);
-
-  //compare_buffers(outputBuf, cpuOutput);
-  //deleteContext(context);
 
   //cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
   //assert(false);
