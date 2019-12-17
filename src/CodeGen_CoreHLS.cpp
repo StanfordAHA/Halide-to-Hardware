@@ -53,6 +53,10 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+std::string dbgName(HWInstr* const instr) {
+  return "dbg_" + to_string(instr->uniqueNum);
+}
+
 std::string coreStr(const Wireable* w) {
   return CoreIR::toString(*w);
 }
@@ -2696,7 +2700,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   auto designFields = moduleFieldsForKernel(context, info, perfectNest, args);
   for (auto instr : f.structuredOrder()) {
     if (instr->resType != nullptr) {
-      designFields.push_back({"dbg_" + to_string(instr->uniqueNum), instr->resType});
+      designFields.push_back({dbgName(instr), instr->resType});
     }
   }
   
@@ -3535,6 +3539,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   for (auto instr : sched.body()) {
     internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit mapping for " << *instr << "\n";
     CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
+
+    if (instr->resType != nullptr) {
+      def->connect(def->sel("self")->sel(dbgName(instr)), m.valueAtEnd(instr, instr));
+    }
 
     if (instr->name == "add" || (instr->name == "mul") || (instr->name == "div") || (instr->name == "sub") || (instr->name == "min") || (instr->name == "max") ||
         (instr->name == "lt") || (instr->name == "gt") || (instr->name == "lte") || (instr->name == "gte") || (instr->name == "and") || (instr->name == "mod") ||
