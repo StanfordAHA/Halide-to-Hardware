@@ -122,6 +122,11 @@ class HWFunction {
     int uniqueNum;
     std::vector<std::string> controlVars;
     CoreIR::Module* mod;
+    CoreIR::Context* context;
+
+    CoreIR::Context* getContext() {
+      return context;
+    }
 
     std::vector<std::string> argNames() const {
       return controlVars;

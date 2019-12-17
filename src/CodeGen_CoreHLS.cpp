@@ -2663,6 +2663,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
+  collector.f.context = context;
   
   auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
   auto global_ns = context->getNamespace("global");
