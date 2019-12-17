@@ -3244,16 +3244,22 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
       } else if (name == "load") {
         internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_CONST);
         int portNo = instr->getOperand(0)->toInt();
-        unitMapping[instr] = instr->getUnit();
+
+        // TODO: Replace with unit constructor
+        auto unit = instr->getUnit();
+        unitMapping[instr] = unit;
+ 
         cout << "Connecting " << *instr << endl;
-        internal_assert(instr->getUnit() != nullptr);
+        internal_assert(unit != nullptr);
         cout << "Connecting " << coreStr(instr->getUnit()) << " ROM rdata" << endl;
-        internal_assert(instr->getUnit() != nullptr);
-        internal_assert(isa<CoreIR::Instance>(instr->getUnit()));
-        Instance* inst = static_cast<Instance*>(instr->getUnit());
+        internal_assert(isa<CoreIR::Instance>(unit));
+        
+        Instance* inst = static_cast<Instance*>(unit);
+        
         internal_assert(fromGenerator("halidehw.ROM", inst));
-        instrValues[instr] = instr->getUnit()->sel("rdata")->sel(portNo);
-        cout << "Done." << endl;
+        
+        instrValues[instr] = unit->sel("rdata")->sel(portNo);
+
       } else if (name == "phi") {
         internal_assert(instr->resType != nullptr);
         auto sel = def->addInstance("phi_" + std::to_string(defStage), "halidehw.mux", {{"type", COREMK(context, instr->resType)}});
@@ -4035,6 +4041,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
         rLoad->operands.push_back(ld->getOperand(i));
       }
       rLoad->unit = rom;
+      rLoad->inst = romWrapper;
       loadsToReplacements[ld] = rLoad;
       portNo++;
     }

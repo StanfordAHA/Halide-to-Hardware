@@ -72,7 +72,7 @@ class HWInstr {
     CoreIR::Type* resType;
     bool signedNum;
 
-    HWInstr() : tp(HWINSTR_TP_INSTR), preBound(false), latency(0), predicate(nullptr), resType(nullptr), signedNum(false) {}
+    HWInstr() : tp(HWINSTR_TP_INSTR), unit(nullptr), preBound(false), latency(0), predicate(nullptr), resType(nullptr), signedNum(false) {}
 
     bool isSigned() const {
       return signedNum;
