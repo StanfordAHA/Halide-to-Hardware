@@ -2585,7 +2585,7 @@ class KernelControlPath {
     std::string activeSignalOutput(const HWInstr* instr) const {
       for (auto c : chunkList) {
         for (auto p : c.instrs) {
-          if (p.instr == instr) {
+          if (p.isOp() && p.instr == instr) {
             return activeSignalOutput(c);
           }
         }
@@ -2930,6 +2930,17 @@ class UnitMapping {
     }
 
 };
+
+CoreIR::Instance* pipelineRegisterEn(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
+
+  if (type == context->BitIn() || type == context->Bit()) {
+    // Add mantle reg with enable
+    auto r = def->addInstance(name, "corebit.reg");
+    return r;
+  }
+  auto r = def->addInstance(name, "commonlib.reg_array", {{"type", COREMK(context, type)}, {"has_en", COREMK(context, true)}});
+  return r;
+}
 
 CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
 
@@ -3389,8 +3400,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       }
 
       cout << "Creating non pipeline registers for " << *instr << "..." << endl;
-      m.nonPipelineRegisters[instr] = pipelineRegister(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
+      m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
+
       def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
+      def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(instr)));
+
       for (int i = 0; i < prodStage; i++) {
         internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
         for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {

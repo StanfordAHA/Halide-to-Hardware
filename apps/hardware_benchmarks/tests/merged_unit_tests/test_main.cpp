@@ -1582,8 +1582,7 @@ void small_cascade_test() {
 
 void small_conv_3_3_not_unrolled_test() {
   // Several different problems that need to be fixed
-  //  1. Set test data to all ones to simplify test result
-  //  3. Add real logic for dynamic_stencil_read
+  //  3. Add real logic for dynamic_stencil_read (low priority)
   //  4. Fix phi test variables
   //  5. Add enable to datapath registers
   //  6. Maybe: temporarily remove pipline datapath registers
@@ -1941,7 +1940,7 @@ void small_conv_3_3_not_unrolled_test() {
     PRINT_PASSED("enable to valid time matches latency");
 
 
-    //assert(false);
+    assert(false);
   } 
 
   //cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;
