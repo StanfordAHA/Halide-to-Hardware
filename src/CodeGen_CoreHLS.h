@@ -74,6 +74,28 @@ class HWInstr {
 
     HWInstr() : tp(HWINSTR_TP_INSTR), unit(nullptr), preBound(false), latency(0), predicate(nullptr), resType(nullptr), signedNum(false) {}
 
+    bool realized() const {
+      return unit != nullptr;
+    }
+
+    void realizeUnit(CoreIR::ModuleDef* const def) {
+      internal_assert(unit == nullptr) << "Realizing instance, but inst is already non-null\n";
+      bool foundInst = false;
+      for (auto instR = def->getInstancesIterBegin();
+          instR != def->getInstancesIterEnd();
+          instR = def->getInstancesIterNext(instR)) {
+        if (instR->getInstname() == inst.instName) {
+          //cout << "Checking instance: " << instR->GetInstName() << endl;
+          foundInst = true;
+          unit = instR;
+          break;
+        }
+      }
+      if (!foundInst) {
+        unit = def->addInstance(inst.instName, inst.modName, inst.args, inst.params);
+      }
+    }
+
     bool isSigned() const {
       return signedNum;
     }

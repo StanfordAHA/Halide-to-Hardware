@@ -3245,7 +3245,9 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_CONST);
         int portNo = instr->getOperand(0)->toInt();
 
-        // TODO: Replace with unit constructor
+        if (!instr->realized()) {
+          instr->realizeUnit(def);
+        }
         auto unit = instr->getUnit();
         unitMapping[instr] = unit;
  
@@ -4027,8 +4029,8 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
     CoreIR::Values params{{"init", COREMK(context, romVals)}};
 
     InstanceWrapper romWrapper{coreirSanitize(m.first), "halidehw.ROM", vals, params};
-    auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals, {{"init", COREMK(context, romVals)}});
-    internal_assert(fromGenerator("halidehw.ROM", rom)) << "Did not produce a ROM in load optimization\n";
+    //auto rom = def->addInstance(coreirSanitize(m.first), "halidehw.ROM", vals, {{"init", COREMK(context, romVals)}});
+    //internal_assert(fromGenerator("halidehw.ROM", rom)) << "Did not produce a ROM in load optimization\n";
 
     int portNo = 0;
     for (auto ld : m.second) {
@@ -4040,7 +4042,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
       for (size_t i = 1; i < ld->operands.size(); i++) {
         rLoad->operands.push_back(ld->getOperand(i));
       }
-      rLoad->unit = rom;
+      //rLoad->unit = rom;
       rLoad->inst = romWrapper;
       loadsToReplacements[ld] = rLoad;
       portNo++;
