@@ -2657,9 +2657,6 @@ void addDynamicStencilReads(HWFunction& f) {
 }
 
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
-
-  //OuterLoopSeparator sep;
-  //perfectNest->body.accept(&sep);
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
@@ -2672,7 +2669,6 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   design->setDef(def);
   collector.f.mod = design;
   perfectNest->accept(&collector);
-  //sep.body.accept(&collector);
 
   auto f = collector.f;
 
@@ -2695,18 +2691,12 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
 
   removeBadStores(stCollector, f);
   valueConvertStreamReads(info, f);
-  cout << "After valueconver stream reads..." << endl;
-  cout << f << endl;
   valueConvertProvides(info, f);
   removeWriteStreamArgs(info, f);
   divToShift(f);
   modToShift(f);
   addDynamicStencilReads(f);
-  //cout << "After stream read conversion..." << endl;
-  //for (auto instr : body) {
-  //cout << "\t\t\t" << *instr << endl;
-  //}
-  //return collector.f;
+  
   return f;
 }
 
@@ -3958,7 +3948,8 @@ ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& str
     //internal_assert(instr->resType != nullptr) << *instr << " has no resType\n";
   //}
 
-  auto design = f.mod;
+  //auto design = f.mod;
+  auto design = f.getMod();
   auto def = design->getDef();
 
   internal_assert(def != nullptr) << "module definition is null!\n";
@@ -4062,8 +4053,8 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   // a latency (eventually), a port which is the output of the instruction, and an identifier for
   // the module which it will be bound to, and a procedure for wiring up the operands of the
   // instruction to names of ports on the target module
-  cout << "Module def..." << endl;
-  f.mod->print();
+  //cout << "Module def..." << endl;
+  //f.mod->print();
 }
 
 void replaceAllUsesAfter(HWInstr* refresh, HWInstr* toReplace, HWInstr* replacement, vector<HWInstr*>& body) {
@@ -7308,9 +7299,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
   inferStreamTypes(scl);
 
-  //cout << "Stencil info" << endl;
   StencilInfo info = scl.info;
-
 
   cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
   int kernelN = 0;
@@ -7338,7 +7327,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   auto streamUseInfo = createStreamUseInfo(functions, args, scl.info);
   map<const For*, FunctionSchedule> functionSchedules;
   for (auto& fp : functions) {
-    //auto lp = fp.first;
     HWFunction& f = fp.second;
     insertCriticalPathTargetRegisters(hwInfo, f);
     FunctionSchedule fSched = buildFunctionSchedule(streamUseInfo, f);
@@ -7355,11 +7343,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     HWFunction& f = fp.second;
     auto fSched = map_get(fp.first, functionSchedules);
     emitCoreIR(f, info, fSched);
-    //insertCriticalPathTargetRegisters(hwInfo, f);
-    ComputeKernel compK{f.mod, fSched};
-    //cc= moduleForKernel(scl.info, streamUseInfo, f);
+    ComputeKernel compK{f.getMod(), fSched};
 
-    aliasInfo["kernel_info"][f.mod->getName()].emplace_back(compK.sched.cycleLatency());
+    aliasInfo["kernel_info"][f.getMod()->getName()].emplace_back(compK.sched.cycleLatency());
     auto m = compK.mod;
     cout << "Created module for kernel.." << endl;
     kernelModules[lp] = compK;

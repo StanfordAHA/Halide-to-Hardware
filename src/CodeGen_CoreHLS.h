@@ -118,14 +118,20 @@ class HWFunction {
     std::vector<HWBlock*> blocks;
 
   public:
+    CoreIR::Module* mod;
+
+  public:
     std::string name;
     int uniqueNum;
     std::vector<std::string> controlVars;
-    CoreIR::Module* mod;
     CoreIR::Context* context;
 
-    CoreIR::Context* getContext() {
+    CoreIR::Context* getContext() const {
       return context;
+    }
+
+    CoreIR::Module* getMod() const {
+      return mod;
     }
 
     std::vector<std::string> argNames() const {
@@ -154,7 +160,7 @@ class HWFunction {
       return false;
     }
 
-    HWFunction() : uniqueNum(0), mod(nullptr) {
+    HWFunction() : mod(nullptr), uniqueNum(0) {
       newBlk();
     }
 
