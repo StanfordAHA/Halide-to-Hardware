@@ -3348,8 +3348,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
   cout << "Created functional units" << endl;
 
-  //auto& instrValues = m.instrValues;
-
   for (auto op : allVarsUsed(sched.body())) {
     string name = op->name;
 
@@ -3608,8 +3606,6 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
     } else if (instr->name == "phi") {
       def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(0), instr));
       def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(1), instr));
-      //auto lastState = def->addInstance("dummy_phi_sel_input" + context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
-      //cplastState->sel("out");
       IChunk c = getChunk(getPosition(instr, positions), chunkList);
       Wireable* selectControl = controlPath->sel(cpM.phiOutput(c));
       def->connect(unit->sel("sel"), selectControl);

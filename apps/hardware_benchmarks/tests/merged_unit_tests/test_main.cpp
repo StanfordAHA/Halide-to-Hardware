@@ -1570,10 +1570,10 @@ void small_conv_3_3_not_unrolled_test() {
   RDom r(0, 3,
       0, 3);
 
-  kernel(x,y) = 1;
-  //kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
-  //kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
-  //kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+  kernel(x,y) = 0;
+  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
 
   conv(x, y) = 0;
 
@@ -1884,8 +1884,17 @@ void small_conv_3_3_not_unrolled_test() {
       cout << "i = " << i << endl;
       assert(state.getBitVec("self.valid") == BitVec(1, 0));
 
+      auto loadRes = state.getBitVec("self.dbg_52");
+      cout << "\tloadRes = " << loadRes << ", int = " << loadRes.to_type<int>() << endl;
+
+      auto phi = state.getBitVec("self.dbg_55_0_0");
+      cout << "\tphi     = " << phi << ", int = " << phi.to_type<int>() << endl;
+
+      auto accum = state.getBitVec("self.dbg_58_0_0");
+      cout << "\taccum   = " << accum << ", int = " << accum.to_type<int>() << endl;
+
       auto output = state.getBitVec("self.conv_stencil_stream_0_0");
-      cout << "\toutput = " << output << ", int = " << output.to_type<int>() << endl;
+      cout << "\toutput  = " << output << ", int = " << output.to_type<int>() << endl;
 
       state.exeCombinational();
       state.exeSequential();
@@ -1901,7 +1910,8 @@ void small_conv_3_3_not_unrolled_test() {
 
     PRINT_PASSED("enable to valid time matches latency");
 
-    assert(false);
+
+    //assert(false);
   } 
   //vector<Argument> args{input};
   //auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);
