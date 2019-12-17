@@ -5414,7 +5414,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       def->connect(eqz->sel("in0"), mkConst(def, "phi_one" + c->getUnique(), 16, 0)->sel("out"));
       def->connect(eqz->sel("in1"), loopVarCounter->sel("out"));
 
-      // TODO: Wire up the chunk
+      string phiOutName = map_get(chunkIdx(headerChunk, chunkList), cp.chunkPhiInputMap);
+      def->connect(eqz->sel("out"), def->sel("self")->sel(phiOutName));
     }
 
     controlPath->setDef(def);
