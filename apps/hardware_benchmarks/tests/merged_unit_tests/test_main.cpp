@@ -1901,7 +1901,7 @@ void small_conv_3_3_not_unrolled_test() {
 
     PRINT_PASSED("enable to valid time matches latency");
 
-    //assert(false);
+    assert(false);
   } 
   //vector<Argument> args{input};
   //auto m = buildModule(context, "coreir_curve", args, "curve", hw_output);

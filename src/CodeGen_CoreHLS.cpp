@@ -2692,12 +2692,22 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   modToShift(f);
   addDynamicStencilReads(f);
   
-  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
   auto global_ns = context->getNamespace("global");
+  auto designFields = moduleFieldsForKernel(context, info, perfectNest, args);
+  for (auto instr : f.structuredOrder()) {
+    if (instr->resType != nullptr) {
+      designFields.push_back({"dbg_" + to_string(instr->uniqueNum), instr->resType});
+    }
+  }
+  
+  CoreIR::Type* design_type = context->Record(designFields);
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
   design->setDef(def);
   f.mod = design;
+
+  cout << "Returning HWFunction" << endl;
+  cout << f << endl;
 
   internal_assert(f.mod != nullptr) << "mod is null after buildHWBody\n";
 
