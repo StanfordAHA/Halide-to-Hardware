@@ -5560,7 +5560,12 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
       def->connect(eqz->sel("in1"), loopVarCounter->sel("out"));
 
       string phiOutName = map_get(chunkIdx(headerChunk, chunkList), cp.chunkPhiInputMap);
-      def->connect(eqz->sel("out"), def->sel("self")->sel(phiOutName));
+
+      auto chunkActive = def->sel(cp.activeSignalOutput(headerChunk))->sel("out");
+      auto phiActiveSignal =
+        andList({eqz->sel("out"), chunkActive});
+      def->connect(phiActiveSignal, def->sel("self")->sel(phiOutName));
+      //def->connect(eqz->sel("out"), def->sel("self")->sel(phiOutName));
     }
 
     controlPath->setDef(def);

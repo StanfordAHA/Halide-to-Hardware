@@ -1866,6 +1866,18 @@ void small_conv_3_3_not_unrolled_test() {
     assert(state.getBitVec("self.conv_y___scan_dim_1") == BitVec(16, 1));
     assert(state.getBitVec("self.started") == BitVec(1, 1));
     
+    for (int i = 0; i < 100; i++) {
+      state.exeCombinational();
+      state.exeSequential();
+      state.exeCombinational();
+
+      cout << "After clock cycle " << i << ":" << endl;
+      cout << "\tself.conv_s1_r$x         = " << state.getBitVec("self.conv_s1_r$x") << endl;
+      cout << "\tself.conv_s1_r$y         = " << state.getBitVec("self.conv_s1_r$y") << endl;
+      cout << "\tself.conv_x___scan_dim_0 = " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
+      cout << "\tself.conv_y___scan_dim_1 = " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
+    }
+
     PRINT_PASSED("only conv_s1_r$x updated after clock cycle 2");
     //assert(false);
   }
@@ -1910,7 +1922,7 @@ void small_conv_3_3_not_unrolled_test() {
     state.exeCombinational();
 
     for (int i = 0; i < latency; i++) {
-      cout << "i = " << i << endl;
+      cout << "before edge i = " << i << endl;
       assert(state.getBitVec("self.valid") == BitVec(1, 0));
 
       auto loadRes = state.getBitVec("self.dbg_52");
@@ -1935,6 +1947,7 @@ void small_conv_3_3_not_unrolled_test() {
     assert(state.getBitVec("self.valid") == BitVec(1, 1));
 
     auto output = state.getBitVec("self.conv_stencil_stream_0_0");
+    cout << "before edge i = " << latency << endl;
     cout << "\toutput = " << output << ", int = " << output.to_type<int>() << endl;
 
     PRINT_PASSED("enable to valid time matches latency");
