@@ -2304,6 +2304,8 @@ class ProgramPosition {
     }
 };
 
+std::ostream& operator<<(std::ostream& out, ProgramPosition& pos);
+ProgramPosition headerPosition(const std::string& level, const vector<ProgramPosition>& positions);
 ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions);
 
 bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
@@ -3689,8 +3691,33 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
     } else if (instr->name == "phi") {
       def->connect(unit->sel("in1"), m.valueAtStart(instr->getOperand(0), instr));
       def->connect(unit->sel("in0"), m.valueAtStart(instr->getOperand(1), instr));
+      ProgramPosition p = getPosition(instr, positions);
+      int instrPos = instructionPosition(instr, f);
       IChunk c = getChunk(getPosition(instr, positions), chunkList);
       Wireable* selectControl = controlPath->sel(cpM.phiOutput(c));
+      if (instrPos > 0) {
+        int priorPos = instrPos - 1;
+        HWInstr* prior = f.structuredOrder()[priorPos];
+        cout << "Prior instruction: " << *prior << endl;
+        vector<string> priorLoops = loopNames(prior);
+        string nextLoop = "";
+        bool foundLoop = false;
+        for (auto loop : instr->surroundingLoops) {
+          if (!elem(loop.name, priorLoops)) {
+            nextLoop = loop.name;
+            foundLoop = true;
+            break;
+          }
+        }
+
+        if (foundLoop) {
+          ProgramPosition headerPos = headerPosition(nextLoop, positions);
+          IChunk headerChunk = getChunk(headerPos, chunkList);
+          cout << "\tFound loop boundary for phi, setting to: " << nextLoop << endl;
+          selectControl = controlPath->sel(cpM.phiOutput(headerChunk));
+        }
+      }
+      
       def->connect(unit->sel("sel"), selectControl);
     } else {
       internal_assert(false) << "no wiring procedure for " << *instr << "\n";
