@@ -1945,6 +1945,7 @@ void small_conv_3_3_not_unrolled_test() {
     }
 
     assert(state.getBitVec("self.valid") == BitVec(1, 1));
+    assert(state.getBitVec("self.conv_stencil_stream_0_0") == BitVec(16, 2*9));
 
     auto output = state.getBitVec("self.conv_stencil_stream_0_0");
     cout << "before edge i = " << latency << endl;
