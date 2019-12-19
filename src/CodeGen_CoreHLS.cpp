@@ -234,6 +234,19 @@ std::set<HWInstr*> allValuesUsed(const T& program) {
 }
 
 template<typename T>
+set<HWInstr*> getUsers(HWInstr* op, const T& program) {
+  set<HWInstr*> users;
+  for (auto instr : program) {
+    for (auto v : instr->operands) {
+      if (v == op) {
+        users.insert(instr);
+      }
+    }
+  }
+  return users;
+}
+
+template<typename T>
 HWInstr* getUser(HWInstr* op, const T& program) {
   for (auto instr : program) {
     for (auto v : instr->operands) {
@@ -3466,144 +3479,114 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
  
   int uNum = 0;
   for (auto instrW : sourceWires) {
+
     auto instr = instrW.first;
     Wireable* sourceWire = instrW.second;
     ProgramPosition pos;
 
-    //for (auto instr : sched.body()) {
-    //if (m.hasOutput(instr)) {
-      //Wireable* sourceWire = m.valueAtEnd(instr, instr);
-      // Get production stage
-      int prodStage = -1;
-      CoreIR::Type* type = nullptr;
-      if (instr->tp == HWINSTR_TP_INSTR) {
-        prodStage = sched.getEndStage(instr);
-        pos = getPosition(instr, positions);
-        internal_assert(instr->resType != nullptr);
-        type = instr->resType;
-      } else {
-        internal_assert(f.isLoopIndexVar(instr->name)) << "trying to create datapath for non loop index variable: " << instr->name << "\n";
+    // Get production stage
+    int prodStage = -1;
+    CoreIR::Type* type = nullptr;
+    if (instr->tp == HWINSTR_TP_INSTR) {
+      prodStage = sched.getEndStage(instr);
+      pos = getPosition(instr, positions);
+      internal_assert(instr->resType != nullptr);
+      type = instr->resType;
+    } else {
+      internal_assert(f.isLoopIndexVar(instr->name)) << "trying to create datapath for non loop index variable: " << instr->name << "\n";
 
-        type = def->getContext()->Bit()->Arr(16);
-        string loopLevel = instr->name;
-        ProgramPosition p = headerPosition(loopLevel, positions);
-        prodStage = sched.getEndStage(p.instr);
-        pos = p;
-      }
+      type = def->getContext()->Bit()->Arr(16);
+      string loopLevel = instr->name;
+      ProgramPosition p = headerPosition(loopLevel, positions);
+      prodStage = sched.getEndStage(p.instr);
+      pos = p;
+    }
 
-      internal_assert(prodStage >= 0);
-      internal_assert(type >= 0);
+    internal_assert(prodStage >= 0);
+    internal_assert(type >= 0);
 
-      // Create storage for this instr
-      cout << "Creating non pipeline registers for " << *instr << "..." << endl;
+    // Create storage for this instr
+    cout << "Creating non pipeline registers for " << *instr << "..." << endl;
 
+    m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), type);
+    def->connect(m.nonPipelineRegisters[instr]->sel("in"), sourceWire);
+    def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(pos)));
 
-      m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), type);
-      def->connect(m.nonPipelineRegisters[instr]->sel("in"), sourceWire);
-      //m.valueAtEnd(instr, instr));
-      def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(pos)));
+    cout << "Creating pipeline registers for " << *instr << endl;
+    for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
+      m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), type);
+      uNum++;
+    }
 
-      cout << "Creating pipeline registers for " << *instr << endl;
-      for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
-        //sched.getContainerBlock(instr).numStages(); i++) {
-        //internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
-        //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), type);
-        uNum++;
-      }
+    cout << "Getting start values for instr" << endl;
 
-      cout << "Getting start values for instr" << endl;
+    auto& startValues = m.hwStartValues[instr];
 
-      auto& startValues = m.hwStartValues[instr];
+    cout << "Got start values for instr" << endl;
 
-      cout << "Got start values for instr" << endl;
+    // What should the next step be here?
+    // Isolate the users of the value and only connect those?
+    // Ignore non-user instructions
+    //
+    // I want to merge these two if-else bodies in to one case, and then
+    // turn that in to a more general DP synthesis function.
+    // 
 
-      if (instrGroups.size() > 1) {
-        for (auto otherInstr : sched.body()) {
-          // TODO: Ignore otherInstr if it does not use instr
-          if (otherInstr == instr) {
-            continue;
-          }
+    auto users = getUsers(instr, f.structuredOrder());
+    if (instrGroups.size() > 1) {
+      //for (auto otherInstr : sched.body()) {
+      for (auto otherInstr : users) {
+        // TODO: Ignore otherInstr if it does not use instr
+        if (otherInstr == instr) {
+          continue;
+        }
 
-          int otherStartStage = sched.getStartStage(otherInstr);
-          if (prodStage == otherStartStage) {
-            if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
-              // otherInstr is lexically later in the same stage
-              startValues[otherInstr] =
-                sourceWire;
-            } else {
-              startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-            }
+        int otherStartStage = sched.getStartStage(otherInstr);
+        if (prodStage == otherStartStage) {
+          if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
+            // otherInstr is lexically later in the same stage
+            startValues[otherInstr] =
+              sourceWire;
           } else {
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           }
-        }
-
-      } else {
-        cout << "Wiring prodStage" << endl;
-        //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-        for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
-          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
-            m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
-          }
-          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
-            m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
-          }
-          uNum++;
-        }
-
-        cout << "Wiring 0 to prodStage" << endl;
-        for (int i = 0; i < prodStage; i++) {
-          //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
-            cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
-            m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          }
-          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
-            m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          }
-          uNum++;
-        }
-
-        for (auto otherInstr : sched.body()) {
-          if (!sched.inSameBlock(pos.instr, otherInstr)) {
-            m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-            m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          }
+        } else {
+          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
       }
-    //}
+
+    } else {
+      cout << "Wiring prodStage" << endl;
+      for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
+        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
+          m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        }
+        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
+          m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+        }
+        uNum++;
+      }
+
+      cout << "Wiring 0 to prodStage" << endl;
+      for (int i = 0; i < prodStage; i++) {
+        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
+          cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
+          m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
+          m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+        uNum++;
+      }
+
+      for (auto otherInstr : sched.body()) {
+        if (!sched.inSameBlock(pos.instr, otherInstr)) {
+          m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+      }
+    }
   }
-
-  cout << "Wired up non local variables" << endl;
-
-  //for (auto op : allVarsUsed(sched.body())) {
-    //if (op->tp == HWINSTR_TP_VAR) {
-      //cout << "Wiring up var..." << op->compactString() << endl;
-      //string name = op->name;
-
-      //if (f.isLoopIndexVar(name)) {
-        //auto instr = getUser(op, sched.body());
-        //if (instr != nullptr) {
-          //auto val = controlPath->sel(coreirSanitize(name));
-          //m.hwStartValues[op][instr] = val;
-          //m.hwEndValues[op][op] = val;
-          //auto blk = containerBlock(instr, *(sched.f));
-          //int iStage = m.fSched.getStartStage(head(blk));
-          //for (auto instr : m.fSched.getContainerBlock(instr).instructionsStartingInStage(iStage)) {
-            //m.hwStartValues[op][instr] = val;
-          //}
-
-          //for (int stage = 1; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
-            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
-          //}
-
-        //}
-      //} else {
-        //internal_assert(!f.isLocalVariable(name));
-      //}
-    //}
-  //}
 
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
