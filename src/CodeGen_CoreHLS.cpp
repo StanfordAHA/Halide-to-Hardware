@@ -3480,8 +3480,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
-  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
- 
+  //auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+
   int uNum = 0;
   for (auto instrW : sourceWires) {
 
@@ -3533,83 +3533,59 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     //auto nonPipeReg = m.nonPipelineRegisters[instr]->sel("out");
 
     auto users = getUsers(instr, f.structuredOrder());
-    //if (instrGroups.size() > 1) {
-    if (true) {
-      //for (auto otherInstr : sched.body()) {
-      for (auto otherInstr : users) {
-        if (otherInstr == instr) {
-          continue;
-        }
-
-        int otherStartStage = sched.getStartStage(otherInstr);
-        if (prodStage == otherStartStage) {
-          if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
-            // otherInstr is lexically later in the same stage
-            startValues[otherInstr] =
-              sourceWire;
-          } else {
-            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          }
-        } else {
-          if (loopLevel(otherInstr) == loopLevel(instr)) {
-            int otherStartStage = sched.getStartStage(otherInstr);
-            if (otherStartStage < prodStage) {
-              startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-            } else {
-              internal_assert(otherStartStage > prodStage);
-              startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
-            }
-          } else {
-            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          }
-        }
+    //for (auto otherInstr : sched.body()) {
+    for (auto otherInstr : users) {
+      if (otherInstr == instr) {
+        continue;
       }
 
-    } else {
-      //cout << "Wiring prodStage" << endl;
-      //for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
-        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
-          //startValues[otherInstr] = pipeRegs[i]->sel("out");
-        //}
-      //}
-
-      //cout << "Wiring 0 to prodStage" << endl;
-      //for (int i = 0; i < prodStage; i++) {
-        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
-          //startValues[otherInstr] = nonPipeReg;
-        //}
-      //}
-
-      //for (auto otherInstr : sched.body()) {
-        //if (!sched.inSameBlock(pos.instr, otherInstr)) {
-          //startValues[otherInstr] = nonPipeReg;
-        //}
-      //}
+      int otherStartStage = sched.getStartStage(otherInstr);
+      if (prodStage == otherStartStage) {
+        if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
+          // otherInstr is lexically later in the same stage
+          startValues[otherInstr] =
+            sourceWire;
+        } else {
+          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+      } else {
+        if (loopLevel(otherInstr) == loopLevel(instr)) {
+          int otherStartStage = sched.getStartStage(otherInstr);
+          if (otherStartStage < prodStage) {
+            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          } else {
+            internal_assert(otherStartStage > prodStage);
+            startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
+          }
+        } else {
+          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+      }
     }
-  }
 
+  } 
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto pr : m.pipelineRegisters) {
     auto instr = pr.first;
-      cout << "\tGetting value at end" << endl;
-      auto fstVal = map_get(instr, sourceWires);
-      //m.valueAtEnd(instr, instr);
-      cout << "\tGetting prod stage" << endl;
-      for (auto pReg : m.pipelineRegisters[instr]) {
-        int index = pReg.first;
-        auto pipeReg = pReg.second;
-        if (contains_key(index - 1, m.pipelineRegisters[instr])) {
-          def->connect(pipeReg->sel("in"), m.pipelineRegisters[instr][index - 1]->sel("out"));
-        } else {
-          def->connect(pipeReg->sel("in"), fstVal);
-        }
+    cout << "\tGetting value at end" << endl;
+    auto fstVal = map_get(instr, sourceWires);
+    //m.valueAtEnd(instr, instr);
+    cout << "\tGetting prod stage" << endl;
+    for (auto pReg : m.pipelineRegisters[instr]) {
+      int index = pReg.first;
+      auto pipeReg = pReg.second;
+      if (contains_key(index - 1, m.pipelineRegisters[instr])) {
+        def->connect(pipeReg->sel("in"), m.pipelineRegisters[instr][index - 1]->sel("out"));
+      } else {
+        def->connect(pipeReg->sel("in"), fstVal);
       }
+    }
   }
- 
+
   cout << "Done connecting register chains" << endl;
   return m;
-}
+  }
 
 Expr loopLatency(const std::vector<std::string>& prefixVars, const IBlock& blk, FunctionSchedule& sched) {
   return 234;
