@@ -1957,7 +1957,7 @@ void small_conv_3_3_not_unrolled_test() {
     PRINT_PASSED("enable to valid time matches latency");
 
 
-    assert(false);
+    //assert(false);
   } 
 
   //cout << GREEN << "conv 3x3 not unrolled test passed" << RESET << endl;

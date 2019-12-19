@@ -1123,6 +1123,45 @@ void loadHalideLib(CoreIR::Context* context) {
 
   {
     CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
+    CoreIR::TypeGen* srTg = hns->newTypeGen("reg", srParams,
+        [](CoreIR::Context* c, CoreIR::Values args) {
+        auto tIn = args.at("type")->get<CoreIR::Type*>();
+        return c->Record({
+            {"in", tIn->getFlipped()},
+            {"clk", c->Named("coreir.clkIn")},
+            {"en", c->BitIn()},
+            {"out", tIn},
+            });
+        });
+
+    auto srGen = hns->newGeneratorDecl("reg", srTg, srParams);
+
+    srGen->setGeneratorDefFromFun([](CoreIR::Context* c, CoreIR::Values args, CoreIR::ModuleDef* def) {
+        auto tIn = args.at("type")->get<CoreIR::Type*>();
+        auto self = def->sel("self");
+
+        Instance* reg = nullptr;
+        if (tIn == c->Bit()) {
+        reg =
+        def->addInstance("reg", "mantle.reg", {{"width", COREMK(c, 1)}, {"has_en", COREMK(c, true)}});
+        def->connect(reg->sel("in")->sel(0), self->sel("in"));
+        def->connect(reg->sel("out")->sel(0), self->sel("out"));
+        } else {
+          reg = def->addInstance("reg", "commonlib.reg_array", {{"type", COREMK(c, tIn)}, {"has_en", COREMK(c, true)}});
+
+          def->connect(reg->sel("in"), self->sel("in"));
+          def->connect(reg->sel("out"), self->sel("out"));
+        }
+
+        internal_assert(reg != nullptr);
+
+        def->connect(reg->sel("en"), self->sel("en"));
+        def->connect(reg->sel("clk"), self->sel("clk"));
+    });
+  }
+
+  {
+    CoreIR::Params srParams{{"type", CoreIR::CoreIRType::make(context)}};
     CoreIR::TypeGen* srTg = hns->newTypeGen("mux", srParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         auto tIn = args.at("type")->get<CoreIR::Type*>();
@@ -2943,13 +2982,7 @@ class UnitMapping {
 };
 
 CoreIR::Instance* pipelineRegisterEn(CoreIR::Context* context, CoreIR::ModuleDef* def, const std::string name, CoreIR::Type* type) {
-
-  if (type == context->BitIn() || type == context->Bit()) {
-    // Add mantle reg with enable
-    auto r = def->addInstance(name, "corebit.reg");
-    return r;
-  }
-  auto r = def->addInstance(name, "commonlib.reg_array", {{"type", COREMK(context, type)}, {"has_en", COREMK(context, true)}});
+  auto r = def->addInstance(name, "halidehw.reg", {{"type", COREMK(context, type)}});
   return r;
 }
 
@@ -3395,6 +3428,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       internal_assert(m.hasOutput(instr));
     }
 
+    auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
     if (m.hasOutput(instr)) {
 
       // Get production stage
@@ -3415,88 +3449,61 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
       auto& startValues = m.hwStartValues[instr];
 
-      for (auto otherInstr : sched.body()) {
-        // TODO: Ignore otherInstr if it does not use instr
-        if (otherInstr == instr) {
-          continue;
-        }
+      if (instrGroups.size() > 1) {
+        for (auto otherInstr : sched.body()) {
+          // TODO: Ignore otherInstr if it does not use instr
+          if (otherInstr == instr) {
+            continue;
+          }
 
-        int otherStartStage = sched.getStartStage(otherInstr);
-        if (prodStage == otherStartStage) {
-          if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
-            // otherInstr is lexically later
-            startValues[otherInstr] = m.valueAtEnd(instr, instr);
+          int otherStartStage = sched.getStartStage(otherInstr);
+          if (prodStage == otherStartStage) {
+            if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
+              // otherInstr is lexically later
+              startValues[otherInstr] = m.valueAtEnd(instr, instr);
+            } else {
+              //internal_assert(otherInstr->name == "phi") << "non phi instr: " << *otherInstr << " uses " << *instr << ", but is lexically earlier\n";
+              startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+            }
           } else {
-            //internal_assert(otherInstr->name == "phi") << "non phi instr: " << *otherInstr << " uses " << *instr << ", but is lexically earlier\n";
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           }
-        } else {
-          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
 
+      } else {
+        //internal_assert(false);
+        for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
+          //internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
+          //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+          //m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
+          for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+            m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+          }
+          for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+            m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
+          }
+          uNum++;
+        }
 
-        //int otherEndStage = otherInstr.getEndStage(otherInstr);
-        //if (prodStage == otherEndStage) {
-          //if (instructionPosition(instr) < instructionPosition(otherInstr)) {
-            //// otherInstr is lexically later
-            //endValues[otherInstr] = m.valueAtEnd(instr, instr);
-          //} else {
-            //internal_assert(otherInstr->name == "phi") << "non phi instr: " << *otherInstr << " uses " << *instr << ", but is lexically earlier\n";
-            //startValues[otherInstr] = m.nonPipelinedRegisters[instr];
-          //}
-        //} else {
-          //startValues[otherInstr] = m.nonPipelinedRegisters[instr];
-        //}
+        for (int i = 0; i < prodStage; i++) {
+          internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+          for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+            cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
+            m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          }
+          for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+            m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          }
+          uNum++;
+        }
+
+        for (auto otherInstr : sched.body()) {
+          if (!sched.inSameBlock(instr, otherInstr)) {
+            m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+            m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          }
+        }
       }
-
-      // Really what should this algorithm be?
-      // Classify users as lexically earlier or lexically later
-      // Users that are lexically later in the same chunk
-      //  should use the output of the producing functional unit
-      //
-      // Users that are lexically later in the same stage should use
-      //   the output of the producing functional unit
-      //
-      // Users that are lexically earlier in the same stage at different loop levels
-      //   should use the non-pipelined output
-      //
-      // Q: Are the only instructions that use the functional unit output
-      //    as the instruction value the ones that are lexically later in the same
-      //    stage?
-      //
-      // Q: Are the only lexically earlier users of an instruction phi nodes?
-      // A: Yes
-      //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-        ////internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
-        ////internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-        ////m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
-        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
-          //m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
-        //}
-        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
-          //m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
-        //}
-        //uNum++;
-      //}
-
-      //for (int i = 0; i < prodStage; i++) {
-        //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
-          //cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
-          //m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        //}
-        //for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
-          //m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        //}
-        //uNum++;
-      //}
-
-      //for (auto otherInstr : sched.body()) {
-        //if (!sched.inSameBlock(instr, otherInstr)) {
-          //m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          //m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        //}
-      //}
     }
   }
 
