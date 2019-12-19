@@ -1810,6 +1810,7 @@ class InstructionCollector : public IRGraphVisitor {
       auto nI = newI();
       nI->tp = HWINSTR_TP_VAR;
       nI->name = name;
+      nI->resType = f.getContext()->Bit()->Arr(16);
       return nI;
     }
 
@@ -2616,7 +2617,7 @@ int chunkIdx(const IChunk& c, const vector<IChunk>& chunks) {
   return chunkIdx(c.instrs.at(0), chunks);
 }
 
-IChunk getChunk(const ProgramPosition& pos, vector<IChunk>& chunks) {
+IChunk getChunk(const ProgramPosition& pos, const vector<IChunk>& chunks) {
   return chunks.at(chunkIdx(pos, chunks));
 }
 
@@ -2630,6 +2631,10 @@ class KernelControlPath {
 
     std::string phiOutput(const IChunk& c) const {
       return map_get(chunkIdx(c, chunkList), chunkPhiInputMap);
+    }
+
+    std::string activeSignalOutput(const ProgramPosition& pos) const {
+      return activeSignalOutput(getChunk(pos, chunkList));
     }
 
     std::string activeSignalOutput(const HWInstr* instr) const {
@@ -3389,10 +3394,10 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath, KernelControlPath& cpM) {
   internal_assert(sched.blockSchedules.size() > 0);
-  cout << "--- Block schedules..." << endl;
-  for (auto& blk : sched.blockSchedules) {
-    blk.second.print();
-  }
+  //cout << "--- Block schedules..." << endl;
+  //for (auto& blk : sched.blockSchedules) {
+    //blk.second.print();
+  //}
 
   auto context = f.getContext();
 
@@ -3429,48 +3434,89 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
-  cout << "Populating pipeline registers..." << endl;
-  int uNum = 0;
-  for (auto instr : sched.body()) {
-    cout << "Creating registers for: " << *instr << endl;
-    if (instr->name == "phi") {
-      internal_assert(m.hasOutput(instr));
+  map<HWInstr*, Wireable*> sourceWires;
+  set<string> vars;
+  for (auto op : allVarsUsed(sched.body())) {
+    if (op->tp == HWINSTR_TP_VAR) {
+      cout << "Wiring up var..." << op->compactString() << endl;
+      string name = op->name;
+
+      if (f.isLoopIndexVar(name) && !elem(name, vars)) {
+        vars.insert(name);
+        sourceWires[op] = controlPath->sel(coreirSanitize(name));
+
+        string loopLevel = op->name;
+        ProgramPosition p = headerPosition(loopLevel, positions);
+        int prodStage = sched.getEndStage(p.instr);
+
+        for (auto instr : sched.getContainerBlock(p.instr).instructionsStartingInStage(prodStage)) {
+          m.hwStartValues[op][instr] = sourceWires[op];
+        }
+      }
     }
+  }
 
-
-    auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  for (auto instr : sched.body()) {
     if (m.hasOutput(instr)) {
+      sourceWires[instr] = m.valueAtEnd(instr, instr);
+    }
+  }
 
-      Wireable* sourceWire = m.valueAtEnd(instr, instr);
+  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+ 
+  int uNum = 0;
+  for (auto instrW : sourceWires) {
+    auto instr = instrW.first;
+    Wireable* sourceWire = instrW.second;
+    ProgramPosition pos;
+
+    //for (auto instr : sched.body()) {
+    //if (m.hasOutput(instr)) {
+      //Wireable* sourceWire = m.valueAtEnd(instr, instr);
       // Get production stage
       int prodStage = -1;
+      CoreIR::Type* type = nullptr;
       if (instr->tp == HWINSTR_TP_INSTR) {
         prodStage = sched.getEndStage(instr);
+        pos = getPosition(instr, positions);
+        internal_assert(instr->resType != nullptr);
+        type = instr->resType;
       } else {
         internal_assert(f.isLoopIndexVar(instr->name)) << "trying to create datapath for non loop index variable: " << instr->name << "\n";
 
+        type = def->getContext()->Bit()->Arr(16);
         string loopLevel = instr->name;
         ProgramPosition p = headerPosition(loopLevel, positions);
         prodStage = sched.getEndStage(p.instr);
+        pos = p;
       }
 
       internal_assert(prodStage >= 0);
+      internal_assert(type >= 0);
 
       // Create storage for this instr
       cout << "Creating non pipeline registers for " << *instr << "..." << endl;
-      m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
+
+
+      m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), type);
       def->connect(m.nonPipelineRegisters[instr]->sel("in"), sourceWire);
       //m.valueAtEnd(instr, instr));
-      def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(instr)));
+      def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(pos)));
 
-      for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-        internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
-        internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
+      cout << "Creating pipeline registers for " << *instr << endl;
+      for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
+        //sched.getContainerBlock(instr).numStages(); i++) {
+        //internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
+        //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+        m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), type);
         uNum++;
       }
 
+      cout << "Getting start values for instr" << endl;
+
       auto& startValues = m.hwStartValues[instr];
+
+      cout << "Got start values for instr" << endl;
 
       if (instrGroups.size() > 1) {
         for (auto otherInstr : sched.body()) {
@@ -3494,74 +3540,78 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
 
       } else {
-        for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-          for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+        cout << "Wiring prodStage" << endl;
+        //for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
+        for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
+          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
             m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
           }
-          for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
             m.hwEndValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
           }
           uNum++;
         }
 
+        cout << "Wiring 0 to prodStage" << endl;
         for (int i = 0; i < prodStage; i++) {
-          internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-          for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
+          //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
+          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
             cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
             m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           }
-          for (auto otherInstr : sched.getContainerBlock(instr).instructionsEndingInStage(i)) {
+          for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
             m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           }
           uNum++;
         }
 
         for (auto otherInstr : sched.body()) {
-          if (!sched.inSameBlock(instr, otherInstr)) {
+          if (!sched.inSameBlock(pos.instr, otherInstr)) {
             m.hwStartValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
             m.hwEndValues[instr][otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           }
         }
       }
-    }
+    //}
   }
 
   cout << "Wired up non local variables" << endl;
 
-  for (auto op : allVarsUsed(sched.body())) {
-    if (op->tp == HWINSTR_TP_VAR) {
-      cout << "Wiring up var..." << op->compactString() << endl;
-      string name = op->name;
+  //for (auto op : allVarsUsed(sched.body())) {
+    //if (op->tp == HWINSTR_TP_VAR) {
+      //cout << "Wiring up var..." << op->compactString() << endl;
+      //string name = op->name;
 
-      if (f.isLoopIndexVar(name)) {
-        auto instr = getUser(op, sched.body());
-        if (instr != nullptr) {
-          auto val = controlPath->sel(coreirSanitize(name));
-          m.hwStartValues[op][instr] = val;
-          m.hwEndValues[op][op] = val;
-          auto blk = containerBlock(instr, *(sched.f));
-          int iStage = m.fSched.getStartStage(head(blk));
-          for (auto instr : m.fSched.getContainerBlock(instr).instructionsStartingInStage(iStage)) {
-            m.hwStartValues[op][instr] = val;
-          }
+      //if (f.isLoopIndexVar(name)) {
+        //auto instr = getUser(op, sched.body());
+        //if (instr != nullptr) {
+          //auto val = controlPath->sel(coreirSanitize(name));
+          //m.hwStartValues[op][instr] = val;
+          //m.hwEndValues[op][op] = val;
+          //auto blk = containerBlock(instr, *(sched.f));
+          //int iStage = m.fSched.getStartStage(head(blk));
+          //for (auto instr : m.fSched.getContainerBlock(instr).instructionsStartingInStage(iStage)) {
+            //m.hwStartValues[op][instr] = val;
+          //}
 
-          for (int stage = 1; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
-            m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
-          }
+          //for (int stage = 1; stage < (int) sched.getContainerBlock(instr).numStages(); stage++) {
+            //m.pipelineRegisters[op][stage] = pipelineRegister(context, def, coreirSanitize(op->name) + "_reg_" + std::to_string(stage), context->Bit()->Arr(16));
+          //}
 
-        }
-      } else {
-        internal_assert(!f.isLocalVariable(name));
-      }
-    }
-  }
+        //}
+      //} else {
+        //internal_assert(!f.isLocalVariable(name));
+      //}
+    //}
+  //}
 
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto pr : m.pipelineRegisters) {
     auto instr = pr.first;
       cout << "\tGetting value at end" << endl;
-      auto fstVal = m.valueAtEnd(instr, instr);
+      auto fstVal = map_get(instr, sourceWires);
+      //m.valueAtEnd(instr, instr);
       cout << "\tGetting prod stage" << endl;
       for (auto pReg : m.pipelineRegisters[instr]) {
         int index = pReg.first;
