@@ -53,6 +53,11 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+std::string loopLevel(HWInstr* const instr) {
+  internal_assert(instr->surroundingLoops.size() > 0);
+  return instr->surroundingLoops.back().name;
+}
+
 std::string dbgName(HWInstr* const instr) {
   return "dbg_" + to_string(instr->uniqueNum);
 }
@@ -3521,23 +3526,17 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     cout << "Getting start values for instr" << endl;
 
     auto& startValues = m.hwStartValues[instr];
-    //auto& endValues = m.hwEndValues[instr];
 
     cout << "Got start values for instr" << endl;
 
-    // What should the next step be here?
-    // Isolate the users of the value and only connect those?
-    // Ignore non-user instructions
-    //
-    // I want to merge these two if-else bodies in to one case, and then
-    // turn that in to a more general DP synthesis function.
-    // 
+    auto pipeRegs = m.pipelineRegisters[instr];
+    //auto nonPipeReg = m.nonPipelineRegisters[instr]->sel("out");
 
     auto users = getUsers(instr, f.structuredOrder());
-    if (instrGroups.size() > 1) {
+    //if (instrGroups.size() > 1) {
+    if (true) {
       //for (auto otherInstr : sched.body()) {
       for (auto otherInstr : users) {
-        // TODO: Ignore otherInstr if it does not use instr
         if (otherInstr == instr) {
           continue;
         }
@@ -3552,59 +3551,40 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           }
         } else {
-          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          if (loopLevel(otherInstr) == loopLevel(instr)) {
+            int otherStartStage = sched.getStartStage(otherInstr);
+            if (otherStartStage < prodStage) {
+              startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+            } else {
+              internal_assert(otherStartStage > prodStage);
+              startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
+            }
+          } else {
+            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          }
         }
       }
 
     } else {
-      cout << "Wiring prodStage" << endl;
-      auto pipeRegs = m.pipelineRegisters[instr];
-      auto nonPipeReg = m.nonPipelineRegisters[instr]->sel("out");
-
-      //for (auto otherInstr : users) {
-        //if (otherInstr == instr) {
-          //continue;
+      //cout << "Wiring prodStage" << endl;
+      //for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
+        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
+          //startValues[otherInstr] = pipeRegs[i]->sel("out");
         //}
-
-        //int otherStart = sched.getStartStage(otherInstr);
-
-        //if (otherStart < prodStage) {
-
-        //} else if (otherStart > prodStage) {
-
-        //}
-        
-        //int otherEnd = sched.getEndStage(otherInstr);
       //}
 
-      for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
-        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
-          startValues[otherInstr] = pipeRegs[i]->sel("out");
-        }
-        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
-          //endValues[otherInstr] = pipeRegs[i]->sel("out");
+      //cout << "Wiring 0 to prodStage" << endl;
+      //for (int i = 0; i < prodStage; i++) {
+        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
+          //startValues[otherInstr] = nonPipeReg;
         //}
-        uNum++;
-      }
+      //}
 
-      cout << "Wiring 0 to prodStage" << endl;
-      for (int i = 0; i < prodStage; i++) {
-        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
-          cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
-          startValues[otherInstr] = nonPipeReg;
-        }
-        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
-          //endValues[otherInstr] = nonPipeReg;
+      //for (auto otherInstr : sched.body()) {
+        //if (!sched.inSameBlock(pos.instr, otherInstr)) {
+          //startValues[otherInstr] = nonPipeReg;
         //}
-        uNum++;
-      }
-
-      for (auto otherInstr : sched.body()) {
-        if (!sched.inSameBlock(pos.instr, otherInstr)) {
-          startValues[otherInstr] = nonPipeReg;
-          //endValues[otherInstr] = nonPipeReg;
-        }
-      }
+      //}
     }
   }
 
