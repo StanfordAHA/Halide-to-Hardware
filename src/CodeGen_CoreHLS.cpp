@@ -3653,8 +3653,12 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
     } else if (instr->name == "dynamic_stencil_read") {
       // TODO: Actually handle index wiring
+      auto row = instr->getOperand(2);
+      auto col = instr->getOperand(1);
       auto arg = instr->getOperand(0);
       def->connect(unit->sel("in"), m.valueAtStart(arg, instr));
+      def->connect(unit->sel("r"), m.valueAtStart(row, instr));
+      def->connect(unit->sel("c"), m.valueAtStart(col, instr));
     } else if (starts_with(instr->name, "create_stencil")) {
       auto srcStencil = instr->getOperand(0);
       auto newVal = instr->getOperand(1);
