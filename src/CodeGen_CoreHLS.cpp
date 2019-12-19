@@ -2434,6 +2434,9 @@ ProgramPosition getHead(std::string& loopLevel, vector<ProgramPosition>& positio
   return {};
 }
 
+Expr endTime(const ProgramPosition& pos, FunctionSchedule& sched);
+Expr startTime(const ProgramPosition& pos, FunctionSchedule& sched);
+
 vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched);
 
 class Condition {
@@ -3530,10 +3533,21 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     cout << "Got start values for instr" << endl;
 
     auto pipeRegs = m.pipelineRegisters[instr];
-    //auto nonPipeReg = m.nonPipelineRegisters[instr]->sel("out");
 
     auto users = getUsers(instr, f.structuredOrder());
-    //for (auto otherInstr : sched.body()) {
+
+    // For each user: classify by:
+    //   1. Used value function: used :: Instance Vars of Consumer -> Instance Vars of Producer
+    //   2. Loop level (same, lt, gt)
+    //   3. Start time / end time
+    //   4. ??
+    //
+    //   Once we have that information how do we create a streaming memory?
+    //
+    //   Simplest: Compute distance in time from: end_time(used(<X>)) -> start_time(<X>)
+    //             Then create a pipeline register of length D from producer to consumer
+    //             Q: What about values that are produced one time, and then consumed multiple times?
+    //             Q: What about values that are produced multiple times and consumed once (then some are ignored)
     for (auto otherInstr : users) {
       if (otherInstr == instr) {
         continue;
@@ -3543,8 +3557,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       if (prodStage == otherStartStage) {
         if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
           // otherInstr is lexically later in the same stage
-          startValues[otherInstr] =
-            sourceWire;
+          startValues[otherInstr] = sourceWire;
         } else {
           startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
@@ -3555,6 +3568,13 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           } else {
             internal_assert(otherStartStage > prodStage);
+
+            Expr prodTimeFunc = endTime(pos, sched);
+            Expr startTimeFunc = startTime(otherInstr, sched);
+
+            cout << "Production time func: " << prodTimeFunc << endl;
+            cout << "Start time func     : " << startTimeFunc << endl;
+
             startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
           }
         } else {
@@ -5174,6 +5194,10 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
   }
 
   return relevantTransitions;
+}
+
+Expr endTime(const ProgramPosition& pos, FunctionSchedule& sched) {
+  return startTime(pos, sched) + pos.instr->latency;
 }
 
 Expr endTime(HWInstr* instr, FunctionSchedule& sched) {
