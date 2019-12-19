@@ -1600,9 +1600,9 @@ void small_conv_3_3_not_unrolled_test() {
       0, 3);
 
   kernel(x,y) = 1;
-  //kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
-  //kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
-  //kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
+  kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+  kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+  kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
 
   conv(x, y) = 0;
 
@@ -1866,17 +1866,17 @@ void small_conv_3_3_not_unrolled_test() {
     assert(state.getBitVec("self.conv_y___scan_dim_1") == BitVec(16, 1));
     assert(state.getBitVec("self.started") == BitVec(1, 1));
     
-    for (int i = 0; i < 100; i++) {
-      state.exeCombinational();
-      state.exeSequential();
-      state.exeCombinational();
+    //for (int i = 0; i < 100; i++) {
+      //state.exeCombinational();
+      //state.exeSequential();
+      //state.exeCombinational();
 
-      cout << "After clock cycle " << i << ":" << endl;
-      cout << "\tself.conv_s1_r$x         = " << state.getBitVec("self.conv_s1_r$x") << endl;
-      cout << "\tself.conv_s1_r$y         = " << state.getBitVec("self.conv_s1_r$y") << endl;
-      cout << "\tself.conv_x___scan_dim_0 = " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
-      cout << "\tself.conv_y___scan_dim_1 = " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
-    }
+      //cout << "After clock cycle " << i << ":" << endl;
+      //cout << "\tself.conv_s1_r$x         = " << state.getBitVec("self.conv_s1_r$x") << endl;
+      //cout << "\tself.conv_s1_r$y         = " << state.getBitVec("self.conv_s1_r$y") << endl;
+      //cout << "\tself.conv_x___scan_dim_0 = " << state.getBitVec("self.conv_x___scan_dim_0") << endl;
+      //cout << "\tself.conv_y___scan_dim_1 = " << state.getBitVec("self.conv_y___scan_dim_1") << endl;
+    //}
 
     PRINT_PASSED("only conv_s1_r$x updated after clock cycle 2");
     //assert(false);
@@ -1924,6 +1924,9 @@ void small_conv_3_3_not_unrolled_test() {
     for (int i = 0; i < latency; i++) {
       cout << "before edge i = " << i << endl;
       assert(state.getBitVec("self.valid") == BitVec(1, 0));
+
+      auto loadAddr = state.getBitVec("self.dbg_40");
+      cout << "\tloadRes = " << loadAddr << ", int = " << loadAddr.to_type<int>() << endl;
 
       auto loadRes = state.getBitVec("self.dbg_52");
       cout << "\tloadRes = " << loadRes << ", int = " << loadRes.to_type<int>() << endl;
