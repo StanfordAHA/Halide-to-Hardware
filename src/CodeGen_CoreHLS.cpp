@@ -3420,6 +3420,15 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
+  vector<ProgramPosition> positions = buildProgramPositions(sched);
+  map<int, vector<IChunk> > chunks = getChunks(positions, sched);
+  vector<IChunk> chunkList;
+  for (auto sc : chunks) {
+    for (auto c : sc.second) {
+      chunkList.push_back(c);
+    }
+  }
+
   cout << "Populating pipeline registers..." << endl;
   int uNum = 0;
   for (auto instr : sched.body()) {
@@ -3434,7 +3443,18 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
       Wireable* sourceWire = m.valueAtEnd(instr, instr);
       // Get production stage
-      int prodStage = sched.getEndStage(instr);
+      int prodStage = -1;
+      if (instr->tp == HWINSTR_TP_INSTR) {
+        prodStage = sched.getEndStage(instr);
+      } else {
+        internal_assert(f.isLoopIndexVar(instr->name)) << "trying to create datapath for non loop index variable: " << instr->name << "\n";
+
+        string loopLevel = instr->name;
+        ProgramPosition p = headerPosition(loopLevel, positions);
+        prodStage = sched.getEndStage(p.instr);
+      }
+
+      internal_assert(prodStage >= 0);
 
       // Create storage for this instr
       cout << "Creating non pipeline registers for " << *instr << "..." << endl;
@@ -3465,7 +3485,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
               // otherInstr is lexically later in the same stage
               startValues[otherInstr] =
                 sourceWire;
-                //m.valueAtEnd(instr, instr);
             } else {
               startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
             }
