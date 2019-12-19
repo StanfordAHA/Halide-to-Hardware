@@ -3428,16 +3428,19 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       internal_assert(m.hasOutput(instr));
     }
 
+
     auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
     if (m.hasOutput(instr)) {
 
+      Wireable* sourceWire = m.valueAtEnd(instr, instr);
       // Get production stage
       int prodStage = sched.getEndStage(instr);
 
       // Create storage for this instr
       cout << "Creating non pipeline registers for " << *instr << "..." << endl;
       m.nonPipelineRegisters[instr] = pipelineRegisterEn(context, def, "non_pipeline_reg" + context->getUnique(), instr->resType);
-      def->connect(m.nonPipelineRegisters[instr]->sel("in"), m.valueAtEnd(instr, instr));
+      def->connect(m.nonPipelineRegisters[instr]->sel("in"), sourceWire);
+      //m.valueAtEnd(instr, instr));
       def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(instr)));
 
       for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
@@ -3459,10 +3462,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           int otherStartStage = sched.getStartStage(otherInstr);
           if (prodStage == otherStartStage) {
             if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
-              // otherInstr is lexically later
-              startValues[otherInstr] = m.valueAtEnd(instr, instr);
+              // otherInstr is lexically later in the same stage
+              startValues[otherInstr] =
+                sourceWire;
+                //m.valueAtEnd(instr, instr);
             } else {
-              //internal_assert(otherInstr->name == "phi") << "non phi instr: " << *otherInstr << " uses " << *instr << ", but is lexically earlier\n";
               startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
             }
           } else {
@@ -3471,11 +3475,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
 
       } else {
-        //internal_assert(false);
         for (int i = prodStage + 1; i < sched.getContainerBlock(instr).numStages(); i++) {
-          //internal_assert(instr->tp == HWINSTR_TP_INSTR) << *instr << " is not of type instr\n";
-          //internal_assert(instr->resType != nullptr) << *instr << " has null restype\n";
-          //m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), instr->resType);
           for (auto otherInstr : sched.getContainerBlock(instr).instructionsStartingInStage(i)) {
             m.hwStartValues[instr][otherInstr] = m.pipelineRegisters[instr][i]->sel("out");
           }
