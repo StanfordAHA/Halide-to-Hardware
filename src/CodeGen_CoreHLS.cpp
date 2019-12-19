@@ -3521,7 +3521,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     cout << "Getting start values for instr" << endl;
 
     auto& startValues = m.hwStartValues[instr];
-    auto& endValues = m.hwEndValues[instr];
+    //auto& endValues = m.hwEndValues[instr];
 
     cout << "Got start values for instr" << endl;
 
@@ -3561,13 +3561,29 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       auto pipeRegs = m.pipelineRegisters[instr];
       auto nonPipeReg = m.nonPipelineRegisters[instr]->sel("out");
 
+      //for (auto otherInstr : users) {
+        //if (otherInstr == instr) {
+          //continue;
+        //}
+
+        //int otherStart = sched.getStartStage(otherInstr);
+
+        //if (otherStart < prodStage) {
+
+        //} else if (otherStart > prodStage) {
+
+        //}
+        
+        //int otherEnd = sched.getEndStage(otherInstr);
+      //}
+
       for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
         for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
           startValues[otherInstr] = pipeRegs[i]->sel("out");
         }
-        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
-          endValues[otherInstr] = pipeRegs[i]->sel("out");
-        }
+        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
+          //endValues[otherInstr] = pipeRegs[i]->sel("out");
+        //}
         uNum++;
       }
 
@@ -3576,21 +3592,17 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsStartingInStage(i)) {
           cout << "Setting value of " << *instr << " at location: " << *otherInstr << " to be a non-pipeline register" << endl;
           startValues[otherInstr] = nonPipeReg;
-          //m.nonPipelineRegisters[instr]->sel("out");
         }
-        for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
-          endValues[otherInstr] = nonPipeReg;
-          //m.nonPipelineRegisters[instr]->sel("out");
-        }
+        //for (auto otherInstr : sched.getContainerBlock(pos.instr).instructionsEndingInStage(i)) {
+          //endValues[otherInstr] = nonPipeReg;
+        //}
         uNum++;
       }
 
       for (auto otherInstr : sched.body()) {
         if (!sched.inSameBlock(pos.instr, otherInstr)) {
           startValues[otherInstr] = nonPipeReg;
-          //m.nonPipelineRegisters[instr]->sel("out");
-          endValues[otherInstr] = nonPipeReg;
-          //m.nonPipelineRegisters[instr]->sel("out");
+          //endValues[otherInstr] = nonPipeReg;
         }
       }
     }
