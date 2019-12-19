@@ -1433,6 +1433,10 @@ void loadHalideLib(CoreIR::Context* context) {
   }
 
   {
+    // How to implement this with coreir primitives?
+    //  - Put concatenation of the whole thing in to a mux
+    //    and split rows until the result is what we expect
+    //    it to be?
     CoreIR::TypeGen* ws = hns->newTypeGen("dynamic_stencil_read", dynamicStencilReadParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
         auto nr = args.at("nrows")->get<int>();
