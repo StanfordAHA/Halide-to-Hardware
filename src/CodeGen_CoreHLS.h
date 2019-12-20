@@ -49,12 +49,12 @@ class HWInstr {
 
     int uniqueNum;
     HWInstrTp tp;
-    CoreIR::Module* opType;
+    //CoreIR::Module* opType;
     CoreIR::Instance* unit;
     InstanceWrapper inst;
     
     bool preBound;
-    std::string boundTargetName;
+    //std::string boundTargetName;
     
     int latency;
 
@@ -63,7 +63,7 @@ class HWInstr {
     HWInstr* predicate;
     std::vector<HWInstr*> operands;
     std::vector<HWType> operandTypes;
-    CoreIR::Type* retType;
+    //CoreIR::Type* retType;
 
     std::string name;
     int constWidth;
