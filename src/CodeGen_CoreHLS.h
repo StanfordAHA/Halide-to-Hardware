@@ -49,12 +49,8 @@ class HWInstr {
 
     int uniqueNum;
     HWInstrTp tp;
-    //CoreIR::Module* opType;
     CoreIR::Instance* unit;
     InstanceWrapper inst;
-    
-    bool preBound;
-    //std::string boundTargetName;
     
     int latency;
 
@@ -63,7 +59,6 @@ class HWInstr {
     HWInstr* predicate;
     std::vector<HWInstr*> operands;
     std::vector<HWType> operandTypes;
-    //CoreIR::Type* retType;
 
     std::string name;
     int constWidth;
@@ -72,7 +67,7 @@ class HWInstr {
     CoreIR::Type* resType;
     bool signedNum;
 
-    HWInstr() : tp(HWINSTR_TP_INSTR), unit(nullptr), preBound(false), latency(0), predicate(nullptr), resType(nullptr), signedNum(false) {}
+    HWInstr() : tp(HWINSTR_TP_INSTR), unit(nullptr), latency(0), predicate(nullptr), resType(nullptr), signedNum(false) {}
 
     bool realized() const {
       return unit != nullptr;
