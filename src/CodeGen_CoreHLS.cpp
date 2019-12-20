@@ -3553,8 +3553,18 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         continue;
       }
 
+      Expr prodTimeFunc = endTime(pos, sched);
+      Expr startTimeFunc = startTime(otherInstr, sched);
+
+      cout << "Production time func: " << prodTimeFunc << endl;
+      cout << "Start time func     : " << startTimeFunc << endl;
+
+      Expr productionDelay = simplify(startTimeFunc - prodTimeFunc);
+
       int otherStartStage = sched.getStartStage(otherInstr);
       if (prodStage == otherStartStage) {
+      //if (is_const(productionDelay) && == Expr(0)) {
+      //if (is_zero(productionDelay)) {
         if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
           // otherInstr is lexically later in the same stage
           startValues[otherInstr] = sourceWire;
@@ -3563,19 +3573,16 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
       } else {
         if (loopLevel(otherInstr) == loopLevel(instr)) {
-          int otherStartStage = sched.getStartStage(otherInstr);
-          if (otherStartStage < prodStage) {
+          //int otherStartStage = sched.getStartStage(otherInstr);
+          //if (otherStartStage < prodStage) {
+          if (is_negative_const(productionDelay)) {
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           } else {
-            internal_assert(otherStartStage > prodStage);
-
-            Expr prodTimeFunc = endTime(pos, sched);
-            Expr startTimeFunc = startTime(otherInstr, sched);
-
-            cout << "Production time func: " << prodTimeFunc << endl;
-            cout << "Start time func     : " << startTimeFunc << endl;
-
-            int diff = func_id_const_value(simplify(startTimeFunc - prodTimeFunc));
+            //internal_assert(otherStartStage > prodStage);
+            internal_assert(is_positive_const(productionDelay)) << productionDelay << " is not a positive constant!\n";
+            
+            int diff = func_id_const_value(productionDelay);
+            //simplify(startTimeFunc - prodTimeFunc));
 
             internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
 
@@ -3587,8 +3594,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
       }
     }
-
   } 
+
   cout << "Connecting register chains for variables" << endl;
   // Now: Wire up pipeline registers in chains, delete the unused ones and test each value produced in this code
   for (auto pr : m.pipelineRegisters) {
