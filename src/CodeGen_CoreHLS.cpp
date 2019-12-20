@@ -3575,7 +3575,12 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             cout << "Production time func: " << prodTimeFunc << endl;
             cout << "Start time func     : " << startTimeFunc << endl;
 
-            startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
+            int diff = func_id_const_value(simplify(startTimeFunc - prodTimeFunc));
+
+            internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
+
+            //startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
+            startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
           }
         } else {
           startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
@@ -3605,7 +3610,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
   cout << "Done connecting register chains" << endl;
   return m;
-  }
+}
 
 Expr loopLatency(const std::vector<std::string>& prefixVars, const IBlock& blk, FunctionSchedule& sched) {
   return 234;
