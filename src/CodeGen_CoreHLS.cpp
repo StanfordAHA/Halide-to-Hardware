@@ -3506,19 +3506,55 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     cout << "\t\tProduction time func: " << prodTimeFunc << endl;
 
     for (auto otherInstr : f.structuredOrder()) {
-      Expr startTimeFunc = startTime(otherInstr, sched);
-    
-      LevelDiff ld = splitLevels(pos, getPosition(otherInstr, positions), f);
-
       if (lessThanOrEqual(var, loopLevel(otherInstr), f)) {
+        Expr startTimeFunc = startTime(otherInstr, sched);
+        LevelDiff ld = splitLevels(pos, getPosition(otherInstr, positions), f);
+
         cout << "\t\tUser: " << *otherInstr << endl;
         cout << "\t\t\tStart time func     : " << startTimeFunc << endl;
+        bool consumerForward =
+          instructionPosition(pos.instr, f) < instructionPosition(otherInstr, f);
+        map<string, Expr> varMapping;
+        if (consumerForward) {
+          for (auto l : ld.shared) {
+            varMapping[l.name] = Variable::make(Int(32), l.name);
+          }
 
+          for (auto l : ld.producerOnly) {
+            auto min_value = l.min;
+            Expr max_value = min_value + l.extent - 1;
+            varMapping[l.name] = max_value;
+          }
+        } else {
+          internal_assert(ld.shared.size() > 0);
+
+          for (int i = 0; i < ((int) ld.shared.size()) - 1; i++) {
+            auto l = ld.shared[i];
+            varMapping[l.name] = Variable::make(Int(32), l.name);
+          }
+
+          varMapping[ld.shared.back().name] = Variable::make(Int(32), ld.shared.back().name) - 1;
+
+          for (auto l : ld.producerOnly) {
+            auto min_value = l.min;
+            Expr max_value = min_value + l.extent - 1;
+            varMapping[l.name] = max_value;
+          }
+        }
+        cout << "\t\t\tVarMapping..." << endl;
+        for (auto v : varMapping) {
+          cout << "\t\t\t\t" << v.first << " -> " << v.second << endl;
+        }
+
+        Expr readFunc = substitute(varMapping, prodTimeFunc);
+        cout << "\t\t\tRead func           : " << readFunc << endl;
+        Expr productionDelay = simplify(startTimeFunc - readFunc);
+        cout << "\t\t\tProduction delay    : " << productionDelay << endl;
       }
     }
   }
 
-  internal_assert(false);
+  //internal_assert(false);
 
   map<HWInstr*, Wireable*> sourceWires;
   set<string> vars;
