@@ -156,6 +156,28 @@ std::ostream& operator<<(std::ostream& out, ProgramPosition& pos);
 ProgramPosition headerPosition(const std::string& level, const std::vector<ProgramPosition>& positions);
 ProgramPosition getPosition(HWInstr* instr, const std::vector<ProgramPosition>& positions);
 
+class Condition {
+  public:
+    bool isUnconditional;
+    std::string loopCounter;
+    bool atMax;
+
+    bool isNotAtMax() const {
+      return !isUnconditional && !atMax;
+    }
+
+    bool isAtMax() const {
+      return !isUnconditional && atMax;
+    }
+};
+
+class SWTransition {
+  public:
+    ProgramPosition src;
+    ProgramPosition dst;
+    Condition cond;
+};
+
 class HWBlock {
   public:
     std::string name;

@@ -338,6 +338,11 @@ std::string coreirSanitize(const std::string& str) {
 }
 
 
+class FunctionSchedule;
+
+vector<SWTransition> buildSWTransitions(vector<ProgramPosition>& positions, HWFunction& f);
+vector<SWTransition> hwTransitions(FunctionSchedule& sched);
+
 template<typename TOut, typename T>
 TOut* sc(T* p) {
   return static_cast<TOut*>(p);
@@ -2218,7 +2223,6 @@ class NestSchedule {
     }
 };
 
-class FunctionSchedule;
 Expr endTime(HWInstr* instr, FunctionSchedule& sched);
 Expr startTime(HWInstr* instr, FunctionSchedule& sched);
 Expr startTime(const std::vector<ProgramPosition>& positions,
@@ -2232,6 +2236,7 @@ class FunctionSchedule {
 
     std::vector<NestSchedule> nestSchedules;
     std::vector<ProgramPosition> positions;
+    std::vector<SWTransition> transitions;
 
     NestSchedule getNestSchedule(const std::string& loopName) const {
       for (auto s : nestSchedules) {
@@ -2289,6 +2294,7 @@ class FunctionSchedule {
           return blkS.second;
         }
       }
+
       internal_assert(false) << "No container for " << *sourceLocation << "\n";
       return begin(blockSchedules)->second;
     }
@@ -2418,21 +2424,6 @@ Expr startTime(const ProgramPosition& pos, FunctionSchedule& sched);
 
 vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched);
 
-class Condition {
-  public:
-    bool isUnconditional;
-    std::string loopCounter;
-    bool atMax;
-
-    bool isNotAtMax() const {
-      return !isUnconditional && !atMax;
-    }
-
-    bool isAtMax() const {
-      return !isUnconditional && atMax;
-    }
-};
-
 bool operator==(const Condition& a, const Condition& b) {
   if (a.isUnconditional != b.isUnconditional) {
     return false;
@@ -2473,13 +2464,6 @@ std::ostream& operator<<(std::ostream& out, Condition& c) {
   }
   return out;
 }
-
-class SWTransition {
-  public:
-    ProgramPosition src;
-    ProgramPosition dst;
-    Condition cond;
-};
 
 bool operator==(const SWTransition& a, const SWTransition& b) {
   if (a.src != b.src) {
@@ -4067,6 +4051,7 @@ FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo
   FunctionSchedule fSched;
   fSched.f = &f;
   fSched.positions = buildProgramPositions(fSched);
+
   //for (auto group : instrGroups) {
     //HWLoopSchedule sched = asapSchedule(group);
     //fSched.blockSchedules[head(group)] = sched;
@@ -4139,6 +4124,8 @@ FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo
   }
 
   internal_assert(fSched.blockSchedules.size() > 0);
+
+  fSched.transitions = hwTransitions(fSched);
 
   cout << "Returning schedule" << endl;
   return fSched;
@@ -5190,7 +5177,8 @@ Expr startTime(const std::vector<ProgramPosition>& positions,
   string instrLoopLevel = targetPos.loopLevel;
 
   auto f = *(sched.f);
-  auto transitions = hwTransitions(sched);
+  auto& transitions = sched.transitions;
+  //auto transitions = hwTransitions(sched);
 
   internal_assert(positions.size() > 0) << "no program positions\n";
 
