@@ -3642,6 +3642,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       
       //int otherStartStage = sched.getStartStage(otherInstr);
       //if (prodStage == otherStartStage) {
+
       if (is_zero(productionDelay)) {
         startValues[otherInstr] = sourceWire;
       } else {
@@ -3660,7 +3661,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
               // otherInstr is lexically later in the same stage
               startValues[otherInstr] = sourceWire;
-              internal_assert(false);
+              cout << "### Using start value for non-const delay" << endl;
+              //internal_assert(false);
             } else {
               startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
             }
