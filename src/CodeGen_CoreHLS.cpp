@@ -4162,32 +4162,6 @@ FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo
   return fSched;
 }
 
-//ComputeKernel moduleForKernel(StencilInfo& info, map<string, StreamUseInfo>& streamInfo, HWFunction& f) {
-  ////internal_assert(f.mod != nullptr) << "no module in HWFunction\n";
-
-  //// Check that all instructions resTypes
-  ////for (auto instr : f.structuredOrder()) {
-    ////internal_assert(instr->resType != nullptr) << *instr << " has no resType\n";
-  ////}
-
-  //auto design = f.getMod();
-  //auto def = design->getDef();
-
-  //internal_assert(def != nullptr) << "module definition is null!\n";
-  
-  ////cout << "Hardware function is..." << endl;
-  ////cout << f << endl;
-
-  //FunctionSchedule fSched = buildFunctionSchedule(streamInfo, f);
-  //cout << "Built function schedule" << endl;
-  //internal_assert(fSched.blockSchedules.size() > 0);
-
-  //emitCoreIR(f, info, fSched);
-
-  //design->setDef(def);
-  //return {design, fSched};
-//}
-
 bool isLoad(HWInstr* instr) {
   return isCall("load", instr);
 }
@@ -5181,25 +5155,6 @@ vector<SWTransition> hwTransitions(FunctionSchedule& sched) {
               break;
             }
           }
-          //if ((rep.loopLevel == nextRep.loopLevel)) {
-            //// Check whether the sequential path from one instr to the next passes through any other
-            //// chunks
-            //ProgramPosition active = rep;
-            //bool foundNext = true;
-            //while (!isEndPosition(active, positions)) {
-              //ProgramPosition nextPos = nextPosition(active, positions);
-
-              //if (nextPos.loopLevel != rep.loopLevel) {
-                //foundNext = false;
-                //break;
-              //}
-              //active = nextPos;
-            //}
-            //if (foundNext) {
-              //cout << "Adding default transition from\n\t" << rep << "\nto\n\t" << nextRep << endl;
-              //relevantTransitions.push_back({rep, nextRep, unconditional()});
-            //}
-          //}
         }
       }
     }
@@ -5247,7 +5202,6 @@ vector<SWTransition> forwardTransition(const IChunk& next, const vector<SWTransi
   return outs;
 }
 
-//Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
 Expr startTime(const ProgramPosition& targetPos, FunctionSchedule& sched) {
   string instrLoopLevel = targetPos.loopLevel;
 
@@ -5317,9 +5271,6 @@ Expr startTime(const ProgramPosition& targetPos, FunctionSchedule& sched) {
   //cout << "Start time for " << *instr << " = " << startTime << endl;
 
   return simplify(startTime);
-  //Expr cs = containerIterationStart(instr, sched);
-  //Expr bd = delayFromIterationStartToInstr(instr, sched);
-  //return cs + bd + sched.getStartStage(instr);
 }
 
 ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions) {
