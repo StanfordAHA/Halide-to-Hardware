@@ -3412,6 +3412,28 @@ LevelDiff splitLevels(const std::vector<LoopSpec>& producer,
   return diff;
 }
 
+LevelDiff splitLevels(const ProgramPosition& producerPos, const ProgramPosition& consumerPos, HWFunction& f) {
+  vector<LoopSpec> pL;
+  for (auto l : producerPos.instr->surroundingLoops) {
+    if (lessThanOrEqual(l.name, producerPos.loopLevel, f)) {
+      pL.push_back(l);
+    } else {
+      break;
+    }
+  }
+
+  vector<LoopSpec> cL;
+  for (auto l : consumerPos.instr->surroundingLoops) {
+    if (lessThanOrEqual(l.name, consumerPos.loopLevel, f)) {
+      cL.push_back(l);
+    } else {
+      break;
+    }
+  }
+
+  return splitLevels(pL, cL);
+}
+
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath, KernelControlPath& cpM) {
   internal_assert(sched.blockSchedules.size() > 0);
   //cout << "--- Block schedules..." << endl;
@@ -3546,8 +3568,9 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       cout << "Production time func: " << prodTimeFunc << endl;
       cout << "Start time func     : " << startTimeFunc << endl;
 
-      LevelDiff ld = splitLevels(pos.instr->surroundingLoops,
-          otherInstr->surroundingLoops);
+      LevelDiff ld = splitLevels(pos, getPosition(otherInstr, positions), f);
+      //LevelDiff ld = splitLevels(pos.instr->surroundingLoops,
+          //otherInstr->surroundingLoops);
 
       cout << "Shared loops..." << endl;
       for (auto l : ld.shared) {
