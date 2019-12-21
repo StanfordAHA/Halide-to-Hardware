@@ -3562,12 +3562,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         cout << "\t" << l.name << endl;
       }
 
-      Expr productionDelay = simplify(startTimeFunc - prodTimeFunc);
-
-      cout << "Production delay    : " << productionDelay << endl;
       bool consumerForward =
         instructionPosition(instr, f) < instructionPosition(otherInstr, f);
       map<string, Expr> varMapping;
+      cout << "Instr: " << *pos.instr << endl;
+      cout << "User : " << *otherInstr << endl;
       if (consumerForward) {
         for (auto l : ld.shared) {
           varMapping[l.name] = Variable::make(Int(32), l.name);
@@ -3599,7 +3598,11 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         cout << "\t" << v.first << " -> " << v.second << endl;
       }
 
-      internal_assert(consumerForward);
+      Expr readFunc = substitute(varMapping, prodTimeFunc);
+      Expr productionDelay = simplify(startTimeFunc - readFunc);
+      cout << "Production delay    : " << productionDelay << endl;
+      //internal_assert(consumerForward);
+      internal_assert(ld.producerOnly.size() == 0);
 
       //internal_assert(ld.shared.size() == otherInstr->surroundingLoops.size());
 
