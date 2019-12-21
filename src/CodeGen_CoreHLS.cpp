@@ -3376,6 +3376,42 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   
 }
 
+class LevelDiff {
+  public:
+
+    std::vector<LoopSpec> shared;
+    std::vector<LoopSpec> producerOnly;
+    std::vector<LoopSpec> consumerOnly;
+};
+
+LevelDiff splitLevels(const std::vector<LoopSpec>& producer,
+    const std::vector<LoopSpec>& consumer) {
+  LevelDiff diff;
+  int minSize = std::min(producer.size(), consumer.size());
+  int maxLoc = 0;
+  for (int i = 0; i < minSize; i++) {
+    if (producer[i].name == consumer[i].name) {
+      diff.shared.push_back(producer[i]);
+    } else {
+      break;
+    }
+    maxLoc++;
+  }
+
+  for (int level = maxLoc; level < (int) producer.size(); level++) {
+    diff.producerOnly.push_back(producer[level]);
+  }
+  
+  for (int level = maxLoc; level < (int) consumer.size(); level++) {
+    diff.consumerOnly.push_back(consumer[level]);
+  }
+
+  internal_assert(diff.shared.size() + diff.producerOnly.size() == producer.size());
+  internal_assert(diff.shared.size() + diff.consumerOnly.size() == consumer.size());
+
+  return diff;
+}
+
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath, KernelControlPath& cpM) {
   internal_assert(sched.blockSchedules.size() > 0);
   //cout << "--- Block schedules..." << endl;
@@ -3499,18 +3535,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
 
     auto users = getUsers(instr, f.structuredOrder());
 
-    // For each user: classify by:
-    //   1. Used value function: used :: Instance Vars of Consumer -> Instance Vars of Producer
-    //   2. Loop level (same, lt, gt)
-    //   3. Start time / end time
-    //   4. ??
-    //
-    //   Once we have that information how do we create a streaming memory?
-    //
-    //   Simplest: Compute distance in time from: end_time(used(<X>)) -> start_time(<X>)
-    //             Then create a pipeline register of length D from producer to consumer
-    //             Q: What about values that are produced one time, and then consumed multiple times?
-    //             Q: What about values that are produced multiple times and consumed once (then some are ignored)
     for (auto otherInstr : users) {
       if (otherInstr == instr) {
         continue;
@@ -3522,11 +3546,67 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       cout << "Production time func: " << prodTimeFunc << endl;
       cout << "Start time func     : " << startTimeFunc << endl;
 
+      LevelDiff ld = splitLevels(pos.instr->surroundingLoops,
+          otherInstr->surroundingLoops);
+
+      cout << "Shared loops..." << endl;
+      for (auto l : ld.shared) {
+        cout << "\t" << l.name << endl;
+      }
+      cout << "Producer only..." << endl;
+      for (auto l : ld.producerOnly) {
+        cout << "\t" << l.name << endl;
+      }
+      cout << "Consumer only..." << endl;
+      for (auto l : ld.consumerOnly) {
+        cout << "\t" << l.name << endl;
+      }
+
       Expr productionDelay = simplify(startTimeFunc - prodTimeFunc);
 
+      cout << "Production delay    : " << productionDelay << endl;
+      bool consumerForward =
+        instructionPosition(instr, f) < instructionPosition(otherInstr, f);
+      map<string, Expr> varMapping;
+      if (consumerForward) {
+        for (auto l : ld.shared) {
+          varMapping[l.name] = Variable::make(Int(32), l.name);
+        }
+
+        for (auto l : ld.producerOnly) {
+          auto min_value = l.min;
+          Expr max_value = min_value + l.extent - 1;
+          varMapping[l.name] = max_value;
+        }
+      } else {
+        internal_assert(ld.shared.size() > 0);
+
+        for (int i = 0; i < ((int) ld.shared.size()) - 1; i++) {
+          auto l = ld.shared[i];
+          varMapping[l.name] = Variable::make(Int(32), l.name);
+        }
+
+        varMapping[ld.shared.back().name] = Variable::make(Int(32), ld.shared.back().name) - 1;
+
+        for (auto l : ld.producerOnly) {
+          auto min_value = l.min;
+          Expr max_value = min_value + l.extent - 1;
+          varMapping[l.name] = max_value;
+        }
+      }
+      cout << "VarMapping..." << endl;
+      for (auto v : varMapping) {
+        cout << "\t" << v.first << " -> " << v.second << endl;
+      }
+
+      internal_assert(consumerForward);
+
+      //internal_assert(ld.shared.size() == otherInstr->surroundingLoops.size());
+
+      // What is a low effort thing I could do here?
+      //  - Create leveldiff code and start printing out level difference info
       int otherStartStage = sched.getStartStage(otherInstr);
       if (prodStage == otherStartStage) {
-      //if (is_const(productionDelay) && == Expr(0)) {
       //if (is_zero(productionDelay)) {
         if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
           // otherInstr is lexically later in the same stage
@@ -3536,20 +3616,15 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
         }
       } else {
         if (loopLevel(otherInstr) == loopLevel(instr)) {
-          //int otherStartStage = sched.getStartStage(otherInstr);
-          //if (otherStartStage < prodStage) {
           if (is_negative_const(productionDelay)) {
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
           } else {
-            //internal_assert(otherStartStage > prodStage);
             internal_assert(is_positive_const(productionDelay)) << productionDelay << " is not a positive constant!\n";
             
             int diff = func_id_const_value(productionDelay);
-            //simplify(startTimeFunc - prodTimeFunc));
 
             internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
 
-            //startValues[otherInstr] = pipeRegs[otherStartStage]->sel("out");
             startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
           }
         } else {
@@ -3565,7 +3640,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     auto instr = pr.first;
     cout << "\tGetting value at end" << endl;
     auto fstVal = map_get(instr, sourceWires);
-    //m.valueAtEnd(instr, instr);
     cout << "\tGetting prod stage" << endl;
     for (auto pReg : m.pipelineRegisters[instr]) {
       int index = pReg.first;
