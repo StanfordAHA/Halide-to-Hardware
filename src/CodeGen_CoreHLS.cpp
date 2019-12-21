@@ -3601,17 +3601,12 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       Expr readFunc = substitute(varMapping, prodTimeFunc);
       Expr productionDelay = simplify(startTimeFunc - readFunc);
       cout << "Production delay    : " << productionDelay << endl;
-      //internal_assert(consumerForward);
-      //internal_assert(ld.producerOnly.size() == 0);
-
-      //internal_assert(ld.shared.size() == otherInstr->surroundingLoops.size());
-
-      // What is a low effort thing I could do here?
-      //  - Create leveldiff code and start printing out level difference info
+      
       int otherStartStage = sched.getStartStage(otherInstr);
-
       if (prodStage == otherStartStage) {
       //if (is_zero(productionDelay)) {
+        //startValues[otherInstr] = sourceWire;
+        
         if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
           // otherInstr is lexically later in the same stage
           startValues[otherInstr] = sourceWire;
@@ -3619,6 +3614,18 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
       } else {
+        //if (is_positive_const(productionDelay)) {
+          //int diff = func_id_const_value(productionDelay);
+
+          //internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
+          //internal_assert(contains_key(prodStage + diff, pipeRegs));
+
+          //startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
+        //} else {
+          //internal_assert(!is_negative_const(productionDelay));
+          //startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        //}
+
         if (loopLevel(otherInstr) == loopLevel(instr)) {
           if (is_negative_const(productionDelay)) {
             startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
