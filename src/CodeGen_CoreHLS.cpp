@@ -3601,18 +3601,32 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       Expr readFunc = substitute(varMapping, prodTimeFunc);
       Expr productionDelay = simplify(startTimeFunc - readFunc);
       cout << "Production delay    : " << productionDelay << endl;
+
+      // Replacing with is_zero(productionDelay) and removing
+      // the other reference to non-pipeline registers breaks
+      // the program. The accumulate stops at 16, when it should
+      // stop with a final value of 18.
+      // Q: What could be wrong?
+      // A: Hunch is it is related to phi nodes, and the fact that
+      //    phis are not really placed correctly in the current
+      //    implementation.
+      //
+      //    I think it also has something to do with the fact that
+      //    delays are sometimes not constant between producer and
+      //    consumer.
+      //
       
-      int otherStartStage = sched.getStartStage(otherInstr);
-      if (prodStage == otherStartStage) {
-      //if (is_zero(productionDelay)) {
-        //startValues[otherInstr] = sourceWire;
+      //int otherStartStage = sched.getStartStage(otherInstr);
+      //if (prodStage == otherStartStage) {
+      if (is_zero(productionDelay)) {
+        startValues[otherInstr] = sourceWire;
         
-        if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
-          // otherInstr is lexically later in the same stage
-          startValues[otherInstr] = sourceWire;
-        } else {
-          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        }
+        //if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
+          //// otherInstr is lexically later in the same stage
+          //startValues[otherInstr] = sourceWire;
+        //} else {
+          //startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        //}
       } else {
         if (is_positive_const(productionDelay)) {
           int diff = func_id_const_value(productionDelay);
@@ -3623,7 +3637,20 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
         } else {
           internal_assert(!is_negative_const(productionDelay));
-          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+      
+          int otherStartStage = sched.getStartStage(otherInstr);
+          if (prodStage == otherStartStage) {
+            if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
+              // otherInstr is lexically later in the same stage
+              startValues[otherInstr] = sourceWire;
+            } else {
+              startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+            }
+          } else {
+            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          }
+          
+          //startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
 
         //if (loopLevel(otherInstr) == loopLevel(instr)) {
