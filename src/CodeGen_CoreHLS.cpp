@@ -3476,6 +3476,15 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     }
   }
 
+
+  // Wire up control variables from innermost outward
+  auto controlVarsToWire = loopNames(f.structuredOrder());
+  CoreIR::reverse(controlVarsToWire);
+  for (auto var : controlVarsToWire) {
+    cout << "\tWiring up control variable: " << var << endl;
+  }
+  internal_assert(false);
+
   map<HWInstr*, Wireable*> sourceWires;
   set<string> vars;
   for (auto op : allVarsUsed(sched.body())) {
