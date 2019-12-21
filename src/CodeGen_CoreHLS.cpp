@@ -2221,6 +2221,9 @@ class NestSchedule {
 class FunctionSchedule;
 Expr endTime(HWInstr* instr, FunctionSchedule& sched);
 Expr startTime(HWInstr* instr, FunctionSchedule& sched);
+Expr startTime(const std::vector<ProgramPosition>& positions,
+    const ProgramPosition& targetPos,
+    FunctionSchedule& sched);
 
 class FunctionSchedule {
   public:
@@ -2228,7 +2231,7 @@ class FunctionSchedule {
     map<HWInstr*, HWLoopSchedule> blockSchedules;
 
     std::vector<NestSchedule> nestSchedules;
-    //std::vector<HWTransition> transitions;
+    std::vector<ProgramPosition> positions;
 
     NestSchedule getNestSchedule(const std::string& loopName) const {
       for (auto s : nestSchedules) {
@@ -2345,30 +2348,6 @@ class ComputeKernel {
     CoreIR::Module* mod;
     FunctionSchedule sched;
 };
-
-class ProgramPosition {
-  public:
-    HWInstr* instr;
-    std::string loopLevel;
-    bool head;
-    bool tail;
-
-    bool isTail() const {
-      return tail;
-    }
-
-    bool isHead() const {
-      return head;
-    }
-
-    bool isOp() const {
-      return loopLevel == instr->surroundingLoops.back().name;
-    }
-};
-
-std::ostream& operator<<(std::ostream& out, ProgramPosition& pos);
-ProgramPosition headerPosition(const std::string& level, const vector<ProgramPosition>& positions);
-ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions);
 
 bool operator==(const ProgramPosition& a, const ProgramPosition& b) {
   if (!a.isOp() && !b.isOp()) {
@@ -2603,7 +2582,7 @@ class IChunk {
     }
 };
 
-map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
+map<int, vector<IChunk> > getChunks(const vector<ProgramPosition>& positions,
     FunctionSchedule& sched);
 
 bool operator==(const IChunk& a, const IChunk& b) {
@@ -4080,11 +4059,14 @@ int tailLatencyInt(const std::string& name, HWFunction& f, FunctionSchedule& fSc
   return 0;
 }
 
+vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched);
+
 FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo, HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // Check if we are in a perfect loop nest
   FunctionSchedule fSched;
   fSched.f = &f;
+  fSched.positions = buildProgramPositions(fSched);
   //for (auto group : instrGroups) {
     //HWLoopSchedule sched = asapSchedule(group);
     //fSched.blockSchedules[head(group)] = sched;
@@ -5202,11 +5184,12 @@ vector<SWTransition> forwardTransition(const IChunk& next, const vector<SWTransi
   return outs;
 }
 
-Expr startTime(const ProgramPosition& targetPos, FunctionSchedule& sched) {
+Expr startTime(const std::vector<ProgramPosition>& positions,
+    const ProgramPosition& targetPos,
+    FunctionSchedule& sched) {
   string instrLoopLevel = targetPos.loopLevel;
 
   auto f = *(sched.f);
-  auto positions = buildProgramPositions(sched);
   auto transitions = hwTransitions(sched);
 
   internal_assert(positions.size() > 0) << "no program positions\n";
@@ -5273,6 +5256,12 @@ Expr startTime(const ProgramPosition& targetPos, FunctionSchedule& sched) {
   return simplify(startTime);
 }
 
+Expr startTime(const ProgramPosition& targetPos,
+    FunctionSchedule& sched) {
+  auto positions = buildProgramPositions(sched);
+  return startTime(positions, targetPos, sched);
+}
+
 ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions) {
   for (auto p : positions) {
     if (p.isOp() && p.instr == instr) {
@@ -5289,7 +5278,7 @@ Expr startTime(HWInstr* instr, FunctionSchedule& sched) {
   return startTime(pos, sched);
 }
 
-map<int, vector<IChunk> > getChunks(vector<ProgramPosition>& positions,
+map<int, vector<IChunk> > getChunks(const vector<ProgramPosition>& positions,
     FunctionSchedule& sched) {
 
   map<int, vector<IChunk> > chunks;

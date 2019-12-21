@@ -132,6 +132,30 @@ class HWInstr {
     }
 };
 
+class ProgramPosition {
+  public:
+    HWInstr* instr;
+    std::string loopLevel;
+    bool head;
+    bool tail;
+
+    bool isTail() const {
+      return tail;
+    }
+
+    bool isHead() const {
+      return head;
+    }
+
+    bool isOp() const {
+      return loopLevel == instr->surroundingLoops.back().name;
+    }
+};
+
+std::ostream& operator<<(std::ostream& out, ProgramPosition& pos);
+ProgramPosition headerPosition(const std::string& level, const std::vector<ProgramPosition>& positions);
+ProgramPosition getPosition(HWInstr* instr, const std::vector<ProgramPosition>& positions);
+
 class HWBlock {
   public:
     std::string name;
