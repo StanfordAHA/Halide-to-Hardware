@@ -3599,6 +3599,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       }
 
       Expr readFunc = substitute(varMapping, prodTimeFunc);
+      cout << "Read func           : " << readFunc << endl;
       Expr productionDelay = simplify(startTimeFunc - readFunc);
       cout << "Production delay    : " << productionDelay << endl;
 
@@ -3620,13 +3621,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       //if (prodStage == otherStartStage) {
       if (is_zero(productionDelay)) {
         startValues[otherInstr] = sourceWire;
-        
-        //if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
-          //// otherInstr is lexically later in the same stage
-          //startValues[otherInstr] = sourceWire;
-        //} else {
-          //startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        //}
       } else {
         if (is_positive_const(productionDelay)) {
           int diff = func_id_const_value(productionDelay);
@@ -3643,6 +3637,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
               // otherInstr is lexically later in the same stage
               startValues[otherInstr] = sourceWire;
+              internal_assert(false);
             } else {
               startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
             }
