@@ -3614,34 +3614,35 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         }
       } else {
-        //if (is_positive_const(productionDelay)) {
-          //int diff = func_id_const_value(productionDelay);
+        if (is_positive_const(productionDelay)) {
+          int diff = func_id_const_value(productionDelay);
 
-          //internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
-          //internal_assert(contains_key(prodStage + diff, pipeRegs));
+          internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
+          internal_assert(contains_key(prodStage + diff, pipeRegs));
 
-          //startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
+          startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
+        } else {
+          internal_assert(!is_negative_const(productionDelay));
+          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+        }
+
+        //if (loopLevel(otherInstr) == loopLevel(instr)) {
+          //if (is_negative_const(productionDelay)) {
+            //startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
+          //} else {
+            //internal_assert(is_positive_const(productionDelay)) << productionDelay << " is not a positive constant!\n";
+            
+            //int diff = func_id_const_value(productionDelay);
+
+            //internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
+            //internal_assert(contains_key(prodStage + diff, pipeRegs));
+
+            //startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
+          //}
         //} else {
-          //internal_assert(!is_negative_const(productionDelay));
           //startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
         //}
 
-        if (loopLevel(otherInstr) == loopLevel(instr)) {
-          if (is_negative_const(productionDelay)) {
-            startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-          } else {
-            internal_assert(is_positive_const(productionDelay)) << productionDelay << " is not a positive constant!\n";
-            
-            int diff = func_id_const_value(productionDelay);
-
-            internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
-            internal_assert(contains_key(prodStage + diff, pipeRegs));
-
-            startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
-          }
-        } else {
-          startValues[otherInstr] = m.nonPipelineRegisters[instr]->sel("out");
-        }
       }
     }
   } 
