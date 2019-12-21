@@ -5258,8 +5258,8 @@ Expr startTime(const std::vector<ProgramPosition>& positions,
 
 Expr startTime(const ProgramPosition& targetPos,
     FunctionSchedule& sched) {
-  auto positions = buildProgramPositions(sched);
-  return startTime(positions, targetPos, sched);
+  //auto positions = buildProgramPositions(sched);
+  return startTime(sched.positions, targetPos, sched);
 }
 
 ProgramPosition getPosition(HWInstr* instr, const vector<ProgramPosition>& positions) {
