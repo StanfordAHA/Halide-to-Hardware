@@ -3520,7 +3520,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     def->connect(m.nonPipelineRegisters[instr]->sel("en"), controlPath->sel(cpM.activeSignalOutput(pos)));
 
     cout << "Creating pipeline registers for " << *instr << endl;
-    for (int i = prodStage + 1; i < sched.numLinearStages(); i++) {
+    for (int i = prodStage + 1; i < sched.numLinearStages() + 1; i++) {
       m.pipelineRegisters[instr][i] = pipelineRegister(context, def, "pipeline_reg_" + std::to_string(i) + "_" + std::to_string(uNum), type);
       uNum++;
     }
@@ -3602,13 +3602,14 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
       Expr productionDelay = simplify(startTimeFunc - readFunc);
       cout << "Production delay    : " << productionDelay << endl;
       //internal_assert(consumerForward);
-      internal_assert(ld.producerOnly.size() == 0);
+      //internal_assert(ld.producerOnly.size() == 0);
 
       //internal_assert(ld.shared.size() == otherInstr->surroundingLoops.size());
 
       // What is a low effort thing I could do here?
       //  - Create leveldiff code and start printing out level difference info
       int otherStartStage = sched.getStartStage(otherInstr);
+
       if (prodStage == otherStartStage) {
       //if (is_zero(productionDelay)) {
         if (instructionPosition(instr, f) < instructionPosition(otherInstr, f)) {
@@ -3627,6 +3628,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
             int diff = func_id_const_value(productionDelay);
 
             internal_assert(diff >= 0) << *instr << " is used by " << *otherInstr << "before it is produced\n";
+            internal_assert(contains_key(prodStage + diff, pipeRegs));
 
             startValues[otherInstr] = pipeRegs[prodStage + diff]->sel("out");
           }
