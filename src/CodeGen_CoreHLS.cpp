@@ -2742,6 +2742,23 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   cout << "Before opts..." << endl;
   cout << f << endl;
 
+
+  vector<string> activeLoops;
+  map<HWInstr*, vector<vector<string> > headers;
+  for (auto instr : f.structuredOrder()) {
+    vector<string> loops = loopNames(instr);
+    if (loops != activeLoops) {
+      vector<vector<string> > headersToInsert;
+      // For every loop in split
+      headers[instr] = headersToInsert;
+      activeLoops = loops;
+    }
+  }
+
+  cout << "After head insertion" << endl;
+  cout << f << endl;
+  internal_assert(false);
+
   removeBadStores(stCollector, f);
   valueConvertStreamReads(info, f);
   valueConvertProvides(info, f);
