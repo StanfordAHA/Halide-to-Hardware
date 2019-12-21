@@ -239,6 +239,21 @@ std::set<HWInstr*> allValuesUsed(const T& program) {
 }
 
 template<typename T>
+set<HWInstr*> allVarUsers(const std::string& name, const T& program) {
+  set<HWInstr*> users;
+  for (auto instr : program) {
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_VAR) {
+        if (op->name == name) {
+          users.insert(instr);
+        }
+      }
+    }
+  }
+  return users;
+}
+
+template<typename T>
 set<HWInstr*> getUsers(HWInstr* op, const T& program) {
   set<HWInstr*> users;
   for (auto instr : program) {
@@ -3480,9 +3495,29 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   // Wire up control variables from innermost outward
   auto controlVarsToWire = loopNames(f.structuredOrder());
   CoreIR::reverse(controlVarsToWire);
+  cout << "Control vars for..." << endl;
+  cout << f << endl;
   for (auto var : controlVarsToWire) {
     cout << "\tWiring up control variable: " << var << endl;
+    ProgramPosition pos = headerPosition(var, positions);
+
+    Expr prodTimeFunc = endTime(pos, sched);
+
+    cout << "\t\tProduction time func: " << prodTimeFunc << endl;
+
+    for (auto otherInstr : f.structuredOrder()) {
+      Expr startTimeFunc = startTime(otherInstr, sched);
+    
+      LevelDiff ld = splitLevels(pos, getPosition(otherInstr, positions), f);
+
+      if (lessThanOrEqual(var, loopLevel(otherInstr), f)) {
+        cout << "\t\tUser: " << *otherInstr << endl;
+        cout << "\t\t\tStart time func     : " << startTimeFunc << endl;
+
+      }
+    }
   }
+
   internal_assert(false);
 
   map<HWInstr*, Wireable*> sourceWires;
@@ -4445,21 +4480,6 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
   }
   auto user = *std::begin(streamUsersInF);
   return toInts(map_get(user, info.streamParams));
-}
-
-template<typename T>
-set<HWInstr*> allVarUsers(const std::string& name, const T& program) {
-  set<HWInstr*> users;
-  for (auto instr : program) {
-    for (auto op : instr->operands) {
-      if (op->tp == HWINSTR_TP_VAR) {
-        if (op->name == name) {
-          users.insert(instr);
-        }
-      }
-    }
-  }
-  return users;
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
