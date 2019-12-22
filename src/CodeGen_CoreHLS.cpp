@@ -2743,17 +2743,17 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   cout << f << endl;
 
 
-  vector<string> activeLoops;
-  map<HWInstr*, vector<vector<string> > headers;
-  for (auto instr : f.structuredOrder()) {
-    vector<string> loops = loopNames(instr);
-    if (loops != activeLoops) {
-      vector<vector<string> > headersToInsert;
-      // For every loop in split
-      headers[instr] = headersToInsert;
-      activeLoops = loops;
-    }
-  }
+  //vector<string> activeLoops;
+  //map<HWInstr*, vector<vector<string> > headers;
+  //for (auto instr : f.structuredOrder()) {
+    //vector<string> loops = loopNames(instr);
+    //if (loops != activeLoops) {
+      //vector<vector<string> > headersToInsert;
+      //// For every loop in split
+      //headers[instr] = headersToInsert;
+      //activeLoops = loops;
+    //}
+  //}
 
   cout << "After head insertion" << endl;
   cout << f << endl;
@@ -3466,6 +3466,51 @@ LevelDiff splitLevels(const ProgramPosition& producerPos, const ProgramPosition&
   return splitLevels(pL, cL);
 }
 
+map<string, Expr> getVarMapping(const ProgramPosition& pos, HWInstr* otherInstr, FunctionSchedule& sched) {
+  auto& f = *(sched.f);
+  auto& positions = sched.positions;
+  LevelDiff ld = splitLevels(pos, getPosition(otherInstr, positions), f);
+
+  cout << "\t\tUser: " << *otherInstr << endl;
+  //cout << "\t\t\tStart time func     : " << startTimeFunc << endl;
+  bool consumerForward =
+    instructionPosition(pos.instr, f) < instructionPosition(otherInstr, f);
+  map<string, Expr> varMapping;
+  if (consumerForward) {
+    for (auto l : ld.shared) {
+      varMapping[l.name] = Variable::make(Int(32), l.name);
+    }
+
+    for (auto l : ld.producerOnly) {
+      auto min_value = l.min;
+      Expr max_value = min_value + l.extent - 1;
+      varMapping[l.name] = max_value;
+    }
+  } else {
+    internal_assert(ld.shared.size() > 0);
+
+    for (int i = 0; i < ((int) ld.shared.size()) - 1; i++) {
+      auto l = ld.shared[i];
+      varMapping[l.name] = Variable::make(Int(32), l.name);
+    }
+
+    varMapping[ld.shared.back().name] = Variable::make(Int(32), ld.shared.back().name) - 1;
+
+    for (auto l : ld.producerOnly) {
+      auto min_value = l.min;
+      Expr max_value = min_value + l.extent - 1;
+      varMapping[l.name] = max_value;
+    }
+  }
+
+  cout << "\t\t\tVarMapping..." << endl;
+  for (auto v : varMapping) {
+    cout << "\t\t\t\t" << v.first << " -> " << v.second << endl;
+  }
+
+  return varMapping;
+}
+
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath, KernelControlPath& cpM) {
   internal_assert(sched.blockSchedules.size() > 0);
   //cout << "--- Block schedules..." << endl;
@@ -3525,44 +3570,8 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
     for (auto otherInstr : f.structuredOrder()) {
       if (lessThanOrEqual(var, loopLevel(otherInstr), f)) {
         Expr startTimeFunc = startTime(otherInstr, sched);
-        LevelDiff ld = splitLevels(pos, getPosition(otherInstr, positions), f);
 
-        cout << "\t\tUser: " << *otherInstr << endl;
-        cout << "\t\t\tStart time func     : " << startTimeFunc << endl;
-        bool consumerForward =
-          instructionPosition(pos.instr, f) < instructionPosition(otherInstr, f);
-        map<string, Expr> varMapping;
-        if (consumerForward) {
-          for (auto l : ld.shared) {
-            varMapping[l.name] = Variable::make(Int(32), l.name);
-          }
-
-          for (auto l : ld.producerOnly) {
-            auto min_value = l.min;
-            Expr max_value = min_value + l.extent - 1;
-            varMapping[l.name] = max_value;
-          }
-        } else {
-          internal_assert(ld.shared.size() > 0);
-
-          for (int i = 0; i < ((int) ld.shared.size()) - 1; i++) {
-            auto l = ld.shared[i];
-            varMapping[l.name] = Variable::make(Int(32), l.name);
-          }
-
-          varMapping[ld.shared.back().name] = Variable::make(Int(32), ld.shared.back().name) - 1;
-
-          for (auto l : ld.producerOnly) {
-            auto min_value = l.min;
-            Expr max_value = min_value + l.extent - 1;
-            varMapping[l.name] = max_value;
-          }
-        }
-        cout << "\t\t\tVarMapping..." << endl;
-        for (auto v : varMapping) {
-          cout << "\t\t\t\t" << v.first << " -> " << v.second << endl;
-        }
-
+        map<string, Expr> varMapping = getVarMapping(pos, otherInstr, sched);
         Expr readFunc = substitute(varMapping, prodTimeFunc);
         cout << "\t\t\tRead func           : " << readFunc << endl;
         Expr productionDelay = simplify(startTimeFunc - readFunc);
