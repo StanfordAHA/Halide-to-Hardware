@@ -5698,10 +5698,10 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   cp.chunkList = chunkList;
   auto def = controlPath->newModuleDef();
 
-  // What test should be used to decide if we need a real control
-  // path?
-  // - For now just check if all instructions have single loop level?
-
+  // Now: I want to adapt to a control path that uses the in_en signal not just to
+  // signal the start of execution, but to signal that the chunk containing the kernels
+  // read_stream is active. Maybe I should do this first by changing IIs inside of
+  // the adjustIIs function?
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   //if (instrGroups.size() > 1) {
   if (false) {
@@ -7449,106 +7449,106 @@ void adjustIIs(StencilInfo& stencilInfo, map<string, StreamUseInfo>& streamUseIn
     //}
   //}
 
-  //cout << "Populating rate info" << endl;
-  //// For now: Assume each loop nest has a single II
-  //// expression for all reads and writes
-  //map<string, RateInfo> produceRates;
-  //for (auto info : streamUseInfo) {
-    //cout << "Getting info for " << info.first << endl;
-    //string writer = info.second.writer.toString();
-    //cout << "\twriter: " << writer << endl;
-    //if (contains_key(writer, produceRates)) {
-      //// Skip
-    //} else {
+  cout << "Populating rate info" << endl;
+  // For now: Assume each loop nest has a single II
+  // expression for all reads and writes
+  map<string, RateInfo> produceRates;
+  for (auto info : streamUseInfo) {
+    cout << "Getting info for " << info.first << endl;
+    string writer = info.second.writer.toString();
+    cout << "\twriter: " << writer << endl;
+    if (contains_key(writer, produceRates)) {
+      // Skip
+    } else {
 
-      //if (info.second.writer.isLoopNest()) {
-        //for (auto loop : functionSchedules) {
-          //if (loop.first->name == info.second.writer.toString()) {
-            //auto& sched = loop.second;
-            //auto& f = *(sched.f);
-            //HWInstr* writeInstr = writeTo(info.first, f);
-            //RateInfo info;
-            //for (auto lp : writeInstr->surroundingLoops) {
-              //info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
-            //}
+      if (info.second.writer.isLoopNest()) {
+        for (auto loop : functionSchedules) {
+          if (loop.first->name == info.second.writer.toString()) {
+            auto& sched = loop.second;
+            auto& f = *(sched.f);
+            HWInstr* writeInstr = writeTo(info.first, f);
+            RateInfo info;
+            for (auto lp : writeInstr->surroundingLoops) {
+              info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+            }
 
-            //produceRates[writer] = info;
-          //}
-        //}
-      //} else if (info.second.writer.isLinebuffer()) {
-        //for (auto lb : stencilInfo.linebuffers) {
-          //string n = lbName(lb);
-          //if (n == writer) {
-            //cout << "Found writer for " << writer << endl;
-            //string inName = lb[0];
-            //vector<int> dims = getStreamDims(inName, stencilInfo);
-            //vector<int> dimRanges = getDimRanges(dims);
-            //internal_assert(dimRanges.size() == 2);
-            //RateInfo info;
-            //info.nestSchedules.push_back({writer + "_x", dimRanges[0], 10, 10});
-            //info.nestSchedules.push_back({writer + "_y", dimRanges[1], 10, 10});
-            //produceRates[writer] = info;
-          //}
-        //}
-      //} else if (info.second.writer.isArgument()) {
-        //internal_assert(false) << info.second.writer.toString() << " is an argument, and should not have rates\n";
-      //}
-    //}
+            produceRates[writer] = info;
+          }
+        }
+      } else if (info.second.writer.isLinebuffer()) {
+        for (auto lb : stencilInfo.linebuffers) {
+          string n = lbName(lb);
+          if (n == writer) {
+            cout << "Found writer for " << writer << endl;
+            string inName = lb[0];
+            vector<int> dims = getStreamDims(inName, stencilInfo);
+            vector<int> dimRanges = getDimRanges(dims);
+            internal_assert(dimRanges.size() == 2);
+            RateInfo info;
+            info.nestSchedules.push_back({writer + "_x", dimRanges[0], 10, 10});
+            info.nestSchedules.push_back({writer + "_y", dimRanges[1], 10, 10});
+            produceRates[writer] = info;
+          }
+        }
+      } else if (info.second.writer.isArgument()) {
+        internal_assert(false) << info.second.writer.toString() << " is an argument, and should not have rates\n";
+      }
+    }
 
-    //cout << "Getting readers for " << info.first << endl;
-    //for (auto reader : info.second.readers) {
+    cout << "Getting readers for " << info.first << endl;
+    for (auto reader : info.second.readers) {
 
-      //cout << "reader: " << reader.first.toString() << endl;
+      cout << "reader: " << reader.first.toString() << endl;
 
-      //if (contains_key(reader.first.toString(), produceRates)) {
-        //continue;
-      //}
+      if (contains_key(reader.first.toString(), produceRates)) {
+        continue;
+      }
 
-      //string rdString = reader.first.toString();
-      //if (reader.first.isLoopNest()) {
-        //for (auto loop : functionSchedules) {
-          //if (loop.first->name == reader.first.toString()) {
-            //auto& sched = loop.second;
-            //auto& f = *(sched.f);
-            //HWInstr* readInstr = readFrom(info.first, f);
-            //RateInfo info;
-            //for (auto lp : readInstr->surroundingLoops) {
-              //info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
-            //}
-            //produceRates[reader.first.toString()] = info;
-          //}
-        //}
-      //} else if (reader.first.isLinebuffer()) {
-        //vector<int> dims = getStreamDims(info.first, stencilInfo);
-        //vector<int> dimRanges = getDimRanges(dims);
-        //RateInfo info;
-        //internal_assert(dimRanges.size() == 2);
-        //info.nestSchedules.push_back({writer + "_x", dimRanges[0], 5, 5});
-        //info.nestSchedules.push_back({writer + "_y", dimRanges[1], 5, 5});
-        //produceRates[writer] = info;
-      //} else if (reader.first.isArgument()) {
-        //RateInfo info;
-        //info.nestSchedules.push_back({rdString + "_x", 7, 8, 9});
-        //info.nestSchedules.push_back({rdString + "_y", 7, 8, 9});
-        //produceRates[writer] = info;
-      //}
+      string rdString = reader.first.toString();
+      if (reader.first.isLoopNest()) {
+        for (auto loop : functionSchedules) {
+          if (loop.first->name == reader.first.toString()) {
+            auto& sched = loop.second;
+            auto& f = *(sched.f);
+            HWInstr* readInstr = readFrom(info.first, f);
+            RateInfo info;
+            for (auto lp : readInstr->surroundingLoops) {
+              info.nestSchedules.push_back(sched.getNestSchedule(lp.name));
+            }
+            produceRates[reader.first.toString()] = info;
+          }
+        }
+      } else if (reader.first.isLinebuffer()) {
+        vector<int> dims = getStreamDims(info.first, stencilInfo);
+        vector<int> dimRanges = getDimRanges(dims);
+        RateInfo info;
+        internal_assert(dimRanges.size() == 2);
+        info.nestSchedules.push_back({writer + "_x", dimRanges[0], 5, 5});
+        info.nestSchedules.push_back({writer + "_y", dimRanges[1], 5, 5});
+        produceRates[writer] = info;
+      } else if (reader.first.isArgument()) {
+        RateInfo info;
+        info.nestSchedules.push_back({rdString + "_x", 7, 8, 9});
+        info.nestSchedules.push_back({rdString + "_y", 7, 8, 9});
+        produceRates[writer] = info;
+      }
 
-    //}
-  //}
+    }
+  }
 
-  //// TODO: Add rate information for inputs / outputs
-  //cout << "Rate information" << endl;
-  //for (auto info : produceRates) {
-    //cout << "\t" << info.first << endl;
-    //for (auto nest : info.second.nestSchedules) {
-      //cout << "\t\t" << nest.name << endl;
-      //cout << "\t\t\tII: " << nest.II << endl;
-      //cout << "\t\t\tL : " << nest.L << endl;
-      //cout << "\t\t\tTC : " << nest.TC << endl;
-    //}
-  //}
+  // TODO: Add rate information for inputs / outputs
+  cout << "Rate information" << endl;
+  for (auto info : produceRates) {
+    cout << "\t" << info.first << endl;
+    for (auto nest : info.second.nestSchedules) {
+      cout << "\t\t" << nest.name << endl;
+      cout << "\t\t\tII: " << nest.II << endl;
+      cout << "\t\t\tL : " << nest.L << endl;
+      cout << "\t\t\tTC : " << nest.TC << endl;
+    }
+  }
 
-  //internal_assert(false);
+  internal_assert(false);
 
   // Though I cannot really adjust the II of a linebuffer I guess I can
   // adjust it indirectly by changing the in_en pattern
