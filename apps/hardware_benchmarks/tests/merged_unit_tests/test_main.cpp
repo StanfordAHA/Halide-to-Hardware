@@ -1925,20 +1925,20 @@ void small_conv_3_3_not_unrolled_test() {
       cout << "before edge i = " << i << endl;
       assert(state.getBitVec("self.valid") == BitVec(1, 0));
 
-      auto loadAddr = state.getBitVec("self.dbg_40");
-      cout << "\tloadRes = " << loadAddr << ", int = " << loadAddr.to_type<int>() << endl;
+      //auto loadAddr = state.getBitVec("self.dbg_40");
+      //cout << "\tloadRes = " << loadAddr << ", int = " << loadAddr.to_type<int>() << endl;
 
-      auto loadRes = state.getBitVec("self.dbg_52");
-      cout << "\tloadRes = " << loadRes << ", int = " << loadRes.to_type<int>() << endl;
+      //auto loadRes = state.getBitVec("self.dbg_52");
+      //cout << "\tloadRes = " << loadRes << ", int = " << loadRes.to_type<int>() << endl;
 
-      auto phi = state.getBitVec("self.dbg_55_0_0");
-      cout << "\tphi     = " << phi << ", int = " << phi.to_type<int>() << endl;
+      //auto phi = state.getBitVec("self.dbg_55_0_0");
+      //cout << "\tphi     = " << phi << ", int = " << phi.to_type<int>() << endl;
 
-      auto accum = state.getBitVec("self.dbg_58_0_0");
-      cout << "\taccum   = " << accum << ", int = " << accum.to_type<int>() << endl;
+      //auto accum = state.getBitVec("self.dbg_58_0_0");
+      //cout << "\taccum   = " << accum << ", int = " << accum.to_type<int>() << endl;
 
-      auto output = state.getBitVec("self.conv_stencil_stream_0_0");
-      cout << "\toutput  = " << output << ", int = " << output.to_type<int>() << endl;
+      //auto output = state.getBitVec("self.conv_stencil_stream_0_0");
+      //cout << "\toutput  = " << output << ", int = " << output.to_type<int>() << endl;
 
       state.exeCombinational();
       state.exeSequential();
@@ -3574,7 +3574,7 @@ void arith_test() {
 }
 
 int main(int argc, char **argv) {
-  small_conv_3_3_not_unrolled_test();
+  //small_conv_3_3_not_unrolled_test();
 
   rom_read_test();
   different_latency_kernels_test();

@@ -53,6 +53,30 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+bool isCall(const std::string& str, const HWInstr* instr) {
+  return instr->tp == HWINSTR_TP_INSTR && instr->name == str;
+}
+
+
+bool isTail(HWInstr* instr) {
+  return starts_with(instr->name, "tail_");
+}
+
+bool isHead(HWInstr* instr) {
+  return starts_with(instr->name, "head_");
+}
+
+bool isLoad(HWInstr* instr) {
+  return isCall("load", instr);
+}
+
+bool isStore(HWInstr* instr) {
+  return isCall("store", instr);
+}
+bool isConstant(HWInstr* instr) {
+  return instr->tp == HWINSTR_TP_CONST;
+}
+
 bool lessThanOrEqual(const std::string& ll0, const std::string& ll1, HWFunction& f);
 
 class LevelDiff {
@@ -998,10 +1022,6 @@ class StoreCollector : public IRGraphVisitor {
       IRGraphVisitor::visit(st);
     }
 };
-
-bool isCall(const std::string& str, const HWInstr* instr) {
-  return instr->tp == HWINSTR_TP_INSTR && instr->name == str;
-}
 
 bool isStreamWrite(HWInstr* const instr) {
   return isCall("write_stream", instr);
@@ -2822,70 +2842,9 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   cout << "Before opts..." << endl;
   cout << f << endl;
 
-  //// Create map from instructions to heads that must be inserted
-  //// Create map from instructions to tails that must be inserted
-  //map<HWInstr*, vector<LoopSpec> > heads;
-  //map<HWInstr*, vector<LoopSpec> > tails;
-  //if (f.structuredOrder().size() > 0) {
-    //auto instrs = f.structuredOrder();
-    //HWInstr* last = nullptr;
-    //vector<LoopSpec> lastLoops;
-    //for (size_t i = 0; i < instrs.size(); i++) {
-      //HWInstr* current = instrs[i];
-      //vector<LoopSpec> currentLoops  = current->surroundingLoops;
-      //LevelDiff diff = splitLevels(lastLoops, currentLoops);
-      //if (!diff.allShared()) {
-        //cout << "\tNot all shared" << endl;
-        //if (diff.producerHigher()) {
-          //// Insert tails
-          //cout << "Insert tails for: ";
-          //for (auto lp : diff.producerOnly) {
-            //cout << lp.name << ", ";
-          //}
-          //cout << endl;
-        //} else {
-          //internal_assert(diff.consumerHigher());
-          //// Insert heads
-          //cout << "Insert heads for: ";
-          //for (auto lp : diff.consumerOnly) {
-            //cout << lp.name << ", ";
-          //}
-          //cout << endl;
-        //}
-      //} else {
-        ////cout << *last << "\n\tand" << endl << *current << "\n\tshare all levels" << endl;
-      //}
-      //last = current;
-      //lastLoops = current->surroundingLoops;
-    //}
-
-    //internal_assert(last != nullptr);
-    //vector<LoopSpec> currentLoops;
-    //LevelDiff diff = splitLevels(lastLoops, currentLoops);
-    //if (!diff.allShared()) {
-      //cout << "\tNot all shared" << endl;
-      //if (diff.producerHigher()) {
-        //// Insert tails
-        //cout << "Insert tails for: ";
-        //for (auto lp : diff.producerOnly) {
-          //cout << lp.name << ", ";
-        //}
-        //cout << endl;
-      //} else {
-        //internal_assert(diff.consumerHigher());
-        //// Insert heads
-        //cout << "Insert heads for: ";
-        //for (auto lp : diff.consumerOnly) {
-          //cout << lp.name << ", ";
-        //}
-        //cout << endl;
-      //}
-    //}
-  //}
-
   cout << "After head insertion" << endl;
   cout << f << endl;
-  internal_assert(false);
+  //internal_assert(false);
 
   removeBadStores(stCollector, f);
   valueConvertStreamReads(info, f);
@@ -3495,6 +3454,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         Instance* inst = pipelineRegister(context, def, rname, tp);
         unitMapping[instr] = inst;
         instrValues[instr] = inst->sel("out");
+      } else if (isHead(instr) || isTail(instr)) {
+        // Do nothing
       } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
@@ -3961,6 +3922,10 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body()) {
+    if (isHead(instr) || isTail(instr)) {
+      // Skip no-ops
+      continue;
+    }
     internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit mapping for " << *instr << "\n";
     CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
@@ -4227,6 +4192,31 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
     }
   }
 
+  for (auto instr : sched.body) {
+    string level = loopLevel(instr);
+    if (isHead(instr)) {
+      for (auto otherInstr : sched.body) {
+        auto names = loopNames(otherInstr);
+        if (instr != otherInstr && elem(level, names)) {
+          auto headN = map_get(instr, iNodes);
+          auto v = map_get(otherInstr, iNodes);
+          blockGraph.addEdge(headN, v);
+        }
+      }
+    }
+    
+    if (isTail(instr)) {
+      for (auto otherInstr : sched.body) {
+        auto names = loopNames(otherInstr);
+        if (instr != otherInstr && elem(level, names)) {
+          auto tailN = map_get(instr, iNodes);
+          auto v = map_get(otherInstr, iNodes);
+          blockGraph.addEdge(v, tailN);
+        }
+      }
+    }
+  }
+
   auto sortedNodes = topologicalSort(blockGraph);
   cout << "Already finished..." << endl;
   for (auto i : finished) {
@@ -4439,17 +4429,6 @@ FunctionSchedule buildFunctionSchedule(map<string, StreamUseInfo>& streamUseInfo
 
   cout << "Returning schedule" << endl;
   return fSched;
-}
-
-bool isLoad(HWInstr* instr) {
-  return isCall("load", instr);
-}
-
-bool isStore(HWInstr* instr) {
-  return isCall("store", instr);
-}
-bool isConstant(HWInstr* instr) {
-  return instr->tp == HWINSTR_TP_CONST;
 }
 
 void replaceAll(std::map<HWInstr*, HWInstr*>& loadsToConstants, HWFunction& f) {
@@ -5724,8 +5703,8 @@ KernelControlPath controlPathForKernel(FunctionSchedule& sched) {
   // - For now just check if all instructions have single loop level?
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  if (instrGroups.size() > 1) {
-  //if (false) {
+  //if (instrGroups.size() > 1) {
+  if (false) {
   //if (true) {
     // Just to be safe for early tests, should really be 1 << 15 - 1
     const int MAX_CYCLES = ((1 << 14) - 1);
