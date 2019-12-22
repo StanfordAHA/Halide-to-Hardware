@@ -1881,10 +1881,17 @@ class InstructionCollector : public IRGraphVisitor {
       
       //pushInstr(toLoop);
 
+      auto instrHead = newI();
+      instrHead->name = "head_" + lp->name;
+      pushInstr(instrHead);
       //auto loopBlk = f.newBlk();
       //activeBlock = loopBlk;
       IRGraphVisitor::visit(lp);
      
+      auto instrTail = newI();
+      instrTail->name = "tail_" + lp->name;
+      pushInstr(instrTail);
+
       //pushInstr(fromLoop);
       
       activeLoops.pop_back();
@@ -2815,64 +2822,66 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   cout << "Before opts..." << endl;
   cout << f << endl;
 
-  // Create map from instructions to heads that must be inserted
-  // Create map from instructions to tails that must be inserted
-  if (f.structuredOrder().size() > 0) {
-    auto instrs = f.structuredOrder();
-    HWInstr* last = nullptr;
-    vector<LoopSpec> lastLoops;
-    for (size_t i = 0; i < instrs.size(); i++) {
-      HWInstr* current = instrs[i];
-      vector<LoopSpec> currentLoops  = current->surroundingLoops;
-      LevelDiff diff = splitLevels(lastLoops, currentLoops);
-      if (!diff.allShared()) {
-        cout << "\tNot all shared" << endl;
-        if (diff.producerHigher()) {
-          // Insert tails
-          cout << "Insert tails for: ";
-          for (auto lp : diff.producerOnly) {
-            cout << lp.name << ", ";
-          }
-          cout << endl;
-        } else {
-          internal_assert(diff.consumerHigher());
-          // Insert heads
-          cout << "Insert heads for: ";
-          for (auto lp : diff.consumerOnly) {
-            cout << lp.name << ", ";
-          }
-          cout << endl;
-        }
-      } else {
-        //cout << *last << "\n\tand" << endl << *current << "\n\tshare all levels" << endl;
-      }
-      last = current;
-      lastLoops = current->surroundingLoops;
-    }
+  //// Create map from instructions to heads that must be inserted
+  //// Create map from instructions to tails that must be inserted
+  //map<HWInstr*, vector<LoopSpec> > heads;
+  //map<HWInstr*, vector<LoopSpec> > tails;
+  //if (f.structuredOrder().size() > 0) {
+    //auto instrs = f.structuredOrder();
+    //HWInstr* last = nullptr;
+    //vector<LoopSpec> lastLoops;
+    //for (size_t i = 0; i < instrs.size(); i++) {
+      //HWInstr* current = instrs[i];
+      //vector<LoopSpec> currentLoops  = current->surroundingLoops;
+      //LevelDiff diff = splitLevels(lastLoops, currentLoops);
+      //if (!diff.allShared()) {
+        //cout << "\tNot all shared" << endl;
+        //if (diff.producerHigher()) {
+          //// Insert tails
+          //cout << "Insert tails for: ";
+          //for (auto lp : diff.producerOnly) {
+            //cout << lp.name << ", ";
+          //}
+          //cout << endl;
+        //} else {
+          //internal_assert(diff.consumerHigher());
+          //// Insert heads
+          //cout << "Insert heads for: ";
+          //for (auto lp : diff.consumerOnly) {
+            //cout << lp.name << ", ";
+          //}
+          //cout << endl;
+        //}
+      //} else {
+        ////cout << *last << "\n\tand" << endl << *current << "\n\tshare all levels" << endl;
+      //}
+      //last = current;
+      //lastLoops = current->surroundingLoops;
+    //}
 
-    internal_assert(last != nullptr);
-    vector<LoopSpec> currentLoops;
-    LevelDiff diff = splitLevels(lastLoops, currentLoops);
-    if (!diff.allShared()) {
-      cout << "\tNot all shared" << endl;
-      if (diff.producerHigher()) {
-        // Insert tails
-        cout << "Insert tails for: ";
-        for (auto lp : diff.producerOnly) {
-          cout << lp.name << ", ";
-        }
-        cout << endl;
-      } else {
-        internal_assert(diff.consumerHigher());
-        // Insert heads
-        cout << "Insert heads for: ";
-        for (auto lp : diff.consumerOnly) {
-          cout << lp.name << ", ";
-        }
-        cout << endl;
-      }
-    }
-  }
+    //internal_assert(last != nullptr);
+    //vector<LoopSpec> currentLoops;
+    //LevelDiff diff = splitLevels(lastLoops, currentLoops);
+    //if (!diff.allShared()) {
+      //cout << "\tNot all shared" << endl;
+      //if (diff.producerHigher()) {
+        //// Insert tails
+        //cout << "Insert tails for: ";
+        //for (auto lp : diff.producerOnly) {
+          //cout << lp.name << ", ";
+        //}
+        //cout << endl;
+      //} else {
+        //internal_assert(diff.consumerHigher());
+        //// Insert heads
+        //cout << "Insert heads for: ";
+        //for (auto lp : diff.consumerOnly) {
+          //cout << lp.name << ", ";
+        //}
+        //cout << endl;
+      //}
+    //}
+  //}
 
   cout << "After head insertion" << endl;
   cout << f << endl;
