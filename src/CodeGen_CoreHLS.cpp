@@ -53,6 +53,78 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+bool lessThanOrEqual(const std::string& ll0, const std::string& ll1, HWFunction& f);
+
+class LevelDiff {
+  public:
+
+    std::vector<LoopSpec> shared;
+    std::vector<LoopSpec> producerOnly;
+    std::vector<LoopSpec> consumerOnly;
+
+    bool allShared() const {
+      return producerOnly.size() == 0 && consumerOnly.size() == 0;
+    }
+
+    bool producerHigher() const {
+      return !allShared() && consumerOnly.size() == 0;
+    }
+    
+    bool consumerHigher() const {
+      return !allShared() && producerOnly.size() == 0;
+    }
+};
+
+LevelDiff splitLevels(const std::vector<LoopSpec>& producer,
+    const std::vector<LoopSpec>& consumer) {
+  LevelDiff diff;
+  int minSize = std::min(producer.size(), consumer.size());
+  int maxLoc = 0;
+  for (int i = 0; i < minSize; i++) {
+    if (producer[i].name == consumer[i].name) {
+      diff.shared.push_back(producer[i]);
+    } else {
+      break;
+    }
+    maxLoc++;
+  }
+
+  for (int level = maxLoc; level < (int) producer.size(); level++) {
+    diff.producerOnly.push_back(producer[level]);
+  }
+  
+  for (int level = maxLoc; level < (int) consumer.size(); level++) {
+    diff.consumerOnly.push_back(consumer[level]);
+  }
+
+  internal_assert(diff.shared.size() + diff.producerOnly.size() == producer.size());
+  internal_assert(diff.shared.size() + diff.consumerOnly.size() == consumer.size());
+
+  return diff;
+}
+
+LevelDiff splitLevels(const ProgramPosition& producerPos, const ProgramPosition& consumerPos, HWFunction& f) {
+  vector<LoopSpec> pL;
+  for (auto l : producerPos.instr->surroundingLoops) {
+    if (lessThanOrEqual(l.name, producerPos.loopLevel, f)) {
+      pL.push_back(l);
+    } else {
+      break;
+    }
+  }
+
+  vector<LoopSpec> cL;
+  for (auto l : consumerPos.instr->surroundingLoops) {
+    if (lessThanOrEqual(l.name, consumerPos.loopLevel, f)) {
+      cL.push_back(l);
+    } else {
+      break;
+    }
+  }
+
+  return splitLevels(pL, cL);
+}
+
 std::string loopLevel(HWInstr* const instr) {
   internal_assert(instr->surroundingLoops.size() > 0);
   return instr->surroundingLoops.back().name;
@@ -2438,6 +2510,7 @@ Expr endTime(const ProgramPosition& pos, FunctionSchedule& sched);
 Expr startTime(const ProgramPosition& pos, FunctionSchedule& sched);
 
 vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched);
+vector<ProgramPosition> buildProgramPositions(HWFunction& f);
 
 bool operator==(const Condition& a, const Condition& b) {
   if (a.isUnconditional != b.isUnconditional) {
@@ -2742,18 +2815,64 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   cout << "Before opts..." << endl;
   cout << f << endl;
 
+  // Create map from instructions to heads that must be inserted
+  // Create map from instructions to tails that must be inserted
+  if (f.structuredOrder().size() > 0) {
+    auto instrs = f.structuredOrder();
+    HWInstr* last = nullptr;
+    vector<LoopSpec> lastLoops;
+    for (size_t i = 0; i < instrs.size(); i++) {
+      HWInstr* current = instrs[i];
+      vector<LoopSpec> currentLoops  = current->surroundingLoops;
+      LevelDiff diff = splitLevels(lastLoops, currentLoops);
+      if (!diff.allShared()) {
+        cout << "\tNot all shared" << endl;
+        if (diff.producerHigher()) {
+          // Insert tails
+          cout << "Insert tails for: ";
+          for (auto lp : diff.producerOnly) {
+            cout << lp.name << ", ";
+          }
+          cout << endl;
+        } else {
+          internal_assert(diff.consumerHigher());
+          // Insert heads
+          cout << "Insert heads for: ";
+          for (auto lp : diff.consumerOnly) {
+            cout << lp.name << ", ";
+          }
+          cout << endl;
+        }
+      } else {
+        //cout << *last << "\n\tand" << endl << *current << "\n\tshare all levels" << endl;
+      }
+      last = current;
+      lastLoops = current->surroundingLoops;
+    }
 
-  //vector<string> activeLoops;
-  //map<HWInstr*, vector<vector<string> > headers;
-  //for (auto instr : f.structuredOrder()) {
-    //vector<string> loops = loopNames(instr);
-    //if (loops != activeLoops) {
-      //vector<vector<string> > headersToInsert;
-      //// For every loop in split
-      //headers[instr] = headersToInsert;
-      //activeLoops = loops;
-    //}
-  //}
+    internal_assert(last != nullptr);
+    vector<LoopSpec> currentLoops;
+    LevelDiff diff = splitLevels(lastLoops, currentLoops);
+    if (!diff.allShared()) {
+      cout << "\tNot all shared" << endl;
+      if (diff.producerHigher()) {
+        // Insert tails
+        cout << "Insert tails for: ";
+        for (auto lp : diff.producerOnly) {
+          cout << lp.name << ", ";
+        }
+        cout << endl;
+      } else {
+        internal_assert(diff.consumerHigher());
+        // Insert heads
+        cout << "Insert heads for: ";
+        for (auto lp : diff.consumerOnly) {
+          cout << lp.name << ", ";
+        }
+        cout << endl;
+      }
+    }
+  }
 
   cout << "After head insertion" << endl;
   cout << f << endl;
@@ -2766,7 +2885,7 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   divToShift(f);
   modToShift(f);
   addDynamicStencilReads(f);
-  
+
   auto global_ns = context->getNamespace("global");
   auto designFields = moduleFieldsForKernel(context, info, perfectNest, args);
   for (auto instr : f.structuredOrder()) {
@@ -3406,64 +3525,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   }
 
   
-}
-
-class LevelDiff {
-  public:
-
-    std::vector<LoopSpec> shared;
-    std::vector<LoopSpec> producerOnly;
-    std::vector<LoopSpec> consumerOnly;
-};
-
-LevelDiff splitLevels(const std::vector<LoopSpec>& producer,
-    const std::vector<LoopSpec>& consumer) {
-  LevelDiff diff;
-  int minSize = std::min(producer.size(), consumer.size());
-  int maxLoc = 0;
-  for (int i = 0; i < minSize; i++) {
-    if (producer[i].name == consumer[i].name) {
-      diff.shared.push_back(producer[i]);
-    } else {
-      break;
-    }
-    maxLoc++;
-  }
-
-  for (int level = maxLoc; level < (int) producer.size(); level++) {
-    diff.producerOnly.push_back(producer[level]);
-  }
-  
-  for (int level = maxLoc; level < (int) consumer.size(); level++) {
-    diff.consumerOnly.push_back(consumer[level]);
-  }
-
-  internal_assert(diff.shared.size() + diff.producerOnly.size() == producer.size());
-  internal_assert(diff.shared.size() + diff.consumerOnly.size() == consumer.size());
-
-  return diff;
-}
-
-LevelDiff splitLevels(const ProgramPosition& producerPos, const ProgramPosition& consumerPos, HWFunction& f) {
-  vector<LoopSpec> pL;
-  for (auto l : producerPos.instr->surroundingLoops) {
-    if (lessThanOrEqual(l.name, producerPos.loopLevel, f)) {
-      pL.push_back(l);
-    } else {
-      break;
-    }
-  }
-
-  vector<LoopSpec> cL;
-  for (auto l : consumerPos.instr->surroundingLoops) {
-    if (lessThanOrEqual(l.name, consumerPos.loopLevel, f)) {
-      cL.push_back(l);
-    } else {
-      break;
-    }
-  }
-
-  return splitLevels(pL, cL);
 }
 
 map<string, Expr> getVarMapping(const ProgramPosition& pos, HWInstr* otherInstr, FunctionSchedule& sched) {
@@ -5125,9 +5186,7 @@ LoopCounters buildLoopCounters(CoreIR::ModuleDef* def, HWFunction& f) {
   return counters;
 }
 
-vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
-
-  auto& f = *(sched.f);
+vector<ProgramPosition> buildProgramPositions(HWFunction& f) {
   set<string> headLevelsSeen;
   set<string> tailLevelsSeen;
   vector<ProgramPosition> positions;
@@ -5206,6 +5265,12 @@ vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
     internal_assert(found) << "Did not create position containing: " << *instr << "\n";
   }
   return positions;
+}
+
+vector<ProgramPosition> buildProgramPositions(FunctionSchedule& sched) {
+
+  auto& f = *(sched.f);
+  return buildProgramPositions(f);
 }
 
 vector<SWTransition> buildSWTransitions(vector<ProgramPosition>& positions, HWFunction& f) {
