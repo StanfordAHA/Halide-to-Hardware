@@ -7084,21 +7084,21 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
 
   AppGraph appGraph;
   appGraph.kernelModules = kernelModules;
-  std::map<vdisc, Wireable*> streamNodeMap;
+  //std::map<vdisc, Wireable*> streamNodeMap;
   for (auto node : streamGraph.getVertNames()) {
-    vdisc v = node.first;
+    //vdisc v = node.first;
     StreamNode n = node.second;
     if (n.ss == STREAM_SOURCE_ARG) {
       if (!n.arg.is_output) {
         string coreirName = CoreIR::map_find(n.arg.name, inputAliases);
         auto s = def->sel("self")->sel("in")->sel(coreirName);
         appGraph.addVertex(s);
-        streamNodeMap[v] = s;
+        //streamNodeMap[v] = s;
       } else {
         auto s = def->sel("self")->sel(output_name);
         appGraph.addVertex(s);
         //def->sel("self")->sel(output_name));
-        streamNodeMap[v] = s;
+        //streamNodeMap[v] = s;
       }
     } else if (n.ss == STREAM_SOURCE_LB) {
       // Create linebuffer
@@ -7111,11 +7111,11 @@ AppGraph buildAppGraph(std::map<const For*, HWFunction>& functions,
       }
       internal_assert(w != nullptr) << "No linebuffer instance for " << n.lbName << "\n";
      
-      streamNodeMap[v] = w;
+      //streamNodeMap[v] = w;
       appGraph.addVertex(w);
     } else if (n.ss == STREAM_SOURCE_LOOP) {
       // Add kernel instance
-      streamNodeMap[v] = map_find(n.lp, kernels);
+      //streamNodeMap[v] = map_find(n.lp, kernels);
       appGraph.addVertex(map_find(n.lp, kernels));
     }
   }
@@ -7757,7 +7757,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     functionSchedules[fp.first] = fSched;
   }
 
-  adjustIIs(scl.info, streamUseInfo, functionSchedules);
+  //adjustIIs(scl.info, streamUseInfo, functionSchedules);
 
   // Connects up all control paths in the design
   std::map<const For*, CoreIR::Instance*> kernels;
@@ -7794,6 +7794,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   context->runPasses({"deletedeadinstances"});
   cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
   AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
+  // Maybe we should build the appgraph earlier, and then use
   computeDelaysForAppGraph(appGraph);
   appGraph = insertDelays(appGraph);
   wireUpAppGraph(appGraph, def);
