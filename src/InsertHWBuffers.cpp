@@ -761,6 +761,12 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         internal_assert(consume_node->name == produce_node->name);
         internal_assert(consume_node && !consume_node->is_producer);
 
+        std::cout << "doing pc " << produce_node->name << " " << consume_node->name << std::endl;
+        if (produce_node->name == "hw_input") {
+          std::cout << s << std::endl;
+          return transform_hwkernel(consume_node->body, xcel, scope);
+        }
+
         Stmt produce_stmt = body;//first_pc;//pc_block->first;
         Stmt consume_stmt = op->rest;//pc_block->rest;
 
@@ -850,6 +856,8 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         for (const string& s : kernel.input_streams) {
             const auto it = xcel.hwbuffers.find(s);
             internal_assert(it != xcel.hwbuffers.end());
+            std::cout << "let's look for " << s << " in the set of input streams\n";
+            //if (xcel.input_streams.count(s) > 0) {
             stencil_realize = add_hwinput_stencil(stencil_realize, kernel, it->second);
         }
 
@@ -1253,13 +1261,14 @@ class InsertHWBuffers : public IRMutator2 {
   Stmt visit(const Realize *op) {
     std::cout << "this a realize\n";
     if (xcel.hwbuffers.count(op->name)) {
-      std::cout << "hwbuffer realize for " << op->name << "\n";
       const HWBuffer& buffer = xcel.hwbuffers.find(op->name)->second;
+      std::cout << "hwbuffer realize for " << op->name
+                << " is_inlined=" << buffer.is_inlined << "\n";
         
       if (!buffer.is_inlined && // is a hwbuffered function
           !buffer.is_output && // not the output
           //xcel.name != op->name && // not the output
-          xcel.input_streams.count(op->name) == 0 // not a input
+          xcel.input_streams.count(op->name) == 0 // not an input
         ) {
         return mutate(op->body);
       }

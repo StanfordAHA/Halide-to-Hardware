@@ -52,7 +52,7 @@ public:
 //          hw_input.in().store_at(output, x_host).compute_at(output,x_gb);
 //          hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
 
-          hw_input.compute_root();
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
@@ -66,7 +66,8 @@ public:
           //hw_input.linebuffer();
 
           hw_input.stream_to_accelerator();
-          kernel.compute_at(hw_output, xo);
+          kernel.compute_at(hw_output, yi);
+          //kernel.compute_root();
 
         } else {  // schedule to CPU
 //          kernel.compute_root();

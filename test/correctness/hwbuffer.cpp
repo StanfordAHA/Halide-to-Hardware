@@ -613,6 +613,8 @@ int doublebuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int til
     hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
     hw_output.bound(x, 0, imgsize);
     hw_output.bound(y, 0, imgsize);
+    conv[num_conv-1].bound(x, 0, imgsize); // FIXME: incorrect value and unnecessary?
+    conv[num_conv-1].bound(y, 0, imgsize);
 
     for (uint i=0; i < num_conv; ++i) {
       conv[i].store_at(hw_output, xo).compute_at(hw_output, xo);
@@ -846,7 +848,6 @@ int main(int argc, char **argv) {
     printf("    checking hwbuffers...\n");
     // no reorder
     // reordering with loops unrolled
-    // something in between
     
     printf("Running sampling hwbuffer tests\n");
     printf("    checking hwbuffers...\n");

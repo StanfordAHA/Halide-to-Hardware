@@ -40,14 +40,14 @@ public:
                                           hw_input(x + r_dw.x, y + r_dw.y, c));
 
         //pointwise ConvolutionLayer
-        pw_conv(x, y, c, k) = cast<int16_t>(bias_pw(k));
-        pw_conv(x, y, c, k) += cast<int16_t>(filter_pw(c, k) * dw_conv(x, y, c));
-        pw_conv_reduction(x, y, k) = 0;
-        pw_conv_reduction(x, y, k) += cast<int16_t>(pw_conv(x, y, r_pw.x, k));
-        hw_output(x, y, k) = cast<int8_t>(max(0, pw_conv_reduction(x, y, k)));
+        pw_conv(k, x, y, c) = cast<int16_t>(bias_pw(k));
+        pw_conv(k, x, y, c) += cast<int16_t>(filter_pw(k, c) * dw_conv(x, y, c));
+        pw_conv_reduction(k, x, y) = 0;
+        pw_conv_reduction(k, x, y) += cast<int16_t>(pw_conv(k, x, y, r_pw.x));
+        hw_output(k, x, y) = cast<int8_t>(max(0, pw_conv_reduction(k, x, y)));
         //hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
 
-        output(x, y, k) = cast<uint8_t>(hw_output(x, y, k));
+        output(k, x, y) = cast<uint8_t>(hw_output(k, x, y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -87,7 +87,7 @@ public:
             .unroll(k);
 
           hw_output.tile(x, y, xo, yo, xi, yi, 14, 14)
-            .reorder(xi, yi, k, xo, yo)
+            .reorder(k, xi, yi, xo, yo)
             .reorder_storage(k, x, y)
             .hw_accelerate(xi, xo);
             //.accelerate({hw_input}, xi, xo);
@@ -121,7 +121,7 @@ public:
 
           //add input stream
           hw_input.stream_to_accelerator();//.reorder_storage(c, x, y);
-          hw_input.compute_root();
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           //hw_input.store_root().compute_at(pw_conv, x);
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           //hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);

@@ -461,7 +461,7 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
 
             if (added_stencil.size() > 0) {
               std::cout << "added sliding stencil called " << op->name << " with " << added_stencil.size()
-                        << "more loops resulting in num_total_loops=" << ss.output_stencil_box.size() << "\n";
+                        << " more loop(s) resulting in num_total_loops=" << ss.output_stencil_box.size() << "\n";
             }
             
             buffer_sliding_stencils[op->name] = ss;
