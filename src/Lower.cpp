@@ -14,6 +14,7 @@
 #include "BoundsInference.h"
 #include "CSE.h"
 #include "CanonicalizeGPUVars.h"
+#include "CoreIR_Mapper_Compute.h"
 #include "Debug.h"
 #include "DebugArguments.h"
 #include "DebugToFile.h"
@@ -196,6 +197,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //std::cout << "doing sliding window lowering pass\n";
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
+      generate_compute_unit(s, env);
       s_sliding = sliding_window(s, env);
       //s = sliding_window(s, env);
       //std::cout << "finished sliding window lowering pass\n" << s;
