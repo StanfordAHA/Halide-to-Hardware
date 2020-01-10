@@ -197,7 +197,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //std::cout << "doing sliding window lowering pass\n";
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
-      generate_compute_unit(s, env);
       s_sliding = sliding_window(s, env);
       //s = sliding_window(s, env);
       //std::cout << "finished sliding window lowering pass\n" << s;
@@ -226,6 +225,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
+      generate_compute_unit(s, env);
       //s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
       //cout << "Pre-unrolled: " << endl;
       //cout << s << endl;
