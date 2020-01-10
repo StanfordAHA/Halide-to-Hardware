@@ -595,6 +595,8 @@ namespace Halide {
         cout << "Compute logic..." << endl;
         cout << compute_only << endl;
         HardwareInfo info;
+        info.interfacePolicy =
+          HW_INTERFACE_POLICY_COMPUTE_UNIT;
 
         Expr inLen((int) ce.callNums.size());
         Range rng(Expr((int) 0), inLen);
