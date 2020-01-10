@@ -28,6 +28,26 @@ namespace Halide {
       }
 
 
+    class ProduceFinder : public IRGraphVisitor {
+      public:
+
+        using IRGraphVisitor::visit;
+
+        const ProducerConsumer* r;
+        string target;
+
+        ProduceFinder(const std::string& target_) : r(nullptr), target(target_) {}
+
+        void visit(const ProducerConsumer* rl) override {
+          cout << "Searching realize: " << rl->name << " for " << target << endl;
+          if (rl->name == target && rl->is_producer) {
+            r = rl;
+          } else {
+            rl->body->accept(this);
+          }
+        }
+    };
+
     class RealizeFinder : public IRGraphVisitor {
       public:
 
@@ -524,7 +544,15 @@ namespace Halide {
         auto m = ns->newModuleDecl("m", mtp);
         auto mDef = m->newModuleDef();
 
-        RealizeFinder rFinder("hw_output");
+        string hw_name = "";
+        for (auto f : env) {
+          if (f.second.schedule().is_accelerator_output()) {
+            hw_name = f.first;
+            break;
+          }
+        }
+        internal_assert(hw_name != "") << "No function to accelerate\n";
+        ProduceFinder rFinder(hw_name);
         replaced->accept(&rFinder);
         internal_assert(rFinder.r != nullptr);
 

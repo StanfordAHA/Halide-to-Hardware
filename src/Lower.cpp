@@ -222,10 +222,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
+    if (t.has_feature(Target::CoreIR)) {
+      generate_compute_unit(s, env);
+    }
+
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
-      generate_compute_unit(s, env);
       //s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
       //cout << "Pre-unrolled: " << endl;
       //cout << s << endl;
