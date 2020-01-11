@@ -1920,8 +1920,9 @@ class InstructionCollector : public IRGraphVisitor {
     }
 };
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args);
-//CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
+    StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args);
 
 void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
@@ -2113,14 +2114,16 @@ void addDynamicStencilReads(HWFunction& f) {
 }
 
 //HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
-HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const Stmt& perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
+HWFunction buildHWBody(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
+    StencilInfo& info, const std::string& name, const Stmt& perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
-  //auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
-  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
+  auto design_type = moduleTypeForKernel(context, hwInfo, info, perfectNest, args);
+  cout << "Module Type: " << coreStr(design_type) << endl;
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
@@ -3086,7 +3089,9 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 }
 
 //CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args) {
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
+    StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
@@ -5790,8 +5795,6 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   }
 }
 
-// Now: Need to print out arguments and their info, actually use the arguments to form
-// the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     HardwareInfo& hwInfo,
     Stmt stmt,
@@ -5826,36 +5829,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     auto def = topMod->newModuleDef();
 
-    //StencilInfoCollector scl;
-    StencilInfo info;
+    StencilInfoCollector scl;
+    StoreCollector stCollector;
 
-    //HWFunction f =
-      //buildHWBody(context,
-          //scl.info, "compute_kernel", lp, args, stCollector);
-
-    //// Connects up all control paths in the design
-    //HWFunction& f = fp.second;
-    //insertCriticalPathTargetRegisters(hwInfo, f);
-    //ComputeKernel compK = moduleForKernel(scl.info, f);
-    //auto m = compK.mod;
-
-    //cout << "Module before optimization" << endl;
-    //m->print();
-
-
-    //removeUnconnectedInstances(m->getDef());
-    //removeUnusedInstances(m->getDef());
-
-    //cout << "Module after optimization" << endl;
-    //m->print();
-    //auto kI = def->addInstance("compute_module_" + m->getName(), m);
-    //def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
-    //context->runPasses({"rungenerators"});
-    //vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
-    //flattenExcluding(context, generatorNames);
-    //context->runPasses({"deletedeadinstances"});
-
-    //cout << "Setting definition of topMod..." << endl;
+    HWFunction f =
+      buildHWBody(context,
+          hwInfo,
+          scl.info,
+          "compute_kernel",
+          stmt,
+          args,
+          stCollector);
 
     topMod->setDef(def);
     return topMod;
@@ -5942,7 +5926,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
       Stmt lpB = For::make(lp->name, lp->min, lp->extent, lp->for_type, lp->device_api, lp->body);
       // Actual scheduling here
-      HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lpB, args, stCollector);
+      HWFunction f = buildHWBody(context, hwInfo, scl.info, "compute_kernel_" + std::to_string(kernelN), lpB, args, stCollector);
 
       functions[lp] = f;
 

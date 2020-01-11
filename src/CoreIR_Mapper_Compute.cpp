@@ -83,8 +83,8 @@ namespace Halide {
         Expr visit(const Call* p) override {
           callNums[p] = ld_inst;
           auto fresh = Call::make(p->type,
-              "compute_input",
-              {Expr(ld_inst)},
+              "compute_input.stencil",
+              {Expr(0), Expr(ld_inst)},
               p->call_type);
 
           ld_inst++;
@@ -97,7 +97,7 @@ namespace Halide {
           for (auto v : p->values) {
             vals.push_back(this->mutate(v));
           }
-          auto fresh = Provide::make("compute_result", vals, {Expr(st_inst)});
+          auto fresh = Provide::make("compute_result.stencil", vals, {Expr(0), Expr(st_inst)});
           st_inst++;
           return fresh;
         }
