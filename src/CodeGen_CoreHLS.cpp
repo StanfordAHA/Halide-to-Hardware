@@ -3088,78 +3088,83 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   cout << "Done building connections in body" << endl;
 }
 
-//CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
 CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
     HardwareInfo& hwInfo,
     StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
-  StencilInfoCollector lpInfo;
-  //lp->accept(&lpInfo);
-  stmt.accept(&lpInfo);
 
-  std::set<string> inStreams;
-  std::set<string> outStreams;
+  if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
+    StencilInfoCollector lpInfo;
+    stmt.accept(&lpInfo);
 
-  for (auto v : lpInfo.info.streamReads) {
-    inStreams.insert(v.first);
-  }
-  for (auto v : lpInfo.info.streamWrites) {
-    outStreams.insert(v.first);
-  }
+    std::set<string> inStreams;
+    std::set<string> outStreams;
 
-  //for (auto v : extractHardwareVars(lp)) {
-  for (auto v : extractHardwareVars(stmt)) {
-    string vName = coreirSanitize(v);
-    tps.push_back({vName, context->BitIn()->Arr(16)});
-  }
+    for (auto v : lpInfo.info.streamReads) {
+      inStreams.insert(v.first);
+    }
+    for (auto v : lpInfo.info.streamWrites) {
+      outStreams.insert(v.first);
+    }
 
-  for (auto arg : args) {
-    if (!arg.is_stencil) {
-      string vName = coreirSanitize(arg.name);
-      if (!arg.is_output) {
-        tps.push_back({vName, context->Bit()->Arr(16)});
-      } else {
-        tps.push_back({vName, context->BitIn()->Arr(16)});
+    for (auto v : extractHardwareVars(stmt)) {
+      string vName = coreirSanitize(v);
+      tps.push_back({vName, context->BitIn()->Arr(16)});
+    }
+
+    for (auto arg : args) {
+      if (!arg.is_stencil) {
+        string vName = coreirSanitize(arg.name);
+        if (!arg.is_output) {
+          tps.push_back({vName, context->Bit()->Arr(16)});
+        } else {
+          tps.push_back({vName, context->BitIn()->Arr(16)});
+        }
       }
     }
-  }
 
-  //cout << "Current stencils..." << endl;
-  //cout << stencils << endl;
-  cout << "All input streams" << endl;
-  for (auto is : inStreams) {
-    cout << "\t\t" << is << endl;
-    vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
-    cout << "\tDispatch info..." << endl;
-    vector<int> windowRngs = getStreamDims(is, info);
-    vector<int> windowDims = getDimRanges(windowRngs);
-    CoreIR::Type* base = context->BitIn()->Arr(16);
-    for (auto d : windowDims) {
-      base = base->Arr(d);
+    //cout << "Current stencils..." << endl;
+    //cout << stencils << endl;
+    cout << "All input streams" << endl;
+    for (auto is : inStreams) {
+      cout << "\t\t" << is << endl;
+      vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
+      cout << "\tDispatch info..." << endl;
+      vector<int> windowRngs = getStreamDims(is, info);
+      vector<int> windowDims = getDimRanges(windowRngs);
+      CoreIR::Type* base = context->BitIn()->Arr(16);
+      for (auto d : windowDims) {
+        base = base->Arr(d);
+      }
+
+      string inName = is;
+      replaceAll(inName, ".", "_");
+      tps.push_back({inName, base});
     }
+    cout << "All output streams" << endl;
+    for (auto is : outStreams) {
+      cout << "\t\t" << is << endl;
 
-    string inName = is;
-    replaceAll(inName, ".", "_");
-    tps.push_back({inName, base});
-  }
-  cout << "All output streams" << endl;
-  for (auto is : outStreams) {
-    cout << "\t\t" << is << endl;
+      vector<int> rgs = getStreamDims(is, info);
+      vector<int> windowDims = getDimRanges(rgs);
+      CoreIR::Type* base = context->Bit()->Arr(16);
+      for (auto d : windowDims) {
+        base = base->Arr(d);
+      }
 
-    vector<int> rgs = getStreamDims(is, info);
-    vector<int> windowDims = getDimRanges(rgs);
-    CoreIR::Type* base = context->Bit()->Arr(16);
-    for (auto d : windowDims) {
-      base = base->Arr(d);
+      string inName = is;
+      replaceAll(inName, ".", "_");
+      tps.push_back({inName, base});
     }
-
-    string inName = is;
-    replaceAll(inName, ".", "_");
-    tps.push_back({inName, base});
+  } else {
+    internal_assert(HW_INTERFACE_POLICY_COMPUTE_UNIT); 
+    for (auto arg : args) {
+      int arLen = 20;
+      tps.push_back({arg.name, context->BitIn()->Arr(16)->Arr(arLen)});
+    }
   }
-
   tps.push_back({"in_en", context->BitIn()});
   tps.push_back({"valid", context->Bit()});
   CoreIR::Type* design_type = context->Record(tps);
