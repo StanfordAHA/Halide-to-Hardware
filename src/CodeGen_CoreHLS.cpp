@@ -4,7 +4,7 @@
 #include <algorithm>
 
 // Trigger another garnetbuild
-//
+// And another one
 #include "CodeGen_CoreHLS.h"
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
