@@ -641,6 +641,20 @@ std::set<std::string> getDefinedVars(const For* f) {
   return ex.defined;
 }
 
+std::set<std::string> getDefinedVars(const Stmt& f) {
+  DefinedVarExtractor ex;
+  f.accept(&ex);
+  return ex.defined;
+}
+
+vector<std::string> extractHardwareVars(const Stmt& stmt) {
+  std::set<std::string> vars = getDefinedVars(stmt);
+  HWVarExtractor ex;
+  ex.defined = vars;
+  stmt.accept(&ex);
+  return ex.hwVars;
+}
+
 vector<std::string> extractHardwareVars(const For* lp) {
   std::set<std::string> vars = getDefinedVars(lp);
   HWVarExtractor ex;
@@ -1906,7 +1920,8 @@ class InstructionCollector : public IRGraphVisitor {
     }
 };
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args);
+//CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
 
 void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
@@ -2099,20 +2114,18 @@ void addDynamicStencilReads(HWFunction& f) {
 
 HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
-  //OuterLoopSeparator sep;
-  //perfectNest->body.accept(&sep);
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
-  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
+  //auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
+  auto design_type = moduleTypeForKernel(context, info, perfectNest->body, args);
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
   perfectNest->accept(&collector);
-  //sep.body.accept(&collector);
 
   auto f = collector.f;
 
@@ -2142,11 +2155,6 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   divToShift(f);
   modToShift(f);
   addDynamicStencilReads(f);
-  //cout << "After stream read conversion..." << endl;
-  //for (auto instr : body) {
-  //cout << "\t\t\t" << *instr << endl;
-  //}
-  //return collector.f;
   return f;
 }
 
@@ -3076,12 +3084,14 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   cout << "Done building connections in body" << endl;
 }
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
+//CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
   StencilInfoCollector lpInfo;
-  lp->accept(&lpInfo);
+  //lp->accept(&lpInfo);
+  stmt.accept(&lpInfo);
 
   std::set<string> inStreams;
   std::set<string> outStreams;
@@ -3093,7 +3103,8 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, c
     outStreams.insert(v.first);
   }
 
-  for (auto v : extractHardwareVars(lp)) {
+  //for (auto v : extractHardwareVars(lp)) {
+  for (auto v : extractHardwareVars(stmt)) {
     string vName = coreirSanitize(v);
     tps.push_back({vName, context->BitIn()->Arr(16)});
   }
@@ -5801,13 +5812,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   auto output_name = ifc.output_name;
   auto topType = ifc.designType;
   auto global_ns = context->getNamespace("global");
-  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
-  cout << "Before creating definition.." << endl;
-  topMod->print();
 
   if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT) {
-    stmt = preprocessHWLoops(stmt);
-
+    CoreIR::Module* topMod = global_ns->newModuleDecl(name, topType);
     cout << "Emitting kernel for " << name << endl;
     cout << "\tStmt is = " << endl;
     cout << stmt << endl;
@@ -5819,7 +5826,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     auto def = topMod->newModuleDef();
 
     //StencilInfoCollector scl;
-    //StencilInfo info;
+    StencilInfo info;
 
     //HWFunction f =
       //buildHWBody(context,
@@ -5852,6 +5859,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     topMod->setDef(def);
     return topMod;
   } else {
+    CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+    cout << "Before creating definition.." << endl;
+    topMod->print();
     // Maybe what I should do is build a json file here which
     // stores the alias maps as well as the stencil types
     // and then use that to build a test case which automatically
