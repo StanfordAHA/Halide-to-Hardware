@@ -3161,10 +3161,38 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
   } else {
     internal_assert(HW_INTERFACE_POLICY_COMPUTE_UNIT); 
     for (auto arg : args) {
-      int arLen = 20;
-      tps.push_back({arg.name, context->BitIn()->Arr(16)->Arr(arLen)});
+      internal_assert(arg.is_stencil) << arg.name << " is not a stencil\n";
+      
+      auto stype = arg.stencil_type;
+
+      vector<uint> indices;
+      for(const auto &range : stype.bounds) {
+        internal_assert(is_const(range.extent));
+        indices.push_back(func_id_const_value(range.extent));
+      }
+
+      if (arg.is_output) {
+        uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+        internal_assert(out_bitwidth > 0);
+        
+        CoreIR::Type* output_type = out_bitwidth > 1 ? context->BitIn()->Arr(out_bitwidth) : context->BitIn();
+        for (uint i=0; i<indices.size(); ++i) {
+          output_type = output_type->Arr(indices[i]);
+        }
+        string output_name_real = coreirSanitize(arg.name);
+        tps.push_back({output_name_real, output_type});
+
+      } else {
+        uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+        CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+        for (uint i=0; i<indices.size(); ++i) {
+          input_type = input_type->Arr(indices[i]);
+        }
+        tps.push_back({coreirSanitize(arg.name), input_type});
+      }
     }
   }
+
   tps.push_back({"in_en", context->BitIn()});
   tps.push_back({"valid", context->Bit()});
   CoreIR::Type* design_type = context->Record(tps);
