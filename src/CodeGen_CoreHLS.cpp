@@ -3169,6 +3169,8 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
       for(const auto &range : stype.bounds) {
         internal_assert(is_const(range.extent));
         indices.push_back(func_id_const_value(range.extent));
+        info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.min)));
+        info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.extent)));
       }
 
       if (arg.is_output) {
@@ -3706,7 +3708,10 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
   std::set<std::string> streamUsers = streamsThatUseStencil(stencilName, info);
   std::set<std::string> streamsInF = allStreamNames(f);
   std::set<std::string> streamUsersInF = CoreIR::intersection(streamUsers, streamsInF);
-  internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  //internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  if (streamUsersInF.size() == 0) {
+    return getStreamDims(stencilName, info);
+  }
   cout << "Streams that use " << stencilName << "..." << endl;
   for (auto user : streamUsersInF) {
     cout << "\t" << user << endl;
