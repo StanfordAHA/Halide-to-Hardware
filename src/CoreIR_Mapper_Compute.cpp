@@ -540,98 +540,102 @@ namespace Halide {
         CoreIR::Context* context = newContext();
         auto ns = context->getNamespace("global");
 
-        RecordType* mtp = context->Record({{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}});
-        auto m = ns->newModuleDecl("m", mtp);
-        auto mDef = m->newModuleDef();
-
         string hw_name = "";
         for (auto f : env) {
+          cout << "Checking f: " << f.first << " to see if it is accelerator output" << endl;
           if (f.second.schedule().is_accelerator_output()) {
             hw_name = f.first;
             break;
           }
         }
-        internal_assert(hw_name != "") << "No function to accelerate\n";
-        ProduceFinder rFinder(hw_name);
-        replaced->accept(&rFinder);
-        internal_assert(rFinder.r != nullptr);
+        if (hw_name != "") {
+          internal_assert(hw_name != "") << "No function to accelerate\n";
 
-        FuncOpCollector mic;
-        replaced.accept(&mic);
+          RecordType* mtp = context->Record({{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}});
+          auto m = ns->newModuleDecl("m", mtp);
+          auto mDef = m->newModuleDef();
 
-        cout << "--- Hardware buffers" << endl;
-        for (auto bufInfo : mic.hwbuffers()) {
-          AbstractBuffer buf = bufInfo.second;
-          cout << "\tFound buffer: " << buf.name << endl;
-          vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
-          cout << "\t\tReads..." << endl;
-          for (auto rd : buf.read_ports) {
-            //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
-            ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
-            ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
+          ProduceFinder rFinder(hw_name);
+          replaced->accept(&rFinder);
+          internal_assert(rFinder.r != nullptr);
+
+          FuncOpCollector mic;
+          replaced.accept(&mic);
+
+          cout << "--- Hardware buffers" << endl;
+          for (auto bufInfo : mic.hwbuffers()) {
+            AbstractBuffer buf = bufInfo.second;
+            cout << "\tFound buffer: " << buf.name << endl;
+            vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
+            cout << "\t\tReads..." << endl;
+            for (auto rd : buf.read_ports) {
+              //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
+              ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
+              ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
+            }
+            cout << "\t\tWrites..." << endl;
+            for (auto rd : buf.write_ports) {
+              //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
+              ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
+              ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
+            }
+
+            RecordType* utp = context->Record(ubuffer_fields);
+            CoreIR::Module* ubuffer = ns->newModuleDecl("unified_buffer_" + buf.name, utp);
+            auto def = ubuffer->newModuleDef();
+            synthesize_ubuffer(def, buf);
+            ubuffer->setDef(def);
+
+            cout << "Unified buffer..." << endl;
+            ubuffer->print();
+
+            mDef->addInstance("ubuffer_" + buf.name, "global.unified_buffer_" + buf.name);
           }
-          cout << "\t\tWrites..." << endl;
-          for (auto rd : buf.write_ports) {
-            //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
-            ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
-            ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
+
+          vector<pair<string, CoreIR::Type*> > compute_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
+          ComputeExtractor ce;
+          Stmt compute_only = simplify(ce.mutate(rFinder.r->body));
+          cout << "Compute logic..." << endl;
+          cout << compute_only << endl;
+          HardwareInfo info;
+          info.interfacePolicy =
+            HW_INTERFACE_POLICY_COMPUTE_UNIT;
+
+          Expr inLen((int) ce.callNums.size());
+          Range rng(Expr((int) 0), inLen);
+          vector<CoreIR_Argument> compute_args;
+          Stencil_Type inTp{Stencil_Type::StencilContainerType::AxiStream,
+            Int(16),
+            {rng},
+            0};
+          compute_args.push_back({"compute_in", true, false, Int(16), inTp});
+
+          Expr outLen((int) ce.provideNums.size());
+          Range outRng(Expr((int) 0), outLen);
+          Stencil_Type outTp{Stencil_Type::StencilContainerType::AxiStream,
+            Int(16),
+            {outRng},
+            0};
+          compute_args.push_back({"compute_out", true, true, Int(16), outTp});
+          auto compute_unit =
+            createCoreIRForStmt(context, info, compute_only, "compute_unit", compute_args);
+          mDef->addInstance("compute_unit", compute_unit);
+
+          Closure interface;
+          rFinder.r->body.accept(&interface);
+          cout << "Interface..." << endl;
+          cout << "\tExternal vars..." << endl;
+          for (auto v : interface.vars) {
+            cout << "\t\t" << v.first << endl;
           }
 
-          RecordType* utp = context->Record(ubuffer_fields);
-          CoreIR::Module* ubuffer = ns->newModuleDecl("unified_buffer_" + buf.name, utp);
-          auto def = ubuffer->newModuleDef();
-          synthesize_ubuffer(def, buf);
-          ubuffer->setDef(def);
+          //cout << "\t# external buffers = " << interface.buffers.size() << endl;
+          //internal_assert(interface.buffers.size() == 0);
 
-          cout << "Unified buffer..." << endl;
-          ubuffer->print();
-
-          mDef->addInstance("ubuffer_" + buf.name, "global.unified_buffer_" + buf.name);
+          m->setDef(mDef);
+          cout << "Output module" << endl;
+          m->print();
         }
-
-        vector<pair<string, CoreIR::Type*> > compute_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
-        ComputeExtractor ce;
-        Stmt compute_only = simplify(ce.mutate(rFinder.r->body));
-        cout << "Compute logic..." << endl;
-        cout << compute_only << endl;
-        HardwareInfo info;
-        info.interfacePolicy =
-          HW_INTERFACE_POLICY_COMPUTE_UNIT;
-
-        Expr inLen((int) ce.callNums.size());
-        Range rng(Expr((int) 0), inLen);
-        vector<CoreIR_Argument> compute_args;
-        Stencil_Type inTp{Stencil_Type::StencilContainerType::AxiStream,
-          Int(16),
-          {rng},
-          0};
-        compute_args.push_back({"compute_in", true, false, Int(16), inTp});
-
-        Expr outLen((int) ce.provideNums.size());
-        Range outRng(Expr((int) 0), outLen);
-        Stencil_Type outTp{Stencil_Type::StencilContainerType::AxiStream,
-          Int(16),
-          {outRng},
-          0};
-        compute_args.push_back({"compute_out", true, true, Int(16), outTp});
-        auto compute_unit =
-          createCoreIRForStmt(context, info, compute_only, "compute_unit", compute_args);
-        mDef->addInstance("compute_unit", compute_unit);
-
-        Closure interface;
-        rFinder.r->body.accept(&interface);
-        cout << "Interface..." << endl;
-        cout << "\tExternal vars..." << endl;
-        for (auto v : interface.vars) {
-          cout << "\t\t" << v.first << endl;
-        }
-
-        //cout << "\t# external buffers = " << interface.buffers.size() << endl;
-        //internal_assert(interface.buffers.size() == 0);
-
-        m->setDef(mDef);
-        cout << "Output module" << endl;
-        m->print();
 
         deleteContext(context);
       }

@@ -2357,7 +2357,7 @@ void curve_lookup_test() {
   hw_output.print_loop_nest();
   auto context = hwContext();
   vector<Argument> args{input};
-  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
+  auto m = buildModule(context, "camera_pipe_coreir", args, "camera_pipeline", hw_output);
 
   cout << "Module..." << endl;
   cout << m << endl;

@@ -5793,7 +5793,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto a : args) {
     cout << "\t" << a.name << endl;
   }
- 
+
   // Build top level interface
   AcceleratorInterface ifc = topLevelType(context, args);
   auto inputAliases = ifc.inputAliases;
@@ -5804,6 +5804,10 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
   cout << "Before creating definition.." << endl;
   topMod->print();
+
+  if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT) {
+    return topMod;
+  }
   // Maybe what I should do is build a json file here which
   // stores the alias maps as well as the stencil types
   // and then use that to build a test case which automatically
