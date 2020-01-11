@@ -2,6 +2,9 @@
 
 #include "coreir.h"
 
+#include "coreir/libs/commonlib.h"
+#include "coreir/libs/float.h"
+
 #include "CodeGen_CoreIR_Target.h"
 #include "CodeGen_CoreHLS.h"
 
@@ -539,6 +542,7 @@ namespace Halide {
       {
         CoreIR::Context* context = newContext();
         loadHalideLib(context);
+        CoreIRLoadLibrary_commonlib(context);
         auto ns = context->getNamespace("global");
 
         string hw_name = "";

@@ -52,6 +52,8 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+vector<int> getStencilDims(const std::string& name, StencilInfo& info);
+
 bool operator==(const HWInstr& a, const HWInstr& b) {
   if (a.tp != b.tp) {
     return false;
@@ -2150,6 +2152,24 @@ HWFunction buildHWBody(CoreIR::Context* context,
   cout << "Before opts..." << endl;
   cout << f << endl;
 
+  for (auto instr : f.structuredOrder()) {
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_VAR) {
+        if (op->resType == nullptr) {
+          if (ends_with(op->name, ".stencil")) {
+            cout << op->compactString() << " has null type\n";
+            vector<int> dims = getStencilDims(op->name, info);
+            vector<int> sizes = getDimRanges(dims);
+            auto tp = f.mod->getContext()->Bit()->Arr(16);
+            for (auto d : sizes) {
+              tp = tp->Arr(d);
+            }
+            op->resType = tp;
+          }
+        }
+      }
+    }
+  }
   removeBadStores(stCollector, f);
   valueConvertStreamReads(info, f);
   cout << "After valueconver stream reads..." << endl;
@@ -2832,7 +2852,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //}
         }
       } else {
-        internal_assert(!f.isLocalVariable(name));
+        //internal_assert(!f.isLocalVariable(name)) << name << " is a local variable!\n";
       }
     }
   }
@@ -3745,7 +3765,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : f.structuredOrder()) {
     if (isCall("provide", instr)) {
-      string target = instr->operands[0]->compactString();
+      string target = instr->operands[0]->name;
+      //->compactString();
       provides[target].push_back(instr);
       stencilDecls[target] = instr;
     }
@@ -3800,6 +3821,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       //internal_assert(refresh->resType != nullptr) << refresh->compactString() << " has null result type\n";
 
       provideNum++;
+      cout << "Replace: " << instr->compactString() << " with: " << refresh->compactString() << endl;
       provideReplacements[instr] = refresh;
       provideReplacementSet.insert(refresh);
     }
@@ -3906,64 +3928,25 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
     cout << "After replacing references to " << p.first << endl;
     cout << f << endl;
+    for (auto instr : f.structuredOrder()) {
+      for (auto op : instr->operands) {
+        if (op->tp == HWINSTR_TP_VAR) {
+          cout << "\tFound op with name: " << op->name << ", searching for " << p.first << endl;
+          string opn = op->name;
+          string target = p.first;
+          cout << "\t\tTarget     : " << target << endl;
+          cout << "\t\tEqual names: " << (op->name == p.first) << endl;
+          cout << "\t\tEqual names: " << (opn == target) << endl;
+          cout << "\t\topn size   : " << opn.size() << endl;
+          cout << "\t\ttarget size: " << target.size() << endl;
+          internal_assert(op->name != p.first) << "reference to " << p.first << " survives in: " << *instr << "\n";
+        }
+      }
+    }
     //internal_assert(false) << "Stopping so dillon can view\n";
   }
 
 
-  //cout << "Provides" << endl;
-  //for (auto pr : provides) {
-    //auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
-    //auto provideName = provideValue->operands[0]->compactString();
-
-    //vector<int> dims = stencilDimsInBody(info, f, provideName);
-    //vector<HWInstr*> initialSets;
-    //for (auto instr : pr.second) {
-      //auto operands = instr->operands;
-      //if (allConst(1, operands.size(), operands)) {
-        //initialSets.push_back(instr);
-      //} else {
-        //break;
-      //}
-    //}
-
-    //HWInstr* initInstr = f.newI();
-    //initInstr->name = "init_stencil_" + pr.first;
-    //initInstr->operands = {};
-
-    //initInstr->operands.push_back(f.newConst(32, dims.size()));
-    //cout << "Dims of " << provideName << endl;
-    //for (auto c : dims) {
-      //cout << "\t" << c << endl;
-      //initInstr->operands.push_back(f.newConst(32, c));
-    //}
-
-    //for (auto initI : initialSets) {
-      //for (int i = 1; i < (int) initI->operands.size(); i++) {
-        //initInstr->operands.push_back(initI->operands[i]);
-      //}
-    //}
-
-    //initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
-    //f.insert(0, initInstr);
-    //// Assume that initInstr has same containing loops as the first instruction
-    //// in the HWFunction
-    //internal_assert(f.structuredOrder().size() > 0);
-    //HWInstr* activeProvide = initInstr;
-    //f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
-    //cout << "done with set values..." << endl;
-    //int provideNum = 0;
-    //for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
-      //auto instr = pr.second[i];
-      //cout << "\t\t" << *instr << endl;
-      //auto refresh = f.newI(instr);
-      //refresh->operands = instr->operands;
-      //refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
-      //f.insertAt(instr, refresh);
-      //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
-      //activeProvide = refresh;
-      //provideNum++;
-    //}
-  //}
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {

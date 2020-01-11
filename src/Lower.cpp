@@ -223,7 +223,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
     if (t.has_feature(Target::CoreIR)) {
-      generate_compute_unit(s, env);
+      //generate_compute_unit(s, env);
     }
 
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
