@@ -1554,10 +1554,11 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     HWInstr* varI(const std::string& name) {
-      auto nI = newI();
-      nI->tp = HWINSTR_TP_VAR;
-      nI->name = name;
-      return nI;
+      return f.newVar(name);
+      //auto nI = newI();
+      //nI->tp = HWINSTR_TP_VAR;
+      //nI->name = name;
+      //return nI;
     }
 
     void visit(const UIntImm* imm) override {
@@ -1608,10 +1609,11 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Provide* p) override {
 
       vector<HWInstr*> operands;
-      auto nameConst = newI();
-      //nameConst->strConst = p->name;
-      nameConst->name = p->name;
-      nameConst->tp = HWINSTR_TP_VAR;
+      auto nameConst = f.newVar(p->name);
+      //auto nameConst = newI();
+      ////nameConst->strConst = p->name;
+      //nameConst->name = p->name;
+      //nameConst->tp = HWINSTR_TP_VAR;
       operands.push_back(nameConst);
       for (size_t i = 0; i < p->values.size(); i++) {
         auto v = codegen(p->values[i]);
@@ -1651,9 +1653,10 @@ class InstructionCollector : public IRGraphVisitor {
 
       cout << "Creating hwinstruction variable " << v->name << " that is not currently in vars" << endl;
       IRGraphVisitor::visit(v);
-      auto ist = newI();
-      ist->name = v->name;
-      ist->tp = HWINSTR_TP_VAR;
+      auto ist = f.newVar(v->name);
+
+      //ist->name = v->name;
+      //ist->tp = HWINSTR_TP_VAR;
       ist->setSigned(!(v->type.is_uint()));
       vars[v->name] = ist;
 
@@ -1895,8 +1898,9 @@ class InstructionCollector : public IRGraphVisitor {
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
-        auto callOp = newI();
-        callOp->tp = HWINSTR_TP_VAR;
+        auto callOp = f.newVar(op->name);
+        //auto callOp = newI();
+        //callOp->tp = HWINSTR_TP_VAR;
         callOp->name = calledStencil;
         //callOp->setSigned(!(op->type.is_uint()));
         //cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
@@ -2971,15 +2975,6 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   auto& unitMapping = m.unitMapping;
 
   auto self = def->sel("self");
-  // This should be removed and it should be replaced with valid signals wired up
-  // from the write stream output of the kernel, whose delay is by construction equal
-  // to the number of stages in the design
-  // New algo: Collect read and write instructions
-  // then check that they are all in the same loop level
-  // check that all reads are in the same schedule position
-  // then find the gap between a read instance and a write instance
-  // (this gap should be constant if they are all in the same loop level)
-  // then create the delay that is needed
   cout << "Wiring up enables" << endl;
   set<HWInstr*> streamReads = allInstrs("rd_stream", sched.body());
   set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
@@ -3573,10 +3568,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   }
 
   //cout << "All loads..." << endl;
-  // Now: Here I want to create a new instance inside the moduledef which
-  // will represent the ram, and it will have a generator based on the number of different loads
-  // each load is going to get its own port, which will be indicated by an argument?
-  // And then that will allow loads and stores to different regions
   auto def = f.getDef();
   auto context = def->getContext();
 

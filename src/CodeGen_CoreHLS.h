@@ -221,11 +221,16 @@ class HWFunction {
       ist->constValue = std::to_string(value);
       return ist;
     }
+
     HWInstr* newVar(const std::string& name) {
       auto ist = newI();
       ist->latency = 0;
       ist->tp = HWINSTR_TP_VAR;
       ist->name = name;
+      if (!isLocalVariable(name)) {
+        CoreIR::Type* tp = mod->getType()->getRecord().at(name);
+        ist->resType = tp;
+      }
       return ist;
     }
 
