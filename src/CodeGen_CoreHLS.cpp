@@ -1610,10 +1610,7 @@ class InstructionCollector : public IRGraphVisitor {
 
       vector<HWInstr*> operands;
       auto nameConst = f.newVar(p->name);
-      //auto nameConst = newI();
-      ////nameConst->strConst = p->name;
-      //nameConst->name = p->name;
-      //nameConst->tp = HWINSTR_TP_VAR;
+      //internal_assert(nameConst->resType != nullptr) << nameConst->compactString() << " has null result type\n";
       operands.push_back(nameConst);
       for (size_t i = 0; i < p->values.size(); i++) {
         auto v = codegen(p->values[i]);
@@ -2157,7 +2154,9 @@ HWFunction buildHWBody(CoreIR::Context* context,
   valueConvertStreamReads(info, f);
   cout << "After valueconver stream reads..." << endl;
   cout << f << endl;
-  valueConvertProvides(info, f);
+  if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
+    valueConvertProvides(info, f);
+  }
   removeWriteStreamArgs(info, f);
   divToShift(f);
   modToShift(f);
@@ -2574,7 +2573,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         if (dimRanges.size() == 3) {
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
-          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
 
           stencilRanges[instr] = dimRanges;
@@ -2586,7 +2584,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
           int selChan = instr->getOperand(4)->toInt();
-          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
 
           stencilRanges[instr] = dimRanges;
@@ -2632,7 +2629,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
@@ -2648,10 +2644,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
           int selChan = instr->getOperand(3)->toInt();
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
-              //"halidehw.stencil_read_3",
-              //{{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
-              //{"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
               "halidehw.stencil_read_3",
               {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])},
@@ -2693,6 +2685,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         Instance* inst = pipelineRegister(context, def, rname, tp);
         unitMapping[instr] = inst;
         instrValues[instr] = inst->sel("out");
+      } else if (name == "provide") {
+
       } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
@@ -3012,6 +3006,16 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body()) {
+    if (instr->name == "provide") {
+      internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_VAR); 
+      string output_port = coreirSanitize(instr->operands[0]->name);
+      auto pt = def->sel("self")->sel(output_port);
+      for (size_t i = instr->operands.size() - 1; i >= 2; i--) {
+        pt = pt->sel(instr->getOperand(i)->toInt());
+      }
+      def->connect(pt, m.valueAtStart(instr->operands.at(1), instr));
+      continue;
+    }
     internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit mapping for " << *instr << "\n";
     CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
@@ -3171,7 +3175,7 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
         uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
         internal_assert(out_bitwidth > 0);
         
-        CoreIR::Type* output_type = out_bitwidth > 1 ? context->BitIn()->Arr(out_bitwidth) : context->BitIn();
+        CoreIR::Type* output_type = out_bitwidth > 1 ? context->Bit()->Arr(out_bitwidth) : context->Bit();
         for (uint i=0; i<indices.size(); ++i) {
           output_type = output_type->Arr(indices[i]);
         }
@@ -3784,9 +3788,17 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     set<HWInstr*> provideReplacementSet;
     int provideNum = 0;
     for (auto instr : p.second) {
+      //internal_assert(instr->resType != nullptr) << instr->compactString() << " has null result type\n";
       auto refresh = f.newI(instr);
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + std::to_string(provideNum);
+
+      //internal_assert(instr->operands[0]->resType != nullptr) << instr->operands[0]->compactString() << " has null result type\n";
+      
+      refresh->resType = instr->operands[0]->resType;
+      
+      //internal_assert(refresh->resType != nullptr) << refresh->compactString() << " has null result type\n";
+
       provideNum++;
       provideReplacements[instr] = refresh;
       provideReplacementSet.insert(refresh);
@@ -3868,7 +3880,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       }
       if (elem(instr, provideReplacementSet)) {
         instr->resType = instr->getOperand(0)->resType;
-        internal_assert(instr->resType != nullptr);
+        internal_assert(instr->resType != nullptr) << instr->compactString() << " has null resType\n";
       }
     }
     // Now: find all reverse phis

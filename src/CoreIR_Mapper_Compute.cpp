@@ -610,7 +610,7 @@ namespace Halide {
             Int(16),
             {z, rng},
             0};
-          compute_args.push_back({"compute_in", true, false, Int(16), inTp});
+          compute_args.push_back({"compute_input.stencil", true, false, Int(16), inTp});
 
           Expr outLen((int) ce.provideNums.size());
           Range outRng(Expr((int) 0), outLen);
@@ -618,7 +618,7 @@ namespace Halide {
             Int(16),
             {z, outRng},
             0};
-          compute_args.push_back({"compute_out", true, true, Int(16), outTp});
+          compute_args.push_back({"compute_result.stencil", true, true, Int(16), outTp});
           auto compute_unit =
             createCoreIRForStmt(context, info, compute_only, "compute_unit", compute_args);
           mDef->addInstance("compute_unit", compute_unit);
