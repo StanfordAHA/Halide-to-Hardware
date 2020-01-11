@@ -2113,7 +2113,6 @@ void addDynamicStencilReads(HWFunction& f) {
   }
 }
 
-//HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 HWFunction buildHWBody(CoreIR::Context* context,
     HardwareInfo& hwInfo,
     StencilInfo& info, const std::string& name, const Stmt& perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
@@ -3378,8 +3377,8 @@ int tripCountInt(const std::string& var, HWFunction& f) {
       }
     }
   }
-  internal_assert(false);
-  return -1;
+
+  return 1;
 }
 
 int headerLatencyInt(const std::string& name, HWFunction& f, FunctionSchedule& fSched) {
@@ -3416,6 +3415,10 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   cout << deepest << endl;
 
   vector<string> nestVars = loopNames(deepest);
+  if (nestVars.size() == 0) {
+    return fSched;
+  }
+
   CoreIR::reverse(nestVars);
 
   vector<NestSchedule> schedules;
@@ -4330,15 +4333,17 @@ KernelControlPath controlPathForKernel(HWFunction& f) {
 
   cout << "Wiring up counter enables for " << loopLevelCounters.size() << " loop levels" << endl;
 
-  for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
-    vector<CoreIR::Wireable*> below;
-    for (int j = i + 1; j < (int) loopLevelCounters.size(); j++) {
-      below.push_back(levelAtMax[j]->sel("out"));
+  if (loopLevelCounters.size() > 0) {
+    for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
+      vector<CoreIR::Wireable*> below;
+      for (int j = i + 1; j < (int) loopLevelCounters.size(); j++) {
+        below.push_back(levelAtMax[j]->sel("out"));
+      }
+      CoreIR::Wireable* shouldInc = andList(def, below);
+      def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
     }
-    CoreIR::Wireable* shouldInc = andList(def, below);
-    def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
+    def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
   }
-  def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
   controlPath->setDef(def);
   
@@ -5879,7 +5884,14 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
           args,
           stCollector);
 
+    ComputeKernel compK = moduleForKernel(scl.info, f);
+
+    def->addInstance("compute_kernel", compK.mod);
     topMod->setDef(def);
+
+    cout << "Top module for compute kernel..." << endl;
+    topMod->print();
+
     return topMod;
   } else {
     CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);

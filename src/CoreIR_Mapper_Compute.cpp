@@ -538,6 +538,7 @@ namespace Halide {
 
       {
         CoreIR::Context* context = newContext();
+        loadHalideLib(context);
         auto ns = context->getNamespace("global");
 
         string hw_name = "";
@@ -603,10 +604,11 @@ namespace Halide {
 
           Expr inLen((int) ce.callNums.size());
           Range rng(Expr((int) 0), inLen);
+          Range z(Expr((int) 0), Expr((int) 1));
           vector<CoreIR_Argument> compute_args;
           Stencil_Type inTp{Stencil_Type::StencilContainerType::AxiStream,
             Int(16),
-            {rng},
+            {z, rng},
             0};
           compute_args.push_back({"compute_in", true, false, Int(16), inTp});
 
@@ -614,7 +616,7 @@ namespace Halide {
           Range outRng(Expr((int) 0), outLen);
           Stencil_Type outTp{Stencil_Type::StencilContainerType::AxiStream,
             Int(16),
-            {outRng},
+            {z, outRng},
             0};
           compute_args.push_back({"compute_out", true, true, Int(16), outTp});
           auto compute_unit =
