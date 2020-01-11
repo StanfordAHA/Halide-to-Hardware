@@ -228,8 +228,10 @@ class HWFunction {
       ist->tp = HWINSTR_TP_VAR;
       ist->name = name;
       if (!isLocalVariable(name)) {
-        CoreIR::Type* tp = mod->getType()->getRecord().at(name);
-        ist->resType = tp;
+        if (contains_key(coreirSanitize(name), mod->getType()->getRecord())) {
+          CoreIR::Type* tp = mod->getType()->getRecord().at(coreirSanitize(name));
+          ist->resType = tp;
+        }
       }
       return ist;
     }
