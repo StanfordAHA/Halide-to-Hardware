@@ -2112,20 +2112,21 @@ void addDynamicStencilReads(HWFunction& f) {
   }
 }
 
-HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
+//HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
+HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const Stmt& perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
   //auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
-  auto design_type = moduleTypeForKernel(context, info, perfectNest->body, args);
+  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
-  perfectNest->accept(&collector);
+  perfectNest.accept(&collector);
 
   auto f = collector.f;
 
@@ -5939,8 +5940,9 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
       cout << "Original body.." << endl;
       cout << lp->body << endl;
 
+      Stmt lpB = For::make(lp->name, lp->min, lp->extent, lp->for_type, lp->device_api, lp->body);
       // Actual scheduling here
-      HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
+      HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lpB, args, stCollector);
 
       functions[lp] = f;
 
