@@ -5806,151 +5806,197 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   topMod->print();
 
   if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT) {
+    stmt = preprocessHWLoops(stmt);
+
+    cout << "Emitting kernel for " << name << endl;
+    cout << "\tStmt is = " << endl;
+    cout << stmt << endl;
+    NestExtractor extractor;
+    stmt.accept(&extractor);
+    internal_assert(extractor.loops.size() == 0);
+
+
+    auto def = topMod->newModuleDef();
+
+    //StencilInfoCollector scl;
+    //StencilInfo info;
+
+    //HWFunction f =
+      //buildHWBody(context,
+          //scl.info, "compute_kernel", lp, args, stCollector);
+
+    //// Connects up all control paths in the design
+    //HWFunction& f = fp.second;
+    //insertCriticalPathTargetRegisters(hwInfo, f);
+    //ComputeKernel compK = moduleForKernel(scl.info, f);
+    //auto m = compK.mod;
+
+    //cout << "Module before optimization" << endl;
+    //m->print();
+
+
+    //removeUnconnectedInstances(m->getDef());
+    //removeUnusedInstances(m->getDef());
+
+    //cout << "Module after optimization" << endl;
+    //m->print();
+    //auto kI = def->addInstance("compute_module_" + m->getName(), m);
+    //def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
+    //context->runPasses({"rungenerators"});
+    //vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
+    //flattenExcluding(context, generatorNames);
+    //context->runPasses({"deletedeadinstances"});
+
+    //cout << "Setting definition of topMod..." << endl;
+
+    topMod->setDef(def);
     return topMod;
-  }
-  // Maybe what I should do is build a json file here which
-  // stores the alias maps as well as the stencil types
-  // and then use that to build a test case which automatically
-  // wraps up the input and output types?
-  Json aliasInfo;
-  auto& a = aliasInfo["aliasMap"];
-  for (auto al : ifc.inputAliases) {
-    a[al.first] = al.second;
-  }
+  } else {
+    // Maybe what I should do is build a json file here which
+    // stores the alias maps as well as the stencil types
+    // and then use that to build a test case which automatically
+    // wraps up the input and output types?
+    Json aliasInfo;
+    auto& a = aliasInfo["aliasMap"];
+    for (auto al : ifc.inputAliases) {
+      a[al.first] = al.second;
+    }
 
-  auto& oname = aliasInfo["outName"];
-  oname[output_name_real] = output_name;
+    auto& oname = aliasInfo["outName"];
+    oname[output_name_real] = output_name;
 
-  auto& ranges = aliasInfo["ranges"];
-  for (auto arg : args) {
-    if (arg.is_stencil) {
-      string name = arg.name;
-      auto& val = ranges[name];
-      auto ranges = arg.stencil_type.bounds;
-      for (auto r : ranges) {
-        val.emplace_back(getConstInt(r.min));
-        val.emplace_back(getConstInt(r.extent));
+    auto& ranges = aliasInfo["ranges"];
+    for (auto arg : args) {
+      if (arg.is_stencil) {
+        string name = arg.name;
+        auto& val = ranges[name];
+        auto ranges = arg.stencil_type.bounds;
+        for (auto r : ranges) {
+          val.emplace_back(getConstInt(r.min));
+          val.emplace_back(getConstInt(r.extent));
+        }
       }
     }
-  }
-  ofstream interfaceInfo("accel_interface_info.json");
-  interfaceInfo << aliasInfo;
-  interfaceInfo.close();
+    ofstream interfaceInfo("accel_interface_info.json");
+    interfaceInfo << aliasInfo;
+    interfaceInfo.close();
 
-  stmt = preprocessHWLoops(stmt);
+    stmt = preprocessHWLoops(stmt);
 
-  // Here: Find all external vars and then replace them with dummies
-  // TODO: Move to preprocess hardware loops, and eliminate when we
-  // need to handle rea parameter passing
-  std::map<string, Expr> dummyVars;
-  for (auto a : args) {
-    if (!a.is_stencil) {
-      dummyVars[a.name] = IntImm::make(a.scalar_type, 0);
+    // Here: Find all external vars and then replace them with dummies
+    // TODO: Move to preprocess hardware loops, and eliminate when we
+    // need to handle rea parameter passing
+    std::map<string, Expr> dummyVars;
+    for (auto a : args) {
+      if (!a.is_stencil) {
+        dummyVars[a.name] = IntImm::make(a.scalar_type, 0);
+      }
     }
+    stmt = substitute(dummyVars, stmt);
+
+    cout << "After substitution..." << endl;
+    cout << stmt << endl;
+
+    //internal_assert(dummyVars.size() == 0);
+    UselessReadRemover readRemover;
+    stmt = readRemover.mutate(stmt);
+
+    StoreCollector stCollector;
+    stmt.accept(&stCollector);
+    printCollectedStores(stCollector);
+
+    cout << "Emitting kernel for " << name << endl;
+    cout << "\tStmt is = " << endl;
+    cout << stmt << endl;
+    NestExtractor extractor;
+    stmt.accept(&extractor);
+
+    StencilInfoCollector scl;
+    stmt.accept(&scl);
+
+    inferStreamTypes(scl);
+
+    //cout << "Stencil info" << endl;
+    StencilInfo info = scl.info;
+
+
+    cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
+    int kernelN = 0;
+    std::map<const For*, ComputeKernel> kernelModules;
+    std::map<const For*, HWFunction> functions;
+    for (const For* lp : extractor.loops) {
+      cout << "\t\tLOOP" << endl;
+      cout << "Original body.." << endl;
+      cout << lp->body << endl;
+
+      // Actual scheduling here
+      HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
+
+      functions[lp] = f;
+
+      kernelN++;
+    }    
+
+    functions = mapFunctionsToCGRA(functions);
+    auto def = topMod->newModuleDef();
+
+    // Connects up all control paths in the design
+    std::map<const For*, CoreIR::Instance*> kernels;
+    for (auto fp : functions) {
+      auto lp = fp.first;
+      HWFunction& f = fp.second;
+      insertCriticalPathTargetRegisters(hwInfo, f);
+      ComputeKernel compK = moduleForKernel(scl.info, f);
+      auto m = compK.mod;
+      cout << "Created module for kernel.." << endl;
+      kernelModules[lp] = compK;
+
+      cout << "Module before optimization" << endl;
+      m->print();
+
+      removeUnconnectedInstances(m->getDef());
+      removeUnusedInstances(m->getDef());
+
+      cout << "Module after optimization" << endl;
+      m->print();
+      auto kI = def->addInstance("compute_module_" + m->getName(), m);
+      //k.second.mod);
+      def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
+      kernels[lp] = kI;
+    }
+
+    context->runPasses({"rungenerators"});
+    vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
+    flattenExcluding(context, generatorNames);
+    context->runPasses({"deletedeadinstances"});
+    cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
+    AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
+    computeDelaysForAppGraph(appGraph);
+    appGraph = insertDelays(appGraph);
+    wireUpAppGraph(appGraph, def);
+
+    cout << "Setting definition of topMod..." << endl;
+
+    topMod->setDef(def);
+    
+    cout << "Top module before inlining" << endl;
+    topMod->print();
+
+    context->runPasses({"rungenerators"});
+
+    flattenExcluding(context, generatorNames);
+    context->runPasses({"deletedeadinstances"});
+    //cout << "Top module" << endl;
+    //topMod->print();
+
+    if (!saveToFile(global_ns, "conv_3_3_app.json")) {
+      cout << "Could not save global namespace" << endl;
+      context->die();
+    }
+
+    return topMod;
   }
-  stmt = substitute(dummyVars, stmt);
 
-  cout << "After substitution..." << endl;
-  cout << stmt << endl;
-
-  //internal_assert(dummyVars.size() == 0);
-  UselessReadRemover readRemover;
-  stmt = readRemover.mutate(stmt);
-  
-  StoreCollector stCollector;
-  stmt.accept(&stCollector);
-  printCollectedStores(stCollector);
-
-  cout << "Emitting kernel for " << name << endl;
-  cout << "\tStmt is = " << endl;
-  cout << stmt << endl;
-  NestExtractor extractor;
-  stmt.accept(&extractor);
-
-  StencilInfoCollector scl;
-  stmt.accept(&scl);
-
-  inferStreamTypes(scl);
-
-  //cout << "Stencil info" << endl;
-  StencilInfo info = scl.info;
-
-
-  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
-  int kernelN = 0;
-  std::map<const For*, ComputeKernel> kernelModules;
-  std::map<const For*, HWFunction> functions;
-  for (const For* lp : extractor.loops) {
-    cout << "\t\tLOOP" << endl;
-    cout << "Original body.." << endl;
-    cout << lp->body << endl;
-
-    // Actual scheduling here
-    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
-
-    functions[lp] = f;
-
-    kernelN++;
-  }    
-
-  functions = mapFunctionsToCGRA(functions);
-  auto def = topMod->newModuleDef();
-
-  // Connects up all control paths in the design
-  std::map<const For*, CoreIR::Instance*> kernels;
-  for (auto fp : functions) {
-    auto lp = fp.first;
-    HWFunction& f = fp.second;
-    insertCriticalPathTargetRegisters(hwInfo, f);
-    ComputeKernel compK = moduleForKernel(scl.info, f);
-    auto m = compK.mod;
-    cout << "Created module for kernel.." << endl;
-    kernelModules[lp] = compK;
-
-    cout << "Module before optimization" << endl;
-    m->print();
-
-    removeUnconnectedInstances(m->getDef());
-    removeUnusedInstances(m->getDef());
-
-    cout << "Module after optimization" << endl;
-    m->print();
-    auto kI = def->addInstance("compute_module_" + m->getName(), m);
-        //k.second.mod);
-    def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
-    kernels[lp] = kI;
-  }
-
-  context->runPasses({"rungenerators"});
-  vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
-  flattenExcluding(context, generatorNames);
-  context->runPasses({"deletedeadinstances"});
-  cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
-  AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
-  computeDelaysForAppGraph(appGraph);
-  appGraph = insertDelays(appGraph);
-  wireUpAppGraph(appGraph, def);
-  
-  cout << "Setting definition of topMod..." << endl;
-
-  topMod->setDef(def);
-
-  cout << "Top module before inlining" << endl;
-  topMod->print();
-  
-  context->runPasses({"rungenerators"});
-
-  flattenExcluding(context, generatorNames);
-  context->runPasses({"deletedeadinstances"});
-  //cout << "Top module" << endl;
-  //topMod->print();
-
-  if (!saveToFile(global_ns, "conv_3_3_app.json")) {
-    cout << "Could not save global namespace" << endl;
-    context->die();
-  }
-
-  return topMod;
 }
 
 }
