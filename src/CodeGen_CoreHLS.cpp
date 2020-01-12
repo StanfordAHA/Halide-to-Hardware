@@ -3742,19 +3742,19 @@ set<HWInstr*> allVarUsers(const std::string& name, const T& program) {
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
-  internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
+internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
 
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // We do not currently handle multiple instruction groups
   //if (instrGroups.size() != 1) {
-  //return;
+    //return;
   //}
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : f.structuredOrder()) {
     if (isCall("provide", instr)) {
+      //string target = instr->operands[0]->compactString();
       string target = instr->operands[0]->name;
-      //->compactString();
       provides[target].push_back(instr);
       stencilDecls[target] = instr;
     }
@@ -3789,31 +3789,22 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         phiInstr->surroundingLoops = head(blk)->surroundingLoops;
         headerPhis[blk] = phiInstr;
         newPhis.insert(phiInstr);
-      }
     }
+  }
 
     cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
     map<HWInstr*, HWInstr*> provideReplacements;
     set<HWInstr*> provideReplacementSet;
     int provideNum = 0;
     for (auto instr : p.second) {
-      //internal_assert(instr->resType != nullptr) << instr->compactString() << " has null result type\n";
       auto refresh = f.newI(instr);
       refresh->operands = instr->operands;
       refresh->name = "create_stencil_" + std::to_string(provideNum);
-
-      //internal_assert(instr->operands[0]->resType != nullptr) << instr->operands[0]->compactString() << " has null result type\n";
-
-      refresh->resType = instr->operands[0]->resType;
-
-      //internal_assert(refresh->resType != nullptr) << refresh->compactString() << " has null result type\n";
-
       provideNum++;
-      cout << "Replace: " << *instr << " with: " << *refresh << endl;
       provideReplacements[instr] = refresh;
       provideReplacementSet.insert(refresh);
     }
-
+   
     // Modify to insert final phi instructions
     for (auto blk : headerPhis) {
       f.insertAt(head(blk.first), blk.second);
@@ -3868,15 +3859,13 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     cout << "Function after phi and provide substitution..." << endl;
     cout << f << endl;
 
-    //internal_assert(false);
-
     auto currentDef = baseInit;
     auto provideVar = f.newVar(p.first);
     for (auto instr : f.structuredOrder()) {
       if (elem(instr, newPhis)) {
         instr->operands.push_back(f.newVar(p.first));
       }
-
+      
       replaceOperand(provideVar, currentDef, instr);
       if (elem(instr, newPhis) || elem(instr, provideReplacementSet)) {
         currentDef = instr;
@@ -3890,54 +3879,92 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         instr->resType = instr->getOperand(0)->resType;
         internal_assert(instr->resType != nullptr);
       }
-      //if (elem(instr, provideReplacementSet)) {
-        //instr->resType = instr->getOperand(0)->resType;
-        //internal_assert(instr->resType != nullptr) << instr->compactString() << " has null resType\n";
-      //}
+      if (elem(instr, provideReplacementSet)) {
+        instr->resType = instr->getOperand(0)->resType;
+        internal_assert(instr->resType != nullptr);
+      }
     }
     // Now: find all reverse phis
     for (auto blk : getIBlocks(f)) {
       for (auto instr : blk.instrs) {
         if (elem(instr, newPhis)) {
-          //cout << "Adding second operand to phi.." << endl;
-          //auto tail = loopTail(blk, f);
-          //auto pDef = baseInit;
-          //for (auto i : f.structuredOrder()) {
-            //if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
-              //pDef = i;
-            //}
+          cout << "Adding second operand to phi.." << endl;
+          auto tail = loopTail(blk, f);
+          auto pDef = baseInit;
+          for (auto i : f.structuredOrder()) {
+            if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
+              pDef = i;
+            }
 
-            //if (i == lastInstr(tail)) {
-              //break;
-            //}
-          //}
-          //instr->operands.push_back(pDef);
-          instr->operands.push_back(instr->getOperand(0));
+            if (i == lastInstr(tail)) {
+              break;
+            }
+          }
+          instr->operands.push_back(pDef);
         }
       }
     }
 
     cout << "After replacing references to " << p.first << endl;
     cout << f << endl;
-    //internal_assert(false);
-
-    for (auto instr : f.structuredOrder()) {
-      for (auto op : instr->operands) {
-        if (op->tp == HWINSTR_TP_VAR) {
-          cout << "\tFound op with name: " << op->name << ", searching for " << p.first << endl;
-          string opn = op->name;
-          string target = p.first;
-          cout << "\t\tTarget     : " << target << endl;
-          cout << "\t\tEqual names: " << (op->name == p.first) << endl;
-          cout << "\t\tEqual names: " << (opn == target) << endl;
-          cout << "\t\topn size   : " << opn.size() << endl;
-          cout << "\t\ttarget size: " << target.size() << endl;
-          internal_assert(op->name != p.first) << "reference to " << p.first << " survives in: " << *instr << "\n";
-        }
-      }
-    }
     //internal_assert(false) << "Stopping so dillon can view\n";
   }
+
+
+  //cout << "Provides" << endl;
+  //for (auto pr : provides) {
+    //auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
+    //auto provideName = provideValue->operands[0]->compactString();
+
+    //vector<int> dims = stencilDimsInBody(info, f, provideName);
+    //vector<HWInstr*> initialSets;
+    //for (auto instr : pr.second) {
+      //auto operands = instr->operands;
+      //if (allConst(1, operands.size(), operands)) {
+        //initialSets.push_back(instr);
+      //} else {
+        //break;
+      //}
+    //}
+
+    //HWInstr* initInstr = f.newI();
+    //initInstr->name = "init_stencil_" + pr.first;
+    //initInstr->operands = {};
+
+    //initInstr->operands.push_back(f.newConst(32, dims.size()));
+    //cout << "Dims of " << provideName << endl;
+    //for (auto c : dims) {
+      //cout << "\t" << c << endl;
+      //initInstr->operands.push_back(f.newConst(32, c));
+    //}
+
+    //for (auto initI : initialSets) {
+      //for (int i = 1; i < (int) initI->operands.size(); i++) {
+        //initInstr->operands.push_back(initI->operands[i]);
+      //}
+    //}
+
+    //initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
+    //f.insert(0, initInstr);
+    //// Assume that initInstr has same containing loops as the first instruction
+    //// in the HWFunction
+    //internal_assert(f.structuredOrder().size() > 0);
+    //HWInstr* activeProvide = initInstr;
+    //f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
+    //cout << "done with set values..." << endl;
+    //int provideNum = 0;
+    //for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
+      //auto instr = pr.second[i];
+      //cout << "\t\t" << *instr << endl;
+      //auto refresh = f.newI(instr);
+      //refresh->operands = instr->operands;
+      //refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
+      //f.insertAt(instr, refresh);
+      //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
+      //activeProvide = refresh;
+      //provideNum++;
+    //}
+  //}
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {
@@ -3947,22 +3974,229 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   cout << "After cleanup..." << endl;
   cout << f << endl;
+  //internal_assert(false) << "Stopping here so dillon can view\n";
 
-  for (auto instr : f.structuredOrder()) {
-    if (starts_with(instr->name, "write_stream")) {
-      auto dst = instr->getOperand(0);
-      auto src = instr->getOperand(1);
-      internal_assert(dst->resType != nullptr);
-      internal_assert(src->resType != nullptr);
-      internal_assert(src->resType == dst->resType) << "for: " << *instr << ", srctype: " << coreStr(src->resType) << ", but dst type: " << coreStr(dst->resType) << "\n";
-    } else if (instr->name == "phi") {
-      auto dst = instr->getOperand(0);
-      auto src = instr->getOperand(1);
-      internal_assert(dst->resType != nullptr);
-      internal_assert(src->resType != nullptr);
-      internal_assert(src->resType == dst->resType) << "for: " << *instr << ", in0: " << coreStr(src->resType) << ", but in1 type: " << coreStr(dst->resType) << "\n";
-    }
-  }
+  //internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
+
+  //auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
+  //// We do not currently handle multiple instruction groups
+  ////if (instrGroups.size() != 1) {
+  ////return;
+  ////}
+  //std::map<string, vector<HWInstr*> > provides;
+  //std::map<string, HWInstr*> stencilDecls;
+  //for (auto instr : f.structuredOrder()) {
+    //if (isCall("provide", instr)) {
+      //string target = instr->operands[0]->name;
+      ////->compactString();
+      //provides[target].push_back(instr);
+      //stencilDecls[target] = instr;
+    //}
+  //}
+
+  //cout << "Provides..." << endl;
+  //for (auto p : provides) {
+    //cout << "\t" << p.first << endl;
+    //for (auto c : p.second) {
+      //cout << "\t\t" << *c << endl;
+    //}
+    //set<HWInstr*> users = allVarUsers(p.first, f.structuredOrder());
+    //set<HWInstr*> readers;
+    //cout << "\tUsers of: " << p.first << endl;
+    //for (auto u : users) {
+      //cout << "\t\t" << *u << endl;
+      //if (u->name != "provide") {
+        //readers.insert(u);
+      //}
+    //}
+
+    //cout << "Readers = " << readers << endl;
+    //set<IBlock> needPhi;
+    //set<HWInstr*> newPhis;
+    //map<IBlock, HWInstr*> headerPhis;
+    //for (auto blk : getIBlocks(f)) {
+      //if (predecessors(blk, f).size() >= 2) {
+        //cout << "Block...\n" << blk << endl << "\tneeds phi" << endl;
+        //needPhi.insert(blk);
+        //auto phiInstr = f.newI();
+        //phiInstr->name = "phi";
+        //phiInstr->surroundingLoops = head(blk)->surroundingLoops;
+        //headerPhis[blk] = phiInstr;
+        //newPhis.insert(phiInstr);
+      //}
+    //}
+
+    //cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
+    //map<HWInstr*, HWInstr*> provideReplacements;
+    //set<HWInstr*> provideReplacementSet;
+    //int provideNum = 0;
+    //for (auto instr : p.second) {
+      ////internal_assert(instr->resType != nullptr) << instr->compactString() << " has null result type\n";
+      //auto refresh = f.newI(instr);
+      //refresh->operands = instr->operands;
+      //refresh->name = "create_stencil_" + std::to_string(provideNum);
+
+      ////internal_assert(instr->operands[0]->resType != nullptr) << instr->operands[0]->compactString() << " has null result type\n";
+
+      //refresh->resType = instr->operands[0]->resType;
+
+      ////internal_assert(refresh->resType != nullptr) << refresh->compactString() << " has null result type\n";
+
+      //provideNum++;
+      //cout << "Replace: " << *instr << " with: " << *refresh << endl;
+      //provideReplacements[instr] = refresh;
+      //provideReplacementSet.insert(refresh);
+    //}
+
+    //// Modify to insert final phi instructions
+    //for (auto blk : headerPhis) {
+      //f.insertAt(head(blk.first), blk.second);
+    //}
+
+    //cout << "Replacing " << provideReplacements.size() << " provides..." << endl;
+    //// Modify to insert provide replacements
+    //for (auto replacementPair : provideReplacements) {
+      //f.insertAt(replacementPair.first, replacementPair.second);
+    //}
+
+    //auto baseInit = f.newI();
+    //{
+      //auto provideValue = CoreIR::map_find(p.first, stencilDecls);
+      //auto provideName = provideValue->operands[0]->compactString();
+
+      //vector<int> dims = stencilDimsInBody(info, f, provideName);
+      //vector<HWInstr*> initialSets;
+      //for (auto instr : p.second) {
+        //auto operands = instr->operands;
+        //if (allConst(1, operands.size(), operands)) {
+          //initialSets.push_back(instr);
+        //} else {
+          //break;
+        //}
+      //}
+
+      //baseInit->resType = f.mod->getContext()->Bit()->Arr(16);
+      //for (size_t i = 0; i < dims.size(); i += 2) {
+        //auto d = dims[i + 1] - dims[i];
+        //baseInit->resType = baseInit->resType->Arr(d);
+      //}
+      //baseInit->operands.push_back(f.newConst(32, dims.size()));
+      //cout << "Dims of " << provideName << endl;
+      //for (auto c : dims) {
+        //cout << "\t" << c << endl;
+        //baseInit->operands.push_back(f.newConst(32, c));
+      //}
+
+      //for (auto initI : initialSets) {
+        //for (int i = 1; i < (int) initI->operands.size(); i++) {
+          //baseInit->operands.push_back(initI->operands[i]);
+        //}
+      //}
+
+      //baseInit->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
+      //baseInit->name = "init_stencil_" + p.first;
+
+      //f.insertAt(f.structuredOrder()[0], baseInit);
+    //}
+
+    //cout << "Function after phi and provide substitution..." << endl;
+    //cout << f << endl;
+
+    ////internal_assert(false);
+
+    //auto currentDef = baseInit;
+    //auto provideVar = f.newVar(p.first);
+    //for (auto instr : f.structuredOrder()) {
+      //if (elem(instr, newPhis)) {
+        //instr->operands.push_back(f.newVar(p.first));
+      //}
+
+      //replaceOperand(provideVar, currentDef, instr);
+      //if (elem(instr, newPhis) || elem(instr, provideReplacementSet)) {
+        //currentDef = instr;
+      //}
+
+    //}
+
+    //// Set all phi output types
+    //for (auto instr : f.structuredOrder()) {
+      //if (elem(instr, newPhis)) {
+        //instr->resType = instr->getOperand(0)->resType;
+        //internal_assert(instr->resType != nullptr);
+      //}
+      ////if (elem(instr, provideReplacementSet)) {
+        ////instr->resType = instr->getOperand(0)->resType;
+        ////internal_assert(instr->resType != nullptr) << instr->compactString() << " has null resType\n";
+      ////}
+    //}
+    //// Now: find all reverse phis
+    //for (auto blk : getIBlocks(f)) {
+      //for (auto instr : blk.instrs) {
+        //if (elem(instr, newPhis)) {
+          ////cout << "Adding second operand to phi.." << endl;
+          ////auto tail = loopTail(blk, f);
+          ////auto pDef = baseInit;
+          ////for (auto i : f.structuredOrder()) {
+            ////if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
+              ////pDef = i;
+            ////}
+
+            ////if (i == lastInstr(tail)) {
+              ////break;
+            ////}
+          ////}
+          ////instr->operands.push_back(pDef);
+          //instr->operands.push_back(instr->getOperand(0));
+        //}
+      //}
+    //}
+
+    //cout << "After replacing references to " << p.first << endl;
+    //cout << f << endl;
+    ////internal_assert(false);
+
+    //for (auto instr : f.structuredOrder()) {
+      //for (auto op : instr->operands) {
+        //if (op->tp == HWINSTR_TP_VAR) {
+          //cout << "\tFound op with name: " << op->name << ", searching for " << p.first << endl;
+          //string opn = op->name;
+          //string target = p.first;
+          //cout << "\t\tTarget     : " << target << endl;
+          //cout << "\t\tEqual names: " << (op->name == p.first) << endl;
+          //cout << "\t\tEqual names: " << (opn == target) << endl;
+          //cout << "\t\topn size   : " << opn.size() << endl;
+          //cout << "\t\ttarget size: " << target.size() << endl;
+          //internal_assert(op->name != p.first) << "reference to " << p.first << " survives in: " << *instr << "\n";
+        //}
+      //}
+    //}
+    ////internal_assert(false) << "Stopping so dillon can view\n";
+  //}
+
+  //for (auto pr : provides) {
+    //for (auto instr : pr.second) {
+      //f.deleteInstr(instr);
+    //}
+  //}
+
+  //cout << "After cleanup..." << endl;
+  //cout << f << endl;
+
+  //for (auto instr : f.structuredOrder()) {
+    //if (starts_with(instr->name, "write_stream")) {
+      //auto dst = instr->getOperand(0);
+      //auto src = instr->getOperand(1);
+      //internal_assert(dst->resType != nullptr);
+      //internal_assert(src->resType != nullptr);
+      //internal_assert(src->resType == dst->resType) << "for: " << *instr << ", srctype: " << coreStr(src->resType) << ", but dst type: " << coreStr(dst->resType) << "\n";
+    //} else if (instr->name == "phi") {
+      //auto dst = instr->getOperand(0);
+      //auto src = instr->getOperand(1);
+      //internal_assert(dst->resType != nullptr);
+      //internal_assert(src->resType != nullptr);
+      //internal_assert(src->resType == dst->resType) << "for: " << *instr << ", in0: " << coreStr(src->resType) << ", but in1 type: " << coreStr(dst->resType) << "\n";
+    //}
+  //}
   //internal_assert(false) << "Stopping here so dillon can view\n";
 }
 
