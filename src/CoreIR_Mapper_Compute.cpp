@@ -242,20 +242,22 @@ namespace Halide {
             {z, outRng},
             0};
           compute_args.push_back({"compute_result.stencil", true, true, Int(16), outTp});
-          auto compute_unit =
-            createCoreIRForStmt(context, info, compute_only, "compute_unit", compute_args);
-          mDef->addInstance("compute_unit", compute_unit);
-
           Closure interface;
           rFinder.r->body.accept(&interface);
           cout << "Interface..." << endl;
           cout << "\tExternal vars..." << endl;
           for (auto v : interface.vars) {
             cout << "\t\t" << v.first << endl;
+            compute_args.push_back({v.first, false, false, Int(16), outTp});
           }
+          //internal_assert(interface.vars.size() == 0);
 
           //cout << "\t# external buffers = " << interface.buffers.size() << endl;
           //internal_assert(interface.buffers.size() == 0);
+          auto compute_unit =
+            createCoreIRForStmt(context, info, compute_only, "compute_unit", compute_args);
+          mDef->addInstance("compute_unit", compute_unit);
+
 
           m->setDef(mDef);
           cout << "Output module" << endl;

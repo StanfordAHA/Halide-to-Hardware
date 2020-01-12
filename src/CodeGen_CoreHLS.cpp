@@ -3179,36 +3179,40 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
   } else {
     internal_assert(HW_INTERFACE_POLICY_COMPUTE_UNIT); 
     for (auto arg : args) {
-      internal_assert(arg.is_stencil) << arg.name << " is not a stencil\n";
-      
-      auto stype = arg.stencil_type;
+      //internal_assert(arg.is_stencil) << arg.name << " is not a stencil\n";
+     
+      if (arg.is_stencil) {
+        auto stype = arg.stencil_type;
 
-      vector<uint> indices;
-      for(const auto &range : stype.bounds) {
-        internal_assert(is_const(range.extent));
-        indices.push_back(func_id_const_value(range.extent));
-        info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.min)));
-        info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.extent)));
-      }
-
-      if (arg.is_output) {
-        uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-        internal_assert(out_bitwidth > 0);
-        
-        CoreIR::Type* output_type = out_bitwidth > 1 ? context->Bit()->Arr(out_bitwidth) : context->Bit();
-        for (uint i=0; i<indices.size(); ++i) {
-          output_type = output_type->Arr(indices[i]);
+        vector<uint> indices;
+        for(const auto &range : stype.bounds) {
+          internal_assert(is_const(range.extent));
+          indices.push_back(func_id_const_value(range.extent));
+          info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.min)));
+          info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.extent)));
         }
-        string output_name_real = coreirSanitize(arg.name);
-        tps.push_back({output_name_real, output_type});
 
+        if (arg.is_output) {
+          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          internal_assert(out_bitwidth > 0);
+
+          CoreIR::Type* output_type = out_bitwidth > 1 ? context->Bit()->Arr(out_bitwidth) : context->Bit();
+          for (uint i=0; i<indices.size(); ++i) {
+            output_type = output_type->Arr(indices[i]);
+          }
+          string output_name_real = coreirSanitize(arg.name);
+          tps.push_back({output_name_real, output_type});
+
+        } else {
+          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+          for (uint i=0; i<indices.size(); ++i) {
+            input_type = input_type->Arr(indices[i]);
+          }
+          tps.push_back({coreirSanitize(arg.name), input_type});
+        }
       } else {
-        uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-        CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
-        for (uint i=0; i<indices.size(); ++i) {
-          input_type = input_type->Arr(indices[i]);
-        }
-        tps.push_back({coreirSanitize(arg.name), input_type});
+        // TODO: Actually handle non-stencil arguments
       }
     }
   }
@@ -5714,6 +5718,17 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   auto topType = ifc.designType;
   auto global_ns = context->getNamespace("global");
 
+  // Here: Find all external vars and then replace them with dummies
+  // TODO: Move to preprocess hardware loops, and eliminate when we
+  // need to handle rea parameter passing
+  std::map<string, Expr> dummyVars;
+  for (auto a : args) {
+    if (!a.is_stencil) {
+      dummyVars[a.name] = IntImm::make(a.scalar_type, 0);
+    }
+  }
+  stmt = substitute(dummyVars, stmt);
+
   if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT) {
     CoreIR::Module* topMod = global_ns->newModuleDecl(name, topType);
     cout << "Emitting kernel for " << name << endl;
@@ -5781,17 +5796,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     interfaceInfo.close();
 
     stmt = preprocessHWLoops(stmt);
-
-    // Here: Find all external vars and then replace them with dummies
-    // TODO: Move to preprocess hardware loops, and eliminate when we
-    // need to handle rea parameter passing
-    std::map<string, Expr> dummyVars;
-    for (auto a : args) {
-      if (!a.is_stencil) {
-        dummyVars[a.name] = IntImm::make(a.scalar_type, 0);
-      }
-    }
-    stmt = substitute(dummyVars, stmt);
 
     cout << "After substitution..." << endl;
     cout << stmt << endl;
