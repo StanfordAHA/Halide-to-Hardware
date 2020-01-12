@@ -5821,7 +5821,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     compK.mod->print();
     topMod->setDef(def);
 
-    internal_assert(false);
+    //internal_assert(false);
     return topMod;
   } else {
     CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
