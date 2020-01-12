@@ -4733,7 +4733,8 @@ class AcceleratorInterface {
 // How much of this do I need in order to build a test rig that
 // can handle multi-dimensional outputs and inputs
 AcceleratorInterface topLevelType(CoreIR::Context* context,
-      const std::vector<CoreIR_Argument>& args) {
+    HardwareInfo& hwInfo,
+    const std::vector<CoreIR_Argument>& args) {
 
     uint num_inouts = 0;
 
@@ -4747,84 +4748,133 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
     string output_name_real = "";
     std::map<std::string, std::string> inputAliases;
     std::map<std::string, std::string> outputAliases;
-    
-    for (size_t i = 0; i < args.size(); i++) {
-      string arg_name = "arg_" + std::to_string(i);
-      string arg_name_real = args[i].name;
-      cout << "Arg " << i << " has name " << arg_name_real << endl;
 
-      if (!(args[i].is_output)) {
-        inputAliases[arg_name_real] = arg_name;
-      }
+    if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
+      for (size_t i = 0; i < args.size(); i++) {
+        string arg_name = "arg_" + std::to_string(i);
+        string arg_name_real = args[i].name;
+        cout << "Arg " << i << " has name " << arg_name_real << endl;
 
-      if (args[i].is_stencil) {
-        Stencil_Type stype = args[i].stencil_type;
-
-        vector<uint> indices;
-        for(const auto &range : stype.bounds) {
-          internal_assert(is_const(range.extent));
-          indices.push_back(func_id_const_value(range.extent));
+        if (!(args[i].is_output)) {
+          inputAliases[arg_name_real] = arg_name;
         }
 
-        if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-          // add as the outputrg
-          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
-          for (uint i=0; i<indices.size(); ++i) {
-            output_type = output_type->Arr(indices[i]);
-          }
-          //hw_output_set.insert(arg_name);
-          output_name = "out";
-          output_name_real = coreirSanitize(args[i].name);
+        if (args[i].is_stencil) {
+          Stencil_Type stype = args[i].stencil_type;
 
-        } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-          // add another input
-          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
-          for (uint i=0; i<indices.size(); ++i) {
-            input_type = input_type->Arr(indices[i]);
+          vector<uint> indices;
+          for(const auto &range : stype.bounds) {
+            internal_assert(is_const(range.extent));
+            indices.push_back(func_id_const_value(range.extent));
           }
-          input_types.push_back({arg_name, input_type});
+
+          if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+            // add as the outputrg
+            uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
+            for (uint i=0; i<indices.size(); ++i) {
+              output_type = output_type->Arr(indices[i]);
+            }
+            //hw_output_set.insert(arg_name);
+            output_name = "out";
+            output_name_real = coreirSanitize(args[i].name);
+
+          } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+            // add another input
+            uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+            for (uint i=0; i<indices.size(); ++i) {
+              input_type = input_type->Arr(indices[i]);
+            }
+            input_types.push_back({arg_name, input_type});
+
+          } else {
+            // add another array of taps (configuration changes infrequently)
+            uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
+            for (uint i=0; i<indices.size(); ++i) {
+              tap_type = tap_type->Arr(indices[i]);
+            }
+            tap_types[args[i].name] = tap_type;
+          }
+
+          num_inouts++;
 
         } else {
-          // add another array of taps (configuration changes infrequently)
-          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
-          for (uint i=0; i<indices.size(); ++i) {
-            tap_type = tap_type->Arr(indices[i]);
-          }
-          tap_types[args[i].name] = tap_type;
+          // add another tap (single value)
+          uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
+          CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
+          tap_types[arg_name] = tap_type;
         }
 
-        num_inouts++;
-
-      } else {
-        // add another tap (single value)
-        uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
-        CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
-        tap_types[arg_name] = tap_type;
       }
+      CoreIR::Type* design_type;
 
+      design_type = context->Record({
+          {"in", context->Record(input_types)},
+          {"reset", context->BitIn()},
+          {output_name, output_type},
+          {"valid", context->Bit()},
+          {"in_en", context->BitIn()}
+          });
+
+      interface.output_name_real = output_name_real;
+      interface.output_name = output_name;
+      interface.inputAliases = inputAliases;
+      interface.outputAliases = outputAliases;
+      interface.designType = design_type;
+
+      return interface;
+    } else {
+      internal_assert(hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT);
+      vector<pair<string, CoreIR::Type* > > tps;
+
+      for (auto arg : args) {
+        if (arg.is_stencil) {
+          auto stype = arg.stencil_type;
+
+          vector<uint> indices;
+          for(const auto &range : stype.bounds) {
+            internal_assert(is_const(range.extent));
+            indices.push_back(func_id_const_value(range.extent));
+          }
+
+          if (arg.is_output) {
+            uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            internal_assert(out_bitwidth > 0);
+
+            CoreIR::Type* output_type = out_bitwidth > 1 ? context->Bit()->Arr(out_bitwidth) : context->Bit();
+            for (uint i=0; i<indices.size(); ++i) {
+              output_type = output_type->Arr(indices[i]);
+            }
+            string output_name_real = coreirSanitize(arg.name);
+            tps.push_back({output_name_real, output_type});
+
+          } else {
+            uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+            for (uint i=0; i<indices.size(); ++i) {
+              input_type = input_type->Arr(indices[i]);
+            }
+            tps.push_back({coreirSanitize(arg.name), input_type});
+          }
+        } else {
+          // TODO: Actually handle non-stencil arguments
+        }
+      }
+      
+      CoreIR::Type* design_type;
+
+      design_type = context->Record(tps);
+      interface.output_name_real = output_name_real;
+      interface.output_name = output_name;
+      interface.inputAliases = inputAliases;
+      interface.outputAliases = outputAliases;
+      interface.designType = design_type;
+
+      return interface;
     }
 
-    CoreIR::Type* design_type;
-
-    design_type = context->Record({
-        {"in", context->Record(input_types)},
-        {"reset", context->BitIn()},
-        {output_name, output_type},
-        {"valid", context->Bit()},
-        {"in_en", context->BitIn()}
-        });
-
-    interface.output_name_real = output_name_real;
-    interface.output_name = output_name;
-    interface.inputAliases = inputAliases;
-    interface.outputAliases = outputAliases;
-    interface.designType = design_type;
-
-    return interface;
-    //return design_type;
 }
 
 AppGraph insertDelays(AppGraph& appGraph) {
@@ -5711,7 +5761,7 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
 
   // Build top level interface
-  AcceleratorInterface ifc = topLevelType(context, args);
+  AcceleratorInterface ifc = topLevelType(context, hwInfo, args);
   auto inputAliases = ifc.inputAliases;
   auto output_name_real = ifc.output_name_real;
   auto output_name = ifc.output_name;
@@ -5755,12 +5805,23 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     ComputeKernel compK = moduleForKernel(scl.info, f);
 
-    def->addInstance("compute_kernel", compK.mod);
+    auto compute_mod = def->addInstance("compute_kernel", compK.mod);
     topMod->setDef(def);
 
+    auto self = def->sel("self");
+    for (auto a : args) {
+      if (a.is_stencil) {
+        def->connect(self->sel(coreirSanitize(a.name)), compute_mod->sel(coreirSanitize(a.name)));
+      }
+    }
     cout << "Top module for compute kernel..." << endl;
     topMod->print();
 
+    cout << "Compute unit..." << endl;
+    compK.mod->print();
+    topMod->setDef(def);
+
+    internal_assert(false);
     return topMod;
   } else {
     CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
