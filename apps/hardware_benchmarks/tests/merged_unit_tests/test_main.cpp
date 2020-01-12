@@ -3217,7 +3217,7 @@ int main(int argc, char **argv) {
   
   rom_read_test();
   curve_16_lookup_test();
-  //camera_pipeline_test();
+  camera_pipeline_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
   accel_interface_test();
