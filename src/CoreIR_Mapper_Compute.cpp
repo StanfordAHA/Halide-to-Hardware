@@ -243,12 +243,13 @@ namespace Halide {
             0};
           compute_args.push_back({"compute_result.stencil", true, true, Int(16), outTp});
           Closure interface;
-          rFinder.r->body.accept(&interface);
+          compute_only.accept(&interface);
+          //rFinder.r->body.accept(&interface);
           cout << "Interface..." << endl;
           cout << "\tExternal vars..." << endl;
           for (auto v : interface.vars) {
             cout << "\t\t" << v.first << endl;
-            compute_args.push_back({v.first, false, false, Int(16), outTp});
+            compute_args.push_back({v.first, false, false, v.second, outTp});
           }
           //internal_assert(interface.vars.size() == 0);
 
