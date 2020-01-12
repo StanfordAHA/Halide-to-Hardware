@@ -3307,17 +3307,17 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   //internal_assert(false);
   int currentTime = 0;
   while (remaining.size() > 0) {
-    cout << "Current time = " << currentTime << endl;
-    cout << "\t# Finished = " << finished.size() << endl;
-    cout << "\tActive = " << activeToTimeRemaining << endl;
+    //cout << "Current time = " << currentTime << endl;
+    //cout << "\t# Finished = " << finished.size() << endl;
+    //cout << "\tActive = " << activeToTimeRemaining << endl;
     //cout << "\tRemain = " << remaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
       //std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
       std::set<HWInstr*> deps = dependencies(toSchedule, iNodes, blockGraph);
-      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      //cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
-        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        //cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
         sched.setStartTime(toSchedule, currentTime);
         if (toSchedule->latency == 0) {
           sched.setEndTime(toSchedule, currentTime);
@@ -3330,12 +3330,12 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
         foundNextInstr = true;
         break;
       } else {
-        cout << "\tUnfinished deps..." << endl;
-        for (auto d : deps) {
-          if (!elem(d, finished)) {
-            cout << "\t\t" << *d << endl;
-          }
-        }
+        //cout << "\tUnfinished deps..." << endl;
+        //for (auto d : deps) {
+          //if (!elem(d, finished)) {
+            //cout << "\t\t" << *d << endl;
+          //}
+        //}
       }
     }
 
@@ -3540,18 +3540,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   design->setDef(def);
   return {design, fSched};
   
-  //auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  //// Check if we are in a perfect loop nest
-  //if (instrGroups.size() <= 1) {
-    ////emitCoreIR(f, info, sched);
-    //emitCoreIR(f, info, fSched);
-
-    //design->setDef(def);
-    //return {design, fSched};
-  //} else {
-    //internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
-    //return {design, fSched};
-  //}
 }
 
 bool isLoad(HWInstr* instr) {
@@ -3759,7 +3747,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
   auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
   // We do not currently handle multiple instruction groups
   //if (instrGroups.size() != 1) {
-    //return;
+  //return;
   //}
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
@@ -3801,8 +3789,8 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         phiInstr->surroundingLoops = head(blk)->surroundingLoops;
         headerPhis[blk] = phiInstr;
         newPhis.insert(phiInstr);
+      }
     }
-  }
 
     cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
     map<HWInstr*, HWInstr*> provideReplacements;
@@ -3815,17 +3803,17 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
       refresh->name = "create_stencil_" + std::to_string(provideNum);
 
       //internal_assert(instr->operands[0]->resType != nullptr) << instr->operands[0]->compactString() << " has null result type\n";
-      
+
       refresh->resType = instr->operands[0]->resType;
-      
+
       //internal_assert(refresh->resType != nullptr) << refresh->compactString() << " has null result type\n";
 
       provideNum++;
-      cout << "Replace: " << instr->compactString() << " with: " << refresh->compactString() << endl;
+      cout << "Replace: " << *instr << " with: " << *refresh << endl;
       provideReplacements[instr] = refresh;
       provideReplacementSet.insert(refresh);
     }
-   
+
     // Modify to insert final phi instructions
     for (auto blk : headerPhis) {
       f.insertAt(head(blk.first), blk.second);
@@ -3880,13 +3868,15 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     cout << "Function after phi and provide substitution..." << endl;
     cout << f << endl;
 
+    //internal_assert(false);
+
     auto currentDef = baseInit;
     auto provideVar = f.newVar(p.first);
     for (auto instr : f.structuredOrder()) {
       if (elem(instr, newPhis)) {
         instr->operands.push_back(f.newVar(p.first));
       }
-      
+
       replaceOperand(provideVar, currentDef, instr);
       if (elem(instr, newPhis) || elem(instr, provideReplacementSet)) {
         currentDef = instr;
@@ -3900,34 +3890,37 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
         instr->resType = instr->getOperand(0)->resType;
         internal_assert(instr->resType != nullptr);
       }
-      if (elem(instr, provideReplacementSet)) {
-        instr->resType = instr->getOperand(0)->resType;
-        internal_assert(instr->resType != nullptr) << instr->compactString() << " has null resType\n";
-      }
+      //if (elem(instr, provideReplacementSet)) {
+        //instr->resType = instr->getOperand(0)->resType;
+        //internal_assert(instr->resType != nullptr) << instr->compactString() << " has null resType\n";
+      //}
     }
     // Now: find all reverse phis
     for (auto blk : getIBlocks(f)) {
       for (auto instr : blk.instrs) {
         if (elem(instr, newPhis)) {
-          cout << "Adding second operand to phi.." << endl;
-          auto tail = loopTail(blk, f);
-          auto pDef = baseInit;
-          for (auto i : f.structuredOrder()) {
-            if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
-              pDef = i;
-            }
+          //cout << "Adding second operand to phi.." << endl;
+          //auto tail = loopTail(blk, f);
+          //auto pDef = baseInit;
+          //for (auto i : f.structuredOrder()) {
+            //if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
+              //pDef = i;
+            //}
 
-            if (i == lastInstr(tail)) {
-              break;
-            }
-          }
-          instr->operands.push_back(pDef);
+            //if (i == lastInstr(tail)) {
+              //break;
+            //}
+          //}
+          //instr->operands.push_back(pDef);
+          instr->operands.push_back(instr->getOperand(0));
         }
       }
     }
 
     cout << "After replacing references to " << p.first << endl;
     cout << f << endl;
+    //internal_assert(false);
+
     for (auto instr : f.structuredOrder()) {
       for (auto op : instr->operands) {
         if (op->tp == HWINSTR_TP_VAR) {
@@ -3946,8 +3939,6 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
     //internal_assert(false) << "Stopping so dillon can view\n";
   }
 
-
-
   for (auto pr : provides) {
     for (auto instr : pr.second) {
       f.deleteInstr(instr);
@@ -3956,6 +3947,22 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   cout << "After cleanup..." << endl;
   cout << f << endl;
+
+  for (auto instr : f.structuredOrder()) {
+    if (starts_with(instr->name, "write_stream")) {
+      auto dst = instr->getOperand(0);
+      auto src = instr->getOperand(1);
+      internal_assert(dst->resType != nullptr);
+      internal_assert(src->resType != nullptr);
+      internal_assert(src->resType == dst->resType) << "for: " << *instr << ", srctype: " << coreStr(src->resType) << ", but dst type: " << coreStr(dst->resType) << "\n";
+    } else if (instr->name == "phi") {
+      auto dst = instr->getOperand(0);
+      auto src = instr->getOperand(1);
+      internal_assert(dst->resType != nullptr);
+      internal_assert(src->resType != nullptr);
+      internal_assert(src->resType == dst->resType) << "for: " << *instr << ", in0: " << coreStr(src->resType) << ", but in1 type: " << coreStr(dst->resType) << "\n";
+    }
+  }
   //internal_assert(false) << "Stopping here so dillon can view\n";
 }
 

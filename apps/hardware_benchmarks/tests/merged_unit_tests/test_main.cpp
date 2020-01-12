@@ -3193,6 +3193,8 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
+  multi_channel_conv_test();
+  real_unsharp_test();
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
@@ -3212,11 +3214,10 @@ int main(int argc, char **argv) {
   //conv_layer_mobile_test();
   
   double_unsharp_test();
-  real_unsharp_test();
   
   rom_read_test();
   curve_16_lookup_test();
-  camera_pipeline_test();
+  //camera_pipeline_test();
   simple_unsharp_test();
   hot_pixel_suppression_test();
   accel_interface_test();
@@ -3225,7 +3226,6 @@ int main(int argc, char **argv) {
   
   offset_window_test();  
   small_demosaic_test();
-  multi_channel_conv_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
