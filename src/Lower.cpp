@@ -14,6 +14,7 @@
 #include "BoundsInference.h"
 #include "CSE.h"
 #include "CanonicalizeGPUVars.h"
+#include "CoreIR_Mapper_Compute.h"
 #include "Debug.h"
 #include "DebugArguments.h"
 #include "DebugToFile.h"
@@ -244,6 +245,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
+      generate_compute_unit(s, env);
       if (use_ubuffer) {
           //std::cout << "--- Before inserting hwbuffers" << std::endl;
           //std::cout << s << std::endl;

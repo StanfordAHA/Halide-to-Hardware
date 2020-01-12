@@ -95,8 +95,8 @@ namespace Halide {
         }
 
         Stmt visit(const Provide* p) override {
-          internal_assert(!contains_key(p, provideNums)) << "Duplicate provide: " <<
-            Provide::make(p->name, p->values, p->args) << "\n";
+          //internal_assert(!contains_key(p, provideNums)) << "Duplicate provide: " <<
+            //Provide::make(p->name, p->values, p->args) << "\n";
 
           provideNums[p] = st_inst;
           vector<Expr> vals;
@@ -216,7 +216,8 @@ namespace Halide {
           info.interfacePolicy =
             HW_INTERFACE_POLICY_COMPUTE_UNIT;
 
-          Expr inLen((int) ce.callNums.size());
+          //Expr inLen((int) ce.callNums.size());
+          Expr inLen((int) ce.ld_inst);
           Range rng(Expr((int) 0), inLen);
           Range z(Expr((int) 0), Expr((int) 1));
           vector<CoreIR_Argument> compute_args;
@@ -226,14 +227,15 @@ namespace Halide {
             0};
           compute_args.push_back({"compute_input.stencil", true, false, Int(16), inTp});
 
-          Expr outLen((int) ce.provideNums.size());
+          //Expr outLen((int) ce.provideNums.size());
+          Expr outLen((int) ce.st_inst);
           cout << "compute_result outLen = " << outLen << endl;
           cout << "---- Provides" << endl;
           for (auto pr : ce.provideNums) {
             cout << "\t" << pr.second << endl;
           }
           cout << "compute st nums       = " << ce.st_inst << endl;
-          internal_assert(((int) ce.provideNums.size()) == (ce.st_inst));
+          //internal_assert(((int) ce.provideNums.size()) == (ce.st_inst));
           Range outRng(Expr((int) 0), outLen);
           Stencil_Type outTp{Stencil_Type::StencilContainerType::AxiStream,
             Int(16),
