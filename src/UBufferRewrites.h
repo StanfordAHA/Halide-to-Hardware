@@ -11,3 +11,5 @@ namespace Halide {
   namespace Internal {
   }
 }
+
+#endif
