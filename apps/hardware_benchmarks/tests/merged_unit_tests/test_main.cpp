@@ -1813,6 +1813,15 @@ void ubuffer_small_conv_3_3_test() {
   state.resetCircuit();
   state.setValue("self.reset", BitVector(1, 0));
 
+  assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
+
+  state.setValue("self.write_port_0", BitVector(16, 1));
+  state.setValue("self.write_port_0_en", BitVector(1, 1));
+  
+  state.execute();
+
+  assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
+  
   deleteContext(context);
  
   cout << GREEN << "UBuffer to linebuffer for conv 3x3 test passed" << RESET << endl;
