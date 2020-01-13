@@ -65,6 +65,7 @@
 #include "Substitute.h"
 #include "Tracing.h"
 #include "TrimNoOps.h"
+#include "UBufferRewrites.h"
 #include "UnifyDuplicateLets.h"
 #include "UniquifyVariableNames.h"
 #include "UnpackBuffers.h"
@@ -217,6 +218,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Uniquifying variable names...\n";
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
+
+    if (t.has_feature(Target::CoreIR)) {
+      synthesize_hwbuffers(s, env);
+    }
 
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;

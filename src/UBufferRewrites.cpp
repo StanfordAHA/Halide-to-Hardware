@@ -429,6 +429,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
   }
 
   void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
+    return;
     auto pre_simple = simplify(stmt);
     cout << "Pre simplification..." << endl;
     cout << pre_simple << endl;
