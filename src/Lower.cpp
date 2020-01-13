@@ -203,11 +203,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       //s = sliding_window(s, env);
     }
 
-    //std::cout << "extracting hw buffers\n";
-    //auto buffers = extract_hw_buffers(s, env);
-    
     //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
-    bool use_ubuffer = false;
+    bool use_ubuffer = true;
     //!t.has_feature(Target::UseExtractHWKernel);
 
     debug(1) << "Removing code that depends on undef values...\n";
@@ -224,12 +221,14 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
-      //s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
-      //cout << "Pre-unrolled: " << endl;
-      //cout << s << endl;
       //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       //xcels = extract_hw_accelerators(s, env, inlined_stages);
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+      //std::cout << "----- Accelerators" << std::endl;
+      //for (auto xcel : xcels) {
+        //std::cout << "\t" << xcel.name << std::endl;
+      //}
+      //internal_assert(false);
       //for (auto hwbuffer : xcels.at(0).hwbuffers) {
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       //}

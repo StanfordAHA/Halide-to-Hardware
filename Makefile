@@ -534,6 +534,7 @@ SOURCE_FILES = \
   TrimNoOps.cpp \
   Tuple.cpp \
   Type.cpp \
+  UBufferRewrites.cpp \
   UnifyDuplicateLets.cpp \
   UniquifyVariableNames.cpp \
   UnpackBuffers.cpp \
