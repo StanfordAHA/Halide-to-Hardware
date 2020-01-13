@@ -425,89 +425,147 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
       }
     }
 
+    // Dummy definition
+    internal_assert(buffer.write_ports.size() > 0);
+    string wp = begin(buffer.write_ports)->first;
+    auto self = def->sel("self");
+    auto write_en = self->sel(wp + "_en");
+    auto write_data = self->sel(wp);
+    for (auto rp : buffer.read_ports) {
+      auto read_valid = self->sel(rp.first + "_valid");
+      auto read_data = self->sel(rp.first);
+
+      def->connect(write_en, read_valid);
+      def->connect(write_data, read_data);
+    }
+
     //internal_assert(false) << "Cannot classify buffer: " << buffer.name << "\n";
   }
 
-  void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
-    return;
-    auto pre_simple = simplify(stmt);
-    cout << "Pre simplification..." << endl;
-    cout << pre_simple << endl;
-    Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(pre_simple))));
-    cout << "Simplified code for stmt:" << endl;
-    cout << simple << endl;
+void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
+  Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(simplify(stmt)))));
 
-    FuncOpCollector mic;
-    simple.accept(&mic);
+  FuncOpCollector mic;
+  simple.accept(&mic);
+  auto buffers = mic.hwbuffers();
 
-    cout << "### New buffers in constant fold ROMs" << endl;
-    for (auto b : mic.provides) {
-      cout << "\t" << b.second.size() << " Provides to: " << b.first << endl;
-      cout << "\t\tis rom " << mic.is_rom(b.first) << endl;
-      if (contains_key(b.first, mic.calls)) {
-        cout << "\t" << map_find(b.first, mic.calls).size() << " calls to: " << b.first << endl;
+  CoreIR::Context* context = newContext();
+  auto ns = context->getNamespace("global");
+
+  for (auto f : env) {
+    if (f.second.schedule().is_accelerated() ||
+        f.second.schedule().is_accelerator_input()) {
+
+      internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
+      MemoryConstraints buf = map_find(f.first, buffers);
+      vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
+      cout << "\t\tReads..." << endl;
+      for (auto rd : buf.read_ports) {
+        cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
+        ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
+        ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
       }
-    }
+      cout << "\t\tWrites..." << endl;
+      for (auto rd : buf.write_ports) {
+        cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
+        ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
+        ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
+      }
 
-    ROMLoadFolder folder;
-    folder.mic = mic;
-    Stmt replaced = folder.mutate(simple);
+      RecordType* utp = context->Record(ubuffer_fields);
+      auto ub = ns->newModuleDecl(f.first + "_ubuffer", utp);
+      auto def = ub->newModuleDef();
+      synthesize_ubuffer(def, buf);
+      ub->setDef(def);
+    }
+  }
+ 
+  // Save ubuffers and finish
+  if (!saveToFile(ns, "ubuffers.json")) {
+    cout << "Could not save ubuffers" << endl;
+    context->die();
+  }
+  deleteContext(context);
+
+  return;
+
+    //cout << "Pre simplification..." << endl;
+    //cout << pre_simple << endl;
+    //Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(pre_simple))));
+    //cout << "Simplified code for stmt:" << endl;
+    //cout << simple << endl;
+
+    //FuncOpCollector mic;
+    //simple.accept(&mic);
+
+    //cout << "### New buffers in constant fold ROMs" << endl;
+    //for (auto b : mic.provides) {
+      //cout << "\t" << b.second.size() << " Provides to: " << b.first << endl;
+      //cout << "\t\tis rom " << mic.is_rom(b.first) << endl;
+      //if (contains_key(b.first, mic.calls)) {
+        //cout << "\t" << map_find(b.first, mic.calls).size() << " calls to: " << b.first << endl;
+      //}
+    //}
+
+    //ROMLoadFolder folder;
+    //folder.mic = mic;
+    //Stmt replaced = folder.mutate(simple);
     
-    cout << "After ROM simplification..." << endl;
-    cout << replaced << endl;
+    //cout << "After ROM simplification..." << endl;
+    //cout << replaced << endl;
    
-    {
-      CoreIR::Context* context = newContext();
-      auto ns = context->getNamespace("global");
+    //{
+      //CoreIR::Context* context = newContext();
+      //auto ns = context->getNamespace("global");
 
-      RecordType* mtp = context->Record({{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}});
-      auto m = ns->newModuleDecl("m", mtp);
-      auto mDef = m->newModuleDef();
+      //RecordType* mtp = context->Record({{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}});
+      //auto m = ns->newModuleDecl("m", mtp);
+      //auto mDef = m->newModuleDef();
 
-      RealizeFinder rFinder("hw_output");
-      replaced->accept(&rFinder);
-      internal_assert(rFinder.r != nullptr);
+      //RealizeFinder rFinder("hw_output");
+      //replaced->accept(&rFinder);
+      //internal_assert(rFinder.r != nullptr);
 
-      FuncOpCollector mic;
-      replaced.accept(&mic);
+      //FuncOpCollector mic;
+      //replaced.accept(&mic);
 
-      cout << "--- Hardware buffers" << endl;
-      for (auto bufInfo : mic.hwbuffers()) {
-        MemoryConstraints buf = bufInfo.second;
-        cout << "\tFound buffer: " << buf.name << endl;
-        vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
-        cout << "\t\tReads..." << endl;
-        for (auto rd : buf.read_ports) {
-          cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
-          ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
-          ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
-        }
-        cout << "\t\tWrites..." << endl;
-        for (auto rd : buf.write_ports) {
-          cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
-          ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
-          ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
-        }
+      //cout << "--- Hardware buffers" << endl;
+      //for (auto bufInfo : mic.hwbuffers()) {
+        //MemoryConstraints buf = bufInfo.second;
+        //cout << "\tFound buffer: " << buf.name << endl;
+        //vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
+        //cout << "\t\tReads..." << endl;
+        //for (auto rd : buf.read_ports) {
+          //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
+          //ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
+          //ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
+        //}
+        //cout << "\t\tWrites..." << endl;
+        //for (auto rd : buf.write_ports) {
+          //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
+          //ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
+          //ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
+        //}
 
-        RecordType* utp = context->Record(ubuffer_fields);
-        CoreIR::Module* ubuffer = ns->newModuleDecl("unified_buffer_" + buf.name, utp);
-        auto def = ubuffer->newModuleDef();
-        synthesize_ubuffer(def, buf);
-        ubuffer->setDef(def);
+        //RecordType* utp = context->Record(ubuffer_fields);
+        //CoreIR::Module* ubuffer = ns->newModuleDecl("unified_buffer_" + buf.name, utp);
+        //auto def = ubuffer->newModuleDef();
+        //synthesize_ubuffer(def, buf);
+        //ubuffer->setDef(def);
 
-        cout << "Unified buffer..." << endl;
-        ubuffer->print();
+        //cout << "Unified buffer..." << endl;
+        //ubuffer->print();
 
-        mDef->addInstance("ubuffer_" + buf.name, "global.unified_buffer_" + buf.name);
-      }
+        //mDef->addInstance("ubuffer_" + buf.name, "global.unified_buffer_" + buf.name);
+      //}
 
-      m->setDef(mDef);
-      cout << "Output module" << endl;
-      m->print();
+      //m->setDef(mDef);
+      //cout << "Output module" << endl;
+      //m->print();
 
-      deleteContext(context);
-    }
-    internal_assert(false) << "Stopping so dillon can view\n";
+      //deleteContext(context);
+    //}
+    //internal_assert(false) << "Stopping so dillon can view\n";
   }
 
   }
