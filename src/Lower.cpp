@@ -204,7 +204,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     }
 
     //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
-    bool use_ubuffer = true;
+    bool use_ubuffer = false;
     //!t.has_feature(Target::UseExtractHWKernel);
 
     debug(1) << "Removing code that depends on undef values...\n";
