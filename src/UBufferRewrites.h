@@ -9,6 +9,7 @@
 
 namespace Halide {
   namespace Internal {
+    void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env);
   }
 }
 

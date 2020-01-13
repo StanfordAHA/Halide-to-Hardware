@@ -428,7 +428,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
     //internal_assert(false) << "Cannot classify buffer: " << buffer.name << "\n";
   }
 
-  void synthesize_hwbuffers(const Stmt& stmt) {
+  void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
     auto pre_simple = simplify(stmt);
     cout << "Pre simplification..." << endl;
     cout << pre_simple << endl;
