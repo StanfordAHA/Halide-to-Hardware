@@ -144,6 +144,6 @@ void ubuffer_small_conv_3_3_test() {
   deleteContext(context);
  
   cout << GREEN << "UBuffer to linebuffer for conv 3x3 test passed" << RESET << endl;
-  //assert(false);
+  assert(false);
 }
 

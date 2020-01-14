@@ -567,7 +567,25 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
 
           auto row_cnt = udiv(en_cnt_last->sel("out"), 4);
           auto col_cnt = sub(en_cnt_last->sel("out"), mul(row_cnt, 4));
-          //auto en_cnt = add(en_cnt_last->sel("out"), eq(self->sel(wp + "_en"), 1));
+
+          auto context = def->getContext();
+          // Create delays
+          auto r0Delay =
+            def->addInstance("r0_delay",
+                "memory.rowbuffer",
+                {{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
+          def->connect(r0Delay->sel("wdata"), self->sel(wp));
+          def->connect(r0Delay->sel("wen"), wen);
+          def->connect(r0Delay->sel("flush"), self->sel("reset"));
+
+          // rowbuffer_stencil_valid
+          auto r1Delay =
+            def->addInstance("r1_delay",
+                "memory.rowbuffer",
+                {{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
+          def->connect(r0Delay->sel("rdata"), r1Delay->sel("wdata"));
+          def->connect(r0Delay->sel("valid"), r1Delay->sel("wen"));
+          def->connect(r1Delay->sel("flush"), self->sel("reset"));
 
           cout << "en_cnt built..." << endl;
           Wireable* inside_out_row = geq(row_cnt, 2);
@@ -581,8 +599,15 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
 
           for (auto rp : buffer.read_ports) {
             def->connect(started, self->sel(rp.first + "_valid"));
-            auto read_data = self->sel(rp.first);
-            def->connect(write_data, read_data);
+            if (rp.first == "read_port_0") {
+              //def->connect(r1Delay->sel("valid"), self->sel(rp.first + "_valid"));
+              auto read_data = self->sel(rp.first);
+              def->connect(r1Delay->sel("rdata"), read_data);
+            } else {
+              //def->connect(started, self->sel(rp.first + "_valid"));
+              auto read_data = self->sel(rp.first);
+              def->connect(write_data, read_data);
+            }
           }
           return;
         }
