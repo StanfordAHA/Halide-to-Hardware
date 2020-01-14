@@ -39,6 +39,17 @@ namespace Halide {
       return counter_inst;
     }
 
+    CoreIR::Wireable* sub(Wireable* a, Wireable* b) {
+      internal_assert(a->getType() == b->getType());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto inst = active_def->addInstance("sub" + active_ctx->getUnique(), "coreir.sub", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), b);
+      return inst->sel("out");
+    }
 
     CoreIR::Wireable* add(Wireable* a, Wireable* b) {
       internal_assert(a->getType() == b->getType());
@@ -49,6 +60,19 @@ namespace Halide {
       auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
       def->connect(inst->sel("in0"), a);
       def->connect(inst->sel("in1"), b);
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* mul(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("mul" + active_ctx->getUnique(), "coreir.mul", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
       return inst->sel("out");
     }
 
@@ -541,16 +565,16 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           cout << "Built counter..." << endl;
 
           auto row_cnt = udiv(en_cnt_last->sel("out"), 4);
-          //auto col_cnt = smod(en_cnt_last->sel("out"), 4);
+          auto col_cnt = sub(en_cnt_last->sel("out"), mul(row_cnt, 4));
           //auto en_cnt = add(en_cnt_last->sel("out"), eq(self->sel(wp + "_en"), 1));
 
           cout << "en_cnt built..." << endl;
           Wireable* inside_out_row = geq(row_cnt, 2);
-          //Wireable* inside_out_col = geq(col_cnt, 2);
+          Wireable* inside_out_col = geq(col_cnt, 2);
           Wireable* started = andList(def,
               {geq(en_cnt_last->sel("out"), 1),
-              inside_out_row});
-              //inside_out_col});
+              inside_out_row,
+              inside_out_col});
           auto write_data = self->sel(wp);
 
           for (auto rp : buffer.read_ports) {
