@@ -561,6 +561,35 @@ public:
 };
 
 
+    template<typename D, typename R>
+      set<D> domain(const std::map<D, R>& m) {
+        set<D> d;
+        for (auto e : m) {
+          d.insert(e.first);
+        }
+        return d;
+      }
+
+  class RealizeFinder : public IRGraphVisitor {
+    public:
+
+      using IRGraphVisitor::visit;
+
+      const Realize* r;
+      string target;
+
+      RealizeFinder(const std::string& target_) : r(nullptr), target(target_) {}
+
+      void visit(const Realize* rl) override {
+        cout << "Searching realize: " << rl->name << " for " << target << endl;
+        if (rl->name == target) {
+          r = rl;
+        } else {
+          rl->body->accept(this);
+        }
+      }
+  };
+
 std::string exprString(const Expr e);
 
   }

@@ -12,35 +12,6 @@ using namespace std;
 namespace Halide {
   namespace Internal {
 
-    template<typename D, typename R>
-      set<D> domain(const std::map<D, R>& m) {
-        set<D> d;
-        for (auto e : m) {
-          d.insert(e.first);
-        }
-        return d;
-      }
-
-  class RealizeFinder : public IRGraphVisitor {
-    public:
-
-      using IRGraphVisitor::visit;
-
-      const Realize* r;
-      string target;
-
-      RealizeFinder(const std::string& target_) : r(nullptr), target(target_) {}
-
-      void visit(const Realize* rl) override {
-        cout << "Searching realize: " << rl->name << " for " << target << endl;
-        if (rl->name == target) {
-          r = rl;
-        } else {
-          rl->body->accept(this);
-        }
-      }
-  };
-
 class VarSpec {
   public:
     std::string name;
@@ -432,6 +403,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           coreir_builder_set_def(def);
 
           auto wen = self->sel(wp + "_en");
+          // TODO: Populate counter with real values
           Instance* en_cnt_last = build_counter(def, 16, 0, 16, 1);
           def->connect(en_cnt_last->sel("en"), self->sel(wp + "_en"));
           def->connect(en_cnt_last->sel("reset"), self->sel("reset"));
