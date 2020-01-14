@@ -638,8 +638,8 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               cout << "\t" << a << endl;
             }
 
-            int rowOffset = 2 - offsets[0];
-            int colOffset = 2 - offsets[1];
+            int rowOffset = 2 - offsets[1];
+            int colOffset = 2 - offsets[0];
 
             def->connect(started, self->sel(rp.first + "_valid"));
             auto read_data = self->sel(rp.first);
