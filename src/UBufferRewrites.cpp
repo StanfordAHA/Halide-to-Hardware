@@ -2,12 +2,120 @@
 
 #include "RemoveTrivialForLoops.h"
 #include "UnrollLoops.h"
+#include "CoreIR_Libs.h"
+
+#include "coreir/libs/commonlib.h"
 
 using namespace CoreIR;
 using namespace std;
 
 namespace Halide {
   namespace Internal {
+
+    static CoreIR::Context* active_ctx;
+    static CoreIR::ModuleDef* active_def;
+
+    void coreir_builder_set_context(CoreIR::Context* context) {
+      active_ctx = context;
+    }
+
+    void coreir_builder_set_def(CoreIR::ModuleDef* def) {
+      active_def = def;
+    }
+
+    Instance* build_counter(CoreIR::ModuleDef* def,
+        const int width,
+        const int min_val,
+        const int max_val,
+        const int inc_val) {
+      auto c = def->getContext();
+      CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+        {"min",CoreIR::Const::make(c, min_val)},
+        {"max",CoreIR::Const::make(c, max_val)},
+        {"inc",CoreIR::Const::make(c, inc_val)}};
+
+      string lname = "counter_" + def->getContext()->getUnique();
+      CoreIR::Instance* counter_inst = def->addInstance(lname, "commonlib.counter", args);
+      return counter_inst;
+    }
+
+
+    CoreIR::Wireable* add(Wireable* a, Wireable* b) {
+      internal_assert(a->getType() == b->getType());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), b);
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* smod(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("smod" + active_ctx->getUnique(), "coreir.smod", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* udiv(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("udiv" + active_ctx->getUnique(), "coreir.udiv", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* add(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* eq(Wireable* a, const int c) {
+      internal_assert(a->getType() == active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* geq(Wireable* a, const int c) {
+      //internal_assert(a->getType() == active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("geq" + active_ctx->getUnique(), "coreir.uge", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
 
     template<typename D, typename R>
       set<D> domain(const std::map<D, R>& m) {
@@ -390,6 +498,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
       return;
     }
 
+    auto self = def->sel("self");
     if (buffer.read_loop_levels().size() == 1) {
       if (buffer.write_loop_levels().size() == 1) {
         if (buffer.read_loop_levels()[0] == buffer.write_loop_levels()[0]) {
@@ -420,15 +529,44 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           }
           return;
         } else {
-          //internal_assert(false) << "Two separate read / write levels for: " << buffer.name << "\n";
+          internal_assert(buffer.write_ports.size() == 1);
+          string wp = begin(buffer.write_ports)->first;
+
+          coreir_builder_set_context(def->getContext());
+          coreir_builder_set_def(def);
+
+          Instance* en_cnt_last = build_counter(def, 16, 0, 16, 1);
+          def->connect(en_cnt_last->sel("en"), self->sel(wp + "_en"));
+          def->connect(en_cnt_last->sel("reset"), self->sel("reset"));
+          cout << "Built counter..." << endl;
+
+          auto row_cnt = udiv(en_cnt_last->sel("out"), 4);
+          //auto col_cnt = smod(en_cnt_last->sel("out"), 4);
+          //auto en_cnt = add(en_cnt_last->sel("out"), eq(self->sel(wp + "_en"), 1));
+
+          cout << "en_cnt built..." << endl;
+          Wireable* inside_out_row = geq(row_cnt, 2);
+          //Wireable* inside_out_col = geq(col_cnt, 2);
+          Wireable* started = andList(def,
+              {geq(en_cnt_last->sel("out"), 1),
+              inside_out_row});
+              //inside_out_col});
+          auto write_data = self->sel(wp);
+
+          for (auto rp : buffer.read_ports) {
+            def->connect(started, self->sel(rp.first + "_valid"));
+            auto read_data = self->sel(rp.first);
+            def->connect(write_data, read_data);
+          }
+          return;
         }
       }
     }
 
     // Dummy definition
     internal_assert(buffer.write_ports.size() > 0);
+
     string wp = begin(buffer.write_ports)->first;
-    auto self = def->sel("self");
     auto write_en = self->sel(wp + "_en");
     auto write_data = self->sel(wp);
     for (auto rp : buffer.read_ports) {
@@ -450,6 +588,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
   auto buffers = mic.hwbuffers();
 
   CoreIR::Context* context = newContext();
+  CoreIRLoadLibrary_commonlib(context);
   auto ns = context->getNamespace("global");
 
   for (auto f : env) {
@@ -479,7 +618,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
       ub->setDef(def);
     }
   }
- 
+
   // Save ubuffers and finish
   if (!saveToFile(ns, "ubuffers.json")) {
     cout << "Could not save ubuffers" << endl;
@@ -489,84 +628,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
 
   return;
 
-    //cout << "Pre simplification..." << endl;
-    //cout << pre_simple << endl;
-    //Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(pre_simple))));
-    //cout << "Simplified code for stmt:" << endl;
-    //cout << simple << endl;
-
-    //FuncOpCollector mic;
-    //simple.accept(&mic);
-
-    //cout << "### New buffers in constant fold ROMs" << endl;
-    //for (auto b : mic.provides) {
-      //cout << "\t" << b.second.size() << " Provides to: " << b.first << endl;
-      //cout << "\t\tis rom " << mic.is_rom(b.first) << endl;
-      //if (contains_key(b.first, mic.calls)) {
-        //cout << "\t" << map_find(b.first, mic.calls).size() << " calls to: " << b.first << endl;
-      //}
-    //}
-
-    //ROMLoadFolder folder;
-    //folder.mic = mic;
-    //Stmt replaced = folder.mutate(simple);
-    
-    //cout << "After ROM simplification..." << endl;
-    //cout << replaced << endl;
-   
-    //{
-      //CoreIR::Context* context = newContext();
-      //auto ns = context->getNamespace("global");
-
-      //RecordType* mtp = context->Record({{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}});
-      //auto m = ns->newModuleDecl("m", mtp);
-      //auto mDef = m->newModuleDef();
-
-      //RealizeFinder rFinder("hw_output");
-      //replaced->accept(&rFinder);
-      //internal_assert(rFinder.r != nullptr);
-
-      //FuncOpCollector mic;
-      //replaced.accept(&mic);
-
-      //cout << "--- Hardware buffers" << endl;
-      //for (auto bufInfo : mic.hwbuffers()) {
-        //MemoryConstraints buf = bufInfo.second;
-        //cout << "\tFound buffer: " << buf.name << endl;
-        //vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"rst", context->BitIn()}};
-        //cout << "\t\tReads..." << endl;
-        //for (auto rd : buf.read_ports) {
-          //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
-          //ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
-          //ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
-        //}
-        //cout << "\t\tWrites..." << endl;
-        //for (auto rd : buf.write_ports) {
-          //cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
-          //ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
-          //ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
-        //}
-
-        //RecordType* utp = context->Record(ubuffer_fields);
-        //CoreIR::Module* ubuffer = ns->newModuleDecl("unified_buffer_" + buf.name, utp);
-        //auto def = ubuffer->newModuleDef();
-        //synthesize_ubuffer(def, buf);
-        //ubuffer->setDef(def);
-
-        //cout << "Unified buffer..." << endl;
-        //ubuffer->print();
-
-        //mDef->addInstance("ubuffer_" + buf.name, "global.unified_buffer_" + buf.name);
-      //}
-
-      //m->setDef(mDef);
-      //cout << "Output module" << endl;
-      //m->print();
-
-      //deleteContext(context);
-    //}
-    //internal_assert(false) << "Stopping so dillon can view\n";
-  }
+}
 
   }
 }

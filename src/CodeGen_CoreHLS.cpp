@@ -229,40 +229,6 @@ std::string coreirSanitize(const std::string& str) {
 }
 
 
-template<typename TOut, typename T>
-TOut* sc(T* p) {
-  return static_cast<TOut*>(p);
-}
-
-CoreIR::Values getGenArgs(Wireable* p) {
-  internal_assert(isa<Instance>(p));
-  auto inst = toInstance(p);
-  internal_assert(inst->getModuleRef()->isGenerated());
-  return inst->getModuleRef()->getGenArgs();
-}
-
-vector<int> arrayDims(CoreIR::Type* tp) {
-  internal_assert(isa<CoreIR::ArrayType>(tp));
-  auto arrTp = sc<CoreIR::ArrayType>(tp);
-  if (!isa<CoreIR::ArrayType>(arrTp->getElemType())) {
-    vector<int> dims;
-    dims.push_back(arrTp->getLen());
-    return dims;
-  } else {
-    auto tps = arrayDims(arrTp->getElemType());
-    tps.push_back(arrTp->getLen());
-    return tps;
-  }
-}
-
-std::string coreStr(const Wireable* w) {
-  return CoreIR::toString(*w);
-}
-
-std::string coreStr(const CoreIR::Type* w) {
-  return CoreIR::toString(*w);
-}
-
 std::ostream& operator<<(std::ostream& out, const HWInstr& instr) {
   if (instr.surroundingLoops.size() > 0) {
     for (auto lp : instr.surroundingLoops) {
@@ -3760,36 +3726,6 @@ void removeUnconnectedInstances(CoreIR::ModuleDef* m) {
     m->disconnect(d);
     m->removeInstance(d);
   }
-}
-
-CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const int width, const int val) {
-  return def->addInstance(name, "coreir.const", {{"width", COREMK(def->getContext(), width)}}, {{"value", COREMK(def->getContext(), BitVector(width, val))}});
-}
-
-CoreIR::Wireable* andVals(CoreIR::ModuleDef* def, CoreIR::Wireable* a, CoreIR::Wireable* b) {
-  //auto c = def->getContext();
-  auto ad = def->addInstance("and_all_" + def->getContext()->getUnique(), "corebit.and");
-  def->connect(ad->sel("in0"), a);
-  def->connect(ad->sel("in1"), b);
-
-  return ad->sel("out");
-}
-
-CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wireable*>& vals) {
-  CoreIR::Wireable* val = nullptr;
-  if (vals.size() == 0) {
-    return def->addInstance("and_all_" + def->getContext()->getUnique(), "corebit.const", {{"value", COREMK(def->getContext(), true)}})->sel("out");
-  }
-
-  if (vals.size() == 1) {
-    return vals[0];
-  }
-
-  val = vals[0];
-  for (int i = 1; i < ((int) vals.size()); i++) {
-    val = andVals(def, val, vals[i]);
-  }
-  return val;
 }
 
 // Maybe first change toward a inner loop handling should be to run instruction collection on outer loops
