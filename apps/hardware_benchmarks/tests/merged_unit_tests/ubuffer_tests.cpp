@@ -143,6 +143,8 @@ void ubuffer_small_conv_3_3_test() {
   for (int i = 0; i < port_0_values.size(); i++) {
     cout << "\toutput = " << port_0_values.at(i) << endl;
   }
+  vector<int> correct{0, 1, 4, 5};
+  assert(port_0_values == correct);
 
   cout << "--- Port values" << endl;
   for (int p = 0; p < 9; p++) {

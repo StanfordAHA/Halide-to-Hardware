@@ -554,6 +554,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           return;
         } else {
           internal_assert(buffer.write_ports.size() == 1);
+
           string wp = begin(buffer.write_ports)->first;
 
           coreir_builder_set_context(def->getContext());
@@ -599,31 +600,66 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               inside_out_col,
               wen});
 
+          int max_row_offset = -1;
+          vector<int> rowOffsets;
+          int max_col_offset = -1;
+          vector<int> colOffsets;
+          vector<Expr> baseArgs = map_find(string("read_port_0"), buffer.read_ports)->args;
+          for (auto rp : buffer.read_ports) {
+            vector<Expr> args = rp.second->args;
+            vector<int> offsets;
+            internal_assert(args.size() == 2);
+            for (size_t i = 0; i < baseArgs.size(); i++) {
+              offsets.push_back(id_const_value(simplify(args[i] - baseArgs[i])));
+            }
+
+            if (offsets[1] > max_row_offset) {
+              max_row_offset = offsets[1];
+            }
+
+            if (offsets[0] > max_col_offset) {
+              max_col_offset = offsets[0];
+            }
+          }
+
+          internal_assert(max_col_offset >= 0);
+          internal_assert(max_row_offset >= 0);
+
+
           vector<vector<Wireable*> > colDelays;
           for (size_t i = 0; i < rowDelays.size(); i++) {
             cout << "\ti = " << i << endl;
             auto d = rowDelays.at(i);
             auto dValid = rowDelayValids.at(i);
+            Wireable* lastReg = d;
+            Wireable* lastEn = dValid;
 
             internal_assert(dValid != nullptr);
-
             cout << "\tCreating delays" << i << endl;
-            auto d0 = def->addInstance("d0" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
-            def->connect(d0->sel("in"), d);
-            def->connect(d0->sel("en"), dValid);
+            vector<Wireable*> cds{d};
 
-            auto delayedEn = def->addInstance("delayed_en" + context->getUnique(),"corebit.reg");
-            def->connect(dValid, delayedEn->sel("in"));
+            for (int c = 1; c < max_col_offset + 1; c++) {
+              auto d0 = def->addInstance("d0" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
+              def->connect(d0->sel("in"), lastReg);
+              def->connect(d0->sel("en"), lastEn);
 
-            auto d1 = def->addInstance("d1" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
-            def->connect(d1->sel("in"), d0->sel("out"));
-            def->connect(d1->sel("en"), delayedEn->sel("out"));
-            colDelays.push_back({d, d0->sel("out"), d1->sel("out")});
+              auto delayedEn = def->addInstance("delayed_en" + context->getUnique(),"corebit.reg");
+              def->connect(dValid, delayedEn->sel("in"));
+
+              lastReg = d0->sel("out");
+              lastEn = delayedEn->sel("out");
+
+              cds.push_back(d0->sel("out"));
+
+              //auto d1 = def->addInstance("d1" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
+              //def->connect(d1->sel("in"), d0->sel("out"));
+              //def->connect(d1->sel("en"), delayedEn->sel("out"));
+              //colDelays.push_back({d, d0->sel("out"), d1->sel("out")});
+            }
+            colDelays.push_back(cds);
           }
 
           cout << "Done creating delays" << endl;
-
-          vector<Expr> baseArgs = map_find(string("read_port_0"), buffer.read_ports)->args;
           for (auto rp : buffer.read_ports) {
             vector<Expr> args = rp.second->args;
             vector<int> offsets;
@@ -637,14 +673,25 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               cout << "\t" << a << endl;
             }
 
-            int rowOffset = 2 - offsets[1];
-            int colOffset = 2 - offsets[0];
+            cout << "Getting offsets" << endl;
+
+            int rowOffset = max_row_offset - offsets[1];
+            int colOffset = max_col_offset - offsets[0];
+
+            internal_assert(rowOffset >= 0);
+            internal_assert(colOffset >= 0);
+
+            cout << "rowOffset = " << rowOffset << endl;
+            cout << "colOffset = " << colOffset << endl;
+            
+            internal_assert(rowOffset < (int) colDelays.size());
 
             def->connect(started, self->sel(rp.first + "_valid"));
             auto read_data = self->sel(rp.first);
             internal_assert(rowOffset < (int) colDelays.size());
             def->connect(colDelays.at(rowOffset).at(colOffset), read_data);
           }
+
           return;
         }
       }
