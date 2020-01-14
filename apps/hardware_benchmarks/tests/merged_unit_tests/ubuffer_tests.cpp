@@ -118,12 +118,20 @@ void ubuffer_small_conv_3_3_test() {
 
   assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
 
-  state.setValue("self.write_port_0", BitVector(16, 1));
-  state.setValue("self.write_port_0_en", BitVector(1, 1));
-  
-  state.execute();
+  int n_valids = 0;
+  for (int t = 0; t < inTileSize*inTileSize; t++) {
+    state.setValue("self.write_port_0", BitVector(16, 1));
+    state.setValue("self.write_port_0_en", BitVector(1, 1));
 
-  //assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
+    state.exeCombinational();
+    if (state.getBitVec("self.read_port_0_valid") == BitVec(1, 1)) {
+      n_valids++;
+    }
+    state.execute();
+  }
+
+  cout << "n_valids = " << n_valids << endl;
+  assert(n_valids == 2*2);
   
   deleteContext(context);
  
