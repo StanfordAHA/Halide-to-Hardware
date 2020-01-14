@@ -587,6 +587,9 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           def->connect(r0Delay->sel("valid"), r1Delay->sel("wen"));
           def->connect(r1Delay->sel("flush"), self->sel("reset"));
 
+          vector<Wireable*> rowDelays{self->sel(wp), r0Delay->sel("rdata"), r1Delay->sel("rdata")};
+          vector<Wireable*> rowDelayValids{wen, r0Delay->sel("valid"), r1Delay->sel("valid")};
+
           cout << "en_cnt built..." << endl;
           Wireable* inside_out_row = geq(row_cnt, 2);
           Wireable* inside_out_col = geq(col_cnt, 2);
@@ -595,41 +598,61 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               inside_out_row,
               inside_out_col,
               wen});
-          auto write_data = self->sel(wp);
-          auto d0 = def->addInstance("d0","mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
-          def->connect(d0->sel("in"), r1Delay->sel("rdata"));
-          def->connect(d0->sel("en"), r1Delay->sel("valid"));
 
-          auto delayedEn = def->addInstance("delayed_en","corebit.reg");
-          def->connect(r1Delay->sel("valid"), delayedEn->sel("in"));
+          //auto write_data = self->sel(wp);
+          vector<vector<Wireable*> > colDelays;
+          for (size_t i = 0; i < rowDelays.size(); i++) {
+            cout << "\ti = " << i << endl;
+            auto d = rowDelays.at(i);
+            auto dValid = rowDelayValids.at(i);
 
-          auto d1 = def->addInstance("d1","mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
-          def->connect(d1->sel("in"), d0->sel("out"));
-          def->connect(d1->sel("en"), delayedEn->sel("out"));
+            internal_assert(dValid != nullptr);
+
+            cout << "\tCreating delays" << i << endl;
+            auto d0 = def->addInstance("d0" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
+            def->connect(d0->sel("in"), d);
+            def->connect(d0->sel("en"), dValid);
+
+            auto delayedEn = def->addInstance("delayed_en" + context->getUnique(),"corebit.reg");
+            def->connect(dValid, delayedEn->sel("in"));
+
+            auto d1 = def->addInstance("d1" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
+            def->connect(d1->sel("in"), d0->sel("out"));
+            def->connect(d1->sel("en"), delayedEn->sel("out"));
+            colDelays.push_back({d, d0->sel("out"), d1->sel("out")});
+          }
+
+          cout << "Done creating delays" << endl;
 
           vector<Expr> baseArgs = map_find(string("read_port_0"), buffer.read_ports)->args;
           for (auto rp : buffer.read_ports) {
             vector<Expr> args = rp.second->args;
+            vector<int> offsets;
             internal_assert(args.size() == 2);
             for (size_t i = 0; i < baseArgs.size(); i++) {
-              args[i] = simplify(args[i] - baseArgs[i]);
+              offsets.push_back(id_const_value(simplify(args[i] - baseArgs[i])));
             }
 
             cout << "Args after simplification..." << endl;
-            for (auto a : args) {
+            for (auto a : offsets) {
               cout << "\t" << a << endl;
             }
 
+            int rowOffset = 2 - offsets[0];
+            int colOffset = 2 - offsets[1];
+
             def->connect(started, self->sel(rp.first + "_valid"));
-            if (rp.first == "read_port_0") {
-              auto read_data = self->sel(rp.first);
-              def->connect(d1->sel("out"), read_data);
-            } else {
-              auto read_data = self->sel(rp.first);
-              def->connect(write_data, read_data);
-            }
+            auto read_data = self->sel(rp.first);
+            internal_assert(rowOffset < (int) colDelays.size());
+            def->connect(colDelays.at(rowOffset).at(colOffset), read_data);
+            //if (rp.first == "read_port_0") {
+              //def->connect(d1->sel("out"), read_data);
+            //} else {
+              //auto read_data = self->sel(rp.first);
+              //def->connect(write_data, read_data);
+            //}
           }
-          internal_assert(false);
+          //internal_assert(false);
           return;
         }
       }
