@@ -596,13 +596,24 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               inside_out_col,
               wen});
           auto write_data = self->sel(wp);
+          auto d0 = def->addInstance("d0","mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
+          def->connect(d0->sel("in"), r1Delay->sel("rdata"));
+          def->connect(d0->sel("en"), r1Delay->sel("valid"));
+
+          auto delayedEn = def->addInstance("delayed_en","corebit.reg");
+          def->connect(r1Delay->sel("valid"), delayedEn->sel("in"));
+
+          auto d1 = def->addInstance("d1","mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
+          def->connect(d1->sel("in"), d0->sel("out"));
+          def->connect(d1->sel("en"), delayedEn->sel("out"));
 
           for (auto rp : buffer.read_ports) {
             def->connect(started, self->sel(rp.first + "_valid"));
             if (rp.first == "read_port_0") {
               //def->connect(r1Delay->sel("valid"), self->sel(rp.first + "_valid"));
               auto read_data = self->sel(rp.first);
-              def->connect(r1Delay->sel("rdata"), read_data);
+              //def->connect(r1Delay->sel("rdata"), read_data);
+              def->connect(d1->sel("out"), read_data);
             } else {
               //def->connect(started, self->sel(rp.first + "_valid"));
               auto read_data = self->sel(rp.first);
