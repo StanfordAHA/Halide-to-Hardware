@@ -1,8 +1,3 @@
-#include "coreir.h"
-#include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
-#include "coreir/libs/float.h"
-
 #include "Halide.h"
 
 #include "halide_image_io.h"
@@ -11,6 +6,7 @@
 
 #include <fstream>
 #include "test_utils.h"
+#include "coreir_utils.h"
 #include "ubuffer_tests.h"
 
 using namespace CoreIR;
