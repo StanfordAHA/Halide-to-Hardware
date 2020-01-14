@@ -138,12 +138,12 @@ void ubuffer_small_conv_3_3_test() {
 
   for (int i = 0; i < port_0_values.size(); i++) {
     cout << "\toutput = " << port_0_values.at(i) << endl;
-    assert(i == port_0_values.at(i));
+    //assert(i == port_0_values.at(i));
   }
   
   deleteContext(context);
  
   cout << GREEN << "UBuffer to linebuffer for conv 3x3 test passed" << RESET << endl;
-  //assert(false);
+  assert(false);
 }
 

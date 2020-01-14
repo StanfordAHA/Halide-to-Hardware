@@ -559,6 +559,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           coreir_builder_set_context(def->getContext());
           coreir_builder_set_def(def);
 
+          auto wen = self->sel(wp + "_en");
           Instance* en_cnt_last = build_counter(def, 16, 0, 16, 1);
           def->connect(en_cnt_last->sel("en"), self->sel(wp + "_en"));
           def->connect(en_cnt_last->sel("reset"), self->sel("reset"));
@@ -574,7 +575,8 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           Wireable* started = andList(def,
               {geq(en_cnt_last->sel("out"), 1),
               inside_out_row,
-              inside_out_col});
+              inside_out_col,
+              wen});
           auto write_data = self->sel(wp);
 
           for (auto rp : buffer.read_ports) {
