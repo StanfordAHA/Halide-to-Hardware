@@ -8,6 +8,9 @@
 namespace Halide {
   namespace Internal {
 
+    static CoreIR::Context* active_ctx;
+    static CoreIR::ModuleDef* active_def;
+
     template<typename TOut, typename T>
       TOut* sc(T* p) {
         return static_cast<TOut*>(p);
@@ -28,6 +31,28 @@ namespace Halide {
 
     CoreIR::Wireable* andList(CoreIR::ModuleDef* def, const std::vector<CoreIR::Wireable*>& vals);
 
+    void coreir_builder_set_context(CoreIR::Context* context);
+
+    void coreir_builder_set_def(CoreIR::ModuleDef* def);
+
+    CoreIR::Instance* build_counter(CoreIR::ModuleDef* def,
+        const int width,
+        const int min_val,
+        const int max_val,
+        const int inc_val);
+
+    CoreIR::Wireable* sub(CoreIR::Wireable* a, CoreIR::Wireable* b);
+
+    CoreIR::Wireable* add(CoreIR::Wireable* a, CoreIR::Wireable* b);
+
+    CoreIR::Wireable* mul(CoreIR::Wireable* a, const int c);
+    CoreIR::Wireable* smod(CoreIR::Wireable* a, const int c);
+
+    CoreIR::Wireable* udiv(CoreIR::Wireable* a, const int c);
+    CoreIR::Wireable* add(CoreIR::Wireable* a, const int c);
+    CoreIR::Wireable* eq(CoreIR::Wireable* a, const int c);
+
+    CoreIR::Wireable* geq(CoreIR::Wireable* a, const int c);
   }
 }
 

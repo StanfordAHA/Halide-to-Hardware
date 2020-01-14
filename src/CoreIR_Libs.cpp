@@ -8,6 +8,132 @@ using namespace CoreIR;
 namespace Halide {
   namespace Internal {
 
+    void coreir_builder_set_context(CoreIR::Context* context) {
+      active_ctx = context;
+    }
+
+    void coreir_builder_set_def(CoreIR::ModuleDef* def) {
+      active_def = def;
+    }
+
+    Instance* build_counter(CoreIR::ModuleDef* def,
+        const int width,
+        const int min_val,
+        const int max_val,
+        const int inc_val) {
+      auto c = def->getContext();
+      CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
+        {"min",CoreIR::Const::make(c, min_val)},
+        {"max",CoreIR::Const::make(c, max_val)},
+        {"inc",CoreIR::Const::make(c, inc_val)}};
+
+      string lname = "counter_" + def->getContext()->getUnique();
+      CoreIR::Instance* counter_inst = def->addInstance(lname, "commonlib.counter", args);
+      return counter_inst;
+    }
+
+    CoreIR::Wireable* sub(Wireable* a, Wireable* b) {
+      internal_assert(a->getType() == b->getType());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto inst = active_def->addInstance("sub" + active_ctx->getUnique(), "coreir.sub", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), b);
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* add(Wireable* a, Wireable* b) {
+      internal_assert(a->getType() == b->getType());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), b);
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* mul(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("mul" + active_ctx->getUnique(), "coreir.mul", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* smod(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("smod" + active_ctx->getUnique(), "coreir.smod", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* udiv(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("udiv" + active_ctx->getUnique(), "coreir.udiv", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* add(Wireable* a, const int c) {
+      internal_assert(a->getType() != active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* eq(Wireable* a, const int c) {
+      internal_assert(a->getType() == active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
+    CoreIR::Wireable* geq(Wireable* a, const int c) {
+      //internal_assert(a->getType() == active_ctx->Bit());
+
+      auto def = active_def;
+      internal_assert(arrayDims(a).size() == 1);
+      int width = arrayDims(a).at(0);
+      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
+      auto inst = active_def->addInstance("geq" + active_ctx->getUnique(), "coreir.uge", {{"width", COREMK(active_ctx, width)}});
+      def->connect(inst->sel("in0"), a);
+      def->connect(inst->sel("in1"), ct->sel("out"));
+      return inst->sel("out");
+    }
+
 CoreIR::Instance* mkConst(CoreIR::ModuleDef* def, const std::string& name, const int width, const int val) {
   return def->addInstance(name, "coreir.const", {{"width", COREMK(def->getContext(), width)}}, {{"value", COREMK(def->getContext(), BitVector(width, val))}});
 }

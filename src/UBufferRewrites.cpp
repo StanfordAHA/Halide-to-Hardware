@@ -12,135 +12,6 @@ using namespace std;
 namespace Halide {
   namespace Internal {
 
-    static CoreIR::Context* active_ctx;
-    static CoreIR::ModuleDef* active_def;
-
-    void coreir_builder_set_context(CoreIR::Context* context) {
-      active_ctx = context;
-    }
-
-    void coreir_builder_set_def(CoreIR::ModuleDef* def) {
-      active_def = def;
-    }
-
-    Instance* build_counter(CoreIR::ModuleDef* def,
-        const int width,
-        const int min_val,
-        const int max_val,
-        const int inc_val) {
-      auto c = def->getContext();
-      CoreIR::Values args = {{"width",CoreIR::Const::make(c, width)},
-        {"min",CoreIR::Const::make(c, min_val)},
-        {"max",CoreIR::Const::make(c, max_val)},
-        {"inc",CoreIR::Const::make(c, inc_val)}};
-
-      string lname = "counter_" + def->getContext()->getUnique();
-      CoreIR::Instance* counter_inst = def->addInstance(lname, "commonlib.counter", args);
-      return counter_inst;
-    }
-
-    CoreIR::Wireable* sub(Wireable* a, Wireable* b) {
-      internal_assert(a->getType() == b->getType());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto inst = active_def->addInstance("sub" + active_ctx->getUnique(), "coreir.sub", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), b);
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* add(Wireable* a, Wireable* b) {
-      internal_assert(a->getType() == b->getType());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), b);
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* mul(Wireable* a, const int c) {
-      internal_assert(a->getType() != active_ctx->Bit());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
-      auto inst = active_def->addInstance("mul" + active_ctx->getUnique(), "coreir.mul", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), ct->sel("out"));
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* smod(Wireable* a, const int c) {
-      internal_assert(a->getType() != active_ctx->Bit());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
-      auto inst = active_def->addInstance("smod" + active_ctx->getUnique(), "coreir.smod", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), ct->sel("out"));
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* udiv(Wireable* a, const int c) {
-      internal_assert(a->getType() != active_ctx->Bit());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
-      auto inst = active_def->addInstance("udiv" + active_ctx->getUnique(), "coreir.udiv", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), ct->sel("out"));
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* add(Wireable* a, const int c) {
-      internal_assert(a->getType() != active_ctx->Bit());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
-      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), ct->sel("out"));
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* eq(Wireable* a, const int c) {
-      internal_assert(a->getType() == active_ctx->Bit());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
-      auto inst = active_def->addInstance("add" + active_ctx->getUnique(), "coreir.add", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), ct->sel("out"));
-      return inst->sel("out");
-    }
-
-    CoreIR::Wireable* geq(Wireable* a, const int c) {
-      //internal_assert(a->getType() == active_ctx->Bit());
-
-      auto def = active_def;
-      internal_assert(arrayDims(a).size() == 1);
-      int width = arrayDims(a).at(0);
-      auto ct = mkConst(active_def, "const" + active_ctx->getUnique(), width, c);
-      auto inst = active_def->addInstance("geq" + active_ctx->getUnique(), "coreir.uge", {{"width", COREMK(active_ctx, width)}});
-      def->connect(inst->sel("in0"), a);
-      def->connect(inst->sel("in1"), ct->sel("out"));
-      return inst->sel("out");
-    }
-
     template<typename D, typename R>
       set<D> domain(const std::map<D, R>& m) {
         set<D> d;
@@ -564,14 +435,12 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           Instance* en_cnt_last = build_counter(def, 16, 0, 16, 1);
           def->connect(en_cnt_last->sel("en"), self->sel(wp + "_en"));
           def->connect(en_cnt_last->sel("reset"), self->sel("reset"));
-          cout << "Built counter..." << endl;
 
           auto row_cnt = udiv(en_cnt_last->sel("out"), 4);
           auto col_cnt = sub(en_cnt_last->sel("out"), mul(row_cnt, 4));
 
           auto context = def->getContext();
 
-          cout << "en_cnt built..." << endl;
           Wireable* inside_out_row = geq(row_cnt, 2);
           Wireable* inside_out_col = geq(col_cnt, 2);
           Wireable* started = andList(def,
@@ -617,12 +486,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           internal_assert(max_col_offset >= 0);
           internal_assert(max_row_offset >= 0);
 
-          cout << "max_col_offset = " << max_col_offset << endl;
-          cout << "max_row_offset = " << max_row_offset << endl;
-
-          //vector<Wireable*> rowDelays{self->sel(wp), r0Delay->sel("rdata"), r1Delay->sel("rdata")};
-          //vector<Wireable*> rowDelayValids{wen, r0Delay->sel("valid"), r1Delay->sel("valid")};
-
           vector<Wireable*> rowDelays{self->sel(wp)};
           vector<Wireable*> rowDelayValids{wen};
           for (int i = 1; i < max_row_offset + 1; i++) {
@@ -641,15 +504,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
             rowDelayValids.push_back(r0Delay->sel("valid"));
           }
 
-          //// rowbuffer_stencil_valid
-          //auto r1Delay =
-            //def->addInstance("r1_delay",
-                //"memory.rowbuffer",
-                //{{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
-          //def->connect(r0Delay->sel("rdata"), r1Delay->sel("wdata"));
-          //def->connect(r0Delay->sel("valid"), r1Delay->sel("wen"));
-          //def->connect(r1Delay->sel("flush"), self->sel("reset"));
-
           vector<vector<Wireable*> > colDelays;
           for (size_t i = 0; i < rowDelays.size(); i++) {
             cout << "\ti = " << i << endl;
@@ -659,7 +513,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
             Wireable* lastEn = dValid;
 
             internal_assert(dValid != nullptr);
-            cout << "\tCreating delays" << i << endl;
             vector<Wireable*> cds{d};
 
             for (int c = 1; c < max_col_offset + 1; c++) {
@@ -678,7 +531,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
             colDelays.push_back(cds);
           }
 
-          cout << "Done creating delays" << endl;
           for (auto rp : buffer.read_ports) {
             vector<Expr> args = rp.second->args;
             vector<int> offsets;
@@ -687,23 +539,11 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               offsets.push_back(id_const_value(simplify(args[i] - baseArgs[i])));
             }
 
-            cout << "Args after simplification..." << endl;
-            for (auto a : offsets) {
-              cout << "\t" << a << endl;
-            }
-
-            cout << "Getting offsets" << endl;
-
             int rowOffset = max_row_offset - offsets[1] + min_row_offset;
             int colOffset = max_col_offset - offsets[0] + min_col_offset;
 
             internal_assert(rowOffset >= 0);
             internal_assert(colOffset >= 0);
-
-            cout << "rowOffset = " << rowOffset << endl;
-            cout << "colOffset = " << colOffset << endl;
-            cout << "colDelays = " << colDelays.size() << endl;
-            
             internal_assert(rowOffset < (int) colDelays.size());
 
             def->connect(started, self->sel(rp.first + "_valid"));
