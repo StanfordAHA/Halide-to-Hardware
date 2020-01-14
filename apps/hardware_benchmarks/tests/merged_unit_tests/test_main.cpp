@@ -2357,7 +2357,7 @@ void curve_lookup_test() {
   hw_output.print_loop_nest();
   auto context = hwContext();
   vector<Argument> args{input};
-  auto m = buildModule(context, "camer_pipe_coreir", args, "camera_pipeline", hw_output);
+  auto m = buildModule(context, "camera_pipe_coreir", args, "camera_pipeline", hw_output);
 
   cout << "Module..." << endl;
   cout << m << endl;
@@ -3193,6 +3193,8 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
+  multi_channel_conv_test();
+  real_unsharp_test();
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
@@ -3212,7 +3214,6 @@ int main(int argc, char **argv) {
   //conv_layer_mobile_test();
   
   double_unsharp_test();
-  real_unsharp_test();
   
   rom_read_test();
   curve_16_lookup_test();
@@ -3225,7 +3226,6 @@ int main(int argc, char **argv) {
   
   offset_window_test();  
   small_demosaic_test();
-  multi_channel_conv_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
