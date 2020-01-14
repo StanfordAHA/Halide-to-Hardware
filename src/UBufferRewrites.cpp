@@ -607,19 +607,29 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           def->connect(d1->sel("in"), d0->sel("out"));
           def->connect(d1->sel("en"), delayedEn->sel("out"));
 
+          vector<Expr> baseArgs = map_find(string("read_port_0"), buffer.read_ports)->args;
           for (auto rp : buffer.read_ports) {
+            vector<Expr> args = rp.second->args;
+            internal_assert(args.size() == 2);
+            for (size_t i = 0; i < baseArgs.size(); i++) {
+              args[i] = simplify(args[i] - baseArgs[i]);
+            }
+
+            cout << "Args after simplification..." << endl;
+            for (auto a : args) {
+              cout << "\t" << a << endl;
+            }
+
             def->connect(started, self->sel(rp.first + "_valid"));
             if (rp.first == "read_port_0") {
-              //def->connect(r1Delay->sel("valid"), self->sel(rp.first + "_valid"));
               auto read_data = self->sel(rp.first);
-              //def->connect(r1Delay->sel("rdata"), read_data);
               def->connect(d1->sel("out"), read_data);
             } else {
-              //def->connect(started, self->sel(rp.first + "_valid"));
               auto read_data = self->sel(rp.first);
               def->connect(write_data, read_data);
             }
           }
+          internal_assert(false);
           return;
         }
       }
