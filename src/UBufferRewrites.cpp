@@ -570,26 +570,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
           auto col_cnt = sub(en_cnt_last->sel("out"), mul(row_cnt, 4));
 
           auto context = def->getContext();
-          // Create delays
-          auto r0Delay =
-            def->addInstance("r0_delay",
-                "memory.rowbuffer",
-                {{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
-          def->connect(r0Delay->sel("wdata"), self->sel(wp));
-          def->connect(r0Delay->sel("wen"), wen);
-          def->connect(r0Delay->sel("flush"), self->sel("reset"));
-
-          // rowbuffer_stencil_valid
-          auto r1Delay =
-            def->addInstance("r1_delay",
-                "memory.rowbuffer",
-                {{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
-          def->connect(r0Delay->sel("rdata"), r1Delay->sel("wdata"));
-          def->connect(r0Delay->sel("valid"), r1Delay->sel("wen"));
-          def->connect(r1Delay->sel("flush"), self->sel("reset"));
-
-          vector<Wireable*> rowDelays{self->sel(wp), r0Delay->sel("rdata"), r1Delay->sel("rdata")};
-          vector<Wireable*> rowDelayValids{wen, r0Delay->sel("valid"), r1Delay->sel("valid")};
 
           cout << "en_cnt built..." << endl;
           Wireable* inside_out_row = geq(row_cnt, 2);
@@ -600,10 +580,11 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               inside_out_col,
               wen});
 
+          // TODO: Set to real max value
+          int min_row_offset = 10000;
+          int min_col_offset = 10000;
           int max_row_offset = -1;
-          vector<int> rowOffsets;
           int max_col_offset = -1;
-          vector<int> colOffsets;
           vector<Expr> baseArgs = map_find(string("read_port_0"), buffer.read_ports)->args;
           for (auto rp : buffer.read_ports) {
             vector<Expr> args = rp.second->args;
@@ -612,6 +593,14 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
             for (size_t i = 0; i < baseArgs.size(); i++) {
               offsets.push_back(id_const_value(simplify(args[i] - baseArgs[i])));
             }
+
+            if (offsets[1] < min_row_offset) {
+              min_row_offset = offsets[1];
+            }
+            if (offsets[0] < min_col_offset) {
+              min_col_offset = offsets[0];
+            }
+
 
             if (offsets[1] > max_row_offset) {
               max_row_offset = offsets[1];
@@ -622,9 +611,44 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
             }
           }
 
+          max_row_offset += -min_row_offset;
+          max_col_offset += -min_col_offset;
+
           internal_assert(max_col_offset >= 0);
           internal_assert(max_row_offset >= 0);
 
+          cout << "max_col_offset = " << max_col_offset << endl;
+          cout << "max_row_offset = " << max_row_offset << endl;
+
+          //vector<Wireable*> rowDelays{self->sel(wp), r0Delay->sel("rdata"), r1Delay->sel("rdata")};
+          //vector<Wireable*> rowDelayValids{wen, r0Delay->sel("valid"), r1Delay->sel("valid")};
+
+          vector<Wireable*> rowDelays{self->sel(wp)};
+          vector<Wireable*> rowDelayValids{wen};
+          for (int i = 1; i < max_row_offset + 1; i++) {
+            auto lastD = rowDelays[i - 1];
+            auto lastEn = rowDelayValids[i - 1];
+            // Create delays
+            auto r0Delay =
+              def->addInstance("r" + to_string(i) + "_delay" + context->getUnique(),
+                  "memory.rowbuffer",
+                  {{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
+            def->connect(r0Delay->sel("wdata"), lastD);
+            def->connect(r0Delay->sel("wen"), lastEn);
+            def->connect(r0Delay->sel("flush"), self->sel("reset"));
+
+            rowDelays.push_back(r0Delay->sel("rdata"));
+            rowDelayValids.push_back(r0Delay->sel("valid"));
+          }
+
+          //// rowbuffer_stencil_valid
+          //auto r1Delay =
+            //def->addInstance("r1_delay",
+                //"memory.rowbuffer",
+                //{{"width", COREMK(context, 16)}, {"depth", COREMK(context, 4)}});
+          //def->connect(r0Delay->sel("rdata"), r1Delay->sel("wdata"));
+          //def->connect(r0Delay->sel("valid"), r1Delay->sel("wen"));
+          //def->connect(r1Delay->sel("flush"), self->sel("reset"));
 
           vector<vector<Wireable*> > colDelays;
           for (size_t i = 0; i < rowDelays.size(); i++) {
@@ -650,11 +674,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               lastEn = delayedEn->sel("out");
 
               cds.push_back(d0->sel("out"));
-
-              //auto d1 = def->addInstance("d1" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,true)}});
-              //def->connect(d1->sel("in"), d0->sel("out"));
-              //def->connect(d1->sel("en"), delayedEn->sel("out"));
-              //colDelays.push_back({d, d0->sel("out"), d1->sel("out")});
             }
             colDelays.push_back(cds);
           }
@@ -675,14 +694,15 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
 
             cout << "Getting offsets" << endl;
 
-            int rowOffset = max_row_offset - offsets[1];
-            int colOffset = max_col_offset - offsets[0];
+            int rowOffset = max_row_offset - offsets[1] + min_row_offset;
+            int colOffset = max_col_offset - offsets[0] + min_col_offset;
 
             internal_assert(rowOffset >= 0);
             internal_assert(colOffset >= 0);
 
             cout << "rowOffset = " << rowOffset << endl;
             cout << "colOffset = " << colOffset << endl;
+            cout << "colDelays = " << colDelays.size() << endl;
             
             internal_assert(rowOffset < (int) colDelays.size());
 
@@ -716,6 +736,9 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
 
 void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
   Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(simplify(stmt)))));
+
+  cout << "Doing rewrites for" << endl;
+  cout << simple << endl;
 
   FuncOpCollector mic;
   simple.accept(&mic);

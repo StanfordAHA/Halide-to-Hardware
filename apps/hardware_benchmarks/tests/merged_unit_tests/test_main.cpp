@@ -2339,6 +2339,8 @@ void hot_pixel_suppression_test() {
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
     .reorder(xi, yi, xo, yo);
   hw_input.stream_to_accelerator();
+  hw_output.bound(x, 0, outTileSize);
+  hw_output.bound(y, 0, outTileSize);
   denoised.linebuffer();
   //unroll(x).unroll(y);
   hw_output.hw_accelerate(xi, xo);
