@@ -599,7 +599,6 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               inside_out_col,
               wen});
 
-          //auto write_data = self->sel(wp);
           vector<vector<Wireable*> > colDelays;
           for (size_t i = 0; i < rowDelays.size(); i++) {
             cout << "\ti = " << i << endl;
@@ -645,14 +644,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
             auto read_data = self->sel(rp.first);
             internal_assert(rowOffset < (int) colDelays.size());
             def->connect(colDelays.at(rowOffset).at(colOffset), read_data);
-            //if (rp.first == "read_port_0") {
-              //def->connect(d1->sel("out"), read_data);
-            //} else {
-              //auto read_data = self->sel(rp.first);
-              //def->connect(write_data, read_data);
-            //}
           }
-          //internal_assert(false);
           return;
         }
       }
