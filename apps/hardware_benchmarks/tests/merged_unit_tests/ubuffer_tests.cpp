@@ -119,12 +119,14 @@ void ubuffer_small_conv_3_3_test() {
   assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
 
   int n_valids = 0;
+  vector<int> port_0_values;
   for (int t = 0; t < inTileSize*inTileSize; t++) {
-    state.setValue("self.write_port_0", BitVector(16, 1));
+    state.setValue("self.write_port_0", BitVector(16, t));
     state.setValue("self.write_port_0_en", BitVector(1, 1));
 
     state.exeCombinational();
     if (state.getBitVec("self.read_port_0_valid") == BitVec(1, 1)) {
+      port_0_values.push_back(state.getBitVec("self.read_port_0").to_type<int>());
       n_valids++;
     }
     state.execute();
@@ -132,6 +134,12 @@ void ubuffer_small_conv_3_3_test() {
 
   cout << "n_valids = " << n_valids << endl;
   assert(n_valids == 2*2);
+  assert(port_0_values.size() == 2*2);
+
+  for (int i = 0; i < port_0_values.size(); i++) {
+    cout << "\toutput = " << port_0_values.at(i) << endl;
+    assert(i == port_0_values.at(i));
+  }
   
   deleteContext(context);
  
