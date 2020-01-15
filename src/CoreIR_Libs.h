@@ -11,6 +11,12 @@ namespace Halide {
     static CoreIR::Context* active_ctx;
     static CoreIR::ModuleDef* active_def;
 
+    static inline
+    void set_coreir_ctx(CoreIR::ModuleDef* def) {
+      active_def = def;
+      active_ctx = def->getContext();
+    }
+
     template<typename TOut, typename T>
       TOut* sc(T* p) {
         return static_cast<TOut*>(p);
