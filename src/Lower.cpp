@@ -1,3 +1,6 @@
+
+#include "coreir.h"
+
 #include <algorithm>
 #include <iostream>
 #include <set>
