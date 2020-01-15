@@ -42,6 +42,90 @@ void check_param(const string paramname, int param1, int param2) {
   h_assert(param1 == param2, debug_stream.str());
 }
 
+int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
+  h_assert(hwbuffer.name == ref.name, "wrong name for hwbuffer: " + hwbuffer.name + " vs ref=" + ref.name);
+
+  // check store, compute, and streaming loops
+  h_assert(hwbuffer.store_level == ref.store_level,
+           hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
+  h_assert(hwbuffer.compute_level == ref.compute_level,
+           hwbuffer.name + " has the wrong compute level: " + hwbuffer.compute_level + " vs ref=" + ref.compute_level);
+
+  //h_assert(hwbuffer.streaming_loops.size() == ref.streaming_loops.size(), hwbuffer.name + " has a differing number of streaming loops");
+  check_param(hwbuffer.name + " streaming loops", hwbuffer.streaming_loops.size(), ref.streaming_loops.size());
+  for (size_t i=0; i<hwbuffer.streaming_loops.size(); ++i) {
+    h_assert(hwbuffer.streaming_loops.at(i) == ref.streaming_loops.at(i),
+             hwbuffer.name + " has the wrong streaming loop"  + to_string(i) + " name: " + hwbuffer.streaming_loops.at(i));
+  }
+
+  // check logical, stencil, chunk, and block sizes
+  h_assert(hwbuffer.dims.size() == ref.dims.size(), "doesn't have correct num of dims");
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param(hwbuffer.name + " logical size dim" + to_string(i), hwbuffer.ldims.at(i).logical_size, ref.ldims.at(i).logical_size);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param(hwbuffer.name + " output stencil dim" + to_string(i), hwbuffer.dims.at(i).output_stencil, ref.dims.at(i).output_stencil);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param(hwbuffer.name + " output block dim" + to_string(i), hwbuffer.dims.at(i).output_block, ref.dims.at(i).output_block);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param(hwbuffer.name + " input chunk dim" + to_string(i), hwbuffer.dims.at(i).input_chunk, ref.dims.at(i).input_chunk);
+  }
+  for (size_t i=0; i<ref.dims.size(); ++i) {
+    check_param(hwbuffer.name + " input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
+  }
+
+  // check linear address loops
+  std::cout << "linear address loop length is " << hwbuffer.linear_addr.size() << std::endl;
+  check_param(hwbuffer.name + " num of linear addr loops", hwbuffer.linear_addr.size(), ref.linear_addr.size());
+  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+    check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer.linear_addr.at(i).range, ref.linear_addr.at(i).range);
+  }
+  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+    check_param(hwbuffer.name + " stride loop" + to_string(i), hwbuffer.linear_addr.at(i).stride, ref.linear_addr.at(i).stride);
+  }
+  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+    check_param(hwbuffer.name + " dim_ref loop" + to_string(i), hwbuffer.linear_addr.at(i).dim_ref, ref.linear_addr.at(i).dim_ref);
+  }
+
+  // Note: the number of consumer streams includes the update
+  //check_param(hwbuffer.name + " number of consumer streams", hwbuffer.ostreams.size(), ref.ostreams.size());
+  
+  for (const auto& ostream_pair : ref.ostreams) {
+    h_assert(hwbuffer.ostreams.count(ostream_pair.first) > 0, hwbuffer.name + " has an ostream the hwbuffer does not have: " + ostream_pair.first);
+    auto& ref_odims = ostream_pair.second.odims;
+    auto& hwbuffer_odims = hwbuffer.ostreams.at(ostream_pair.first).odims;
+    auto& ref_linear = ostream_pair.second.linear_access;
+    auto& hwbuffer_linear = hwbuffer.ostreams.at(ostream_pair.first).linear_access;
+  
+    check_param("num of ostream dims", hwbuffer_odims.size(), ref_odims.size());
+    for (size_t i=0; i<ref.dims.size(); ++i) {
+      //std::cout << "output stencil looks like: " << hwbuffer_odims.at(i).output_stencil << " and " << ref_odims.at(i).output_stencil << std::endl;
+      check_param(hwbuffer.name + " ostream " + ostream_pair.first + " stencil dim" + to_string(i), hwbuffer_odims.at(i).output_stencil, ref_odims.at(i).output_stencil);
+    }
+    for (size_t i=0; i<ref.dims.size(); ++i) {
+      //std::cout << "output block looks like: " << hwbuffer_odims.at(i).output_block << " and " << ref_odims.at(i).output_block << std::endl;
+      check_param(hwbuffer.name + " ostream " + ostream_pair.first + " block dim" + to_string(i), hwbuffer_odims.at(i).output_block, ref_odims.at(i).output_block);
+    }
+
+    // check linear address loops
+    std::cout << "linear address loop length is " << hwbuffer_linear.size() << std::endl;
+    check_param(hwbuffer.name + " num of linear addr loops", hwbuffer_linear.size(), ref_linear.size());
+    for (size_t i=0; i<ref_linear.size(); ++i) {
+      check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer_linear.at(i).range, ref_linear.at(i).range);
+    }
+    for (size_t i=0; i<ref_linear.size(); ++i) {
+      check_param(hwbuffer.name + " stride loop" + to_string(i), hwbuffer_linear.at(i).stride, ref_linear.at(i).stride);
+    }
+    for (size_t i=0; i<ref_linear.size(); ++i) {
+      check_param(hwbuffer.name + " dim_ref loop" + to_string(i), hwbuffer_linear.at(i).dim_ref, ref_linear.at(i).dim_ref);
+    }
+  }
+
+  return 0;
+}
+
 std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
                                       const vector<Argument> &args) {
 
@@ -145,76 +229,6 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
     */
 
     return xcels;
-}
-
-
-int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
-  h_assert(hwbuffer.name == ref.name, "wrong name for hwbuffer: " + hwbuffer.name + " vs ref=" + ref.name);
-
-  // check store, compute, and streaming loops
-  h_assert(hwbuffer.store_level == ref.store_level,
-           hwbuffer.name + " has the wrong store level: " + hwbuffer.store_level + " vs ref=" + ref.store_level);
-  h_assert(hwbuffer.compute_level == ref.compute_level,
-           hwbuffer.name + " has the wrong compute level: " + hwbuffer.compute_level + " vs ref=" + ref.compute_level);
-
-  //h_assert(hwbuffer.streaming_loops.size() == ref.streaming_loops.size(), hwbuffer.name + " has a differing number of streaming loops");
-  check_param(hwbuffer.name + " streaming loops", hwbuffer.streaming_loops.size(), ref.streaming_loops.size());
-  for (size_t i=0; i<hwbuffer.streaming_loops.size(); ++i) {
-    h_assert(hwbuffer.streaming_loops.at(i) == ref.streaming_loops.at(i),
-             hwbuffer.name + " has the wrong streaming loop"  + to_string(i) + " name: " + hwbuffer.streaming_loops.at(i));
-  }
-
-  // check logical, stencil, chunk, and block sizes
-  h_assert(hwbuffer.dims.size() == ref.dims.size(), "doesn't have correct num of dims");
-  for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param(hwbuffer.name + " logical size dim" + to_string(i), hwbuffer.ldims.at(i).logical_size, ref.ldims.at(i).logical_size);
-  }
-  for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param(hwbuffer.name + " output stencil dim" + to_string(i), hwbuffer.dims.at(i).output_stencil, ref.dims.at(i).output_stencil);
-  }
-  for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param(hwbuffer.name + " output block dim" + to_string(i), hwbuffer.dims.at(i).output_block, ref.dims.at(i).output_block);
-  }
-  for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param(hwbuffer.name + " input chunk dim" + to_string(i), hwbuffer.dims.at(i).input_chunk, ref.dims.at(i).input_chunk);
-  }
-  for (size_t i=0; i<ref.dims.size(); ++i) {
-    check_param(hwbuffer.name + " input block dim" + to_string(i), hwbuffer.dims.at(i).input_block, ref.dims.at(i).input_block);
-  }
-
-  // check linear address loops
-  std::cout << "linear address loop length is " << hwbuffer.linear_addr.size() << std::endl;
-  check_param(hwbuffer.name + " num of linear addr loops", hwbuffer.linear_addr.size(), ref.linear_addr.size());
-  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
-    check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer.linear_addr.at(i).range, ref.linear_addr.at(i).range);
-  }
-  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
-    check_param(hwbuffer.name + " stride loop" + to_string(i), hwbuffer.linear_addr.at(i).stride, ref.linear_addr.at(i).stride);
-  }
-  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
-    check_param(hwbuffer.name + " dim_ref loop" + to_string(i), hwbuffer.linear_addr.at(i).dim_ref, ref.linear_addr.at(i).dim_ref);
-  }
-
-  // Note: the number of consumer streams includes the update
-  //check_param(hwbuffer.name + " number of consumer streams", hwbuffer.ostreams.size(), ref.ostreams.size());
-  
-  for (const auto& ostream_pair : ref.ostreams) {
-    h_assert(hwbuffer.ostreams.count(ostream_pair.first) > 0, hwbuffer.name + " has an ostream the hwbuffer does not have: " + ostream_pair.first);
-    auto& ref_odims = ostream_pair.second.odims;
-    auto& hwbuffer_odims = hwbuffer.ostreams.at(ostream_pair.first).odims;
-  
-    check_param("num of ostream dims", hwbuffer_odims.size(), ref_odims.size());
-    for (size_t i=0; i<ref.dims.size(); ++i) {
-      //std::cout << "output stencil looks like: " << hwbuffer_odims.at(i).output_stencil << " and " << ref_odims.at(i).output_stencil << std::endl;
-      check_param(hwbuffer.name + " ostream " + ostream_pair.first + " stencil dim" + to_string(i), hwbuffer_odims.at(i).output_stencil, ref_odims.at(i).output_stencil);
-    }
-    for (size_t i=0; i<ref.dims.size(); ++i) {
-      //std::cout << "output block looks like: " << hwbuffer_odims.at(i).output_block << " and " << ref_odims.at(i).output_block << std::endl;
-      check_param(hwbuffer.name + " ostream " + ostream_pair.first + " block dim" + to_string(i), hwbuffer_odims.at(i).output_block, ref_odims.at(i).output_block);
-    }
-  }
-
-  return 0;
 }
 
 int conv_hwbuffer_test(int ksize, int imgsize) {

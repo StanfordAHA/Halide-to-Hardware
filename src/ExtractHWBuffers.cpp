@@ -181,6 +181,9 @@ HWBuffer::HWBuffer(string name, vector<MergedDimSize> mdims, vector<AccessDimSiz
     ostream.odims.at(i).output_min_pos = mdims.at(i).output_min_pos;
     ostream.odims.at(i).output_max_pos = mdims.at(i).output_max_pos;
   }
+
+  ostream.linear_access = linear_addr;
+  
   istreams[iname] = istream;
   ostreams[oname] = ostream;
 
@@ -1875,66 +1878,28 @@ void IdentifyAddressing::visit(const For *op) {
 
 
 IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const map<string,Stride> &stride_map) :
-    func(func), stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
-    const auto &sch = func.definition().schedule();
-    const auto &splits = sch.splits();
+  func(func), stream_dim_idx(0), scope(scope), storage_names(func.args()), stride_map(stride_map) {
+  const auto &sch = func.definition().schedule();
+  const auto &splits = sch.splits();
 
-    std::cout << "populating dim map for " << func.name() << std::endl;
-    // populate dim map with names
-    for (size_t i=0; i < storage_names.size(); ++i) {
-      dim_map[storage_names.at(i)] = i;
-      std::cout << "storage name=" << storage_names.at(i) << " has dim_idx=" << i << "\n";
-    }
+  std::cout << "populating dim map for " << func.name() << std::endl;
+  // populate dim map with names
+  for (size_t i=0; i < storage_names.size(); ++i) {
+    dim_map[storage_names.at(i)] = i;
+    std::cout << "storage name=" << storage_names.at(i) << " has dim_idx=" << i << "\n";
+  }
 
-    // add any splits
-    for (auto split : splits) {
-      std::cout << "remapping " << split.old_var << " with " << split.outer << " and " << split.inner << "\n";
-      if (dim_map.count(split.old_var)) {
-        dim_map[split.outer] = dim_map.at(split.old_var);
-        dim_map[split.inner] = dim_map.at(split.old_var);
-      }
+  // add any splits
+  for (auto split : splits) {
+    std::cout << "remapping " << split.old_var << " with " << split.outer << " and " << split.inner << "\n";
+    if (dim_map.count(split.old_var)) {
+      dim_map[split.outer] = dim_map.at(split.old_var);
+      dim_map[split.inner] = dim_map.at(split.old_var);
     }
+  }
     
-    std::cout << "going to be looking for range and strides where storage=" << storage_names << std::endl;
-  }
-/*
-void linearize_address_space(HWBuffer &kernel) {
-  for (auto& istream_pair : kernel.producer_buffers) {
-    auto& istream = *istream_pair.second;
-
-    IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
-    istream.output_access_pattern.accept(&id_addr);
-
-    if (istream.name != kernel.name) {
-      std::cout << istream.output_access_pattern;
-      std::cout << istream.name << " is a producer for " << kernel.name << std::endl
-                << "  range: " << id_addr.ranges << std::endl
-                << "  stride: " << id_addr.strides_in_dim << std::endl
-                << "  dim_refs: " << id_addr.dim_refs << std::endl;
-
-      auto num_access_levels = id_addr.ranges.size();
-      assert(num_access_levels == id_addr.strides_in_dim.size());
-      assert(num_access_levels == id_addr.dim_refs.size());
-      
-      std::vector<AccessDimSize> linear_addr(num_access_levels);
-      size_t j = 0;
-      for (size_t i=0; i<num_access_levels; ++i) {
-        if (id_addr.ranges.at(i) != 1) {
-          linear_addr.at(j).range = id_addr.ranges.at(i);
-          linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
-          linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
-          j += 1;
-        }
-      }
-      linear_addr.resize(j);
-      istream_pair.second->linear_addr = linear_addr;
-      //kernel.linear_addr = linear_addr;
-      std::cout << istream.name << " getting linear addr " << istream.linear_addr << std::endl;
-      std::cout << istream << std::endl;
-    }
-  }
+  std::cout << "going to be looking for range and strides where storage=" << storage_names << std::endl;
 }
-*/
 
 void linearize_address_space(HWBuffer &kernel) {
   std::cout << "linearizing for " << kernel.name << std::endl;
@@ -1942,7 +1907,7 @@ void linearize_address_space(HWBuffer &kernel) {
   for (auto& istream_pair : kernel.producer_buffers) {
     HWBuffer& istream = *istream_pair.second;
     std::cout << "dealing with istream " << istream.name << std::endl;
-    //std::shared_ptr<HWBuffer> istream = istream_pair.second;
+    OutputStream ostream = istream.ostreams.at(kernel.name);
 
     IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
     std::cout << istream.output_access_pattern;
@@ -1961,6 +1926,7 @@ void linearize_address_space(HWBuffer &kernel) {
       
       //istream_pair.second->linear_addr = std::vector<AccessDimSize>(num_access_levels);
       istream.linear_addr.resize(num_access_levels);
+      ostream.linear_access.resize(num_access_levels);
       //auto linear_addr = std::vector<AccessDimSize>(num_access_levels);
       size_t j = 0;
       for (size_t i=0; i<num_access_levels; ++i) {
@@ -1968,10 +1934,16 @@ void linearize_address_space(HWBuffer &kernel) {
           istream.linear_addr.at(j).range = id_addr.ranges.at(i);
           istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
           istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
+          
+          ostream.linear_access.at(j).range = id_addr.ranges.at(i);
+          ostream.linear_access.at(j).stride = id_addr.strides_in_dim.at(i);
+          ostream.linear_access.at(j).dim_ref = id_addr.dim_refs.at(i);
+
           j += 1;
         }
       }
       istream.linear_addr.resize(j);
+      ostream.linear_access.resize(j);
       //kernel.linear_addr = istream.linear_addr;
       std::cout << istream.linear_addr << std::endl << istream;
       std::cout << &istream << std::endl;
