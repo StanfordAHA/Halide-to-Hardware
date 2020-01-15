@@ -1,3 +1,4 @@
+# Do not do this unless we are on darwin
 source ./test/scripts/mac_settings.sh
 if ./test/scripts/rebuild.sh; then
   echo "Built"

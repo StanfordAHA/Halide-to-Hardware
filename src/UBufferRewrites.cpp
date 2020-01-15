@@ -564,8 +564,9 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
 
   for (auto f : env) {
     if (f.second.schedule().is_accelerated() ||
-        f.second.schedule().is_accelerator_input() ||
-        f.second.schedule().is_hw_kernel()) {
+        f.second.schedule().is_accelerator_input()) {
+        //f.second.schedule().is_accelerator_input() ||
+        //f.second.schedule().is_hw_kernel()) {
 
       cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
