@@ -1,6 +1,7 @@
 #ifndef HALIDE_UBUFFER_REWRITES_H
 #define HALIDE_UBUFFER_REWRITES_H
 
+#include "coreir.h"
 
 #include "ExtractHWBuffers.h"
 #include "HWUtils.h"
