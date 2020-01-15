@@ -250,8 +250,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                   
                     // This is call to input stencil
                     // we use the min_pos stored in in_kernel.consumer_buffers
-                    const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
-                    internal_assert(it != kernel.consumer_buffers.end());
+                  //const auto it = stencil_kernel.consumer_buffers.find(kernel.name);
+                  //internal_assert(it != kernel.consumer_buffers.end());
                     // FIXMEyikes consumer buffers doesn't seem to work
                     std::cout << "tricky offset here for " << kernel.name << std::endl;
                     /////internal_assert(it->second->dims.size() > i)
@@ -710,7 +710,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         // This works around the issue that read stencil call from a interface stream
         // in the compute kernel cannot fully unrolled
         int force_buffer_depth = 0;
-        if (kernel.input_streams.empty() && kernel.consumer_buffers.size() == 1)
+        if (kernel.input_streams.empty() && kernel.ostreams.size() == 1)
             force_buffer_depth = 1;
         Stmt dispatch_call = create_hwbuffer_dispatch_call(kernel, force_buffer_depth);
         ret = Block::make(dispatch_call, s);

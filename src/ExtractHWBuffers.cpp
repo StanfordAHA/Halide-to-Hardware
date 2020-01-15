@@ -1528,8 +1528,8 @@ void set_output_params(HWXcel *xcel,
           hwbuffers.at(consumer.name).producer_buffers.count(hwbuffer.name) == 0) {
         std::cout << "adding " << hwbuffer.name << " as an input of " << consumer.name << "\n";
         hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
-        //hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = std::make_shared<HWBuffer>(hwbuffer);
         hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = &hwbuffer;
+
       } else {
         std::cout << "couldn't find consumer " << consumer.name << std::endl;
       }
@@ -1542,7 +1542,8 @@ void set_output_params(HWXcel *xcel,
       if (consumer.name != hwbuffer.name) {
         if (consumer_buffer.is_inlined) {
           //internal_assert(consumer_buffer.consumer_buffers.size() == 1) << "The inlined kernel " << consumer.name << " has more than one consumer.\n";
-          consumer_name = consumer_buffer.consumer_buffers.begin()->first;
+          //consumer_name = consumer_buffer.consumer_buffers.begin()->first;
+          consumer_name = consumer_buffer.ostreams.begin()->first;
         } else {
           consumer_name = consumer_buffer.name;
         }
@@ -1553,7 +1554,7 @@ void set_output_params(HWXcel *xcel,
       std::cout << "for kernel " << hwbuffer.name << ", adding consumer "
                 << consumer_name << " based on kernel " << consumer.name << std::endl;
       //hwbuffer.consumer_buffers[consumer_name] = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
-      hwbuffer.consumer_buffers[consumer_name] = &hwbuffers.at(consumer.name);
+      //  hwbuffer.consumer_buffers[consumer_name] = &hwbuffers.at(consumer.name);
       //ostream.hwref = std::make_shared<HWBuffer>(hwbuffers.at(consumer.name));
       ostream.hwref = &hwbuffers.at(consumer.name);
       
@@ -2052,7 +2053,8 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
 
     auto& kernel = hwbuffer_pair.second;
     auto num_inputs = kernel.func.updates().size() + 1;
-    auto num_outputs = kernel.consumer_buffers.size();
+    //auto num_outputs = kernel.consumer_buffers.size();
+    auto num_outputs = kernel.ostreams.size();
     std::cout << "num_in=" << num_inputs << "   num_out=" << num_outputs << std::endl;
 
     if (kernel.ostreams.count(kernel.name)) {

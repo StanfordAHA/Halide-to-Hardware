@@ -22,12 +22,20 @@
 namespace Halide {
 namespace Internal {
 
+struct HWBuffer; // forward declare
+
 struct Stride {
   int stride;
   bool is_inverse;
   Stride(int stride=0, bool is_inverse=false) :
     stride(stride), is_inverse(is_inverse) {}
 
+};
+
+struct AccessDimSize {
+  Expr range;
+  Expr stride;
+  Expr dim_ref;
 };
 
 struct MergedDimSize {
@@ -55,6 +63,16 @@ struct InputStream {
   std::vector<InputDimSize> idims;
   Stmt input_access_pattern;
   std::map<std::string, Stride> stride_map;
+  std::vector<AccessDimSize> linear_access; // use access pattern and stride map to construct this
+  HWBuffer* hwref;
+};
+
+struct UpdateStream {
+  std::string name;
+  // no dimension info needed, because same as input; perhaps needs min_pos?
+  Stmt update_access_pattern; // output of hwbuffer on each update
+  std::map<std::string, Stride> stride_map;
+  std::vector<AccessDimSize> linear_access;
 };
 
 struct OutputDimSize {
@@ -65,27 +83,35 @@ struct OutputDimSize {
   Expr output_max_pos;
 };
 
-struct HWBuffer; // forward declare
 struct OutputStream {
   std::string name;
   std::vector<OutputDimSize> odims;
   Stmt output_access_pattern;
   std::map<std::string, Stride> stride_map;
+  std::vector<AccessDimSize> linear_access;
   //std::shared_ptr<HWBuffer> hwref;
   HWBuffer* hwref;
 };
 
-struct RMWStream {
+//struct RMWStream {
+//  std::string name;
+//  std::vector<InputDimSize> idims;
+//  std::vector<OutputDimSize> mdims;
+//  std::vector<OutputDimSize> odims;
+//  Stmt input_access_pattern;
+//  Stmt modify_access_pattern;
+//  Stmt output_access_pattern;
+//  std::map<std::string, Stride> stride_map;
+//  //std::shared_ptr<HWBuffer> ohwref;
+//  HWBuffer* ohwref;
+//};
+
+struct StreamBundle {
   std::string name;
-  std::vector<InputDimSize> idims;
-  std::vector<OutputDimSize> mdims;
-  std::vector<OutputDimSize> odims;
-  Stmt input_access_pattern;
-  Stmt modify_access_pattern;
-  Stmt output_access_pattern;
-  std::map<std::string, Stride> stride_map;
-  //std::shared_ptr<HWBuffer> ohwref;
-  HWBuffer* ohwref;
+  InputStream istream;
+  std::vector<UpdateStream> ustreams;
+  std::vector<OutputStream> ostreams;
+  
 };
 
 struct InOutDimSize {
@@ -107,12 +133,6 @@ struct LogicalDimSize {
   Expr logical_min;
 };
 
-struct AccessDimSize {
-  Expr range;
-  Expr stride;
-  Expr dim_ref;
-};
-
 std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
                                                  std::vector<int> output_stencil,
                                                  std::vector<int> output_block,
@@ -128,36 +148,34 @@ struct HWBuffer {
   std::string store_level;
   std::string compute_level;
   std::vector<std::string> streaming_loops;
-  //LoopLevel store_looplevel;
-  //LoopLevel compute_looplevel = LoopLevel::inlined();
 
   Stmt my_stmt;
   Function func;
   bool is_inlined = false;
   bool is_output = false;
-  std::vector<Expr> output_kernel_min_pos;
   int num_accum_iters = 0;
   
   // old parameters for the HWBuffer
-  std::shared_ptr<SlidingStencils> input_stencil;
   std::vector<InOutDimSize> dims;
-  Stmt input_access_pattern;
-  Stmt output_access_pattern;
+  //Stmt input_access_pattern;
   std::map<std::string, HWBuffer*> producer_buffers;
-  //std::map<std::string, std::shared_ptr<HWBuffer>> producer_buffers;
-  std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
-  //std::map<std::string, std::shared_ptr<HWBuffer>> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
+  //std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
+  Stmt output_access_pattern;
   std::map<std::string, Stride> stride_map;
   std::vector<AccessDimSize> linear_addr;
 
-  // dimensions for the hwbuffer
-  std::vector<LogicalDimSize> ldims;
+  // dimensions for the unassociated hwbuffer streams
   std::map<std::string, InputStream> istreams;
+  std::map<std::string, OutputStream> ustreams;
   std::map<std::string, OutputStream> ostreams;
+
+  // dimensions for accumulation hwbuffer
+  std::vector<LogicalDimSize> ldims;
+  std::map<std::string, StreamBundle> streams;
   
   // Constructors
-  HWBuffer() : input_stencil(nullptr) { }
+  HWBuffer() { }
 
   //HWBuffer(const HWBuffer &b) = delete;
 

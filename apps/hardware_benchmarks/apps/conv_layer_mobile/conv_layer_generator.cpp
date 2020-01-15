@@ -59,6 +59,10 @@ public:
           hw_output.bound(y, 0, 16);
           hw_output.bound(k, 0, 4);
 
+          pw_conv_reduction.bound(x, 0, 16);
+          pw_conv_reduction.bound(y, 0, 16);
+          pw_conv_reduction.bound(k, 0, 4);
+
           //bias_dw.bound(c, 0, 4);
           //bias_pw.bound(k, 0, 4);
           //
@@ -77,20 +81,21 @@ public:
           //hw_input.store_at(hw_output, xo).compute_at(dw_conv, x);
           hw_output.compute_root();
 
-          filter_dw.compute_at(hw_output, xo)
-            .unroll(x).unroll(y).unroll(c);
-          filter_pw.compute_at(hw_output, xo)
-            .unroll(c).unroll(k);
-          bias_dw.compute_at(hw_output, xo)
-            .unroll(c);
-          bias_pw.compute_at(hw_output, xo)
-            .unroll(k);
-
           hw_output.tile(x, y, xo, yo, xi, yi, 14, 14)
             .reorder(k, xi, yi, xo, yo)
             .reorder_storage(k, x, y)
             .hw_accelerate(xi, xo);
             //.accelerate({hw_input}, xi, xo);
+
+          filter_dw.compute_at(hw_output, yo)
+            .unroll(x).unroll(y).unroll(c);
+          filter_pw.compute_at(hw_output, yo)
+            .unroll(c).unroll(k);
+          bias_dw.compute_at(hw_output, yo)
+            .unroll(c);
+          bias_pw.compute_at(hw_output, yo)
+            .unroll(k);
+
 
           //schedule pw conv reduction
           pw_conv_reduction.update()
@@ -121,7 +126,7 @@ public:
 
           //add input stream
           hw_input.stream_to_accelerator();//.reorder_storage(c, x, y);
-          hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
+          hw_input.store_at(hw_output, yo).compute_at(hw_output, yo);
           //hw_input.store_root().compute_at(pw_conv, x);
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           //hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);
