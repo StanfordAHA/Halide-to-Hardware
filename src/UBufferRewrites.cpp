@@ -4,6 +4,7 @@
 #include "UnrollLoops.h"
 #include "CoreIR_Libs.h"
 
+#include "coreir.h"
 #include "coreir/libs/commonlib.h"
 
 using namespace CoreIR;
@@ -374,6 +375,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
               return buffer.lt(buffer.schedule(pta).back(), buffer.schedule(ptb).back());
           });
 
+          cout << "Buffer: " << buffer.name << " is all wires!" << endl;
           string last_pt = port_list[0];
           internal_assert(buffer.is_write(last_pt)) << "Buffer: " << buffer.name << " is read before it is written?\n";
 
@@ -562,8 +564,10 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
 
   for (auto f : env) {
     if (f.second.schedule().is_accelerated() ||
-        f.second.schedule().is_accelerator_input()) {
+        f.second.schedule().is_accelerator_input() ||
+        f.second.schedule().is_hw_kernel()) {
 
+      cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
       MemoryConstraints buf = map_find(f.first, buffers);
       vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
@@ -585,6 +589,9 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
       auto def = ub->newModuleDef();
       synthesize_ubuffer(def, buf);
       ub->setDef(def);
+    } else {
+      cout << f.first << " is not accelerated" << endl;
+      internal_assert(!f.second.schedule().is_hw_kernel());
     }
   }
 
@@ -594,6 +601,8 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
     context->die();
   }
   deleteContext(context);
+
+  internal_assert(false);
 
   return;
 

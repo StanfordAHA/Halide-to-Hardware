@@ -43,15 +43,6 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
 
-//          Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
-//          // Produce loop levels: host, global buffer, cgra
-//          output.tile(x, y, x_host,y_host, xi,yi, 256,256);
-//          output.tile(xi, yi, x_gb,y_gb, x_cgra,y_cgra, 64-2,64-2);
-//
-//          hw_input.store_root().compute_root();
-//          hw_input.in().store_at(output, x_host).compute_at(output,x_gb);
-//          hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
-
           hw_input.compute_root();
           hw_output.compute_root();
 
