@@ -348,7 +348,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
 
     ~CodeGen_SoC_Test() {
       //std::cout << "Calling destructor for printer" << endl;
-      CodeGen_C::~CodeGen_C();
+      //CodeGen_C::~CodeGen_C();
     }
 
     void compileForCGRA(const Halide::Module& input) {
