@@ -1,7 +1,8 @@
 PNG_LIB = $(shell libpng-config --cflags --ldflags)
 
-# TODO: Change this to system COREIR dir!
-COREIR_DIR = ~/CppWorkspace/coreir
+THIS_MAKEFILE = $(realpath $(filter %Makefile, $(MAKEFILE_LIST)))
+ROOT_DIR = $(strip $(shell dirname $(THIS_MAKEFILE)))
+COREIR_DIR ?= $(ROOT_DIR)/../coreir
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
 
