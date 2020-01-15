@@ -1,3 +1,7 @@
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "On mac"
+  source ./test/scripts/mac_settings.sh
+fi
 cd ./apps/hardware_benchmarks/tests/merged_unit_tests/
 if make all; then
   echo "Make finished"

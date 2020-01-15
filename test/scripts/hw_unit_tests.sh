@@ -1,5 +1,8 @@
 # Do not do this unless we are on darwin
-source ./test/scripts/mac_settings.sh
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "On mac"
+  source ./test/scripts/mac_settings.sh
+fi
 if ./test/scripts/rebuild.sh; then
   echo "Built"
 else
