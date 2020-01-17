@@ -225,7 +225,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::CoreIR)) {
       // Note: For now we are generating the buffers no matter what, but we are not
       // using them yet since
-      vector<HWXcel> dummy_xcels;
+      vector<HWXcel> dummy_xcels =
+        extract_hw_accelerators(s, env, inlined_stages);
       synthesize_hwbuffers(s, env, dummy_xcels);
     }
 
