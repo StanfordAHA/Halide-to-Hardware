@@ -572,6 +572,14 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
       cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
       MemoryConstraints buf = map_find(f.first, buffers);
+      // Add hwbuffer field to memory constraints wrapper
+      for (auto xcel : xcels) {
+        for (auto buffer : xcel.hwbuffers) {
+          if (buffer.first == buf.name) {
+            buf.ubuf = buffer.second;
+          }
+        }
+      }
       vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
       cout << "\t\tReads..." << endl;
       for (auto rd : buf.read_ports) {
