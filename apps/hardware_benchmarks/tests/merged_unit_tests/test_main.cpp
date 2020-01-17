@@ -3143,8 +3143,6 @@ int main(int argc, char **argv) {
   ubuffer_conv_3_3_reduce_test();
   ubuffer_small_conv_3_3_test();
   
-  multi_channel_conv_test();
-  real_unsharp_test();
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
@@ -3153,29 +3151,26 @@ int main(int argc, char **argv) {
   ushift_test();
   arith_test();
   small_conv_3_3_test();
-
   pointwise_add_test();
   mod2_test();
   clamp_test();
-  
   small_cascade_test();
+  multi_channel_conv_test();
  
-  // Experimenta tests
-  //conv_layer_mobile_test();
+  //small_demosaic_test();
+  //hot_pixel_suppression_test();
+  //real_unsharp_test();
+  //double_unsharp_test();
   
-  double_unsharp_test();
+  //rom_read_test();
+  //curve_16_lookup_test();
+  //camera_pipeline_test();
+  //simple_unsharp_test();
+  //accel_interface_test();
+  //accel_soc_test();
+  //curve_lookup_test();
   
-  rom_read_test();
-  curve_16_lookup_test();
-  camera_pipeline_test();
-  simple_unsharp_test();
-  hot_pixel_suppression_test();
-  accel_interface_test();
-  accel_soc_test();
-  curve_lookup_test();
-  
-  offset_window_test();  
-  small_demosaic_test();
+  //offset_window_test();  
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
