@@ -223,11 +223,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
     if (t.has_feature(Target::CoreIR)) {
-      // Note: For now we are generating the buffers no matter what, but we are not
-      // using them yet since
-      vector<HWXcel> dummy_xcels =
+      vector<HWXcel> buf_xcels =
         extract_hw_accelerators(s, env, inlined_stages);
-      synthesize_hwbuffers(s, env, dummy_xcels);
+      synthesize_hwbuffers(s, env, buf_xcels);
     }
 
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
