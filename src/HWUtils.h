@@ -592,6 +592,57 @@ public:
 
 std::string exprString(const Expr e);
 
+    class VarSpec {
+      public:
+        std::string name;
+        Expr min;
+        Expr extent;
+
+        bool is_const() const {
+          return name == "";
+        }
+
+        int const_value() const {
+          internal_assert(is_const());
+          return id_const_value(min);
+        }
+    };
+
+    static inline
+    bool operator==(const VarSpec& a, const VarSpec& b) {
+      if (a.is_const() != b.is_const()) {
+        return false;
+      }
+
+      if (a.is_const()) {
+        return a.const_value() == b.const_value();
+      } else {
+        return a.name == b.name;
+      }
+    }
+
+    typedef std::vector<VarSpec> StmtSchedule;
+
+    static inline
+    std::ostream& operator<<(std::ostream& out, const VarSpec& e) {
+      if (e.name != "") {
+        out << e.name << " : [" << e.min << " " << simplify(e.min + e.extent - 1) << "]";
+      } else {
+        internal_assert(is_const(e.min));
+        internal_assert(is_one(e.extent));
+        out << e.min;
+      }
+      return out;
+    }
+
+    static inline
+    std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
+      for (auto e : s ) {
+        out << e << ", ";
+      }
+      return out;
+    }
+
   }
 }
 #endif

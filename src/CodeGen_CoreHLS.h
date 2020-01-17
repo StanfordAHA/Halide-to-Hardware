@@ -10,6 +10,9 @@
 namespace Halide {
   namespace Internal {
 
+std::string coreStr(const CoreIR::Wireable* w);
+std::string coreStr(const CoreIR::Type* w);
+
 std::string coreirSanitize(const std::string& str);
 
 enum HWInstrTp {
@@ -94,7 +97,7 @@ class HWInstr {
       }
 
       if (tp == HWINSTR_TP_VAR) {
-        return name;
+        return name + " : " + (resType == nullptr ? "<UNK>" : coreStr(resType));
       }
 
       if (tp == HWINSTR_TP_CONST) {
@@ -221,11 +224,25 @@ class HWFunction {
       ist->constValue = std::to_string(value);
       return ist;
     }
+
     HWInstr* newVar(const std::string& name) {
       auto ist = newI();
       ist->latency = 0;
       ist->tp = HWINSTR_TP_VAR;
       ist->name = name;
+      if (!isLocalVariable(name)) {
+        if (contains_key(coreirSanitize(name), mod->getType()->getRecord())) {
+          CoreIR::Type* tp = mod->getType()->getRecord().at(coreirSanitize(name));
+          internal_assert(tp != nullptr);
+          ist->resType = tp;
+        } else {
+          mod->print();
+          internal_assert(false) << name << " not local, but also is not a member of interface\n";
+        }
+      } else {
+        mod->print();
+        std::cout << name << " is a local variable" << std::endl;
+      }
       return ist;
     }
 

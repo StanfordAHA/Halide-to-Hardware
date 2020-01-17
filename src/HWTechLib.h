@@ -7,6 +7,11 @@
 namespace Halide {
 namespace Internal {
 
+  enum HWInterfacePolicy {
+    HW_INTERFACE_POLICY_TOP,
+    HW_INTERFACE_POLICY_COMPUTE_UNIT
+  };
+
   class Techlib {
     public:
       std::map<std::string, int> cycleLatency;
@@ -19,6 +24,9 @@ namespace Internal {
       int criticalPathTarget;
       // Technology library
       Techlib techlib;
+      HWInterfacePolicy interfacePolicy;
+
+      HardwareInfo() : interfacePolicy(HW_INTERFACE_POLICY_TOP) {}
 
       int criticalPath(const std::string& opname) const {
         if (techlib.criticalPath.count(opname) > 0) {
