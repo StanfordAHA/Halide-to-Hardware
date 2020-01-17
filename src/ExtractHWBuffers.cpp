@@ -385,7 +385,12 @@ void set_opt_params(HWXcel *xcel,
           return false;
         }
       });
-    internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
+    // Skip buffers that are not realized on the accelerator
+    if (iterator == hwbuffers.end()) {
+      continue;
+    }
+    //cout << stage.name << " is a hwkernel..." << endl;
+    //internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
     auto &hwbuffer = iterator->second;
     internal_assert(hwbuffer.name == iterator->first);
     
