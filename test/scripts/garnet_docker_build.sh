@@ -18,11 +18,6 @@ docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/Halide-to-Hardwa
 
 echo 'Running Halide build...'
 docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts; ./build_halide_distrib.sh"
-# Pull the commit we want from github and build it
-#CMD_STRING="docker exec -i halide-hw-distro bash -c \"cd GarnetFlow/scripts; ./build_halide_distrib.sh $TRAVIS_REPO_SLUG $TRAVIS_COMMIT\";"
-#echo "CMD_STRING is..."
-#echo $CMD_STRING
-#eval $CMD_STRING
 
 # Run the testbench in docker, copy the result to the local travis machine, and
 # then stop the script if the testbench failed.
