@@ -68,16 +68,16 @@ void  ubuffer_conv_3_3_reduce_test() {
       //}
     //}
   //}
- 
+
   //// Creating CPU reference output
   //Halide::Buffer<uint8_t> cpuOutput(2, 2);
   //ParamMap rParams;
   //rParams.set(input, inputBuf);
   //Target t;
   //hw_output.realize(cpuOutput, t, rParams);
-  
+
   //Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  
+
   //int tileSize = 4;
   //hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     //.hw_accelerate(xi, xo);
@@ -149,7 +149,7 @@ void  ubuffer_conv_3_3_reduce_test() {
     ////}
   ////}
   //deleteContext(context);
- 
+
   //cout << GREEN << "UBuffer to linebuffer for conv rolled 3x3 test passed" << RESET << endl;
   //assert(false);
 }
@@ -205,16 +205,16 @@ void ubuffer_small_conv_3_3_test() {
       }
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint8_t> cpuOutput(2, 2);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  
+
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  
+
   int tileSize = 4;
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
@@ -290,7 +290,7 @@ void ubuffer_small_conv_3_3_test() {
     }
   }
   deleteContext(context);
- 
+
   cout << GREEN << "UBuffer to linebuffer for conv 3x3 test passed" << RESET << endl;
   assert(false);
 }

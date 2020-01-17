@@ -284,7 +284,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
         map_insert(provides, p->name, p);
         write_scheds[p] = activeVars;
       }
-      
+
       void visit(const Call* p) override {
         if (p->call_type == Call::CallType::Halide) {
           inc_level();
@@ -564,8 +564,9 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
 
   for (auto f : env) {
     if (f.second.schedule().is_accelerated() ||
-        f.second.schedule().is_accelerator_input() ||
-        f.second.schedule().is_hw_kernel()) {
+        f.second.schedule().is_accelerator_input()) {
+        //f.second.schedule().is_accelerator_input() ||
+        //f.second.schedule().is_hw_kernel()) {
 
       cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
@@ -591,7 +592,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
       ub->setDef(def);
     } else {
       cout << f.first << " is not accelerated" << endl;
-      internal_assert(!f.second.schedule().is_hw_kernel());
+      //internal_assert(!f.second.schedule().is_hw_kernel());
     }
   }
 
@@ -602,7 +603,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
   }
   deleteContext(context);
 
-  internal_assert(false);
+//  internal_assert(false);
 
   return;
 
