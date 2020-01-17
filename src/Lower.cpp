@@ -207,8 +207,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       //s = sliding_window(s, env);
     }
 
-    //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
-    bool use_ubuffer = false;
+    bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
+    //bool use_ubuffer = false;
     //!t.has_feature(Target::UseExtractHWKernel);
 
     debug(1) << "Removing code that depends on undef values...\n";
@@ -223,7 +223,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
     if (t.has_feature(Target::CoreIR)) {
-      synthesize_hwbuffers(s, env);
+      //synthesize_hwbuffers(s, env);
     }
 
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
