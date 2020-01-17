@@ -918,6 +918,7 @@ Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
   //}
   
   s = InsertHWBuffers(xcel).mutate(s);
+
   debug(3) << s << "\n";
   //std::cout << "Inserted hwbuffers: \n" << s << "\n";
   return s;

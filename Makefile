@@ -412,6 +412,7 @@ SOURCE_FILES = \
   CodeGen_VHLS_Target.cpp \
   CodeGen_VHLS_Testbench.cpp \
   CodeGen_X86.cpp \
+  CoreIR_Libs.cpp \
   CoreIR_Mapper_Compute.cpp \
   CPlusPlusMangle.cpp \
   CSE.cpp \
@@ -535,6 +536,7 @@ SOURCE_FILES = \
   TrimNoOps.cpp \
   Tuple.cpp \
   Type.cpp \
+  UBufferRewrites.cpp \
   UnifyDuplicateLets.cpp \
   UniquifyVariableNames.cpp \
   UnpackBuffers.cpp \

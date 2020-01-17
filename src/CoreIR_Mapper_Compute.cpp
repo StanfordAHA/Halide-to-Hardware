@@ -21,16 +21,6 @@ using namespace CoreIR;
 namespace Halide {
   namespace Internal {
 
-    template<typename D, typename R>
-      set<D> domain(const std::map<D, R>& m) {
-        set<D> d;
-        for (auto e : m) {
-          d.insert(e.first);
-        }
-        return d;
-      }
-
-
     class ProduceFinder : public IRGraphVisitor {
       public:
 
@@ -44,26 +34,6 @@ namespace Halide {
         void visit(const ProducerConsumer* rl) override {
           cout << "Searching realize: " << rl->name << " for " << target << endl;
           if (rl->name == target && rl->is_producer) {
-            r = rl;
-          } else {
-            rl->body->accept(this);
-          }
-        }
-    };
-
-    class RealizeFinder : public IRGraphVisitor {
-      public:
-
-        using IRGraphVisitor::visit;
-
-        const Realize* r;
-        string target;
-
-        RealizeFinder(const std::string& target_) : r(nullptr), target(target_) {}
-
-        void visit(const Realize* rl) override {
-          cout << "Searching realize: " << rl->name << " for " << target << endl;
-          if (rl->name == target) {
             r = rl;
           } else {
             rl->body->accept(this);
@@ -125,54 +95,6 @@ namespace Halide {
           return Evaluate::make(0);
         }
     };
-
-    class VarSpec {
-      public:
-        std::string name;
-        Expr min;
-        Expr extent;
-
-        bool is_const() const {
-          return name == "";
-        }
-
-        int const_value() const {
-          internal_assert(is_const());
-          return id_const_value(min);
-        }
-    };
-
-    bool operator==(const VarSpec& a, const VarSpec& b) {
-      if (a.is_const() != b.is_const()) {
-        return false;
-      }
-
-      if (a.is_const()) {
-        return a.const_value() == b.const_value();
-      } else {
-        return a.name == b.name;
-      }
-    }
-
-    typedef std::vector<VarSpec> StmtSchedule;
-
-    std::ostream& operator<<(std::ostream& out, const VarSpec& e) {
-      if (e.name != "") {
-        out << e.name << " : [" << e.min << " " << simplify(e.min + e.extent - 1) << "]";
-      } else {
-        internal_assert(is_const(e.min));
-        internal_assert(is_one(e.extent));
-        out << e.min;
-      }
-      return out;
-    }
-
-    std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
-      for (auto e : s ) {
-        out << e << ", ";
-      }
-      return out;
-    }
 
     void generate_compute_unit(Stmt& stmt, std::map<std::string, Function>& env) {
       auto pre_simple = simplify(stmt);

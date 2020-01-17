@@ -1,8 +1,3 @@
-#include "coreir.h"
-#include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
-#include "coreir/libs/float.h"
-
 #include "Halide.h"
 
 #include "halide_image_io.h"
@@ -11,17 +6,13 @@
 
 #include <fstream>
 #include "test_utils.h"
-
-#define PRINT_PASSED(msg) std::cout << GREEN << msg << " test passed." << RESET << std::endl;
+#include "coreir_utils.h"
+#include "ubuffer_tests.h"
 
 using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
-
-std::string GREEN = "\033[32m";
-std::string RED = "\033[31m";
-std::string RESET = "\033[0m";
 
 template<typename T>
 bool is2D(T& buf) {
@@ -152,52 +143,6 @@ void runHWKernel(const std::string& inputName, CoreIR::Module* m, Halide::Runtim
 template<typename T>
 void runHWKernel(CoreIR::Module* m, Halide::Runtime::Buffer<T>& hwInputBuf, Halide::Runtime::Buffer<T>& outputBuf) {
   runHWKernel("self.in_arg_0_0_0", m, hwInputBuf, outputBuf);
-}
-
-CoreIR::Context* hwContext() {
-  CoreIR::Context* context = newContext();
-  CoreIRLoadLibrary_commonlib(context);
-  CoreIRLoadLibrary_float(context);
-  return context;
-}
-
-CoreIR::Module* buildModule(Halide::Internal::HardwareInfo& info, bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
-  Target t;
-  t = t.with_feature(Target::Feature::CoreIR);
-  if (!useUbuffer) {
-    //t = t.with_feature(Target::Feature::UseExtractHWKernel);
-  }
-  auto hm = hwOutput.compile_to_module(args, name, t);
-  cout << "Compiled to module..." << endl;
-  cout << hm << endl;
-  for (auto f : hm.functions()) {
-    cout << "Generating coreir for function " << f.name << endl;
-    Halide::Internal::CodeGen_CoreHLS_Kernel gen("conv_3_3_app.json");
-    gen.info = info;
-    f.body.accept(&gen);
-  }
-
-  if (!loadFromFile(context, "./conv_3_3_app.json")) {
-    cout << "Error: Could not load json for unit test!" << endl;
-    context->die();
-  }
-  context->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
-  CoreIR::Module* m = context->getNamespace("global")->getModule("DesignTop");
-  cout << "Module after wiring clocks ..." << endl;
-  m->print();
-  return m;
-}
-
-CoreIR::Module* buildModule(const bool useUbuffer, CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
-  Halide::Internal::HardwareInfo info;
-  info.hasCriticalPathTarget = false;
-  return buildModule(info, useUbuffer, context, name, args, fName, hwOutput);
-}
-
-CoreIR::Module* buildModule(CoreIR::Context* context, const std::string& name, std::vector<Argument>& args, const std::string& fName, Func& hwOutput) {
-  Halide::Internal::HardwareInfo info;
-  info.hasCriticalPathTarget = false;
-  return buildModule(info, false, context, name, args, fName, hwOutput);
 }
 
 template<typename T>
@@ -403,7 +348,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
 
     ~CodeGen_SoC_Test() {
       //std::cout << "Calling destructor for printer" << endl;
-      CodeGen_C::~CodeGen_C();
+      //CodeGen_C::~CodeGen_C();
     }
 
     void compileForCGRA(const Halide::Module& input) {
@@ -1934,7 +1879,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   }
   cout << "Compiled cpp code" << endl;
   cout << "Done with compiling for CGRA" << endl;
-  runCmd("clang++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+  runCmd("g++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
   cout << "Compiled c++ executable..." << endl;
   runCmd("./a.out");
   cout << "Ran executable" << endl;
@@ -2394,6 +2339,8 @@ void hot_pixel_suppression_test() {
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
     .reorder(xi, yi, xo, yo);
   hw_input.stream_to_accelerator();
+  hw_output.bound(x, 0, outTileSize);
+  hw_output.bound(y, 0, outTileSize);
   denoised.linebuffer();
   //unroll(x).unroll(y);
   hw_output.hw_accelerate(xi, xo);
@@ -3193,39 +3140,36 @@ void arith_test() {
 
 int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
-  multi_channel_conv_test();
-  real_unsharp_test();
+  ubuffer_conv_3_3_reduce_test();
+  ubuffer_small_conv_3_3_test();
+  
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
-  different_latency_kernels_test();
   shiftRight_test();
   ushift_test();
   arith_test();
   small_conv_3_3_test();
-
   pointwise_add_test();
   mod2_test();
   clamp_test();
-  
-  small_cascade_test();
+  //small_cascade_test();
+  //multi_channel_conv_test();
  
-  // Experimenta tests
-  //conv_layer_mobile_test();
+  //small_demosaic_test();
+  //hot_pixel_suppression_test();
+  //real_unsharp_test();
+  //double_unsharp_test();
+  //simple_unsharp_test();
+  //accel_interface_test();
+  //accel_soc_test();
+  //offset_window_test();  
   
-  double_unsharp_test();
-  
-  rom_read_test();
-  curve_16_lookup_test();
-  camera_pipeline_test();
-  simple_unsharp_test();
-  hot_pixel_suppression_test();
-  accel_interface_test();
-  accel_soc_test();
-  curve_lookup_test();
-  
-  offset_window_test();  
-  small_demosaic_test();
+  //different_latency_kernels_test();
+  //rom_read_test();
+  //curve_16_lookup_test();
+  //camera_pipeline_test();
+  //curve_lookup_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;

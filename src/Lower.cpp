@@ -1,3 +1,6 @@
+
+#include "coreir.h"
+
 #include <algorithm>
 #include <iostream>
 #include <set>
@@ -65,6 +68,7 @@
 #include "Substitute.h"
 #include "Tracing.h"
 #include "TrimNoOps.h"
+#include "UBufferRewrites.h"
 #include "UnifyDuplicateLets.h"
 #include "UniquifyVariableNames.h"
 #include "UnpackBuffers.h"
@@ -203,9 +207,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       //s = sliding_window(s, env);
     }
 
-    //std::cout << "extracting hw buffers\n";
-    //auto buffers = extract_hw_buffers(s, env);
-    
     //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
     bool use_ubuffer = false;
     //!t.has_feature(Target::UseExtractHWKernel);
@@ -221,15 +222,23 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
+    if (t.has_feature(Target::CoreIR)) {
+      vector<HWXcel> buf_xcels =
+        extract_hw_accelerators(s, env, inlined_stages);
+      synthesize_hwbuffers(s, env, buf_xcels);
+    }
+
     //cout << "Should use ubuffer ? " << use_ubuffer << endl;
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR) && use_ubuffer) {
-      //s = simplify(remove_trivial_for_loops(simplify(unroll_loops(s))));
-      //cout << "Pre-unrolled: " << endl;
-      //cout << s << endl;
       //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
       //xcels = extract_hw_accelerators(s, env, inlined_stages);
       xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+      //std::cout << "----- Accelerators" << std::endl;
+      //for (auto xcel : xcels) {
+        //std::cout << "\t" << xcel.name << std::endl;
+      //}
+      //internal_assert(false);
       //for (auto hwbuffer : xcels.at(0).hwbuffers) {
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       //}

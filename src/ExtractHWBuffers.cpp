@@ -15,6 +15,7 @@
 
 #include "coreir/common/algorithm.h"
 
+using namespace std;
 using namespace CoreIR;
 
 namespace Halide {
@@ -206,7 +207,7 @@ class HWBuffers : public IRMutator {
         hwbuffer.store_level = xcel->store_level.to_string();
 
         // use sliding window to get stencil sizes
-        auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
+        //auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
         new_body = mutate(new_body);
 
         std::string for_namer = first_for_name(new_body);
@@ -384,7 +385,12 @@ void set_opt_params(HWXcel *xcel,
           return false;
         }
       });
-    internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
+    // Skip buffers that are not realized on the accelerator
+    if (iterator == hwbuffers.end()) {
+      continue;
+    }
+    //cout << stage.name << " is a hwkernel..." << endl;
+    //internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
     auto &hwbuffer = iterator->second;
     internal_assert(hwbuffer.name == iterator->first);
     
@@ -570,245 +576,6 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   }
 }
 
-typedef uint64_t vd;
-typedef uint64_t ed;
-
-template<typename V, typename E>
-class DGraph {
-
-  uint64_t nv;
-  uint64_t ne;
-
-  public:
-
-    std::map<vd, V> vertLabels;
-    std::map<ed, E> edgeLabels;
-
-    DGraph() : nv(0), ne(0) {}
-
-    vd addVert(const V& label) {
-      auto v = nv;
-      nv++;
-      vertLabels[v] = label;
-
-      return v;
-    }
-};
-
-bool isAcceleratorOutput(const Function& f) {
-  return f.schedule().is_accelerator_output();
-}
-
-bool isAcceleratorInput(const Function& f) {
-  return f.schedule().is_accelerator_input();
-}
-
-bool isAcceleratorInternal(const Function& f) {
-  return f.schedule().is_hw_kernel() && !isAcceleratorInput(f) && !isAcceleratorOutput(f);
-}
-
-template<typename T>
-class LoopOp {
-  public:
-    std::map<std::string, Expr> activeScope;
-    std::vector<const For*> surroundingLoops;
-    T op;
-
-    Expr expandMax(const Expr& e) {
-      Expr es = expand(e);
-      for (auto lp : surroundingLoops) {
-        es = substitute(lp->name, lp->min + lp->extent - 1, es);
-      }
-      es = simplify(expand(es));
-      for (auto lp : surroundingLoops) {
-        es = substitute(lp->name, lp->min + lp->extent - 1, es);
-      }
-      return simplify(es);
-    }
-
-    Expr expandMin(const Expr& e) {
-      Expr es = expand(e);
-      for (auto lp : surroundingLoops) {
-        es = substitute(lp->name, lp->min, es);
-      }
-      es = simplify(expand(es));
-      for (auto lp : surroundingLoops) {
-        es = substitute(lp->name, lp->min, es);
-      }
-      return simplify(es);
-    }
-
-    Expr expand(const Expr& e) {
-      return substitute(activeScope, e);
-    }
-
-    std::string prefixString() const {
-      std::string str  = "";
-      for (auto lp : surroundingLoops) {
-        str += lp->name + " : [" + exprString(lp->min) + ", " + exprString(simplify(lp->min + lp->extent - 1)) + "], ";
-      }
-      return str;
-    }
-};
-
-template<typename T>
-int numInstances(const LoopOp<T>& op) {
-  int instances = 1;
-  for (auto lp : op.surroundingLoops) {
-    if (lp->for_type == ForType::Parallel ||
-        lp->for_type == ForType::Unrolled) {
-      instances *= id_const_value(lp->extent);
-    }
-  }
-  return instances;
-}
-
-class MemInfo {
-  public:
-    std::vector<LoopOp<const Provide*> > provides;
-    std::vector<LoopOp<const Call*> > calls;
-};
-
-class MemoryMap : public IRGraphVisitor {
-  public:
-
-    using IRGraphVisitor::visit;
-
-    const map<string, Function>& env;
-    map<string, Expr> activeScope;
-    std::vector<const For*> activeLoops;
-    std::map<string, MemInfo> memInfo;
-
-    MemoryMap(const map<string, Function>& env_) : env(env_) {}
-
-  protected:
-
-    void visit(const Realize* rp) override {
-      cout << "### Found realize..." << endl;
-      for (const Range& bound : rp->bounds) {
-        Expr min = bound.min;
-        Expr extent = bound.extent;
-        //for (auto s : activeScope) {
-          //cout << "\tSubstituting " << s.first << " -> " << s.second << endl;
-        //}
-        cout << "\tMin = " << min << endl;
-        Expr minS = substitute(activeScope, substitute(activeScope, min));
-        //cout << "\tMinS = " << minS << endl;
-        for (int i = 0; i < 20; i++) {
-          minS = substitute(activeScope, minS);
-        }
-        for (auto lp : activeLoops) {
-          minS = substitute(lp->name, lp->min + lp->extent - 1, minS);
-        }
-
-        Expr extS = substitute(activeScope, extent);
-        for (int i = 0; i < 20; i++) {
-          extS = substitute(activeScope, extS);
-        }
-        for (auto lp : activeLoops) {
-          extS = substitute(lp->name, lp->min + lp->extent - 1, extS);
-        }
-
-        cout << "\t" << simplify(minS) << endl;
-        cout << "\t" << simplify(extS) << endl;
-      }
-
-
-      rp->body.accept(this);
-      //internal_assert(false);
-    }
-
-    void visit(const Let* lp) override {
-      //internal_assert(!contains_key(lp->name, activeScope));
-      activeScope[lp->name] = lp->value;
-      lp->body.accept(this);
-      activeScope.erase(lp->name);
-    }
-
-    void visit(const LetStmt* lp) override {
-      //internal_assert(!contains_key(lp->name, activeScope));
-      activeScope[lp->name] = lp->value;
-      lp->body.accept(this);
-      activeScope.erase(lp->name);
-    }
-
-    void visit(const For* lp) override {
-      activeLoops.push_back(lp);
-
-      auto tch = boxes_touched(lp->body);
-      cout << "--- Boxes touched inside: " << lp->name << endl;
-      for (auto bx : tch) {
-        cout << "\t" << bx.first << endl;
-        cout << "\t" << bx.second << endl;
-      }
-      IRGraphVisitor::visit(lp);
-
-      activeLoops.pop_back();
-    }
-
-    void visit(const Provide* p) override {
-      IRGraphVisitor::visit(p);
-      cout << "Visiting provide: " << p->name << endl;
-      if (contains_key(p->name, env)) {
-        Function f = map_find(p->name, env);
-        if (isAcceleratorOutput(f)) {
-          cout << "Found output provide: " << p->name << endl;
-          memInfo[p->name].provides.push_back({activeScope, activeLoops, p});
-        } else if (isAcceleratorInternal(f)) {
-          cout << "Found internal provide: " << p->name << endl;
-          memInfo[p->name].provides.push_back({activeScope, activeLoops, p});
-        } else if (isAcceleratorInput(f)) {
-          cout << "Found input provide: " << p->name << "... ignoring" << endl;
-        }
-      }
-    }
-
-    void visit(const Call* c) override {
-      IRGraphVisitor::visit(c);
-      
-      cout << "Visiting call: " << c->name << endl;
-      if (contains_key(c->name, env)) {
-        Function f = map_find(c->name, env);
-        memInfo[c->name].calls.push_back({activeScope, activeLoops, c});
-        if (isAcceleratorOutput(f)) {
-          cout << "Found output call: " << c->name << endl;
-        } else if (isAcceleratorInternal(f)) {
-          cout << "Found internal call: " << c->name << endl;
-        } else if (isAcceleratorInput(f)) {
-          cout << "Found input call: " << c->name << endl;
-        }
-      }
-
-    }
-};
-
-class Address {
-  public:
-    std::vector<Expr> coordinates;
-};
-
-class PortSpec {
-  public:
-    bool isReadPort;
-    LoopOp<Address> accessPattern;
-};
-
-std::ostream& operator<<(std::ostream& out, const PortSpec& pt) {
-  out << (pt.isReadPort ? "read" : "write") << " ";
-  out << pt.accessPattern.prefixString();
-  out << " ";
-  for (auto c : pt.accessPattern.op.coordinates) {
-    out << c << ", ";
-  }
-  return out;
-}
-
-class BufferSpec {
-  public:
-    int capacity;
-    std::map<std::string, PortSpec> ports;
-};
-
 vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
@@ -816,89 +583,8 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
  
   s = substituteInConstants(s);
 
-  //cout << "#### All functions in env..." << endl;
-  //DGraph<Function, int> dg;
-  //for (const auto &p : env) {
-    //Function func = p.second;
-    //cout << "\tName: " << func.name() << endl;
-    //cout << "\t\tIs accel input : " << func.schedule().is_accelerator_input() << endl;
-    //cout << "\t\tIs accel output: " << func.schedule().is_accelerator_output() << endl;
-    //cout << "\t\tIs accelerated : " << func.schedule().is_accelerated() << endl;
-    //cout << "\t\tIs hwkernel    : " << func.schedule().is_hw_kernel() << endl;
-    //LoopLevel store_level = func.schedule().store_level().lock();
-    //LoopLevel compute_level = func.schedule().compute_level().lock();
-    //cout << "\t\tStore level  : " << store_level << endl;
-    //cout << "\t\tCompute level: " << store_level << endl;
-    //if (func.schedule().is_accelerated()) {
-      //cout << "\t\tAccel compute: " << func.schedule().accelerate_compute_level().lock() << endl;
-      //cout << "\t\tAccel store: " << func.schedule().accelerate_store_level().lock() << endl;
-    //}
-    //if (func.schedule().is_hw_kernel()) {
-      //dg.addVert(func);
-    //}
-  //}
-
-  //MemoryMap memMap(env);
-  //s.accept(&memMap);
-  //map<string, BufferSpec> buffers;
-  //cout << "Memory mapping..." << endl;
-  //for (auto mm : memMap.memInfo) {
-    //string name = mm.first;
-    //int portNo = 0;
-    //buffers[name] = {};
-    //buffers[name].capacity = 100;
-    //cout << "\t" << mm.first << endl;
-    //cout << "\t--- Provides..." << endl;
-    //for (auto p : mm.second.provides) {
-      //cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
-      //cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
-      //PortSpec ps = {false};
-      //for (auto lp : p.surroundingLoops) {
-        //ps.accessPattern.surroundingLoops.push_back(lp);
-      //}
-      //for (auto coordExpr : p.op->args) {
-        //ps.accessPattern.op.coordinates.push_back(coordExpr);
-      //}
-      //buffers[name].ports[p.op->name + "_provide_pt_" + std::to_string(portNo)] = ps;
-      //portNo++;
-    //}
-    //cout << "\t--- Calls..." << endl;
-    //for (auto p : mm.second.calls) {
-      //cout << "\t\t" << p.prefixString() << ": " << p.op->name << endl;
-      //cout << "\t\t\t# ports needed = " << numInstances(p) << endl;
-      //cout << "\t\t\tMin addr..." << endl;
-      //PortSpec ps = {true};
-      //for (auto lp : p.surroundingLoops) {
-        //ps.accessPattern.surroundingLoops.push_back(lp);
-      //}
-      //for (auto coordExpr : p.op->args) {
-        //ps.accessPattern.op.coordinates.push_back(coordExpr);
-      //}
-      //buffers[name].ports[p.op->name + "_call_pt_" + std::to_string(portNo)] = ps;
-      //const Call* c = p.op;
-      //Scope<Interval> bounds;
-      //for (auto lp : p.surroundingLoops) {
-        //Expr min = lp->min;
-        //Interval bound = Interval::single_point(min);
-        //bounds.push(lp->name, bound);
-      //}
-      //for (const Expr& arg : c->args) {
-        //cout << "\t\t\t\t" << arg << endl;
-        //cout << "\t\t\t\tMinAccessLoc: " << p.expandMin(arg) << endl;
-        //cout << "\t\t\t\tMaxAccessLoc: " << p.expandMax(arg) << endl;
-      //}
-      //portNo++;
-    //}
-  //}
-  //cout << "Logical buffers..." << endl;
-  //for (auto bs : buffers) {
-    //cout << "\t" << bs.first << ": Capacity = " << bs.second.capacity << endl;
-    //cout << "\tports..." << endl;
-    //for (auto pt : bs.second.ports) {
-      //cout << "\t\t" << pt.first << ": " << pt.second << endl;
-    //}
-  //}
-  //internal_assert(false) << "Stopping so dillon can view\n";
+  cout << "Extracting buffers from: " << endl;
+  cout << s << endl;
 
   // for each accelerated function, build a hardware xcel: a dag of HW kernels 
   for (const auto &p : env) {
@@ -909,6 +595,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
       continue;
     }
 
+    cout << "Creating an accelerator for: " << p.first << endl;
     LoopLevel store_locked = func.schedule().store_level().lock();
     string store_varname =
       store_locked.is_root() ? "root" :
