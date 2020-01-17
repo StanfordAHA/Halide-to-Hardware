@@ -548,7 +548,8 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
     //internal_assert(false) << "Cannot classify buffer: " << buffer.name << "\n";
   }
 
-void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
+map<string, CoreIR::Module*>
+synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env, std::vector<HWXcel>& xcels) {
   Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(simplify(stmt)))));
 
   cout << "Doing rewrites for" << endl;
@@ -592,7 +593,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
       ub->setDef(def);
     } else {
       cout << f.first << " is not accelerated" << endl;
-      internal_assert(!f.second.schedule().is_hw_kernel());
+      //internal_assert(!f.second.schedule().is_hw_kernel());
     }
   }
 
@@ -603,9 +604,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
   }
   deleteContext(context);
 
-  internal_assert(false);
-
-  return;
+  return {};
 
 }
 
