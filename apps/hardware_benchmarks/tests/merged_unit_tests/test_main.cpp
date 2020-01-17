@@ -1879,7 +1879,7 @@ void runSoC(Func hw_output, vector<Argument>& args, const std::string& name) {
   }
   cout << "Compiled cpp code" << endl;
   cout << "Done with compiling for CGRA" << endl;
-  runCmd("clang++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
+  runCmd("g++ -std=c++11 " + name + "_soc_run.cpp " + name + "_soc_mini.cpp cgra_wrapper.cpp -I ../../../../tools `libpng-config --cflags --ldflags` -ljpeg -lHalide -lcoreir-float -lcoreir -lcoreir-commonlib -lcoreirsim -L ../../../../bin");
   cout << "Compiled c++ executable..." << endl;
   runCmd("./a.out");
   cout << "Ran executable" << endl;
@@ -3157,20 +3157,19 @@ int main(int argc, char **argv) {
   small_cascade_test();
   multi_channel_conv_test();
  
-  //small_demosaic_test();
-  //hot_pixel_suppression_test();
-  //real_unsharp_test();
-  //double_unsharp_test();
+  small_demosaic_test();
+  hot_pixel_suppression_test();
+  real_unsharp_test();
+  double_unsharp_test();
+  simple_unsharp_test();
+  accel_interface_test();
+  accel_soc_test();
+  offset_window_test();  
   
-  //rom_read_test();
-  //curve_16_lookup_test();
-  //camera_pipeline_test();
-  //simple_unsharp_test();
-  //accel_interface_test();
-  //accel_soc_test();
-  //curve_lookup_test();
-  
-  //offset_window_test();  
+  rom_read_test();
+  curve_16_lookup_test();
+  camera_pipeline_test();
+  curve_lookup_test();
   
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
