@@ -563,7 +563,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel);
 
   // set output parameters for hwbuffers based on consumers
-  //set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
+  set_opt_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope, output_box);
 
   cout << "------ All input streams to " << xcel->name << endl;
   for (auto in : xcel->input_streams) {
