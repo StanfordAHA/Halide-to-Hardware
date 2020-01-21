@@ -2405,9 +2405,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   stream << "\n";
 
   int num_updates = id_const_value(op->args[cur_idx++]);
+  stream << "num_updates=" << num_updates << std::endl;
   vector<size_t> modify_stencil(num_dims);
   vector<size_t> modify_block(num_dims);
-  for (int i=0; i<num_updates; ++i) {
+  for (int i=0; i<0*num_updates; ++i) {
     stream << " modify stencil=";
     for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
       modify_stencil[i] = id_const_value(op->args[cur_idx]);

@@ -35,12 +35,12 @@ public:
         hw_input(x, y, c) = input(x, y, c);
 
         //depthwise ConvolutionLayer
-        dw_conv(x, y, c) = cast<int16_t>(bias_dw(c));
+        dw_conv(x, y, c) = 0;//cast<int16_t>(bias_dw(c));
         dw_conv(x, y, c) += cast<int16_t>(filter_dw(r_dw.x, r_dw.y, c) *
                                           hw_input(x + r_dw.x, y + r_dw.y, c));
 
         //pointwise ConvolutionLayer
-        pw_conv(k, x, y, c) = cast<int16_t>(bias_pw(k));
+        pw_conv(k, x, y, c) = 0;//cast<int16_t>(bias_pw(k));
         pw_conv(k, x, y, c) += cast<int16_t>(filter_pw(k, c) * dw_conv(x, y, c));
         pw_conv_reduction(k, x, y) = 0;
         pw_conv_reduction(k, x, y) += cast<int16_t>(pw_conv(k, x, y, r_pw.x));
@@ -105,7 +105,7 @@ public:
           pw_conv_reduction.compute_at(hw_output, xo).store_at(hw_output, xo);
 
           //schedule pw conv
-          //pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
+          //pw_conv.compute_at(pw_conv_reduction, y).store_at(hw_output, xo)
           pw_conv.compute_at(hw_output, xo).store_at(hw_output, xo)
             .reorder(c, x, y, k);
           
@@ -126,7 +126,7 @@ public:
 
           //add input stream
           hw_input.stream_to_accelerator();//.reorder_storage(c, x, y);
-          hw_input.store_at(hw_output, yo).compute_at(hw_output, yo);
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           //hw_input.store_root().compute_at(pw_conv, x);
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           //hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);

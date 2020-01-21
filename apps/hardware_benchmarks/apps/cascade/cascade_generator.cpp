@@ -55,7 +55,7 @@ public:
           //hw_input.compute_root();
           //hw_input.store_at(hw_output, xo).compute_at(conv1, x);
           
-          kernel.compute_at(hw_output, xo);
+          kernel.compute_at(hw_output, yi);
 
           conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
           conv1.update()
@@ -70,7 +70,8 @@ public:
           //conv2.linebuffer();
           
           hw_input.stream_to_accelerator();
-          hw_input.compute_root();//store_at(hw_output, xo).compute_at(hw_output, xi);
+          //hw_input.compute_root();
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           
         } else {  // schedule to CPU
           kernel.compute_root();

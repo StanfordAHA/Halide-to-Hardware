@@ -158,12 +158,12 @@ struct HWBuffer {
   // old parameters for the HWBuffer
   std::vector<InOutDimSize> dims;
   //Stmt input_access_pattern;
-  std::map<std::string, HWBuffer*> producer_buffers;
-  std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
+  //std::map<std::string, HWBuffer*> producer_buffers;
+  //std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
   //std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
   Stmt output_access_pattern;
-  std::map<std::string, Stride> stride_map;
-  std::vector<AccessDimSize> linear_addr;
+  //std::map<std::string, Stride> stride_map;
+  //std::vector<AccessDimSize> linear_addr;
 
   // dimensions for the unassociated hwbuffer streams
   std::map<std::string, InputStream> istreams;

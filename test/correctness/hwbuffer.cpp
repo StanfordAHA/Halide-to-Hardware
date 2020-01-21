@@ -77,17 +77,17 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   }
 
   // check linear address loops
-  std::cout << "linear address loop length is " << hwbuffer.linear_addr.size() << std::endl;
-  check_param(hwbuffer.name + " num of linear addr loops", hwbuffer.linear_addr.size(), ref.linear_addr.size());
-  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
-    check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer.linear_addr.at(i).range, ref.linear_addr.at(i).range);
-  }
-  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
-    check_param(hwbuffer.name + " stride loop" + to_string(i), hwbuffer.linear_addr.at(i).stride, ref.linear_addr.at(i).stride);
-  }
-  for (size_t i=0; i<ref.linear_addr.size(); ++i) {
-    check_param(hwbuffer.name + " dim_ref loop" + to_string(i), hwbuffer.linear_addr.at(i).dim_ref, ref.linear_addr.at(i).dim_ref);
-  }
+  // std::cout << "linear address loop length is " << hwbuffer.linear_addr.size() << std::endl;
+  // check_param(hwbuffer.name + " num of linear addr loops", hwbuffer.linear_addr.size(), ref.linear_addr.size());
+  // for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+  //   check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer.linear_addr.at(i).range, ref.linear_addr.at(i).range);
+  // }
+  // for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+  //   check_param(hwbuffer.name + " stride loop" + to_string(i), hwbuffer.linear_addr.at(i).stride, ref.linear_addr.at(i).stride);
+  // }
+  // for (size_t i=0; i<ref.linear_addr.size(); ++i) {
+  //   check_param(hwbuffer.name + " dim_ref loop" + to_string(i), hwbuffer.linear_addr.at(i).dim_ref, ref.linear_addr.at(i).dim_ref);
+  // }
 
   // Note: the number of consumer streams includes the update
   //check_param(hwbuffer.name + " number of consumer streams", hwbuffer.ostreams.size(), ref.ostreams.size());
@@ -110,7 +110,6 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
     }
 
     // check linear address loops
-    std::cout << "linear address loop length is " << hwbuffer_linear.size() << std::endl;
     check_param(hwbuffer.name + " num of linear addr loops", hwbuffer_linear.size(), ref_linear.size());
     for (size_t i=0; i<ref_linear.size(); ++i) {
       check_param(hwbuffer.name + " range loop" + to_string(i), hwbuffer_linear.at(i).range, ref_linear.at(i).range);
@@ -834,7 +833,7 @@ int main(int argc, char **argv) {
 
     //if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
-    //if (pipeline_hwbuffer_test({5, 3}, 64) != 0) { return -1; }
+    if (pipeline_hwbuffer_test({5, 3}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
 

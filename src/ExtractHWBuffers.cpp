@@ -88,6 +88,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   vector<string> input_istreams, output_ostreams;
   map<string, vector<Expr> > ostream_output_mins;
   map<string, vector<Expr> > ostream_output_stencils;
+  map<string, vector<AccessDimSize> > ostream_linear_accesses;
   for (const auto& istream_pair : buffer.istreams) {
     input_istreams.emplace_back(istream_pair.first);
   }
@@ -101,6 +102,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
     }
     ostream_output_mins[ostream_pair.first] = consumer_output_min;
     ostream_output_stencils[ostream_pair.first] = consumer_output_stencil;
+    ostream_linear_accesses[ostream_pair.first] = ostream_pair.second.linear_access;
   }
 
   //auto num_inputs = 0;//buffer.func.updates().size();
@@ -115,7 +117,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
      << "Output Access Pattern:\n " << buffer.output_access_pattern << std::endl;
     //<< "Output Min Pos: " << output_min_pos << std::endl;
 
-  os << buffer.linear_addr << std::endl;
+  //os << buffer.linear_addr << std::endl;
   
   for (const auto& omp_pair : ostream_output_mins) {
     os << "Ostream " << omp_pair.first << " Min Pos: "
@@ -125,6 +127,11 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
     os << "Ostream " << osten_pair.first << " Output Stencil: "
        << osten_pair.second << std::endl;
   }
+  for (const auto& olac_pair : ostream_linear_accesses) {
+    os << "Ostream " << olac_pair.first << " Linear Access Pattern: " << std::endl
+       << olac_pair.second;
+  }
+
   os << "streaming loops: " << buffer.streaming_loops << std::endl
      << "compute level: " << buffer.compute_level << std::endl
      << "store level: " << buffer.store_level << std::endl
@@ -153,7 +160,7 @@ HWBuffer::HWBuffer(string name, vector<MergedDimSize> mdims, vector<AccessDimSiz
                    string iname, string oname) :
   name(name), store_level(store_index < 0 ? "" : loops[store_index]),
   compute_level(compute_index < 0 ? "" : loops[compute_index]),
-  is_inlined(is_inlined), is_output(is_output), linear_addr(linear_addr) {
+  is_inlined(is_inlined), is_output(is_output) {
   loops.erase(loops.begin());
   streaming_loops = loops;
 
@@ -1150,8 +1157,8 @@ class HWBuffers : public IRMutator2 {
           LoopLevel store_l = sched.store_level();
           //hwbuffer.store_level = store_l.lock().func();
           
-          hwbuffer.stride_map = fos.stride_map;
-          std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
+          //comment hwbuffer.stride_map = fos.stride_map;
+          //std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
 
           hwbuffer.ldims = vector<LogicalDimSize>(output_block_box.size());
 
@@ -1255,8 +1262,8 @@ class HWBuffers : public IRMutator2 {
           //hwbuffer.store_level = store_locked.to_string();//func_store_level;
 
           hwbuffer.ldims = vector<LogicalDimSize>(output_block_box.size());
-          hwbuffer.stride_map = fos.stride_map;
-          std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
+          //comment hwbuffer.stride_map = fos.stride_map;
+          //std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
 
           // check that all of the extracted parameters are of the same vector length
           //FIXMEyikes
@@ -1528,10 +1535,15 @@ void set_output_params(HWXcel *xcel,
       if (hwbuffers.count(consumer.name) &&  // does this work?
           (!hwbuffer.is_inlined || hwbuffers.at(consumer.name).is_output || xcel->input_streams.count(hwbuffer.name)>0) &&
       //if (hwbuffers.count(consumer.name) && xcel->input_streams.count(hwbuffer.name) > 0 &&
-          hwbuffers.at(consumer.name).producer_buffers.count(hwbuffer.name) == 0) {
+          //hwbuffers.at(consumer.name).producer_buffers.count(hwbuffer.name) == 0) {
+          hwbuffers.at(consumer.name).istreams.count(hwbuffer.name) == 0) {
         std::cout << "adding " << hwbuffer.name << " as an input of " << consumer.name << "\n";
-        hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
-        hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = &hwbuffer;
+        //hwbuffers.at(consumer.name).input_streams.push_back(hwbuffer.name);
+        //hwbuffers.at(consumer.name).producer_buffers[hwbuffer.name] = &hwbuffer;
+        InputStream istream;
+        istream.name = hwbuffer.name;
+        istream.hwref = &hwbuffer;
+        hwbuffers.at(consumer.name).istreams[hwbuffer.name] = istream;
 
       } else {
         std::cout << "couldn't find consumer " << consumer.name << std::endl;
@@ -1571,9 +1583,9 @@ void set_output_params(HWXcel *xcel,
       FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
       std::cout << "looking for " << hwbuffer.name << " in consumer: \n" << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
-      hwbuffer.stride_map = fos.stride_map;
+      //comment hwbuffer.stride_map = fos.stride_map;
       ostream.stride_map = fos.stride_map;
-      std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
+      std::cout << hwbuffer.name << " stride_x=" << ostream.stride_map["x"].stride << std::endl;
       //for (const auto& string_int_pair : hwbuffer.stride_map) {
       //  std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
       //}
@@ -1701,7 +1713,7 @@ void set_output_params(HWXcel *xcel,
       //const auto& input_streams = hwbuffers.at(consumer.name).input_streams;
       //if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
       if (hwbuffers.count(consumer.name) &&  // does this work?
-        (!hwbuffer.is_inlined || xcel->input_streams.count(hwbuffer.name)>0)) {
+          (!hwbuffer.is_inlined || xcel->input_streams.count(hwbuffer.name)>0)) {
       
         //hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
@@ -1904,12 +1916,15 @@ IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &
 void linearize_address_space(HWBuffer &kernel) {
   std::cout << "linearizing for " << kernel.name << std::endl;
   
-  for (auto& istream_pair : kernel.producer_buffers) {
-    HWBuffer& istream = *istream_pair.second;
+  //for (auto& istream_pair : kernel.producer_buffers) {
+  //HWBuffer& istream = *istream_pair.second;
+  for (auto& istream_pair : kernel.istreams) {
+    HWBuffer& istream = *istream_pair.second.hwref;
     std::cout << "dealing with istream " << istream.name << std::endl;
-    OutputStream ostream = istream.ostreams.at(kernel.name);
+    
+    OutputStream& ostream = istream.ostreams.at(kernel.name);
 
-    IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
+    IdentifyAddressing id_addr(istream.func, Scope<Expr>(), ostream.stride_map);
     std::cout << istream.output_access_pattern;
     istream.output_access_pattern.accept(&id_addr);
 
@@ -1924,16 +1939,14 @@ void linearize_address_space(HWBuffer &kernel) {
       assert(num_access_levels == id_addr.strides_in_dim.size());
       assert(num_access_levels == id_addr.dim_refs.size());
       
-      //istream_pair.second->linear_addr = std::vector<AccessDimSize>(num_access_levels);
-      istream.linear_addr.resize(num_access_levels);
+      //istream.linear_addr.resize(num_access_levels);
       ostream.linear_access.resize(num_access_levels);
-      //auto linear_addr = std::vector<AccessDimSize>(num_access_levels);
       size_t j = 0;
       for (size_t i=0; i<num_access_levels; ++i) {
         if (id_addr.ranges.at(i) != 1) {
-          istream.linear_addr.at(j).range = id_addr.ranges.at(i);
-          istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
-          istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
+          //istream.linear_addr.at(j).range = id_addr.ranges.at(i);
+          //istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
+          //istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
           
           ostream.linear_access.at(j).range = id_addr.ranges.at(i);
           ostream.linear_access.at(j).stride = id_addr.strides_in_dim.at(i);
@@ -1942,10 +1955,9 @@ void linearize_address_space(HWBuffer &kernel) {
           j += 1;
         }
       }
-      istream.linear_addr.resize(j);
+      //istream.linear_addr.resize(j);
       ostream.linear_access.resize(j);
-      //kernel.linear_addr = istream.linear_addr;
-      std::cout << istream.linear_addr << std::endl << istream;
+      std::cout << ostream.linear_access << std::endl << istream;
       std::cout << &istream << std::endl;
     }
   }
@@ -1959,10 +1971,13 @@ void calculate_accumulation(HWBuffer &kernel) {
       num_logical_pixels *= to_int(store_extent);
     }
     
-    for (auto& istream_pair : kernel.producer_buffers) {
-      auto& istream = *istream_pair.second;
+    //for (auto& istream_pair : kernel.producer_buffers) {
+    //auto& istream = *istream_pair.second;
+    for (auto& istream_pair : kernel.istreams) {
+      HWBuffer& istream = *istream_pair.second.hwref;
+      auto& ostream = istream.ostreams.at(kernel.name);
 
-      IdentifyAddressing id_addr(istream.func, Scope<Expr>(), istream.stride_map);
+      IdentifyAddressing id_addr(istream.func, Scope<Expr>(), ostream.stride_map);
       istream.output_access_pattern.accept(&id_addr);
       int num_iter=1;
       for (size_t i = 0; i < id_addr.ranges.size(); i++) {
