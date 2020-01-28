@@ -23,6 +23,7 @@
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
 #include "coreir/simulator/interpreter.h"
+#include "lakelib.h"
 
 namespace Halide {
 namespace Internal {
@@ -494,7 +495,7 @@ bool isComputeKernel(CoreIR::Wireable* v) {
   }
 
   // Simplify
-  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
+  return !fromGenerator("lakelib.linebuffer", static_cast<Instance*>(b)) &&
     !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b)) &&
     !fromGenerator("halidehw.stream_trimmer", static_cast<Instance*>(b));
 }
@@ -511,7 +512,7 @@ bool isTrimmer(Wireable* destBase) {
 bool isLinebuffer(Wireable* destBase) {
   if (isa<Instance>(destBase)) {
     auto instBase = static_cast<CoreIR::Instance*>(destBase);
-    return fromGenerator("commonlib.linebuffer", instBase);
+    return fromGenerator("lakelib.linebuffer", instBase);
   }
 
   return false;
@@ -3846,7 +3847,7 @@ CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)
   {"image_type", CoreIR::Const::make(context,image_type)},
   {"has_valid",CoreIR::Const::make(context,true)}};
 
-CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "commonlib.linebuffer", lb_args);
+CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "lakelib.linebuffer", lb_args);
 return coreir_lb;
 }
 
@@ -3971,7 +3972,7 @@ class AppGraph {
       auto destBase = getBase(e.dataDest);
       if (isa<Instance>(destBase)) {
         auto instBase = static_cast<CoreIR::Instance*>(destBase);
-        return fromGenerator("commonlib.linebuffer", instBase);
+        return fromGenerator("lakelib.linebuffer", instBase);
       }
 
       return false;

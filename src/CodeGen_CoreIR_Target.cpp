@@ -5,6 +5,7 @@
 
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
+#include "CodeGen_CoreHLS.h"
 #include "Substitute.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -399,6 +400,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
+  loadHalideLib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
@@ -656,6 +658,20 @@ uint num_bits(uint N) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
+
+  if (is_header()) {
+    return;
+  } else {
+    global_ns = context->getNamespace("global");
+    HardwareInfo info;
+    info.hasCriticalPathTarget = false;
+    design = createCoreIRForStmt(context, info, stmt, name, args);
+    def = design->getDef();
+    self = def->sel("self");
+    return;
+  }
+
+
 
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
