@@ -3,6 +3,8 @@
 #include "coreir/passes/transform/rungenerators.h"
 
 #include "coreir_interpret.h"
+#include "lakelib.h"
+#include "ubuf_coreirsim.h"
 
 using namespace std;
 using namespace CoreIR;
@@ -422,6 +424,7 @@ void run_coreir_on_interpreter(string coreir_design,
   Namespace* g = c->getGlobal();
 
   CoreIRLoadLibrary_commonlib(c);
+  CoreIRLoadLibrary_lakelib(c);
   CoreIRLoadLibrary_float(c);
   if (!loadFromFile(c, coreir_design)) {
     cout << "Could not load " << coreir_design
@@ -433,7 +436,19 @@ void run_coreir_on_interpreter(string coreir_design,
 
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
-  SimulatorState state(m);
+
+  // Build the simulator with the new model
+  auto ubufBuilder = [](WireNode& wd) {
+    //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
+    UnifiedBuffer_new* ubufModel = new UnifiedBuffer_new();
+    return ubufModel;
+  };
+
+
+
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
+
+  SimulatorState state(m, qualifiedNamesToSimPlugins);
 
   if (!saveToFile(g, "bin/design_simulated.json", m)) {
     cout << "Could not save to json!!" << endl;
