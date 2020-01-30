@@ -117,7 +117,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
 
     Stmt visit(const For *op) {
       std::cout << "starting this for replace\n";
-        if (!starts_with(op->name, kernel.name)) {
+      //if (!starts_with(op->name, kernel.name)) {
+      if (true) {
           std::cout << "trivial for\n";
             // try to simplify trivial reduction loops
             // TODO add assertions to check loop type
@@ -525,14 +526,12 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
 bool need_hwbuffer(const HWBuffer &kernel) {
     // check if we need a hwbuffer
     bool ret = false;
+    std::cout << "checking if kernel " << kernel.name << " needs a hwbuffer...\n";
 
     if (kernel.name == "hw_input") {
       return true;
     }
     
-    
-    std::cout << "checking if kernel " << kernel.name << " needs a hwbuffer...\n";
-
     std::cout << " this buffer has num_accum=" << kernel.num_accum_iters
               << " num_ostreams=" << kernel.ostreams.size() << std::endl;
     
@@ -630,6 +629,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         }
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           hwbuffer_args.push_back(kernel.dims.at(i).input_chunk);
+          //hwbuffer_args.push_back(kernel.dims.at(i).input_block);
         }
         for (size_t i = 0; i < kernel.dims.size(); i++) {
           hwbuffer_args.push_back(kernel.dims.at(i).input_block);
@@ -784,20 +784,46 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
     if (const Block *op = s.as<Block>()) {
     //if (s.as<Block>() || s.as<ProducerConsumer>()) {
       Stmt block_first = op->first;
-
+      Stmt block_rest = op->rest;
       Stmt body = block_first;
-      vector<pair<string, Expr>> lets;
-      while (const LetStmt *let = body.as<LetStmt>()) {
-        body = let->body;
-        scope.push(let->name, simplify(expand_expr(let->value, scope)));
-        lets.push_back(make_pair(let->name, let->value));
-      }
 
+      vector<pair<string, Expr>> lets;
+      //while (const LetStmt *let = body.as<LetStmt>()) {
+      //while (body.as<LetStmt>() || body.as<AssertStmt>() || body.as<Block>()) {
+      while (body.as<LetStmt>() || body.as<AssertStmt>() ||
+             body.as<Block>() || body.as<Realize>()) {
+        if (const LetStmt *let = body.as<LetStmt>()) {
+          body = let->body;
+          scope.push(let->name, simplify(expand_expr(let->value, scope)));
+          lets.push_back(make_pair(let->name, let->value));
+
+        } else if (const Block *block = body.as<Block>()) {
+          // do nothing and drop it?
+          if (!block->first.as<AssertStmt>()) {
+            body = block->first;
+            block_rest = block->rest;
+            break;
+          } else {
+            internal_assert(block->first.as<AssertStmt>());
+            block_first = block->first;
+            body = block->rest;
+          }
+          //} else if (const AssertStmt *assert = body.as<AssertStmt>()) {
+        } else if (body.as<AssertStmt>()) {
+          body = op->rest;
+        } else if (const Realize *realize = body.as<Realize>()) {
+          body = realize->body;
+        }
+      }
+      block_first = body;
+
+      std::cout << "now we have first:\n" << block_first;
+      std::cout << "and then we have rest:\n" << block_rest;
 
       //const ProducerConsumer *produce_node = pc_block->first.as<ProducerConsumer>();
       //const ProducerConsumer *produce_node = first_pc.as<ProducerConsumer>();
-        const ProducerConsumer *produce_node = body.as<ProducerConsumer>();
-        const ProducerConsumer *consume_node = op->rest.as<ProducerConsumer>();
+        const ProducerConsumer *produce_node = block_first.as<ProducerConsumer>();
+        const ProducerConsumer *consume_node = block_rest.as<ProducerConsumer>();
         if (!(consume_node && produce_node)) {
           //std::cout << "didn't find pc: produce=" << produce_node
           //          << " first_let=" << op->first.as<Let>()
@@ -819,9 +845,6 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
           std::cout << s << std::endl;
           return transform_hwkernel(consume_node->body, xcel, scope);
         }
-
-        Stmt produce_stmt = body;//first_pc;//pc_block->first;
-        Stmt consume_stmt = op->rest;//pc_block->rest;
 
         for (auto &kernel : xcel.hwbuffers) {
           std::cout << kernel.first << "=" << kernel.second.name << ",";
@@ -1038,7 +1061,8 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         // create a realization of the stencil image
         Region bounds;
         for (const auto dim: kernel.dims) {
-            bounds.push_back(Range(0, dim.input_chunk));
+          //bounds.push_back(Range(0, dim.input_chunk));
+          bounds.push_back(Range(0, dim.input_block));
         }
         Stmt stencil_realize = Realize::make(stencil_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), stencil_pc);
 
@@ -1196,7 +1220,7 @@ class InsertHWBuffers : public IRMutator2 {
 
         const auto& hwbuffer = xcel.hwbuffers.at(kernelname);
         std::cout << "hwbuffer=" << hwbuffer.name << " compute=" << hwbuffer.compute_level << std::endl;
-
+        std::cout << op->body << std::endl;
         
         // store level doesn't match name AND loop var is not found in xcel
         if (!xcel.store_level.match(op->name) &&
@@ -1319,7 +1343,8 @@ class InsertHWBuffers : public IRMutator2 {
 
                 Region bounds;
                 for (auto &dim : kernel.dims) {
-                    bounds.push_back(Range(0, dim.input_chunk));
+                  //bounds.push_back(Range(0, dim.input_chunk));
+                  bounds.push_back(Range(0, dim.input_block));
                 }
                 new_body = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, bounds, const_true(), Block::make(stream_subimg, new_body));
             }
@@ -1366,14 +1391,13 @@ class InsertHWBuffers : public IRMutator2 {
     }
 
   Stmt visit(const Block *op) {
-    return IRMutator2::visit(op);
     Stmt stmt;
 
-    if (op->rest.defined()) {
-      std::cout << "looking at a block\n" << op->first << "\n" << op->rest;
-    } else {
-      std::cout << "looking at a block\n" << op->first << "\n" << "no rest\n";
-    }
+    //if (op->rest.defined()) {
+    //  std::cout << "looking at a block\n" << op->first << "\n" << op->rest;
+    //} else {
+    //  std::cout << "looking at a block\n" << op->first << "\n" << "no rest\n";
+    //}
 
     
     //if (op->is_producer) {
@@ -1395,10 +1419,16 @@ class InsertHWBuffers : public IRMutator2 {
       hwbuffername = produce_node->name;
     }
     const auto& hwbuffer = xcel.hwbuffers.at(hwbuffername);
-    std::cout << "pc=" << produce_node->name << " compute=" << hwbuffer.compute_level
+    string hwbuffer_compute_level = hwbuffer.compute_level;
+    auto compute_tokens = get_tokens(hwbuffer_compute_level, ".");
+    if (compute_tokens.size() > 2) {
+      hwbuffer_compute_level = compute_tokens.at(0) + "." + compute_tokens.at(compute_tokens.size()-1);
+    }
+    
+    std::cout << "at the pc=" << produce_node->name << " compute=" << hwbuffer_compute_level
               << " loop=" << loopname << std::endl;
 
-    if (loopname == hwbuffer.compute_level && !hwbuffer.is_inlined) {
+    if (loopname == hwbuffer_compute_level && !hwbuffer.is_inlined) {
       std::cout << "xcel compute in pc\n";
       //internal_assert(is_loop_var); // compute level was supposed to be inclusive
 
@@ -1421,9 +1451,9 @@ class InsertHWBuffers : public IRMutator2 {
       
       // remove the loop statement if it is one of the scan loops
       stmt = new_body;
+    } else {
+      stmt = IRMutator2::visit(op);
     }
-    
-    stmt = IRMutator2::visit(op);
     return stmt;
   }
 

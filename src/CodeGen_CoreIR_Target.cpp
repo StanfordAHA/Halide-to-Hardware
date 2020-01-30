@@ -697,6 +697,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         for (uint i=0; i<indices.size(); ++i) {
           std::cout << "output with appended width=" << indices[i] << std::endl;
           output_type = output_type->Arr(indices[i]);
+          //output_type = output_type->Arr(1);
         }
         hw_output_set.insert(arg_name);
         
@@ -705,7 +706,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
         for (uint i=0; i<indices.size(); ++i) {
-          input_type = input_type->Arr(indices[i]);
+          //input_type = input_type->Arr(indices[i]);
+          input_type = input_type->Arr(1);
         }
         input_types.push_back({arg_name, input_type});
         in_en_types.push_back({arg_name, context->BitIn()});

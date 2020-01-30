@@ -63,9 +63,9 @@ std::ostream& operator<<(std::ostream& os, const std::vector<AccessDimSize>& vec
     dim_ref.emplace_back(dim.dim_ref);
   }
   
-  os << "Range: " << range << std::endl
-     << "Stride: " << stride << std::endl
-     << "Dim Ref: " << dim_ref << std::endl;
+  os << "  Range: " << range << std::endl
+     << "  Stride: " << stride << std::endl
+     << "  Dim Ref: " << dim_ref << std::endl;
   
   return os;
 };
@@ -344,6 +344,7 @@ class ExamineLoopLevel : public IRVisitor {
 
   void visit(const Call *op) {
     if (var == "" || op->name == var) {
+      std::cout << "this is a call to " << var << Expr(op);
       found_call = true;
     }
     IRVisitor::visit(op);
@@ -517,7 +518,7 @@ class CountBufferUsers : public IRVisitor {
         auto box_read = box_required(op->body, var);
         //std::cout << "readers inside loop " << op->name << std::endl;
         std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-        //std::cout << Stmt(op->body) << std::endl;
+        std::cout << Stmt(op->body) << std::endl;
         std::cout << "HWBuffer Parameter: reader ports - "
                   << "box extent=[";
         auto interval = box_read;
@@ -529,8 +530,10 @@ class CountBufferUsers : public IRVisitor {
           Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
           Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
           output_block_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
-          stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
-          std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
+          //stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(expand_expr(interval[dim].min, scope))));
+          stmts.push_back(AssertStmt::make(var + "_dim" + std::to_string(dim), simplify(interval[dim].min)));
+          std::cout << port_expr << ":" << simplify(expand_expr(interval[dim].min, scope)) << "-"
+                    << expand_expr(interval[dim].min, scope) << " ";
         }
         std::cout << "]\n";
 
@@ -735,6 +738,7 @@ public:
 class FindOutputStencil : public IRVisitor {
   using IRVisitor::visit;
   string var;
+  string consumer;
   Scope<Expr> scope;
   string compute_level;
 
@@ -815,16 +819,37 @@ class FindOutputStencil : public IRVisitor {
       std::cout << "]\n";
 
     }
-    IRVisitor::visit(op);
+    if (call_at_level(op->body, var) && provide_at_level(op->body, consumer) && search_for_min) {
+      found_output_min = true;
+      search_for_min = false;
+      std::cout << "we found the output min pos for " << var << ": " << op->body << std::endl;
+      auto box_read = box_required(op->body, var);
+      auto interval = box_read;
+      output_min_pos_box = vector<Expr>(interval.size());
+
+      for (size_t dim=0; dim<interval.size(); ++dim) {
+        output_min_pos_box[dim] = interval[dim].min;
+        std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+      }
+      std::cout << "]\n";
+      
+      IRVisitor::visit(op);
+      search_for_min = true;
+    } else {
+      IRVisitor::visit(op);
+    }
+
   }
 public:
   vector<Expr> output_stencil_box;
   vector<Expr> output_min_pos_box;
   map<string, Stride> stride_map;
   bool found_stencil;
+  bool found_output_min;
+  bool search_for_min;
   Function func;
-  FindOutputStencil(string v, Function func, string cl) :
-    var(v), compute_level(cl), found_stencil(false), func(func) {
+  FindOutputStencil(string v, string c, Function func, string cl) :
+    var(v), consumer(c), compute_level(cl), found_stencil(false), found_output_min(false), search_for_min(true), func(func) {
     std::cout << "looking to find " << v << " output stencil where compute_level=" << compute_level << std::endl;
   }
 };
@@ -845,7 +870,7 @@ class FindInputStencil : public IRVisitor {
     //std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     if (op->name == compute_level) {
-      //std::cout << op->body << std::endl;
+      std::cout << "we found the input stencil for " << var << op->body << std::endl;
       auto box_write = box_provided(op->body, var);
       auto interval = box_write;
       input_chunk_box = vector<Expr>(interval.size());
@@ -877,11 +902,25 @@ class FindInputStencil : public IRVisitor {
         input_chunk_box[dim] = is_undef(lower_expr) ? port_expr : lower_expr;
         std::cout << port_expr << ":" << lower_expr << "-" << upper_expr  << " ";
         output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
-        std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+        //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
       std::cout << "]\n";
 
     }
+
+    //if (provide_at_level(op->body, var)) {
+    //  std::cout << "we found the output min pos for " << var << op->body << std::endl;
+    //  auto box_write = box_provided(op->body, var);
+    //  auto interval = box_write;
+    //  output_min_pos_box = vector<Expr>(interval.size());
+    //
+    //  for (size_t dim=0; dim<interval.size(); ++dim) {
+    //    output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
+    //    std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+    //  }
+    //  std::cout << "]\n";
+    //
+    //}
     IRVisitor::visit(op);
   }
 public:
@@ -1129,10 +1168,10 @@ class HWBuffers : public IRMutator2 {
           std::cout << "]\n";
 
           //FindOutputStencil fos(op->name, func, func_store_level);
-          FindOutputStencil fos(op->name, func, hwbuffer.compute_level);
+          FindOutputStencil fos(op->name, op->name, func, hwbuffer.compute_level);
           new_body.accept(&fos);
 
-          //std::cout << "counting:\n" << new_body << std::endl;
+          std::cout << "counting for " << hwbuffer.name << ":\n" << new_body << std::endl;
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
 
@@ -1235,12 +1274,12 @@ class HWBuffers : public IRMutator2 {
           std::cout << hwbuffer.name << " has the real size of " << input_chunk << std::endl;
           
           //FindOutputStencil fos(op->name, func, xcel_compute_level);
-          FindOutputStencil fos(op->name, func, hwbuffer.compute_level);
+          FindOutputStencil fos(op->name, op->name, func, hwbuffer.compute_level);
           new_body.accept(&fos);
           auto output_stencil_box = fos.output_stencil_box;
           std::cout << "output stencil is " << output_stencil_box << " using loops: " << hwbuffer.streaming_loops << std::endl;
 
-          //std::cout << "counting lbed:\n" << new_body << std::endl;
+          std::cout << "counting lbed for " << hwbuffer.name << ":\n" << new_body << std::endl;
           CountBufferUsers counter(op->name);
           ReplaceForBounds rfb;
           auto replaced_body = rfb.mutate(new_body);
@@ -1580,12 +1619,18 @@ void set_output_params(HWXcel *xcel,
       std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name()
                 << " compute=" << cur_func.schedule().compute_level() << std::endl;
 
-      FindOutputStencil fos(hwbuffer.name, cur_func, func_compute_level);
-      std::cout << "looking for " << hwbuffer.name << " in consumer: \n" << consumer_buffer.my_stmt << std::endl;
+      FindOutputStencil fos(hwbuffer.name, consumer.name, cur_func, func_compute_level);
+      std::cout << "looking for output stencil and min for " << hwbuffer.name << " in consumer " << consumer.name
+                << ": \n" << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
+      if (fos.found_output_min) {
+        std::cout << hwbuffer.name << " to " << consumer.name
+                  << " output_min_pos0=" << fos.output_min_pos_box[0] << std::endl;
+      }
       //comment hwbuffer.stride_map = fos.stride_map;
       ostream.stride_map = fos.stride_map;
       std::cout << hwbuffer.name << " stride_x=" << ostream.stride_map["x"].stride << std::endl;
+
       //for (const auto& string_int_pair : hwbuffer.stride_map) {
       //  std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
       //}
@@ -1609,7 +1654,8 @@ void set_output_params(HWXcel *xcel,
       internal_assert(hwbuffers.count(consumer.name) != 0);
       
       std::cout << "here we have consumer " << hwbuffers.at(consumer.name).name
-                << " for hwbuffer " << hwbuffer.name << "\n";
+                << " for hwbuffer " << hwbuffer.name
+                << " for num_dims=" << hwbuffer.ldims.size() << "\n";
 
       ostream.odims = vector<OutputDimSize>(hwbuffer.ldims.size());
       auto &odims = ostream.odims;
@@ -1680,6 +1726,7 @@ void set_output_params(HWXcel *xcel,
           if (!consumer_buffer.is_output) {
             std::cout << odims.at(idx).output_min_pos << " + " << fos.output_min_pos_box.at(idx) << std::endl;
             //hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
+            // removed for now odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
             odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
           }
         } else {
@@ -1694,11 +1741,35 @@ void set_output_params(HWXcel *xcel,
 
         //hwbuffer.dims.at(idx).output_min_pos = simplify(hwbuffer.dims.at(idx).output_min_pos);
         //if (!consumer_buffer.is_output) {
-        //hwbuffer.dims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
+        
         odims.at(idx).output_min_pos = simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds));
-        //hwbuffer.dims.at(idx).output_max_pos = simplify(expand_expr(consumer_bounds[idx].max, stencil_bounds));
         odims.at(idx).output_max_pos = simplify(expand_expr(consumer_bounds[idx].max, stencil_bounds));
-        //std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+        std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << odims.at(idx).output_min_pos << std::endl;
+        
+
+        if (fos.found_output_min) {
+          std::cout << "found the output min for " << hwbuffer.name << " to " << consumer.name << " idx"
+                    << idx << ": " << odims.at(idx).output_min_pos;
+          odims.at(idx).output_min_pos = simplify(fos.output_min_pos_box.at(idx));
+          std::cout << " => " << odims.at(idx).output_min_pos << std::endl;
+
+        } else {
+          std::cout << "couldn't find the output min for " << hwbuffer.name << " to " << consumer.name << std::endl;
+          odims.at(idx).output_min_pos = 0;
+        }
+        
+        //if (fos.found_output_min && idx < fos.output_stencil_box.size()) {
+        if (hwbuffer.name == "conv" && consumer.name == "hw_output") {
+          odims.at(idx).output_min_pos = 0;
+        } else if (hwbuffer.name == "conv" && fos.found_output_min) {
+          odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
+          std::cout << "replaced output min pos with the output stencil: " << hwbuffer.name << idx << " for consumer " << consumer.name
+                    << " =" << odims.at(idx).output_min_pos << std::endl;
+        } else if (hwbuffer.name == "hw_input" && fos.found_output_min) {
+          odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
+        
+        }
+        
 
         auto loop_range = simplify(expand_expr(consumer_bounds[idx].max - consumer_bounds[idx].min + 1, stencil_bounds));
         std::cout << "  range would/should be: " << loop_range << std::endl;
