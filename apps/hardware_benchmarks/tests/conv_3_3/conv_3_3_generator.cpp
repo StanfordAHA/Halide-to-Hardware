@@ -38,6 +38,10 @@ public:
 
         output.bound(x, 0, imgsize);
         output.bound(y, 0, imgsize);
+        //hw_output.bound(x, 0, imgsize);
+        //hw_output.bound(y, 0, imgsize);
+        conv.bound(x, 0, imgsize);
+        conv.bound(y, 0, imgsize);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

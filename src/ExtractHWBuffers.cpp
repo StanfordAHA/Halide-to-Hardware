@@ -1750,7 +1750,9 @@ void set_output_params(HWXcel *xcel,
         if (fos.found_output_min) {
           std::cout << "found the output min for " << hwbuffer.name << " to " << consumer.name << " idx"
                     << idx << ": " << odims.at(idx).output_min_pos;
-          odims.at(idx).output_min_pos = simplify(fos.output_min_pos_box.at(idx));
+          if (!is_zero(simplify(fos.output_min_pos_box.at(idx)))) {
+            odims.at(idx).output_min_pos = simplify(fos.output_min_pos_box.at(idx));
+          }
           std::cout << " => " << odims.at(idx).output_min_pos << std::endl;
 
         } else {
@@ -1759,16 +1761,17 @@ void set_output_params(HWXcel *xcel,
         }
         
         //if (fos.found_output_min && idx < fos.output_stencil_box.size()) {
-        if (hwbuffer.name == "conv" && consumer.name == "hw_output") {
-          odims.at(idx).output_min_pos = 0;
-        } else if (hwbuffer.name == "conv" && fos.found_output_min) {
-          odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
-          std::cout << "replaced output min pos with the output stencil: " << hwbuffer.name << idx << " for consumer " << consumer.name
-                    << " =" << odims.at(idx).output_min_pos << std::endl;
-        } else if (hwbuffer.name == "hw_input" && fos.found_output_min) {
-          odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
+
         
-        }
+        //if (hwbuffer.name == "conv" && consumer.name == "hw_output") {
+        //  odims.at(idx).output_min_pos = 0;
+        //} else if (hwbuffer.name == "conv" && fos.found_output_min) {
+        //  odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
+        //  std::cout << "replaced output min pos with the output stencil: " << hwbuffer.name << idx << " for consumer " << consumer.name
+        //            << " =" << odims.at(idx).output_min_pos << std::endl;
+        //} else if (hwbuffer.name == "hw_input" && fos.found_output_min) {
+        //  odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
+        //}
         
 
         auto loop_range = simplify(expand_expr(consumer_bounds[idx].max - consumer_bounds[idx].min + 1, stencil_bounds));
