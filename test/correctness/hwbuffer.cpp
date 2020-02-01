@@ -181,9 +181,9 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
     s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, inlined_stages, t);
 
     for (auto stage : inlined_stages) {
-      std::cout << "found stage: " << stage.name << std::endl;
+      //std::cout << "found stage: " << stage.name << std::endl;
       for (auto map_entry : stage.bounds) {
-        std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
+        //std::cout << "  bounds for " << map_entry.first.first << " " << map_entry.second << std::endl;
       }
     }
     
@@ -194,15 +194,15 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
 
     if (!t.has_feature(Target::HLS)) {
       s = sliding_window(s, env);
-      std::cout << "sliding some windows\n";
+      //std::cout << "sliding some windows\n";
     }
     
-    std::cout << "extracting hw buffers\n";
+    //std::cout << "extracting hw buffers\n";
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR)) {
       xcels = extract_hw_accelerators(s, env, inlined_stages);
       for (auto hwbuffer : xcels.at(0).hwbuffers) {
-        std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       }
     }
 
@@ -276,7 +276,7 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
     h_assert(xcel.hwbuffers.size() == 4, "Incorrect number of hwbuffers found");
     h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
     auto input_hwbuffer = xcel.hwbuffers.at("hw_input" + suffix);
-    std::cout << "done with hwbuffer creation\n";
+    std::cout << "    done with hwbuffer creation conv" << suffix << "\n";
 
     //// Create ref buffer and check the hardware buffers
     int ref_logsize = imgsize + ksize - 1;
@@ -294,8 +294,8 @@ int conv_hwbuffer_test(int ksize, int imgsize) {
                                      loops, 0, 2,
                                      false, true,
                                      "", "conv"+suffix);
-    std::cout << "This is the hwbuffer we created:\n" << input_hwbuffer;
-    std::cout << "This is the reference hwbuffer:\n" << ref_hwbuffer;
+    //std::cout << "This is the hwbuffer we created:\n" << input_hwbuffer;
+    //std::cout << "This is the reference hwbuffer:\n" << ref_hwbuffer;
     int output_value = check_hwbuffer_params(input_hwbuffer, ref_hwbuffer);
 
 
@@ -369,7 +369,7 @@ int general_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
     auto xcel = hwxcels.at(0);
     h_assert(xcel.hwbuffers.size() == 2 + 2*num_conv, "Incorrect number of hwbuffers found");
     h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
-    std::cout << "done with hwbuffer creation of convchain" << suffix << "\n";
+    std::cout << "    done with hwbuffer creation of convchain" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
     vector<string> buffer_names = vector<string>(num_conv);
@@ -511,7 +511,7 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     h_assert(xcel.hwbuffers.size() == num_hwbuffers, "Incorrect number of hwbuffers found: " + 
              to_string(xcel.hwbuffers.size()) + " vs " + to_string(num_hwbuffers));
     h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
-    std::cout << "done with hwbuffer creation of forked" << suffix << "\n";
+    std::cout << "    done with hwbuffer creation of forked" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
     vector<string> buffer_names = vector<string>(num_conv + 2);
@@ -646,7 +646,7 @@ int doublebuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int til
     auto xcel = hwxcels.at(0);
     h_assert(xcel.hwbuffers.size() == 2 + 2*num_conv, "Incorrect number of hwbuffers found");
     h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
-    std::cout << "done with hwbuffer creation of doublebuffer" << suffix << "\n";
+    std::cout << "    done with hwbuffer creation of doublebuffer" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
     vector<string> buffer_names = vector<string>(num_conv);
@@ -690,8 +690,8 @@ int doublebuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int til
                                        loops, store_index, compute_index,
                                        false, false,
                                        producer_name, consumer_name);
-      std::cout << "This is the hwbuffer we created:\n" << hwbuffer;
-      std::cout << "This is the reference hwbuffer:\n" << ref_hwbuffer;
+      //std::cout << "This is the hwbuffer we created:\n" << hwbuffer;
+      //std::cout << "This is the reference hwbuffer:\n" << ref_hwbuffer;
       int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
       if (output_value != 0) { return output_value; }
     }
@@ -765,7 +765,7 @@ int ubuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
     auto xcel = hwxcels.at(0);
     h_assert(xcel.hwbuffers.size() == 2 + 2*num_conv, "Incorrect number of hwbuffers found");
     h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
-    std::cout << "done with hwbuffer creation of doublebuffer" << suffix << "\n";
+    std::cout << "    done with hwbuffer creation of ubuffer" << suffix << "\n";
       
     //// Create ref buffer and check the hardware buffers
     vector<string> buffer_names = vector<string>(num_conv);
@@ -804,8 +804,8 @@ int ubuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
                                        loops, store_index, compute_index,
                                        false, false,
                                        producer_name, consumer_name);
-      std::cout << "This is the hwbuffer we created:\n" << hwbuffer;
-      std::cout << "This is the reference hwbuffer:\n" << ref_hwbuffer;
+      //std::cout << "This is the hwbuffer we created:\n" << hwbuffer;
+      //std::cout << "This is the reference hwbuffer:\n" << ref_hwbuffer;
       int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
       if (output_value != 0) { return output_value; }
     }
@@ -818,64 +818,64 @@ int ubuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
 int main(int argc, char **argv) {
 
     printf("Running conv hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
 
-    //if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
-    //if (conv_hwbuffer_test(2, 64) != 0) { return -1; }
+    if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
+    if (conv_hwbuffer_test(2, 64) != 0) { return -1; }
     if (conv_hwbuffer_test(3, 64) != 0) { return -1; }
-    //if (conv_hwbuffer_test(5, 64) != 0) { return -1; }
+    if (conv_hwbuffer_test(5, 64) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 16) != 0) { return -1; }
     //if (conv_hwbuffer_test(3, 32) != 0) { return -1; }
-    //if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
+    if (conv_hwbuffer_test(3, 19) != 0) { return -1; }
 
     printf("Running conv chain hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
 
-    //if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
+    if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
     if (pipeline_hwbuffer_test({5, 3}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({1, 4}, 64) != 0) { return -1; }
-    //if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
+    if (pipeline_hwbuffer_test({3, 3, 3}, 64) != 0) { return -1; }
 
     printf("Running tiled conv chain hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
     
     //if (tiled_pipeline_hwbuffer_test({3}, 64, 32) != 0) { return -1; }
     if (tiled_pipeline_hwbuffer_test({7, 3, 5, 2}, 64, 16) != 0) { return -1; }
 
     printf("Running forked conv hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
 
     //if (forked_pipeline_hwbuffer_test(3, {1, 1}, 3, 64) != 0) { return -1; }
     //if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
     //if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
 
     printf("Running compute level hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
     if (tiled_pipeline_hwbuffer_test({3, 4}, 64, 32) != 0) { return -1; }
     if (doublebuffer_pipeline_hwbuffer_test({3, 4}, 64, 64) != 0) { return -1; }
     //if (doublebuffer_pipeline_hwbuffer_test({3, 4}, 64, 32) != 0) { return -1; }
     if (ubuffer_pipeline_hwbuffer_test({3, 4}, 64, 64) != 0) { return -1; }
 
     printf("Running loop reordering hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
     // no reorder
     // reordering with loops unrolled
     
     printf("Running sampling hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
     // downsample
     // upsample
     // up and down sampling
 
     printf("Running multi-pixel hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
     // 1 pixel/cycle
     // 2 pixels/cycle
     // 4 pixels/cycle
     
     printf("Running rolled hwbuffer tests\n");
-    printf("    checking hwbuffers...\n");
+    printf("  checking hwbuffers...\n");
     // input block equal to input chunk (pixel / cycle)
     // row of stencil at a time (pixel / 3 cycles)
     // column of stencil at a time (pixel / 3 cycles)

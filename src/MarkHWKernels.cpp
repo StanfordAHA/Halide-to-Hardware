@@ -80,7 +80,7 @@ public:
         debug(3) << "marked tap params: " << tap_params << "\n";
 
         for (auto &&p : kernel_funcs) {
-          std::cout << p.first << " is a kernel now\n";
+          //std::cout << p.first << " is a kernel now\n";
             p.second.schedule().is_hw_kernel() = true;
             p.second.schedule().accelerate_exit() = output_func.name();
         }
@@ -129,8 +129,8 @@ public:
         if (callees.empty()) {
             if (visitor.params.empty()) {
                 // TODO have special flag here
-                user_warning << "Function " << func.name() << " can be statically evaluated. "
-                             << "Consider ROM optimization by fully unrolling its dimension.\n";
+              //user_warning << "Function " << func.name() << " can be statically evaluated. "
+              //              << "Consider ROM optimization by fully unrolling its dimension.\n";
             }
             for (const auto &f : path) kernel_funcs[f.name()] = f;
             kernel_funcs[func.name()] = func;

@@ -239,10 +239,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
          //s = replace_image_param(s, dag);
        }
       }
+      //exit(0);
 
       //debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
       //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
+
+
     
     debug(1) << "Simplifying...\n";
     //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
