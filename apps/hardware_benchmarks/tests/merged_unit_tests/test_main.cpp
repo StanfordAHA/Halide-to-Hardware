@@ -1820,7 +1820,7 @@ void pointwise_add_test() {
     output.bound(y, 0, 1);
     hw_input.stream_to_accelerator();
     
-    Context* context = newContext();
+    Context* context = hwContext();
     vector<Argument> args{input};
     //auto m = buildModule(true, context, "coreir_brighter", args, "brighter", dummyOut);
     auto m = buildModule(true, context, "coreir_brighter", args, "brighter", output);
