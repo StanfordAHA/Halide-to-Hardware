@@ -2059,7 +2059,7 @@ class RenameAllocation : public IRMutator {
     }
   }
 
-  Stmt visit(const Store *op) {
+  Stmt visit(const Store *op) override {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
@@ -2069,7 +2069,7 @@ class RenameAllocation : public IRMutator {
     }
   }
 
-  Stmt visit(const Free *op) {
+  Stmt visit(const Free *op) override {
     if (op->name == orig_name) {
       return Free::make(new_name);
     } else {

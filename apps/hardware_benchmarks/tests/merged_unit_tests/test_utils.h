@@ -4,6 +4,7 @@
 #include "coreir/simulator/interpreter.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "lakelib.h"
 
 #include "coreir/ir/dynamic_bit_vector.h"
 #include "coreir.h"
@@ -339,6 +340,7 @@ CoreIR::Context* hwContext() {
   CoreIR::Context* context = CoreIR::newContext();
   CoreIRLoadLibrary_commonlib(context);
   CoreIRLoadLibrary_float(context);
+  CoreIRLoadLibrary_lakelib(context);
   return context;
 }
 
