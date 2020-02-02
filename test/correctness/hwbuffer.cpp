@@ -854,8 +854,10 @@ int main(int argc, char **argv) {
     printf("  checking hwbuffers...\n");
     if (tiled_pipeline_hwbuffer_test({3, 4}, 64, 32) != 0) { return -1; }
     if (doublebuffer_pipeline_hwbuffer_test({3, 4}, 64, 64) != 0) { return -1; }
+    if (doublebuffer_pipeline_hwbuffer_test({5, 2}, 32, 32) != 0) { return -1; }
     //if (doublebuffer_pipeline_hwbuffer_test({3, 4}, 64, 32) != 0) { return -1; }
     if (ubuffer_pipeline_hwbuffer_test({3, 4}, 64, 64) != 0) { return -1; }
+    if (ubuffer_pipeline_hwbuffer_test({5, 2}, 31, 31) != 0) { return -1; }
 
     printf("Running loop reordering hwbuffer tests\n");
     printf("  checking hwbuffers...\n");

@@ -1,4 +1,7 @@
 #include "InsertHWBuffers.h"
+#include "HWBuffer.h"
+#include "HWBufferUtils.h"
+
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "Scope.h"
@@ -10,6 +13,7 @@
 
 #include <iostream>
 #include <algorithm>
+
 using std::ostream;
 
 namespace Halide {
@@ -23,36 +27,6 @@ using std::vector;
 using std::cout;
 
 namespace {
-
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
-    const Scope<Expr> &scope;
-
-    Expr visit(const Variable *var) {
-        if (scope.contains(var->name)) {
-          debug(4) << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
-          //std::cout << "Fully expanded " << var->name << " -> " << scope.get(var->name) << "\n";
-          return scope.get(var->name);
-
-
-        } else {
-          std::cout << "Scope does not contain  " << var->name << "\n";
-          return var;
-        }
-    }
-
-public:
-    ExpandExpr(const Scope<Expr> &s) : scope(s) {}
-
-};
-
-// Perform all the substitutions in a scope
-Expr expand_expr(Expr e, const Scope<Expr> &scope) {
-    ExpandExpr ee(scope);
-    Expr result = ee.mutate(e);
-    debug(4) << "Expanded " << e << " into " << result << "\n";
-    return result;
-}
 
 class ExpandExprNoVar : public IRMutator2 {
     using IRMutator2::visit;

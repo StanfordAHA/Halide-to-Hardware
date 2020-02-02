@@ -15,178 +15,28 @@
 #include <vector>
 #include <iostream>
 
+//#include "ExtractHWKernelDAG.h"
+#include "HWBuffer.h"
+
+#include "Bounds.h"
 #include "IR.h"
-#include "ExtractHWKernelDAG.h"
+#include "IRVisitor.h"
+#include "Scope.h"
 #include "SlidingWindow.h"
 
 namespace Halide {
 namespace Internal {
 
-struct HWBuffer; // forward declare
-
-struct Stride {
-  int stride;
-  bool is_inverse;
-  Stride(int stride=0, bool is_inverse=false) :
-    stride(stride), is_inverse(is_inverse) {}
-
+#ifndef HALIDE_BOUNDS_INFERENCE_STAGE
+#define HALIDE_BOUNDS_INFERENCE_STAGE
+struct BoundsInference_Stage {
+    std::string name;
+    size_t stage;
+    std::vector<int> consumers;
+    std::map<std::pair<std::string, int>, Box> bounds;
 };
+#endif
 
-struct AccessDimSize {
-  Expr range;
-  Expr stride;
-  Expr dim_ref;
-};
-
-struct MergedDimSize {
-  std::string loop_name;
-  Expr logical_size;
-  Expr logical_min;
-
-  Expr input_chunk;
-  Expr input_block;
-
-  Expr output_stencil;
-  Expr output_block;
-  Expr output_min_pos;
-  Expr output_max_pos;
-};
-
-struct InputDimSize {
-  std::string loop_name;
-  Expr input_chunk;
-  Expr input_block;
-};
-
-struct InputStream {
-  std::string name;
-  std::vector<InputDimSize> idims;
-  Stmt input_access_pattern;
-  std::map<std::string, Stride> stride_map;
-  std::vector<AccessDimSize> linear_access; // use access pattern and stride map to construct this
-  HWBuffer* hwref;
-};
-
-struct UpdateStream {
-  std::string name;
-  // no dimension info needed, because same as input; perhaps needs min_pos?
-  Stmt update_access_pattern; // output of hwbuffer on each update
-  std::map<std::string, Stride> stride_map;
-  std::vector<AccessDimSize> linear_access;
-};
-
-struct OutputDimSize {
-  std::string loop_name;
-  Expr output_stencil;
-  Expr output_block;
-  Expr output_min_pos;
-  Expr output_max_pos;
-};
-
-struct OutputStream {
-  std::string name;
-  std::vector<OutputDimSize> odims;
-  Stmt output_access_pattern;
-  std::map<std::string, Stride> stride_map;
-  std::vector<AccessDimSize> linear_access;
-  //std::shared_ptr<HWBuffer> hwref;
-  HWBuffer* hwref;
-};
-
-//struct RMWStream {
-//  std::string name;
-//  std::vector<InputDimSize> idims;
-//  std::vector<OutputDimSize> mdims;
-//  std::vector<OutputDimSize> odims;
-//  Stmt input_access_pattern;
-//  Stmt modify_access_pattern;
-//  Stmt output_access_pattern;
-//  std::map<std::string, Stride> stride_map;
-//  //std::shared_ptr<HWBuffer> ohwref;
-//  HWBuffer* ohwref;
-//};
-
-struct StreamBundle {
-  std::string name;
-  InputStream istream;
-  std::vector<UpdateStream> ustreams;
-  std::vector<OutputStream> ostreams;
-  
-};
-
-struct InOutDimSize {
-  std::string loop_name;
-
-  Expr input_chunk;    // replace stencilfor, dispatch, need_hwbuffer, add_hwbuffer,
-                       // transform_hwkernel, xcel inserthwbuffers
-  Expr input_block;    // add_hwbuffer
-
-  Expr output_stencil; // add_hwbuffer, dispatch
-  Expr output_block;   // add_hwbuffer
-  //Expr output_min_pos; // in provide+call shifts
-  //Expr output_max_pos; // not used yet?
-};
-
-struct LogicalDimSize {
-  Expr var_name;
-  Expr logical_size;
-  Expr logical_min;
-};
-
-std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
-                                                 std::vector<int> output_stencil,
-                                                 std::vector<int> output_block,
-                                                 std::vector<int> input_chunk,
-                                                 std::vector<int> input_block);
-
-std::vector<AccessDimSize> create_linear_addr(std::vector<int> range,
-                                              std::vector<int> stride,
-                                              std::vector<int> dim_ref);
-
-struct HWBuffer {
-  std::string name;
-  std::string store_level;
-  std::string compute_level;
-  std::vector<std::string> streaming_loops;
-
-  Stmt my_stmt;
-  Function func;
-  bool is_inlined = false;
-  bool is_output = false;
-  int num_accum_iters = 0;
-  
-  // old parameters for the HWBuffer
-  std::vector<InOutDimSize> dims;
-  //Stmt input_access_pattern;
-  //std::map<std::string, HWBuffer*> producer_buffers;
-  //std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
-  //std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
-  Stmt output_access_pattern;
-  //std::map<std::string, Stride> stride_map;
-  //std::vector<AccessDimSize> linear_addr;
-
-  // dimensions for the unassociated hwbuffer streams
-  std::map<std::string, InputStream> istreams;
-  std::map<std::string, OutputStream> ustreams;
-  std::map<std::string, OutputStream> ostreams;
-
-  // dimensions for accumulation hwbuffer
-  std::vector<LogicalDimSize> ldims;
-  std::map<std::string, StreamBundle> streams;
-  
-  // Constructors
-  HWBuffer() { }
-
-  //HWBuffer(const HWBuffer &b) = delete;
-
-  HWBuffer(std::string name, std::vector<MergedDimSize> mdims, std::vector<AccessDimSize> linear_addr,
-           std::vector<std::string> loops, int store_index, int compute_index, bool is_inlined, bool is_output,
-           std::string iname="input", std::string oname="output");
-  
-};
-
-std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec);
-std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer);
 
 std::map<std::string, HWBuffer> extract_hw_buffers(Stmt s, const std::map<std::string, Function> &env,
                                                    const std::vector<std::string> &streaming_loop_names);
@@ -210,11 +60,6 @@ std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, 
                                             const std::vector<BoundsInference_Stage> &inlined_stages);
 
 
-std::ostream& operator<<(std::ostream& os, const std::vector<string>& vec);
-int id_const_value(const Expr e);
-std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);
-int to_int(Expr expr);
-
 class IdentifyAddressing : public IRVisitor {
   Function func;
   int stream_dim_idx;
@@ -225,16 +70,16 @@ class IdentifyAddressing : public IRVisitor {
   void visit(const For *op);
 
 public:
-  const vector<string> &storage_names;
-  const map<string,Stride> &stride_map;
-  vector<string> varnames;
+  const std::vector<std::string> &storage_names;
+  const std::map<std::string,Stride> &stride_map;
+  std::vector<std::string> varnames;
 
-  map<string, int> dim_map;
+  std::map<std::string, int> dim_map;
   
-  vector<int> ranges;
-  vector<int> dim_refs;
-  vector<int> strides_in_dim;
-  IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const map<string,Stride> &stride_map);
+  std::vector<int> ranges;
+  std::vector<int> dim_refs;
+  std::vector<int> strides_in_dim;
+  IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const std::map<std::string,Stride> &stride_map);
 };
 
 }  // namespace Internal
