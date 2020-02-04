@@ -344,12 +344,36 @@ class FindOutputStencil : public IRVisitor {
   string var;
   string consumer;
   Scope<Expr> scope;
+  string store_level;
   string compute_level;
-
+  
   // keep track of lets to later replace variables with constants
   void visit(const LetStmt *op) override {
       ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       IRVisitor::visit(op);
+  }
+
+  void visit(const ProducerConsumer *op) override {
+    if (store_level == compute_level && op->is_producer && op->name == consumer && false) {
+      found_stencil = true;
+
+      auto box_read = box_required(op->body, var);
+      auto interval = box_read;
+      output_min_pos_box = vector<Expr>(interval.size());
+      output_block_box = vector<Expr>(interval.size());
+      // std::cout << "working on " << op->name << " "
+      //           << " with size: " << interval.size() << std::endl
+      //           << op->body << std::endl;
+
+      for (size_t dim=0; dim<interval.size(); ++dim) {
+        output_min_pos_box[dim] = interval[dim].min;
+        auto output_block = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+        output_block_box[dim] = output_block;
+        //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+      }
+    }
+    
+    IRVisitor::visit(op);    
   }
 
   void visit(const For *op) override {
@@ -430,9 +454,12 @@ class FindOutputStencil : public IRVisitor {
       auto box_read = box_required(op->body, var);
       auto interval = box_read;
       output_min_pos_box = vector<Expr>(interval.size());
+      output_block_box = vector<Expr>(interval.size());
 
       for (size_t dim=0; dim<interval.size(); ++dim) {
         output_min_pos_box[dim] = interval[dim].min;
+        auto output_block = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
+        output_block_box[dim] = output_block;
         //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
       //std::cout << "]\n";
@@ -445,16 +472,21 @@ class FindOutputStencil : public IRVisitor {
 
   }
 public:
+  vector<Expr> output_block_box;
   vector<Expr> output_stencil_box;
   vector<Expr> output_min_pos_box;
   map<string, Stride> stride_map;
   bool found_stencil;
   bool found_output_min;
   bool search_for_min;
-  Function func;
-  FindOutputStencil(string v, string c, Function func, string cl) :
-    var(v), consumer(c), compute_level(cl), found_stencil(false), found_output_min(false), search_for_min(true), func(func) {
-    //std::cout << "looking to find " << v << " output stencil where compute_level=" << compute_level << std::endl;
+  FindOutputStencil(string v, string c, string sl, string cl) :
+    var(v), consumer(c), store_level(sl), compute_level(cl), found_stencil(false),
+    found_output_min(false), search_for_min(true) {
+    if (v.find("db_") != string::npos) {
+      //std::cout << "looking to find " << v
+      //          << " output stencil where compute_level=" << compute_level
+      //          << " in:" << std::endl;
+    }
   }
 };
 
@@ -512,7 +544,7 @@ class FindInputStencil : public IRVisitor {
 
     }
 
-    //if (provide_at_level(op->body, var)) {
+    //if (provide_at_level(op->body, var) && call_at_level(op->body, producer)) {
     //  std::cout << "we found the output min pos for " << var << op->body << std::endl;
     //  auto box_write = box_provided(op->body, var);
     //  auto interval = box_write;
@@ -723,8 +755,8 @@ class HWBuffers : public IRMutator2 {
           //std::cout << "]\n";
 
           //FindOutputStencil fos(op->name, func, func_store_level);
-          FindOutputStencil fos(op->name, op->name, func, hwbuffer.compute_level);
-          new_body.accept(&fos);
+          //FindOutputStencil fos(op->name, op->name, hwbuffer.store_level, hwbuffer.compute_level);
+          //new_body.accept(&fos);
 
           //std::cout << "counting for " << hwbuffer.name << ":\n" << new_body << std::endl;
           CountBufferUsers counter(op->name);
@@ -771,7 +803,7 @@ class HWBuffers : public IRMutator2 {
             hwbuffer.dims[i].input_block = input_block_box.at(i);  // needed for db
 
             hwbuffer.dims[i].output_stencil = box.at(i); // used for hw_input
-            hwbuffer.dims[i].output_block   = output_block_box.at(i); // used for hw_input
+            //hwbuffer.dims[i].output_block   = output_block_box.at(i); // used for hw_input
 
             //hwbuffer.dims[i].output_min_pos = boxes_read.at(op->name)[i].min;
             //std::cout << "hwbuffer " << hwbuffer.name << " in dim " << i <<
@@ -826,9 +858,9 @@ class HWBuffers : public IRMutator2 {
           //std::cout << hwbuffer.name << " has the real size of " << input_chunk << std::endl;
           
           //FindOutputStencil fos(op->name, func, xcel_compute_level);
-          FindOutputStencil fos(op->name, op->name, func, hwbuffer.compute_level);
-          new_body.accept(&fos);
-          auto output_stencil_box = fos.output_stencil_box;
+          //FindOutputStencil fos(op->name, op->name, hwbuffer.store_level, hwbuffer.compute_level);
+          //new_body.accept(&fos);
+          //auto output_stencil_box = fos.output_stencil_box;
           //std::cout << "output stencil is " << output_stencil_box << " using loops: " << hwbuffer.streaming_loops << std::endl;
 
           //std::cout << "counting lbed for " << hwbuffer.name << ":\n" << new_body << std::endl;
@@ -843,6 +875,7 @@ class HWBuffers : public IRMutator2 {
           auto output_block_box = counter.output_block_box;
           auto input_block_box = counter.input_block_box;
           auto reader_loopnest = counter.reader_loopnest;
+          auto output_stencil_box = counter.input_block_box;
           //std::cout << hwbuffer.name << " has reader loopnest:\n" << reader_loopnest;
 
           // create the hwbuffer
@@ -884,7 +917,7 @@ class HWBuffers : public IRMutator2 {
             //std::cout << "finished input " << output_block_box << " and " << loop_names << "\n";
             //hwbuffer.dims[i].output_stencil = sliding_stencil_map.at(for_name).output_stencil_box.at(i);
             //FIXMEhwbuffer.dims[i].output_stencil = 1;
-            hwbuffer.dims[i].output_block = i < output_block_box.size() ? output_block_box.at(i) : 0;
+            //hwbuffer.dims[i].output_block = i < output_block_box.size() ? output_block_box.at(i) : 0;
             //hwbuffer.dims[i].output_min_pos = i < sliding_stencil_map.at(for_name).output_min_pos.size() ? sliding_stencil_map.at(for_name).output_min_pos.at(i) : 0;
             //hwbuffer.dims[i].output_min_pos = 0;
             hwbuffer.dims[i].loop_name = i < loop_names.size() ? loop_names.at(i) : unique_name("loopname");
@@ -1109,9 +1142,14 @@ void set_output_params(HWXcel *xcel,
       
       //std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name() << " compute=" << cur_func.schedule().compute_level() << std::endl;
 
-      FindOutputStencil fos(hwbuffer.name, consumer.name, cur_func, func_compute_level);
-      //std::cout << "looking for output stencil and min for " << hwbuffer.name << " in consumer " << consumer.name << ": \n" << consumer_buffer.my_stmt << std::endl;
+      FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, func_compute_level);
+      if (hwbuffer.name.find("db_") != string::npos) {
+        //std::cout << "looking for " << hwbuffer.name << " to " << consumer.name << std::endl;
+        //std::cout << consumer_buffer.my_stmt << std::endl;
+      }
       consumer_buffer.my_stmt.accept(&fos);
+      //std::cout << "looking for output stencil and min for " << hwbuffer.name << " in consumer " << consumer.name << ": \n" << consumer_buffer.my_stmt << std::endl;
+
       if (fos.found_output_min) {
         //std::cout << hwbuffer.name << " to " << consumer.name << " output_min_pos0=" << fos.output_min_pos_box[0] << std::endl;
       }
@@ -1279,8 +1317,23 @@ void set_output_params(HWXcel *xcel,
       }
       //std::cout << "right after " << consumer.name << " replacements\n" << hwbuffer.output_access_pattern;
 
+
+      for (size_t i=0; i < fos.output_block_box.size(); ++i) {
+        ostream.odims.at(i).output_block   = fos.output_block_box.at(i);
+        ostream.odims.at(i).output_min_pos = fos.output_min_pos_box.at(i);
+        if (fos.found_stencil) {
+          //std::cout << hwbuffer.name << " output stencil set\n";
+          ostream.odims.at(i).output_stencil = fos.output_stencil_box.at(i);
+        } else {
+          if (!hwbuffer.is_inlined) {
+            //std::cout << hwbuffer.name << " could not have output stencil set\n";
+          }
+        }
+      }
       
     }
+
+
 
     // save the bounds values in scope
     for (int i = 0; i < cur_func.dimensions(); i++) {
@@ -1302,7 +1355,7 @@ void set_output_params(HWXcel *xcel,
       //std::cout << "pushed min pos " << arg + ".min" << " " << i << "=" << hwbuffer.dims[i].output_min_pos << "\n";
       //std::cout << "pushed max pos " << arg + ".max" << " " << i << "=" << hwbuffer.dims[i].output_max_pos << "\n";
     }
-    if(stage.stage > 0) {
+    if (stage.stage > 0) {
       //const Definition &r = cur_func.updates()[stage.stage - 1];
       StageSchedule update_schedule = cur_func.update_schedule(stage.stage - 1);
       // TODO check the sliding dimensions are all pure, referring to
