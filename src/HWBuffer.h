@@ -3,10 +3,10 @@
 
 /** \file
  *
- * Defines a hardware buffer extraction pass, which finds the parameters
- * for a general buffer that can then be outputted to a hardware backend.
- * These parameters provide specification for line buffers and double
- * buffers.
+ * Defines a hardware buffer, which has parameters for a  general buffer 
+ * that can then be outputted to a hardware backend.
+ * These parameters provide specification for line buffers,  double
+ * buffers, and general unified buffers.
  * 
  */
 

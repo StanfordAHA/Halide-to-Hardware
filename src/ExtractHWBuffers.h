@@ -15,14 +15,10 @@
 #include <vector>
 #include <iostream>
 
-//#include "ExtractHWKernelDAG.h"
 #include "HWBuffer.h"
 
 #include "Bounds.h"
 #include "IR.h"
-#include "IRVisitor.h"
-#include "Scope.h"
-#include "SlidingWindow.h"
 
 namespace Halide {
 namespace Internal {
@@ -36,11 +32,6 @@ struct BoundsInference_Stage {
     std::map<std::pair<std::string, int>, Box> bounds;
 };
 #endif
-
-
-std::map<std::string, HWBuffer> extract_hw_buffers(Stmt s, const std::map<std::string, Function> &env,
-                                                   const std::vector<std::string> &streaming_loop_names);
-
 
 struct HWXcel {
   std::string name;
@@ -56,31 +47,14 @@ struct HWXcel {
   //std::map<std::string, HWTap> input_taps;
 };
 
+
+
+std::map<std::string, HWBuffer> extract_hw_buffers(Stmt s, const std::map<std::string, Function> &env,
+                                                   const std::vector<std::string> &streaming_loop_names);
+
 std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, Function> &env,
                                             const std::vector<BoundsInference_Stage> &inlined_stages);
 
-
-class IdentifyAddressing : public IRVisitor {
-  Function func;
-  int stream_dim_idx;
-  const Scope<Expr> &scope;
-  
-  using IRVisitor::visit;
-  
-  void visit(const For *op);
-
-public:
-  const std::vector<std::string> &storage_names;
-  const std::map<std::string,Stride> &stride_map;
-  std::vector<std::string> varnames;
-
-  std::map<std::string, int> dim_map;
-  
-  std::vector<int> ranges;
-  std::vector<int> dim_refs;
-  std::vector<int> strides_in_dim;
-  IdentifyAddressing(const Function& func, const Scope<Expr> &scope, const std::map<std::string,Stride> &stride_map);
-};
 
 }  // namespace Internal
 }  // namespace Halide

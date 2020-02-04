@@ -3,10 +3,8 @@
 
 /** \file
  *
- * Defines a hardware buffer extraction pass, which finds the parameters
- * for a general buffer that can then be outputted to a hardware backend.
- * These parameters provide specification for line buffers and double
- * buffers.
+ * Defines a general utility functions that are used in the
+ * hardware passes.
  * 
  */
 
@@ -17,7 +15,6 @@
 
 #include "IR.h"
 #include "Scope.h"
-//#include "ExtractHWKernelDAG.h"
 
 namespace Halide {
 namespace Internal {
@@ -50,9 +47,9 @@ Stmt expand_expr(Stmt e, const Scope<Expr> &scope);
 // Produce a vector of the loops within a for-loop-nest.
 //   Note: this can be used to find the streaming loops between the store and compute level.
 std::vector<std::string> get_loop_levels_between(Stmt s, Function func,
-                                            LoopLevel outer_level_exclusive,
-                                            LoopLevel inner_level_inclusive,
-                                            bool start_inside = false);
+                                                 LoopLevel outer_level_exclusive,
+                                                 LoopLevel inner_level_inclusive,
+                                                 bool start_inside = false);
 
 Stmt substitute_in_constants(Stmt s);
 
