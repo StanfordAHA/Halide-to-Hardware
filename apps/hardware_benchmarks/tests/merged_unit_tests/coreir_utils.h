@@ -2,7 +2,6 @@
 
 #include "coreir.h"
 #include "coreir/simulator/interpreter.h"
-#include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
 
 #include "coreir/ir/dynamic_bit_vector.h"
