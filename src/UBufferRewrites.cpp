@@ -430,7 +430,7 @@ namespace Halide {
 
         cout << "Start creating instance" << endl;
 
-        auto ubuf_coreir = def->addInstance("ubuf0",
+        auto ubuf_coreir = def->addInstance("ubuf_"+context->getUnique(),
                 "lakelib.unified_buffer",
                 {{"width", Const::make(context, width)},
                 {"num_input_ports", Const::make(context, buffer.write_ports.size())},
@@ -462,6 +462,10 @@ namespace Halide {
         //wiring the write port
         def->connect(ubuf_coreir->sel("datain0"), w_data);
         def->connect(ubuf_coreir->sel("wen"), wen);
+
+        //TODO: Not sure if this is robust, hacky solution for ren
+        auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
+        def->connect(ubuf_coreir->sel("ren"), const_true->sel("out"));
 
         //wiring the read port, TODO: counting method seems hacky
         int port_cnt = 0;

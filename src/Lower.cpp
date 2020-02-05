@@ -222,7 +222,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    if (t.has_feature(Target::UseExtractHWKernel) && t.has_feature(Target::CoreIR)) {
+    if (!t.has_feature(Target::UseExtractHWKernel) && t.has_feature(Target::CoreIR)) {
       vector<HWXcel> buf_xcels =
         extract_hw_accelerators(s, env, inlined_stages);
       synthesize_hwbuffers(s, env, buf_xcels);

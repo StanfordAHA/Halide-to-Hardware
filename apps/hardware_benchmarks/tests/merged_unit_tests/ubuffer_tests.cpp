@@ -305,7 +305,9 @@ void ubuffer_small_conv_3_3_test() {
     state.setValue("self.write_port_0", BitVector(16, t));
     state.setValue("self.write_port_0_en", BitVector(1, 1));
 
-    state.exeCombinational();
+    //state.exeCombinational();
+    //FIXME: discuss with Dillon about the timing
+    state.execute();
     if (state.getBitVec("self.read_port_0_valid") == BitVec(1, 1)) {
       port_0_values.push_back(state.getBitVec("self.read_port_0").to_type<int>());
       for (int i = 0; i < 9; i++) {
@@ -313,7 +315,6 @@ void ubuffer_small_conv_3_3_test() {
       }
       n_valids++;
     }
-    state.execute();
   }
 
   cout << "n_valids = " << n_valids << endl;
