@@ -2,6 +2,7 @@
 #include "coreir/simulator/interpreter.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "lakelib.h"
 
 #include "Halide.h"
 
@@ -13,6 +14,8 @@
 #include <fstream>
 #include "test_utils.h"
 #include "coreir_utils.h"
+
+#include "ubuf_coreirsim.h"
 
 using namespace CoreIR;
 using namespace Halide;
@@ -274,7 +277,18 @@ void ubuffer_small_conv_3_3_test() {
   cout << "hw_input_ubuffer..." << endl;
   m->print();
 
-  SimulatorState state(m);
+  auto ubufBuilder = [](WireNode& wd) {
+    //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
+    UnifiedBuffer_new* ubufModel = new UnifiedBuffer_new();
+    return ubufModel;
+  };
+
+
+
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
+
+  SimulatorState state(m, qualifiedNamesToSimPlugins);
+
   state.setValue("self.write_port_0", BitVector(16, 0));
   state.setValue("self.write_port_0_en", BitVector(1, 0));
   state.setClock("self.clk", 0, 1);

@@ -23,6 +23,7 @@
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
 #include "coreir/simulator/interpreter.h"
+#include "lakelib.h"
 
 namespace Halide {
 namespace Internal {
@@ -344,7 +345,7 @@ vector<IBlock> loopHeaders(HWFunction& f) {
       prefixes.insert(loopNames(blk.instrs));
     }
   }
-  cout << "# of headers = " << headers.size() << endl;
+  //cout << "# of headers = " << headers.size() << endl;
   return headers;
 }
 
@@ -360,7 +361,7 @@ vector<IBlock> loopTails(HWFunction& f) {
       prefixes.insert(loopNames(blk.instrs));
     }
   }
-  cout << "# of tails = " << tails.size() << endl;
+  //cout << "# of tails = " << tails.size() << endl;
   return tails;
 }
 
@@ -494,7 +495,7 @@ bool isComputeKernel(CoreIR::Wireable* v) {
   }
 
   // Simplify
-  return !fromGenerator("commonlib.linebuffer", static_cast<Instance*>(b)) &&
+  return !fromGenerator("lakelib.linebuffer", static_cast<Instance*>(b)) &&
     !fromGenerator("halidehw.shift_register", static_cast<Instance*>(b)) &&
     !fromGenerator("halidehw.stream_trimmer", static_cast<Instance*>(b));
 }
@@ -511,7 +512,7 @@ bool isTrimmer(Wireable* destBase) {
 bool isLinebuffer(Wireable* destBase) {
   if (isa<Instance>(destBase)) {
     auto instBase = static_cast<CoreIR::Instance*>(destBase);
-    return fromGenerator("commonlib.linebuffer", instBase);
+    return fromGenerator("lakelib.linebuffer", instBase);
   }
 
   return false;
@@ -548,7 +549,6 @@ class CallRemover : public IRMutator {
       e->accept(&cc);
       if (cc.found) {
         return Evaluate::make(0);
-        //cout << "Found call: " << e->value << endl;
         //internal_assert(false);
       }
       return IRMutator::visit(e);
@@ -1216,7 +1216,7 @@ class InstructionCollector : public IRGraphVisitor {
         return;
       }
 
-      cout << "Creating hwinstruction variable " << v->name << " that is not currently in vars" << endl;
+      //cout << "Creating hwinstruction variable " << v->name << " that is not currently in vars" << endl;
       IRGraphVisitor::visit(v);
       auto ist = f.newVar(v->name);
 
@@ -1691,7 +1691,7 @@ HWFunction buildHWBody(CoreIR::Context* context,
   collector.f.name = name;
   
   auto design_type = moduleTypeForKernel(context, hwInfo, info, perfectNest, args);
-  cout << "Module Type: " << coreStr(design_type) << endl;
+  //cout << "Module Type: " << coreStr(design_type) << endl;
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
@@ -1708,22 +1708,22 @@ HWFunction buildHWBody(CoreIR::Context* context,
     }
   }
 
-  cout << "All hardware vars.." << endl;
-  for (auto hv : hwVars) {
-    cout << "\t" << hv << endl;
-  }
+  //cout << "All hardware vars.." << endl;
+  //for (auto hv : hwVars) {
+    //cout << "\t" << hv << endl;
+  //}
 
   f.controlVars = hwVars;
 
-  cout << "Before opts..." << endl;
-  cout << f << endl;
+  //cout << "Before opts..." << endl;
+  //cout << f << endl;
 
   for (auto instr : f.structuredOrder()) {
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_VAR) {
         if (op->resType == nullptr) {
           if (ends_with(op->name, ".stencil")) {
-            cout << op->compactString() << " has null type\n";
+            //cout << op->compactString() << " has null type\n";
             vector<int> dims = getStencilDims(op->name, info);
             vector<int> sizes = getDimRanges(dims);
             CoreIR::Type* tp = f.mod->getContext()->Bit()->Arr(16);
@@ -1738,8 +1738,8 @@ HWFunction buildHWBody(CoreIR::Context* context,
   }
   removeBadStores(stCollector, f);
   valueConvertStreamReads(info, f);
-  cout << "After valueconver stream reads..." << endl;
-  cout << f << endl;
+  //cout << "After valueconver stream reads..." << endl;
+  //cout << f << endl;
   if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
     valueConvertProvides(info, f);
   }
@@ -1762,11 +1762,7 @@ class StencilInfoCollector : public IRGraphVisitor {
   protected:
     using IRGraphVisitor::visit;
     void visit(const Call* op) override {
-      //cout << "Stencil visiting call: " << op->name << endl;
       if (op->name == "dispatch_stream") {
-        //cout << "Found dispatch" << endl;
-        //cout << "\tName = " << op->args[0] << "\n";
-        //cout << "\t# dims = " << op->args[1] << "\n";
 
         vector<string> dinfo;
         for (int i = 1; i  < (int) op->args.size(); i++) {
@@ -1818,13 +1814,13 @@ class StencilInfoCollector : public IRGraphVisitor {
 
     void visit(const Realize* op)  override {
       if (ends_with(op->name, ".stream")) {
-        auto tps = op->types[0];
-        auto bnds = op->bounds;
-        cout << "Realizing " << op->name << " with type = " << tps << endl;
-        cout << "and bounds..." << endl;
-        for (auto bnd : bnds) {
-          cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
-        }
+        //auto tps = op->types[0];
+        //auto bnds = op->bounds;
+        //cout << "Realizing " << op->name << " with type = " << tps << endl;
+        //cout << "and bounds..." << endl;
+        //for (auto bnd : bnds) {
+          //cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
+        //}
 
         IRGraphVisitor::visit(op);
 
@@ -1839,12 +1835,12 @@ class StencilInfoCollector : public IRGraphVisitor {
         //internal_assert(!CoreIR::contains_key(op->name, info.stencilRealizations)) << "Realizations already contains an entry for " << op->name << "\n";
         //
         info.stencilRealizations[op->name] = {};
-        auto tps = op->types[0];
+        //auto tps = op->types[0];
         auto bnds = op->bounds;
-        cout << "Realizing " << op->name << " with type = " << tps << endl;
-        cout << "and bounds..." << endl;
+        //cout << "Realizing " << op->name << " with type = " << tps << endl;
+        //cout << "and bounds..." << endl;
         for (auto bnd : bnds) {
-          cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
+          //cout << "\t" << bnd.min << " with extend: " << bnd.extent << endl;
           info.stencilRealizations[op->name].push_back(exprString(bnd.min));
           info.stencilRealizations[op->name].push_back(exprString(bnd.extent));
         }
@@ -1989,10 +1985,10 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
 }
 
 void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def, CoreIR::Instance* controlPath) {
-  cout << "# of instructions in body when creating functional units: " << sched.body().size() << endl;
-  for (auto i : sched.body()) {
-    cout << "\t" << *i << endl;
-  }
+  //cout << "# of instructions in body when creating functional units: " << sched.body().size() << endl;
+  //for (auto i : sched.body()) {
+    //cout << "\t" << *i << endl;
+  //}
   auto context = def->getContext();
   int defStage = 0;
   auto& unitMapping = m.unitMapping;
@@ -2002,7 +1998,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   for (auto instr : sched.body()) {
     if (instr->tp == HWINSTR_TP_INSTR) {
       string name = instr->name;
-      cout << "Creating unit for " << *instr << endl;
+      //cout << "Creating unit for " << *instr << endl;
       if (name == "add") {
         auto adder = def->addInstance("add_" + std::to_string(defStage), "coreir.add", {{"width", CoreIR::Const::make(context, 16)}});
         instrValues[instr] = adder->sel("out");
@@ -2080,10 +2076,10 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
       } else if (name == "rd_stream") {
         auto dims = getStreamDims(instr->operands[0]->name, info);
 
-        cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
-        for (auto d : dims) {
-          cout << "Dim = " << d << endl;
-        }
+        //cout << "# of dims in " << instr->operands[0]->name << " = " << dims.size() << endl;
+        //for (auto d : dims) {
+          //cout << "Dim = " << d << endl;
+        //}
 
         vector<int> dimRanges = getDimRanges(dims);
         if (dimRanges.size() == 2) {
@@ -2106,10 +2102,10 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
         internal_assert(instr->operandTypes.size() > 1);
         auto otherDims = instr->operandTypes[1];
-        cout << "# of dims in write_stream to " << instr->getOperand(0)->compactString() << " = " << otherDims.dims.size() << endl;
-        for (auto d : otherDims.dims) {
-          cout << "\t" << d << endl;
-        }
+        //cout << "# of dims in write_stream to " << instr->getOperand(0)->compactString() << " = " << otherDims.dims.size() << endl;
+        //for (auto d : otherDims.dims) {
+          //cout << "\t" << d << endl;
+        //}
         
         auto dims = getStreamDims(instr->operands[0]->name, info);
         //vector<int> dimRanges = getDimRanges(dims);
@@ -2146,15 +2142,15 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           unitMapping[instr] = initS;
         }
       } else if (starts_with(name, "create_stencil")) {
-        cout << "Making create stencil from " << *instr << endl;
-        cout << "Operand 0 = " << *(instr->getOperand(0)) << endl;
+        //cout << "Making create stencil from " << *instr << endl;
+        //cout << "Operand 0 = " << *(instr->getOperand(0)) << endl;
 
         internal_assert(instr->getOperand(0)->resType != nullptr);
         auto dimRanges = arrayDims(instr->getOperand(0)->resType);
 
         //auto dimRanges = CoreIR::map_find(instr->getOperand(0), stencilRanges);
 
-        cout << "dimRanges = " << dimRanges << endl;
+        //cout << "dimRanges = " << dimRanges << endl;
         //internal_assert(false);
         if (dimRanges.size() == 3) {
           int selRow = instr->getOperand(2)->toInt();
@@ -2176,12 +2172,12 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
         }
-        cout << "Built dimranges" << endl;
+        //cout << "Built dimranges" << endl;
 
       } else if (starts_with(name, "dynamic_stencil_read")) {
 
-        cout << "Creating stencil read: " << *instr << endl;
-        cout << "\tread from: " << *(instr->getOperand(0)) << endl;
+        //cout << "Creating stencil read: " << *instr << endl;
+        //cout << "\tread from: " << *(instr->getOperand(0)) << endl;
         internal_assert(instr->getOperand(0)->resType != nullptr);
 
         vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
@@ -2200,8 +2196,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           unitMapping[instr] = cS;
         }
       } else if (starts_with(name, "stencil_read")) {
-        cout << "Creating stencil read: " << *instr << endl;
-        cout << "\tread from: " << *(instr->getOperand(0)) << endl;
+        //cout << "Creating stencil read: " << *instr << endl;
+        //cout << "\tread from: " << *(instr->getOperand(0)) << endl;
         internal_assert(instr->getOperand(0)->resType != nullptr);
 
         vector<int> dimRanges = arrayDims(instr->getOperand(0)->resType);
@@ -2211,7 +2207,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         if (dimRanges.size() == 3) {
           internal_assert(instr->getOperand(1)->tp == HWINSTR_TP_CONST);
           internal_assert(instr->getOperand(2)->tp == HWINSTR_TP_CONST);
-          cout << "\tOperands 1 and 2 of " << *instr << " are constants" << endl;
+          //cout << "\tOperands 1 and 2 of " << *instr << " are constants" << endl;
 
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
@@ -2225,7 +2221,7 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           internal_assert(instr->getOperand(2)->tp == HWINSTR_TP_CONST);
           internal_assert(instr->getOperand(3)->tp == HWINSTR_TP_CONST);
 
-          cout << "\tOperands 1, 2and 3 of " << *instr << " are constants" << endl;
+          //cout << "\tOperands 1, 2and 3 of " << *instr << " are constants" << endl;
           
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
@@ -2249,15 +2245,15 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_CONST);
         int portNo = instr->getOperand(0)->toInt();
         unitMapping[instr] = instr->getUnit();
-        cout << "Connecting " << *instr << endl;
+        //cout << "Connecting " << *instr << endl;
         internal_assert(instr->getUnit() != nullptr);
-        cout << "Connecting " << coreStr(instr->getUnit()) << " ROM rdata" << endl;
+        //cout << "Connecting " << coreStr(instr->getUnit()) << " ROM rdata" << endl;
         internal_assert(instr->getUnit() != nullptr);
         internal_assert(isa<CoreIR::Instance>(instr->getUnit()));
         Instance* inst = static_cast<Instance*>(instr->getUnit());
         internal_assert(fromGenerator("halidehw.ROM", inst));
         instrValues[instr] = instr->getUnit()->sel("rdata")->sel(portNo);
-        cout << "Done." << endl;
+        //cout << "Done." << endl;
       } else if (name == "phi") {
         // TODO: Replace this with real code for a multiplexer
         internal_assert(instr->resType != nullptr);
@@ -2288,7 +2284,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
   // Loop index variables are trickier because they are bound to the output of a counter
   // at some location, but then they are defined somewhere else
   for (auto instr : sched.body()) {
-    //cout << "Wiring up constants" << endl;
     int constNo = 0;
     for (auto op : instr->operands) {
       if (op->tp == HWINSTR_TP_CONST) {
@@ -2316,10 +2311,10 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
 UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule& sched, CoreIR::ModuleDef* def, CoreIR::Instance* controlPath) {
   internal_assert(sched.blockSchedules.size() > 0);
-  cout << "--- Block schedules..." << endl;
-  for (auto& blk : sched.blockSchedules) {
-    blk.second.print();
-  }
+  //cout << "--- Block schedules..." << endl;
+  //for (auto& blk : sched.blockSchedules) {
+    //blk.second.print();
+  //}
 
   auto context = f.mod->getContext();
 
@@ -3846,7 +3841,7 @@ CoreIR::Values lb_args = {{"input_type", CoreIR::Const::make(context,input_type)
   {"image_type", CoreIR::Const::make(context,image_type)},
   {"has_valid",CoreIR::Const::make(context,true)}};
 
-CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "commonlib.linebuffer", lb_args);
+CoreIR::Instance* coreir_lb = def->addInstance(lb_name, "lakelib.linebuffer", lb_args);
 return coreir_lb;
 }
 
@@ -3971,7 +3966,7 @@ class AppGraph {
       auto destBase = getBase(e.dataDest);
       if (isa<Instance>(destBase)) {
         auto instBase = static_cast<CoreIR::Instance*>(destBase);
-        return fromGenerator("commonlib.linebuffer", instBase);
+        return fromGenerator("lakelib.linebuffer", instBase);
       }
 
       return false;
@@ -5477,7 +5472,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     wireUpAppGraph(appGraph, def);
 
     cout << "Setting definition of topMod..." << endl;
-
     topMod->setDef(def);
     
     cout << "Top module before inlining" << endl;
@@ -5487,8 +5481,6 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
 
     flattenExcluding(context, generatorNames);
     context->runPasses({"deletedeadinstances"});
-    //cout << "Top module" << endl;
-    //topMod->print();
 
     if (!saveToFile(global_ns, "conv_3_3_app.json")) {
       cout << "Could not save global namespace" << endl;

@@ -13,6 +13,7 @@
 #include "Simplify.h"
 
 #include "coreir/libs/commonlib.h"
+#include "lakelib.h"
 #include "coreir/libs/float.h"
 
 namespace Halide {
@@ -47,6 +48,7 @@ using std::map;
         CoreIR::Context* context = CoreIR::newContext();
         loadHalideLib(context);
         CoreIRLoadLibrary_commonlib(context);
+        CoreIRLoadLibrary_lakelib(context);
         CoreIRLoadLibrary_float(context);
         // TODO: Move save to json file from CodeGen_CoreHLS.cpp to here
         createCoreIRForStmt(context, info, hw_body, ip_name, args);

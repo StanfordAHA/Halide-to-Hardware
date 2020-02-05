@@ -3,6 +3,8 @@
 #include "coreir/passes/transform/rungenerators.h"
 
 #include "coreir_interpret.h"
+#include "lakelib.h"
+#include "ubuf_coreirsim.h"
 
 using namespace std;
 using namespace CoreIR;
@@ -55,7 +57,7 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
   set<string> visited_connections;
   bool uses_valid = false;
-  
+
   for (auto wireable_pair : self_conxs) {
     //cout << wireable_pair.first->toString() << " is connected to " << wireable_pair.second->toString() << endl;
 
@@ -76,9 +78,9 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
 
     if ("self.clk" == port_name) {
       state.setClock(port_name, 0, 1);
-      
+
       cout << "reset clock " << port_name << endl;
-      
+
     } else if (port_type->isOutput()) {
       if (port_name.find("[") != string::npos) {
         string port_name_wo_index = port_name.substr(0, port_name.find("["));
@@ -86,12 +88,12 @@ bool reset_coreir_circuit(SimulatorState &state, Module *m) {
 
         cout << "reset " << port_name << " as indexed port "
              << port_name_wo_index << " with size 1" << endl;
-        
+
       } else {
         auto port_output = static_cast<BitType*>(port_type);
         uint type_bitwidth = port_output->getSize();
         state.setValue(port_name, BitVector(type_bitwidth));
-      
+
         cout << "reset " << port_name << " with size " << type_bitwidth << endl;
 
       }
@@ -204,7 +206,7 @@ class CoordinateVector {
     bool allDone() const {
       return finished && atMax(0) && allLowerAtMax(0);
     }
-    
+
     void increment() {
       if (allAtMax() && !allDone()) {
         finished = true;
@@ -234,7 +236,7 @@ void read_for_cycle(
     bool uses_inputenable,
     bool has_float_input,
     bool has_float_output,
-    
+
     Halide::Runtime::Buffer<T> input,
     Halide::Runtime::Buffer<T> output,
     string input_name,
@@ -422,6 +424,7 @@ void run_coreir_on_interpreter(string coreir_design,
   Namespace* g = c->getGlobal();
 
   CoreIRLoadLibrary_commonlib(c);
+  CoreIRLoadLibrary_lakelib(c);
   CoreIRLoadLibrary_float(c);
   if (!loadFromFile(c, coreir_design)) {
     cout << "Could not load " << coreir_design
@@ -433,7 +436,19 @@ void run_coreir_on_interpreter(string coreir_design,
 
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
-  SimulatorState state(m);
+
+  // Build the simulator with the new model
+  auto ubufBuilder = [](WireNode& wd) {
+    //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
+    UnifiedBuffer_new* ubufModel = new UnifiedBuffer_new();
+    return ubufModel;
+  };
+
+
+
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
+
+  SimulatorState state(m, qualifiedNamesToSimPlugins);
 
   if (!saveToFile(g, "bin/design_simulated.json", m)) {
     cout << "Could not save to json!!" << endl;
@@ -445,7 +460,7 @@ void run_coreir_on_interpreter(string coreir_design,
   bool uses_valid = reset_coreir_circuit(state, m);
   bool uses_inputenable = circuit_uses_inputenable(m);
 
-  cout << "starting coreir simulation by calling resetCircuit" << endl;  
+  cout << "starting coreir simulation by calling resetCircuit" << endl;
   state.resetCircuit();
   cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
@@ -465,7 +480,7 @@ void run_coreir_on_interpreter(string coreir_design,
     cycles++;
   }
 
-  
+
   coreir_img_writer.print_coords();
 
   deleteContext(c);
