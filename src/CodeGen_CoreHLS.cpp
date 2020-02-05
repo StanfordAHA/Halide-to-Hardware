@@ -51,6 +51,8 @@ using CoreIR::map_find;
 using CoreIR::elem;
 using CoreIR::contains_key;
 
+vector<int> getStencilDims(const std::string& name, StencilInfo& info);
+
 bool operator==(const HWInstr& a, const HWInstr& b) {
   if (a.tp != b.tp) {
     return false;
@@ -606,6 +608,20 @@ std::set<std::string> getDefinedVars(const For* f) {
   return ex.defined;
 }
 
+std::set<std::string> getDefinedVars(const Stmt& f) {
+  DefinedVarExtractor ex;
+  f.accept(&ex);
+  return ex.defined;
+}
+
+vector<std::string> extractHardwareVars(const Stmt& stmt) {
+  std::set<std::string> vars = getDefinedVars(stmt);
+  HWVarExtractor ex;
+  ex.defined = vars;
+  stmt.accept(&ex);
+  return ex.hwVars;
+}
+
 vector<std::string> extractHardwareVars(const For* lp) {
   std::set<std::string> vars = getDefinedVars(lp);
   HWVarExtractor ex;
@@ -1106,10 +1122,11 @@ class InstructionCollector : public IRGraphVisitor {
     }
 
     HWInstr* varI(const std::string& name) {
-      auto nI = newI();
-      nI->tp = HWINSTR_TP_VAR;
-      nI->name = name;
-      return nI;
+      return f.newVar(name);
+      //auto nI = newI();
+      //nI->tp = HWINSTR_TP_VAR;
+      //nI->name = name;
+      //return nI;
     }
 
     void visit(const UIntImm* imm) override {
@@ -1160,10 +1177,8 @@ class InstructionCollector : public IRGraphVisitor {
     void visit(const Provide* p) override {
 
       vector<HWInstr*> operands;
-      auto nameConst = newI();
-      //nameConst->strConst = p->name;
-      nameConst->name = p->name;
-      nameConst->tp = HWINSTR_TP_VAR;
+      auto nameConst = f.newVar(p->name);
+      //internal_assert(nameConst->resType != nullptr) << nameConst->compactString() << " has null result type\n";
       operands.push_back(nameConst);
       for (size_t i = 0; i < p->values.size(); i++) {
         auto v = codegen(p->values[i]);
@@ -1203,9 +1218,10 @@ class InstructionCollector : public IRGraphVisitor {
 
       cout << "Creating hwinstruction variable " << v->name << " that is not currently in vars" << endl;
       IRGraphVisitor::visit(v);
-      auto ist = newI();
-      ist->name = v->name;
-      ist->tp = HWINSTR_TP_VAR;
+      auto ist = f.newVar(v->name);
+
+      //ist->name = v->name;
+      //ist->tp = HWINSTR_TP_VAR;
       ist->setSigned(!(v->type.is_uint()));
       vars[v->name] = ist;
 
@@ -1447,8 +1463,9 @@ class InstructionCollector : public IRGraphVisitor {
       } else if (ends_with(op->name, ".stencil")) {
         ist->name = "stencil_read";
         auto calledStencil = op->name;
-        auto callOp = newI();
-        callOp->tp = HWINSTR_TP_VAR;
+        auto callOp = f.newVar(op->name);
+        //auto callOp = newI();
+        //callOp->tp = HWINSTR_TP_VAR;
         callOp->name = calledStencil;
         //callOp->setSigned(!(op->type.is_uint()));
         //cout << "Read from: " << op->name << " has signed result ? " << callOp->isSigned() << endl;
@@ -1472,7 +1489,9 @@ class InstructionCollector : public IRGraphVisitor {
     }
 };
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args);
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
+    StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args);
 
 void modToShift(HWFunction& f);
 void divToShift(HWFunction& f);
@@ -1663,22 +1682,22 @@ void addDynamicStencilReads(HWFunction& f) {
   }
 }
 
-HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::string& name, const For* perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
+HWFunction buildHWBody(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
+    StencilInfo& info, const std::string& name, const Stmt& perfectNest, const vector<CoreIR_Argument>& args, StoreCollector& stCollector) {
 
-  //OuterLoopSeparator sep;
-  //perfectNest->body.accept(&sep);
   InstructionCollector collector;
   collector.activeBlock = *std::begin(collector.f.getBlocks());
   collector.f.name = name;
   
-  auto design_type = moduleTypeForKernel(context, info, perfectNest, args);
+  auto design_type = moduleTypeForKernel(context, hwInfo, info, perfectNest, args);
+  cout << "Module Type: " << coreStr(design_type) << endl;
   auto global_ns = context->getNamespace("global");
   auto design = global_ns->newModuleDecl(collector.f.name, design_type);
   auto def = design->newModuleDef();
   design->setDef(def);
   collector.f.mod = design;
-  perfectNest->accept(&collector);
-  //sep.body.accept(&collector);
+  perfectNest.accept(&collector);
 
   auto f = collector.f;
 
@@ -1699,20 +1718,35 @@ HWFunction buildHWBody(CoreIR::Context* context, StencilInfo& info, const std::s
   cout << "Before opts..." << endl;
   cout << f << endl;
 
+  for (auto instr : f.structuredOrder()) {
+    for (auto op : instr->operands) {
+      if (op->tp == HWINSTR_TP_VAR) {
+        if (op->resType == nullptr) {
+          if (ends_with(op->name, ".stencil")) {
+            cout << op->compactString() << " has null type\n";
+            vector<int> dims = getStencilDims(op->name, info);
+            vector<int> sizes = getDimRanges(dims);
+            CoreIR::Type* tp = f.mod->getContext()->Bit()->Arr(16);
+            for (auto d : sizes) {
+              tp = tp->Arr(d);
+            }
+            op->resType = tp;
+          }
+        }
+      }
+    }
+  }
   removeBadStores(stCollector, f);
   valueConvertStreamReads(info, f);
   cout << "After valueconver stream reads..." << endl;
   cout << f << endl;
-  valueConvertProvides(info, f);
+  if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
+    valueConvertProvides(info, f);
+  }
   removeWriteStreamArgs(info, f);
   divToShift(f);
   modToShift(f);
   addDynamicStencilReads(f);
-  //cout << "After stream read conversion..." << endl;
-  //for (auto instr : body) {
-  //cout << "\t\t\t" << *instr << endl;
-  //}
-  //return collector.f;
   return f;
 }
 
@@ -2125,7 +2159,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         if (dimRanges.size() == 3) {
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
-          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
 
           stencilRanges[instr] = dimRanges;
@@ -2137,7 +2170,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           int selRow = instr->getOperand(2)->toInt();
           int selCol = instr->getOperand(3)->toInt();
           int selChan = instr->getOperand(4)->toInt();
-          //auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("create_stencil_" + std::to_string(defStage), "halidehw.create_stencil_3", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
 
           stencilRanges[instr] = dimRanges;
@@ -2183,7 +2215,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
 
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage), "halidehw.stencil_read", {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}});
           instrValues[instr] = cS->sel("out");
           unitMapping[instr] = cS;
@@ -2199,10 +2230,6 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
           int selRow = instr->getOperand(1)->toInt();
           int selCol = instr->getOperand(2)->toInt();
           int selChan = instr->getOperand(3)->toInt();
-          //auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
-              //"halidehw.stencil_read_3",
-              //{{"width", CoreIR::Const::make(context, 16)}, {"nrows", COREMK(context, dimRanges[0])}, {"ncols", COREMK(context, dimRanges[1])}, {"nchannels", COREMK(context, dimRanges[2])},
-              //{"r", COREMK(context, selRow)}, {"c", COREMK(context, selCol)}, {"b", COREMK(context, selChan)}});
           auto cS = def->addInstance("stencil_read_" + std::to_string(defStage),
               "halidehw.stencil_read_3",
               {{"width", CoreIR::Const::make(context, dimRanges[0])}, {"nrows", COREMK(context, dimRanges[1])}, {"ncols", COREMK(context, dimRanges[2])}, {"nchannels", COREMK(context, dimRanges[3])},
@@ -2244,6 +2271,8 @@ void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, Funct
         Instance* inst = pipelineRegister(context, def, rname, tp);
         unitMapping[instr] = inst;
         instrValues[instr] = inst->sel("out");
+      } else if (name == "provide") {
+
       } else {
         internal_assert(false) << "no functional unit generation code for " << *instr << "\n";
       }
@@ -2389,7 +2418,7 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //}
         }
       } else {
-        internal_assert(!f.isLocalVariable(name));
+        //internal_assert(!f.isLocalVariable(name)) << name << " is a local variable!\n";
       }
     }
   }
@@ -2526,15 +2555,6 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   auto& unitMapping = m.unitMapping;
 
   auto self = def->sel("self");
-  // This should be removed and it should be replaced with valid signals wired up
-  // from the write stream output of the kernel, whose delay is by construction equal
-  // to the number of stages in the design
-  // New algo: Collect read and write instructions
-  // then check that they are all in the same loop level
-  // check that all reads are in the same schedule position
-  // then find the gap between a read instance and a write instance
-  // (this gap should be constant if they are all in the same loop level)
-  // then create the delay that is needed
   cout << "Wiring up enables" << endl;
   set<HWInstr*> streamReads = allInstrs("rd_stream", sched.body());
   set<HWInstr*> streamWrites = allInstrs("write_stream", sched.body());
@@ -2572,6 +2592,16 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
 
   cout << "Building connections inside each cycle\n";
   for (auto instr : sched.body()) {
+    if (instr->name == "provide") {
+      internal_assert(instr->getOperand(0)->tp == HWINSTR_TP_VAR); 
+      string output_port = coreirSanitize(instr->operands[0]->name);
+      auto pt = def->sel("self")->sel(output_port);
+      for (size_t i = instr->operands.size() - 1; i >= 2; i--) {
+        pt = pt->sel(instr->getOperand(i)->toInt());
+      }
+      def->connect(pt, m.valueAtStart(instr->operands.at(1), instr));
+      continue;
+    }
     internal_assert(CoreIR::contains_key(instr, unitMapping)) << "no unit mapping for " << *instr << "\n";
     CoreIR::Instance* unit = CoreIR::map_find(instr, unitMapping);
 
@@ -2642,71 +2672,115 @@ void emitCoreIR(HWFunction& f, StencilInfo& info, FunctionSchedule& sched) {
   cout << "Done building connections in body" << endl;
 }
 
-CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context, StencilInfo& info, const For* lp, const vector<CoreIR_Argument>& args) {
+CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
+    HardwareInfo& hwInfo,
+    StencilInfo& info, const Stmt& stmt, const vector<CoreIR_Argument>& args) {
 
   vector<std::pair<std::string, CoreIR::Type*> > tps;
   tps = {{"reset", context->BitIn()}, {"in_en", context->BitIn()}, {"valid", context->Bit()}};
-  StencilInfoCollector lpInfo;
-  lp->accept(&lpInfo);
 
-  std::set<string> inStreams;
-  std::set<string> outStreams;
+  if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
+    StencilInfoCollector lpInfo;
+    stmt.accept(&lpInfo);
 
-  for (auto v : lpInfo.info.streamReads) {
-    inStreams.insert(v.first);
-  }
-  for (auto v : lpInfo.info.streamWrites) {
-    outStreams.insert(v.first);
-  }
+    std::set<string> inStreams;
+    std::set<string> outStreams;
 
-  for (auto v : extractHardwareVars(lp)) {
-    string vName = coreirSanitize(v);
-    tps.push_back({vName, context->BitIn()->Arr(16)});
-  }
+    for (auto v : lpInfo.info.streamReads) {
+      inStreams.insert(v.first);
+    }
+    for (auto v : lpInfo.info.streamWrites) {
+      outStreams.insert(v.first);
+    }
 
-  for (auto arg : args) {
-    if (!arg.is_stencil) {
-      string vName = coreirSanitize(arg.name);
-      if (!arg.is_output) {
-        tps.push_back({vName, context->Bit()->Arr(16)});
-      } else {
-        tps.push_back({vName, context->BitIn()->Arr(16)});
+    for (auto v : extractHardwareVars(stmt)) {
+      string vName = coreirSanitize(v);
+      tps.push_back({vName, context->BitIn()->Arr(16)});
+    }
+
+    for (auto arg : args) {
+      if (!arg.is_stencil) {
+        string vName = coreirSanitize(arg.name);
+        if (!arg.is_output) {
+          tps.push_back({vName, context->Bit()->Arr(16)});
+        } else {
+          tps.push_back({vName, context->BitIn()->Arr(16)});
+        }
       }
     }
-  }
 
-  //cout << "Current stencils..." << endl;
-  //cout << stencils << endl;
-  cout << "All input streams" << endl;
-  for (auto is : inStreams) {
-    cout << "\t\t" << is << endl;
-    vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
-    cout << "\tDispatch info..." << endl;
-    vector<int> windowRngs = getStreamDims(is, info);
-    vector<int> windowDims = getDimRanges(windowRngs);
-    CoreIR::Type* base = context->BitIn()->Arr(16);
-    for (auto d : windowDims) {
-      base = base->Arr(d);
+    //cout << "Current stencils..." << endl;
+    //cout << stencils << endl;
+    cout << "All input streams" << endl;
+    for (auto is : inStreams) {
+      cout << "\t\t" << is << endl;
+      vector<string> dispatchInfo = CoreIR::map_find(is, info.streamDispatches);
+      cout << "\tDispatch info..." << endl;
+      vector<int> windowRngs = getStreamDims(is, info);
+      vector<int> windowDims = getDimRanges(windowRngs);
+      CoreIR::Type* base = context->BitIn()->Arr(16);
+      for (auto d : windowDims) {
+        base = base->Arr(d);
+      }
+
+      string inName = is;
+      replaceAll(inName, ".", "_");
+      tps.push_back({inName, base});
     }
+    cout << "All output streams" << endl;
+    for (auto is : outStreams) {
+      cout << "\t\t" << is << endl;
 
-    string inName = is;
-    replaceAll(inName, ".", "_");
-    tps.push_back({inName, base});
-  }
-  cout << "All output streams" << endl;
-  for (auto is : outStreams) {
-    cout << "\t\t" << is << endl;
+      vector<int> rgs = getStreamDims(is, info);
+      vector<int> windowDims = getDimRanges(rgs);
+      CoreIR::Type* base = context->Bit()->Arr(16);
+      for (auto d : windowDims) {
+        base = base->Arr(d);
+      }
 
-    vector<int> rgs = getStreamDims(is, info);
-    vector<int> windowDims = getDimRanges(rgs);
-    CoreIR::Type* base = context->Bit()->Arr(16);
-    for (auto d : windowDims) {
-      base = base->Arr(d);
+      string inName = is;
+      replaceAll(inName, ".", "_");
+      tps.push_back({inName, base});
     }
+  } else {
+    internal_assert(HW_INTERFACE_POLICY_COMPUTE_UNIT); 
+    for (auto arg : args) {
+      //internal_assert(arg.is_stencil) << arg.name << " is not a stencil\n";
+     
+      if (arg.is_stencil) {
+        auto stype = arg.stencil_type;
 
-    string inName = is;
-    replaceAll(inName, ".", "_");
-    tps.push_back({inName, base});
+        vector<uint> indices;
+        for(const auto &range : stype.bounds) {
+          internal_assert(is_const(range.extent));
+          indices.push_back(func_id_const_value(range.extent));
+          info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.min)));
+          info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.extent)));
+        }
+
+        if (arg.is_output) {
+          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          internal_assert(out_bitwidth > 0);
+
+          CoreIR::Type* output_type = out_bitwidth > 1 ? context->Bit()->Arr(out_bitwidth) : context->Bit();
+          for (uint i=0; i<indices.size(); ++i) {
+            output_type = output_type->Arr(indices[i]);
+          }
+          string output_name_real = coreirSanitize(arg.name);
+          tps.push_back({output_name_real, output_type});
+
+        } else {
+          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+          for (uint i=0; i<indices.size(); ++i) {
+            input_type = input_type->Arr(indices[i]);
+          }
+          tps.push_back({coreirSanitize(arg.name), input_type});
+        }
+      } else {
+        // TODO: Actually handle non-stencil arguments
+      }
+    }
   }
 
   tps.push_back({"in_en", context->BitIn()});
@@ -2803,17 +2877,17 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
   //internal_assert(false);
   int currentTime = 0;
   while (remaining.size() > 0) {
-    cout << "Current time = " << currentTime << endl;
-    cout << "\t# Finished = " << finished.size() << endl;
-    cout << "\tActive = " << activeToTimeRemaining << endl;
+    //cout << "Current time = " << currentTime << endl;
+    //cout << "\t# Finished = " << finished.size() << endl;
+    //cout << "\tActive = " << activeToTimeRemaining << endl;
     //cout << "\tRemain = " << remaining << endl;
     bool foundNextInstr = false;
     for (auto toSchedule : remaining) {
       //std::set<HWInstr*> deps = instrsUsedBy(toSchedule);
       std::set<HWInstr*> deps = dependencies(toSchedule, iNodes, blockGraph);
-      cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
+      //cout << "Instr: " << *toSchedule << " has " << deps.size() << " deps: " << endl;
       if (subset(deps, finished)) {
-        cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
+        //cout << "Scheduling " << *toSchedule << " in time " << currentTime << endl;
         sched.setStartTime(toSchedule, currentTime);
         if (toSchedule->latency == 0) {
           sched.setEndTime(toSchedule, currentTime);
@@ -2826,12 +2900,12 @@ HWLoopSchedule asapSchedule(std::vector<HWInstr*>& instrs) {
         foundNextInstr = true;
         break;
       } else {
-        cout << "\tUnfinished deps..." << endl;
-        for (auto d : deps) {
-          if (!elem(d, finished)) {
-            cout << "\t\t" << *d << endl;
-          }
-        }
+        //cout << "\tUnfinished deps..." << endl;
+        //for (auto d : deps) {
+          //if (!elem(d, finished)) {
+            //cout << "\t\t" << *d << endl;
+          //}
+        //}
       }
     }
 
@@ -2892,8 +2966,8 @@ int tripCountInt(const std::string& var, HWFunction& f) {
       }
     }
   }
-  internal_assert(false);
-  return -1;
+
+  return 1;
 }
 
 int headerLatencyInt(const std::string& name, HWFunction& f, FunctionSchedule& fSched) {
@@ -2930,6 +3004,10 @@ FunctionSchedule buildFunctionSchedule(HWFunction& f) {
   cout << deepest << endl;
 
   vector<string> nestVars = loopNames(deepest);
+  if (nestVars.size() == 0) {
+    return fSched;
+  }
+
   CoreIR::reverse(nestVars);
 
   vector<NestSchedule> schedules;
@@ -3032,18 +3110,6 @@ ComputeKernel moduleForKernel(StencilInfo& info, HWFunction& f) {
   design->setDef(def);
   return {design, fSched};
   
-  //auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  //// Check if we are in a perfect loop nest
-  //if (instrGroups.size() <= 1) {
-    ////emitCoreIR(f, info, sched);
-    //emitCoreIR(f, info, fSched);
-
-    //design->setDef(def);
-    //return {design, fSched};
-  //} else {
-    //internal_assert(false) << "Generating module for imperfect loop nest:\n" << f << "\n";
-    //return {design, fSched};
-  //}
 }
 
 bool isLoad(HWInstr* instr) {
@@ -3084,10 +3150,6 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
   }
 
   //cout << "All loads..." << endl;
-  // Now: Here I want to create a new instance inside the moduledef which
-  // will represent the ram, and it will have a generator based on the number of different loads
-  // each load is going to get its own port, which will be indicated by an argument?
-  // And then that will allow loads and stores to different regions
   auto def = f.getDef();
   auto context = def->getContext();
 
@@ -3222,7 +3284,10 @@ vector<int> stencilDimsInBody(StencilInfo& info, HWFunction &f, const std::strin
   std::set<std::string> streamUsers = streamsThatUseStencil(stencilName, info);
   std::set<std::string> streamsInF = allStreamNames(f);
   std::set<std::string> streamUsersInF = CoreIR::intersection(streamUsers, streamsInF);
-  internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  //internal_assert(streamUsersInF.size() > 0) << " no streams that use " << stencilName << " in hardware kernel that contains it\n";
+  if (streamUsersInF.size() == 0) {
+    return getStreamDims(stencilName, info);
+  }
   cout << "Streams that use " << stencilName << "..." << endl;
   for (auto user : streamUsersInF) {
     cout << "\t" << user << endl;
@@ -3247,228 +3312,79 @@ set<HWInstr*> allVarUsers(const std::string& name, const T& program) {
 }
 
 void valueConvertProvides(StencilInfo& info, HWFunction& f) {
-  internal_assert(f.numBlocks() == 1) << "function:\n" << f << "\n has multiple blocks\n";
-
-  auto instrGroups = group_unary(f.structuredOrder(), [](const HWInstr* i) { return i->surroundingLoops.size(); });
-  // We do not currently handle multiple instruction groups
-  //if (instrGroups.size() != 1) {
-    //return;
-  //}
   std::map<string, vector<HWInstr*> > provides;
   std::map<string, HWInstr*> stencilDecls;
   for (auto instr : f.structuredOrder()) {
     if (isCall("provide", instr)) {
-      string target = instr->operands[0]->compactString();
+      string target = instr->operands[0]->name;
       provides[target].push_back(instr);
       stencilDecls[target] = instr;
     }
   }
 
-  cout << "Provides..." << endl;
-  for (auto p : provides) {
-    cout << "\t" << p.first << endl;
-    for (auto c : p.second) {
-      cout << "\t\t" << *c << endl;
-    }
-    set<HWInstr*> users = allVarUsers(p.first, f.structuredOrder());
-    set<HWInstr*> readers;
-    cout << "\tUsers of: " << p.first << endl;
-    for (auto u : users) {
-      cout << "\t\t" << *u << endl;
-      if (u->name != "provide") {
-        readers.insert(u);
+  cout << "Provides" << endl;
+  for (auto pr : provides) {
+    auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
+    //auto provideName = provideValue->operands[0]->compactString();
+    auto provideName = provideValue->operands[0]->name;
+
+    vector<int> dims = stencilDimsInBody(info, f, provideName);
+    vector<HWInstr*> initialSets;
+    for (auto instr : pr.second) {
+      auto operands = instr->operands;
+      if (allConst(1, operands.size(), operands)) {
+        initialSets.push_back(instr);
+      } else {
+        break;
       }
     }
 
-    cout << "Readers = " << readers << endl;
-    set<IBlock> needPhi;
-    set<HWInstr*> newPhis;
-    map<IBlock, HWInstr*> headerPhis;
-    for (auto blk : getIBlocks(f)) {
-      if (predecessors(blk, f).size() >= 2) {
-        cout << "Block...\n" << blk << endl << "\tneeds phi" << endl;
-        needPhi.insert(blk);
-        auto phiInstr = f.newI();
-        phiInstr->name = "phi";
-        phiInstr->surroundingLoops = head(blk)->surroundingLoops;
-        headerPhis[blk] = phiInstr;
-        newPhis.insert(phiInstr);
+    HWInstr* initInstr = f.newI();
+    initInstr->name = "init_stencil_" + pr.first;
+    vector<int> ranges = getDimRanges(dims);
+    CoreIR::Type* tp = f.mod->getContext()->Bit()->Arr(16);
+    for (auto d : ranges) {
+      tp = tp->Arr(d);
     }
-  }
+    initInstr->resType = tp;
 
-    cout << needPhi.size() << " blocks need a phi for " << p.first << endl;
-    map<HWInstr*, HWInstr*> provideReplacements;
-    set<HWInstr*> provideReplacementSet;
+    initInstr->operands = {};
+
+    initInstr->operands.push_back(f.newConst(32, dims.size()));
+    cout << "Dims of " << provideName << endl;
+    for (auto c : dims) {
+      cout << "\t" << c << endl;
+      initInstr->operands.push_back(f.newConst(32, c));
+    }
+
+    for (auto initI : initialSets) {
+      for (int i = 1; i < (int) initI->operands.size(); i++) {
+        initInstr->operands.push_back(initI->operands[i]);
+      }
+    }
+
+    initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
+    f.insert(0, initInstr);
+    // Assume that initInstr has same containing loops as the first instruction
+    // in the HWFunction
+    internal_assert(f.structuredOrder().size() > 0);
+    HWInstr* activeProvide = initInstr;
+    f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
+    cout << "done with set values..." << endl;
     int provideNum = 0;
-    for (auto instr : p.second) {
+    for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
+      auto instr = pr.second[i];
+      cout << "\t\t" << *instr << endl;
       auto refresh = f.newI(instr);
       refresh->operands = instr->operands;
-      refresh->name = "create_stencil_" + std::to_string(provideNum);
+      refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
+      refresh->resType = instr->getOperand(0)->resType;
+      f.insertAt(instr, refresh);
+      f.replaceAllUsesAfter(refresh, activeProvide, refresh);
+      activeProvide = refresh;
       provideNum++;
-      provideReplacements[instr] = refresh;
-      provideReplacementSet.insert(refresh);
     }
-   
-    // Modify to insert final phi instructions
-    for (auto blk : headerPhis) {
-      f.insertAt(head(blk.first), blk.second);
-    }
-
-    cout << "Replacing " << provideReplacements.size() << " provides..." << endl;
-    // Modify to insert provide replacements
-    for (auto replacementPair : provideReplacements) {
-      f.insertAt(replacementPair.first, replacementPair.second);
-    }
-
-    auto baseInit = f.newI();
-    {
-      auto provideValue = CoreIR::map_find(p.first, stencilDecls);
-      auto provideName = provideValue->operands[0]->compactString();
-
-      vector<int> dims = stencilDimsInBody(info, f, provideName);
-      vector<HWInstr*> initialSets;
-      for (auto instr : p.second) {
-        auto operands = instr->operands;
-        if (allConst(1, operands.size(), operands)) {
-          initialSets.push_back(instr);
-        } else {
-          break;
-        }
-      }
-
-      baseInit->resType = f.mod->getContext()->Bit()->Arr(16);
-      for (size_t i = 0; i < dims.size(); i += 2) {
-        auto d = dims[i + 1] - dims[i];
-        baseInit->resType = baseInit->resType->Arr(d);
-      }
-      baseInit->operands.push_back(f.newConst(32, dims.size()));
-      cout << "Dims of " << provideName << endl;
-      for (auto c : dims) {
-        cout << "\t" << c << endl;
-        baseInit->operands.push_back(f.newConst(32, c));
-      }
-
-      for (auto initI : initialSets) {
-        for (int i = 1; i < (int) initI->operands.size(); i++) {
-          baseInit->operands.push_back(initI->operands[i]);
-        }
-      }
-
-      baseInit->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
-      baseInit->name = "init_stencil_" + p.first;
-
-      f.insertAt(f.structuredOrder()[0], baseInit);
-    }
-
-    cout << "Function after phi and provide substitution..." << endl;
-    cout << f << endl;
-
-    auto currentDef = baseInit;
-    auto provideVar = f.newVar(p.first);
-    for (auto instr : f.structuredOrder()) {
-      if (elem(instr, newPhis)) {
-        instr->operands.push_back(f.newVar(p.first));
-      }
-      
-      replaceOperand(provideVar, currentDef, instr);
-      if (elem(instr, newPhis) || elem(instr, provideReplacementSet)) {
-        currentDef = instr;
-      }
-
-    }
-
-    // Set all phi output types
-    for (auto instr : f.structuredOrder()) {
-      if (elem(instr, newPhis)) {
-        instr->resType = instr->getOperand(0)->resType;
-        internal_assert(instr->resType != nullptr);
-      }
-      if (elem(instr, provideReplacementSet)) {
-        instr->resType = instr->getOperand(0)->resType;
-        internal_assert(instr->resType != nullptr);
-      }
-    }
-    // Now: find all reverse phis
-    for (auto blk : getIBlocks(f)) {
-      for (auto instr : blk.instrs) {
-        if (elem(instr, newPhis)) {
-          cout << "Adding second operand to phi.." << endl;
-          auto tail = loopTail(blk, f);
-          auto pDef = baseInit;
-          for (auto i : f.structuredOrder()) {
-            if (elem(i, newPhis) || elem(i, provideReplacementSet)) {
-              pDef = i;
-            }
-
-            if (i == lastInstr(tail)) {
-              break;
-            }
-          }
-          instr->operands.push_back(pDef);
-        }
-      }
-    }
-
-    cout << "After replacing references to " << p.first << endl;
-    cout << f << endl;
-    //internal_assert(false) << "Stopping so dillon can view\n";
   }
-
-
-  //cout << "Provides" << endl;
-  //for (auto pr : provides) {
-    //auto provideValue = CoreIR::map_find(pr.first, stencilDecls);
-    //auto provideName = provideValue->operands[0]->compactString();
-
-    //vector<int> dims = stencilDimsInBody(info, f, provideName);
-    //vector<HWInstr*> initialSets;
-    //for (auto instr : pr.second) {
-      //auto operands = instr->operands;
-      //if (allConst(1, operands.size(), operands)) {
-        //initialSets.push_back(instr);
-      //} else {
-        //break;
-      //}
-    //}
-
-    //HWInstr* initInstr = f.newI();
-    //initInstr->name = "init_stencil_" + pr.first;
-    //initInstr->operands = {};
-
-    //initInstr->operands.push_back(f.newConst(32, dims.size()));
-    //cout << "Dims of " << provideName << endl;
-    //for (auto c : dims) {
-      //cout << "\t" << c << endl;
-      //initInstr->operands.push_back(f.newConst(32, c));
-    //}
-
-    //for (auto initI : initialSets) {
-      //for (int i = 1; i < (int) initI->operands.size(); i++) {
-        //initInstr->operands.push_back(initI->operands[i]);
-      //}
-    //}
-
-    //initInstr->surroundingLoops = f.structuredOrder()[0]->surroundingLoops;
-    //f.insert(0, initInstr);
-    //// Assume that initInstr has same containing loops as the first instruction
-    //// in the HWFunction
-    //internal_assert(f.structuredOrder().size() > 0);
-    //HWInstr* activeProvide = initInstr;
-    //f.replaceAllUsesWith(provideValue->operands[0], activeProvide);
-    //cout << "done with set values..." << endl;
-    //int provideNum = 0;
-    //for (int i = initialSets.size(); i < (int) pr.second.size(); i++) {
-      //auto instr = pr.second[i];
-      //cout << "\t\t" << *instr << endl;
-      //auto refresh = f.newI(instr);
-      //refresh->operands = instr->operands;
-      //refresh->name = "create_stencil_" + pr.first + "_" + std::to_string(provideNum);
-      //f.insertAt(instr, refresh);
-      //f.replaceAllUsesAfter(refresh, activeProvide, refresh);
-      //activeProvide = refresh;
-      //provideNum++;
-    //}
-  //}
 
   for (auto pr : provides) {
     for (auto instr : pr.second) {
@@ -3478,7 +3394,7 @@ void valueConvertProvides(StencilInfo& info, HWFunction& f) {
 
   cout << "After cleanup..." << endl;
   cout << f << endl;
-  //internal_assert(false) << "Stopping here so dillon can view\n";
+
 }
 
 std::set<CoreIR::Wireable*> allConnectedWireables(CoreIR::Wireable* w) {
@@ -3811,15 +3727,17 @@ KernelControlPath controlPathForKernel(HWFunction& f) {
 
   cout << "Wiring up counter enables for " << loopLevelCounters.size() << " loop levels" << endl;
 
-  for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
-    vector<CoreIR::Wireable*> below;
-    for (int j = i + 1; j < (int) loopLevelCounters.size(); j++) {
-      below.push_back(levelAtMax[j]->sel("out"));
+  if (loopLevelCounters.size() > 0) {
+    for (int i = 0; i < ((int) loopLevelCounters.size()) - 1; i++) {
+      vector<CoreIR::Wireable*> below;
+      for (int j = i + 1; j < (int) loopLevelCounters.size(); j++) {
+        below.push_back(levelAtMax[j]->sel("out"));
+      }
+      CoreIR::Wireable* shouldInc = andList(def, below);
+      def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
     }
-    CoreIR::Wireable* shouldInc = andList(def, below);
-    def->connect(loopLevelCounters[i]->sel("en"), shouldInc);
+    def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
   }
-  def->connect(loopLevelCounters.back()->sel("en"), self->sel("in_en"));
 
   controlPath->setDef(def);
   
@@ -4351,7 +4269,8 @@ class AcceleratorInterface {
 // How much of this do I need in order to build a test rig that
 // can handle multi-dimensional outputs and inputs
 AcceleratorInterface topLevelType(CoreIR::Context* context,
-      const std::vector<CoreIR_Argument>& args) {
+    HardwareInfo& hwInfo,
+    const std::vector<CoreIR_Argument>& args) {
 
     uint num_inouts = 0;
 
@@ -4365,84 +4284,133 @@ AcceleratorInterface topLevelType(CoreIR::Context* context,
     string output_name_real = "";
     std::map<std::string, std::string> inputAliases;
     std::map<std::string, std::string> outputAliases;
-    
-    for (size_t i = 0; i < args.size(); i++) {
-      string arg_name = "arg_" + std::to_string(i);
-      string arg_name_real = args[i].name;
-      cout << "Arg " << i << " has name " << arg_name_real << endl;
 
-      if (!(args[i].is_output)) {
-        inputAliases[arg_name_real] = arg_name;
-      }
+    if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_TOP) {
+      for (size_t i = 0; i < args.size(); i++) {
+        string arg_name = "arg_" + std::to_string(i);
+        string arg_name_real = args[i].name;
+        cout << "Arg " << i << " has name " << arg_name_real << endl;
 
-      if (args[i].is_stencil) {
-        Stencil_Type stype = args[i].stencil_type;
-
-        vector<uint> indices;
-        for(const auto &range : stype.bounds) {
-          internal_assert(is_const(range.extent));
-          indices.push_back(func_id_const_value(range.extent));
+        if (!(args[i].is_output)) {
+          inputAliases[arg_name_real] = arg_name;
         }
 
-        if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-          // add as the outputrg
-          uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
-          for (uint i=0; i<indices.size(); ++i) {
-            output_type = output_type->Arr(indices[i]);
-          }
-          //hw_output_set.insert(arg_name);
-          output_name = "out";
-          output_name_real = coreirSanitize(args[i].name);
+        if (args[i].is_stencil) {
+          Stencil_Type stype = args[i].stencil_type;
 
-        } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
-          // add another input
-          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
-          for (uint i=0; i<indices.size(); ++i) {
-            input_type = input_type->Arr(indices[i]);
+          vector<uint> indices;
+          for(const auto &range : stype.bounds) {
+            internal_assert(is_const(range.extent));
+            indices.push_back(func_id_const_value(range.extent));
           }
-          input_types.push_back({arg_name, input_type});
+
+          if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+            // add as the outputrg
+            uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
+            for (uint i=0; i<indices.size(); ++i) {
+              output_type = output_type->Arr(indices[i]);
+            }
+            //hw_output_set.insert(arg_name);
+            output_name = "out";
+            output_name_real = coreirSanitize(args[i].name);
+
+          } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+            // add another input
+            uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+            for (uint i=0; i<indices.size(); ++i) {
+              input_type = input_type->Arr(indices[i]);
+            }
+            input_types.push_back({arg_name, input_type});
+
+          } else {
+            // add another array of taps (configuration changes infrequently)
+            uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
+            for (uint i=0; i<indices.size(); ++i) {
+              tap_type = tap_type->Arr(indices[i]);
+            }
+            tap_types[args[i].name] = tap_type;
+          }
+
+          num_inouts++;
 
         } else {
-          // add another array of taps (configuration changes infrequently)
-          uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
-          CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
-          for (uint i=0; i<indices.size(); ++i) {
-            tap_type = tap_type->Arr(indices[i]);
-          }
-          tap_types[args[i].name] = tap_type;
+          // add another tap (single value)
+          uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
+          CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
+          tap_types[arg_name] = tap_type;
         }
 
-        num_inouts++;
-
-      } else {
-        // add another tap (single value)
-        uint in_bitwidth = c_inst_bitwidth(args[i].scalar_type.bits());
-        CoreIR::Type* tap_type = context->BitIn()->Arr(in_bitwidth);
-        tap_types[arg_name] = tap_type;
       }
+      CoreIR::Type* design_type;
 
+      design_type = context->Record({
+          {"in", context->Record(input_types)},
+          {"reset", context->BitIn()},
+          {output_name, output_type},
+          {"valid", context->Bit()},
+          {"in_en", context->BitIn()}
+          });
+
+      interface.output_name_real = output_name_real;
+      interface.output_name = output_name;
+      interface.inputAliases = inputAliases;
+      interface.outputAliases = outputAliases;
+      interface.designType = design_type;
+
+      return interface;
+    } else {
+      internal_assert(hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT);
+      vector<pair<string, CoreIR::Type* > > tps;
+
+      for (auto arg : args) {
+        if (arg.is_stencil) {
+          auto stype = arg.stencil_type;
+
+          vector<uint> indices;
+          for(const auto &range : stype.bounds) {
+            internal_assert(is_const(range.extent));
+            indices.push_back(func_id_const_value(range.extent));
+          }
+
+          if (arg.is_output) {
+            uint out_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            internal_assert(out_bitwidth > 0);
+
+            CoreIR::Type* output_type = out_bitwidth > 1 ? context->Bit()->Arr(out_bitwidth) : context->Bit();
+            for (uint i=0; i<indices.size(); ++i) {
+              output_type = output_type->Arr(indices[i]);
+            }
+            string output_name_real = coreirSanitize(arg.name);
+            tps.push_back({output_name_real, output_type});
+
+          } else {
+            uint in_bitwidth = c_inst_bitwidth(stype.elemType.bits());
+            CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
+            for (uint i=0; i<indices.size(); ++i) {
+              input_type = input_type->Arr(indices[i]);
+            }
+            tps.push_back({coreirSanitize(arg.name), input_type});
+          }
+        } else {
+          // TODO: Actually handle non-stencil arguments
+        }
+      }
+      
+      CoreIR::Type* design_type;
+
+      design_type = context->Record(tps);
+      interface.output_name_real = output_name_real;
+      interface.output_name = output_name;
+      interface.inputAliases = inputAliases;
+      interface.outputAliases = outputAliases;
+      interface.designType = design_type;
+
+      return interface;
     }
 
-    CoreIR::Type* design_type;
-
-    design_type = context->Record({
-        {"in", context->Record(input_types)},
-        {"reset", context->BitIn()},
-        {output_name, output_type},
-        {"valid", context->Bit()},
-        {"in_en", context->BitIn()}
-        });
-
-    interface.output_name_real = output_name_real;
-    interface.output_name = output_name;
-    interface.inputAliases = inputAliases;
-    interface.outputAliases = outputAliases;
-    interface.designType = design_type;
-
-    return interface;
-    //return design_type;
 }
 
 AppGraph insertDelays(AppGraph& appGraph) {
@@ -5314,8 +5282,6 @@ void insertCriticalPathTargetRegisters(HardwareInfo& hwInfo, HWFunction& f) {
   }
 }
 
-// Now: Need to print out arguments and their info, actually use the arguments to form
-// the type of the outermost module?
 CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
     HardwareInfo& hwInfo,
     Stmt stmt,
@@ -5329,47 +5295,14 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   for (auto a : args) {
     cout << "\t" << a.name << endl;
   }
- 
+
   // Build top level interface
-  AcceleratorInterface ifc = topLevelType(context, args);
+  AcceleratorInterface ifc = topLevelType(context, hwInfo, args);
   auto inputAliases = ifc.inputAliases;
   auto output_name_real = ifc.output_name_real;
   auto output_name = ifc.output_name;
   auto topType = ifc.designType;
   auto global_ns = context->getNamespace("global");
-  CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
-  cout << "Before creating definition.." << endl;
-  topMod->print();
-  // Maybe what I should do is build a json file here which
-  // stores the alias maps as well as the stencil types
-  // and then use that to build a test case which automatically
-  // wraps up the input and output types?
-  Json aliasInfo;
-  auto& a = aliasInfo["aliasMap"];
-  for (auto al : ifc.inputAliases) {
-    a[al.first] = al.second;
-  }
-
-  auto& oname = aliasInfo["outName"];
-  oname[output_name_real] = output_name;
-
-  auto& ranges = aliasInfo["ranges"];
-  for (auto arg : args) {
-    if (arg.is_stencil) {
-      string name = arg.name;
-      auto& val = ranges[name];
-      auto ranges = arg.stencil_type.bounds;
-      for (auto r : ranges) {
-        val.emplace_back(getConstInt(r.min));
-        val.emplace_back(getConstInt(r.extent));
-      }
-    }
-  }
-  ofstream interfaceInfo("accel_interface_info.json");
-  interfaceInfo << aliasInfo;
-  interfaceInfo.close();
-
-  stmt = preprocessHWLoops(stmt);
 
   // Here: Find all external vars and then replace them with dummies
   // TODO: Move to preprocess hardware loops, and eliminate when we
@@ -5382,107 +5315,189 @@ CoreIR::Module* createCoreIRForStmt(CoreIR::Context* context,
   }
   stmt = substitute(dummyVars, stmt);
 
-  cout << "After substitution..." << endl;
-  cout << stmt << endl;
-
-  //internal_assert(dummyVars.size() == 0);
-  UselessReadRemover readRemover;
-  stmt = readRemover.mutate(stmt);
-  
-  StoreCollector stCollector;
-  stmt.accept(&stCollector);
-  printCollectedStores(stCollector);
-
-  cout << "Emitting kernel for " << name << endl;
-  cout << "\tStmt is = " << endl;
-  cout << stmt << endl;
-  NestExtractor extractor;
-  stmt.accept(&extractor);
-
-  StencilInfoCollector scl;
-  stmt.accept(&scl);
-
-  inferStreamTypes(scl);
-
-  //cout << "Stencil info" << endl;
-  StencilInfo info = scl.info;
+  if (hwInfo.interfacePolicy == HW_INTERFACE_POLICY_COMPUTE_UNIT) {
+    CoreIR::Module* topMod = global_ns->newModuleDecl(name, topType);
+    cout << "Emitting kernel for " << name << endl;
+    cout << "\tStmt is = " << endl;
+    cout << stmt << endl;
+    NestExtractor extractor;
+    stmt.accept(&extractor);
+    internal_assert(extractor.loops.size() == 0);
 
 
-  cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
-  int kernelN = 0;
-  std::map<const For*, ComputeKernel> kernelModules;
-  std::map<const For*, HWFunction> functions;
-  for (const For* lp : extractor.loops) {
-    cout << "\t\tLOOP" << endl;
-    cout << "Original body.." << endl;
-    cout << lp->body << endl;
+    auto def = topMod->newModuleDef();
 
-    // Actual scheduling here
-    HWFunction f = buildHWBody(context, scl.info, "compute_kernel_" + std::to_string(kernelN), lp, args, stCollector);
+    StencilInfoCollector scl;
+    StoreCollector stCollector;
 
-    functions[lp] = f;
+    HWFunction f =
+      buildHWBody(context,
+          hwInfo,
+          scl.info,
+          "compute_kernel",
+          stmt,
+          args,
+          stCollector);
 
-    kernelN++;
-  }    
-
-  functions = mapFunctionsToCGRA(functions);
-  auto def = topMod->newModuleDef();
-
-  // Connects up all control paths in the design
-  std::map<const For*, CoreIR::Instance*> kernels;
-  for (auto fp : functions) {
-    auto lp = fp.first;
-    HWFunction& f = fp.second;
-    insertCriticalPathTargetRegisters(hwInfo, f);
     ComputeKernel compK = moduleForKernel(scl.info, f);
-    auto m = compK.mod;
-    cout << "Created module for kernel.." << endl;
-    kernelModules[lp] = compK;
 
-    cout << "Module before optimization" << endl;
-    m->print();
+    auto compute_mod = def->addInstance("compute_kernel", compK.mod);
+    topMod->setDef(def);
 
-    removeUnconnectedInstances(m->getDef());
-    removeUnusedInstances(m->getDef());
+    auto self = def->sel("self");
+    for (auto a : args) {
+      if (a.is_stencil) {
+        def->connect(self->sel(coreirSanitize(a.name)), compute_mod->sel(coreirSanitize(a.name)));
+      }
+    }
+    cout << "Top module for compute kernel..." << endl;
+    topMod->print();
 
-    cout << "Module after optimization" << endl;
-    m->print();
-    auto kI = def->addInstance("compute_module_" + m->getName(), m);
-        //k.second.mod);
-    def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
-    kernels[lp] = kI;
+    cout << "Compute unit..." << endl;
+    compK.mod->print();
+    topMod->setDef(def);
+
+    //internal_assert(false);
+    return topMod;
+  } else {
+    CoreIR::Module* topMod = global_ns->newModuleDecl("DesignTop", topType);
+    cout << "Before creating definition.." << endl;
+    topMod->print();
+    // Maybe what I should do is build a json file here which
+    // stores the alias maps as well as the stencil types
+    // and then use that to build a test case which automatically
+    // wraps up the input and output types?
+    Json aliasInfo;
+    auto& a = aliasInfo["aliasMap"];
+    for (auto al : ifc.inputAliases) {
+      a[al.first] = al.second;
+    }
+
+    auto& oname = aliasInfo["outName"];
+    oname[output_name_real] = output_name;
+
+    auto& ranges = aliasInfo["ranges"];
+    for (auto arg : args) {
+      if (arg.is_stencil) {
+        string name = arg.name;
+        auto& val = ranges[name];
+        auto ranges = arg.stencil_type.bounds;
+        for (auto r : ranges) {
+          val.emplace_back(getConstInt(r.min));
+          val.emplace_back(getConstInt(r.extent));
+        }
+      }
+    }
+    ofstream interfaceInfo("accel_interface_info.json");
+    interfaceInfo << aliasInfo;
+    interfaceInfo.close();
+
+    stmt = preprocessHWLoops(stmt);
+
+    cout << "After substitution..." << endl;
+    cout << stmt << endl;
+
+    //internal_assert(dummyVars.size() == 0);
+    UselessReadRemover readRemover;
+    stmt = readRemover.mutate(stmt);
+
+    StoreCollector stCollector;
+    stmt.accept(&stCollector);
+    printCollectedStores(stCollector);
+
+    cout << "Emitting kernel for " << name << endl;
+    cout << "\tStmt is = " << endl;
+    cout << stmt << endl;
+    NestExtractor extractor;
+    stmt.accept(&extractor);
+
+    StencilInfoCollector scl;
+    stmt.accept(&scl);
+
+    inferStreamTypes(scl);
+
+    //cout << "Stencil info" << endl;
+    StencilInfo info = scl.info;
+
+
+    cout << "\tAll " << extractor.loops.size() << " loops in design..." << endl;
+    int kernelN = 0;
+    std::map<const For*, ComputeKernel> kernelModules;
+    std::map<const For*, HWFunction> functions;
+    for (const For* lp : extractor.loops) {
+      cout << "\t\tLOOP" << endl;
+      cout << "Original body.." << endl;
+      cout << lp->body << endl;
+
+      Stmt lpB = For::make(lp->name, lp->min, lp->extent, lp->for_type, lp->device_api, lp->body);
+      // Actual scheduling here
+      HWFunction f = buildHWBody(context, hwInfo, scl.info, "compute_kernel_" + std::to_string(kernelN), lpB, args, stCollector);
+
+      functions[lp] = f;
+
+      kernelN++;
+    }    
+
+    functions = mapFunctionsToCGRA(functions);
+    auto def = topMod->newModuleDef();
+
+    // Connects up all control paths in the design
+    std::map<const For*, CoreIR::Instance*> kernels;
+    for (auto fp : functions) {
+      auto lp = fp.first;
+      HWFunction& f = fp.second;
+      insertCriticalPathTargetRegisters(hwInfo, f);
+      ComputeKernel compK = moduleForKernel(scl.info, f);
+      auto m = compK.mod;
+      cout << "Created module for kernel.." << endl;
+      kernelModules[lp] = compK;
+
+      cout << "Module before optimization" << endl;
+      m->print();
+
+      removeUnconnectedInstances(m->getDef());
+      removeUnusedInstances(m->getDef());
+
+      cout << "Module after optimization" << endl;
+      m->print();
+      auto kI = def->addInstance("compute_module_" + m->getName(), m);
+      //k.second.mod);
+      def->connect(kI->sel("reset"), def->sel("self")->sel("reset"));
+      kernels[lp] = kI;
+    }
+
+    context->runPasses({"rungenerators"});
+    vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
+    flattenExcluding(context, generatorNames);
+    context->runPasses({"deletedeadinstances"});
+    cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
+    AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
+    computeDelaysForAppGraph(appGraph);
+    appGraph = insertDelays(appGraph);
+    wireUpAppGraph(appGraph, def);
+
+    cout << "Setting definition of topMod..." << endl;
+
+    topMod->setDef(def);
+    
+    cout << "Top module before inlining" << endl;
+    topMod->print();
+
+    context->runPasses({"rungenerators"});
+
+    flattenExcluding(context, generatorNames);
+    context->runPasses({"deletedeadinstances"});
+    //cout << "Top module" << endl;
+    //topMod->print();
+
+    if (!saveToFile(global_ns, "conv_3_3_app.json")) {
+      cout << "Could not save global namespace" << endl;
+      context->die();
+    }
+
+    return topMod;
   }
 
-  context->runPasses({"rungenerators"});
-  vector<string> generatorNames{"lakelib.unified_buffer", "lakelib.linebuffer", "commonlib.linebuffer", "commonlib.rom2", "memory.rom2"};
-  flattenExcluding(context, generatorNames);
-  context->runPasses({"deletedeadinstances"});
-  cout << "Kernels size before buildAppGraph = " << kernels.size() << endl;
-  AppGraph appGraph = buildAppGraph(functions, kernelModules, kernels, args, ifc, scl);
-  computeDelaysForAppGraph(appGraph);
-  appGraph = insertDelays(appGraph);
-  wireUpAppGraph(appGraph, def);
-  
-  cout << "Setting definition of topMod..." << endl;
-
-  topMod->setDef(def);
-
-  cout << "Top module before inlining" << endl;
-  topMod->print();
-  
-  context->runPasses({"rungenerators"});
-
-  flattenExcluding(context, generatorNames);
-  context->runPasses({"deletedeadinstances"});
-  //cout << "Top module" << endl;
-  //topMod->print();
-
-  if (!saveToFile(global_ns, "conv_3_3_app.json")) {
-    cout << "Could not save global namespace" << endl;
-    context->die();
-  }
-
-  return topMod;
 }
 
 }

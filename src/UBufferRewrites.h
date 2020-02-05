@@ -9,7 +9,8 @@
 
 namespace Halide {
   namespace Internal {
-    void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env);
+    std::map<std::string, CoreIR::Module*>
+    synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env, std::vector<HWXcel>& xcels);
   }
 }
 

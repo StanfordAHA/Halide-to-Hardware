@@ -413,6 +413,7 @@ SOURCE_FILES = \
   CodeGen_VHLS_Testbench.cpp \
   CodeGen_X86.cpp \
   CoreIR_Libs.cpp \
+  CoreIR_Mapper_Compute.cpp \
   CPlusPlusMangle.cpp \
   CSE.cpp \
   Debug.cpp \

@@ -36,10 +36,10 @@ namespace Halide {
         LoopLevel inner_level_inclusive,
         bool start_inside = false);
 
-/* 
- * Used to calculate input and output block size. 
+/*
+ * Used to calculate input and output block size.
  * Also records the (writer and) reader loopnest.
- */  
+ */
 class CountBufferUsers : public IRVisitor {
   using IRVisitor::visit;
   string var;
@@ -141,9 +141,9 @@ class CountBufferUsers : public IRVisitor {
 
     // remove for loop to read address loop
     current_for = previous_for;
-    
+
   }
-  
+
 public:
   vector<Expr> output_block_box;
   vector<Expr> input_block_box;
@@ -160,7 +160,7 @@ class FindVarStride : public IRVisitor {
   int cur_stride;
   bool in_var;
   bool in_div;
-  
+
   using IRVisitor::visit;
 
   void visit(const Variable *op) override {
@@ -170,7 +170,7 @@ class FindVarStride : public IRVisitor {
       IRVisitor::visit(op);
     }
   }
-  
+
   void visit(const Call *op) override {
     if (op->name == varname) {
       in_var = true;
@@ -191,7 +191,7 @@ class FindVarStride : public IRVisitor {
       } else {
         op->a.accept(this);
       }
-      
+
     } else {
       IRVisitor::visit(op);
     }
@@ -206,7 +206,7 @@ class FindVarStride : public IRVisitor {
       } else {
         op->b.accept(this);
       }
-      
+
     } else if (is_const(op->b)) {
       if (in_var) {
         cur_stride *= id_const_value(op->b);
@@ -215,7 +215,7 @@ class FindVarStride : public IRVisitor {
       } else {
         op->a.accept(this);
       }
-      
+
     } else {
       op->a.accept(this);
       op->b.accept(this);
@@ -225,7 +225,7 @@ class FindVarStride : public IRVisitor {
 public:
   int stride_for_var;
   bool is_div;
-  
+
   FindVarStride(string varname, string forname) :
     varname(varname), loopname(forname),
     cur_stride(1), in_var(false), in_div(false),
@@ -249,7 +249,7 @@ class ReplaceForBounds : public IRMutator {
     Expr min = mutate(op->min);
     Expr extent = mutate(op->extent);
     Stmt body = mutate(op->body);
-    
+
     if (scope.contains(op->name + ".min")) {
       auto new_min = scope.get(op->name + ".min");
       auto new_max = scope.get(op->name + ".max");
@@ -266,7 +266,7 @@ class ReplaceForBounds : public IRMutator {
         return return_stmt;
       } else {
       }
-      
+
     } else {
     }
 
@@ -280,7 +280,7 @@ class ReplaceForBounds : public IRMutator {
                      op->for_type, op->device_api, std::move(body));
 
   }
-  
+
 public:
   ReplaceForBounds() {}
 };
@@ -313,7 +313,7 @@ class FindInputStencil : public IRVisitor {
       }
 
       output_min_pos_box = vector<Expr>(interval.size());
-      
+
       for (size_t dim=0; dim<interval.size(); ++dim) {
         found_stencil = true;
         Expr port_expr = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
@@ -359,7 +359,7 @@ class FindOutputStencil : public IRVisitor {
     auto varname = var_tokens.size() > 2 ? var_tokens.at(2) : op->name;
     stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
     stride_map[varname].is_inverse = fvs.is_div;
-    
+
     if (op->name == compute_level) {
 
       ReplaceForBounds rfb;
@@ -419,7 +419,7 @@ class IdentifyAddressingVar : public IRVisitor {
         stride = id_const_value(expand_expr(op->b, scope));
         dim_ref = asserts_found;
       }
-      
+
     } else if (const Variable* op_b = op->b.as<Variable>()) {
       if (op_b->name == varname) {
         stride = id_const_value(expand_expr(op->a, scope));
@@ -432,16 +432,16 @@ class IdentifyAddressingVar : public IRVisitor {
     std::cout << "woah a divide: " << Expr(op) << "\n";
   }
 
-  
+
   void visit(const AssertStmt *op) {
     IRVisitor::visit(op);
     asserts_found += 1;
   }
-  
+
 public:
   const Scope<Expr> &scope;
   const string varname;
-  
+
 
   // if var not found, dim_ref should be 0
   int dim_ref;
@@ -455,9 +455,9 @@ public:
 class IdentifyAddressing : public IRVisitor {
   //int stream_dim_idx;
   const Scope<Expr> &scope;
-  
+
   using IRVisitor::visit;
-  
+
   void visit(const For *op) {
     varnames.push_back(op->name);
     //internal_assert(is_zero(op->min)); FIXME
@@ -470,7 +470,7 @@ class IdentifyAddressing : public IRVisitor {
     auto tokens = get_tokens(op->name, ".");
     auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
     std::cout << op->name << " is probably referring to storage " << varname << std::endl;
-    
+
     //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
 
     // determine dim_ref and stride
@@ -483,7 +483,7 @@ class IdentifyAddressing : public IRVisitor {
         std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
       }
       std::cout << std::endl;
-      
+
       std::cout << " and mapcount=" << stride_map.size() << " " << stride_map.count(varname) << std::endl;
       int stride = stride_map.count(varname)>0 ? stride_map.at(varname).stride : 1;
       bool is_inv = stride_map.count(varname)>0 ? stride_map.at(varname).is_inverse : false;
@@ -499,7 +499,7 @@ class IdentifyAddressing : public IRVisitor {
         dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
         ranges.insert(ranges.begin(), stride);
         strides_in_dim.insert(strides_in_dim.begin(), 0);
-        
+
       } else {
         dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
         strides_in_dim.insert(strides_in_dim.begin(), stride);
@@ -509,7 +509,7 @@ class IdentifyAddressing : public IRVisitor {
       std::cout << op->name << " has stride=" << strides_in_dim.at(0)
                 << " dim_ref=" << dim_refs.at(0)
                 << " range=" << ranges.at(0) << "\n";
-      
+
     } else {
       IdentifyAddressingVar iav(op->name, scope);
       std::cout << "finding stride and range for " << op->name
@@ -531,7 +531,7 @@ public:
   vector<string> varnames;
 
   map<string, int> dim_map;
-  
+
   vector<int> ranges;
   vector<int> dim_refs;
   vector<int> strides_in_dim;
@@ -555,7 +555,7 @@ public:
         dim_map[split.inner] = dim_map.at(split.old_var);
       }
     }
-    
+
     std::cout << "going to be looking for range and strides where storage=" << storage_names << std::endl;
   }
 };
@@ -591,6 +591,57 @@ public:
   };
 
 std::string exprString(const Expr e);
+
+    class VarSpec {
+      public:
+        std::string name;
+        Expr min;
+        Expr extent;
+
+        bool is_const() const {
+          return name == "";
+        }
+
+        int const_value() const {
+          internal_assert(is_const());
+          return id_const_value(min);
+        }
+    };
+
+    static inline
+    bool operator==(const VarSpec& a, const VarSpec& b) {
+      if (a.is_const() != b.is_const()) {
+        return false;
+      }
+
+      if (a.is_const()) {
+        return a.const_value() == b.const_value();
+      } else {
+        return a.name == b.name;
+      }
+    }
+
+    typedef std::vector<VarSpec> StmtSchedule;
+
+    static inline
+    std::ostream& operator<<(std::ostream& out, const VarSpec& e) {
+      if (e.name != "") {
+        out << e.name << " : [" << e.min << " " << simplify(e.min + e.extent - 1) << "]";
+      } else {
+        internal_assert(is_const(e.min));
+        internal_assert(is_one(e.extent));
+        out << e.min;
+      }
+      return out;
+    }
+
+    static inline
+    std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
+      for (auto e : s ) {
+        out << e << ", ";
+      }
+      return out;
+    }
 
   }
 }

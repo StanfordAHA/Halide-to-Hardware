@@ -1,4 +1,6 @@
 #include "UBufferRewrites.h"
+#include "ubuf_coreirsim.h"
+#include "lakelib.h"
 
 #include "RemoveTrivialForLoops.h"
 #include "UnrollLoops.h"
@@ -12,54 +14,6 @@ using namespace std;
 
 namespace Halide {
   namespace Internal {
-
-class VarSpec {
-  public:
-    std::string name;
-    Expr min;
-    Expr extent;
-
-    bool is_const() const {
-      return name == "";
-    }
-
-    int const_value() const {
-      internal_assert(is_const());
-      return id_const_value(min);
-    }
-};
-
-bool operator==(const VarSpec& a, const VarSpec& b) {
-  if (a.is_const() != b.is_const()) {
-    return false;
-  }
-
-  if (a.is_const()) {
-    return a.const_value() == b.const_value();
-  } else {
-    return a.name == b.name;
-  }
-}
-
-typedef std::vector<VarSpec> StmtSchedule;
-
-std::ostream& operator<<(std::ostream& out, const VarSpec& e) {
-  if (e.name != "") {
-    out << e.name << " : [" << e.min << " " << simplify(e.min + e.extent - 1) << "]";
-  } else {
-    internal_assert(is_const(e.min));
-    internal_assert(is_one(e.extent));
-    out << e.min;
-  }
-  return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
-  for (auto e : s ) {
-    out << e << ", ";
-  }
-  return out;
-}
 
   class MemoryConstraints {
     public:
@@ -360,12 +314,173 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
   };
 
   void synthesize_ubuffer(CoreIR::ModuleDef* def, MemoryConstraints& buffer) {
+    cout << "ubuffer parameter" << buffer.ubuf ;
+
+    // use this helper IRVisitor to extract the range stride information
+    Scope<Expr> temp;    //create a empty scope
+    IdentifyAddressing id_addr(buffer.ubuf.func, temp, buffer.ubuf.stride_map);
+    buffer.ubuf.output_access_pattern.accept(&id_addr);
+
+    std::cout << "Read range extracted: ";
+    std::for_each(id_addr.ranges.begin(),
+                id_addr.ranges.end(),
+                [] (const int c) {std::cout << c << " ";}
+            );
+    std::cout << endl;
+
+
     if (buffer.read_ports.size() == 0) {
       // Buffer is write only, so it has no effect
       return;
     }
-
     auto self = def->sel("self");
+
+    bool use_lake_lib = true;
+    if (use_lake_lib) {
+
+        if (buffer.read_loop_levels()[0] == buffer.write_loop_levels()[0]) {
+          set<string> ports = buffer.port_names();
+          vector<string> port_list(begin(ports), end(ports));
+          sort(begin(port_list), end(port_list), [buffer](const std::string& pta, const std::string& ptb) {
+              return buffer.lt(buffer.schedule(pta).back(), buffer.schedule(ptb).back());
+          });
+
+          cout << "Buffer: " << buffer.name << " is all wires!" << endl;
+          string last_pt = port_list[0];
+          internal_assert(buffer.is_write(last_pt)) << "Buffer: " << buffer.name << " is read before it is written?\n";
+
+          for (size_t i = 1; i < port_list.size(); i++) {
+            string next_pt = port_list[i];
+
+            if (buffer.is_write(next_pt)) {
+              auto last_cntrl = def->sel("self." + last_pt + "_" + (buffer.is_write(last_pt) ? "en" : "valid"));
+              auto last_data = def->sel("self." + last_pt);
+
+              auto next_cntrl = def->sel("self." + next_pt + "_" + (buffer.is_write(next_pt) ? "en" : "valid"));
+              auto next_data = def->sel("self." + next_pt);
+
+              def->connect(last_cntrl, next_cntrl);
+              def->connect(last_data, next_data);
+            }
+
+            last_pt = next_pt;
+          }
+          return;
+        }
+        internal_assert(buffer.write_ports.size() == 1);
+        std::cout << "Using lake rewrite rules." << std::endl;
+
+        string wp = begin(buffer.write_ports)->first;
+
+        coreir_builder_set_context(def->getContext());
+        coreir_builder_set_def(def);
+
+        auto wen = self->sel(wp + "_en");
+        auto w_data = self->sel(wp);
+        //TODO:figure out where does the datawidth saved
+        int width = 16;
+        int depth = std::accumulate(buffer.ubuf.ldims.begin(), buffer.ubuf.ldims.end(), 1,
+                [](int product, LogicalDimSize b){
+                return product * id_const_value(b.logical_size);
+                });
+        int iter_cnt = std::accumulate(id_addr.ranges.begin(), id_addr.ranges.end(), 1,
+                [](int a, int b){return a * b;});
+        auto context = def->getContext();
+
+        //initial the unified buffer parameter
+        Json logical_size;
+        Json in_chunk;
+        Json out_stencil;
+        for (size_t i = 0; i < buffer.ubuf.ldims.size(); i ++){
+            logical_size["capacity"][i] = id_const_value(buffer.ubuf.ldims[i].logical_size);
+            in_chunk["input_chunk"][i] = id_const_value(buffer.ubuf.dims[i].input_chunk);
+            out_stencil["output_stencil"][i] = id_const_value(buffer.ubuf.dims[i].output_stencil);
+        }
+
+        Json out_start;
+        size_t num_dim = buffer.ubuf.dims.size();
+        vector<size_t> output_block(num_dim);
+        for (size_t i = 0; i < num_dim; ++i) {
+            output_block[i] = id_const_value(buffer.ubuf.dims[i].output_block);
+        }
+        //save in this json
+        size_t num_read_port = buffer.read_ports.size();
+        vector<int> output_start_addrs(num_read_port);
+        vector<size_t> out_indexes(num_dim);
+
+        for (size_t port = 0; port < num_read_port; port ++) {
+            int start_port = 0;
+            for (size_t idx = 0; idx < num_dim; idx ++) {
+                start_port += out_indexes[idx] * id_const_value(buffer.ubuf.ldims[idx].logical_size_flatten);
+            }
+            output_start_addrs[port] = start_port;
+            out_start["output_start"][port] = start_port;
+
+            //update the iterator, using the state machine style to flatten the loop
+            out_indexes[0] += 1;
+            for (size_t dim = 0; dim < num_dim; dim ++) {
+                if (out_indexes[dim] >= output_block[dim]) {
+                    out_indexes[dim] = 0;
+                    if (dim + 1 < num_dim) {
+                        out_indexes[dim + 1] += 1;
+                    }
+                }
+            }
+        }
+
+        cout << "Start creating instance" << endl;
+
+        auto ubuf_coreir = def->addInstance("ubuf0",
+                "lakelib.unified_buffer",
+                {{"width", Const::make(context, width)},
+                {"num_input_ports", Const::make(context, buffer.write_ports.size())},
+                {"num_output_ports", Const::make(context, buffer.read_ports.size())},
+                {"stencil_width", Const::make(context, 0)},
+                {"depth", Const::make(context, depth)},
+                {"chain_idx", Const::make(context, 0)},
+                {"rate_matched", Const::make(context, false)},
+                {"chain_en", Const::make(context, false)},
+                {"dimensionality", Const::make(context, id_addr.ranges.size())},
+                {"iter_cnt", Const::make(context, iter_cnt)},
+                {"logical_size", Const::make(context, logical_size)},
+                {"input_chunk", Const::make(context, in_chunk)},
+                {"output_stencil", Const::make(context, out_stencil)},
+                {"num_stencil_acc_dim", Const::make(context, 0)},
+                {"input_range_0",  Const::make(context, id_const_value(buffer.ubuf.ldims[0].logical_size))},
+                {"input_stride_0", Const::make(context, id_const_value(buffer.ubuf.ldims[0].logical_size_flatten))},
+                {"input_range_1",  Const::make(context, id_const_value(buffer.ubuf.ldims[1].logical_size))},
+                {"input_stride_1", Const::make(context, id_const_value(buffer.ubuf.ldims[1].logical_size_flatten))},
+                {"range_0",  Const::make(context, id_addr.ranges[0])},
+                {"stride_0", Const::make(context, id_addr.strides_in_dim[0]
+                        * id_const_value(buffer.ubuf.ldims[id_addr.dim_refs[0]].logical_size_flatten))},
+                {"range_1",  Const::make(context, id_addr.ranges[1])},
+                {"stride_1", Const::make(context, id_addr.strides_in_dim[1]
+                        * id_const_value(buffer.ubuf.ldims[id_addr.dim_refs[1]].logical_size_flatten))},
+                {"output_starting_addrs", Const::make(context, out_start)}
+        });
+
+        //wiring the write port
+        def->connect(ubuf_coreir->sel("datain0"), w_data);
+        def->connect(ubuf_coreir->sel("wen"), wen);
+
+        //wiring the read port, TODO: counting method seems hacky
+        int port_cnt = 0;
+        for (auto const & rp : buffer.read_ports){
+            auto read_data = self->sel(rp.first);
+            def->connect(ubuf_coreir->sel("dataout" + std::to_string(port_cnt)), read_data);
+            def->connect(ubuf_coreir->sel("valid"), self->sel(rp.first + "_valid"));
+            port_cnt ++;
+        }
+
+        //wire the peripherial
+        def->connect(ubuf_coreir->sel("reset"), self->sel("reset"));
+        cout << "finish wiring!" << endl;
+
+        return;
+
+    }
+
+    else {
     if (buffer.read_loop_levels().size() == 1) {
       if (buffer.write_loop_levels().size() == 1) {
         if (buffer.read_loop_levels()[0] == buffer.write_loop_levels()[0]) {
@@ -530,6 +645,7 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
         }
       }
     }
+    }
 
     // Dummy definition
     internal_assert(buffer.write_ports.size() > 0);
@@ -548,7 +664,8 @@ std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
     //internal_assert(false) << "Cannot classify buffer: " << buffer.name << "\n";
   }
 
-void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env) {
+map<string, CoreIR::Module*>
+synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& env, std::vector<HWXcel>& xcels) {
   Stmt simple = simplify(remove_trivial_for_loops(simplify(unroll_loops(simplify(stmt)))));
 
   cout << "Doing rewrites for" << endl;
@@ -560,6 +677,15 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
 
   CoreIR::Context* context = newContext();
   CoreIRLoadLibrary_commonlib(context);
+  CoreIRLoadLibrary_lakelib(context);
+  /*std::vector<string> lakelib_gen_names = {"linebuffer", "unified_buffer",
+                                                 "new_unified_buffer"};
+
+    for (auto gen_name : lakelib_gen_names) {
+        string str = "lakelib." + gen_name;
+        internal_assert(context->hasGenerator(str))
+            << "could not find " << str << "\n";
+    }*/
   auto ns = context->getNamespace("global");
 
   for (auto f : env) {
@@ -571,6 +697,14 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
       cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
       MemoryConstraints buf = map_find(f.first, buffers);
+      // Add hwbuffer field to memory constraints wrapper
+      for (auto xcel : xcels) {
+        for (auto buffer : xcel.hwbuffers) {
+          if (buffer.first == buf.name) {
+            buf.ubuf = buffer.second;
+          }
+        }
+      }
       vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
       cout << "\t\tReads..." << endl;
       for (auto rd : buf.read_ports) {
@@ -603,9 +737,7 @@ void synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function
   }
   deleteContext(context);
 
-//  internal_assert(false);
-
-  return;
+  return {};
 
 }
 

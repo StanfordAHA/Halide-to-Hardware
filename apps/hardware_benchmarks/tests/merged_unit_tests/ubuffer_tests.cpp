@@ -8,6 +8,7 @@
 #include "halide_image_io.h"
 #include <stdio.h>
 #include <iostream>
+#include <stdexcept>
 
 #include <fstream>
 #include "test_utils.h"
@@ -17,6 +18,25 @@ using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
+
+std::string exec(const char* cmd) {
+    char buffer[128];
+    std::string result = "";
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    try {
+        while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+            result += buffer;
+        }
+
+    } catch (...) {
+        pclose(pipe);
+        throw;
+    }
+    pclose(pipe);
+    return result;
+}
+
 void  ubuffer_conv_3_3_reduce_test() {
   //ImageParam input(type_of<uint8_t>(), 2);
   //Func output;
@@ -155,8 +175,8 @@ void  ubuffer_conv_3_3_reduce_test() {
 }
 
 void ubuffer_small_conv_3_3_test() {
-  ImageParam input(type_of<uint8_t>(), 2);
-  Func output;
+  /*ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
 
   Var x("x"), y("y");
 
@@ -185,14 +205,12 @@ void ubuffer_small_conv_3_3_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  int inTileSize = 4;
-  int outTileSize = inTileSize - 2;
 
   hw_output.bound(x, 0, outTileSize);
   hw_output.bound(y, 0, outTileSize);
 
-  output.bound(x, 0, outTileSize);
-  output.bound(y, 0, outTileSize);
+  //output.bound(x, 0, outTileSize);
+  //output.bound(y, 0, outTileSize);
 
   // Creating input data
   Halide::Buffer<uint8_t> inputBuf(4, 4);
@@ -228,11 +246,23 @@ void ubuffer_small_conv_3_3_test() {
   conv.linebuffer();
 
   hw_input.stream_to_accelerator();
-
+*/
+  int inTileSize = 4;
+  int outTileSize = inTileSize - 2;
+  int tileSize = 4;
   // Generate CoreIR
   auto context = hwContext();
-  vector<Argument> args{input};
-  buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  //vector<Argument> args{input};
+  //buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+
+  //An hack using JEFF's generator
+  system("(cd ../conv_3_3/ && make)");
+  string run_generator_cmd = "(cd ../conv_3_3/ && make design-coreir > generator.log)";
+  const char* cmd = run_generator_cmd.c_str();
+  auto info = exec(cmd);
+  std::cout << info << endl;
+  system("cd ../merged_unit_tests/");
+  system("cp ../conv_3_3/ubuffers.json .");
 
   // Get unified buffer fie
   if (!loadFromFile(context, "./ubuffers.json")) {
@@ -292,6 +322,6 @@ void ubuffer_small_conv_3_3_test() {
   deleteContext(context);
 
   cout << GREEN << "UBuffer to linebuffer for conv 3x3 test passed" << RESET << endl;
-  assert(false);
+  //assert(false);
 }
 

@@ -7,7 +7,7 @@
  * for a general buffer that can then be outputted to a hardware backend.
  * These parameters provide specification for line buffers and double
  * buffers.
- * 
+ *
  */
 
 #include <map>
@@ -83,6 +83,7 @@ struct LogicalDimSize {
   Expr var_name;
   Expr logical_size;
   Expr logical_min;
+  Expr logical_size_flatten;
 };
 
 std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
@@ -90,7 +91,7 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
                                                  std::vector<int> output_block,
                                                  std::vector<int> input_chunk,
                                                  std::vector<int> input_block);
-  
+
 struct HWBuffer {
   std::string name;
   std::string store_level;
@@ -101,7 +102,7 @@ struct HWBuffer {
   Function func;
   bool is_inlined = false;
   bool is_output = false;
-  
+
   // old parameters for the HWBuffer
   std::shared_ptr<SlidingStencils> input_stencil;
   std::vector<InOutDimSize> dims;
@@ -136,22 +137,23 @@ struct HWBuffer {
     for (size_t i=0; i<mdims.size(); ++i) {
       ldims[i].logical_size = mdims[i].logical_size;
       ldims[i].logical_min = mdims[i].logical_min;
+
     }
 
     InputStream istream;
     istream.idims = std::vector<InputDimSize>(mdims.size());
     istreams["input"] = istream;
-    
+
     OutputStream ostream;
     ostream.odims = std::vector<OutputDimSize>(mdims.size());
     ostreams["output"] = ostream;
-    
+
     dims = std::vector<InOutDimSize>(mdims.size());
     for (size_t i=0; i<mdims.size(); ++i) {
       istreams["input"].idims.at(i).loop_name       = mdims.at(i).loop_name;
       istreams["input"].idims.at(i).input_chunk     = mdims.at(i).input_chunk;
       istreams["input"].idims.at(i).input_block     = mdims.at(i).input_block;
-      
+
       ostreams["output"].odims.at(i).loop_name      = mdims.at(i).loop_name;
       ostreams["output"].odims.at(i).output_stencil = mdims.at(i).output_stencil;
       ostreams["output"].odims.at(i).output_block   = mdims.at(i).output_block;
@@ -170,10 +172,10 @@ struct HWBuffer {
       dims[i].output_min_pos = mdims[i].output_min_pos;
       dims[i].output_max_pos = mdims[i].output_max_pos;
     }
-    
+
   };
 
-  
+
 };
 
 std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec);
@@ -188,17 +190,17 @@ struct HWXcel {
   Function func;
   LoopLevel store_level;
   LoopLevel compute_level;
-  
+
   std::vector<std::string> streaming_loop_levels;  // store (exclusive) to compute (inclusive)
   std::set<std::string> input_streams; // might be wrong?
   std::map<std::string, HWBuffer> hwbuffers;
   std::map<std::string, HWBuffer*> consumer_buffers; // used for transforming call nodes and inserting dispatch calls
   //std::map<std::string, HWTap> input_taps;
-  
+
   bool isAcceleratorInput(const std::string& name) const {
     return input_streams.count(name) != 0;
   }
-  
+
 };
 
 std::vector<HWXcel> extract_hw_accelerators(Stmt s, const std::map<std::string, Function> &env,
