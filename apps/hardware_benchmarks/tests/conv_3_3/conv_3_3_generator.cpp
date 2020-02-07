@@ -10,7 +10,7 @@ public:
     Output<Buffer<uint8_t>> output{"output", 2};
 
   int ksize = 3;
-  int imgsize = 2;
+  int imgsize = 64;
 
     void generate() {
         /* THE ALGORITHM */
