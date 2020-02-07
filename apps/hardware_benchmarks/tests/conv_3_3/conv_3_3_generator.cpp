@@ -40,6 +40,7 @@ public:
         output.bound(y, 0, imgsize);
 
         /* THE SCHEDULE */
+        get_target().with_feature(Target::UseExtractHWKernel);
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
 
