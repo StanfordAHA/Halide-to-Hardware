@@ -16,7 +16,7 @@ GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
 HALIDE_SRC_PATH ?= ../../../..
-LDFLAGS += -lcoreir-lakelib
+LDFLAGS += -lfuncubuf
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
@@ -60,7 +60,7 @@ generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DE
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
-	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
+	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $@
 endif
 
 design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator

@@ -5,7 +5,6 @@
 /apps/HelloMatlab/iir_blur.mex
 bin/*
 bin/
-halide
 *.nfs*
 build/*
 python_bindings/bin/*
