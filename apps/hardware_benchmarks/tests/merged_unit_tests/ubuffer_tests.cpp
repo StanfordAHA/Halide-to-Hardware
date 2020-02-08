@@ -265,7 +265,7 @@ void ubuffer_small_conv_3_3_test() {
   auto info = exec(cmd);
   std::cout << info << endl;
   system("cd ../merged_unit_tests/");
-  system("cp ../conv_3_3/ubuffers.json .");
+  //system("cp ../conv_3_3/ubuffers.json .");
 
   // Get unified buffer fie
   if (!loadFromFile(context, "./ubuffers.json")) {
