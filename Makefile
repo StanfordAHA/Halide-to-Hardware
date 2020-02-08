@@ -175,7 +175,7 @@ FUNCBUF_DIR ?= $(ROOT_DIR)/../BufferMapping/cfunc
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
 COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
-COREIR_LD_FLAGS += -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -lfuncubuf
+COREIR_LD_FLAGS += -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -lcoreir-lakelib
 COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
@@ -896,7 +896,7 @@ $(BIN_DIR)/libHalide.$(SHARED_EXT): $(OBJECTS) $(INITIAL_MODULES)
 	$(CXX) -shared $(OBJECTS) $(INITIAL_MODULES) $(LLVM_LIBS_FOR_SHARED_LIBHALIDE) $(LLVM_SYSTEM_LIBS) $(COMMON_LD_FLAGS) $(INSTALL_NAME_TOOL_LD_FLAGS) -o $(BIN_DIR)/libHalide.$(SHARED_EXT)
 ifeq ($(UNAME), Darwin)
 	install_name_tool -id $(CURDIR)/$(BIN_DIR)/libHalide.$(SHARED_EXT) $(BIN_DIR)/libHalide.$(SHARED_EXT)
-	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $(CURDIR)/$(BIN_DIR)/libHalide.$(SHARED_EXT)
+	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $(CURDIR)/$(BIN_DIR)/libHalide.$(SHARED_EXT)
 endif
 
 $(INCLUDE_DIR)/Halide.h: $(SRC_DIR)/../LICENSE.txt $(HEADERS) $(BIN_DIR)/build_halide_h
@@ -1180,7 +1180,7 @@ $(BIN_DIR)/test_internal: $(ROOT_DIR)/test/internal.cpp $(BIN_DIR)/libHalide.$(S
 	@mkdir -p $(@D)
 	$(CXX) $(TEST_CXX_FLAGS) $< -I$(SRC_DIR) $(TEST_LD_FLAGS) -o $@
 ifeq ($(UNAME), Darwin)
-	install_name_tool -change bin/libfuncubuf.so $(FUNCBUF_DIR)/bin/libfuncubuf.so $(CURDIR)/$(BIN_DIR)/test_internal
+	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $(CURDIR)/$(BIN_DIR)/test_internal
 endif
 
 # Correctness test that link against libHalide
