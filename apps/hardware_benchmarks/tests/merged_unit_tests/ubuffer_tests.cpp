@@ -323,7 +323,7 @@ void ubuffer_small_conv_3_3_test() {
   assert(port_0_values.size() == outTileSize*outTileSize);
 
   for (int i = 0; i < port_0_values.size(); i++) {
-    cout << "\toutput = " << port_0_values.at(i) << endl;
+    //cout << "\toutput = " << port_0_values.at(i) << endl;
   }
   //vector<int> correct{0, 1, 4, 5};
   //assert(port_0_values == correct);
@@ -332,7 +332,7 @@ void ubuffer_small_conv_3_3_test() {
   for (int p = 0; p < 9; p++) {
     cout << "Port: " << p << endl;
     for (size_t i = 0; i < port_vals[p].size(); i++) {
-      cout << "\t\toutput = " << port_vals[p].at(i) << endl;
+    //  cout << "\t\toutput = " << port_vals[p].at(i) << endl;
     }
   }
   deleteContext(context);
