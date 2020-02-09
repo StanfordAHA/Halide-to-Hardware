@@ -10,7 +10,7 @@ public:
     Output<Buffer<uint8_t>> output{"output", 2};
 
   int ksize = 3;
-  int imgsize = 64;
+  int imgsize = 62;
 
     void generate() {
         /* THE ALGORITHM */
@@ -40,7 +40,6 @@ public:
         output.bound(y, 0, imgsize);
 
         /* THE SCHEDULE */
-        get_target().with_feature(Target::UseExtractHWKernel);
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
 
