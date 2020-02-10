@@ -2,21 +2,44 @@
 #include "coreir/simulator/interpreter.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "lakelib.h"
 
 #include "Halide.h"
 
 #include "halide_image_io.h"
 #include <stdio.h>
 #include <iostream>
+#include <stdexcept>
 
 #include <fstream>
 #include "test_utils.h"
 #include "coreir_utils.h"
 
+#include "ubuf_coreirsim.h"
+
 using namespace CoreIR;
 using namespace Halide;
 using namespace Halide::Tools;
 using namespace std;
+
+std::string exec(const char* cmd) {
+    char buffer[128];
+    std::string result = "";
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    try {
+        while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+            result += buffer;
+        }
+
+    } catch (...) {
+        pclose(pipe);
+        throw;
+    }
+    pclose(pipe);
+    return result;
+}
+
 void  ubuffer_conv_3_3_reduce_test() {
   //ImageParam input(type_of<uint8_t>(), 2);
   //Func output;
@@ -68,16 +91,16 @@ void  ubuffer_conv_3_3_reduce_test() {
       //}
     //}
   //}
- 
+
   //// Creating CPU reference output
   //Halide::Buffer<uint8_t> cpuOutput(2, 2);
   //ParamMap rParams;
   //rParams.set(input, inputBuf);
   //Target t;
   //hw_output.realize(cpuOutput, t, rParams);
-  
+
   //Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  
+
   //int tileSize = 4;
   //hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     //.hw_accelerate(xi, xo);
@@ -149,14 +172,14 @@ void  ubuffer_conv_3_3_reduce_test() {
     ////}
   ////}
   //deleteContext(context);
- 
+
   //cout << GREEN << "UBuffer to linebuffer for conv rolled 3x3 test passed" << RESET << endl;
   //assert(false);
 }
 
 void ubuffer_small_conv_3_3_test() {
-  ImageParam input(type_of<uint8_t>(), 2);
-  Func output;
+  /*ImageParam input(type_of<uint8_t>(), 2);
+  ImageParam output(type_of<uint8_t>(), 2);
 
   Var x("x"), y("y");
 
@@ -185,14 +208,12 @@ void ubuffer_small_conv_3_3_test() {
   hw_input.compute_root();
   hw_output.compute_root();
 
-  int inTileSize = 4;
-  int outTileSize = inTileSize - 2;
 
   hw_output.bound(x, 0, outTileSize);
   hw_output.bound(y, 0, outTileSize);
 
-  output.bound(x, 0, outTileSize);
-  output.bound(y, 0, outTileSize);
+  //output.bound(x, 0, outTileSize);
+  //output.bound(y, 0, outTileSize);
 
   // Creating input data
   Halide::Buffer<uint8_t> inputBuf(4, 4);
@@ -205,16 +226,16 @@ void ubuffer_small_conv_3_3_test() {
       }
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint8_t> cpuOutput(2, 2);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  
+
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  
+
   int tileSize = 4;
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
@@ -228,11 +249,23 @@ void ubuffer_small_conv_3_3_test() {
   conv.linebuffer();
 
   hw_input.stream_to_accelerator();
-
+*/
+  int inTileSize = 64;
+  int outTileSize = inTileSize - 2;
+  int tileSize = 64;
   // Generate CoreIR
   auto context = hwContext();
-  vector<Argument> args{input};
-  buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+  //vector<Argument> args{input};
+  //buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
+
+  //An hack using JEFF's generator
+  system("(cd ../conv_3_3/ && make)");
+  string run_generator_cmd = "(cd ../conv_3_3/ && make design-coreir > generator.log)";
+  const char* cmd = run_generator_cmd.c_str();
+  auto info = exec(cmd);
+  std::cout << info << endl;
+  system("cd ../merged_unit_tests/");
+  system("cp ../conv_3_3/ubuffers.json .");
 
   // Get unified buffer fie
   if (!loadFromFile(context, "./ubuffers.json")) {
@@ -244,7 +277,18 @@ void ubuffer_small_conv_3_3_test() {
   cout << "hw_input_ubuffer..." << endl;
   m->print();
 
-  SimulatorState state(m);
+  auto ubufBuilder = [](WireNode& wd) {
+    //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
+    UnifiedBuffer_new* ubufModel = new UnifiedBuffer_new();
+    return ubufModel;
+  };
+
+
+
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
+
+  SimulatorState state(m, qualifiedNamesToSimPlugins);
+
   state.setValue("self.write_port_0", BitVector(16, 0));
   state.setValue("self.write_port_0_en", BitVector(1, 0));
   state.setClock("self.clk", 0, 1);
@@ -261,7 +305,9 @@ void ubuffer_small_conv_3_3_test() {
     state.setValue("self.write_port_0", BitVector(16, t));
     state.setValue("self.write_port_0_en", BitVector(1, 1));
 
-    state.exeCombinational();
+    //state.exeCombinational();
+    //FIXME: discuss with Dillon about the timing
+    state.execute();
     if (state.getBitVec("self.read_port_0_valid") == BitVec(1, 1)) {
       port_0_values.push_back(state.getBitVec("self.read_port_0").to_type<int>());
       for (int i = 0; i < 9; i++) {
@@ -269,28 +315,28 @@ void ubuffer_small_conv_3_3_test() {
       }
       n_valids++;
     }
-    state.execute();
+  cout << "n_valids = " << n_valids << endl;
   }
 
   cout << "n_valids = " << n_valids << endl;
-  assert(n_valids == 2*2);
-  assert(port_0_values.size() == 2*2);
+  assert(n_valids == outTileSize*outTileSize);
+  assert(port_0_values.size() == outTileSize*outTileSize);
 
   for (int i = 0; i < port_0_values.size(); i++) {
-    cout << "\toutput = " << port_0_values.at(i) << endl;
+    //cout << "\toutput = " << port_0_values.at(i) << endl;
   }
-  vector<int> correct{0, 1, 4, 5};
-  assert(port_0_values == correct);
+  //vector<int> correct{0, 1, 4, 5};
+  //assert(port_0_values == correct);
 
   cout << "--- Port values" << endl;
   for (int p = 0; p < 9; p++) {
     cout << "Port: " << p << endl;
     for (size_t i = 0; i < port_vals[p].size(); i++) {
-      cout << "\t\toutput = " << port_vals[p].at(i) << endl;
+    //  cout << "\t\toutput = " << port_vals[p].at(i) << endl;
     }
   }
   deleteContext(context);
- 
+
   cout << GREEN << "UBuffer to linebuffer for conv 3x3 test passed" << RESET << endl;
   //assert(false);
 }
