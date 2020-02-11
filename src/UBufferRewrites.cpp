@@ -8,12 +8,13 @@
 
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
-
 using namespace CoreIR;
 using namespace std;
 
 namespace Halide {
   namespace Internal {
+
+  enum class IO_TYPE{READ, WRITE};
 
   class MemoryConstraints {
     public:
@@ -22,10 +23,39 @@ namespace Halide {
       map<string, const Provide*> write_ports;
       map<string, const Call*> read_ports;
 
+      //starting address
+      map<string, vector<int>> read_ports_offset;
+      map<string, vector<int>> write_ports_offset;
+
       // This is an ordinal schedule, it does not
       // describe cycle accurate timing of inputs and
       // outputs
       map<string, StmtSchedule> schedules;
+
+      //Use a more generic way to deduce output starting address
+      void get_port_offset(size_t num_dim, IO_TYPE typ) {
+          //TODO: possible bug: default starting port is read_port_0 maybe a problem
+          vector<Expr> baseArgs = map_find(string("read_port_0"), read_ports)->args;
+          for (auto rp : read_ports) {
+              std::cout << "read ports"  << rp.first << endl;
+              vector<Expr> args = rp.second->args;
+              vector<int> offsets;
+
+              //check if the dimension match
+              internal_assert(args.size() == num_dim);
+
+              for (size_t i = 0; i < baseArgs.size(); i++) {
+                if(typ == IO_TYPE::READ) {
+                  map_insert(read_ports_offset, rp.first, id_const_value(simplify(args[i] - baseArgs[i])));
+                }
+                else {
+                  map_insert(write_ports_offset, rp.first, id_const_value(simplify(args[i] - baseArgs[i])));
+                }
+
+              }
+
+          }
+      }
 
       bool is_write(const std::string& pt) const {
         return contains_key(pt, write_ports);
@@ -173,7 +203,7 @@ namespace Halide {
               }
             }
           }
-          bufs[b] = {{}, b, writes, reads, schedules};
+          bufs[b] = {{}, b, writes, reads, {}, {}, schedules};
         }
         return bufs;
       }
@@ -316,17 +346,6 @@ namespace Halide {
   void synthesize_ubuffer(CoreIR::ModuleDef* def, MemoryConstraints& buffer) {
     cout << "ubuffer parameter" << buffer.ubuf ;
 
-    // use this helper IRVisitor to extract the range stride information
-    Scope<Expr> temp;    //create a empty scope
-    IdentifyAddressing id_addr(buffer.ubuf.func, temp, buffer.ubuf.stride_map);
-    buffer.ubuf.output_access_pattern.accept(&id_addr);
-
-    std::cout << "Read range extracted: ";
-    std::for_each(id_addr.ranges.begin(),
-                id_addr.ranges.end(),
-                [] (const int c) {std::cout << c << " ";}
-            );
-    std::cout << endl;
 
 
     if (buffer.read_ports.size() == 0) {
@@ -370,6 +389,18 @@ namespace Halide {
         internal_assert(buffer.write_ports.size() == 1);
         std::cout << "Using lake rewrite rules." << std::endl;
 
+        // use this helper IRVisitor to extract the range stride information
+        Scope<Expr> temp;    //create a empty scope
+        IdentifyAddressing id_addr(buffer.ubuf.func, temp, buffer.ubuf.stride_map);
+        buffer.ubuf.output_access_pattern.accept(&id_addr);
+
+        std::cout << "Read range extracted: ";
+        std::for_each(id_addr.ranges.begin(),
+                id_addr.ranges.end(),
+                [] (const int c) {std::cout << c << " ";}
+            );
+        std::cout << endl;
+
         string wp = begin(buffer.write_ports)->first;
 
         coreir_builder_set_context(def->getContext());
@@ -377,6 +408,7 @@ namespace Halide {
 
         auto wen = self->sel(wp + "_en");
         auto w_data = self->sel(wp);
+
         //TODO:figure out where does the datawidth saved
         int width = 16;
         int depth = std::accumulate(buffer.ubuf.ldims.begin(), buffer.ubuf.ldims.end(), 1,
@@ -398,7 +430,23 @@ namespace Halide {
         }
 
         Json out_start;
-        size_t num_dim = buffer.ubuf.dims.size();
+        size_t num_dim = buffer.ubuf.ldims.size();
+
+        std::cout << "Extract the offset of read port:\n" ;
+        buffer.get_port_offset(num_dim, IO_TYPE::READ);
+
+        std::for_each(buffer.read_ports_offset.begin(),
+                buffer.read_ports_offset.end(),
+                [] (const pair<std::string, vector<int>> c) {
+                    std::cout << c.first << " has offset = [";
+                    for (const int val: c.second) {
+                        std::cout << val << " ";
+                    }
+                    std::cout << "]" << std::endl;
+                }
+            );
+        std::cout << endl;
+
         vector<size_t> output_block(num_dim);
         for (size_t i = 0; i < num_dim; ++i) {
             output_block[i] = id_const_value(buffer.ubuf.dims[i].output_block);
@@ -408,6 +456,22 @@ namespace Halide {
         vector<int> output_start_addrs(num_read_port);
         vector<size_t> out_indexes(num_dim);
 
+        //initialize the flatten vector
+        vector<int> flatten_dim_vector;
+        for (size_t idx =0 ; idx < num_dim; idx ++) {
+            flatten_dim_vector.push_back(id_const_value(buffer.ubuf.ldims[idx].logical_size_flatten));
+        }
+
+        int read_port_cnt = 0;
+        for (const auto rp_offset: buffer.read_ports_offset) {
+            const vector<int> offset_vec = rp_offset.second;
+            int start_addr = std::inner_product(offset_vec.begin(), offset_vec.end(), flatten_dim_vector.begin(), 0);
+            cout << "flatten starting address" << start_addr << endl;
+            output_start_addrs[read_port_cnt] = start_addr;
+            out_start["output_start"][read_port_cnt] = start_addr;
+            read_port_cnt ++;
+        }
+        /*
         for (size_t port = 0; port < num_read_port; port ++) {
             int start_port = 0;
             for (size_t idx = 0; idx < num_dim; idx ++) {
@@ -426,12 +490,11 @@ namespace Halide {
                     }
                 }
             }
-        }
+        }*/
 
         cout << "Start creating instance" << endl;
 
-        auto ubuf_coreir = def->addInstance("ubuf_"+context->getUnique(),
-                "lakelib.unified_buffer",
+        Values args =
                 {{"width", Const::make(context, width)},
                 {"num_input_ports", Const::make(context, buffer.write_ports.size())},
                 {"num_output_ports", Const::make(context, buffer.read_ports.size())},
@@ -446,18 +509,19 @@ namespace Halide {
                 {"input_chunk", Const::make(context, in_chunk)},
                 {"output_stencil", Const::make(context, out_stencil)},
                 {"num_stencil_acc_dim", Const::make(context, 0)},
-                {"input_range_0",  Const::make(context, id_const_value(buffer.ubuf.ldims[0].logical_size))},
-                {"input_stride_0", Const::make(context, id_const_value(buffer.ubuf.ldims[0].logical_size_flatten))},
-                {"input_range_1",  Const::make(context, id_const_value(buffer.ubuf.ldims[1].logical_size))},
-                {"input_stride_1", Const::make(context, id_const_value(buffer.ubuf.ldims[1].logical_size_flatten))},
-                {"range_0",  Const::make(context, id_addr.ranges[0])},
-                {"stride_0", Const::make(context, id_addr.strides_in_dim[0]
-                        * id_const_value(buffer.ubuf.ldims[id_addr.dim_refs[0]].logical_size_flatten))},
-                {"range_1",  Const::make(context, id_addr.ranges[1])},
-                {"stride_1", Const::make(context, id_addr.strides_in_dim[1]
-                        * id_const_value(buffer.ubuf.ldims[id_addr.dim_refs[1]].logical_size_flatten))},
-                {"output_starting_addrs", Const::make(context, out_start)}
-        });
+                {"output_starting_addrs", Const::make(context, out_start)}};
+
+        for (size_t dim = 0; dim < num_dim ; dim ++) {
+            args["input_range_" + to_string(dim)] =  Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size));
+            args["input_stride_" + to_string(dim)] = Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size_flatten));
+            args["range_" + to_string(dim) ] = Const::make(context, id_addr.ranges[dim]);
+            args["stride_" + to_string(dim) ] = Const::make(context, id_addr.strides_in_dim[dim]
+                        * id_const_value(buffer.ubuf.ldims[id_addr.dim_refs[dim]].logical_size_flatten));
+        }
+
+        auto ubuf_coreir = def->addInstance("ubuf_"+context->getUnique(),
+                "lakelib.unified_buffer", args
+        );
 
         //wiring the write port
         def->connect(ubuf_coreir->sel("datain0"), w_data);
@@ -712,13 +776,13 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
       vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
       cout << "\t\tReads..." << endl;
       for (auto rd : buf.read_ports) {
-        cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " " << buf.port_address_stream(rd.first) << endl;
+        cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " || " << buf.port_address_stream(rd.first) << endl;
         ubuffer_fields.push_back({rd.first + "_valid", context->Bit()});
         ubuffer_fields.push_back({rd.first, context->Bit()->Arr(16)});
       }
       cout << "\t\tWrites..." << endl;
       for (auto rd : buf.write_ports) {
-        cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << buf.port_address_stream(rd.first) << endl;
+        cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " || " << buf.port_address_stream(rd.first) << endl;
         ubuffer_fields.push_back({rd.first + "_en", context->BitIn()});
         ubuffer_fields.push_back({rd.first, context->BitIn()->Arr(16)});
       }
