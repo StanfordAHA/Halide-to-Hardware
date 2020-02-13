@@ -960,7 +960,8 @@ class StreamOpt : public IRMutator {
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
                     image_args.push_back(kernel.dims[i].store_bound.min);
                 }
-                Expr address_of_subimage_origin = Call::make(Handle(), Call::buffer_get_host, {Call::make(kernel.func, image_args, 0)}, Call::Extern);
+                //Expr address_of_subimage_origin = Call::make(Handle(), Call::buffer_get_host, {Call::make(kernel.func, image_args, 0)}, Call::Extern);
+                Expr address_of_subimage_origin = Call::make(Handle(), "address_of", {Call::make(kernel.func, image_args, 0)}, Call::Intrinsic);
                 Expr buffer_var = Variable::make(type_of<struct buffer_t *>(), kernel.name + ".buffer");
 
                 // add intrinsic functions to convert memory buffers to streams
