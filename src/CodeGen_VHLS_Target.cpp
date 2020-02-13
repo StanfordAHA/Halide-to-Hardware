@@ -77,6 +77,13 @@ const string vhls_header_includes =
     "#include <stdlib.h>\n"
     "#include <hls_stream.h>\n"
     "#include \"Stencil.h\"\n";
+
+const string local_halide_helpers =
+    "\n"
+    "template <typename T>\n"
+    "static inline T halide_cpp_min(const T&a, const T&b) { return (a < b) ? a : b; }\n\n"
+    "template <typename T>\n"
+    "static inline T halide_cpp_max(const T&a, const T&b) { return (a > b) ? a : b; }\n\n";
 }
 
 void CodeGen_VHLS_Target::init_module() {
@@ -98,7 +105,8 @@ void CodeGen_VHLS_Target::init_module() {
     // initialize the source file
     src_stream << "#include \"" << target_name << ".h\"\n\n";
     src_stream << "#include \"Linebuffer.h\"\n"
-               << "#include \"halide_math.h\"\n";
+               << "#include \"halide_math.h\"\n"
+               << local_halide_helpers;
 
 }
 

@@ -60,11 +60,13 @@ vector<VHLS_Argument> VHLS_Closure::arguments(const Scope<CodeGen_VHLS_Base::Ste
 }
 
 namespace {
-const string vhls_headers =
-    "#include <hls_stream.h>\n"
-    "#include \"Stencil.h\"\n"
-    "#include \"vhls_target.h\"\n";
+    const string vhls_headers =
+        "#include <hls_stream.h>\n"
+        "#include \"Stencil.h\"\n"
+        "#include \"vhls_target.h\"\n";
 }
+
+
 
   CodeGen_VHLS_Testbench::CodeGen_VHLS_Testbench(ostream &tb_stream, Target target)
       : CodeGen_VHLS_Base(tb_stream, target, CPlusPlusImplementation, ""),
