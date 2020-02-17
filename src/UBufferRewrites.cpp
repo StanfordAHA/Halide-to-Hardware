@@ -342,6 +342,196 @@ namespace Halide {
       }
 
   };
+/*
+  class PortMap {
+
+  };
+*/
+  class ShiftReg {
+      public:
+          int port_number;
+          vector<int> size;
+          //vector<int> depth;
+          int stencil_valid_depth;
+
+          vector<int> stride;
+          vector<int> stride_ref_dim;
+          vector<int> range;
+
+          //map from depth to name
+          vector<tuple<string, int>> port_map;
+          int num_child_ports;
+
+          map<string, ShiftReg> child;
+          ShiftReg(){port_number = 0;}
+          ShiftReg(vector<int> range_in, vector<int> stride_in, vector<int> stride_ref_dim_in,
+                  vector<tuple<string, int>> port_map_in, map<string, ShiftReg> HWTree, int addr_dim, int ref_dim) {
+              size = vector<int>(addr_dim, 0);
+              range = range_in;
+              stride = stride_in;
+              stride_ref_dim = stride_ref_dim_in;
+              size[stride_ref_dim[ref_dim]] = stride[stride_ref_dim[ref_dim]];
+              port_map = port_map_in;
+              for (auto it : port_map) {
+                  string key = std::get<0>(it);
+                  child.insert(std::make_pair(key, HWTree[key]));
+              }
+              port_number = port_map.size();
+              stencil_valid_depth = 0;
+              for(auto it: port_map) {
+                  stencil_valid_depth += std::get<1>(it);
+              }
+          }
+  };
+
+  /*ostream& operator<<(ostream& os, const vector<int> & vec) {
+      os << "[";
+      for (const auto & val: vec) {
+          os << val << " ";
+      }
+      os << "] ";
+      return os;
+  }*/
+
+  ostream& operator<<(ostream& os, const ShiftReg& sr) {
+      os << " Shift Register: size= " << sr.size << ", with " << sr.port_number << " port ";;
+      for_each(sr.port_map.begin(), sr.port_map.end(), [&os](std::tuple<string, int> port_info){
+              os << "Port name = " << get<0>(port_info) << ", Depth = " << get<1>(port_info) << endl;
+              });
+      for (const auto &[k, v] : sr.child)
+              os << "child map: [" << k << "] = \n(" << v << ") " << std::endl;
+      return os;
+  }
+
+
+  class RecursiveBuffer {
+      public:
+          map<string, vector<int>> start_addr;
+          //save the source link and the distance
+          map<string, std::tuple<string, int>> merge_addr;
+          vector<int> stride;
+          vector<int> stride_ref_dim;
+          vector<int> range;
+          size_t loop_dim;
+          size_t addr_dim;
+          map<string, ShiftReg> HWTree;
+
+          RecursiveBuffer(const IdentifyAddressing id_addr, HWBuffer ubuf,
+                  const map<string, vector<int>> read_ports_offset) {
+
+              //initialize a bunch of parameter
+              addr_dim = ubuf.ldims.size();
+              loop_dim = id_addr.ranges.size();
+              for (int rg: id_addr.ranges)
+                  range.push_back(rg);
+              for (int st: id_addr.strides_in_dim)
+                  stride.push_back(st);
+              for (int ref_dim: id_addr.dim_refs)
+                  stride_ref_dim.push_back(ref_dim);
+              for (const auto it: read_ports_offset) {
+                  start_addr[it.first] = it.second;
+                  merge_addr[it.first] = std::make_tuple(it.first, 0);
+                  HWTree[it.first] = ShiftReg();
+              }
+
+          }
+
+          void reset_merge_addr() {
+              merge_addr.clear();
+              for (auto it: start_addr)
+                  merge_addr[it.first] = std::make_tuple(it.first, 0);
+          }
+
+          bool find_overlap() {
+              for (const auto it : merge_addr) {
+                  if (it.first != std::get<0>(it.second)) {
+                      return true;
+                  }
+              }
+              return false;
+          }
+
+          void port_reduction(int threshold) {
+              //make sure the threshold is less than the max of range
+              for (size_t i = 0; i < loop_dim; i ++) {
+                  int c = 1;
+                  while (c <= threshold) {
+                      vector<vector<int>> next_addr;
+                      for (const auto it: start_addr) {
+                          auto temp = it.second;
+                          temp[stride_ref_dim[i]] += c * stride[i];
+
+                          for (const auto overlap_port : start_addr) {
+                              if (std::equal(temp.begin(), temp.end(), overlap_port.second.begin())) {
+                                  auto & merge_port = merge_addr[overlap_port.first];
+                                  if (std::get<0>(merge_port) == overlap_port.first){
+                                      //this port is not merged under this loop dimension
+                                      std::get<0>(merge_port) = std::get<0>(merge_addr[it.first]);
+                                      std::get<1>(merge_port) = c;
+                                  }
+                                  else
+                                      break;
+                              }
+                          }
+                      }
+                    c++;
+                  }
+
+                    for (const auto &[k, v] : merge_addr)
+                        cout << "\nMERGED ADDR: [" << k << "] = \n(" << get<0>(v)<< ", " << get<1>(v) << ") " << std::endl;
+                  if (find_overlap()) {
+                      //create a new map
+                      map<string, vector<int>> new_start_addr;
+                      map<string, vector<tuple<string, int> > > merge_addr_gather;
+                      map<string, ShiftReg> newTree;
+                      for (auto it: merge_addr) {
+                          if (it.first == std::get<0>(it.second)) {
+                              //find the source port
+                              new_start_addr.insert(make_pair(it.first,  start_addr[it.first]));
+                              merge_addr_gather[it.first].push_back(it.second);
+                          }
+                          else {
+                              //all the source should be put in front of the merged node
+                              internal_assert(merge_addr_gather.count(get<0>(it.second))) << "Source node " <<
+                                  get<0>(it.second) << "is not add to the merge list";
+                              merge_addr_gather[get<0>(it.second)].push_back(make_tuple(it.first, get<1>(it.second)));
+                          }
+                      }
+
+                      for (const auto &[k, v] : merge_addr_gather){
+                        cout << "\nMERGED ADDR UNION: [" << k << "] = \n" ;
+                        for (auto vv: v)
+                            cout << "( " << get<0>(vv)<< ", " << get<1>(vv) << ") " << std::endl;
+                      }
+
+                      for (auto it: new_start_addr) {
+                          //create the shift reg structure for all the new output port
+                          string port_name = it.first;
+                          newTree[port_name] = ShiftReg(range, stride, stride_ref_dim, merge_addr_gather[port_name], HWTree, addr_dim, stride_ref_dim[i]);
+                      }
+
+                      //mutate the old structure
+                      start_addr = new_start_addr;
+                      HWTree = newTree;
+                      //update merge addr
+                      reset_merge_addr();
+                  }
+              }
+
+          }
+
+  };
+
+  ostream& operator<<(ostream& os, const RecursiveBuffer& rb) {
+      os << "start addr info: \n";
+      for_each(rb.start_addr.begin(), rb.start_addr.end(), [&os](std::pair<string, vector<int>> it) {
+              os << "port name = " << it.first << ", start pos = " << it.second << std::endl;
+              });
+      for (const auto &[k, v] : rb.HWTree)
+              os << "child map: [" << k << "] = (" << v << ") " << std::endl;
+      return os;
+  }
+
 
   void synthesize_ubuffer(CoreIR::ModuleDef* def, MemoryConstraints& buffer) {
     cout << "ubuffer parameter" << buffer.ubuf ;
@@ -446,6 +636,12 @@ namespace Halide {
                 }
             );
         std::cout << endl;
+
+        //create the data structure for rewrite
+        RecursiveBuffer port_opt(id_addr, buffer.ubuf, buffer.read_ports_offset);
+        cout << "Before Rewrite: " << port_opt;
+        port_opt.port_reduction(2);
+        cout << "After Rewrite: " << port_opt;
 
         vector<size_t> output_block(num_dim);
         for (size_t i = 0; i < num_dim; ++i) {
