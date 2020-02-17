@@ -394,7 +394,7 @@ namespace Halide {
   }*/
 
   ostream& operator<<(ostream& os, const ShiftReg& sr) {
-      os << " Shift Register: size= " << sr.size << ", with " << sr.port_number << " port ";;
+      os << " Shift Register: size= " << sr.size << ", with " << sr.port_number << " port \n";;
       for_each(sr.port_map.begin(), sr.port_map.end(), [&os](std::tuple<string, int> port_info){
               os << "Port name = " << get<0>(port_info) << ", Depth = " << get<1>(port_info) << endl;
               });
@@ -520,6 +520,109 @@ namespace Halide {
 
           }
 
+          void generate_coreir(CoreIR::ModuleDef* def, MemoryConstraints & buffer) {
+
+              auto self = def->sel("self");
+
+              //wiring the input
+              string wp = begin(buffer.write_ports)->first;
+              auto wen = self->sel(wp + "_en");
+              auto w_data = self->sel(wp);
+
+              //TODO:figure out where does the datawidth saved
+              int width = 16;
+              int depth = std::accumulate(buffer.ubuf.ldims.begin(), buffer.ubuf.ldims.end(), 1,
+                      [](int product, LogicalDimSize b){
+                      return product * id_const_value(b.logical_size);
+                      });
+              int iter_cnt = std::accumulate(range.begin(), range.end(), 1,
+                      [](int a, int b){return a * b;});
+              auto context = def->getContext();
+
+              //initial the unified buffer parameter
+              Json logical_size;
+              Json in_chunk;
+              Json out_stencil;
+              Json out_start;
+              for (size_t i = 0; i < buffer.ubuf.ldims.size(); i ++){
+                  logical_size["capacity"][i] = id_const_value(buffer.ubuf.ldims[i].logical_size);
+                  in_chunk["input_chunk"][i] = id_const_value(buffer.ubuf.dims[i].input_chunk);
+                  out_stencil["output_stencil"][i] = id_const_value(buffer.ubuf.dims[i].output_stencil);
+              }
+
+
+              //initialize the flatten vector, the dot product doing the linearization
+              vector<int> flatten_dim_vector(loop_dim);
+              for (size_t idx =0 ; idx < loop_dim; idx ++) {
+                  auto ref_dim = stride_ref_dim[idx];
+                  flatten_dim_vector.push_back(id_const_value(buffer.ubuf.ldims[ref_dim].logical_size_flatten));
+              }
+
+              //TODO: make the flatten to be another pass
+              size_t read_port_cnt = 0;
+              for (const auto rp_offset: start_addr) {
+                  const vector<int> offset_vec = rp_offset.second;
+                  int start_addr = std::inner_product(offset_vec.begin(), offset_vec.end(), flatten_dim_vector.begin(), 0);
+                  cout << "flatten starting address" << start_addr << endl;
+                  //output_start_addrs[read_port_cnt] = start_addr;
+                  out_start["output_start"][read_port_cnt] = start_addr;
+                  read_port_cnt ++;
+
+              }
+
+              cout << "Start creating coreIR instance" << endl;
+
+              Values args =
+                      {{"width", Const::make(context, width)},
+                      {"num_input_ports", Const::make(context, buffer.write_ports.size())},
+                      {"num_output_ports", Const::make(context, buffer.read_ports.size())},
+                      {"stencil_width", Const::make(context, 0)},
+                      {"depth", Const::make(context, depth)},
+                      {"chain_idx", Const::make(context, 0)},
+                      {"rate_matched", Const::make(context, false)},
+                      {"chain_en", Const::make(context, false)},
+                      {"dimensionality", Const::make(context, range.size())},
+                      {"iter_cnt", Const::make(context, iter_cnt)},
+                      {"logical_size", Const::make(context, logical_size)},
+                      {"input_chunk", Const::make(context, in_chunk)},
+                      {"output_stencil", Const::make(context, out_stencil)},
+                      {"num_stencil_acc_dim", Const::make(context, 0)},
+                      {"output_starting_addrs", Const::make(context, out_start)}};
+
+              for (size_t dim = 0; dim < loop_dim ; dim ++) {
+                  args["input_range_" + to_string(dim)] =  Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size));
+                  args["input_stride_" + to_string(dim)] = Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size_flatten));
+                  args["range_" + to_string(dim) ] = Const::make(context, range[dim]);
+                  args["stride_" + to_string(dim) ] = Const::make(context, stride[dim]
+                              * id_const_value(buffer.ubuf.ldims[stride_ref_dim[dim]].logical_size_flatten));
+              }
+
+              auto ubuf_coreir = def->addInstance("ubuf_"+context->getUnique(),
+                      "lakelib.unified_buffer", args);
+
+              //wiring the write port
+              def->connect(ubuf_coreir->sel("datain0"), w_data);
+              def->connect(ubuf_coreir->sel("wen"), wen);
+
+              //TODO: Not sure if this is robust, hacky solution for ren
+              auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
+              def->connect(ubuf_coreir->sel("ren"), const_true->sel("out"));
+
+              //wiring the read port, TODO: counting method seems hacky
+              int port_cnt = 0;
+              for (auto const & rp : start_addr){
+                  auto read_data = self->sel(rp.first);
+                  def->connect(ubuf_coreir->sel("dataout" + std::to_string(port_cnt)), read_data);
+                  def->connect(ubuf_coreir->sel("valid"), self->sel(rp.first + "_valid"));
+                  port_cnt ++;
+              }
+
+              //wire the peripherial
+              def->connect(ubuf_coreir->sel("reset"), self->sel("reset"));
+              cout << "finish wiring!" << endl;
+
+          }
+
   };
 
   ostream& operator<<(ostream& os, const RecursiveBuffer& rb) {
@@ -535,8 +638,6 @@ namespace Halide {
 
   void synthesize_ubuffer(CoreIR::ModuleDef* def, MemoryConstraints& buffer) {
     cout << "ubuffer parameter" << buffer.ubuf ;
-
-
 
     if (buffer.read_ports.size() == 0) {
       // Buffer is write only, so it has no effect
@@ -591,35 +692,10 @@ namespace Halide {
             );
         std::cout << endl;
 
-        string wp = begin(buffer.write_ports)->first;
 
         coreir_builder_set_context(def->getContext());
         coreir_builder_set_def(def);
 
-        auto wen = self->sel(wp + "_en");
-        auto w_data = self->sel(wp);
-
-        //TODO:figure out where does the datawidth saved
-        int width = 16;
-        int depth = std::accumulate(buffer.ubuf.ldims.begin(), buffer.ubuf.ldims.end(), 1,
-                [](int product, LogicalDimSize b){
-                return product * id_const_value(b.logical_size);
-                });
-        int iter_cnt = std::accumulate(id_addr.ranges.begin(), id_addr.ranges.end(), 1,
-                [](int a, int b){return a * b;});
-        auto context = def->getContext();
-
-        //initial the unified buffer parameter
-        Json logical_size;
-        Json in_chunk;
-        Json out_stencil;
-        for (size_t i = 0; i < buffer.ubuf.ldims.size(); i ++){
-            logical_size["capacity"][i] = id_const_value(buffer.ubuf.ldims[i].logical_size);
-            in_chunk["input_chunk"][i] = id_const_value(buffer.ubuf.dims[i].input_chunk);
-            out_stencil["output_stencil"][i] = id_const_value(buffer.ubuf.dims[i].output_stencil);
-        }
-
-        Json out_start;
         size_t num_dim = buffer.ubuf.ldims.size();
 
         std::cout << "Extract the offset of read port:\n" ;
@@ -640,105 +716,9 @@ namespace Halide {
         //create the data structure for rewrite
         RecursiveBuffer port_opt(id_addr, buffer.ubuf, buffer.read_ports_offset);
         cout << "Before Rewrite: " << port_opt;
+        port_opt.generate_coreir(def, buffer);
         port_opt.port_reduction(2);
         cout << "After Rewrite: " << port_opt;
-
-        vector<size_t> output_block(num_dim);
-        for (size_t i = 0; i < num_dim; ++i) {
-            output_block[i] = id_const_value(buffer.ubuf.dims[i].output_block);
-        }
-        //save in this json
-        size_t num_read_port = buffer.read_ports.size();
-        vector<int> output_start_addrs(num_read_port);
-        vector<size_t> out_indexes(num_dim);
-
-        //initialize the flatten vector
-        vector<int> flatten_dim_vector;
-        for (size_t idx =0 ; idx < num_dim; idx ++) {
-            flatten_dim_vector.push_back(id_const_value(buffer.ubuf.ldims[idx].logical_size_flatten));
-        }
-
-        int read_port_cnt = 0;
-        for (const auto rp_offset: buffer.read_ports_offset) {
-            const vector<int> offset_vec = rp_offset.second;
-            int start_addr = std::inner_product(offset_vec.begin(), offset_vec.end(), flatten_dim_vector.begin(), 0);
-            cout << "flatten starting address" << start_addr << endl;
-            output_start_addrs[read_port_cnt] = start_addr;
-            out_start["output_start"][read_port_cnt] = start_addr;
-            read_port_cnt ++;
-        }
-        /*
-        for (size_t port = 0; port < num_read_port; port ++) {
-            int start_port = 0;
-            for (size_t idx = 0; idx < num_dim; idx ++) {
-                start_port += out_indexes[idx] * id_const_value(buffer.ubuf.ldims[idx].logical_size_flatten);
-            }
-            output_start_addrs[port] = start_port;
-            out_start["output_start"][port] = start_port;
-
-            //update the iterator, using the state machine style to flatten the loop
-            out_indexes[0] += 1;
-            for (size_t dim = 0; dim < num_dim; dim ++) {
-                if (out_indexes[dim] >= output_block[dim]) {
-                    out_indexes[dim] = 0;
-                    if (dim + 1 < num_dim) {
-                        out_indexes[dim + 1] += 1;
-                    }
-                }
-            }
-        }*/
-
-        cout << "Start creating instance" << endl;
-
-        Values args =
-                {{"width", Const::make(context, width)},
-                {"num_input_ports", Const::make(context, buffer.write_ports.size())},
-                {"num_output_ports", Const::make(context, buffer.read_ports.size())},
-                {"stencil_width", Const::make(context, 0)},
-                {"depth", Const::make(context, depth)},
-                {"chain_idx", Const::make(context, 0)},
-                {"rate_matched", Const::make(context, false)},
-                {"chain_en", Const::make(context, false)},
-                {"dimensionality", Const::make(context, id_addr.ranges.size())},
-                {"iter_cnt", Const::make(context, iter_cnt)},
-                {"logical_size", Const::make(context, logical_size)},
-                {"input_chunk", Const::make(context, in_chunk)},
-                {"output_stencil", Const::make(context, out_stencil)},
-                {"num_stencil_acc_dim", Const::make(context, 0)},
-                {"output_starting_addrs", Const::make(context, out_start)}};
-
-        for (size_t dim = 0; dim < num_dim ; dim ++) {
-            args["input_range_" + to_string(dim)] =  Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size));
-            args["input_stride_" + to_string(dim)] = Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size_flatten));
-            args["range_" + to_string(dim) ] = Const::make(context, id_addr.ranges[dim]);
-            args["stride_" + to_string(dim) ] = Const::make(context, id_addr.strides_in_dim[dim]
-                        * id_const_value(buffer.ubuf.ldims[id_addr.dim_refs[dim]].logical_size_flatten));
-        }
-
-        auto ubuf_coreir = def->addInstance("ubuf_"+context->getUnique(),
-                "lakelib.unified_buffer", args
-        );
-
-        //wiring the write port
-        def->connect(ubuf_coreir->sel("datain0"), w_data);
-        def->connect(ubuf_coreir->sel("wen"), wen);
-
-        //TODO: Not sure if this is robust, hacky solution for ren
-        auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
-        def->connect(ubuf_coreir->sel("ren"), const_true->sel("out"));
-
-        //wiring the read port, TODO: counting method seems hacky
-        int port_cnt = 0;
-        for (auto const & rp : buffer.read_ports){
-            auto read_data = self->sel(rp.first);
-            def->connect(ubuf_coreir->sel("dataout" + std::to_string(port_cnt)), read_data);
-            def->connect(ubuf_coreir->sel("valid"), self->sel(rp.first + "_valid"));
-            port_cnt ++;
-        }
-
-        //wire the peripherial
-        def->connect(ubuf_coreir->sel("reset"), self->sel("reset"));
-        cout << "finish wiring!" << endl;
 
         return;
 
