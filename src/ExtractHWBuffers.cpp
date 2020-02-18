@@ -429,8 +429,7 @@ class FindOutputStencil : public IRVisitor {
       output_stencil_box = vector<Expr>(interval.size());
       output_min_pos_box = vector<Expr>(interval.size());
 
-      //std::cout << "HWBuffer Parameter: " << var << " output stencil size - "
-      //          << "box extent=[";
+      //std::cout << "HWBuffer Parameter: " << var << " output stencil size - " << "box extent=[";
 
       for (size_t dim=0; dim<interval.size(); ++dim) {
         found_stencil = true;
@@ -1140,14 +1139,20 @@ void set_output_params(HWXcel *xcel,
       const FuncSchedule &sched = cur_func.schedule();
       auto compute_looplevel = sched.compute_level();
       
-      //std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name() << " compute=" << cur_func.schedule().compute_level() << std::endl;
+      //std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name() << " compute=" << cur_func.schedule().compute_level() << " consumer_compute=" << consumer_buffer.compute_level << std::endl;
+      //std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " consumer_compute=" << consumer_buffer.compute_level << std::endl;
 
-      FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, func_compute_level);
-      if (hwbuffer.name.find("db_") != string::npos) {
+      //FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, func_compute_level);
+      FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, consumer_buffer.compute_level);
+      //if (hwbuffer.name.find("db_") != string::npos) {
+      //if (true) {
+      if (false) {
         //std::cout << "looking for " << hwbuffer.name << " to " << consumer.name << std::endl;
-        //std::cout << consumer_buffer.my_stmt << std::endl;
+        std::cout << hwbuffer.my_stmt << std::endl;
+        std::cout << consumer_buffer.my_stmt << std::endl;
       }
       consumer_buffer.my_stmt.accept(&fos);
+      //hwbuffer.my_stmt.accept(&fos);
       //std::cout << "looking for output stencil and min for " << hwbuffer.name << " in consumer " << consumer.name << ": \n" << consumer_buffer.my_stmt << std::endl;
 
       if (fos.found_output_min) {
@@ -1250,7 +1255,7 @@ void set_output_params(HWXcel *xcel,
             //std::cout << odims.at(idx).output_min_pos << " + " << fos.output_min_pos_box.at(idx) << std::endl;
             //hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
             // removed for now odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
-            odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
+            //just removed this odims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
           }
         } else {
           //std::cout << hwbuffer.name << " couldn't find that output stencil thing\n";
@@ -1309,11 +1314,12 @@ void set_output_params(HWXcel *xcel,
       //if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
       if (hwbuffers.count(consumer.name) &&  // does this work?
           (!hwbuffer.is_inlined || xcel->input_streams.count(hwbuffer.name)>0)) {
-      
+        ostream.output_access_pattern = hwbuffer.output_access_pattern;      
         //hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
-        ostream.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
+        //ostream.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
+
       }
       //std::cout << "right after " << consumer.name << " replacements\n" << hwbuffer.output_access_pattern;
 
@@ -1560,7 +1566,8 @@ void linearize_address_space(HWBuffer &kernel) {
     OutputStream& ostream = istream.ostreams.at(kernel.name);
 
     IdentifyAddressing id_addr(istream.func, Scope<Expr>(), ostream.stride_map);
-    //std::cout << istream.output_access_pattern;
+    //std::cout << "output_access for " << istream.name << " to " << kernel.name << std::endl
+    //          << istream.output_access_pattern;
     istream.output_access_pattern.accept(&id_addr);
 
     if (istream.name != kernel.name) {
@@ -1669,7 +1676,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
 
     auto& kernel = hwbuffer_pair.second;
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    //std::cout << "Final buffer:\n" << kernel;
+    //std::cout << "Final buffer:\n" << kernel << std::endl << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();

@@ -200,6 +200,7 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
     //std::cout << "extracting hw buffers\n";
     vector<HWXcel> xcels;
     if (t.has_feature(Target::CoreIR)) {
+      //std::cout << s << std::endl;
       xcels = extract_hw_accelerators(s, env, inlined_stages);
       for (auto hwbuffer : xcels.at(0).hwbuffers) {
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
@@ -813,6 +814,150 @@ int ubuffer_pipeline_hwbuffer_test(vector<int> ksizes, int imgsize, int tilesize
     return 0;
 }
 
+struct SamplingParam {
+  bool is_downsample;
+  int rate;
+  SamplingParam(bool is_down, int rate) :
+    is_downsample(is_down), rate(rate) { }
+};
+
+SamplingParam Up(int rate) {
+  return SamplingParam(false, rate);
+}
+SamplingParam Dn(int rate) {
+  return SamplingParam(true, rate);
+}
+
+// The rates should be specified using Down and Up sampling constructors
+int sampling_pipeline_hwbuffer_test(vector<SamplingParam> rates, int imgsize, int tilesize) {
+  std::string suffix = "_";
+  for (auto param : rates) {
+    suffix += param.is_downsample ? "d" : "u";
+    suffix += to_string(param.rate) + "_";
+  }
+  suffix += to_string(imgsize) + "_" + to_string(tilesize);
+
+  size_t num_sampl = rates.size();
+  Func kernel[num_sampl];
+  Func sampl[num_sampl];
+  int r[num_sampl];
+  for (size_t i=0; i<num_sampl; ++i) {
+    std::string ii = to_string(i);
+    kernel[i] = Func("kernel"+ii+suffix);
+    sampl[i] = Func("sampl"+ii+suffix);
+    r[i] = rates[i].rate;
+  }
+  Func hw_input("hw_input"+suffix), hw_output("hw_output"+suffix), output("output"+suffix);
+  Var x("x"), y("y");
+  Var xi("xi"), yi("yi"), xo("xo"), yo("yo");
+
+  hw_input(x, y) = x + y;
+    
+  for (size_t i=0; i<num_sampl; ++i) {
+    kernel[i](x, y) = Expr(7*i) + 5*x + y;
+    
+    if (rates[i].is_downsample) {
+      if (i > 0) {
+        //sampl[i](x, y) += sampl[i-1](x+r[i].x, y+r[i].y) * kernel[i](r[i].x, r[i].y);
+        sampl[i](x, y) = sampl[i-1](x*r[i], y*r[i]);
+      } else {
+        //conv[i](x, y) += hw_input(x*r[i], y*r[i]) * kernel[i](r[i].x, r[i].y);
+        sampl[i](x, y) = hw_input(x*r[i], y*r[i]);
+      }
+    } else {
+      if (i > 0) {
+        sampl[i](x, y) = sampl[i-1](x/r[i], y/r[i]);
+      } else {
+        sampl[i](x, y) = hw_input(x/r[i], y/r[i]);
+      }
+
+    }
+  }
+
+  hw_output(x, y) = sampl[num_sampl-1](x, y);
+  output(x, y) = hw_output(x, y);
+
+  //// Schedule ////
+  output.bound(x, 0, imgsize);
+  output.bound(y, 0, imgsize);
+  hw_output.compute_root();
+          
+  hw_output.tile(x,y, xo,yo, xi,yi, tilesize, tilesize)
+    .hw_accelerate(xi, xo);
+
+  //hw_input.store_at(hw_output, xo).compute_at(sampl[0], x);
+  hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
+  hw_output.bound(x, 0, imgsize);
+  hw_output.bound(y, 0, imgsize);
+
+  for (uint i=0; i < num_sampl; ++i) {
+    sampl[i].store_at(hw_output, xo).compute_at(hw_output, xi);
+    kernel[i].compute_at(hw_output, xo);
+  }
+
+  hw_input.stream_to_accelerator();
+
+
+  //// Run through compiler and find hardware buffer
+  auto hwxcels = lower_to_hwbuffer({output.function()}, "samplchain_test",
+                                   Target().with_feature(Target::CoreIR),
+                                   {output.infer_arguments()});
+
+  h_assert(hwxcels.size() == 1, "Incorrect number of xcels found");
+  auto xcel = hwxcels.at(0);
+  check_param("Incorrect number of hwbuffers found", xcel.hwbuffers.size(), 2 + 1*num_sampl);
+  h_assert(xcel.hwbuffers.count("hw_input" + suffix) == 1, "Can't find hwbuffer named hw_input");
+  std::cout << "    done with hwbuffer creation of sampling" << suffix << "\n";
+
+  /*
+  //// Create ref buffer and check the hardware buffers
+  vector<string> buffer_names = vector<string>(num_sampl);
+  for (size_t i=0; i<num_sampl; ++i) {
+    string hwbuffer_name = i==0 ? "hw_input" + suffix : "sampl" + to_string(i-1) + suffix;
+    buffer_names[i] = hwbuffer_name;
+  }
+    
+  for (size_t i=0; i<num_sampl; ++i) {
+    string hwbuffer_name = buffer_names.at(i);
+    string producer_name = i==0 ? "" : buffer_names.at(i-1);
+    string consumer_name = i==num_sampl-1 ? "sampl"+std::to_string(i)+suffix : buffer_names.at(i+1);
+    h_assert(xcel.hwbuffers.count(hwbuffer_name) == 1, "Can't find hwbuffer named " + hwbuffer_name);
+    auto hwbuffer = xcel.hwbuffers.at(hwbuffer_name);
+      
+    int ref_logsize = tilesize;
+    for (size_t j=i; j<num_sampl; ++j) {
+      ref_logsize += ksizes.at(j) - 1;
+    }
+    int ksize = ksizes.at(i);
+    auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
+                                      {ksize, ksize}, {ksize, ksize},
+                                      {1, 1}, {1, 1});
+    int range = ref_logsize - (ksizes.at(i) - 1); // range does not include the last conv size
+    auto addrs = create_linear_addr({range, range},
+                                    {1, 1}, {0, 1});
+    vector<string> loops;
+    vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
+    for (auto loopvar : loopvars) {
+      if (i == 0) {
+        loops.emplace_back("hw_output" + suffix + loopvar.substr(0));
+      } else {
+        loops.emplace_back("hw_output" + suffix + loopvar);
+      }
+    }
+    int store_index = 0; //i==0 ? 0 : 0;
+    int compute_index = 2;
+
+    HWBuffer ref_hwbuffer = HWBuffer(hwbuffer_name, dims, addrs,
+                                     loops, store_index, compute_index,
+                                     false, false,
+                                     producer_name, consumer_name);
+    int output_value = check_hwbuffer_params(hwbuffer, ref_hwbuffer);
+    if (output_value != 0) { return output_value; }
+  }
+  */
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -840,7 +985,7 @@ int main(int argc, char **argv) {
     printf("Running tiled conv chain hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
     
-    //if (tiled_pipeline_hwbuffer_test({3}, 64, 32) != 0) { return -1; }
+    if (tiled_pipeline_hwbuffer_test({3}, 64, 32) != 0) { return -1; }
     if (tiled_pipeline_hwbuffer_test({7, 3, 5, 2}, 64, 16) != 0) { return -1; }
 
     printf("Running forked conv hwbuffer tests\n");
@@ -859,16 +1004,34 @@ int main(int argc, char **argv) {
     if (ubuffer_pipeline_hwbuffer_test({3, 4}, 64, 64) != 0) { return -1; }
     if (ubuffer_pipeline_hwbuffer_test({5, 2}, 31, 31) != 0) { return -1; }
 
-    printf("Running loop reordering hwbuffer tests\n");
-    printf("  checking hwbuffers...\n");
+    //printf("Running loop reordering hwbuffer tests\n");
+    //printf("  checking hwbuffers...\n");
     // no reorder
     // reordering with loops unrolled
+    // reordering with inner loops rolled
     
     printf("Running sampling hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
     // downsample
+    if (sampling_pipeline_hwbuffer_test({Dn(2)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Dn(3)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Dn(3),Dn(5)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Dn(3),Dn(5),Dn(8)}, 64, 64) != 0) { return -1; }
+
     // upsample
+    if (sampling_pipeline_hwbuffer_test({Up(2)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Up(4)}, 64, 64) != 0) { return -1; }
+    
+    // has problems with stride range not being a constant for back-to-back upsamples
+    //if (sampling_pipeline_hwbuffer_test({Up(3),Up(5)}, 64, 64) != 0) { return -1; }
+    //if (sampling_pipeline_hwbuffer_test({Up(3),Up(5),Up(8)}, 64, 64) != 0) { return -1; }
+
     // up and down sampling
+    if (sampling_pipeline_hwbuffer_test({Up(2),Dn(2)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Dn(3),Up(3)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Up(5),Dn(4)}, 64, 64) != 0) { return -1; }
+    if (sampling_pipeline_hwbuffer_test({Dn(3),Up(6),Dn(5),Dn(2),Up(4)}, 64, 64) != 0) { return -1; }
+    //if (sampling_pipeline_hwbuffer_test({Dn(3),Up(6),Up(4),Dn(5),Dn(2)}, 64, 64) != 0) { return -1; }
 
     printf("Running multi-pixel hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
@@ -882,6 +1045,23 @@ int main(int argc, char **argv) {
     // row of stencil at a time (pixel / 3 cycles)
     // column of stencil at a time (pixel / 3 cycles)
     // pixel of stencil at a time (pixel / 9 cycles)
+
+    /*   OTHER TESTS   */
+    // output blocks different compared to stencil (rolled hwbuffer tests)
+    // input chunks of different sizes (should happen in sampling cases)
+    // input blocks of different sizes
+    // multiple updates to a buffer (input streams)
+    // pixels raster-scan vs fill blocks first
+    // 
+    // multiple rates in a graph
+    // rate mismatched
+    // global buffer
+    // multiple updates from multiple producers
+    // non-rectangular access (dim depends on multiple loops)
+    // piecewise linear access (boundaries repeated, mirror, etc)
+    // general buffer generator
+    // general buffer graph
+
     
     printf("Success!\n");
     return 0;
