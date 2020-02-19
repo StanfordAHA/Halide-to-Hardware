@@ -382,6 +382,17 @@ namespace Halide {
                   stencil_valid_depth += std::get<1>(it);
               }
           }
+          void recursive_update_range(int add_depth, size_t loop_dim) {
+              if (port_number == 0)
+                  return;
+              cout << "rewrite range for reg" << endl;
+              range[loop_dim] += add_depth;
+              for (auto & it : child) {
+                  it.second.recursive_update_range(add_depth, loop_dim);
+              }
+          }
+
+          //void generate_coreir(Wireable* input_wire, )
   };
 
   /*ostream& operator<<(ostream& os, const vector<int> & vec) {
@@ -395,6 +406,7 @@ namespace Halide {
 
   ostream& operator<<(ostream& os, const ShiftReg& sr) {
       os << " Shift Register: size= " << sr.size << ", with " << sr.port_number << " port \n";;
+      os << "range: " << sr.range << "\nstride: " << sr.stride << std::endl;
       for_each(sr.port_map.begin(), sr.port_map.end(), [&os](std::tuple<string, int> port_info){
               os << "Port name = " << get<0>(port_info) << ", Depth = " << get<1>(port_info) << endl;
               });
@@ -451,6 +463,22 @@ namespace Halide {
               return false;
           }
 
+          //recursive update range of buffer if we add shift register
+          //TODO: may not work for irregular starting address, aka non block case
+          void recursive_update_range(map<string, int> depth_map, size_t loop_dim) {
+              cout << "rewrite range" << endl;
+              int range_add = depth_map.begin()->second;
+              for (auto it: depth_map) {
+                  internal_assert(range_add == it.second) << "Update range dimension is not same in port: " <<
+                      it.first <<" from loop dim: " << loop_dim;
+              }
+              range[loop_dim] += range_add;
+              for (auto & it : HWTree) {
+                  cout << "Port name: " << it.first << std::endl;
+                  it.second.recursive_update_range(range_add, loop_dim);
+              }
+          }
+
           void port_reduction(int threshold) {
               //make sure the threshold is less than the max of range
               for (size_t i = 0; i < loop_dim; i ++) {
@@ -504,15 +532,20 @@ namespace Halide {
                             cout << "( " << get<0>(vv)<< ", " << get<1>(vv) << ") " << std::endl;
                       }
 
+                      //save the stencil valid depth
+                      map<string, int> depth_map;
                       for (auto it: new_start_addr) {
                           //create the shift reg structure for all the new output port
                           string port_name = it.first;
                           newTree[port_name] = ShiftReg(range, stride, stride_ref_dim, merge_addr_gather[port_name], HWTree, addr_dim, stride_ref_dim[i]);
+                          depth_map[port_name] = newTree[port_name].stencil_valid_depth;
                       }
+
 
                       //mutate the old structure
                       start_addr = new_start_addr;
                       HWTree = newTree;
+                      recursive_update_range(depth_map, i);
                       //update merge addr
                       reset_merge_addr();
                   }
@@ -627,6 +660,7 @@ namespace Halide {
 
   ostream& operator<<(ostream& os, const RecursiveBuffer& rb) {
       os << "start addr info: \n";
+      os << "range: " << rb.range << "\nstride: " << rb.stride << std::endl;
       for_each(rb.start_addr.begin(), rb.start_addr.end(), [&os](std::pair<string, vector<int>> it) {
               os << "port name = " << it.first << ", start pos = " << it.second << std::endl;
               });
