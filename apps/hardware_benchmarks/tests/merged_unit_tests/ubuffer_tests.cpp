@@ -284,7 +284,7 @@ void ubuffer_small_conv_3_3_test() {
   };
 
 
-
+  cout << "----------------simulator start-----------------"<<endl;
   map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
 
   SimulatorState state(m, qualifiedNamesToSimPlugins);
@@ -293,8 +293,10 @@ void ubuffer_small_conv_3_3_test() {
   state.setValue("self.write_port_0_en", BitVector(1, 0));
   state.setClock("self.clk", 0, 1);
   state.setValue("self.reset", BitVector(1, 1));
+  cout << "begin the reset\n";
   state.resetCircuit();
   state.setValue("self.reset", BitVector(1, 0));
+
 
   assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
 
@@ -302,6 +304,7 @@ void ubuffer_small_conv_3_3_test() {
   vector<int> port_0_values;
   map<int, vector<int> > port_vals;
   for (int t = 0; t < inTileSize*inTileSize; t++) {
+      cout << "At position: " << t << endl;
     state.setValue("self.write_port_0", BitVector(16, t));
     state.setValue("self.write_port_0_en", BitVector(1, 1));
 

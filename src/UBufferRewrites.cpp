@@ -415,14 +415,13 @@ namespace Halide {
           Values generate_ubuf_args(string port_name, int stencil_valid_depth, int width, int flatten_size) {
               auto context = def->getContext();
               json out_start;
-              out_start["starting_addr"][0] = 0;
+              out_start["output_start"][0] = 0;
               json logical_size;
-              for (size_t i = 0; i < size.size(); i ++){
-                  if (i == 0)
-                      logical_size["capacity"][i] = id_const_value(flatten_size);
-                  else
-                      logical_size["capacity"][i] = 1;
-              }
+              logical_size["capacity"][0] = flatten_size;
+              json input_chunk;
+              json output_stencil;
+              input_chunk["input_chunk"][0] = flatten_size;
+              output_stencil["output_stencil"][0] = flatten_size;
               Values args =
                       {{"width", Const::make(context, width)},
                       {"stencil_width", Const::make(context, stencil_valid_depth)},
@@ -431,11 +430,16 @@ namespace Halide {
                       {"rate_matched", Const::make(context, false)},
                       {"chain_en", Const::make(context, false)},
                       {"dimensionality", Const::make(context, 1)},
+                      {"input_stride_0", Const::make(context, 1)},
+                      {"input_range_0", Const::make(context, flatten_size)},
                       {"stride_0", Const::make(context, 1)},
                       {"range_0", Const::make(context, flatten_size)},
                       {"iter_cnt", Const::make(context, flatten_size)},
                       {"logical_size", Const::make(context, logical_size)},
-                      {"output_starting_addrs", Const::make(context, out_start)}};
+                      {"input_chunk", Const::make(context, input_chunk)},
+                      {"output_stencil", Const::make(context, output_stencil)},
+                      {"output_starting_addrs", Const::make(context, out_start)},
+                      {"num_stencil_acc_dim", Const::make(context, 1)}};
               return args;
           }
 
@@ -480,11 +484,11 @@ namespace Halide {
                     //       {{"width",Const::make(context,width)}});
                       auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
                       def->connect(d0->sel("in"), last_data);
+                      last_data = d0->sel("out");
 
                       //use a dummy data valid since not use in register
                       it.second.generate_coreir(make_pair(last_data, last_data_valid), it.first, flatten_vec);
 
-                      last_data = d0->sel("out");
 
                   }
                   return nullptr;
@@ -702,7 +706,7 @@ namespace Halide {
 
           bool flatten_ubuf_to_wire(vector<int> l_size, vector<int> l_size_flatten) {
               for (size_t dim = 0; dim < loop_dim; dim ++) {
-                  if(range[dim] != l_size[dim] || stride[dim] != l_size_flatten[dim]) {
+                  if(range[dim] != l_size[dim] || stride_ref_dim[dim] != (int)dim) {
                       return false;
                   }
               }
@@ -731,6 +735,7 @@ namespace Halide {
               }
 
               bool flatten_buffer = flatten_ubuf_to_wire(dim_vector, flatten_dim_vector);
+              cout << "flatten_buffer = " << flatten_buffer <<endl;
               if (!flatten_buffer) {
                   //TODO:figure out where does the datawidth saved
                   int width = 16;
