@@ -118,6 +118,7 @@ dhlog.txt
 *.bzl
 
 halide_config.make
+halide
 
 apps/hardware_benchmarks/tests/conv_1_2/generator
 apps/hardware_benchmarks/tests/merged_unit_tests/accel_coreir

@@ -23,6 +23,9 @@
 namespace Halide {
 namespace Internal {
 
+//Add to header file
+std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec);
+
 struct MergedDimSize {
   std::string loop_name;
   Expr logical_size;
