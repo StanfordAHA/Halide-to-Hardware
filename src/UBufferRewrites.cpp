@@ -359,7 +359,8 @@ namespace Halide {
           vector<int> range;
 
           //map from depth to name
-          vector<tuple<string, int>> port_map;
+          //vector<tuple<string, int>> port_map;
+          map<int, string> port_map;
           int num_child_ports;
 
           map<string, ShiftReg> child;
@@ -379,17 +380,22 @@ namespace Halide {
               stride = stride_in;
               stride_ref_dim = stride_ref_dim_in;
               size[stride_ref_dim[ref_dim]] = stride[stride_ref_dim[ref_dim]];
-              port_map = port_map_in;
+              for (const auto &port_depth_tuple : port_map_in) {
+                  //use map to sort
+                  port_map.insert(make_pair(get<1>(port_depth_tuple), get<0>(port_depth_tuple)));
+              }
               for (auto it : port_map) {
-                  string key = std::get<0>(it);
+                  string key = it.second;
                   child.insert(std::make_pair(key, HWTree[key]));
               }
               port_number = port_map.size();
               stencil_valid_depth = 0;
               for(auto it: port_map) {
-                  stencil_valid_depth += std::get<1>(it);
+                  int depth = it.first;
+                  stencil_valid_depth = std::max(stencil_valid_depth, depth);
               }
           }
+
           void recursive_update_range(int add_depth, size_t loop_dim) {
               if (port_number == 0)
                   return;
@@ -474,20 +480,23 @@ namespace Halide {
                   //possible bug: cold only support dilation = 1 convolution kernel
                   //add register
                   //add delay use a flag to decide whether use the stencil valid from tile
-                  for (auto it: child) {
-                      if (it.first == rp) {
-                          it.second.generate_coreir(input_pair, rp, flatten_vec);
+                  for (auto it: port_map) {
+                      string port_name = it.second;
+                      auto child_node = child[port_name];
+                      if (port_name == rp) {
+                          child_node.generate_coreir(input_pair, rp, flatten_vec);
                           continue;
                       }
-                      cout << "visit port: " << it.first << endl;
+                      cout << "visit port: " << port_name << endl;
                       //auto d0 = def->addInstance("d_reg" + context->getUnique(),"corebit.reg",
-                    //       {{"width",Const::make(context,width)}});
+                      //       {{"width",Const::make(context,width)}});
+                      //FIXME: possible bug, should use depth of the fifo
                       auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
                       def->connect(d0->sel("in"), last_data);
                       last_data = d0->sel("out");
 
                       //use a dummy data valid since not use in register
-                      it.second.generate_coreir(make_pair(last_data, last_data_valid), it.first, flatten_vec);
+                      child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
 
 
                   }
@@ -495,18 +504,23 @@ namespace Halide {
               }
               else {
                   //add row buffer
-                  for (auto it: child) {
-                      if (it.first == rp) {
-                          cout << "visit port: " << it.first << endl;
-                          it.second.generate_coreir(input_pair, rp, flatten_vec);
+                  for (auto it: port_map) {
+                      string port_name = it.second;
+                      auto child_node = child[port_name];
+                      if (port_name == rp) {
+                          cout << "visit port: " << port_name << endl;
+                          child_node.generate_coreir(input_pair, rp, flatten_vec);
                       }
                       else{
-                          cout << "visit port: " << it.first << endl;
+                          cout << "visit port: " << port_name << endl;
+                          bool last_port_flag = (port_name == port_map.rbegin()->second);
+
                           int stencil_valid_depth = 0;
-                          bool last_port_flag = (it.first == child.rbegin()->first);
                           if (last_port_flag)
-                              stencil_valid_depth = it.second.stencil_valid_depth;
-                          auto args = generate_ubuf_args(it.first, stencil_valid_depth, width, flatten_size);
+                              stencil_valid_depth = child_node.stencil_valid_depth;
+
+                          //FIXME: possible bug, should use depth of the fifo
+                          auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size);
                           //add ubuffer and wiring
                           auto row_buffer_coreir = def->addInstance("row_buf_"+context->getUnique(),
                                   "lakelib.unified_buffer", args);
@@ -518,7 +532,7 @@ namespace Halide {
                           last_data_valid = row_buffer_coreir->sel("valid");
 
                           //generate coreIR for next level, ignore the inner level stencil valid
-                          it.second.generate_coreir(make_pair(last_data, last_data_valid), it.first, flatten_vec);
+                          child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
 
 
                           //wire the reset and ren
@@ -556,8 +570,8 @@ namespace Halide {
   ostream& operator<<(ostream& os, const ShiftReg& sr) {
       os << " Shift Register: size= " << sr.size << ", with " << sr.port_number << " port \n";;
       os << "range: " << sr.range << "\nstride: " << sr.stride << std::endl;
-      for_each(sr.port_map.begin(), sr.port_map.end(), [&os](std::tuple<string, int> port_info){
-              os << "Port name = " << get<0>(port_info) << ", Depth = " << get<1>(port_info) << endl;
+      for_each(sr.port_map.begin(), sr.port_map.end(), [&os](std::pair<int, string> port_info){
+              os << "Port name = " << port_info.second  << ", Depth = " << port_info.first << endl;
               });
       for (const auto &[k, v] : sr.child)
               os << "child map: [" << k << "] = \n(" << v << ") " << std::endl;
@@ -630,6 +644,19 @@ namespace Halide {
               }
           }
 
+          //recursive find the source port, union find source
+          std::pair<string, int> find_source_and_depth(string port_name) {
+              string source_name = std::get<0>(merge_addr[port_name]);
+              int source_depth = std::get<1>(merge_addr[port_name]);
+              if (std::get<0>(merge_addr[source_name]) == source_name) {
+                  return make_pair(source_name, source_depth);
+              }
+              else{
+                  auto ret = find_source_and_depth(source_name);
+                  return make_pair(ret.first, ret.second + source_depth);
+              }
+          }
+
           void port_reduction(int threshold) {
               //make sure the threshold is less than the max of range
               for (size_t i = 0; i < loop_dim; i ++) {
@@ -638,7 +665,7 @@ namespace Halide {
                       vector<vector<int>> next_addr;
                       for (const auto it: start_addr) {
                           auto temp = it.second;
-                          temp[stride_ref_dim[i]] += c * stride[i];
+                          temp[stride_ref_dim[i]] -= c * stride[i];
 
                           for (const auto overlap_port : start_addr) {
                               if (std::equal(temp.begin(), temp.end(), overlap_port.second.begin())) {
@@ -659,20 +686,33 @@ namespace Halide {
                     for (const auto &[k, v] : merge_addr)
                         cout << "\nMERGED ADDR: [" << k << "] = \n(" << get<0>(v)<< ", " << get<1>(v) << ") " << std::endl;
                   if (find_overlap()) {
+
                       //create a new map
                       map<string, vector<int>> new_start_addr;
                       map<string, vector<tuple<string, int> > > merge_addr_gather;
                       map<string, ShiftReg> newTree;
-                      for (auto it: merge_addr) {
+                      for (auto & it: merge_addr) {
                           if (it.first == std::get<0>(it.second)) {
                               //find the source port
                               new_start_addr.insert(make_pair(it.first,  start_addr[it.first]));
                               merge_addr_gather[it.first].push_back(it.second);
                           }
                           else {
+                              //if it's not the source port, update the merge port to be the source node
+                              auto ret = find_source_and_depth(it.first);
+                              std::get<0>(it.second) = ret.first;
+                              std::get<1>(it.second) = ret.second;
+                          }
+                      }
+
+                      cout << "After First Pass processing of the merge address" << endl;
+                      for (const auto &[k, v] : merge_addr)
+                        cout << "\nMERGED ADDR: [" << k << "] = \n(" << get<0>(v)<< ", " << get<1>(v) << ") " << std::endl;
+                      for (auto it : merge_addr){
+                          if (it.first != std::get<0>(it.second)) {
                               //all the source should be put in front of the merged node
                               internal_assert(merge_addr_gather.count(get<0>(it.second))) << "Source node " <<
-                                  get<0>(it.second) << "is not add to the merge list";
+                                get<0>(it.second) << "is not add to the merge list";
                               merge_addr_gather[get<0>(it.second)].push_back(make_tuple(it.first, get<1>(it.second)));
                           }
                       }

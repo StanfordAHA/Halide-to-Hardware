@@ -301,8 +301,7 @@ void ubuffer_small_conv_3_3_test() {
   assert(state.getBitVec("self.read_port_0_valid") == BitVec(1, 0));
 
   int n_valids = 0;
-  vector<int> port_0_values;
-  map<int, vector<int> > port_vals;
+  vector<vector<int> > port_values(9, vector<int>(outTileSize*outTileSize, 0));
   for (int t = 0; t < inTileSize*inTileSize; t++) {
       cout << "At position: " << t << endl;
     state.setValue("self.write_port_0", BitVector(16, t));
@@ -310,33 +309,42 @@ void ubuffer_small_conv_3_3_test() {
 
     //state.exeCombinational();
     //FIXME: discuss with Dillon about the timing
-    state.execute();
-    if (state.getBitVec("self.read_port_0_valid") == BitVec(1, 1)) {
-      port_0_values.push_back(state.getBitVec("self.read_port_0").to_type<int>());
-      for (int i = 0; i < 9; i++) {
-        port_vals[i].push_back(state.getBitVec("self.read_port_" + to_string(i)).to_type<int>());
-      }
-      n_valids++;
+    state.exeCombinational();
+    for (size_t port_num = 0; port_num <9; port_num++ ){
+        if (state.getBitVec("self.read_port_"+to_string(port_num)+"_valid") == BitVec(1, 1)) {
+            port_values[port_num][n_valids] = state.getBitVec("self.read_port_"+to_string(port_num)).to_type<int>();
+            if (port_num == 8)
+                n_valids ++;
+        }
     }
+    state.exeSequential();
   cout << "n_valids = " << n_valids << endl;
   }
 
   cout << "n_valids = " << n_valids << endl;
-  assert(n_valids == outTileSize*outTileSize);
-  assert(port_0_values.size() == outTileSize*outTileSize);
+  assert(n_valids == outTileSize*outTileSize && "Valid count is not matched");
 
-  for (int i = 0; i < port_0_values.size(); i++) {
+  //for (int i = 0; i < port_0_values.size(); i++) {
     //cout << "\toutput = " << port_0_values.at(i) << endl;
-  }
+  //}
   //vector<int> correct{0, 1, 4, 5};
   //assert(port_0_values == correct);
 
-  cout << "--- Port values" << endl;
-  for (int p = 0; p < 9; p++) {
-    cout << "Port: " << p << endl;
-    for (size_t i = 0; i < port_vals[p].size(); i++) {
-    //  cout << "\t\toutput = " << port_vals[p].at(i) << endl;
-    }
+  cout << "--- Check Port values ---" << endl;
+  for (int row = 0; row < 62; row++) {
+  for (int col = 0; col < 62; col++) {
+      for (size_t p = 0; p < 9; p++) {
+          int px = p % 3;
+          int py = p / 3;
+          int out_pos = row*62 + col;
+          int target = (col + px) + (row + py) * 64;
+          //cout << "Port: " << p << ", val: " << port_values[p][out_pos] << endl;
+          if (port_values[p][out_pos] != target) {
+              cout << "Conv result not match at coordination [" << col << ", " << row <<"], port [" << px << ", "<< py <<  "]\n expect val=" << target <<", but get val =" << port_values[p][out_pos] <<endl;
+              assert(false);
+          }
+      }
+  }
   }
   deleteContext(context);
 
