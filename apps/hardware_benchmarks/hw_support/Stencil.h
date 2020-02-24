@@ -256,7 +256,7 @@ void buffer_to_stencil(const buffer_t *buffer,
 }
 
 template <typename T, size_t EXTENT_0, size_t EXTENT_1, size_t EXTENT_2, size_t EXTENT_3>
-void subimage_to_stream(const struct buffer_t *buf_noop,
+void subimage_to_stream(const struct halide_buffer_t *buf_noop,
                         hls::stream<AxiPackedStencil<T, EXTENT_0, EXTENT_1, EXTENT_2, EXTENT_3> > &stream,
                         void *subimage,
                         int stride_0, int subimage_extent_0,
@@ -288,7 +288,7 @@ void subimage_to_stream(const struct buffer_t *buf_noop,
 }
 
 template <typename T, size_t EXTENT_0, size_t EXTENT_1, size_t EXTENT_2, size_t EXTENT_3>
-void stream_to_subimage(const struct buffer_t *buf_noop,
+void stream_to_subimage(const struct halide_buffer_t *buf_noop,
                         hls::stream<AxiPackedStencil<T, EXTENT_0, EXTENT_1, EXTENT_2, EXTENT_3> > &stream,
                         void *subimage,
                         int stride_0, int subimage_extent_0,

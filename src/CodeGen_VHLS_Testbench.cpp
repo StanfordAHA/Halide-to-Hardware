@@ -60,11 +60,13 @@ vector<VHLS_Argument> VHLS_Closure::arguments(const Scope<CodeGen_VHLS_Base::Ste
 }
 
 namespace {
-const string vhls_headers =
-    "#include <hls_stream.h>\n"
-    "#include \"Stencil.h\"\n"
-    "#include \"vhls_target.h\"\n";
+    const string vhls_headers =
+        "#include <hls_stream.h>\n"
+        "#include \"Stencil.h\"\n"
+        "#include \"vhls_target.h\"\n";
 }
+
+
 
   CodeGen_VHLS_Testbench::CodeGen_VHLS_Testbench(ostream &tb_stream, Target target)
       : CodeGen_VHLS_Base(tb_stream, target, CPlusPlusImplementation, ""),
@@ -147,6 +149,18 @@ void CodeGen_VHLS_Testbench::visit(const Call *op) {
         do_indent();
         stream << "buffer_to_stencil(" << a0 << ", " << a1 << ");\n";
         id = "0"; // skip evaluation
+    } else if(op->name == "address_of") {
+        std::ostringstream rhs;
+        const Load *l = op->args[0].as<Load>();
+        internal_assert(op->args.size() == 1 && l);
+        rhs << "(("
+            << print_type(l->type.element_of())
+            << " *)"
+            << print_name(l->name)
+            << " + "
+            << print_expr(l->index)
+            << ")";
+        print_assignment(op->type, rhs.str());
     } else {
         CodeGen_VHLS_Base::visit(op);
     }

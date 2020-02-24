@@ -23,7 +23,7 @@ namespace Tools {
 #define USING_HALIDE_BUFFER
 
 template< typename T >
-using Image = Buffer<T>;
+using Image = Runtime::Buffer<T>;
 
 }   // namespace Tools
 }   // mamespace Halide
