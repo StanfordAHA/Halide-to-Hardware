@@ -3,10 +3,11 @@ PNG_LIB = $(shell libpng-config --cflags --ldflags)
 THIS_MAKEFILE = $(realpath $(filter %Makefile, $(MAKEFILE_LIST)))
 ROOT_DIR = $(strip $(shell dirname $(THIS_MAKEFILE)))
 COREIR_DIR ?= $(ROOT_DIR)/../../../../../coreir
+DEBUG_SIM ?= 0
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float -lcoreir-lakelib
 FUNCBUF_DIR ?= $(ROOT_DIR)/../../../../../BufferMapping/cfunc
-COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin
+COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -DVERBOSE=$(DEBUG_SIM)
 
 UNAME = $(shell uname)
 
