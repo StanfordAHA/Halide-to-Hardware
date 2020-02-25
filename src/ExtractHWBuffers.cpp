@@ -449,7 +449,8 @@ class FindOutputStencil : public IRVisitor {
     if (call_at_level(op->body, var) && provide_at_level(op->body, consumer) && search_for_min) {
       found_output_min = true;
       search_for_min = false;
-      //std::cout << "we found the output min pos for " << var << ": " << op->body << std::endl;
+      //std::cout << "we found the output min pos for " << var << " to " << consumer << std::endl
+      //          << op->body << std::endl;
       auto box_read = box_required(op->body, var);
       auto interval = box_read;
       output_min_pos_box = vector<Expr>(interval.size());
@@ -460,6 +461,7 @@ class FindOutputStencil : public IRVisitor {
         auto output_block = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         output_block_box[dim] = output_block;
         //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+        //std::cout << "(" << output_block << ")  ";
       }
       //std::cout << "]\n";
       
@@ -1153,7 +1155,7 @@ void set_output_params(HWXcel *xcel,
       }
       consumer_buffer.my_stmt.accept(&fos);
       //hwbuffer.my_stmt.accept(&fos);
-      //std::cout << "looking for output stencil and min for " << hwbuffer.name << " in consumer " << consumer.name << ": \n" << consumer_buffer.my_stmt << std::endl;
+      //std::cout << "looking for output stencil and min for " << hwbuffer.name << " to consumer " << consumer.name << ": \n" << std::endl; //consumer_buffer.my_stmt << std::endl;
 
       if (fos.found_output_min) {
         //std::cout << hwbuffer.name << " to " << consumer.name << " output_min_pos0=" << fos.output_min_pos_box[0] << std::endl;
@@ -1325,6 +1327,7 @@ void set_output_params(HWXcel *xcel,
 
 
       for (size_t i=0; i < fos.output_block_box.size(); ++i) {
+        
         ostream.odims.at(i).output_block   = fos.output_block_box.at(i);
         ostream.odims.at(i).output_min_pos = fos.output_min_pos_box.at(i);
         if (fos.found_stencil) {
@@ -1636,6 +1639,34 @@ void calculate_accumulation(HWBuffer &kernel) {
     }
 }
 
+void fixup_hwbuffer(HWBuffer& hwbuffer) {
+  for (auto& ostream_pair : hwbuffer.ostreams) {
+    auto& ostream = ostream_pair.second;
+
+    for (auto& dim : ostream.odims) {
+      if (!dim.output_stencil.defined()) {
+        dim.output_stencil = Expr(99);
+      }
+      if (!dim.output_block.defined()) {
+        dim.output_block = Expr(99);
+      }
+
+    }
+    
+    for (auto& dim : ostream.linear_access) {
+      if (is_one(dim.dim_ref > 10 || dim.dim_ref < 0)) {
+        dim.dim_ref = 0;
+      }
+    }
+  }
+
+  for (auto& dim : hwbuffer.dims) {
+    if (!dim.output_stencil.defined()) {
+      dim.output_stencil = Expr(99);
+    }
+  }
+}
+
 void extract_hw_xcel_top_parameters(Stmt s, Function func,
                                     const map<string, Function> &env,
                                     const vector<BoundsInference_Stage> &inlined,
@@ -1649,7 +1680,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     xcel->input_streams.emplace(xcel_input);
   }
 
-  //std::cout << "creating an accelerator for " << func.name() << std::endl << s << std::endl;
+  //std::cout << "creating an accelerator for " << func.name() << std::endl;// << s << std::endl;
 
   //std::cout << xcel->name << " has the streaming loops: ";
   //for (const auto& streaming_loop_name : xcel->streaming_loop_levels) {
@@ -1664,19 +1695,24 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
 
   // use realizes to define each hwbuffer
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel);
+  //std::cout << "got some buffers" << std::endl;
 
   // set output parameters for hwbuffers based on consumers
   set_output_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope);
+  //std::cout << "set stream params" << std::endl;
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     linearize_address_space(hwbuffer_pair.second);
     calculate_accumulation(hwbuffer_pair.second);
   }
+  //std::cout << "linearized address space" << std::endl;
+  
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
 
     auto& kernel = hwbuffer_pair.second;
+    fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    //std::cout << "Final buffer:\n" << kernel << std::endl << kernel.my_stmt;
+    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();

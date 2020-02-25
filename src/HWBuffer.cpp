@@ -40,6 +40,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   vector<string> input_istreams, output_ostreams;
   map<string, vector<Expr> > ostream_output_mins;
   map<string, vector<Expr> > ostream_output_stencils;
+  map<string, vector<Expr> > ostream_output_blocks;
   map<string, vector<AccessDimSize> > ostream_linear_accesses;
   for (const auto& istream_pair : buffer.istreams) {
     input_istreams.emplace_back(istream_pair.first);
@@ -47,13 +48,16 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   for (const auto& ostream_pair : buffer.ostreams) {
     vector<Expr> consumer_output_min;
     vector<Expr> consumer_output_stencil;
+    vector<Expr> consumer_output_block;
     output_ostreams.emplace_back(ostream_pair.first);
     for (const auto& dim : ostream_pair.second.odims) {
       consumer_output_min.emplace_back(dim.output_min_pos);
       consumer_output_stencil.emplace_back(dim.output_stencil);
+      consumer_output_block.emplace_back(dim.output_block);
     }
     ostream_output_mins[ostream_pair.first] = consumer_output_min;
     ostream_output_stencils[ostream_pair.first] = consumer_output_stencil;
+    ostream_output_blocks[ostream_pair.first] = consumer_output_block;
     ostream_linear_accesses[ostream_pair.first] = ostream_pair.second.linear_access;
   }
 
@@ -77,6 +81,10 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   }
   for (const auto& osten_pair : ostream_output_stencils) {
     os << "Ostream " << osten_pair.first << " Output Stencil: "
+       << osten_pair.second << std::endl;
+  }
+  for (const auto& osten_pair : ostream_output_blocks) {
+    os << "Ostream " << osten_pair.first << " Output Block: "
        << osten_pair.second << std::endl;
   }
   for (const auto& olac_pair : ostream_linear_accesses) {

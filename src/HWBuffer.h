@@ -24,6 +24,12 @@ namespace Internal {
 
 struct HWBuffer; // forward declare
 
+struct Port {
+  int block_index;   // ports are labeled in order
+  std::vector<Expr> block_indices;
+  int starting_addr; // block_indices * logical
+};
+
 struct Stride {
   int stride;
   bool is_inverse;
@@ -86,6 +92,7 @@ struct OutputDimSize {
 struct OutputStream {
   std::string name;
   std::vector<OutputDimSize> odims;
+  std::map<std::vector<Expr>, Port> oports;
   Stmt output_access_pattern;
   std::map<std::string, Stride> stride_map;
   std::vector<AccessDimSize> linear_access;

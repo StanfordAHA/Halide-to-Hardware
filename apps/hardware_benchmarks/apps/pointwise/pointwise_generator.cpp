@@ -26,13 +26,15 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
+          //hw_input.compute_root();
           hw_output.compute_root();
-          
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             .hw_accelerate(xi, xo);
           hw_output.bound(x, 0, 64);
           hw_output.bound(y, 0, 64);
+
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
 
           hw_input.stream_to_accelerator();
 

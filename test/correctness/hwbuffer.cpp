@@ -484,19 +484,22 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
     hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
       .hw_accelerate(xi, xo);
 
+    conv_last.store_at(hw_output, xo).compute_at(hw_output, xi);
+    for (size_t i=0; i<num_conv; ++i) {
+      conv_last.update(i).unroll(r_last.x).unroll(r_last.y);
+    }
+    
     for (uint i=0; i < num_conv; ++i) {
       conv[i].store_at(hw_output, xo).compute_at(hw_output, xi);
-      kernel[i].compute_at(hw_output, yi);
+      kernel[i].compute_at(hw_output, xo);
       conv[i].update().unroll(r[i].x).unroll(r[i].y);
 		}
 
     k_init.compute_at(hw_output, xo);
     conv_init.store_at(hw_output, xo).compute_at(hw_output, xi);
     conv_init.update().unroll(r_init.x).unroll(r_init.y);
-
-    conv_last.store_at(hw_output, xo).compute_at(hw_output, xi);
     
-    hw_input.store_at(hw_output, xo).compute_at(conv_init, x);
+    hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
     hw_input.stream_to_accelerator();
 
     //// Run through compiler and find hardware buffer
@@ -546,15 +549,16 @@ int forked_pipeline_hwbuffer_test(int initk, vector<int> ksizes, int lastk, int 
         i==0 ? imgsize + (lastk-1) + (max_conv_size-1) + (initk-1) :
         i==1 ? imgsize + (lastk-1) + (max_conv_size-1) :
         imgsize + (lastk-1);
-
       int ksize =
         i==0 ? initk :
         i==1 ? max_conv_size :
         lastk;
+      int range = ref_logsize - (ksize-1); // range does not include the last conv size
+      
       auto dims = create_hwbuffer_sizes({ref_logsize, ref_logsize},
                                         {ksize, ksize}, {ksize, ksize},
                                         {1, 1}, {1, 1});
-      auto addrs = create_linear_addr({ref_logsize, ref_logsize},
+      auto addrs = create_linear_addr({range, range},
                                       {1, 1}, {0, 1});
       vector<string> loops;
       vector<string> loopvars = {".xo", ".s0.y.yi", ".s0.x.xi"};
@@ -964,7 +968,6 @@ int main(int argc, char **argv) {
 
     printf("Running conv hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
-
     if (conv_hwbuffer_test(1, 64) != 0) { return -1; }
     if (conv_hwbuffer_test(2, 64) != 0) { return -1; }
     if (conv_hwbuffer_test(3, 64) != 0) { return -1; }
@@ -975,7 +978,6 @@ int main(int argc, char **argv) {
 
     printf("Running conv chain hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
-
     if (pipeline_hwbuffer_test({1, 1}, 64) != 0) { return -1; }
     //if (pipeline_hwbuffer_test({7, 5, 2}, 64) != 0) { return -1; }
     if (pipeline_hwbuffer_test({5, 3}, 64) != 0) { return -1; }
@@ -984,16 +986,14 @@ int main(int argc, char **argv) {
 
     printf("Running tiled conv chain hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
-    
     if (tiled_pipeline_hwbuffer_test({3}, 64, 32) != 0) { return -1; }
     if (tiled_pipeline_hwbuffer_test({7, 3, 5, 2}, 64, 16) != 0) { return -1; }
 
     printf("Running forked conv hwbuffer tests\n");
     printf("  checking hwbuffers...\n");
-
-    //if (forked_pipeline_hwbuffer_test(3, {1, 1}, 3, 64) != 0) { return -1; }
-    //if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
-    //if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
+    if (forked_pipeline_hwbuffer_test(3, {1, 1}, 3, 64) != 0) { return -1; }
+    if (forked_pipeline_hwbuffer_test(3, {3, 3}, 3, 64) != 0) { return -1; }
+    if (forked_pipeline_hwbuffer_test(5, {4, 3}, 2, 64) != 0) { return -1; }
 
     printf("Running compute level hwbuffer tests\n");
     printf("  checking hwbuffers...\n");

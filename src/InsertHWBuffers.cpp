@@ -157,8 +157,13 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
               } else {
                 //offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 //const auto rand_ostream = kernel.ostreams.at(target_buffer);
-                //const auto rand_ostream = kernel.ostreams.at(kernel.name);
-                //offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream.odims.at(i).output_min_pos;
+                if (kernel.ostreams.count(kernel.name)) {
+                  const auto rand_ostream = kernel.ostreams.at(kernel.name);
+                  offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream.odims.at(i).output_min_pos;
+                } else {
+                  const auto rand_ostream = kernel.ostreams.cbegin(); // FIXME: probably should be a specific ostream?
+                  offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
+                }
               }
               
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
@@ -467,8 +472,8 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
     std::cout << input.name << " to " << kernel.name << " has " << input.ostreams.count(kernel.name) << std::endl;
     std::cout << input.ostreams.at(kernel.name).odims.size() << std::endl;
     for (const auto &dim : input.ostreams.at(kernel.name).odims) {
-      std::cout << "output stencil is of size " << dim.output_stencil << std::endl;
-      bounds.push_back(Range(0, dim.output_stencil));
+      std::cout << "output stencil is of size " << dim.output_block << std::endl;
+      bounds.push_back(Range(0, dim.output_block));
     }
     //std::cout << "created the realize\n";
     s = Realize::make(stencil_name, input.func.output_types(), MemoryType::Auto, bounds, const_true(), pc);
@@ -478,7 +483,11 @@ Stmt add_hwinput_stencil(Stmt s, const HWBuffer &kernel, const HWBuffer &input) 
 // Determine if a hwbuffer is needed (based on stride == stencil_size, and multiple uses)
 bool need_hwbuffer(const HWBuffer &kernel) {
   // let's not do any optimization
-  //return true;
+  if (kernel.is_output) {
+    return false;
+  } else {
+    return true;
+  }
   
     // check if we need a hwbuffer
     bool ret = false;
@@ -538,7 +547,8 @@ bool need_hwbuffer(const HWBuffer &kernel) {
                 << kernel.num_accum_iters << " iterations" << std::endl;
       //ret = true;
     }
-     
+
+    std::cout << kernel.name << " is needs_hwbuffer=" << ret << std::endl;
     return ret;
 }
 
@@ -594,7 +604,8 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         // we should push the output stencil for each consumer
         int num_ostreams = 0;
         int num_updates = 0;
-        hwbuffer_args.push_back(1); // number of ostreams
+        //hwbuffer_args.push_back(Expr(kernel.ostreams.size())); // number of ostreams
+        hwbuffer_args.push_back(Expr(1)); // number of ostreams
         for (const auto& ostream_p : kernel.ostreams) {
           if (ostream_p.first != kernel.name) { // skip updates for now
             hwbuffer_args.push_back(ostream_p.first);
@@ -610,6 +621,8 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
           } else {
             num_updates += 1;
           }
+          
+          if (num_ostreams == 1) { break; }
         }
         //internal_assert(num_ostreams < 2);
 
@@ -699,13 +712,16 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         
         Stmt hwbuffer_call = Evaluate::make(Call::make(Handle(), "hwbuffer", hwbuffer_args, Call::Intrinsic));
         Stmt dispatch_call = create_hwbuffer_dispatch_call(kernel);
+        std::cout << "created a dispatch\n";
         Stmt buffer_calls = Block::make(hwbuffer_call, dispatch_call);
-
+        std::cout << "created a hwbuffer block\n";
+        
         // create a realization of the stencil of the window-size
         Region window_bounds;
         for (const auto& dim: kernel.dims) {
             window_bounds.push_back(Range(0, dim.output_stencil));
         }
+        std::cout << "created hwbuffer region\n";
         ret = Realize::make(stream_name, kernel.func.output_types(), MemoryType::Auto, window_bounds, const_true(), Block::make(hwbuffer_call, Block::make(dispatch_call, s)));
     } else {
         user_warning << "No hwbuffer inserted after function " << kernel.name
