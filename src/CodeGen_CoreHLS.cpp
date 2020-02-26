@@ -118,6 +118,7 @@ void HWFunction::deleteInstr(HWInstr* instr) {
   for (auto blk : blocks) {
     CoreIR::remove(instr, blk->instrs);
   }
+
 }
 
 void replaceOperand(HWInstr* toReplace, HWInstr* replacement, HWInstr* instr) {
@@ -1945,7 +1946,7 @@ class UnitMapping {
     }
 
     CoreIR::Wireable* valueAtStart(HWInstr* const arg1, HWInstr* const sourceLocation) {
-      internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues\n";
+      internal_assert(contains_key(arg1, hwStartValues)) << *arg1 << " is not in hwStartValues when getting its value at: " << *sourceLocation << "\n";
       internal_assert(contains_key(sourceLocation, map_get(arg1, hwStartValues))) << *sourceLocation << " is not in hwStartValues[" << *arg1 << "]\n";
       return map_get(sourceLocation, map_get(arg1, hwStartValues));
     }
@@ -1954,22 +1955,6 @@ class UnitMapping {
       internal_assert(contains_key(arg1, hwEndValues));
       internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
       return hwEndValues[arg1][sourceLocation];
-      //if (arg1->tp == HWINSTR_TP_CONST) {
-        //internal_assert(contains_key(arg1, hwEndValues));
-        //internal_assert(contains_key(sourceLocation, hwEndValues[arg1]));
-        //return hwEndValues[arg1][sourceLocation];
-      //}
-
-      //if (arg1->tp == HWINSTR_TP_VAR && !(fSched.f->isLocalVariable(arg1->name))) {
-        //internal_assert(!(fSched.f->isLoopIndexVar(arg1->name))) << *arg1 << " is a loop index variable\n";
-        //internal_assert(contains_key(arg1, hwStartValues));
-        //internal_assert(contains_key(sourceLocation, hwStartValues[arg1]));
-        //return hwEndValues[arg1][sourceLocation];
-      //}
-
-      //internal_assert(sourceLocation->tp == HWINSTR_TP_INSTR) << "Location: " << sourceLocation->compactString() << " is not an instruction\n";
-
-      //return map_find(sourceLocation, map_find(arg1, hwEndValues));
     }
 
 };
@@ -1985,10 +1970,6 @@ CoreIR::Instance* pipelineRegister(CoreIR::Context* context, CoreIR::ModuleDef* 
 }
 
 void createFunctionalUnitsForOperations(StencilInfo& info, UnitMapping& m, FunctionSchedule& sched, ModuleDef* def, CoreIR::Instance* controlPath) {
-  //cout << "# of instructions in body when creating functional units: " << sched.body().size() << endl;
-  //for (auto i : sched.body()) {
-    //cout << "\t" << *i << endl;
-  //}
   auto context = def->getContext();
   int defStage = 0;
   auto& unitMapping = m.unitMapping;
@@ -2325,7 +2306,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
   createFunctionalUnitsForOperations(info, m, sched, def, controlPath);
   cout << "Created functional units" << endl;
 
-  //auto& instrValues = m.instrValues;
 
   for (auto op : allVarsUsed(sched.body())) {
     string name = op->name;
@@ -2384,7 +2364,6 @@ UnitMapping createUnitMapping(HWFunction& f, StencilInfo& info, FunctionSchedule
           //
           //  Need to find the header of the loop for this variable, and then set the hwStartValue of the loop
           //  for all instructions in that state to the value of the counter output
-          //instrValues[op] = val;
           m.hwStartValues[op][instr] = val;
           m.hwEndValues[op][op] = val;
           auto blk = containerBlock(instr, *(sched.f));
@@ -3534,7 +3513,6 @@ void divToShift(HWFunction& f) {
     if (isCall("div", instr)) {
       cout << "Found div: " << *instr << endl;
       if (isConstant(instr->getOperand(1))) {
-        //cout << "\tDividing by constant = " << instr->getOperand(1)->compactString() << endl;
         auto constVal = instr->getOperand(1)->toInt();
         if (CoreIR::isPower2(constVal)) {
           cout << "\t\tand it is a power of 2" << endl;
