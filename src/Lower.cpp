@@ -139,7 +139,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     bool any_memoized = false;
     Stmt s = schedule_functions(outputs, fused_groups, env, t, any_memoized);
     debug(2) << "Lowering after creating initial loop nests:\n" << s << '\n';
-    
+
     //std::cout << "Lowering after creating initial loop nests:\n" << s << '\n';
 
     if (any_memoized) {
@@ -222,7 +222,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
 
-    if (t.has_feature(Target::CoreIR)) {
+    if (t.has_feature(Target::UseExtractHWKernel) && t.has_feature(Target::CoreIR)) {
       vector<HWXcel> buf_xcels =
         extract_hw_accelerators(s, env, inlined_stages);
       synthesize_hwbuffers(s, env, buf_xcels);
@@ -243,13 +243,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       //}
     }
-    
+
     Stmt s_ub;
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
-      
+
       vector<HWKernelDAG> dags;
       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
@@ -265,9 +265,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       } else {
        vector<HWKernelDAG> dags;
        s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
-       
+
        //std::cout << "Lowering before HLS optimization:\n" << s << '\n';
-       
+
        for(const HWKernelDAG &dag : dags) {
          s = stream_opt(s, dag);
          //s = replace_image_param(s, dag);
@@ -277,17 +277,17 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
       //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
-    
+
     debug(1) << "Simplifying...\n";
     //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
 
     //cout << "Lowering befre first simplification:\n" << s << "\n\n";
-    
+
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
 
     //cout << "Lowering after first simplification:\n" << s << "\n\n";
-    
+
     //std::cout << "Before storage folding...\n" << s << "\n\n";
     debug(1) << "Performing storage folding optimization...\n";
       s = storage_folding(s, env);
@@ -329,7 +329,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     debug(1) << "Performing storage flattening...\n";
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
-    
+
     s = storage_flattening(s, outputs, env, t);
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
     //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";

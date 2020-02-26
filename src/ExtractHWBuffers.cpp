@@ -57,7 +57,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   for (const auto dim : buffer.ldims) {
     total_buffer_box.emplace_back(dim.logical_size);
   }
-  
+
   for (const auto dim : buffer.dims) {
     input_chunk_box.emplace_back(dim.input_chunk);
     input_block_box.emplace_back(dim.input_block);
@@ -68,7 +68,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
 
   //auto num_inputs = 0;//buffer.func.updates().size();
   //auto num_outputs = 0;//buffer.consumer_buffers.size();
-  
+
   os << "HWBuffer: " << buffer.name << std::endl
      << "Logical Buffer: " << total_buffer_box << std::endl
      << "Input Chunk: " << input_chunk_box << std::endl
@@ -85,7 +85,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   //<< "num_inputs=" << num_inputs << std::endl
   //<< "num_output=" << num_outputs << std::endl;
 
-  
+
   return os;
 };
 
@@ -104,7 +104,7 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
            Expr(input_chunk.at(i)), Expr(input_block.at(i)),
            Expr(output_stencil.at(i)), Expr(output_block.at(i)), Expr(0)});
    }
-   
+
    return dims;
 }
 
@@ -128,10 +128,10 @@ class ReplaceOutputAccessPatternRanges : public IRMutator {
     Stmt s = IRMutator::visit(old_op);
     const For *op = s.as<For>();
     Stmt for_stmt = For::make(op->name, op->min, new_extent, op->for_type, op->device_api, op->body);
-    
+
     return for_stmt;
   }
-  
+
 
 public:
   ReplaceOutputAccessPatternRanges(const HWBuffer& hwkernel) :
@@ -145,7 +145,7 @@ class HWBuffers : public IRMutator {
     Scope<Expr> scope;
 
     using IRMutator::visit;
-  
+
     Stmt visit(const LetStmt *op) override {
       ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       return IRMutator::visit(op);
@@ -242,12 +242,12 @@ class HWBuffers : public IRMutator {
           auto reader_loopnest = counter.reader_loopnest;
 
           internal_assert(boxes_read.at(op->name).size() == output_block_box.size());
-          
+
           std::string for_name = first_for_name(new_body);
           hwbuffer.dims = std::vector<InOutDimSize>(output_block_box.size());
 
           LoopLevel store_l = sched.store_level();
-          
+
           hwbuffer.stride_map = fos.stride_map;
 
           hwbuffer.ldims = vector<LogicalDimSize>(output_block_box.size());
@@ -255,7 +255,16 @@ class HWBuffers : public IRMutator {
           for (size_t i = 0; i < output_block_box.size(); ++i) {
             hwbuffer.ldims[i].logical_min = Expr(0);
             hwbuffer.ldims[i].logical_size = box.at(i);
-            
+
+            //add an helper variable to track the flatten dimension size
+            if (i == 0) {
+                hwbuffer.ldims[i].logical_size_flatten = 1;
+            }
+            else {
+                hwbuffer.ldims[i].logical_size_flatten = hwbuffer.ldims[i-1].logical_size_flatten * hwbuffer.ldims[i-1].logical_size;
+            }
+            std::cout << "DEBUG: logical size flatten: " << hwbuffer.ldims[i].logical_size_flatten << std::endl;
+
             hwbuffer.dims[i].input_chunk = input_block_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
 
@@ -263,7 +272,7 @@ class HWBuffers : public IRMutator {
             hwbuffer.dims[i].loop_name = i < loop_names.size() ? loop_names.at(i) : unique_name("loopvar");
           }
           hwbuffer.output_access_pattern = reader_loopnest;
-          
+
         } else {
           // look for a sliding window that can be used in a line buffer
 
@@ -275,7 +284,7 @@ class HWBuffers : public IRMutator {
 
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
-          
+
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
           auto input_block_box = counter.input_block_box;
@@ -300,7 +309,7 @@ class HWBuffers : public IRMutator {
 
           // check that all of the extracted parameters are of the same vector length
           internal_assert(hwbuffer.dims.size() == output_stencil_box.size());
-          
+
           internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
           internal_assert(hwbuffer.dims.size() == output_block_box.size());
           internal_assert(hwbuffer.dims.size() == input_block_box.size());
@@ -314,7 +323,21 @@ class HWBuffers : public IRMutator {
             hwbuffer.dims[i].loop_name = i < loop_names.size() ? loop_names.at(i) : unique_name("loopname");
           }
           hwbuffer.output_access_pattern = reader_loopnest;
-          
+
+        }
+
+
+        for (size_t i = 0; i < hwbuffer.dims.size(); ++i) {
+
+            //add an helper variable to track the flatten dimension size
+            if (i == 0) {
+                hwbuffer.ldims[i].logical_size_flatten = 1;
+            }
+            else {
+                hwbuffer.ldims[i].logical_size_flatten = simplify(hwbuffer.ldims[i-1].logical_size_flatten * hwbuffer.ldims[i-1].logical_size);
+            }
+            std::cout << "DEBUG: logical size flatten: " << hwbuffer.ldims[i].logical_size_flatten << std::endl;
+
         }
 
         if (buffers.count(hwbuffer.name) == 0) {
@@ -325,7 +348,7 @@ class HWBuffers : public IRMutator {
 
 
     }
-  
+
 public:
   HWBuffers(const map<string, Function> &e, const vector<string> &ln, HWXcel *xcel) :
     env(e), loop_names(ln), xcel(xcel) {}
@@ -344,13 +367,13 @@ map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &en
     std::cout << hwbuffer.first << " is ehb w/ inline=" << hwbuffer.second.is_inlined << std::endl;
     std::cout << hwbuffer.second << std::endl;
   }
-    
+
     return ehb.buffers;
 }
 
 
 // Second pass through hwbuffers, setting some more parameters, including the consumer outputs.
-void set_opt_params(HWXcel *xcel, 
+void set_opt_params(HWXcel *xcel,
                     const map<string, Function> &env,
                     const vector<BoundsInference_Stage> &inlined_stages,
                     const vector<string> &streaming_loop_levels,
@@ -366,16 +389,22 @@ void set_opt_params(HWXcel *xcel,
 
   Scope<Expr>& stencil_bounds = output_scope;
   std::cout << "stencil bounds when in the set_opt method: " << stencil_bounds << std::endl;
-    
+
   // go through the stages from the output back to the input
   while (i >= 1) {
     i--;
-    
+
     const BoundsInference_Stage &stage = inlined_stages[i];
     cout << "Inlined stage = " << stage.name << endl;
     if (in_output && stage.name != xcel->name) {
       continue;
     }
+    cout << "Did not skip" << endl;
+
+    for_each(hwbuffers.begin(), hwbuffers.end(), [](const std::pair<std::string, HWBuffer> & buffer_pair )
+                {
+                    std::cout << "DEBUG PRINT HWBUFFER:" << buffer_pair.first << ": " << buffer_pair.second<<std::endl;
+                });
 
     // run through hwbuffers looking for a particular name
     auto iterator = std::find_if(hwbuffers.begin(), hwbuffers.end(), [stage](const std::pair<std::string, HWBuffer>& buffer_pair){
@@ -387,13 +416,14 @@ void set_opt_params(HWXcel *xcel,
       });
     // Skip buffers that are not realized on the accelerator
     if (iterator == hwbuffers.end()) {
-      continue;
+      cout << "skip the acc" << endl;
+      //continue;
     }
     //cout << stage.name << " is a hwkernel..." << endl;
     //internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
     auto &hwbuffer = iterator->second;
     internal_assert(hwbuffer.name == iterator->first);
-    
+
     std::cout << hwbuffer.name << " before func\n";
 
     Function cur_func = hwbuffer.func;
@@ -410,7 +440,7 @@ void set_opt_params(HWXcel *xcel,
       std::cout << "skipping " << hwbuffer.name << std::endl;
       continue;
     }
-    
+
     // HWBuffer Parameter: bool is_output;
     if (xcel->name == hwbuffer.name) {
       hwbuffer.is_output = true;
@@ -419,7 +449,7 @@ void set_opt_params(HWXcel *xcel,
         dim.output_stencil = dim.output_block;
       }
     }
-    
+
     if (in_output) {
       if (inlined_stages[i].name == xcel->name) {
         in_output = false;
@@ -435,7 +465,7 @@ void set_opt_params(HWXcel *xcel,
     } else {
       hwbuffer.is_inlined = true;
     }
-    
+
     // HWBuffer Parameter: map<string, HWBuffer&> consumer_buffers
     for (size_t j = 0; j < stage.consumers.size(); j++) {
       internal_assert(stage.consumers[j] < (int)inlined_stages.size());
@@ -465,7 +495,7 @@ void set_opt_params(HWXcel *xcel,
       std::string func_compute_level = xcel->streaming_loop_levels.at(xcel->streaming_loop_levels.size()-1);
       const FuncSchedule &sched = cur_func.schedule();
       auto compute_looplevel = sched.compute_level();
-      
+
       for (auto loopname : streaming_loop_levels) {
         if (compute_looplevel.lock().defined() &&
             !compute_looplevel.lock().is_inlined() &&
@@ -486,22 +516,23 @@ void set_opt_params(HWXcel *xcel,
       if (hwbuffers.count(consumer.name) == 0) {
         continue;
       }
-      
+
       for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
         hwbuffer.dims.at(idx).input_chunk = 1;
         if (hwbuffer.dims.size() > idx) {
           hwbuffer.dims.at(idx).input_chunk = hwbuffer.dims.at(idx).input_block;
         }
-        
+
         if (fis.found_stencil && idx < fis.output_min_pos_box.size()) { // this works
           hwbuffer.dims.at(idx).output_min_pos = fis.output_min_pos_box.at(idx);
-          
+
           if (is_zero(hwbuffer.dims.at(idx).output_min_pos)) { // alternatively, not output
             hwbuffer.dims.at(idx).output_min_pos = consumer_buffer.dims.at(idx).output_min_pos;
           }
-          
+
         }
 
+        cout << "Found stencil = " << fos.found_stencil << ", idx = " << idx << ", stencilsize = "<<fos.output_stencil_box.size() << endl;
         if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
           hwbuffer.dims.at(idx).output_block = fos.output_stencil_box.at(idx);
@@ -545,7 +576,7 @@ void set_opt_params(HWXcel *xcel,
     }
 
   }
-  
+
 }
 
 void extract_hw_xcel_top_parameters(Stmt s, Function func,
@@ -563,7 +594,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   find_output_scope(s, func, xcel->compute_level, output_scope);
 
   auto output_box = find_output_bounds(s, func, xcel->compute_level);
-  
+
   // use realizes to define each hwbuffer
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel);
 
@@ -580,15 +611,15 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
   vector<HWXcel> xcels;
- 
+
   s = substituteInConstants(s);
 
   cout << "Extracting buffers from: " << endl;
   cout << s << endl;
 
-  // for each accelerated function, build a hardware xcel: a dag of HW kernels 
+  // for each accelerated function, build a hardware xcel: a dag of HW kernels
   for (const auto &p : env) {
-    
+
     Function func = p.second;
     // skip this function if it is not accelerated
     if(!func.schedule().is_accelerated()) {

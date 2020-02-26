@@ -4,5 +4,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 make -j
-make install
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  make install
+fi
 make distrib

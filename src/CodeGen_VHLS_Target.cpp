@@ -77,6 +77,13 @@ const string vhls_header_includes =
     "#include <stdlib.h>\n"
     "#include <hls_stream.h>\n"
     "#include \"Stencil.h\"\n";
+
+const string local_halide_helpers =
+    "\n"
+    "template <typename T>\n"
+    "static inline T halide_cpp_min(const T&a, const T&b) { return (a < b) ? a : b; }\n\n"
+    "template <typename T>\n"
+    "static inline T halide_cpp_max(const T&a, const T&b) { return (a > b) ? a : b; }\n\n";
 }
 
 void CodeGen_VHLS_Target::init_module() {
@@ -98,7 +105,8 @@ void CodeGen_VHLS_Target::init_module() {
     // initialize the source file
     src_stream << "#include \"" << target_name << ".h\"\n\n";
     src_stream << "#include \"Linebuffer.h\"\n"
-               << "#include \"halide_math.h\"\n";
+               << "#include \"halide_math.h\"\n"
+               << local_halide_helpers;
 
 }
 
@@ -170,15 +178,14 @@ void CodeGen_VHLS_Target::CodeGen_VHLS_C::add_kernel(Stmt stmt,
         // add HLS pragma at function scope
         stream << "#pragma HLS DATAFLOW\n"
                << "#pragma HLS INLINE region\n"
-               << "#pragma HLS INTERFACE s_axilite port=return"
-               << " bundle=config\n";
+               << "#pragma HLS INTERFACE s_axilite port=return bundle=config\n";
         for (size_t i = 0; i < args.size(); i++) {
             string arg_name = "arg_" + std::to_string(i);
             if (args[i].is_stencil) {
                 if (ends_with(args[i].name, ".stream")) {
                     // stream arguments use AXI-stream interface
                     stream << "#pragma HLS INTERFACE axis register "
-                           << "port=" << arg_name << "\n";
+                           << "port=" << arg_name << " name=" << arg_name << "\n";
                 } else {
                     // stencil arguments use AXI-lite interface
                     stream << "#pragma HLS INTERFACE s_axilite "
