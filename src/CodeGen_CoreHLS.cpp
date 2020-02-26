@@ -3464,7 +3464,8 @@ void modToShift(HWFunction& f) {
   std::set<HWInstr*> toErase;
   //std::map<HWInstr*, HWInstr*> replacements;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
-  for (auto instr : f.allInstrs()) {
+  //for (auto instr : f.allInstrs()) {
+  for (auto instr : f.structuredOrder()) {
     if (isCall("mod", instr)) {
       //cout << "Found mod" << endl;
       if (isConstant(instr->getOperand(1))) {
@@ -3484,14 +3485,13 @@ void modToShift(HWFunction& f) {
 
           shrInstr->operands = {instr->getOperand(0), f.newConst(instr->getOperand(1)->constWidth, constVal - 1)};
 
-          //1 << (value - 1))};
           replacements.push_back({instr, shrInstr});
-          //replacements[instr] = shrInstr;
         }
       }
     }
   }
 
+  CoreIR::reverse(replacements);
   for (auto r : replacements) {
     f.insertAt(r.first, r.second);
     f.replaceAllUsesWith(r.first, r.second);
@@ -3509,7 +3509,7 @@ void divToShift(HWFunction& f) {
 
   std::set<HWInstr*> toErase;
   std::vector<std::pair<HWInstr*, HWInstr*> > replacements;
-  for (auto instr : f.allInstrs()) {
+  for (auto instr : f.structuredOrder()) {
     if (isCall("div", instr)) {
       cout << "Found div: " << *instr << endl;
       if (isConstant(instr->getOperand(1))) {
