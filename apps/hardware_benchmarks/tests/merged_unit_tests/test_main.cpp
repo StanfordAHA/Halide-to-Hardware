@@ -83,7 +83,7 @@ Halide::Buffer<OT> realizeCPU(Func hw_output, ImageParam& input, Halide::Buffer<
     return cpuOutput;
   } else {
     assert(outputBuf.dimensions() == 2);
-    
+
     Halide::Buffer<OT> cpuOutput(outputBuf.width(), outputBuf.height());
     ParamMap rParams;
     rParams.set(input, inputBuf);
@@ -185,7 +185,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   for (auto point : readIdx.currentWindowRelative()) {
     assert(point.numDims() > 0);
   }
-  
+
   if (valid_value) {
     cout << "\tOutput window is valid" << endl;
     for (auto point : readIdx.currentWindow()) {
@@ -226,7 +226,7 @@ void compare_buffers(Halide::Runtime::Buffer<T>& outputBuf, Halide::Buffer<T>& c
   cout << "Comparing buffers..." << endl;
   cout << "Hardware output" << endl;
   printBuffer(outputBuf, cout);
-  
+
   cout << endl;
   cout << "CPU Output" << endl;
   printBuffer(cpuOutput, cout);
@@ -252,7 +252,7 @@ class AcceleratorCallConsolidator : public IRMutator {
     bool inHWRegion;
 
     AcceleratorCallConsolidator() : inHWRegion(false) {}
-  
+
     Stmt visit(const ProducerConsumer* p) {
       if (inHWRegion && p->is_producer) {
         // Consolidate calls in to one larger call
@@ -276,7 +276,7 @@ class AcceleratorCallConsolidator : public IRMutator {
           args.push_back(IntImm::make(Int(32), 1));
           args.push_back(IntImm::make(Int(32), 1));
         }
-        
+
         {
           for (uint i = 1; i < streamToImage->args.size(); i++) {
             args.push_back(streamToImage->args[i]);
@@ -288,7 +288,7 @@ class AcceleratorCallConsolidator : public IRMutator {
             args.push_back(IntImm::make(Int(32), 1));
             args.push_back(IntImm::make(Int(32), 1));
           }
-        }        
+        }
         auto accelCall = Call::make(Handle(), "call_accelerator", args, Call::CallType::ExternCPlusPlus);
         auto eval = Evaluate::make(accelCall);
         auto newBody = Block::make(eval, p);
@@ -303,7 +303,7 @@ class AcceleratorCallConsolidator : public IRMutator {
         return IRMutator::visit(p);
       }
     }
-    
+
     Stmt visit(const Realize* p) {
 
       //cout << "Visiting realize " << p->name << endl;
@@ -387,7 +387,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
           assert(direction->value == "stream_to_buffer");
           stream << "accelerator.stream_to_subimage(";
         }
-        
+
         //stream << a1 << ", " << a2 << ", " << a3;
         stream << a1 << ", " << offset;
         for (size_t i = 4; i < c->args.size(); i++) {
@@ -413,7 +413,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
             sourceIndexing.push_back(print_expr(c->args[i]));
           }
         }
-        
+
         {
           int argBase = 3 + 2*4;
           destBuffer = print_expr(c->args[argBase]);
@@ -422,7 +422,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
             destIndexing.push_back(print_expr(c->args[i]));
           }
         }
-        
+
         stream << "accelerator.produce_subimage(";
         stream << sourceBuffer << ", " << sourceOffset;
         for (auto ind : sourceIndexing) {
@@ -468,7 +468,7 @@ class CodeGen_SoC_Test : public CodeGen_C {
 
       //stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
       //stream << "CGRAWrapper accelerator;" << std::endl;
-      
+
       bool justEntered = inHWRegion == false;
       if (justEntered) {
         stream << "// Found a realize of " << p->name << ", entering outermost hardware region" << endl;
@@ -537,11 +537,11 @@ void offset_window_test() {
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
 
-  
+
   hw_output.tile(x, y, xo, yo, xi, yi, 8, 8);
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
- 
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_offset_window", args, "offset_window", hw_output);
@@ -567,7 +567,7 @@ void offset_window_test() {
       ofstream outFile("offset_soc_mini.cpp");
       CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
       testPrinter.compileForCGRA(mod);
-      
+
       cout << "Compiled cpp code" << endl;
     }
     cout << "Done with compiling for CGRA" << endl;
@@ -591,7 +591,7 @@ void offset_window_test() {
   //runHWKernel("self.in_arg_3_0_0", m, hwInputBuf, outputBuf);
   //cout << "Input buffer" << endl;
   //printBuffer(hwInputBuf, cout);
-  
+
   cout << GREEN << "Small offset test passed" << RESET << endl;
 }
 void small_demosaic_test() {
@@ -676,7 +676,7 @@ void small_demosaic_test() {
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
 
-  
+
   hw_output.tile(x, y, xo, yo, xi, yi, 10, 10)
     .reorder(c, xi, yi, xo, yo);
 
@@ -708,7 +708,7 @@ void small_demosaic_test() {
       ofstream outFile("demosaic_soc_mini.cpp");
       CodeGen_SoC_Test testPrinter(outFile, t, CodeGen_C::OutputKind::CPlusPlusImplementation);
       testPrinter.compileForCGRA(mod);
-      
+
       cout << "Compiled cpp code" << endl;
     }
     cout << "Done with compiling for CGRA" << endl;
@@ -724,7 +724,7 @@ void small_demosaic_test() {
 
     compare_buffers(cppRes, cpuOutput);
   }
-  
+
   cout << GREEN << "Demosaic test passed" << RESET << endl;
 }
 
@@ -745,7 +745,7 @@ void multi_channel_conv_test() {
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
   conv(x, y, z) = hw_input(x, y) + kernel(z);
-  
+
   Func hw_output("hw_output");
   hw_output(x, y, z) = cast<uint16_t>(conv(x, y, z));
   output(x, y, z) = hw_output(x, y, z);
@@ -774,7 +774,7 @@ void multi_channel_conv_test() {
 
   cout << "CPU output" << endl;
   printBuffer(cpuOutput, cout);
-  
+
   // Hardware schedule
   int tileSize = 8;
   hw_output.bound(z, 0, 3);
@@ -788,7 +788,7 @@ void multi_channel_conv_test() {
 
   cout << "Loop nest.." << endl;
   hw_output.print_loop_nest();
-  
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "mc_conv_coreir", args, "mc_conv", hw_output);
@@ -860,7 +860,7 @@ void clamped_grad_x_test() {
     printBuffer(paddingOut, cout);
   }
   assert(false);
-  
+
   // Creating CPU reference output
   Halide::Buffer<uint16_t> cpuOutput(4, 4);
   ParamMap rParams;
@@ -875,7 +875,7 @@ void clamped_grad_x_test() {
   hw_input.stream_to_accelerator();
   grad_x_unclamp.linebuffer();
   grad_x.linebuffer();
-  
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_harris", args, "harris", hw_output);
@@ -939,7 +939,7 @@ void control_path_test() {
 
   auto accelName = getInputAlias("accel_interface_info.json");
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
-  
+
   //runHWKernel("self.in_arg_2_0_0", m, hwInputBuf, outputBuf);
 
   compare_buffers(outputBuf, cpuOutput);
@@ -1261,7 +1261,7 @@ void small_harris_test() {
       -padded16(x-1, y+1) + padded16(x + 1, y + 1));
 
   grad_y_unclamp(x, y) = cast<int16_t>(padded16(x - 1, y + 1) - padded16(x - 1, y - 1) +
-      2*padded16(x, y + 1) - 2*padded16(x, y - 1) + 
+      2*padded16(x, y + 1) - 2*padded16(x, y - 1) +
       padded16(x + 1, y + 1) - padded16(x + 1, y - 1));
 
   grad_x(x, y) = clamp(grad_x_unclamp(x, y), -255, 255);
@@ -1321,7 +1321,7 @@ void small_harris_test() {
       hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint16_t> cpuOutput(4, 4);
   ParamMap rParams;
@@ -1350,7 +1350,7 @@ void small_cascade_test() {
   Var x("x"), y("y");
 
   Var xi,yi, xo,yo;
-  
+
   Func kernel("kernel");
   Func conv1("conv1"), conv2("conv2");
   RDom r(0, 3,
@@ -1369,7 +1369,7 @@ void small_cascade_test() {
   hw_input(x, y) = cast<uint16_t>(input(x, y));
   conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
   conv2(x, y)  += kernel(r0.x, r0.y) * conv1(x + r0.x, y + r0.y);
-  
+
   kernel.compute_root();
 
   Func hw_output("hw_output");
@@ -1389,7 +1389,7 @@ void small_cascade_test() {
       hwInputBuf(i, j, 0) = inputBuf(i, j);
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint16_t> cpuOutput(4, 4);
   ParamMap rParams;
@@ -1421,7 +1421,7 @@ void small_cascade_test() {
   conv2.linebuffer();
 
   hw_input.stream_to_accelerator();
-  
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "coreir_cascade", args, "cascade", hw_output);
@@ -1445,7 +1445,7 @@ void small_cascade_test() {
   std::string outputName = "self.out_0_0";
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
   CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
+
   while (cycles < maxCycles && !readIdx.allDone()) {
     cout << "Read index = " << readIdx.coordString() << endl;
     cout << "Cycles     = " << cycles << endl;
@@ -1508,7 +1508,7 @@ void small_conv_3_3_not_unrolled_test() {
   indexTestPatternRandom(inputBuf, hwInputBuf);
   Halide::Runtime::Buffer<uint8_t> outputBuf(tileSize, tileSize);
   auto cpuOutput = realizeCPU(hw_output, input, inputBuf, outputBuf);
-  
+
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
 
@@ -1587,16 +1587,16 @@ void small_conv_3_3_critical_path_test() {
       }
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint8_t> cpuOutput(2, 2);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  
+
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  
+
   int tileSize = 4;
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
@@ -1635,13 +1635,13 @@ void small_conv_3_3_critical_path_test() {
 
   int maxCycles = 100;
   int cycles = 0;
-  
+
 
   std::string inputName = "self.in_arg_0_0_0";
   std::string outputName = "self.out_0_0";
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
   CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
+
   while (cycles < maxCycles && !readIdx.allDone()) {
     cout << "Read index = " << readIdx.coordString() << endl;
     cout << "Cycles     = " << cycles << endl;
@@ -1656,7 +1656,7 @@ void small_conv_3_3_critical_path_test() {
 
   compare_buffers(outputBuf, cpuOutput);
   deleteContext(context);
- 
+
   PRINT_PASSED("Conv 3x3 with critical path test passed");
 }
 
@@ -1711,16 +1711,16 @@ void small_conv_3_3_test() {
       }
     }
   }
- 
+
   // Creating CPU reference output
   Halide::Buffer<uint8_t> cpuOutput(2, 2);
   ParamMap rParams;
   rParams.set(input, inputBuf);
   Target t;
   hw_output.realize(cpuOutput, t, rParams);
-  
+
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 1);
-  
+
   int tileSize = 4;
   hw_output.tile(x,y, xo,yo, xi,yi, tileSize-2, tileSize-2)
     .hw_accelerate(xi, xo);
@@ -1755,13 +1755,13 @@ void small_conv_3_3_test() {
 
   int maxCycles = 100;
   int cycles = 0;
-  
+
 
   std::string inputName = "self.in_arg_0_0_0";
   std::string outputName = "self.out_0_0";
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {hwInputBuf.height() - 1, hwInputBuf.width() - 1, hwInputBuf.channels() - 1});
   CoordinateVector<int> readIdx({"y", "x", "c"}, {outputBuf.height() - 1, outputBuf.width() - 1, outputBuf.channels() - 1});
-  
+
   while (cycles < maxCycles && !readIdx.allDone()) {
     cout << "Read index = " << readIdx.coordString() << endl;
     cout << "Cycles     = " << cycles << endl;
@@ -1785,7 +1785,7 @@ void small_conv_3_3_test() {
     cout << endl;
   }
   deleteContext(context);
- 
+
   cout << GREEN << "Conv 3x3 test passed" << RESET << endl;
 }
 
@@ -1819,8 +1819,9 @@ void pointwise_add_test() {
     output.bound(x, 0, 1);
     output.bound(y, 0, 1);
     hw_input.stream_to_accelerator();
-    
+
     Context* context = hwContext();
+
     vector<Argument> args{input};
     //auto m = buildModule(true, context, "coreir_brighter", args, "brighter", dummyOut);
     auto m = buildModule(true, context, "coreir_brighter", args, "brighter", output);
@@ -1829,7 +1830,7 @@ void pointwise_add_test() {
     state.setValue("self.reset", BitVector(1, 1));
     state.setValue("self.in_en", BitVector(1, 1));
     state.setValue("self.in_arg_0_0_0", BitVector(16, 123));
-    
+
     state.resetCircuit();
     cout << "Starting to execute" << endl;
 
@@ -1915,14 +1916,14 @@ void accel_soc_test() {
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
   hw_output.unroll(c);
- 
+
   // Run on SoC
   vector<Argument> args{input};
   runSoC(hw_output, args, "accel_soc");
 
   Halide::Runtime::Buffer<uint16_t> cppRes = load_image("accel_soc.ppm");
   compare_buffers(cppRes, cpuOutput);
-  
+
   cout << GREEN << "Accel soc test passed" << RESET << endl;
   //assert(false);
 }
@@ -2233,7 +2234,7 @@ void curve_16_lookup_test() {
 
   curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
   hw_output.accelerate({hw_input}, xi, xo, {});
-  
+
   cout << "After hw schedule..." << endl;
   hw_output.print_loop_nest();
   auto context = hwContext();
@@ -2297,7 +2298,7 @@ void curve_lookup_test() {
 
   curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
   hw_output.accelerate({hw_input}, xi, xo, {});
-  
+
   cout << "After hw schedule..." << endl;
   hw_output.print_loop_nest();
   auto context = hwContext();
@@ -2344,13 +2345,13 @@ void hot_pixel_suppression_test() {
   denoised.linebuffer();
   //unroll(x).unroll(y);
   hw_output.hw_accelerate(xi, xo);
- 
+
   vector<Argument> args{input};
   runSoC(hw_output, args, "hot_pixel_suppression");
 
   Halide::Runtime::Buffer<uint8_t> cppRes = load_image("hot_pixel_suppression.pgm");
   compare_buffers(cppRes, cpuOutput);
-  
+
   cout << GREEN << "Hot pixel suppression test passed" << RESET << endl;
 }
 
@@ -2404,7 +2405,7 @@ void camera_pipeline_test() {
   //curve(clamp(color_corrected(x, y, c), 0, 1023));
   hw_output(x, y, c) = cast<uint8_t>(clamp(cast<uint8_t>(color_corrected(x, y, c)), 0, 255));
   hw_output.bound(c, 0, 3);
-  
+
   Halide::Buffer<uint8_t> inputBuf(8, 8);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 1);
   Halide::Runtime::Buffer<uint8_t> outputBuf(2, 2, 3);
@@ -2432,7 +2433,7 @@ void camera_pipeline_test() {
   curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
   hw_output.accelerate({hw_input}, xi, xo, {});
   hw_output.unroll(c);
-  
+
   cout << "After hw schedule..." << endl;
   hw_output.print_loop_nest();
 
@@ -2460,10 +2461,10 @@ void double_unsharp_test() {
 
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
-  
+
   blurred(x, y) = 0;
   blurred(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
-  
+
   blurred1(x, y) = 0;
   blurred1(x, y)  += kernel(r.x, r.y) * blurred(x + r.x, y + r.y);
 
@@ -2499,9 +2500,9 @@ void double_unsharp_test() {
   diff.linebuffer();
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
-  
+
   hw_output.print_loop_nest();
-  
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_double_unsharp", args, "double_unsharp", hw_output);
@@ -2524,7 +2525,7 @@ void double_unsharp_test() {
   auto accelName = getInputAlias("accel_interface_info.json");
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
-  
+
   cout << GREEN << "Double unsharp test passed" << RESET << endl;
   //assert(false);
 }
@@ -2545,10 +2546,10 @@ void simple_unsharp_test() {
 
   Func hw_input("hw_input");
   hw_input(x, y) = cast<uint16_t>(input(x, y));
-  
+
   blurred(x, y) = 0;
   blurred(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
-  
+
   diff(x, y) = hw_input(x, y) - blurred(x, y);
 
   Func hw_output("hw_output");
@@ -2575,9 +2576,9 @@ void simple_unsharp_test() {
   diff.linebuffer();
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
-  
+
   hw_output.print_loop_nest();
-  
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_simple_unsharp", args, "simple_unsharp", hw_output);
@@ -2585,7 +2586,7 @@ void simple_unsharp_test() {
   string accelName = getInputAlias("accel_interface_info.json");
   runHWKernel(accelName, m, hwInputBuf, outputBuf);
   compare_buffers(outputBuf, cpuOutput);
-  
+
   cout << GREEN << "Simple unsharp test passed" << RESET << endl;
 }
 
@@ -2603,7 +2604,7 @@ void different_latency_kernels_test() {
   Func diff("diff");
   Func hw_input("hw_input");
   Func hw_output("hw_output");
-  
+
   hw_input(x, y) = cast<uint8_t>(input(x, y));
   lut(x) = cast<uint8_t>(Expr(x));
   translated(x, y) = lut(hw_input(x, y));
@@ -2621,7 +2622,7 @@ void different_latency_kernels_test() {
   printBuffer(cpuOutput, cout);
   hw_output.compute_root();
   hw_input.compute_root();
- 
+
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize)
     .reorder(xi, yi, xo, yo);
 
@@ -2631,9 +2632,9 @@ void different_latency_kernels_test() {
   diff.linebuffer();
   hw_input.stream_to_accelerator();
   hw_output.hw_accelerate(xi, xo);
-  
+
   hw_output.print_loop_nest();
-  
+
   auto context = hwContext();
   vector<Argument> args{input};
   auto m = buildModule(context, "hw_different_latencies", args, "different_latencies", hw_output);
@@ -2706,7 +2707,7 @@ void real_unsharp_test() {
   hw_output.bound(c, 0, 3);
 
   output(x, y, c) = hw_output(x, y, c);
-  
+
   int outTileSize = 5;
   Halide::Buffer<uint8_t> inputBuf(outTileSize + blockSize + 1, outTileSize + blockSize + 1, 3);
   Halide::Runtime::Buffer<uint8_t> hwInputBuf(inputBuf.width(), inputBuf.height(), 3);
@@ -2727,27 +2728,27 @@ void real_unsharp_test() {
   printBuffer(cpuOutput, cout);
   hw_output.compute_root();
   hw_input.compute_root();
-  
+
   hw_output.tile(x, y, xo, yo, xi, yi, outTileSize, outTileSize).
     reorder(c, xi, yi, xo, yo);
     //.reorder(xi, yi, xo, yo);
   hw_output.unroll(c);  // hw output bound
-  
+
   blur_unnormalized.linebuffer()
     .update().unroll(win.x).unroll(win.y);
   gray.linebuffer();
   ratio.linebuffer();
-  
+
   hw_output.hw_accelerate(xi, xo);
   hw_input.stream_to_accelerator();
-  
+
   hw_output.print_loop_nest();
-  
+
   vector<Argument> args{input};
   runSoC(hw_output, args, "unsharp");
   Halide::Runtime::Buffer<uint8_t> cppRes = load_image("unsharp.ppm");
   compare_buffers(cppRes, cpuOutput);
-  
+
   PRINT_PASSED("Real unsharp");
 
   //assert(false);
@@ -3003,7 +3004,7 @@ void conv_layer_mobile_test() {
   }
 
   //cout << "Postprocessed module" << endl;
-  //cout << 
+  //cout <<
   //auto context = hwContext();
   PRINT_PASSED("Conv layer mobile");
   //assert(false);
@@ -3013,7 +3014,7 @@ void ushift_test() {
 
   ImageParam input(type_of<uint16_t>(), 2);
   ImageParam output(type_of<uint16_t>(), 2);
-  
+
   Var x("x"), y("y");
 
   Func hw_input("hw_input");
@@ -3075,7 +3076,7 @@ void arith_test() {
 
   ImageParam input(type_of<uint8_t>(), 2);
   ImageParam output(type_of<uint8_t>(), 2);
-  
+
   Var x("x"), y("y");
 
   Func hw_input("hw_input");
@@ -3142,7 +3143,7 @@ int main(int argc, char **argv) {
   //small_conv_3_3_not_unrolled_test();
   ubuffer_conv_3_3_reduce_test();
   ubuffer_small_conv_3_3_test();
-  
+
   small_conv_3_3_critical_path_test();
   control_path_test();
   control_path_xy_test();
@@ -3155,7 +3156,7 @@ int main(int argc, char **argv) {
   clamp_test();
   //small_cascade_test();
   //multi_channel_conv_test();
- 
+
   //small_demosaic_test();
   //hot_pixel_suppression_test();
   //real_unsharp_test();
@@ -3163,14 +3164,14 @@ int main(int argc, char **argv) {
   //simple_unsharp_test();
   //accel_interface_test();
   //accel_soc_test();
-  //offset_window_test();  
-  
+  //offset_window_test();
+
   //different_latency_kernels_test();
   //rom_read_test();
   //curve_16_lookup_test();
   //camera_pipeline_test();
   //curve_lookup_test();
-  
+
   cout << GREEN << "All tests passed" << RESET << endl;
   return 0;
 }
