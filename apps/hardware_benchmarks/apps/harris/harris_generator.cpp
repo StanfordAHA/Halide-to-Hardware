@@ -106,18 +106,16 @@ public:
         //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
 
-
         output(x, y) = hw_output(x, y);
 
         output.bound(x, 0, 58);
         output.bound(y, 0, 58);
-        
+
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
 
           //output.tile(x, y, xo, yo, xi, yi, 64, 64);
-          //padded16.compute_at(output, xo);
-          padded16.compute_root();
+          //padded16.compute_root();
           //hw_output.compute_at(output, xo);
           hw_output.compute_root();
 
@@ -126,7 +124,7 @@ public:
             .accelerate({padded16}, xi, xo);
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
-        
+
           //grad_x.linebuffer();
           //grad_y.linebuffer();
           lxx.linebuffer();
@@ -138,10 +136,11 @@ public:
           cim.linebuffer();
           cim_output.linebuffer();
 
-          lgxx.update(0).unroll(box.x).unroll(box.y);
-          lgyy.update(0).unroll(box.x).unroll(box.y);
-          lgxy.update(0).unroll(box.x).unroll(box.y);
+          lgxx.update().unroll(box.x).unroll(box.y);
+          lgyy.update().unroll(box.x).unroll(box.y);
+          lgxy.update().unroll(box.x).unroll(box.y);
 
+          padded16.store_at(hw_output, xo).compute_at(hw_output, xi);
           padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU

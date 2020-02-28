@@ -1153,6 +1153,8 @@ void set_output_params(HWXcel *xcel,
         std::cout << hwbuffer.my_stmt << std::endl;
         std::cout << consumer_buffer.my_stmt << std::endl;
       }
+      std::cout << hwbuffer.name << " going to consumer named " << consumer_buffer.name << std::endl;
+      std::cout << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
       //hwbuffer.my_stmt.accept(&fos);
       //std::cout << "looking for output stencil and min for " << hwbuffer.name << " to consumer " << consumer.name << ": \n" << std::endl; //consumer_buffer.my_stmt << std::endl;
@@ -1355,6 +1357,12 @@ void set_output_params(HWXcel *xcel,
 //        // NOTE we use 'step' here since r we will have line buffer
 //        stencil_max = simplify(cur_kernel.dims[i].min_pos + cur_kernel.dims[i].step - 1);
 //      }
+
+      for (auto& stream : hwbuffer.ostreams) {
+        std::cout << hwbuffer.name << " to " << stream.first << ": "
+                  << stream.second.odims.at(i).output_min_pos << std::endl;
+      }
+      
       auto min_pos = hwbuffer.ostreams.size() == 0 ? Expr(0) : hwbuffer.ostreams.begin()->second.odims.at(i).output_min_pos;
       auto max_pos = hwbuffer.ostreams.size() == 0 ? Expr(0) : hwbuffer.ostreams.begin()->second.odims.at(i).output_max_pos;
       stencil_bounds.push(arg + ".min", min_pos);
@@ -1712,7 +1720,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();

@@ -26,6 +26,7 @@ using std::ostream;
 using std::endl;
 using std::string;
 using std::vector;
+using std::map;
 using std::ostringstream;
 using std::ofstream;
 using std::cout;
@@ -2369,6 +2370,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     stream << logical_size[i] << " ";
   }
 
+  nlohmann::json istream_json;
   vector<size_t> input_chunk(num_dims);
   for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
     input_chunk[i] = id_const_value(op->args[cur_idx]);
@@ -2384,27 +2386,119 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   }
 
   int num_consumers = id_const_value(op->args[cur_idx++]);
-  internal_assert(num_consumers == 1);
-  string output_name =   op->args[cur_idx++].as<StringImm>()->value;
+  nlohmann::json ostream_json;
+  //internal_assert(num_consumers == 1);
 
-  CoreIR::Type* output_stencil_type = context->Bit()->Arr(bitwidth);
+  string output_name;
   vector<size_t> output_stencil(num_dims);
-  stream << " output stencil=";
-  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
-    output_stencil[i] = id_const_value(op->args[cur_idx]);
-    stream << output_stencil[i] << " ";
-  }
-  std::cout << "\n" << output_stencil_type << std::endl;
-
-  CoreIR::Type* output_block_type = context->Bit()->Arr(bitwidth);
+  CoreIR::Type* output_block_type;
   vector<size_t> output_block(num_dims);
-  stream << " output=";
-  for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
-    output_block[i] = id_const_value(op->args[cur_idx]);
-    output_block_type = output_block_type->Arr(output_block[i]);
-    stream << output_block[i] << " ";
+
+  size_t num_stream_dims;
+  CoreIR::Type* range_type;
+  vector<size_t> access_ranges;
+  CoreIR::Type* dim_ref_type;
+  vector<size_t> access_dim_refs;
+  CoreIR::Type* stride_type;
+  vector<size_t> access_strides;
+
+  vector<string> consumer_names;
+  map<string, vector<size_t>> output_stencils;
+  map<string, vector<size_t>> output_blocks;
+  map<string, CoreIR::Type*>  output_block_types;
+  
+  map<string, CoreIR::Type*>  range_types;
+  map<string, CoreIR::Type*>  dim_ref_types;
+  map<string, CoreIR::Type*>  stride_types;
+  map<string, vector<size_t>> access_ranges_map;
+  map<string, vector<size_t>> access_dim_refs_map;
+  map<string, vector<size_t>> access_strides_map;
+
+  // Do every consumer stream
+  //for (int ncons=0; ncons<num_consumers; ++ncons) {
+  int ncons = 0;
+  do {
+    string output_name_i = op->args[cur_idx++].as<StringImm>()->value;
+
+    CoreIR::Type* output_stencil_type_i = context->Bit()->Arr(bitwidth);
+    vector<size_t> output_stencil_i(num_dims);
+    stream << " output stencil=";
+    for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+      output_stencil_i[i] = id_const_value(op->args[cur_idx]);
+      stream << output_stencil_i[i] << " ";
+    }
+    std::cout << "\n" << output_stencil_type_i << std::endl;
+
+    CoreIR::Type* output_block_type_i = context->Bit()->Arr(bitwidth);
+    vector<size_t> output_block_i(num_dims);
+    stream << " output=";
+    for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
+      output_block_i[i] = id_const_value(op->args[cur_idx]);
+      output_block_type_i = output_block_type_i->Arr(output_block_i[i]);
+      stream << output_block_i[i] << " ";
+    }
+    stream << "\n";
+
+    size_t num_streaming_dims = id_const_value(op->args[cur_idx++]);
+  
+    CoreIR::Type* range_type_i = context->Bit();
+    vector<size_t> access_ranges_i(num_streaming_dims);
+    stream << "//   range=";
+    for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
+      access_ranges_i[i] = id_const_value(op->args[cur_idx]);
+      range_type_i = range_type_i->Arr(access_ranges_i[i]);
+      stream << access_ranges_i[i] << " ";
+    }
+
+    CoreIR::Type* dim_ref_type_i = context->Bit();
+    vector<size_t> access_dim_refs_i(num_streaming_dims);
+    stream << " dim_ref=";
+    for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
+      access_dim_refs_i[i] = id_const_value(op->args[cur_idx]);
+      dim_ref_type_i = dim_ref_type_i->Arr(access_dim_refs_i[i]);
+      stream << access_dim_refs_i[i] << " ";
+    }
+
+    CoreIR::Type* stride_type_i = context->Bit();
+    vector<size_t> access_strides_i(num_streaming_dims);
+    stream << " stride=";
+    for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
+      access_strides_i[i] = id_const_value(op->args[cur_idx]);
+      stride_type_i = stride_type_i->Arr(access_strides_i[i]);
+      stream << access_strides_i[i] << " ";
+    }
+    stream << "\n";
+
+    // store for the single stream version
+    output_name = output_name_i;
+    output_stencil = output_stencil_i;
+    output_block_type = output_block_type_i;
+    output_block = output_block_i;
+
+    num_stream_dims = num_streaming_dims;
+    range_type = range_type_i;
+    access_ranges = access_ranges_i;
+    dim_ref_type = dim_ref_type_i;
+    access_dim_refs = access_dim_refs_i;
+    stride_type = stride_type_i;
+    access_strides = access_strides_i;
+
+    // store for the multiple consumer stream version
+    output_stencils[output_name_i] = output_stencil_i;
+    output_block_types[output_name_i] = output_block_type_i;
+    output_blocks[output_name_i] = output_block_i;
+
+    range_types[output_name_i] = range_type_i;
+    dim_ref_types[output_name_i] = dim_ref_type_i;
+    stride_types[output_name_i] = stride_type_i;
+    access_ranges_map[output_name_i] = access_ranges_i;
+    access_dim_refs_map[output_name_i] = access_dim_refs_i;
+    access_strides_map[output_name_i] = access_strides_i;
+
+    ncons += 1;
   }
-  stream << "\n";
+  while (ncons < num_consumers);
+  //for (int ncons=0; ncons<num_consumers; ++ncons) {
 
   int num_updates = id_const_value(op->args[cur_idx++]);
   stream << "num_updates=" << num_updates << std::endl;
@@ -2425,36 +2519,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     }
     stream << "\n";
   }
-  
-  size_t num_streaming_dims = id_const_value(op->args[cur_idx++]);
-  
-  CoreIR::Type* range_type = context->Bit();
-  vector<size_t> access_ranges(num_streaming_dims);
-  stream << "//   range=";
-  for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
-    access_ranges[i] = id_const_value(op->args[cur_idx]);
-    range_type = range_type->Arr(access_ranges[i]);
-    stream << access_ranges[i] << " ";
-  }
 
-  CoreIR::Type* dim_ref_type = context->Bit();
-  vector<size_t> access_dim_refs(num_streaming_dims);
-  stream << " dim_ref=";
-  for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
-    access_dim_refs[i] = id_const_value(op->args[cur_idx]);
-    dim_ref_type = dim_ref_type->Arr(access_dim_refs[i]);
-    stream << access_dim_refs[i] << " ";
-  }
-
-  CoreIR::Type* stride_type = context->Bit();
-  vector<size_t> access_strides(num_streaming_dims);
-  stream << " stride=";
-  for (size_t i = 0; i < num_streaming_dims; ++cur_idx, ++i) {
-    access_strides[i] = id_const_value(op->args[cur_idx]);
-    stride_type = stride_type->Arr(access_strides[i]);
-    stream << access_strides[i] << " ";
-  }
-  stream << "\n";
   
   auto &input_ports = input_block;
   auto &capacity = logical_size;
@@ -2507,11 +2572,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   }
 
   std::cout << "extracting..\n";
-  size_t dimensionality = num_streaming_dims;
+  size_t dimensionality = num_stream_dims;
   
   // set output range and stride based on access pattern
-  vector<int> output_stride(std::max((int)num_streaming_dims, 6));
-  vector<int> output_range(std::max((int)num_streaming_dims, 6));
+  vector<int> output_stride(std::max((int)num_stream_dims, 6));
+  vector<int> output_range(std::max((int)num_stream_dims, 6));
 
   vector<int> flat_dim_strides(capacity.size());
   internal_assert(flat_dim_strides.size() == capacity.size());
@@ -2523,10 +2588,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     }
   }
 
-  internal_assert(num_streaming_dims <= access_strides.size());
-  internal_assert(num_streaming_dims <= access_dim_refs.size());
-  internal_assert(num_streaming_dims <= access_ranges.size());
-  for (size_t i=0; i<num_streaming_dims; ++i) {
+  internal_assert(num_stream_dims <= access_strides.size());
+  internal_assert(num_stream_dims <= access_dim_refs.size());
+  internal_assert(num_stream_dims <= access_ranges.size());
+  for (size_t i=0; i<num_stream_dims; ++i) {
     output_stride.at(i) = access_strides.at(i) * 
       flat_dim_strides.at(access_dim_refs.at(i));
     output_range.at(i) = access_ranges.at(i);
@@ -2686,19 +2751,20 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"num_stencil_acc_dim",  CoreIR::Const::make(context, 0)}, // FIXME
   };
 
+  cout << "making the ubuffer" << endl;
 
   CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["unified_buffer"], ub_args);
 
   string new_ub_name = "new_" + ub_name;
-  nlohmann::json istream_json;
-  istream_json["input0"]["input_stride"] = input_stride;
-  istream_json["input0"]["input_range"] = input_range;
-  istream_json["input0"]["input_starting_addrs"] = input_starting_addrs;
-  istream_json["input0"]["input_chunk"] = input_chunk;
-  istream_json["input0"]["input_block"] = input_block;
-  istream_json["input0"]["num_input_ports"] = num_input_ports;
+  //nlohmann::json istream_json;
+  istream_json["input"]["input_stride"] = input_stride;
+  istream_json["input"]["input_range"] = input_range;
+  istream_json["input"]["input_starting_addrs"] = input_starting_addrs;
+  istream_json["input"]["input_chunk"] = input_chunk;
+  istream_json["input"]["input_block"] = input_block;
+  //istream_json["input"]["num_input_ports"] = num_input_ports; // unneeded, just use the number of starting addresses
   
-  nlohmann::json ostream_json;
+  //nlohmann::json ostream_json;
   ostream_json[output_name]["output_stride"] = access_strides;
   ostream_json[output_name]["output_range"] = access_ranges;
   ostream_json[output_name]["output_starting_addrs"] = output_starting_addrs;
@@ -2709,18 +2775,31 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   ostream_json[output_name]["iter_cnt"] = 1;                          // remove: this is the product of all ranges
   ostream_json[output_name]["num_loops"] = dimensionality;            // remove: aka dimensionality, this can be inferred perhaps from the length of each ostream?
   ostream_json[output_name]["num_output_ports"] = num_output_ports;   // remove: this is the product of output block dims
-  
+
+  cout << "now doing the new ubuffer creation" << endl;
+  for (auto consumer_name : consumer_names) {
+    ostream_json[consumer_name]["output_stride"] = access_strides_map[consumer_name];
+    ostream_json[consumer_name]["output_range"] = access_ranges_map[consumer_name];
+    ostream_json[consumer_name]["output_starting_addrs"] = output_starting_addrs; //**
+    ostream_json[consumer_name]["output_stencil"] = output_stencils[consumer_name];
+    ostream_json[consumer_name]["output_block"] = output_blocks[consumer_name];
+    ostream_json[consumer_name]["num_stencil_acc_dim"] = 0;
+    ostream_json[consumer_name]["stencil_width"] = {1};                   // default: used only after hw mapping
+  }
+  std::cout << ostream_json << std::endl;
+
+  cout << "now doing: next" << endl;
   CoreIR::Values ub_arg2 = {{"width",                CoreIR::Const::make(context, width)},
                             {"logical_size",         CoreIR::Const::make(context, logical_json)},
                             {"ostreams",             CoreIR::Const::make(context, ostream_json)},
                             {"istreams",             CoreIR::Const::make(context, istream_json)},
-                            {"depth",                CoreIR::Const::make(context, depth)},
                             {"chain_en",             CoreIR::Const::make(context, chain_en)},
                             {"chain_idx",            CoreIR::Const::make(context, chain_idx)},
                             {"init",                 CoreIR::Const::make(context, init)}
   };
-  //def->addInstance(new_ub_name, gens["new_unified_buffer"], ub_arg2);
-
+  cout << "now doing: addinstance" << endl;
+  def->addInstance(new_ub_name, gens["new_unified_buffer"], ub_arg2);
+  cout << "now doing: reshape" << endl;
   
 
   CoreIR::Values input_reshape_args =
@@ -2737,6 +2816,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                                                       gens["reshape"],
                                                       output_reshape_args);
 
+  cout << "now doing: wiring" << endl;
+  
   bool simulation_compatible = true;
   if (simulation_compatible) {
     std::cout << "let's get some wires\n";
@@ -3061,7 +3142,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   size_t num_of_consumers = *as_const_int(op->args[idx++]);
   vector<string> consumer_names(num_of_consumers);
   vector<int> consumer_fifo_depth(num_of_consumers);
-  vector<vector<int> > consumer_stencils(num_of_dimensions);
+  vector<vector<int> > consumer_stencils(num_of_consumers);
   vector<vector<int> > consumer_offsets(num_of_consumers);
   vector<vector<int> > consumer_extents(num_of_consumers);
 

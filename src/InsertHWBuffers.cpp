@@ -59,8 +59,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
 
     Stmt visit(const For *op) {
       std::cout << "starting this for replace\n";
-      //if (!starts_with(op->name, kernel.name)) {
-      if (true) {
+      if (!starts_with(op->name, kernel.name)) {
+        //if (true) {
           std::cout << "trivial for\n";
             // try to simplify trivial reduction loops
             // TODO add assertions to check loop type
@@ -75,7 +75,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                 return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, body);
             }
         } else {
-          std::cout << "starting this replace: " << op->name << "\n";
+            std::cout << "starting this replace: " << op->name << "\n";
             // replace the loop var over the dimensions of the original function
             // realization with the loop var over the stencil dimension.
             // e.g. funcA.s0.x -> funcA.stencil.s0.x
@@ -141,18 +141,18 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
               //std::cout << "op->arg " << op->args[i] << " - " << kernel.dims.at(i).output_min_pos << std::endl;
 
               //const auto rand_ostream = kernel.ostreams.cbegin(); // FIXME: probably should be a specific ostream?
+
               Expr offset = kernel.ostreams.size() == 0 ? Expr(0) :
                 kernel.ostreams.cbegin()->second.odims.at(i).output_min_pos;
               for (auto ost : kernel.ostreams) {
-                std::cout << ost.first << ", ";
                 offset = simplify(min(offset, ost.second.odims.at(i).output_min_pos));
+                //std::cout << ost.first << "@" << offset << " ";
               }
-              std::cout << std::endl;
 
-              
               string output_min_name = kernel.name + ".output_min_pos." + std::to_string(i);
               // check if this is an output that where we saved the min_pos
               if (scope.contains(output_min_name)) {
+                std::cout << op->name << " provide contains in scope" << std::endl;
                 offset = scope.get(output_min_name);
               } else {
                 //offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
@@ -165,6 +165,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                   offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 }
               }
+
+              std::cout << op->name << " provide offsets are=" << offset << std::endl;
               
               //FIXME  new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims[i].min_pos, scope));
               //CORRECT new_args[i] = simplify(expand_expr_no_var(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
@@ -617,31 +619,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
               std::cout << "output_blk" << i << " = " << ostream.odims.at(i).output_block << "\n";
               hwbuffer_args.push_back(ostream.odims.at(i).output_block);
             }
-            num_ostreams += 1;
-          } else {
-            num_updates += 1;
-          }
-          
-          if (num_ostreams == 1) { break; }
-        }
-        //internal_assert(num_ostreams < 2);
 
-        hwbuffer_args.push_back(num_updates);
-        //for (const auto& ostream_p : kernel.ostreams) {
-        //  if (ostream_p.first == kernel.name) { // let's do the updates
-        //    hwbuffer_args.push_back(ostream_p.first);
-        //    const auto& ostream = ostream_p.second;
-        //    for (size_t i = 0; i < ostream.odims.size(); i++) {
-        //      hwbuffer_args.push_back(ostream.odims.at(i).output_stencil);
-        //    }
-        //    for (size_t i = 0; i < ostream.odims.size(); i++) {
-        //      hwbuffer_args.push_back(ostream.odims.at(i).output_block);
-        //    }
-        //  }
-        //}
-
-        for (const auto& ostream_p : kernel.ostreams) {
-          if (ostream_p.first != kernel.name) { // skip updates for now
             const auto& out_lin_acc = ostream_p.second.linear_access;
 
             hwbuffer_args.push_back(Expr(out_lin_acc.size()));
@@ -668,6 +646,59 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
 
             auto num_accum_iter = num_iter / num_logical_pixels;
             std::cout << kernel.name << " has " << num_accum_iter << " accum iterations\n";
+            
+            num_ostreams += 1;
+
+          } else {
+            num_updates += 1;
+          }
+          
+          if (num_ostreams == 1) { break; }
+        }
+        //internal_assert(num_ostreams < 2);
+
+        hwbuffer_args.push_back(num_updates);
+        //for (const auto& ostream_p : kernel.ostreams) {
+        //  if (ostream_p.first == kernel.name) { // let's do the updates
+        //    hwbuffer_args.push_back(ostream_p.first);
+        //    const auto& ostream = ostream_p.second;
+        //    for (size_t i = 0; i < ostream.odims.size(); i++) {
+        //      hwbuffer_args.push_back(ostream.odims.at(i).output_stencil);
+        //    }
+        //    for (size_t i = 0; i < ostream.odims.size(); i++) {
+        //      hwbuffer_args.push_back(ostream.odims.at(i).output_block);
+        //    }
+        //  }
+        //}
+
+        for (const auto& ostream_p : kernel.ostreams) {
+          if (ostream_p.first != kernel.name) { // skip updates for now
+            //const auto& out_lin_acc = ostream_p.second.linear_access;
+            //
+            //hwbuffer_args.push_back(Expr(out_lin_acc.size()));
+            //
+            //for (size_t i = 0; i < out_lin_acc.size(); i++) {
+            //  std::cout << "dim" << i << ": range=" << out_lin_acc.at(i).range
+            //            << " dim_ref=" << out_lin_acc.at(i).dim_ref
+            //            << " stride=" << out_lin_acc.at(i).stride
+            //            << "\n";
+            //}
+            //
+            //int num_iter=1;
+            //for (size_t i = 0; i < out_lin_acc.size(); i++) {
+            //  std::cout << "range" << i << " = " << out_lin_acc.at(i).range << "\n";
+            //  num_iter *= to_int(out_lin_acc.at(i).range);
+            //  hwbuffer_args.push_back(out_lin_acc.at(i).range);
+            //}
+            //for (size_t i = 0; i < out_lin_acc.size(); i++) {
+            //  hwbuffer_args.push_back(out_lin_acc.at(i).dim_ref);
+            //}
+            //for (size_t i = 0; i < out_lin_acc.size(); i++) {
+            //  hwbuffer_args.push_back(out_lin_acc.at(i).stride);
+            //}
+            //
+            //auto num_accum_iter = num_iter / num_logical_pixels;
+            //std::cout << kernel.name << " has " << num_accum_iter << " accum iterations\n";
           }
         }
 
@@ -814,7 +845,8 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         internal_assert(consume_node && !consume_node->is_producer);
 
         std::cout << "doing pc " << produce_node->name << " " << consume_node->name << std::endl;
-        if (produce_node->name == "hw_input") {
+        //if (produce_node->name == "hw_input") {
+        if (xcel.input_streams.count(produce_node->name) > 0) {
           std::cout << s << std::endl;
           return transform_hwkernel(consume_node->body, xcel, scope);
         }
