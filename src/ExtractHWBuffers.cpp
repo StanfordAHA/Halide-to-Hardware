@@ -263,7 +263,6 @@ class HWBuffers : public IRMutator {
             else {
                 hwbuffer.ldims[i].logical_size_flatten = hwbuffer.ldims[i-1].logical_size_flatten * hwbuffer.ldims[i-1].logical_size;
             }
-            std::cout << "DEBUG: logical size flatten: " << hwbuffer.ldims[i].logical_size_flatten << std::endl;
 
             hwbuffer.dims[i].input_chunk = input_block_box.at(i);
             hwbuffer.dims[i].input_block = input_block_box.at(i);
