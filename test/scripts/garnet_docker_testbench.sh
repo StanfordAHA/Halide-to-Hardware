@@ -1,3 +1,6 @@
+echo 'Running gaussian'
+./test/scripts/run_app.sh gaussian
+
 echo 'Running merged test suite...'
 ./test/scripts/run_hw_unit_tests.sh
 pw_res=$?
