@@ -1,5 +1,5 @@
 /*
- * An application for applying a Gaussian blur. 
+ * An application for applying a Gaussian blur.
  * It uses a 3x3 stencil with constant weights.
  */
 
@@ -59,27 +59,27 @@ public:
         hw_output.bound(x, 0, 60);
         hw_output.bound(y, 0, 60);
         output.bound(x, 0, 60);
-        output.bound(x, 0, 60);
-        
+        output.bound(y, 0, 60);
+
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-          
+
           hw_input.compute_root();
           //kernel.compute_root();
           hw_output.compute_root();
-          
+
           hw_output
             //            .compute_at(output, xo)
             .tile(x, y, xo, yo, xi, yi, 64-blockSize+1, 64-blockSize+1)
             .hw_accelerate(xi, xo);
 
           blur_unnormalized.update().unroll(win.x).unroll(win.y);
-          
+
           blur_unnormalized.linebuffer();
 
           //hw_output.accelerate({hw_input}, xi, xo);
           hw_input.stream_to_accelerator();
-          
+
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 64-blockSize+1, 64-blockSize+1)
             .vectorize(xi, 8)
