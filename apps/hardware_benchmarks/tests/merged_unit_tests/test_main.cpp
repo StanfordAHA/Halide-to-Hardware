@@ -3153,8 +3153,9 @@ int main(int argc, char **argv) {
   pointwise_add_test();
   mod2_test();
   clamp_test();
+  multi_channel_conv_test();
+
   //small_cascade_test();
-  //multi_channel_conv_test();
 
   //small_demosaic_test();
   //hot_pixel_suppression_test();

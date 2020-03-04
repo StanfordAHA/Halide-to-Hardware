@@ -421,7 +421,10 @@ void set_opt_params(HWXcel *xcel,
     //cout << stage.name << " is a hwkernel..." << endl;
     //internal_assert(iterator != hwbuffers.end()) << "Looking for " << stage.name << "\n";
     auto &hwbuffer = iterator->second;
-    internal_assert(hwbuffer.name == iterator->first);
+    if ((hwbuffer.name != iterator->first)) {
+      continue;
+    }
+    //internal_assert(hwbuffer.name == iterator->first);
 
     std::cout << hwbuffer.name << " before func\n";
 
