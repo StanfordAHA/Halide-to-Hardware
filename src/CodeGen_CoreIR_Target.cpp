@@ -2484,6 +2484,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     access_strides = access_strides_i;
 
     // store for the multiple consumer stream version
+    consumer_names.emplace_back(output_name_i);
     output_stencils[output_name_i] = output_stencil_i;
     output_block_types[output_name_i] = output_block_type_i;
     output_blocks[output_name_i] = output_block_i;
@@ -2753,9 +2754,11 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   cout << "making the ubuffer" << endl;
 
-  CoreIR::Wireable* coreir_ub = def->addInstance(ub_name, gens["unified_buffer"], ub_args);
+  CoreIR::Wireable* old_coreir_ub = def->addInstance("old_" + ub_name, gens["unified_buffer"], ub_args);
+  (void) old_coreir_ub;
 
-  string new_ub_name = "new_" + ub_name;
+  //string new_ub_name = "new_" + ub_name;
+  string new_ub_name = ub_name;
   //nlohmann::json istream_json;
   istream_json["input"]["input_stride"] = input_stride;
   istream_json["input"]["input_range"] = input_range;
@@ -2798,7 +2801,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"init",                 CoreIR::Const::make(context, init)}
   };
   cout << "now doing: addinstance" << endl;
-  def->addInstance(new_ub_name, gens["new_unified_buffer"], ub_arg2);
+  CoreIR::Wireable* coreir_ub = def->addInstance(new_ub_name, gens["new_unified_buffer"], ub_arg2);
   cout << "now doing: reshape" << endl;
   
 
@@ -2816,10 +2819,50 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                                                       gens["reshape"],
                                                       output_reshape_args);
 
+  // go through the reshapes for the consumers
+  map<string, CoreIR::Wireable*> output_reshapes;
+  map<string, int> map_num_oports;
+  for (auto consumer_name : consumer_names) {
+    auto output_block = output_blocks.at(consumer_name);
+    int num_output_ports = 1;
+    for (const auto &output_size : output_block) {
+      num_output_ports *= output_size;
+    }
+    map_num_oports[consumer_name] = num_output_ports;
+    auto output_block_type = output_block_types.at(consumer_name);
+    
+    CoreIR::Values output_reshape_args =
+      {{"input_type", CoreIR::Const::make(context, context->Flip(context->Bit()->Arr(bitwidth)->Arr(num_output_ports)))},
+       {"output_type", CoreIR::Const::make(context, output_block_type)}};
+    CoreIR::Wireable* output_reshape = def->addInstance(ub_name + "_for_" + consumer_name + "_out_reshape",
+                                                        gens["reshape"],
+                                                        output_reshape_args);
+    output_reshapes[consumer_name] = output_reshape;
+  }
+
   cout << "now doing: wiring" << endl;
   
   bool simulation_compatible = true;
-  if (simulation_compatible) {
+  bool new_ubuffer = true;
+  if (new_ubuffer) {
+    auto coreir_ub_inputs = get_wires(coreir_ub, {(size_t)num_input_ports}, "datain_input_");
+    auto coreir_ub_outputs = get_wires(coreir_ub, {(size_t)num_output_ports}, "dataout_"+output_name+"_");
+    auto coreir_reshape_for_inputs = get_wires(input_reshape->sel("out"), {(size_t)num_input_ports});
+    auto coreir_reshape_for_outputs = get_wires(output_reshape->sel("in"), {(size_t)num_output_ports});
+
+    connect_wires(def, coreir_ub_inputs, coreir_reshape_for_inputs);
+    connect_wires(def, coreir_ub_outputs, coreir_reshape_for_outputs);
+
+    for (auto consumer_name : consumer_names) {
+      auto num_output_ports = map_num_oports.at(consumer_name);
+      auto cons_ub_outputs = get_wires(coreir_ub, {(size_t)num_output_ports}, "dataout_"+consumer_name+"_");
+      auto output_reshape = output_reshapes.at(consumer_name);
+      auto coreir_reshape_for_outputs = get_wires(output_reshape->sel("in"), {(size_t)num_output_ports});
+      connect_wires(def, coreir_ub_outputs, coreir_reshape_for_outputs);
+      add_wire(ub_out_name + "." + consumer_name, output_reshape->sel("out"));
+    }
+    
+  } else if (simulation_compatible) {
     std::cout << "let's get some wires\n";
     auto coreir_ub_inputs = get_wires(coreir_ub, {(size_t)num_input_ports}, "datain");
     auto coreir_ub_outputs = get_wires(coreir_ub, {(size_t)num_output_ports}, "dataout");
@@ -2863,6 +2906,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   def->connect(ub_in_wire, input_reshape->sel("in"));
   add_wire(ub_out_name, output_reshape->sel("out"));
+
   if (!connected_wen) {
     CoreIR::Wireable* ub_wen = def->addInstance(ub_name+"_wen", gens["bitconst"], {{"value",CoreIR::Const::make(context,true)}});
     def->connect(ub_wen->sel("out"), coreir_ub->sel("wen"));
@@ -3066,18 +3110,19 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_read_stream(const Call *op) 
   const Variable *stream_name_var = op->args[0].as<Variable>();
   internal_assert(stream_name_var);
   string stream_name = stream_name_var->name;
+  string stream_print_name = print_name(stream_name);
   if (op->args.size() == 3) {
     // stream name is maggled with the consumer name
     const StringImm *consumer_imm = op->args[2].as<StringImm>();
     internal_assert(consumer_imm);
     stream_name += ".to." + consumer_imm->value;
+    stream_print_name += "." + consumer_imm->value;
   }
   do_indent();
   stream << a1 << " = " << print_name(stream_name) << ".read();\n";
   id = "0"; // skip evaluation
 
   // generate coreir: add as coreir input
-  string stream_print_name = print_name(stream_name);
   rename_wire(a1, stream_print_name, op->args[0]);
 
   if (predicate) {

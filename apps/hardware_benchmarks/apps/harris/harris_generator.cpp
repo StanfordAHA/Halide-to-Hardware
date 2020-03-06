@@ -33,7 +33,8 @@ public:
 
         Func padded16, padded;
         padded(x, y) = input(x+3, y+3);
-        padded16(x, y) = cast<int16_t>(padded(x, y));
+        //padded16(x, y) = cast<int16_t>(padded(x, y));
+        padded16(x, y) = cast<int16_t>(input(x+3,y+3));
                                       
 
         // sobel filter
@@ -108,8 +109,22 @@ public:
 
         output(x, y) = hw_output(x, y);
 
-        output.bound(x, 0, 58);
-        output.bound(y, 0, 58);
+        hw_output.bound(x, 0, 58);
+        hw_output.bound(y, 0, 58);
+        cim_output.bound(x, 0, 58);
+        cim_output.bound(y, 0, 58);
+        //lgxx.bound(x, 0, 60);
+        //lgxx.bound(y, 0, 60);
+        //lgxy.bound(x, 0, 60);
+        //lgxy.bound(y, 0, 60);
+        //lgyy.bound(x, 0, 60);
+        //lgyy.bound(y, 0, 60);
+        //lxx.bound(x, 0, 62);
+        //lxx.bound(y, 0, 62);
+        //lxy.bound(x, 0, 62);
+        //lxy.bound(y, 0, 62);
+        //lyy.bound(x, 0, 62);
+        //lyy.bound(y, 0, 62);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
@@ -125,15 +140,15 @@ public:
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
 
-          //grad_x.linebuffer();
-          //grad_y.linebuffer();
+          grad_x.linebuffer();
+          grad_y.linebuffer();
           lxx.linebuffer();
           lyy.linebuffer();
           lxy.linebuffer();
           lgxx.linebuffer();
           lgyy.linebuffer();
           lgxy.linebuffer();
-          cim.linebuffer();
+          //cim.linebuffer();
           cim_output.linebuffer();
 
           lgxx.update().unroll(box.x).unroll(box.y);

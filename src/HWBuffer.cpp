@@ -23,6 +23,25 @@ std::ostream& operator<<(std::ostream& os, const std::vector<AccessDimSize>& vec
   return os;
 };
 
+std::ostream& operator<<(std::ostream& os, const Port port) {
+  os << port.stream_index << "=" << port.mem_indices << "=" << port.starting_addr;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const map<vector<Expr>, Port, ExprVecCompare> oports) {
+  os << "Ports: {";
+
+  // go through all ports
+  for (const auto& port_pair : oports) {
+    const auto& port = port_pair.second;
+    //os << port.stream_index << "=" << port.mem_indices << ", ";
+    os << port << ", ";
+  }
+  os << "}";
+  
+  return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
   vector<Expr> output_stencil_box, output_block_box, output_min_pos;

@@ -60,7 +60,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
     Stmt visit(const For *op) {
       std::cout << "starting this for replace\n";
       if (!starts_with(op->name, kernel.name)) {
-        //if (true) {
+      //if (true) {
           std::cout << "trivial for\n";
             // try to simplify trivial reduction loops
             // TODO add assertions to check loop type
@@ -164,6 +164,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
                   const auto rand_ostream = kernel.ostreams.cbegin(); // FIXME: probably should be a specific ostream?
                   offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 }
+                offset = kernel.dims.at(i).input_min_pos;
               }
 
               std::cout << op->name << " provide offsets are=" << offset << std::endl;
@@ -207,11 +208,17 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
             internal_assert(it != xcel.hwbuffers.end());
             const HWBuffer &stencil_kernel = it->second;
             internal_assert(op->args.size() == stencil_kernel.func.args().size());
-          
+
+            vector<Expr> old_args(op->args.size());
+            for (size_t i=0; i<op->args.size(); i++) {
+              old_args.at(i) = op->args.at(i);
+            }
+            auto count_call = stencil_kernel.ostreams.at(kernel.name).oports.count(old_args);
+            std::cout << kernel.name << " number in maps is " << count_call << std::endl;
+
             // Replace the call node of func with call node of func.stencil
             string stencil_name = stencil_kernel.name + ".stencil";
             vector<Expr> new_args(op->args.size());
-
 
             // Mutate the arguments.
             // The value of the new argment is the old_value - stencil.min_pos.

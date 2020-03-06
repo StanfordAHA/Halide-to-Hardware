@@ -16,7 +16,6 @@
 #include <iostream>
 
 #include "IR.h"
-//#include "ExtractHWKernelDAG.h"
 #include "SlidingWindow.h"
 
 namespace Halide {
@@ -24,10 +23,29 @@ namespace Internal {
 
 struct HWBuffer; // forward declare
 
+// used to make a map with a key of vector<Expr>
+struct ExprVecCompare {
+  bool operator()(const std::vector<Expr> &av, const std::vector<Expr> &bv) const {
+    // loop through vectors
+    auto len = std::min(av.size(), bv.size());
+    for (size_t i=0; i<len; ++i) {
+      auto a = av.at(i);
+      auto b = bv.at(i);
+        
+      if (a.get() != b.get()) {
+        return a.get() < b.get();
+      }
+    }
+
+    // all are equal, so return false
+    return false;
+  }
+};
+
 struct Port {
-  int block_index;   // ports are labeled in order
-  std::vector<Expr> block_indices;
-  int starting_addr; // block_indices * logical
+  int stream_index;   // ports are labeled in order
+  std::vector<Expr> mem_indices; // original 2d address
+  int starting_addr;  // mem_indices * logical
 };
 
 struct Stride {
@@ -92,7 +110,7 @@ struct OutputDimSize {
 struct OutputStream {
   std::string name;
   std::vector<OutputDimSize> odims;
-  std::map<std::vector<Expr>, Port> oports;
+  std::map<std::vector<Expr>, Port, ExprVecCompare> oports;
   Stmt output_access_pattern;
   std::map<std::string, Stride> stride_map;
   std::vector<AccessDimSize> linear_access;
@@ -127,6 +145,7 @@ struct InOutDimSize {
   Expr input_chunk;    // replace stencilfor, dispatch, need_hwbuffer, add_hwbuffer,
                        // transform_hwkernel, xcel inserthwbuffers
   Expr input_block;    // add_hwbuffer
+  Expr input_min_pos;
 
   Expr output_stencil; // add_hwbuffer, dispatch
   Expr output_block;   // add_hwbuffer
@@ -152,6 +171,8 @@ std::vector<AccessDimSize> create_linear_addr(std::vector<int> range,
 
 std::ostream& operator<<(std::ostream& os, const std::vector<AccessDimSize>& vec);
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer);
+std::ostream& operator<<(std::ostream& os, const std::map<std::vector<Expr>, Port, ExprVecCompare> oports);
+std::ostream& operator<<(std::ostream& os, const Port port);
 
 struct HWBuffer {
   std::string name;
