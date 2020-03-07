@@ -613,10 +613,12 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
         // we should push the output stencil for each consumer
         int num_ostreams = 0;
         int num_updates = 0;
-        //hwbuffer_args.push_back(Expr(kernel.ostreams.size())); // number of ostreams
-        hwbuffer_args.push_back(Expr(1)); // number of ostreams
+        
+        hwbuffer_args.push_back(Expr((int)kernel.ostreams.size() - kernel.ostreams.count(kernel.name))); // number of ostreams
+        //hwbuffer_args.push_back(Expr(1)); // number of ostreams
         for (const auto& ostream_p : kernel.ostreams) {
           if (ostream_p.first != kernel.name) { // skip updates for now
+            std::cout << "doing stream called " << ostream_p.first << std::endl;
             hwbuffer_args.push_back(ostream_p.first);
             const auto& ostream = ostream_p.second;
             for (size_t i = 0; i < ostream.odims.size(); i++) {
@@ -660,7 +662,7 @@ Stmt add_hwbuffer(Stmt s, const HWBuffer &kernel, const HWXcel &xcel, const Scop
             num_updates += 1;
           }
           
-          if (num_ostreams == 1) { break; }
+          //if (num_ostreams == 1) { break; }
         }
         //internal_assert(num_ostreams < 2);
 

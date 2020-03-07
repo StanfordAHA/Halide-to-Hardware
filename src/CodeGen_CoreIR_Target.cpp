@@ -2420,14 +2420,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   do {
     string output_name_i = op->args[cur_idx++].as<StringImm>()->value;
 
-    CoreIR::Type* output_stencil_type_i = context->Bit()->Arr(bitwidth);
+    //CoreIR::Type* output_stencil_type_i = context->Bit()->Arr(bitwidth);
     vector<size_t> output_stencil_i(num_dims);
     stream << " output stencil=";
     for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
       output_stencil_i[i] = id_const_value(op->args[cur_idx]);
       stream << output_stencil_i[i] << " ";
     }
-    std::cout << "\n" << output_stencil_type_i << std::endl;
+
 
     CoreIR::Type* output_block_type_i = context->Bit()->Arr(bitwidth);
     vector<size_t> output_block_i(num_dims);
@@ -2521,6 +2521,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     stream << "\n";
   }
 
+  std::cout << ub_name << " has " << num_consumers << " consuemrs" << std::endl;
   
   auto &input_ports = input_block;
   auto &capacity = logical_size;
