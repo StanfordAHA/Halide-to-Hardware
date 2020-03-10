@@ -23,8 +23,8 @@ using std::vector;
 
 namespace {
 
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
     const Scope<Expr> &scope;
 
     Expr visit(const Variable *var) {
@@ -53,12 +53,12 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
 }
 
 
-class ReplaceReferencesWithStencil : public IRMutator2 {
+class ReplaceReferencesWithStencil : public IRMutator {
     const HWKernel &kernel;
     const HWKernelDAG &dag;  // FIXME not needed
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Stmt visit(const For *op) {
         if (!starts_with(op->name, kernel.name)) {
@@ -94,7 +94,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             if (dim_idx == -1) {
                 // it is a loop over reduction domain, and we keep it
                 // TODO add an assertion
-              return IRMutator2::visit(op);
+              return IRMutator::visit(op);
             }
             Expr new_min = 0;
             Expr new_extent = kernel.dims[dim_idx].step;
@@ -104,18 +104,18 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             Expr old_var_value = new_var + old_min;
 
             // traversal down into the body
-            Stmt let_body = LetStmt::make(old_var_name, old_var_value, op->body);
             scope.push(old_var_name, simplify(expand_expr(old_var_value, scope)));
-            Stmt new_body = mutate(let_body);
+            Stmt new_body = mutate(op->body);
             scope.pop(old_var_name);
 
+            new_body = LetStmt::make(old_var_name, old_var_value, new_body);
             return For::make(new_var_name, new_min, new_extent, op->for_type, op->device_api, new_body);
         }
     }
 
     Stmt visit(const Provide *op) {
         if(op->name != kernel.name) {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         } else {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
@@ -132,7 +132,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
+            //std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
 
             return Provide::make(stencil_name, new_values, new_args);
         }
@@ -185,7 +185,7 @@ class ReplaceReferencesWithStencil : public IRMutator2 {
             //std::cout << "replacing call " << Expr(op) << " with\n" << "\t" << expr << "\n";
             return expr;
         } else {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         }
     }
 
@@ -369,7 +369,6 @@ Stmt add_linebuffer(Stmt s, const HWKernel &kernel) {
             Expr store_extent = simplify(kernel.dims[i].store_bound.max -
                                          kernel.dims[i].store_bound.min + 1);
             linebuffer_args.push_back(store_extent);
-            std::cout << "store extent in this linebuffer: " << store_extent << std::endl;
         }
         Stmt linebuffer_call = Evaluate::make(Call::make(Handle(), "linebuffer", linebuffer_args, Call::Intrinsic));
         Stmt dispatch_call = create_dispatch_call(kernel);
@@ -529,7 +528,6 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
         Expr stream_var = Variable::make(Handle(), stream_name);
 
         // replacing the references to the original realization with refences to stencils
-        std::cout << "replacing refs in: \n" << produce_node->body << std::endl;
         Stmt produce = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(produce_node->body);
         //Stmt update = ReplaceReferencesWithStencil(kernel, dag, &scope).mutate(op->update);
 
@@ -824,15 +822,15 @@ Stmt transform_kernel(Stmt s, const HWKernelDAG &dag, Scope<Expr> &scope) {
 }
 
 
-class TransformTapStencils : public IRMutator2 {
+class TransformTapStencils : public IRMutator {
     const map<string, HWTap> &taps;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     // Replace calls to ImageParam with calls to Stencil
     Expr visit(const Call *op) {
         if (taps.count(op->name) == 0) {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         } else if (op->call_type == Call::Image || op->call_type == Call::Halide) {
             debug(3) << "replacing " << op->name << '\n';
             const HWTap &tap = taps.find(op->name)->second;
@@ -851,7 +849,7 @@ class TransformTapStencils : public IRMutator2 {
             return Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
         } else {
             internal_error << "unexpected call_type\n";
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
     }
 
@@ -860,29 +858,18 @@ public:
 };
 
 // Perform streaming optimization for all functions
-class StreamOpt : public IRMutator2 {
+class StreamOpt : public IRMutator {
     const HWKernelDAG &dag;
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Stmt visit(const For *op) {
         Stmt stmt;
-        std::cout << "visiting for loop named " << op->name
-                  << " where store_lvl=" << dag.store_level
-                  << " where compute_lvl=" << dag.compute_level
-                  << std::endl;
-
-        for (auto ll : dag.loop_vars) {
-          std::cout << ll << ",";
-        }
-        std::cout << std::endl;
-
+        //std::cout << "visiting for loop named " << op->name << " where store_lvl=" << dag.store_level << std::endl;
         if (!dag.store_level.match(op->name) && !dag.loop_vars.count(op->name)) {
-            std::cout << "just continue\n";
-            stmt = IRMutator2::visit(op);
+            stmt = IRMutator::visit(op);
         } else if (dag.compute_level.match(op->name)) {
-            std::cout << "xcel compute\n";
             internal_assert(dag.loop_vars.count(op->name));
 
             // walk inside of any let statements
@@ -930,11 +917,9 @@ class StreamOpt : public IRMutator2 {
             // remove the loop statement if it is one of the scan loops
             stmt = new_body;
         } else if (dag.loop_vars.count(op->name)){
-            std::cout << "loopy\n";
             // remove the loop statement if it is one of the scan loops
             stmt = mutate(op->body);
         } else {
-            std::cout << "create xcel\n";
             internal_assert(dag.store_level.match(op->name));
             debug(3) << "find the pipeline producing " << dag.name << "\n";
             std::cout << "find the pipeline producing " << dag.name << "\n";
@@ -975,7 +960,8 @@ class StreamOpt : public IRMutator2 {
                 for (size_t i = 0; i < kernel.dims.size(); i++) {
                     image_args.push_back(kernel.dims[i].store_bound.min);
                 }
-                Expr address_of_subimage_origin = Call::make(Handle(), Call::buffer_get_host, {Call::make(kernel.func, image_args, 0)}, Call::Extern);
+                //Expr address_of_subimage_origin = Call::make(Handle(), Call::buffer_get_host, {Call::make(kernel.func, image_args, 0)}, Call::Extern);
+                Expr address_of_subimage_origin = Call::make(Handle(), "address_of", {Call::make(kernel.func, image_args, 0)}, Call::Intrinsic);
                 Expr buffer_var = Variable::make(type_of<struct buffer_t *>(), kernel.name + ".buffer");
 
                 // add intrinsic functions to convert memory buffers to streams
@@ -1050,7 +1036,7 @@ class StreamOpt : public IRMutator2 {
             }
             */
         } else {
-           return IRMutator2::visit(op);
+           return IRMutator::visit(op);
         }
     }
 
@@ -1076,13 +1062,6 @@ public:
 
 Stmt stream_opt(Stmt s, const HWKernelDAG &dag) {
     debug(3) << s << "\n";
-
-    std::cout << "kernels in dag include: \n";
-    for (auto &kernel_pair : dag.kernels) {
-      std::cout << "kernel " << kernel_pair.first << std::endl;
-    }
-
-    
     s = StreamOpt(dag).mutate(s);
     debug(3) << s << "\n";
     return s;

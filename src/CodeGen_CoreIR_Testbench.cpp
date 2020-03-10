@@ -21,23 +21,7 @@ using std::vector;
 using std::pair;
 using std::map;
 
-class CoreIR_Closure : public Closure {
-public:
-  CoreIR_Closure(Stmt s, string output_string)  {
-        s.accept(this);
-        output_name = output_string;
-    }
-
-    vector<CoreIR_Argument> arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &scope);
-
-protected:
-    using Closure::visit;
-    string output_name;
-
-};
-
-
-vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Base::Stencil_Type> &streams_scope) {
+vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<Stencil_Type> &streams_scope) {
     vector<CoreIR_Argument> res;
     for (const pair<string, Closure::Buffer> &i : buffers) {
         debug(3) << "buffer: " << i.first << " " << i.second.size;
@@ -55,11 +39,14 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Bas
     internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
         debug(3) << "var: " << i.first << "\n";
-        std::cout << "var: " << i.first << "\n";
+        std::cout << "var name: " << i.first << std::endl;
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
-            CodeGen_CoreIR_Base::Stencil_Type stype = streams_scope.get(i.first);
 
+        std::cout << "\tgetting stencil type: " << i.first << std::endl;
+            Stencil_Type stype = streams_scope.get(i.first);
+
+        std::cout << "\tgot stencil type" << i.first << std::endl;
             if (starts_with(i.first, output_name)) {
               res.push_back({i.first, true, true, Type(), stype});              
             } else {
@@ -69,9 +56,10 @@ vector<CoreIR_Argument> CoreIR_Closure::arguments(const Scope<CodeGen_CoreIR_Bas
             internal_error << "we don't expect to see a stencil_update type in CoreIR_Closure.\n";
         } else {
             // it is a scalar variable
-            res.push_back({i.first, false, true, i.second, CodeGen_CoreIR_Base::Stencil_Type()});
+            res.push_back({i.first, false, true, i.second, Stencil_Type()});
         }
     }
+    std::cout << "Returning args" << std::endl;
     return res;
 }
 
@@ -111,8 +99,13 @@ void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
         vector<CoreIR_Argument> args = c.arguments(stencils);
 
         // generate CoreIR target code using the child code generator
+        std::cout << "Getting name" << std::endl;
         string ip_name = unique_name("coreir_target");
+        
+        std::cout << "Got name" << std::endl;
         cg_target.add_kernel(hw_body, ip_name, args);
+
+        std::cout << "Added kernel" << std::endl;
 
         // emits the target function call
         do_indent();
@@ -171,6 +164,18 @@ void CodeGen_CoreIR_Testbench::visit(const Call *op) {
         do_indent();
         stream << "buffer_to_stencil(" << a0 << ", " << a1 << ");\n";
         id = "0"; // skip evaluation
+    } else if(op->name == "address_of") {
+        std::ostringstream rhs;
+        const Load *l = op->args[0].as<Load>();
+        internal_assert(op->args.size() == 1 && l);
+        rhs << "(("
+            << print_type(l->type.element_of())
+            << " *)"
+            << print_name(l->name)
+            << " + "
+            << print_expr(l->index)
+            << ")";
+        print_assignment(op->type, rhs.str());
     } else {
         CodeGen_CoreIR_Base::visit(op);
     }

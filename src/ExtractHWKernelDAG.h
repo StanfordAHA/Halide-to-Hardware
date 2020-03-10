@@ -118,7 +118,7 @@ namespace {
 //
 // Perform all the substitutions in a scope
 
- Expr expand_expr(Expr e, const Scope<Expr> &scope);
+ //Expr expand_expr(Expr e, const Scope<Expr> &scope);
 //Expr expand_expr(Expr e, const Scope<Expr> &scope) {
 //    ExpandExpr ee(scope);
 //    Expr result = ee.mutate(e);

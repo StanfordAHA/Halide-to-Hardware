@@ -1,7 +1,7 @@
 #include <cstdio>
 
 #include "harris.h"
-
+#include "coreir/libs/commonlib.h"
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
 #include "halide_image_io.h"
@@ -76,15 +76,15 @@ void run_harris_on_interpreter(string coreir_design,
         // give another rising edge (execute seq)
         state.exeSequential();
 
-      }
-    }
-  }
-  coreir_img_writer.print_coords();
+      //}
+    //}
+  //}
+  //coreir_img_writer.print_coords();
 
-  deleteContext(c);
-  printf("finished running CoreIR code\n");
+  //deleteContext(c);
+  //printf("finished running CoreIR code\n");
 
-}
+//}
 
 void run_harris_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<uint8_t> input,
@@ -102,6 +102,8 @@ int main(int argc, char **argv) {
                                               {"coreir",
                                                   [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
                                                                                       "self.in_arg_1_0_0", "self.out_0_0"); }
+                                                  //[&]() { run_harris_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
+                                                                                      //"self.in_arg_1_0_0", "self.out_0_0"); }
                                               }
 
                                             });

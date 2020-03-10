@@ -18,7 +18,7 @@
 namespace Halide {
 namespace Internal {
 
-class IRMutator2;
+class IRMutator;
 class IRVisitor;
 
 /** All our IR node types get unique IDs for the purposes of RTTI */
@@ -118,14 +118,14 @@ inline void destroy<IRNode>(const IRNode *t) {delete t;}
    methods beyond base IR nodes for now. */
 struct BaseStmtNode : public IRNode {
     BaseStmtNode(IRNodeType t) : IRNode(t) {}
-    virtual Stmt mutate_stmt(IRMutator2 *v) const = 0;
+    virtual Stmt mutate_stmt(IRMutator *v) const = 0;
 };
 
 /** A base class for expression nodes. They all contain their types
  * (e.g. Int(32), Float(32)) */
 struct BaseExprNode : public IRNode {
     BaseExprNode(IRNodeType t) : IRNode(t) {}
-    virtual Expr mutate_expr(IRMutator2 *v) const = 0;
+    virtual Expr mutate_expr(IRMutator *v) const = 0;
     Type type;
 };
 
@@ -138,7 +138,7 @@ struct BaseExprNode : public IRNode {
 template<typename T>
 struct ExprNode : public BaseExprNode {
     void accept(IRVisitor *v) const override;
-    Expr mutate_expr(IRMutator2 *v) const override;
+    Expr mutate_expr(IRMutator *v) const override;
     ExprNode() : BaseExprNode(T::_node_type) {}
     virtual ~ExprNode() {}
 };
@@ -146,7 +146,7 @@ struct ExprNode : public BaseExprNode {
 template<typename T>
 struct StmtNode : public BaseStmtNode {
     void accept(IRVisitor *v) const override;
-    Stmt mutate_stmt(IRMutator2 *v) const override;
+    Stmt mutate_stmt(IRMutator *v) const override;
     StmtNode() : BaseStmtNode(T::_node_type) {}
     virtual ~StmtNode() {}
 };
@@ -250,7 +250,11 @@ struct FloatImm : public ExprNode<FloatImm> {
         node->type = t;
         switch (t.bits()) {
         case 16:
-            node->value = (double)((float16_t)value);
+            if (t.is_bfloat()) {
+                node->value = (double)((bfloat16_t)value);
+            } else {
+                node->value = (double)((float16_t)value);
+            }
             break;
         case 32:
             node->value = (float)value;
@@ -298,17 +302,18 @@ struct Expr : public Internal::IRHandle {
 
     /** Make an expression representing numeric constants of various types. */
     // @{
-    explicit Expr(int8_t x)    : IRHandle(Internal::IntImm::make(Int(8), x)) {}
-    explicit Expr(int16_t x)   : IRHandle(Internal::IntImm::make(Int(16), x)) {}
-             Expr(int32_t x)   : IRHandle(Internal::IntImm::make(Int(32), x)) {}
-    explicit Expr(int64_t x)   : IRHandle(Internal::IntImm::make(Int(64), x)) {}
-    explicit Expr(uint8_t x)   : IRHandle(Internal::UIntImm::make(UInt(8), x)) {}
-    explicit Expr(uint16_t x)  : IRHandle(Internal::UIntImm::make(UInt(16), x)) {}
-    explicit Expr(uint32_t x)  : IRHandle(Internal::UIntImm::make(UInt(32), x)) {}
-    explicit Expr(uint64_t x)  : IRHandle(Internal::UIntImm::make(UInt(64), x)) {}
-             Expr(float16_t x) : IRHandle(Internal::FloatImm::make(Float(16), (double)x)) {}
-             Expr(float x)     : IRHandle(Internal::FloatImm::make(Float(32), x)) {}
-    explicit Expr(double x)    : IRHandle(Internal::FloatImm::make(Float(64), x)) {}
+    explicit Expr(int8_t x)     : IRHandle(Internal::IntImm::make(Int(8), x)) {}
+    explicit Expr(int16_t x)    : IRHandle(Internal::IntImm::make(Int(16), x)) {}
+             Expr(int32_t x)    : IRHandle(Internal::IntImm::make(Int(32), x)) {}
+    explicit Expr(int64_t x)    : IRHandle(Internal::IntImm::make(Int(64), x)) {}
+    explicit Expr(uint8_t x)    : IRHandle(Internal::UIntImm::make(UInt(8), x)) {}
+    explicit Expr(uint16_t x)   : IRHandle(Internal::UIntImm::make(UInt(16), x)) {}
+    explicit Expr(uint32_t x)   : IRHandle(Internal::UIntImm::make(UInt(32), x)) {}
+    explicit Expr(uint64_t x)   : IRHandle(Internal::UIntImm::make(UInt(64), x)) {}
+             Expr(float16_t x)  : IRHandle(Internal::FloatImm::make(Float(16), (double)x)) {}
+             Expr(bfloat16_t x) : IRHandle(Internal::FloatImm::make(BFloat(16), (double)x)) {}
+             Expr(float x)      : IRHandle(Internal::FloatImm::make(Float(32), x)) {}
+    explicit Expr(double x)     : IRHandle(Internal::FloatImm::make(Float(64), x)) {}
     // @}
 
     /** Make an expression representing a const string (i.e. a StringImm) */

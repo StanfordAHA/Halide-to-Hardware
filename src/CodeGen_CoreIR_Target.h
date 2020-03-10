@@ -20,7 +20,7 @@ namespace Halide {
       bool is_stencil;
       bool is_output;
       Type scalar_type;
-      CodeGen_CoreIR_Base::Stencil_Type stencil_type;
+      Stencil_Type stencil_type;
     };
 
     // Encapsulates all arguments for a coreir module to be constructed and wired up later.

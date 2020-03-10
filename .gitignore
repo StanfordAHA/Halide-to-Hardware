@@ -3,9 +3,9 @@
 /apps/*/cmake_build
 /apps/HelloMatlab/blurred.png
 /apps/HelloMatlab/iir_blur.mex
-bazel-*
 bin/*
 bin/
+*.nfs*
 build/*
 python_bindings/bin/*
 build-64/*
@@ -64,7 +64,7 @@ tools/objc/*.mobileprovision
 *.sublime-project
 *.sublime-workspace
 
-apps/patchmatch
+/apps/patchmatch
 
 # app intermediates
 apps/*/*out*.png
@@ -76,6 +76,7 @@ apps/*/*.ll
 apps/*/*.sass
 apps/*/filter
 apps/HelloAndroidGL/jni/halide_gl_filter.h
+*.json
 
 # tutorial intermediates
 tutorial/lesson_10_halide.h
@@ -89,3 +90,54 @@ test/*.lowered
 src/.tags
 src/.tags_sorted_by_file
 
+*gen_classes.h
+
+tutorial/pipeline*
+
+*.ll
+
+*.cmake
+CMakeCache.txt
+CMakeFiles/*
+apps/hardware_benchmarks/tests/merged_unit_tests/*_c.c
+apps/hardware_benchmarks/tests/merged_unit_tests/*_c.h
+apps/hardware_benchmarks/tests/merged_unit_tests/*_mini.cpp
+apps/hardware_benchmarks/tests/merged_unit_tests/*.pgm
+apps/hardware_benchmarks/tests/merged_unit_tests/*.ppm
+apps/hardware_benchmarks/tests/*/CMakeFiles/*
+apps/hardware_benchmarks/apps/*/CMakeFiles/*
+apps/hardware_benchmarks/apps/times_5/*
+apps/hardware_benchmarks/apps/upsample_downsample/*
+run_tutorial_1.sh
+
+tutorial/hw_output
+
+res.txt
+dhlog.txt
+
+*.bzl
+
+halide_config.make
+halide
+
+apps/hardware_benchmarks/tests/conv_1_2/generator
+apps/hardware_benchmarks/tests/merged_unit_tests/accel_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/accel_soc_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/brighter_halide_coreir.png
+apps/hardware_benchmarks/tests/merged_unit_tests/camer_pipe_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/camera_pipeline_coreir
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_brighter
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_cascade
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_conv_3_3
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_curve
+apps/hardware_benchmarks/tests/merged_unit_tests/coreir_harris
+
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_demosaic
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_different_latencies
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_double_unsharp
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_offset_window
+apps/hardware_benchmarks/tests/merged_unit_tests/hw_simple_unsharp
+apps/hardware_benchmarks/tests/merged_unit_tests/mc_conv_coreir
+
+# IDE
+cmake-build-*/

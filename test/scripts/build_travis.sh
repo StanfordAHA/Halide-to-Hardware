@@ -2,12 +2,17 @@
 set -e
 set -o pipefail
 
+export HALIDE_SHARED_LIBRARY=halide.a
+
 # Note this script assumes that the current working directory
 # is the root of the repository
 if [ ! -f ./.travis.yml ]; then
   echo "This script must be run from the root of the repository"
   exit 1
 fi
+export LLVM_VERSION=6.0.0
+export BUILD_SYSTEM=MAKE
+export CXX=g++
 
 : ${LLVM_VERSION:?"LLVM_VERSION must be specified"}
 : ${BUILD_SYSTEM:?"BUILD_SYSTEM must be specified"}
@@ -56,7 +61,7 @@ if [ ${BUILD_SYSTEM} = 'CMAKE' ]; then
 elif [ ${BUILD_SYSTEM} = 'MAKE' ]; then
   #export LLVM_CONFIG=/usr/local/llvm/bin/llvm-config
   #export CLANG=/usr/local/llvm/bin/clang
-  ${LLVM_CONFIG} --cxxflags --libdir --bindir
+  #${LLVM_CONFIG} --cxxflags --libdir --bindir
 
   # Test that prebuilt version works
   # make test_coreir_prebuilt

@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <map>
 
-#include "hwbuffer.h"
+//#include "HWBuffer.h"
+#include "ExtractHWBuffers.h"
 
 namespace {
 

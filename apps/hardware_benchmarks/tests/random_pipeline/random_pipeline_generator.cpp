@@ -23,7 +23,7 @@ vector<Expr> make_arguments(vector<Var> vars) {
 std::mt19937 rng;
 
 // Helpers to generate random values.
-int rand_int(int min, int max) { return (rng() % (max - min + 1)) + min; }
+int16_t rand_int(int min, int max) { return (rng() % (max - min + 1)) + min; }
 bool rand_bool() { return rng() % 2 == 0; }
 float rand_float() { return rand_int(0, 1 << 30) / (float)(1 << 30); }
 
@@ -292,8 +292,8 @@ Expr rand_value(Type t) {
     void set_upcast_types(Type input_type, Type& mult_type, Type& sum_type) {
         if (input_type.is_int() && rand_int(0,1)) {
             int input_bits = input_type.bits();
-            int mult_bits = std::min(32, 2*input_bits);
-            int sum_bits = std::min(32, 2*mult_bits);
+            int mult_bits = std::min(16, 2*input_bits);
+            int sum_bits = std::min(16, 2*mult_bits);
             mult_type = Int(mult_bits);
             sum_type = Int(sum_bits);
         } else if (input_type == UInt(1)) {
@@ -1053,6 +1053,7 @@ Expr rand_value(Type t) {
                     return i;
                 }
             }
+            return 1;
         }
 
         void print() {

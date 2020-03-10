@@ -9,9 +9,15 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
+const int inImgSize = 64;
+//const int outImgSize = inImgSize - 2;
+const int outImgSize = inImgSize - 4;
+
+typedef uint8_t Pixel;
+
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<uint8_t> processor("cascade",
+  OneInOneOut_ProcessController<Pixel> processor("cascade",
                                             {
                                               {"cpu",
                                                   [&]() { cascade(processor.input, processor.output); }
@@ -23,8 +29,8 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<uint8_t>(64, 64);
-  processor.output = Buffer<uint8_t>(60, 60);
+  processor.input = Buffer<Pixel>(inImgSize, inImgSize);
+  processor.output = Buffer<Pixel>(outImgSize, outImgSize);
   
   processor.process_command(argc, argv);
   

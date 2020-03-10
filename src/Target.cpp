@@ -306,9 +306,13 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"check_unsafe_promises", Target::CheckUnsafePromises},
     {"hexagon_dma", Target::HexagonDma},
     {"embed_bitcode", Target::EmbedBitcode},
+    {"disable_llvm_loop_vectorize", Target::DisableLLVMLoopVectorize},
+    {"disable_llvm_loop_unroll", Target::DisableLLVMLoopUnroll},
     {"coreir", Target::CoreIR},
     {"coreir_valid", Target::CoreIRValid},
     {"hls", Target::HLS},
+    {"coreir_hls", Target::CoreIRHLS},
+    {"use_extract_hw_kernel", Target::UseExtractHWKernel}
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.
 };
@@ -641,6 +645,8 @@ bool Target::supports_type(const Type &t) const {
     if (t.bits() == 64) {
         if (t.is_float()) {
             return !has_feature(Metal) &&
+                   !has_feature(OpenGL) &&
+                   !has_feature(OpenGLCompute) &&
                    !has_feature(D3D12Compute) &&
                    (!has_feature(Target::OpenCL) || has_feature(Target::CLDoubles));
         } else {

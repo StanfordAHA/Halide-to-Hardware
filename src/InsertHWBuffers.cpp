@@ -50,12 +50,12 @@ string find_first_produce(Stmt s) {
 
 
 // Replace Calls and Provides with stencil indices
-class ReplaceReferencesWithBufferStencil : public IRMutator2 {
+class ReplaceReferencesWithBufferStencil : public IRMutator {
     const HWBuffer &kernel;
     const HWXcel &xcel;  // TODO not needed
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Stmt visit(const For *op) {
       std::cout << "starting this for replace\n";
@@ -96,7 +96,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
               std::cout << "nvm this is a reduction\n";
                 // it is a loop over reduction domain, and we keep it
                 // TODO add an assertion
-              return IRMutator2::visit(op);
+              return IRMutator::visit(op);
             }
             Expr new_min = 0;
             // FIXME(is this correct?): Expr new_extent = kernel.dims[dim_idx].step
@@ -127,7 +127,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
         std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
         std::cout << Stmt(op) << std::endl;
         if (op->name != kernel.name) {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         } else {
             // Replace the provide node of func with provide node of func.stencil
             string stencil_name = kernel.name + ".stencil";
@@ -275,7 +275,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator2 {
 
             return expr;
         } else {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         }
     }
 
@@ -1135,15 +1135,15 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 }
 
 /*
-class TransformTapStencils : public IRMutator2 {
+class TransformTapStencils : public IRMutator {
     const map<string, HWTap> &taps;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     // Replace calls to ImageParam with calls to Stencil
     Expr visit(const Call *op) {
         if (taps.count(op->name) == 0) {
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         } else if (op->call_type == Call::Image || op->call_type == Call::Halide) {
             debug(3) << "replacing " << op->name << '\n';
             const HWTap &tap = taps.find(op->name)->second;
@@ -1162,7 +1162,7 @@ class TransformTapStencils : public IRMutator2 {
             return Call::make(op->type, stencil_name, new_args, Call::Intrinsic);
         } else {
             internal_error << "unexpected call_type\n";
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
     }
 
@@ -1172,14 +1172,14 @@ public:
 */
 
 // Perform streaming optimization for all functions
-class InsertHWBuffers : public IRMutator2 {
+class InsertHWBuffers : public IRMutator {
     const HWXcel &xcel;
     Scope<Expr> scope;
     bool in_streaming_loops;
     string kernelname;
     string loopname;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
   std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
     std::vector<std::string> tokens;
@@ -1244,7 +1244,7 @@ class InsertHWBuffers : public IRMutator2 {
         if (!xcel.store_level.match(op->name) &&
             !is_loop_var) {
             std::cout << "just continue\n";
-            stmt = IRMutator2::visit(op);
+            stmt = IRMutator::visit(op);
 
         // compute level matches name
         //} else if (xcel.compute_level.match(op->name)) {
@@ -1430,7 +1430,7 @@ class InsertHWBuffers : public IRMutator2 {
     std::cout << "casted as pcs" << op->rest.defined() << "\n";
     if (!op->rest.defined() || !(consume_node && produce_node)) {
       std::cout << "visiting\n";
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
     std::cout << "continuing\n";
 
@@ -1440,7 +1440,7 @@ class InsertHWBuffers : public IRMutator2 {
     if (xcel.hwbuffers.count(produce_node->name) > 0) {
       hwbuffername = produce_node->name;
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
 
     // The compute level name
@@ -1478,7 +1478,7 @@ class InsertHWBuffers : public IRMutator2 {
       // remove the loop statement if it is one of the scan loops
       stmt = new_body;
     } else {
-      stmt = IRMutator2::visit(op);
+      stmt = IRMutator::visit(op);
     }
     return stmt;
   }
@@ -1501,7 +1501,7 @@ class InsertHWBuffers : public IRMutator2 {
       }
     } //else
     std::cout << "realize for " << op->name << "\n";
-    return IRMutator2::visit(op);
+    return IRMutator::visit(op);
   }
 
   Stmt visit(const LetStmt *op) {

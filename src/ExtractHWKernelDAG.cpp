@@ -27,8 +27,8 @@ using std::ostream;
 
 
 namespace {
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
     const Scope<Expr> &scope;
 
     Expr visit(const Variable *var) {
@@ -64,8 +64,8 @@ bool is_varmulcont(Expr e) {
     return false;
 }
 
-class SubstituteInConstants : public IRMutator2 {
-    using IRMutator2::visit;
+class SubstituteInConstants : public IRMutator {
+    using IRMutator::visit;
 
     Scope<Expr> scope;
     Stmt visit(const LetStmt *op) {
@@ -96,7 +96,7 @@ class SubstituteInConstants : public IRMutator2 {
     }
 };
 
-class FiniteDifference : public IRMutator2 {
+class FiniteDifference : public IRMutator {
     Scope<Expr> scope;
     string var;
 
@@ -104,7 +104,7 @@ class FiniteDifference : public IRMutator2 {
         return substitute(var, (Variable::make(Int(32), var)) + 1, e) - e;
     }
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
 
     Expr visit(const IntImm *op) {
         return make_zero(op->type);
@@ -431,7 +431,6 @@ class BuildDAGForFunction : public IRVisitor {
             scan_loops.insert(op->name);
             loop_mins[op->name] = op->min;
             loop_maxes[op->name] = simplify(op->min + op->extent - 1);
-            std::cout << "added loop to scan loop named " << op->name << " with extent=" << op->extent << std::endl;
         }
         if (store_level.match(op->name)) {
             is_scan_loops = true;
@@ -680,14 +679,14 @@ public:
           compute_level(f.schedule().accelerate_compute_level()),
           store_level(f.schedule().accelerate_store_level()),
           is_scan_loops(false) {
-      debug(0) << "creating builddag\n";
+      //debug(0) << "creating builddag\n";
 
     }
 
     HWKernelDAG build(Stmt s) {
-        debug(0) << "start of build\n";
+        //debug(0) << "start of build\n";
         s.accept(this);
-        debug(0) << "building dag\n";
+        //debug(0) << "building dag\n";
         dag.name = func.name();
         dag.loop_vars = scan_loops;
         dag.input_kernels = func.schedule().accelerate_inputs(); // TODO we don't use it later
@@ -695,17 +694,12 @@ public:
         dag.store_level = store_level;
         calculate_input_streams(dag);
 
-        debug(0) << "after building producer pointers:" << "\n";
-        for (const auto &p : dag.kernels)
-            debug(0) << p.second << "\n";
-        for (const auto &p : dag.taps)
-            debug(0) << p.second << "\n";
-
         std::cout << "after building producer pointers:" << "\n";
         for (const auto &p : dag.kernels)
           std::cout << p.second << "\n";
+        for (const auto &p : dag.taps)
+          std::cout << p.second << "\n";
 
-        
         return dag;
     }
 };

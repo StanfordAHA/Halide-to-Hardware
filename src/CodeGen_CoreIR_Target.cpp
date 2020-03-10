@@ -5,6 +5,7 @@
 
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Target.h"
+#include "CodeGen_CoreHLS.h"
 #include "Substitute.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -400,6 +401,7 @@ CodeGen_CoreIR_Target::CodeGen_CoreIR_Target(const string &name, Target target)
 
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
+  loadHalideLib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
@@ -657,6 +659,20 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
 
+  //if (is_header()) {
+  //  return;
+  //} else {
+  //  global_ns = context->getNamespace("global");
+  //  HardwareInfo info;
+  //  info.hasCriticalPathTarget = false;
+  //  design = createCoreIRForStmt(context, info, stmt, name, args);
+  //  def = design->getDef();
+  //  self = def->sel("self");
+  //  return;
+  //}
+
+
+
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
   uint num_inouts = 0;
@@ -672,7 +688,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
     string arg_name = "arg_" + std::to_string(i);
 
     if (args[i].is_stencil) {
-      CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+      Stencil_Type stype = args[i].stencil_type;
 
       internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
                       args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
@@ -817,7 +833,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       string arg_name = "arg_" + std::to_string(i);
       do_indent();
       if (args[i].is_stencil) {
-        CodeGen_CoreIR_Base::Stencil_Type stype = args[i].stencil_type;
+        Stencil_Type stype = args[i].stencil_type;
         stream << print_stencil_type(args[i].stencil_type) << " &"
                << print_name(args[i].name) << " = " << arg_name << ";\n";
         input_aliases[print_name(args[i].name)] = arg_name;
@@ -2039,36 +2055,36 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const For *op) {
 
 }
 
-class RenameAllocation : public IRMutator2 {
+class RenameAllocation : public IRMutator {
   const string &orig_name;
   const string &new_name;
 
-  using IRMutator2::visit;
+  using IRMutator::visit;
 
   Expr visit(const Load *op) override {
     if (op->name == orig_name ) {
       Expr index = mutate(op->index);
-      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate);
+      return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, op->alignment);
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
   }
 
-  Stmt visit(const Store *op) {
+  Stmt visit(const Store *op) override {
     if (op->name == orig_name ) {
       Expr value = mutate(op->value);
       Expr index = mutate(op->index);
-      return Store::make(new_name, value, index, op->param, op->predicate);
+      return Store::make(new_name, value, index, op->param, op->predicate, op->alignment);
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
   }
 
-  Stmt visit(const Free *op) {
+  Stmt visit(const Free *op) override {
     if (op->name == orig_name) {
       return Free::make(new_name);
     } else {
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
   }
 
@@ -2755,8 +2771,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   cout << "making the ubuffer" << endl;
 
-  CoreIR::Wireable* old_coreir_ub = def->addInstance("old_" + ub_name, gens["unified_buffer"], ub_args);
-  (void) old_coreir_ub;
+  //CoreIR::Wireable* old_coreir_ub = def->addInstance("old_" + ub_name, gens["unified_buffer"], ub_args);
+  //(void) old_coreir_ub;
 
   //string new_ub_name = "new_" + ub_name;
   string new_ub_name = ub_name;
@@ -3195,6 +3211,12 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_dispatch_stream(const Call *
   stream << "// going through consumers\n";
   
   internal_assert(op->args.size() >= 2 + num_of_dimensions*2 + 1 + num_of_consumers*(2 + 3*num_of_dimensions));
+  //internal_assert(op->args.size() >= num_of_demensions*3 + 3 + num_of_consumers*(2 + 2*num_of_demensions));
+  for (const auto &arg : args) {
+    stream << arg << ", ";
+  }
+  stream << std::endl;
+
   for (size_t i = 0; i < num_of_consumers; i++) {
     const StringImm *string_imm = op->args[idx++].as<StringImm>();
     internal_assert(string_imm);

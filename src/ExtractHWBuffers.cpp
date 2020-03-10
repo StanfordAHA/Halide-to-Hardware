@@ -277,8 +277,8 @@ public:
 };
 
 
-class ReplaceForBounds : public IRMutator2 {
-  using IRMutator2::visit;
+class ReplaceForBounds : public IRMutator {
+  using IRMutator::visit;
   Scope<Expr> scope;
 
   Stmt visit(const LetStmt *op) override {
@@ -290,7 +290,7 @@ class ReplaceForBounds : public IRMutator2 {
     } else {
       //std::cout << "already have " << op->name << " set to " << scope.get(op->name) << std::endl;
     }
-    return IRMutator2::visit(op);
+    return IRMutator::visit(op);
   }
 
   Stmt visit(const For *op) {
@@ -388,6 +388,7 @@ class FindOutputStencil : public IRVisitor {
     auto var_tokens = get_tokens(op->name, ".");
     auto varname = var_tokens.size() > 2 ? var_tokens.at(2) : op->name;
     stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
+    stride_map[varname].stride = std::max(stride_map[varname].stride, 1);
     stride_map[varname].is_inverse = fvs.is_div;
     
     //std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
@@ -622,8 +623,8 @@ public:
     var(v), compute_level(cl), found_stencil(false), func(func), stencil_bounds(stencil_bounds) {}
 };
 
-class ReplaceOutputAccessPatternRanges : public IRMutator2 {
-  using IRMutator2::visit;
+class ReplaceOutputAccessPatternRanges : public IRMutator {
+  using IRMutator::visit;
   int count;
   int max_count;
   const HWBuffer& kernel;
@@ -638,7 +639,7 @@ class ReplaceOutputAccessPatternRanges : public IRMutator2 {
       new_extent = old_op->extent;
     }
 
-    Stmt s = IRMutator2::visit(old_op);
+    Stmt s = IRMutator::visit(old_op);
     const For *op = s.as<For>();
     Stmt for_stmt = For::make(op->name, op->min, new_extent, op->for_type, op->device_api, op->body);
     
@@ -657,15 +658,15 @@ public:
 /*
  * Extract the HWBuffers by looking for each of the realize statements.
  */
-class HWBuffers : public IRMutator2 {
+class HWBuffers : public IRMutator {
     const map<string, Function> &env;
     Scope<Expr> scope;
 
-    using IRMutator2::visit;
+    using IRMutator::visit;
   
     Stmt visit(const LetStmt *op) override {
       ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
-      return IRMutator2::visit(op);
+      return IRMutator::visit(op);
     }
 
     Stmt visit(const Realize *op) override {
@@ -675,14 +676,14 @@ class HWBuffers : public IRMutator2 {
         // If it's not in the environment it's some anonymous
         // realization that we should skip (e.g. an inlined reduction)
         if (iter == env.end()) {
-            return IRMutator2::visit(op);
+            return IRMutator::visit(op);
         }
 
         // find the function
         const FuncSchedule &sched = iter->second.schedule();
         if (!sched.is_hw_kernel()) {
           //std::cout << "skipping non-hwkernel realize " << op->name << std::endl;
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
         }
         Function func = iter->second;
 
@@ -872,7 +873,7 @@ class HWBuffers : public IRMutator2 {
             buffers[hwbuffer.name] = hwbuffer;
           }
           
-          return IRMutator2::visit(op);
+          return IRMutator::visit(op);
           
         } else {
           // look for a sliding window that can be used in a line buffer
@@ -1572,7 +1573,7 @@ void IdentifyAddressing::visit(const For *op) {
 
   auto tokens = get_tokens(op->name, ".");
   auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
-  //std::cout << op->name << " is probably referring to storage " << varname << std::endl;
+  std::cout << op->name << " is probably referring to storage " << varname << std::endl;
     
   //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
 
@@ -1581,11 +1582,11 @@ void IdentifyAddressing::visit(const For *op) {
   if (dim_map.count(varname)>0) {
     //std::cout << "this is a streaming loop: " << varname << " for " << op->name << "\n";
 
-    //std::cout << "stride_map: ";
-    //for (const auto& string_int_pair : stride_map) {
-      //std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
-    //}
-    //std::cout << std::endl;
+    std::cout << "stride_map: ";
+    for (const auto& string_int_pair : stride_map) {
+      std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
+    }
+    std::cout << std::endl;
       
     //std::cout << " and mapcount=" << stride_map.size() << " " << stride_map.count(varname) << std::endl;
     int stride = stride_map.count(varname)>0 ? stride_map.at(varname).stride : 1;
@@ -1660,13 +1661,13 @@ void linearize_address_space(HWBuffer &kernel) {
   //HWBuffer& istream = *istream_pair.second;
   for (auto& istream_pair : kernel.istreams) {
     HWBuffer& istream = *istream_pair.second.hwref;
-    //std::cout << "dealing with istream " << istream.name << std::endl;
+    std::cout << "dealing with istream " << istream.name << std::endl;
     
     OutputStream& ostream = istream.ostreams.at(kernel.name);
 
     IdentifyAddressing id_addr(istream.func, Scope<Expr>(), ostream.stride_map);
-    //std::cout << "output_access for " << istream.name << " to " << kernel.name << std::endl
-    //          << istream.output_access_pattern;
+    std::cout << "output_access for " << istream.name << " to " << kernel.name << std::endl
+              << istream.output_access_pattern;
     istream.output_access_pattern.accept(&id_addr);
 
     if (istream.name != kernel.name) {
@@ -1698,7 +1699,7 @@ void linearize_address_space(HWBuffer &kernel) {
       }
       //istream.linear_addr.resize(j);
       ostream.linear_access.resize(j);
-      //std::cout << ostream.linear_access << std::endl << istream;
+      std::cout << ostream.linear_access << std::endl << istream;
       //std::cout << &istream << std::endl;
     }
   }

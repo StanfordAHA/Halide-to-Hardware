@@ -67,6 +67,7 @@ public:
             .unroll(r.y, ksize);
 
           conv.linebuffer();
+
           //hw_input.linebuffer();
 
           hw_input.stream_to_accelerator();

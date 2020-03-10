@@ -2,7 +2,12 @@
 
 namespace {
 
+  using namespace std;
+
 using namespace Halide;
+
+int inImgSize = 64;
+int outImgSize = inImgSize;
 
 class PointwiseMultiplication : public Halide::Generator<PointwiseMultiplication> {
 public:
@@ -23,20 +28,31 @@ public:
         output(x, y) = hw_output(x, y);
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::CoreIR) ||
+            get_target().has_feature(Target::HLS)) {
           Var xi,yi, xo,yo;
           
           //hw_input.compute_root();
           hw_output.compute_root();
+<<<<<<< HEAD
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
+=======
+          
+          hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
+>>>>>>> a8ed3139369fdf097172fb9db5adbc1cfdb513df
             .hw_accelerate(xi, xo);
-          hw_output.bound(x, 0, 64);
-          hw_output.bound(y, 0, 64);
+          //hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
+            //.hw_accelerate(xi, xo);
+          hw_output.bound(x, 0, outImgSize);
+          hw_output.bound(y, 0, outImgSize);
 
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
 
           hw_input.stream_to_accelerator();
+
+          cout << "Loop nest" << endl;
+          hw_output.print_loop_nest();
 
         } else {
           mult.compute_root();

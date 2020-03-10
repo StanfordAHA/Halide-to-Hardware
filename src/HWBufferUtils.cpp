@@ -183,8 +183,8 @@ bool call_at_level(Stmt s, string var) {
   return ell.found_call;
 }
   
-class ExpandExpr : public IRMutator2 {
-    using IRMutator2::visit;
+class ExpandExpr : public IRMutator {
+    using IRMutator::visit;
     const Scope<Expr> &scope;
   
     Expr visit(const Variable *var) override {
@@ -199,7 +199,7 @@ class ExpandExpr : public IRMutator2 {
 
     // remove for loops of length 1
     Stmt visit(const For *old_op) override {
-      Stmt s = IRMutator2::visit(old_op);
+      Stmt s = IRMutator::visit(old_op);
       const For *op = s.as<For>();
       
       if (is_one(op->extent)) {
@@ -309,8 +309,8 @@ vector<string> get_loop_levels_between(Stmt s, Function func,
 
 // Because storage folding runs before simplification, it's useful to
 // at least substitute in constants before running it, and also simplify the RHS of Let Stmts.
-class SubstituteInConstants : public IRMutator2 {
-    using IRMutator2::visit;
+class SubstituteInConstants : public IRMutator {
+    using IRMutator::visit;
 
     Scope<Expr> scope;
     Stmt visit(const LetStmt *op) override {

@@ -299,10 +299,6 @@ extern void halide_join_thread(struct halide_thread *);
  * n == 1 : use exactly one thread; this will always enforce serial execution
  * n > 1  : use a pool of exactly n threads.
  *
- * Note that the default iOS and OSX behavior will treat n > 1 like n == 0;
- * that is, any positive value other than 1 will use a system-determined number
- * of threads.
- *
  * (Note that this is only guaranteed when using the default implementations
  * of halide_do_par_for(); custom implementations may completely ignore values
  * passed to halide_set_num_threads().)
@@ -383,8 +379,9 @@ typedef enum halide_type_code_t
 {
     halide_type_int = 0,   //!< signed integers
     halide_type_uint = 1,  //!< unsigned integers
-    halide_type_float = 2, //!< floating point numbers
-    halide_type_handle = 3 //!< opaque pointer type (void *)
+    halide_type_float = 2, //!< IEEE floating point numbers
+    halide_type_handle = 3, //!< opaque pointer type (void *)
+    halide_type_bfloat = 4, //!< floating point numbers in the bfloat format
 } halide_type_code_t;
 
 // Note that while __attribute__ can go before or after the declaration,
@@ -445,7 +442,6 @@ struct halide_type_t {
     /** Size in bytes for a single element, even if width is not 1, of this type. */
     HALIDE_ALWAYS_INLINE int bytes() const { return (bits + 7) / 8; }
 
-private:
     HALIDE_ALWAYS_INLINE uint32_t as_u32() const {
         uint32_t u;
         memcpy(&u, this, sizeof(u));
@@ -1153,9 +1149,7 @@ extern int halide_error_extern_stage_failed(void *user_context, const char *exte
 extern int halide_error_explicit_bounds_too_small(void *user_context, const char *func_name, const char *var_name,
                                                       int min_bound, int max_bound, int min_required, int max_required);
 extern int halide_error_bad_type(void *user_context, const char *func_name,
-                                 uint8_t code_given, uint8_t correct_code,
-                                 uint8_t bits_given, uint8_t correct_bits,
-                                 uint16_t lanes_given, uint16_t correct_lanes);
+                                 uint32_t type_given, uint32_t correct_type); // N.B. The last two args are the bit representation of a halide_type_t
 extern int halide_error_bad_dimensions(void *user_context, const char *func_name,
                                        int32_t dimensions_given, int32_t correct_dimensions);
 extern int halide_error_access_out_of_bounds(void *user_context, const char *func_name,
@@ -1287,10 +1281,14 @@ typedef enum halide_target_feature_t {
     halide_target_feature_check_unsafe_promises = 55, ///< Insert assertions for promises.
     halide_target_feature_hexagon_dma = 56, ///< Enable Hexagon DMA buffers.
     halide_target_feature_embed_bitcode = 57,  ///< Emulate clang -fembed-bitcode flag.
-    halide_target_feature_coreir = 58, ///< Enable output to CoreIR.
-    halide_target_feature_coreir_valid = 59, ///< Enable output signal valid for CoreIR.
-    halide_target_feature_hls = 60, ///< Enable output to HLS.
-    halide_target_feature_end = 61 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
+    halide_target_feature_disable_llvm_loop_vectorize = 58,  ///< Disable loop vectorization in LLVM. (Ignored for non-LLVM targets.)
+    halide_target_feature_disable_llvm_loop_unroll = 59,  ///< Disable loop unrolling in LLVM. (Ignored for non-LLVM targets.)
+    halide_target_feature_coreir = 60, ///< Enable output to CoreIR.
+    halide_target_feature_coreir_valid = 61, ///< Enable output signal valid for CoreIR.
+    halide_target_feature_hls = 62, ///< Enable output to HLS.
+    halide_target_feature_coreir_hls = 63, ///< Enable output to CoreIRHLS
+    halide_target_feature_use_extract_hw_kernel = 64, ///< Enable old hwkernel functionality instead of unified buffer 
+    halide_target_feature_end = 65 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
 } halide_target_feature_t;
 
 /** This function is called internally by Halide in some situations to determine
@@ -1598,6 +1596,18 @@ enum halide_argument_kind_t {
 */
 
 /**
+ * Obsolete version of halide_filter_argument_t; only present in
+ * code that wrote halide_filter_metadata_t version 0.
+ */
+struct halide_filter_argument_t_v0 {
+    const char *name;
+    int32_t kind;
+    int32_t dimensions;
+    struct halide_type_t type;
+    const struct halide_scalar_value_t *def, *min, *max;
+};
+
+/**
  * halide_filter_argument_t is essentially a plain-C-struct equivalent to
  * Halide::Argument; most user code will never need to create one.
  */
@@ -1608,14 +1618,22 @@ struct halide_filter_argument_t {
     struct halide_type_t type;
     // These pointers should always be null for buffer arguments,
     // and *may* be null for scalar arguments. (A null value means
-    // there is no def/min/max specified for this argument.)
-    const struct halide_scalar_value_t *def;
-    const struct halide_scalar_value_t *min;
-    const struct halide_scalar_value_t *max;
+    // there is no def/min/max/estimate specified for this argument.)
+    const struct halide_scalar_value_t *scalar_def, *scalar_min, *scalar_max, *scalar_estimate;
+    // This pointer should always be null for scalar arguments,
+    // and *may* be null for buffer arguments. If not null, it should always
+    // point to an array of dimensions*2 pointers, which will be the (min, extent)
+    // estimates for each dimension of the buffer. (Note that any of the pointers
+    // may be null as well.)
+    int64_t const* const* buffer_estimates;
 };
 
 struct halide_filter_metadata_t {
-    /** version of this metadata; currently always 0. */
+#ifdef __cplusplus
+    static const int32_t VERSION = 1;
+#endif
+
+    /** version of this metadata; currently always 1. */
     int32_t version;
 
     /** The number of entries in the arguments field. This is always >= 1. */
@@ -1634,6 +1652,22 @@ struct halide_filter_metadata_t {
     /** The function name of the filter. */
     const char* name;
 };
+
+/** halide_register_argv_and_metadata() is a **user-defined** function that
+ * must be provided in order to use the registration.cc files produced
+ * by Generators when the 'registration' output is requested. Each registration.cc
+ * file provides a static initializer that calls this function with the given
+ * filter's argv-call variant, its metadata, and (optionally) and additional
+ * textual data that the build system chooses to tack on for its own purposes.
+ * Note that this will be called at static-initializer time (i.e., before
+ * main() is called), and in an unpredictable order. Note that extra_key_value_pairs
+ * may be nullptr; if it's not null, it's expected to be a null-terminated list
+ * of strings, with an even number of entries. */
+void halide_register_argv_and_metadata(
+    int (*filter_argv_call)(void **),
+    const struct halide_filter_metadata_t *filter_metadata,
+    const char * const *extra_key_value_pairs
+);
 
 /** The functions below here are relevant for pipelines compiled with
  * the -profile target flag, which runs a sampling profiler thread

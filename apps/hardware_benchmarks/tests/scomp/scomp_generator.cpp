@@ -17,7 +17,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<int16_t>(input(x, y));
 
-	Func lt, gt, le, ge;
+        Func lt, gt, le, ge;
         lt(x,y) = hw_input(x,y) < cast<int16_t>(100);
         gt(x,y) = -16 < hw_input(x,y);
         le(x,y) = hw_input(x,y) <= 42;
@@ -36,6 +36,8 @@ public:
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
 
           hw_input.stream_to_accelerator();
           
