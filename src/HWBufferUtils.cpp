@@ -346,5 +346,43 @@ Stmt substitute_in_constants(Stmt s) {
   return subbed;
 }
 
+bool operator==(const VarSpec& a, const VarSpec& b) {
+  if (a.is_const() != b.is_const()) {
+    return false;
+  }
+
+  if (a.is_const()) {
+    return a.const_value() == b.const_value();
+  } else {
+    return a.name == b.name;
+  }
+}
+
+std::ostream& operator<<(std::ostream& out, const VarSpec& e) {
+  if (e.name != "") {
+    out << e.name << " : [" << e.min << " " << simplify(e.min + e.extent - 1) << "]";
+  } else {
+    internal_assert(is_const(e.min));
+    internal_assert(is_one(e.extent));
+    out << e.min;
+  }
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const StmtSchedule& s) {
+  for (auto e : s ) {
+    out << e << ", ";
+  }
+  return out;
+}
+
+std::string exprString(const Expr e) {
+  std::ostringstream ss;
+  ss << e;
+  std::string en = ss.str();
+  return en;
+}
+
+
 } // Internal
 } // Halide

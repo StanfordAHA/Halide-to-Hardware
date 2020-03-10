@@ -15,6 +15,7 @@
 
 #include "IR.h"
 #include "Scope.h"
+#include "IRVisitor.h"
 
 namespace Halide {
 namespace Internal {
@@ -52,6 +53,58 @@ std::vector<std::string> get_loop_levels_between(Stmt s, Function func,
                                                  bool start_inside = false);
 
 Stmt substitute_in_constants(Stmt s);
+
+template<typename D, typename R>
+std::set<D> domain(const std::map<D, R>& m) {
+  std::set<D> d;
+  for (auto e : m) {
+    d.insert(e.first);
+  }
+  return d;
+}
+
+class RealizeFinder : public IRGraphVisitor {
+public:
+
+  using IRGraphVisitor::visit;
+
+  const Realize* r;
+  std::string target;
+
+  RealizeFinder(const std::string& target_) : r(nullptr), target(target_) {}
+
+  void visit(const Realize* rl) override {
+    std::cout << "Searching realize: " << rl->name << " for " << target << std::endl;
+    if (rl->name == target) {
+      r = rl;
+    } else {
+      rl->body->accept(this);
+    }
+  }
+};
+
+std::string exprString(const Expr e);
+
+class VarSpec {
+public:
+  std::string name;
+  Expr min;
+  Expr extent;
+
+  bool is_const() const {
+    return name == "";
+  }
+
+  int const_value() const {
+    internal_assert(is_const());
+    return id_const_value(min);
+  }
+};
+
+typedef std::vector<VarSpec> StmtSchedule;
+bool operator==(const VarSpec& a, const VarSpec& b);
+std::ostream& operator<<(std::ostream& out, const VarSpec& e);
+std::ostream& operator<<(std::ostream& out, const StmtSchedule& s);
 
 } // Internal
 } // Halide

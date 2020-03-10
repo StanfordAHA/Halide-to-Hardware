@@ -443,7 +443,6 @@ SOURCE_FILES = \
   HexagonOptimize.cpp \
 	HWBuffer.cpp \
 	HWBufferUtils.cpp \
-	HWUtils.cpp \
   ImageParam.cpp \
   InferArguments.cpp \
   InjectHostDevBufferCopies.cpp \

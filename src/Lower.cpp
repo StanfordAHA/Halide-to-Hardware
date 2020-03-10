@@ -92,8 +92,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
              const vector<Argument> &args, const LinkageType linkage_type,
              const vector<IRMutator *> &custom_passes) {
 
-  //std::cout << "Starting lowering..." << std::endl;
-  //std::cout << "Target = " << t << std::endl;
+    //std::cout << "Starting lowering..." << std::endl;
+    //std::cout << "Target = " << t << std::endl;
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
 
@@ -139,7 +139,6 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     bool any_memoized = false;
     Stmt s = schedule_functions(outputs, fused_groups, env, t, any_memoized);
     debug(2) << "Lowering after creating initial loop nests:\n" << s << '\n';
-
     //std::cout << "Lowering after creating initial loop nests:\n" << s << '\n';
 
     if (any_memoized) {
@@ -164,8 +163,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     FuncValueBounds func_bounds = compute_function_value_bounds(order, env);
     //std::cout << "FuncValueBounds..." << std::endl;
     //for (auto fEntry : func_bounds) {
-      ////std::cout << "\t" << fEntry.first.first << " : " << fEntry.first.second <<
-        //" -> " << "[" << fEntry.second.min << ", " << fEntry.second.max << "]" << std::endl;
+      //std::cout << "\t" << fEntry.first.first << " : " << fEntry.first.second <<
+      //" -> " << "[" << fEntry.second.min << ", " << fEntry.second.max << "]" << std::endl;
     //}
 
     // The checks will be in terms of the symbols defined by bounds
@@ -181,16 +180,16 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Performing computation bounds inference...\n";
     s = bounds_inference(s, outputs, order, fused_groups, env, func_bounds, inlined_stages, t);
     debug(2) << "Lowering after computation bounds inference:\n" << s << '\n';
-    //std::cout << "#### AFter bounds inference: " << s << "\n";
+    //std::cout << "#### After bounds inference: " << s << "\n";
 
     debug(1) << "Removing extern loops...\n";
     s = remove_extern_loops(s);
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
-    //if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
-    //  s = sliding_window(s, env);
-    //}
+    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
+      s = sliding_window(s, env);
+    }
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
 
     debug(1) << "Performing allocation bounds inference...\n";
@@ -201,26 +200,14 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
       s_sliding = sliding_window(s, env);
-      //s = sliding_window(s, env);
       //std::cout << "finished sliding window lowering pass\n" << s;
-    } else {
-      //s = sliding_window(s, env);
     }
-
-    std::cout << "extracting hw buffers\n";
-    //auto buffers = extract_hw_buffers(s, env);
-    //vector<HWXcel> xcels;
-    //if (t.has_feature(Target::CoreIR)) {
-    //  xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
-    //  for (auto& hwbuffer : xcels.at(0).hwbuffers) {
-    //    std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
-    //  }
-    //}
     
     //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
     bool use_ubuffer = true;
     //!t.has_feature(Target::UseExtractHWKernel);
-
+    //cout << "Should use ubuffer ? " << use_ubuffer << endl;
+    
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -234,69 +221,59 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     //if (t.has_feature(Target::UseExtractHWKernel) && t.has_feature(Target::CoreIR)) {
     //  vector<HWXcel> buf_xcels =
-    //    extract_hw_accelerators(s, env, inlined_stages);
+    //    extract_hw_accelerators(s_sliding, env, inlined_stages);
     //  synthesize_hwbuffers(s, env, buf_xcels);
     //}
 
-    //cout << "Should use ubuffer ? " << use_ubuffer << endl;
-    vector<HWXcel> xcels;
-    if (t.has_feature(Target::CoreIR) && use_ubuffer) {
-      //std::cout << "Extracting sliding from\n" << s_sliding << std::endl;
-      //xcels = extract_hw_accelerators(s, env, inlined_stages);
-      xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
-      //std::cout << "----- Accelerators" << std::endl;
-      //for (auto xcel : xcels) {
-        //std::cout << "\t" << xcel.name << std::endl;
-      //}
-      //internal_assert(false);
-      //for (auto hwbuffer : xcels.at(0).hwbuffers) {
-        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
-      //}
-    }
-
-    Stmt s_ub;
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
       //std::cout << "Performing HLS target optimization..." << s << '\n';
 
-      vector<HWKernelDAG> dags;
-      //s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
-
       if (use_ubuffer) {
-          //std::cout << "--- Before inserting hwbuffers" << std::endl;
-          //std::cout << s << std::endl;
+        // hardware generation using the unified buffer
+        vector<HWXcel> xcels;
+
+        std::cout << "extracting hw buffers" << std::endl;
+        xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+
+        //std::cout << "----- Accelerators" << std::endl;
+        //for (auto xcel : xcels) {
+        //std::cout << "\t" << xcel.name << std::endl;
+        //}
+
+        //for (auto hwbuffer : xcels.at(0).hwbuffers) {
+        //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
+        //}
+        
+        //std::cout << "--- Before inserting hwbuffers" << std::endl;
+        //std::cout << s << std::endl;
         for (const HWXcel &xcel : xcels) {
           s = insert_hwbuffers(s, xcel);
         }
-          //std::cout << "--- After inserting hwbuffers" << std::endl;
-          //std::cout << s << std::endl;
-          //internal_assert(false);
+        //std::cout << "--- After inserting hwbuffers" << std::endl;
+        //std::cout << s << std::endl;
+
       } else {
-       vector<HWKernelDAG> dags;
-       s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
+        // older hardware generation passes for linebuffers
+        vector<HWKernelDAG> dags;
+        s = extract_hw_kernel_dag(s, env, inlined_stages, dags);
 
-       //std::cout << "Lowering before HLS optimization:\n" << s << '\n';
+        //std::cout << "Lowering before HLS optimization:\n" << s << '\n';
 
-       for(const HWKernelDAG &dag : dags) {
-         s = stream_opt(s, dag);
-         //s = replace_image_param(s, dag);
-       }
+        for(const HWKernelDAG &dag : dags) {
+          s = stream_opt(s, dag);
+          //s = replace_image_param(s, dag);
+        }
       }
-      //exit(0);
 
       debug(2) << "Lowering after HLS optimization:\n" << s << '\n';
       //std::cout << "Lowering after HLS optimization:\n" << s << '\n';
     }
 
     debug(1) << "Simplifying...\n";
-    //s = simplify(s_ub, false); // Storage folding needs .loop_max symbols
-
-    //cout << "Lowering befre first simplification:\n" << s << "\n\n";
-
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
-
     //cout << "Lowering after first simplification:\n" << s << "\n\n";
 
     //std::cout << "Before storage folding...\n" << s << "\n\n";
@@ -415,8 +392,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     debug(2) << "Lowering after rewriting vector interleavings:\n" << s << "\n\n";
 
-    debug(1) << "Partitioning loops to simplify boundary conditions...\n";
     //std::cout << "Partitioning loops to simplify boundary conditions...\n" << s << '\n';
+    debug(1) << "Partitioning loops to simplify boundary conditions...\n";
     s = partition_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after partitioning loops:\n" << s << "\n\n";

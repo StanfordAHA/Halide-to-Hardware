@@ -215,7 +215,7 @@ class FindVarStride : public IRVisitor {
   void visit(const Call *op) {
     if (op->name == varname) {
       in_var = true;
-      // std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
+      //std::cout << "call for " << op->name << " includes: " << op->args << std::endl;
       IRVisitor::visit(op);
       in_var = false;
     } else {
@@ -363,7 +363,7 @@ class FindOutputStencil : public IRVisitor {
       auto interval = box_read;
       output_min_pos_box = vector<Expr>(interval.size());
       output_block_box = vector<Expr>(interval.size());
-      // std::cout << "working on " << op->name << " "
+      //std::cout << "working on " << op->name << " "
       //           << " with size: " << interval.size() << std::endl
       //           << op->body << std::endl;
 
@@ -406,9 +406,9 @@ class FindOutputStencil : public IRVisitor {
       //std::cout << "after for bound replacement\n" << Stmt(new_body);
 
       //if (scope.contains(op->name + ".min")) {
-      //  std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
+      //std::cout << "loop min should be " << scope.get(op->name + ".min") << std::endl;
       //} else {
-      //  std::cout << "couldn't find a loop min\n";
+      //std::cout << "couldn't find a loop min\n";
       //}
       
       //std::cout << op->body << std::endl;
@@ -416,7 +416,7 @@ class FindOutputStencil : public IRVisitor {
       auto box_read = box_required(new_body, var);
 
       //Box box = box_provided(new_body, var);
-      // std::cout << "let's save this output box num_dims=" << func.dimensions() << " box=" << box.size() << "\n";
+      //std::cout << "let's save this output box num_dims=" << func.dimensions() << " box=" << box.size() << "\n";
       // // save the bounds values in scope
       // Scope<Expr> stencil_bounds;
       // if (func.name() == var) {
@@ -426,7 +426,7 @@ class FindOutputStencil : public IRVisitor {
       //     stencil_bounds.push(stage_name + ".max", box[i].max);
       //   }
       // }
-      // std::cout << "box saved\n";
+      //std::cout << "box saved\n";
 
       auto interval = box_read;
       output_stencil_box = vector<Expr>(interval.size());
@@ -457,7 +457,7 @@ class FindOutputStencil : public IRVisitor {
       auto interval = box_read;
       output_min_pos_box = vector<Expr>(interval.size());
       output_block_box = vector<Expr>(interval.size());
-      std::cout << var << " output min pos box is " << interval << std::endl;
+      //std::cout << var << " output min pos box is " << interval << std::endl;
 
       for (size_t dim=0; dim<interval.size(); ++dim) {
         output_min_pos_box[dim] = interval[dim].min;
@@ -481,13 +481,13 @@ class FindOutputStencil : public IRVisitor {
   // register call as a port
   void visit(const Call *op) override {
     if (op->name == var && found_output_min) {
-      std::cout << "retrieving values for " << op->name
-                << " with found=" << found_output_min << std::endl;
+      //std::cout << "retrieving values for " << op->name
+      //          << " with found=" << found_output_min << std::endl;
 
       // get mem indices
       vector<Expr> call_indices(op->args.size());
       vector<Expr> mem_indices(op->args.size());
-      std::cout << "lets do the args " << output_min_pos_box << std::endl;
+      //std::cout << "lets do the args " << output_min_pos_box << std::endl;
       internal_assert(output_min_pos_box.size() == op->args.size());
       for (size_t i=0; i<op->args.size(); i++) {
         call_indices.at(i) = op->args[i];
@@ -498,10 +498,10 @@ class FindOutputStencil : public IRVisitor {
         //std::cout << "int is " << result << std::endl;
         //mem_indices.at(i) = result;
         auto param = simplify(expand_expr(op->args[i] - output_min_pos_box.at(i), scope));
-        std::cout << "param=" << param << std::endl;
+        //std::cout << "param=" << param << std::endl;
         mem_indices.at(i) = id_const_value(param);
       }
-      std::cout << "got the args" << std::endl;
+      //std::cout << "got the args" << std::endl;
 
       // calculate new port number
       int port_number = oports.size();
@@ -512,11 +512,11 @@ class FindOutputStencil : public IRVisitor {
       oport.mem_indices = mem_indices;
         
       oports[call_indices] = oport;
-      std::cout << "added port " << port_number << " with mem_indices " << mem_indices
-                << " for " << op->name << call_indices << std::endl;
+      //std::cout << "added port " << port_number << " with mem_indices " << mem_indices
+      //          << " for " << op->name << call_indices << std::endl;
     } else {
-      std::cout << "not retrieving values for " << op->name
-                << " with found=" << found_output_min << std::endl;
+      //std::cout << "not retrieving values for " << op->name
+      //          << " with found=" << found_output_min << std::endl;
     }
   }
   
@@ -561,8 +561,8 @@ class FindInputStencil : public IRVisitor {
       auto interval = box_write;
       input_chunk_box = vector<Expr>(interval.size());
 
-      std::cout << interval << std::endl;
-      std::cout << "we found the input stencil for " << var << op->body << std::endl;
+      //std::cout << interval << std::endl;
+      //std::cout << "we found the input stencil for " << var << op->body << std::endl;
       
       //std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
       // save the bounds values in scope
@@ -601,14 +601,14 @@ class FindInputStencil : public IRVisitor {
     if (provide_at_level(op->body, var)) {// && call_at_level(op->body, producer)) {
       auto box_write = box_provided(op->body, var);
       auto interval = box_write;
-      std::cout << "we found the input min pos for " << var << ": " << interval << std::endl;
+      //std::cout << "we found the input min pos for " << var << ": " << interval << std::endl;
       input_min_pos_box = vector<Expr>(interval.size());
     
       for (size_t dim=0; dim<interval.size(); ++dim) {
         input_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
-        std::cout << "(" << input_min_pos_box[dim] << "," << interval[dim].min << ")  ";
+        //std::cout << "(" << input_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
-      std::cout << "]\n";
+      //std::cout << "]\n";
     
     }
     IRVisitor::visit(op);
@@ -790,21 +790,21 @@ class HWBuffers : public IRMutator {
           //std::cout << "HWBuffer Parameter: Total buffer box is of size [";          
           for (size_t i=0; i<box.size(); ++i) {
             //std::cout << box[i];
-            //if (i < box.size() - 1) { std::cout << " "; }
+            //if (i < box.size() - 1) {std::cout << " "; }
           }
           //std::cout << "]\n";
 
           //std::cout << "HWBuffer Parameter: Input Chunk box is of size [";
           for (size_t i=0; i<box.size(); ++i) {
             //std::cout << box[i];
-            //if (i < box.size() - 1) { std::cout << " "; }
+            //if (i < box.size() - 1) {std::cout << " "; }
           }
           //std::cout << "]\n";
           
           //std::cout << "HWBuffer Parameter: Output Stencil box is of size [";
           for (size_t i=0; i<box.size(); ++i) {
             //std::cout << box[i];
-            //if (i < box.size() - 1) { std::cout << " "; }
+            //if (i < box.size() - 1) {std::cout << " "; }
           }
           //std::cout << "]\n";
 
@@ -890,7 +890,7 @@ class HWBuffers : public IRMutator {
             total_buffer_box[i] = extent;
 
             //std::cout << total_buffer_box[i];
-            //if (i < i_max - 1) { std::cout << extent << " "; }
+            //if (i < i_max - 1) {std::cout << extent << " "; }
           }
           //std::cout << "]\n";
 
@@ -1203,19 +1203,19 @@ void set_output_params(HWXcel *xcel,
       //if (true) {
       if (false) {
         //std::cout << "looking for " << hwbuffer.name << " to " << consumer.name << std::endl;
-        std::cout << hwbuffer.my_stmt << std::endl;
-        std::cout << consumer_buffer.my_stmt << std::endl;
+        //std::cout << hwbuffer.my_stmt << std::endl;
+        //std::cout << consumer_buffer.my_stmt << std::endl;
       }
       //std::cout << hwbuffer.name << " going to consumer named " << consumer_buffer.name << std::endl;
       //std::cout << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
       //hwbuffer.my_stmt.accept(&fos);
-      std::cout << "output min pos is " << fos.output_min_pos_box << std::endl;
-      std::cout << "looking for output stencil and min for " << hwbuffer.name << " to consumer " << consumer.name
-                << ": \n" << std::endl << consumer_buffer.my_stmt << std::endl;
+      //std::cout << "output min pos is " << fos.output_min_pos_box << std::endl;
+      //std::cout << "looking for output stencil and min for " << hwbuffer.name << " to consumer " << consumer.name
+      //          << ": \n" << std::endl << consumer_buffer.my_stmt << std::endl;
 
       if (fos.found_output_min) {
-        std::cout << hwbuffer.name << " has " << fos.oports << std::endl;
+        //std::cout << hwbuffer.name << " has " << fos.oports << std::endl;
         //std::cout << hwbuffer.name << " to " << consumer.name << " output_min_pos0=" << fos.output_min_pos_box[0] << std::endl;
       }
       //comment hwbuffer.stride_map = fos.stride_map;
@@ -1235,7 +1235,7 @@ void set_output_params(HWXcel *xcel,
       }
       //std::cout << "flat " << flat_dim_strides << std::endl;
 
-      std::cout << "hwbuffer " << hwbuffer.name << " has ports: " << std::endl;
+      //std::cout << "hwbuffer " << hwbuffer.name << " has ports: " << std::endl;
       for (auto& oport_pair : ostream.oports) {
         auto& port = oport_pair.second;
         int start_addr = 0;
@@ -1244,13 +1244,13 @@ void set_output_params(HWXcel *xcel,
           start_addr += id_const_value(port.mem_indices.at(idx)) * stride;
         }
         port.starting_addr = start_addr;
-        std::cout << port << std::endl;
+        //std::cout << port << std::endl;
       }
       
       //std::cout << hwbuffer.name << " stride_x=" << ostream.stride_map["x"].stride << std::endl;
 
       //for (const auto& string_int_pair : hwbuffer.stride_map) {
-      //  std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
+      //std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
       //}
 
       //std::cout << consumer_buffer.my_stmt << std::endl;
@@ -1260,14 +1260,14 @@ void set_output_params(HWXcel *xcel,
       
       FindInputStencil fis(hwbuffer.name, cur_func, func_compute_level, stencil_bounds);
       hwbuffer.my_stmt.accept(&fis);
-      std::cout << hwbuffer.name << " has input min pos " << fis.input_min_pos_box << std::endl;
+      //std::cout << hwbuffer.name << " has input min pos " << fis.input_min_pos_box << std::endl;
       if (hwbuffer.dims.size() == fis.input_min_pos_box.size()) {
         for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
           hwbuffer.dims.at(idx).input_min_pos = fis.input_min_pos_box.at(idx);
         }
       }
-      std::cout << hwbuffer.name << " set the input min pos as: " << fis.input_min_pos_box << std::endl
-                << " while the output min pos is: " << fos.output_min_pos_box << std::endl;
+      //std::cout << hwbuffer.name << " set the input min pos as: " << fis.input_min_pos_box << std::endl
+      //          << " while the output min pos is: " << fos.output_min_pos_box << std::endl;
 
       //std::cout << hwbuffer.my_stmt << std::endl;
       //std::cout << "the input chunk of " << hwbuffer.name
@@ -1313,9 +1313,9 @@ void set_output_params(HWXcel *xcel,
             odims.at(idx).output_min_pos = consumer_buffer.ostreams.begin()->second.odims.at(idx).output_min_pos;
 
             //if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
-            //  std::cout << "old min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+            //std::cout << "old min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
             //  hwbuffer.dims.at(idx).output_min_pos += fos.output_min_pos_box.at(idx);
-            //  std::cout << "new min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
+            //std::cout << "new min_pos: " << hwbuffer.dims.at(idx).output_min_pos << std::endl;
             //}
           }
           
@@ -1326,7 +1326,7 @@ void set_output_params(HWXcel *xcel,
             //std::cout << simplify(expand_expr(consumer_bounds[idx].min, stencil_bounds)) << std::endl;
           }
           //if (consumer_bounds) {
-          //  std::cout << " consumer_bounds=" << consumer_bounds[i].min << " = " 
+          //std::cout << " consumer_bounds=" << consumer_bounds[i].min << " = " 
           //            << simplify(expand_expr(consumer_bounds[i].min, stencil_bounds)) << std::endl;
           //}
         }
@@ -1389,7 +1389,7 @@ void set_output_params(HWXcel *xcel,
         //  odims.at(idx).output_min_pos = 0;
         //} else if (hwbuffer.name == "conv" && fos.found_output_min) {
         //  odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
-        //  std::cout << "replaced output min pos with the output stencil: " << hwbuffer.name << idx << " for consumer " << consumer.name
+        //std::cout << "replaced output min pos with the output stencil: " << hwbuffer.name << idx << " for consumer " << consumer.name
         //            << " =" << odims.at(idx).output_min_pos << std::endl;
         //} else if (hwbuffer.name == "hw_input" && fos.found_output_min) {
         //  odims.at(idx).output_min_pos = fos.output_min_pos_box.at(idx);
@@ -1573,7 +1573,7 @@ void IdentifyAddressing::visit(const For *op) {
 
   auto tokens = get_tokens(op->name, ".");
   auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
-  std::cout << op->name << " is probably referring to storage " << varname << std::endl;
+  //std::cout << op->name << " is probably referring to storage " << varname << std::endl;
     
   //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
 
@@ -1582,11 +1582,11 @@ void IdentifyAddressing::visit(const For *op) {
   if (dim_map.count(varname)>0) {
     //std::cout << "this is a streaming loop: " << varname << " for " << op->name << "\n";
 
-    std::cout << "stride_map: ";
-    for (const auto& string_int_pair : stride_map) {
-      std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
-    }
-    std::cout << std::endl;
+    //std::cout << "stride_map: ";
+    //for (const auto& string_int_pair : stride_map) {
+      //std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
+    //}
+    //std::cout << std::endl;
       
     //std::cout << " and mapcount=" << stride_map.size() << " " << stride_map.count(varname) << std::endl;
     int stride = stride_map.count(varname)>0 ? stride_map.at(varname).stride : 1;
@@ -1661,13 +1661,13 @@ void linearize_address_space(HWBuffer &kernel) {
   //HWBuffer& istream = *istream_pair.second;
   for (auto& istream_pair : kernel.istreams) {
     HWBuffer& istream = *istream_pair.second.hwref;
-    std::cout << "dealing with istream " << istream.name << std::endl;
+    //std::cout << "dealing with istream " << istream.name << std::endl;
     
     OutputStream& ostream = istream.ostreams.at(kernel.name);
 
     IdentifyAddressing id_addr(istream.func, Scope<Expr>(), ostream.stride_map);
-    std::cout << "output_access for " << istream.name << " to " << kernel.name << std::endl
-              << istream.output_access_pattern;
+    //std::cout << "output_access for " << istream.name << " to " << kernel.name << std::endl
+    //          << istream.output_access_pattern;
     istream.output_access_pattern.accept(&id_addr);
 
     if (istream.name != kernel.name) {
@@ -1699,7 +1699,7 @@ void linearize_address_space(HWBuffer &kernel) {
       }
       //istream.linear_addr.resize(j);
       ostream.linear_access.resize(j);
-      std::cout << ostream.linear_access << std::endl << istream;
+      //std::cout << ostream.linear_access << std::endl << istream;
       //std::cout << &istream << std::endl;
     }
   }
@@ -1809,7 +1809,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();
@@ -1859,7 +1859,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     //std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";
     HWXcel xcel;
-    std::cout << "initial loopnest is: \n" << s << std::endl;
+    //std::cout << "initial loopnest is: \n" << s << std::endl;
     extract_hw_xcel_top_parameters(s, func, env, inlined_stages, &xcel);
     xcels.push_back(xcel);
   }

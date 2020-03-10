@@ -2,9 +2,12 @@
 #include "ubuf_coreirsim.h"
 #include "lakelib.h"
 
-#include "HWBuffer.h"
+#include "IRMutator.h"
 #include "RemoveTrivialForLoops.h"
+#include "Simplify.h"
 #include "UnrollLoops.h"
+
+#include "HWBuffer.h"
 #include "CoreIR_Libs.h"
 
 #include "coreir.h"
