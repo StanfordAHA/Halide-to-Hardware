@@ -3141,7 +3141,7 @@ void removeBadStores(StoreCollector& storeCollector, HWFunction& f) {
       //cout << "Getting " << i << " from " << values << endl;
       int val = map_get(i, values);
       //romVals["init"][i] = val;
-      romVals["init"].emplace_back(std::to_string(val));
+      romVals["init"].emplace_back(val);
       //romVals["init"].emplace_back(200);
     }
     CoreIR::Values vals{{"width", COREMK(context, 16)}, {"depth", COREMK(context, romVals["init"].size())}, {"nports", COREMK(context, m.second.size())}};
