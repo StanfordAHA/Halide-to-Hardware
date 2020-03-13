@@ -1,8 +1,8 @@
-#include "Halide.h"
-#include "test/common/check_call_graphs.h"
-
 #include <stdio.h>
 #include <map>
+
+#include "Halide.h"
+#include "test/common/check_call_graphs.h"
 
 #include "ExtractHWBuffers.h"
 
@@ -125,6 +125,7 @@ int check_hwbuffer_params(HWBuffer hwbuffer, HWBuffer ref) {
   return 0;
 }
 
+// Copy of Lower.cpp from the beginning to hwbuffer extraction
 std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, const string &pipeline_name, const Target &t,
                                       const vector<Argument> &args) {
 
@@ -206,27 +207,6 @@ std::vector<HWXcel> lower_to_hwbuffer(const vector<Function> &output_funcs, cons
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
       }
     }
-
-    /*
-    //std::cout << "Performing sliding window optimization...\n" << s << '\n';
-    //std::cout << "Lowering after sliding window:\n" << s << '\n';
-    
-    s = remove_undef(s);
-    s = uniquify_variable_names(s);
-
-    Stmt s_ub;
-    if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
-      // passes specific to HLS backend
-      debug(1) << "Performing HLS target optimization..\n";
-      //std::cout << "Performing HLS target optimization..." << s << '\n';
-
-      for (const HWXcel &xcel : xcels) {
-        s = insert_hwbuffers(s, xcel);
-        std::cout << "inserted hwbuffers:\n" << s_ub << "\n";
-      }
-
-    }
-    */
 
     return xcels;
 }
@@ -1047,6 +1027,7 @@ int main(int argc, char **argv) {
     // pixel of stencil at a time (pixel / 9 cycles)
 
     /*   OTHER TESTS   */
+    // different number of for loops and dimensions
     // output blocks different compared to stencil (rolled hwbuffer tests)
     // input chunks of different sizes (should happen in sampling cases)
     // input blocks of different sizes

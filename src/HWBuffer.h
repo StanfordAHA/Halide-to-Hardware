@@ -91,13 +91,13 @@ struct InputStream {
   HWBuffer* hwref;
 };
 
-struct UpdateStream {
-  std::string name;
-  // no dimension info needed, because same as input; perhaps needs min_pos?
-  Stmt update_access_pattern; // output of hwbuffer on each update
-  std::map<std::string, Stride> stride_map;
-  std::vector<AccessDimSize> linear_access;
-};
+//struct UpdateStream {
+//  std::string name;
+//  // no dimension info needed, because same as input; perhaps needs min_pos?
+//  Stmt update_access_pattern; // output of hwbuffer on each update
+//  std::map<std::string, Stride> stride_map;
+//  std::vector<AccessDimSize> linear_access;
+//};
 
 struct OutputDimSize {
   std::string loop_name;
@@ -131,13 +131,13 @@ struct OutputStream {
 //  HWBuffer* ohwref;
 //};
 
-struct StreamBundle {
-  std::string name;
-  InputStream istream;
-  std::vector<UpdateStream> ustreams;
-  std::vector<OutputStream> ostreams;
-  
-};
+//struct StreamBundle {
+//  std::string name;
+//  InputStream istream;
+//  std::vector<UpdateStream> ustreams;
+//  std::vector<OutputStream> ostreams;
+//  
+//};
 
 struct InOutDimSize {
   std::string loop_name;
@@ -188,22 +188,22 @@ struct HWBuffer {
   
   // old parameters for the HWBuffer
   std::vector<InOutDimSize> dims;
+  Stmt output_access_pattern;
   //Stmt input_access_pattern;
   //std::map<std::string, HWBuffer*> producer_buffers;
   //std::vector<std::string> input_streams;  // used when inserting read_stream calls; should make a set?
   //std::map<std::string, HWBuffer*> consumer_buffers;   // used for transforming call nodes and inserting dispatch calls
-  Stmt output_access_pattern;
   //std::map<std::string, Stride> stride_map;
   //std::vector<AccessDimSize> linear_addr;
 
   // dimensions for the unassociated hwbuffer streams
+  std::vector<LogicalDimSize> ldims;
   std::map<std::string, InputStream> istreams;
-  std::map<std::string, OutputStream> ustreams;
+  //std::map<std::string, OutputStream> ustreams;
   std::map<std::string, OutputStream> ostreams;
 
   // dimensions for accumulation hwbuffer
-  std::vector<LogicalDimSize> ldims;
-  std::map<std::string, StreamBundle> streams;
+  //std::map<std::string, StreamBundle> streams;
   
   // Constructors
   HWBuffer() { }

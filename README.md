@@ -25,6 +25,6 @@ Build Status
 |------------------------------|
 | [![linux build status][1]][2]|
 
-[1]: https://travis-ci.org/StanfordAHA/Halide-to-Hardware.svg?branch=master
-[2]: https://travis-ci.org/StanfordAHA/Halide-to-Hardware
+[1]: https://travis-ci.com/StanfordAHA/Halide-to-Hardware.svg?branch=master
+[2]: https://travis-ci.com/StanfordAHA/Halide-to-Hardware
 

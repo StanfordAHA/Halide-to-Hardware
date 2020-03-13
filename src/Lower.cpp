@@ -202,12 +202,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       s_sliding = sliding_window(s, env);
       //std::cout << "finished sliding window lowering pass\n" << s;
     }
-    
-    //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
-    bool use_ubuffer = true;
-    //!t.has_feature(Target::UseExtractHWKernel);
-    //cout << "Should use ubuffer ? " << use_ubuffer << endl;
-    
+        
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -218,6 +213,11 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Uniquifying variable names...\n";
     s = uniquify_variable_names(s);
     debug(2) << "Lowering after uniquifying variable names:\n" << s << "\n\n";
+
+    //bool use_ubuffer = !t.has_feature(Target::UseExtractHWKernel);
+    bool use_ubuffer = true;
+    //!t.has_feature(Target::UseExtractHWKernel);
+    //cout << "Should use ubuffer ? " << use_ubuffer << endl;
 
     //if (t.has_feature(Target::UseExtractHWKernel) && t.has_feature(Target::CoreIR)) {
     //  vector<HWXcel> buf_xcels =
@@ -235,6 +235,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         vector<HWXcel> xcels;
 
         std::cout << "extracting hw buffers" << std::endl;
+        std::cout << s << std::endl;
         xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
 
         //std::cout << "----- Accelerators" << std::endl;
