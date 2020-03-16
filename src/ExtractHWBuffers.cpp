@@ -757,7 +757,6 @@ class HWBuffers : public IRMutator {
           }
         }
 
-
         if (sched.compute_level() == sched.store_level()) {
           std::cout << op->name << " has compute=store level\n";
 
@@ -1119,7 +1118,8 @@ void set_output_params(HWXcel *xcel,
       //if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name) &&
       //if (hwbuffers.count(consumer.name) &&  // does this work?
       if ((!hwbuffer.is_inlined || hwbuffers.at(consumer.name).is_output || xcel->input_streams.count(hwbuffer.name)>0) &&
-          hwbuffers.at(consumer.name).istreams.count(hwbuffer.name) == 0) {
+          hwbuffers.at(consumer.name).istreams.count(hwbuffer.name) == 0 &&
+          !hwbuffer.is_inlined) {
         
         InputStream istream;
         istream.name = hwbuffer.name;

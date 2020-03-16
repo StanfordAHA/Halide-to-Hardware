@@ -17,7 +17,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
 
-	Func addbias, shiftr, shiftl;
+        Func addbias, shiftr, shiftl;
         addbias(x,y) = hw_input(x,y) + 40000;
         shiftr(x,y) = addbias(x,y) >> 12;
         shiftl(x,y) = hw_input(x,y) << 14;
@@ -38,7 +38,8 @@ public:
 
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
-
+          
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

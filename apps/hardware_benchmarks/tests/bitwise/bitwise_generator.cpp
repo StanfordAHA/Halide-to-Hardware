@@ -17,7 +17,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<int16_t>(input(x, y));
 
-	Func bitwise_and, bitwise_or, bitwise_inv, bitwise_xor;
+        Func bitwise_and, bitwise_or, bitwise_inv, bitwise_xor;
         bitwise_and(x,y) = hw_input(x,y) & 235;
         bitwise_inv(x,y) = ~( bitwise_and(x,y) );
         bitwise_or(x,y)  = hw_input(x,y) | 63;
@@ -37,6 +37,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

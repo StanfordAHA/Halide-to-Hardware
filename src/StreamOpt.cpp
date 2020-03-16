@@ -905,6 +905,7 @@ class StreamOpt : public IRMutator {
 
             // insert line buffers for input streams
             for (const string &kernel_name : dag.input_kernels) {
+              std::cout << "adding input kernel " << kernel_name << std::endl;
                 const HWKernel &input_kernel = dag.kernels.find(kernel_name)->second;
                 new_body = add_linebuffer(new_body, input_kernel);
             }

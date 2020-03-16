@@ -51,7 +51,8 @@ public:
             .unroll(r.y, 3);
 
           conv.linebuffer();
-
+          
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           input.in().stream_to_accelerator();
           
         } else {  // schedule to CPU

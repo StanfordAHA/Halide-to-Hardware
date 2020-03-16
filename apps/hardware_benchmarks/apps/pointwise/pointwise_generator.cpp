@@ -34,13 +34,7 @@ public:
           
           //hw_input.compute_root();
           hw_output.compute_root();
-<<<<<<< HEAD
-
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
-=======
-          
           hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
->>>>>>> a8ed3139369fdf097172fb9db5adbc1cfdb513df
             .hw_accelerate(xi, xo);
           //hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             //.hw_accelerate(xi, xo);

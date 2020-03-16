@@ -10,12 +10,8 @@ namespace {
 using namespace Halide;
 
 // Size of blur for gradients.
-<<<<<<< HEAD
-int blockSize = 3;
+const int blockSize = 3;
 int imgSize = 64-blockSize+1;
-=======
-const int blockSize = 5;
->>>>>>> a8ed3139369fdf097172fb9db5adbc1cfdb513df
 
 class GaussianBlur : public Halide::Generator<GaussianBlur> {
 public:
@@ -61,7 +57,6 @@ public:
         hw_output(x, y) = cast<uint8_t>( blur(x, y) );
         output(x, y) = hw_output(x, y);
 
-<<<<<<< HEAD
         hw_output.bound(x, 0, imgSize);
         hw_output.bound(y, 0, imgSize);
         output.bound(x, 0, imgSize);
@@ -73,17 +68,6 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           
           //hw_input.compute_root();
-=======
-        hw_output.bound(x, 0, 60);
-        hw_output.bound(y, 0, 60);
-        output.bound(x, 0, 60);
-        output.bound(y, 0, 60);
-
-        /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
-
-          hw_input.compute_root();
->>>>>>> a8ed3139369fdf097172fb9db5adbc1cfdb513df
           //kernel.compute_root();
           hw_output.compute_root();
 
@@ -92,15 +76,10 @@ public:
             .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
             .hw_accelerate(xi, xo);
 
-<<<<<<< HEAD
           blur_unnormalized.update()
             .unroll(win.x, blockSize)
             .unroll(win.y, blockSize);
           
-=======
-          blur_unnormalized.update().unroll(win.x).unroll(win.y);
-
->>>>>>> a8ed3139369fdf097172fb9db5adbc1cfdb513df
           blur_unnormalized.linebuffer();
 
           //hw_output.accelerate({hw_input}, xi, xo);
