@@ -465,7 +465,7 @@ void run_coreir_on_interpreter(string coreir_design,
   cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
 
-<<<<<<< HEAD
+/*
   for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
@@ -497,10 +497,9 @@ void run_coreir_on_interpreter(string coreir_design,
           output(x,y,c) = output_value;
           std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
-=======
+*/
   int maxCycles = 10000;
   int cycles = 0;
->>>>>>> a8ed3139369fdf097172fb9db5adbc1cfdb513df
 
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
 
