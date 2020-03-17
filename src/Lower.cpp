@@ -234,8 +234,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         // hardware generation using the unified buffer
         vector<HWXcel> xcels;
 
-        std::cout << "extracting hw buffers" << std::endl;
-        std::cout << s << std::endl;
+        //std::cout << "extracting hw buffers" << std::endl << s << std::endl;
         xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
 
         //std::cout << "----- Accelerators" << std::endl;
@@ -458,7 +457,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = simplify(s);
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
-    std::cout << "Lowering after final simplification:\n" << s << "\n\n";
+    //std::cout << "Lowering after final simplification:\n" << s << "\n\n";
 
     if (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))) {
         debug(1) << "Splitting off Hexagon offload...\n";

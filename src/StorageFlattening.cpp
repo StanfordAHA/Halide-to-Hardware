@@ -112,7 +112,7 @@ private:
           Stmt stmt;
         
           debug(3) << "Not attempting to flatten " << realize->name << " because it is a stream or a stencil.\n";
-          std::cout << "Not attempting to flatten " << realize->name << " because it is a stream or a stencil.\n";
+          //std::cout << "Not attempting to flatten " << realize->name << " because it is a stream or a stencil.\n";
           if (body.same_as(realize->body)) {
             stmt = realize;
           } else {
@@ -121,7 +121,7 @@ private:
           }
           return stmt;
         }
-        std::cout << "Flattening " << realize->name << " because it is not a stream nor a stencil.\n";
+        //std::cout << "Flattening " << realize->name << " because it is not a stream nor a stencil.\n";
       
         realizations.push(op->name);
 

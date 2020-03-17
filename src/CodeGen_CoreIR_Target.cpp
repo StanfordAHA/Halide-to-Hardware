@@ -236,7 +236,7 @@ class ROMInit : public IRVisitor {
     if (op->name == allocname) {
       auto value_expr = op->value;
       auto index_expr = op->index;
-      cout << "store: " << Stmt(op) << std::endl;
+      //cout << "store: " << Stmt(op) << std::endl;
       internal_assert(is_const(value_expr) && is_const(index_expr));
 
       int index = id_const_value(index_expr);
@@ -712,7 +712,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
         if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
         for (uint i=0; i<indices.size(); ++i) {
-          std::cout << "output with appended width=" << indices[i] << std::endl;
+          //std::cout << "output with appended width=" << indices[i] << std::endl;
           output_type = output_type->Arr(indices[i]);
           //output_type = output_type->Arr(1);
         }
@@ -852,7 +852,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         } else {
           string taps_name = "taps" + print_name(args[i].name);
           bool has_arg = (tap_types.count(args[i].name) > 0);
-          cout << "contains: " << args[i].name << "=" << has_arg << "\n";
+          (void) has_arg;
           auto tap_type = tap_types[args[i].name];
           CoreIR::Wireable* taps_inst = def->addInstance(taps_name, gens["const_array"], {{"type",CoreIR::Const::make(context,tap_type)}});
           taps_inst->getMetaData()["tap"] = "This array of constants is expected to be changed as tap values.";
@@ -1208,7 +1208,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_wire(string out_name, CoreIR::
 
 // This renames a wire with a new name without creating a new module.  
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::rename_wire(string new_name, string in_name, Expr in_expr, vector<uint> indices) {
-  cout << "// rename wire for " << in_name << " to " << new_name << "\n";
+  //cout << "// rename wire for " << in_name << " to " << new_name << "\n";
   // if this is a definition, then just copy the pointer
   if (is_defined(in_name) && !is_wire(in_name)) { 
     assert(indices.empty());
@@ -2109,7 +2109,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
 
   } else {
     for (size_t i = 0; i < op->extents.size(); i++) {
-      std::cout << "alloc_dim" << i << " " << op->extents[i] << "\n";
+      //std::cout << "alloc_dim" << i << " " << op->extents[i] << "\n";
     }
     
     internal_error << "Size for allocation " << op->name
@@ -2136,7 +2136,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit(const Allocate *op) {
 
   auto alloc_type = identify_allocation(new_body, alloc_name);
 
-  std::cout << "found alloc#=" << alloc_type << "\n";
+  //std::cout << "found alloc#=" << alloc_type << "\n";
   
   // define a rom that can be created and used later
   // FIXME: better way to decide to use rom
@@ -2368,8 +2368,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   size_t num_dims = id_const_value(op->args[2]);
   string ub_name = "ub" + ub_in_name;
   
-  std::cout << "hwbuffer has num_dims=" << num_dims << std::endl;
-
   stream << "// unified buffer " << ub_name << " created with ";
   
   // extract out parameter values
@@ -2527,7 +2525,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
       modify_stencil[i] = id_const_value(op->args[cur_idx]);
       stream << modify_stencil[i] << " ";
     }
-    std::cout << std::endl;
+    stream << std::endl;
 
     stream << " modify=";
     for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
@@ -2537,12 +2535,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     stream << "\n";
   }
 
-  std::cout << ub_name << " has " << num_consumers << " consuemrs" << std::endl;
-  
   auto &input_ports = input_block;
   auto &capacity = logical_size;
 
-  std::cout << "hwbuffer: " << a0 << std::endl
+  stream << "hwbuffer: " << a0 << std::endl
             << "  input_ports=" << input_ports << std::endl
             << "  output_ports=" << output_block << std::endl
             << "  capacity=" << capacity << std::endl
@@ -2589,7 +2585,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     num_output_ports *= output_size;
   }
 
-  std::cout << "extracting..\n";
   size_t dimensionality = num_stream_dims;
   
   // set output range and stride based on access pattern
@@ -2614,7 +2609,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
       flat_dim_strides.at(access_dim_refs.at(i));
     output_range.at(i) = access_ranges.at(i);
   }
-  std::cout << a0 << " flat dims=" << flat_dim_strides << std::endl
+  stream << "// " << a0 << " flat dims=" << flat_dim_strides << std::endl
             << " output_range=" << output_range << std::endl
             << " output_stride=" << output_stride << std::endl;
 
@@ -2641,9 +2636,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     num_reduction_iter *= output_stencil[i] / output_block[i];
     output_stencil_json["output_stencil"][i] = output_stencil[i];
   }
-  std::cout << "num_reduction_iter=" << num_reduction_iter << std::endl;
-    
-  std::cout << "running..\n";
   
   // input starting addresses for banking
   vector<int> input_starting_addrs(num_input_ports);
@@ -2690,7 +2682,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     // set output port as calculated starting address
     output_starting_addrs.at(port) = start_addr;
     output_starting_json["output_start"][port] = output_starting_addrs.at(port);
-    std::cout << start_addr << " for the index numbered " << out_indexes << std::endl;
       
     // increment index
     out_indexes.at(0) += 1;
@@ -2711,7 +2702,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   int chain_idx = 0;
   
   
-  std::cout << "hwbuffer: " << a0 << std::endl
+  stream << "hwbuffer: " << a0 << std::endl
             << "  width=" << width << "  depth=" << depth << "  iter_cnt=" << iter_cnt << std::endl
             << "  num_dims=" << dimensionality << "  rate_matched=" << rate_matched << "  stencil_width=" << stencil_width << std::endl
             << "  num_ports:  in=" << num_input_ports << " out=" << num_output_ports << std::endl
@@ -2806,9 +2797,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     ostream_json[consumer_name]["num_stencil_acc_dim"] = 0;
     ostream_json[consumer_name]["stencil_width"] = {1};                   // default: used only after hw mapping
   }
-  std::cout << ostream_json << std::endl;
+  stream << ostream_json << std::endl;
 
-  cout << "now doing: next" << endl;
   CoreIR::Values ub_arg2 = {{"width",                CoreIR::Const::make(context, width)},
                             {"logical_size",         CoreIR::Const::make(context, logical_json)},
                             {"ostreams",             CoreIR::Const::make(context, ostream_json)},
@@ -2817,10 +2807,8 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
                             {"chain_idx",            CoreIR::Const::make(context, chain_idx)},
                             {"init",                 CoreIR::Const::make(context, init)}
   };
-  cout << "now doing: addinstance" << endl;
+
   CoreIR::Wireable* coreir_ub = def->addInstance(new_ub_name, gens["new_unified_buffer"], ub_arg2);
-  cout << "now doing: reshape" << endl;
-  
 
   CoreIR::Values input_reshape_args =
     {{"input_type", CoreIR::Const::make(context, input_ports_type)},
@@ -2857,8 +2845,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     output_reshapes[consumer_name] = output_reshape;
   }
 
-  cout << "now doing: wiring" << endl;
-  
   bool simulation_compatible = true;
   bool new_ubuffer = true;
   if (new_ubuffer) {
@@ -2880,13 +2866,10 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     }
     
   } else if (simulation_compatible) {
-    std::cout << "let's get some wires\n";
     auto coreir_ub_inputs = get_wires(coreir_ub, {(size_t)num_input_ports}, "datain");
     auto coreir_ub_outputs = get_wires(coreir_ub, {(size_t)num_output_ports}, "dataout");
-    std::cout << "got some ub wires\n";
     auto coreir_reshape_for_inputs = get_wires(input_reshape->sel("out"), {(size_t)num_input_ports});
     auto coreir_reshape_for_outputs = get_wires(output_reshape->sel("in"), {(size_t)num_output_ports});
-    std::cout << "connection time\n";
     connect_wires(def, coreir_ub_inputs, coreir_reshape_for_inputs);
     connect_wires(def, coreir_ub_outputs, coreir_reshape_for_outputs);
 
@@ -2896,7 +2879,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
 
   }
   
-  std::cout << "created that unified buffer! " << ub_name << std::endl;
+  stream << "created that unified buffer! " << ub_name << std::endl;
 
   // add linebuffer to coreir
   //uint num_dims = op->args.size() - 2;
@@ -3861,7 +3844,7 @@ std::vector<const Variable*> CodeGen_CoreIR_Target::CodeGen_CoreIR_C::find_dep_v
     vars.insert( vars.end(), vec_v.begin(), vec_v.end() );
   } else if (const Call* call = e.as<Call>()) {
     if (call->is_intrinsic(Call::shift_right)) {
-      std::cout << "found right shift" << std::endl;
+
     }
     
   } else if (const Variable *v = e.as<Variable>()) {

@@ -835,7 +835,7 @@ class StorageFolding : public IRMutator {
             ends_with(op->name, ".stencil_update") ||
             ends_with(op->name, ".stream")) {
           debug(3) << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
-          std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
+          //std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
           
           if (body.same_as(op->body)) {
             return op;
@@ -852,7 +852,7 @@ class StorageFolding : public IRMutator {
         
         AttemptStorageFoldingOfFunction folder(func, explicit_only);
         debug(3) << "Attempting to fold " << op->name << "\n";
-        std::cout << "Attempting to fold " << op->name << "\n";
+        //std::cout << "Attempting to fold " << op->name << "\n";
         body = folder.mutate(body);
 
         if (body.same_as(op->body)) {

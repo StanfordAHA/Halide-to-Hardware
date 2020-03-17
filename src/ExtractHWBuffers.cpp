@@ -683,7 +683,7 @@ class HWBuffers : public IRMutator {
         // create the hwbuffer
         HWBuffer hwbuffer;
         hwbuffer.name = op->name;
-        std::cout << hwbuffer.name << " found realize for new hwbuffer" << std::endl;
+        //std::cout << hwbuffer.name << " found realize for new hwbuffer" << std::endl;
         
         hwbuffer.func = func;
         hwbuffer.my_stmt = op->body;
@@ -758,7 +758,7 @@ class HWBuffers : public IRMutator {
         }
 
         if (sched.compute_level() == sched.store_level()) {
-          std::cout << op->name << " has compute=store level\n";
+          //std::cout << op->name << " has compute=store level\n";
 
           // use sliding window to get stencil sizes
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
@@ -805,7 +805,7 @@ class HWBuffers : public IRMutator {
           //FindOutputStencil fos(op->name, op->name, hwbuffer.store_level, hwbuffer.compute_level);
           //new_body.accept(&fos);
 
-          std::cout << "counting for " << hwbuffer.name << ":\n";// << new_body << std::endl;
+          //std::cout << "counting for " << hwbuffer.name << ":\n";// << new_body << std::endl;
           CountBufferUsers counter(op->name);
           new_body.accept(&counter);
 
@@ -861,7 +861,7 @@ class HWBuffers : public IRMutator {
           
         } else {
           // look for a sliding window that can be used in a line buffer
-          std::cout << "looking at hwbuffer with diff compute and store levels: " << hwbuffer.name << std::endl;
+          //std::cout << "looking at hwbuffer with diff compute and store levels: " << hwbuffer.name << std::endl;
 
 
           auto boxes_read = boxes_required(new_body);
@@ -921,7 +921,6 @@ class HWBuffers : public IRMutator {
           hwbuffer.dims = std::vector<InOutDimSize>(output_block_box.size());
 
           //std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
-          std::cout << hwbuffer.name << " is now through the halfway mark" << std::endl;
 
           // check that all of the extracted parameters are of the same vector length
           //std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while " << total_buffer_box.size() << " num box_dims\n";
@@ -949,7 +948,7 @@ class HWBuffers : public IRMutator {
             buffers[hwbuffer.name] = hwbuffer;
           }
 
-          std::cout << "sliding stencil map is \n";
+          //std::cout << "sliding stencil map is \n";
           for (auto pair : sliding_stencil_map) {
             //std::cout << pair.first << ", ";
           }
@@ -1639,16 +1638,16 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   Scope<Expr> output_scope;
   //find_output_scope(s, func, xcel->compute_level, output_scope);
   auto output_box = find_output_bounds(s, func, xcel->compute_level);
-  std::cout << "output bounds: " << output_box << std::endl;
+  //std::cout << "output bounds: " << output_box << std::endl;
 
   // use realizes to define each hwbuffer
-  std::cout << "lets extract\n" << s << std::endl;
+  //std::cout << "lets extract\n" << s << std::endl;
   xcel->hwbuffers = extract_hw_buffers(s, env, xcel);
-  std::cout << "got some buffers" << std::endl;
+  //std::cout << "got some buffers" << std::endl;
 
   // set output parameters for hwbuffers based on consumers
   set_output_params(xcel, env, inlined, xcel->streaming_loop_levels, output_scope);
-  std::cout << "set stream params" << std::endl;
+  //std::cout << "set stream params" << std::endl;
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     linearize_address_space(hwbuffer_pair.second);
@@ -1661,7 +1660,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();
