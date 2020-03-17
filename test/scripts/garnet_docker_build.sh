@@ -18,6 +18,7 @@ docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/Halide-to-Hardwa
 
 echo 'Running Halide build...'
 docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; git clone --branch accumulation --depth 1 https://github.com/joyliu37/BufferMapping"
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/BufferMapping/cfunc; make lib"
 docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/BufferMapping"
 docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; ./build_halide_distrib.sh"
 
