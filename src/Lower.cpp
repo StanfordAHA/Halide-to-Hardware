@@ -202,7 +202,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
       s_sliding = sliding_window(s, env);
       //std::cout << "finished sliding window lowering pass\n" << s;
     }
-        
+
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n" << s << "\n\n";
@@ -236,6 +236,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
         //std::cout << "extracting hw buffers" << std::endl << s << std::endl;
         xcels = extract_hw_accelerators(s_sliding, env, inlined_stages);
+        synthesize_hwbuffers(s, env, xcels);
 
         //std::cout << "----- Accelerators" << std::endl;
         //for (auto xcel : xcels) {
@@ -245,7 +246,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
         //for (auto hwbuffer : xcels.at(0).hwbuffers) {
         //std::cout << hwbuffer.first << " is lower w/ inline=" << hwbuffer.second.is_inlined << std::endl;
         //}
-        
+
         //std::cout << "--- Before inserting hwbuffers" << std::endl;
         //std::cout << s << std::endl;
         for (const HWXcel &xcel : xcels) {

@@ -925,6 +925,7 @@ namespace Halide {
 
     bool use_lake_lib = true;
     if (use_lake_lib) {
+        cout << buffer.read_loop_levels()[0] << "\t"<< buffer.write_loop_levels()[0] << endl;
 
         if (buffer.read_loop_levels()[0] == buffer.write_loop_levels()[0]) {
           set<string> ports = buffer.port_names();
@@ -962,14 +963,17 @@ namespace Halide {
         Scope<Expr> temp;    //create a empty scope
         //IdentifyAddressing id_addr(buffer.ubuf.func, temp, buffer.ubuf.stride_map);
         vector<AccessDimSize> id_addr;
+
+        internal_assert(buffer.ubuf.ostreams.size() == 1) << "\n" << "Multiple stream analysis not implemented!\n";
+        id_addr = buffer.ubuf.ostreams.begin()->second.linear_access;
         //buffer.ubuf.output_access_pattern.accept(&id_addr);
 
-        //std::cout << "Read range extracted: ";
-        //std::for_each(id_addr.ranges.begin(),
-        //        id_addr.ranges.end(),
-        //        [] (const int c) {std::cout << c << " ";}
-        //    );
-        //std::cout << endl;
+        std::cout << "Read range extracted: \n";
+        std::for_each(id_addr.begin(),
+                id_addr.end(),
+                [] (const AccessDimSize c) {std::cout << to_int(c.range) << "\t" << to_int(c.stride) <<"\t" << to_int(c.dim_ref) << "\n";}
+            );
+        std::cout << endl;
 
 
         coreir_builder_set_context(def->getContext());
