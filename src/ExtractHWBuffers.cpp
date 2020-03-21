@@ -1087,8 +1087,29 @@ void set_output_params(HWXcel *xcel,
         dim.output_block = dim.input_block;
         dim.output_stencil = dim.output_block;
       }
+      std::cout << hwbuffer.my_stmt << std::endl;
       
       in_output = false;
+
+      internal_assert(stage.consumers.size() == 1);
+      const BoundsInference_Stage &consumer = inlined_stages[stage.consumers[0]];
+      auto &ostream = hwbuffer.ostreams[consumer.name];
+      ostream.name = consumer.name;
+      ostream.output_access_pattern = hwbuffer.output_access_pattern;
+
+      FindOutputStencil fos(hwbuffer.name, ostream.name, hwbuffer.store_level, "hw_output.s0.y.yo");
+      hwbuffer.my_stmt.accept(&fos);
+
+      ostream.stride_map = fos.stride_map;
+      ostream.oports = fos.oports;
+
+      ostream.odims.resize(hwbuffer.dims.size());
+      internal_assert(hwbuffer.dims.size() == ostream.odims.size());
+      for (size_t dim=0; dim<hwbuffer.dims.size(); dim++) {
+        ostream.odims[dim].output_block = hwbuffer.dims.at(dim).output_block;
+        ostream.odims[dim].output_stencil = hwbuffer.dims.at(dim).output_stencil;
+      }
+      
       continue; // output kernel doesn't need to keep going (no consumers)
     }
     //std::cout << "finished is_output " << stage.consumers.size() << " consumers\n";
@@ -1112,6 +1133,7 @@ void set_output_params(HWXcel *xcel,
       internal_assert(hwbuffers.count(consumer.name) > 0);
       auto &ostream = hwbuffer.ostreams[consumer.name];
       ostream.name = consumer.name;
+      ostream.output_access_pattern = hwbuffer.output_access_pattern;
 
       // create an input stream for the consumer as well
       //if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name) &&
@@ -1413,6 +1435,7 @@ public:
 
 
 void IdentifyAddressing::visit(const For *op) {
+  std::cout << "looking at " << op->name << std::endl;
   varnames.push_back(op->name);
   //internal_assert(is_zero(op->min)); FIXME
 
@@ -1423,7 +1446,7 @@ void IdentifyAddressing::visit(const For *op) {
 
   auto tokens = get_tokens(op->name, ".");
   auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
-  //std::cout << op->name << " is probably referring to storage " << varname << std::endl;
+  std::cout << op->name << " is probably referring to storage " << varname << std::endl;
     
   //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
 
@@ -1505,8 +1528,40 @@ IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &
 }
 
 void linearize_address_space(HWBuffer &kernel) {
-  //std::cout << "linearizing for " << kernel.name << std::endl;
-  
+  std::cout << "linearizing for " << kernel.name << std::endl;
+  if (kernel.is_output) {
+    std::cout << kernel << std::endl;
+    OutputStream& ostream = kernel.ostreams.at("output");
+    IdentifyAddressing id_addr(kernel.func, Scope<Expr>(), ostream.stride_map);
+    ostream.output_access_pattern.accept(&id_addr);
+    std::cout << "output_access for " << kernel.name << " to " << ostream.name << std::endl
+              << id_addr.ranges;
+
+      auto num_access_levels = id_addr.ranges.size();
+      assert(num_access_levels == id_addr.strides_in_dim.size());
+      assert(num_access_levels == id_addr.dim_refs.size());
+      
+      //istream.linear_addr.resize(num_access_levels);
+      ostream.linear_access.resize(num_access_levels);
+      size_t j = 0;
+      for (size_t i=0; i<num_access_levels; ++i) {
+        if (id_addr.ranges.at(i) != 1) {
+          //istream.linear_addr.at(j).range = id_addr.ranges.at(i);
+          //istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
+          //istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
+          
+          ostream.linear_access.at(j).range = id_addr.ranges.at(i);
+          ostream.linear_access.at(j).stride = id_addr.strides_in_dim.at(i);
+          ostream.linear_access.at(j).dim_ref = id_addr.dim_refs.at(i);
+
+          j += 1;
+        }
+      }
+      //istream.linear_addr.resize(j);
+      ostream.linear_access.resize(j);
+
+    
+  }
   //for (auto& istream_pair : kernel.producer_buffers) {
   //HWBuffer& istream = *istream_pair.second;
   for (auto& istream_pair : kernel.istreams) {
@@ -1660,7 +1715,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();
