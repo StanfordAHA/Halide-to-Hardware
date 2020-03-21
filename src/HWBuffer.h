@@ -3,11 +3,11 @@
 
 /** \file
  *
- * Defines a hardware buffer, which has parameters for a  general buffer 
+ * Defines a hardware buffer, which has parameters for a  general buffer
  * that can then be outputted to a hardware backend.
  * These parameters provide specification for line buffers,  double
  * buffers, and general unified buffers.
- * 
+ *
  */
 
 #include <map>
@@ -31,7 +31,7 @@ struct ExprVecCompare {
     for (size_t i=0; i<len; ++i) {
       auto a = av.at(i);
       auto b = bv.at(i);
-        
+
       if (a.get() != b.get()) {
         return a.get() < b.get();
       }
@@ -136,7 +136,7 @@ struct OutputStream {
 //  InputStream istream;
 //  std::vector<UpdateStream> ustreams;
 //  std::vector<OutputStream> ostreams;
-//  
+//
 //};
 
 struct InOutDimSize {
@@ -156,6 +156,7 @@ struct InOutDimSize {
 struct LogicalDimSize {
   Expr var_name;
   Expr logical_size;
+  Expr logical_size_flatten;
   Expr logical_min;
 };
 
@@ -185,7 +186,7 @@ struct HWBuffer {
   bool is_inlined = false;
   bool is_output = false;
   int num_accum_iters = 0;
-  
+
   // old parameters for the HWBuffer
   std::vector<InOutDimSize> dims;
   Stmt output_access_pattern;
@@ -204,7 +205,7 @@ struct HWBuffer {
 
   // dimensions for accumulation hwbuffer
   //std::map<std::string, StreamBundle> streams;
-  
+
   // Constructors
   HWBuffer() { }
 
@@ -213,7 +214,7 @@ struct HWBuffer {
   HWBuffer(std::string name, std::vector<MergedDimSize> mdims, std::vector<AccessDimSize> linear_addr,
            std::vector<std::string> loops, int store_index, int compute_index, bool is_inlined, bool is_output,
            std::string iname="input", std::string oname="output");
-  
+
 };
 
 }  // namespace Internal

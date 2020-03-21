@@ -774,9 +774,11 @@ namespace Halide {
               //initialize the flatten vector, the dot product doing the linearization
               vector<int> flatten_dim_vector;
               vector<int> dim_vector;
+              cout << buffer.ubuf << endl;
               for (size_t idx =0 ; idx < loop_dim; idx ++) {
                   auto ref_dim = stride_ref_dim[idx];
-                  flatten_dim_vector.push_back(id_const_value(buffer.ubuf.ldims[ref_dim].logical_size));
+                  cout << "logical size flatten: " << id_const_value(buffer.ubuf.ldims[ref_dim].logical_size_flatten) << endl;
+                  flatten_dim_vector.push_back(id_const_value(buffer.ubuf.ldims[ref_dim].logical_size_flatten));
                   dim_vector.push_back(id_const_value(buffer.ubuf.ldims[ref_dim].logical_size));
               }
 
@@ -838,13 +840,13 @@ namespace Halide {
 
                   for (size_t dim = 0; dim < addr_dim; dim ++) {
                       args["input_range_" + to_string(dim)] =  Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size));
-                      args["input_stride_" + to_string(dim)] = Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size));
+                      args["input_stride_" + to_string(dim)] = Const::make(context, id_const_value(buffer.ubuf.ldims[dim].logical_size_flatten));
                   }
 
                   for (size_t dim = 0; dim < loop_dim ; dim ++) {
                       args["range_" + to_string(dim) ] = Const::make(context, range[dim]);
                       args["stride_" + to_string(dim) ] = Const::make(context, stride[dim]
-                                  * id_const_value(buffer.ubuf.ldims[stride_ref_dim[dim]].logical_size));
+                                  * id_const_value(buffer.ubuf.ldims[stride_ref_dim[dim]].logical_size_flatten));
                   }
 
                   auto ubuf_coreir = def->addInstance("ubuf_"+context->getUnique(),

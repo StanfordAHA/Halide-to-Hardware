@@ -25,10 +25,10 @@ using std::string;
 
 namespace {
 
-/* 
- * Used to calculate input and output block size. 
+/*
+ * Used to calculate input and output block size.
  * Also records the (writer and) reader loopnest.
- */  
+ */
 class CountBufferUsers : public IRVisitor {
   using IRVisitor::visit;
   string var;
@@ -110,7 +110,7 @@ class CountBufferUsers : public IRVisitor {
         //std::cout << "added nonparallel for loop: " << op->name << std::endl;
       }
       current_for = const_cast<For *>(for_stmt.as<For>());
-      
+
       IRVisitor::visit(op);
 
       // look at the readers (reader ports, read address gen)
@@ -148,7 +148,7 @@ class CountBufferUsers : public IRVisitor {
       current_for = previous_for;
       return;
     }
-    
+
 
     //std::cout << "added for loop: " << op->name << std::endl;
     IRVisitor::visit(op);
@@ -174,9 +174,9 @@ class CountBufferUsers : public IRVisitor {
 
     }
 
-    
+
   }
-  
+
 public:
   vector<Expr> output_block_box;
   vector<Expr> input_block_box;
@@ -193,7 +193,7 @@ class FindVarStride : public IRVisitor {
   int cur_stride;
   bool in_var;
   bool in_div;
-  
+
   using IRVisitor::visit;
 
   void visit(const Variable *op) {
@@ -204,7 +204,7 @@ class FindVarStride : public IRVisitor {
       IRVisitor::visit(op);
     }
   }
-  
+
   void visit(const Call *op) {
     if (op->name == varname) {
       in_var = true;
@@ -227,7 +227,7 @@ class FindVarStride : public IRVisitor {
       } else {
         op->a.accept(this);
       }
-      
+
     } else {
       IRVisitor::visit(op);
     }
@@ -243,7 +243,7 @@ class FindVarStride : public IRVisitor {
       } else {
         op->b.accept(this);
       }
-      
+
     } else if (is_const(op->b)) {
       if (in_var) {
         cur_stride *= id_const_value(op->b);
@@ -252,7 +252,7 @@ class FindVarStride : public IRVisitor {
       } else {
         op->a.accept(this);
       }
-      
+
     } else {
       op->a.accept(this);
       op->b.accept(this);
@@ -262,7 +262,7 @@ class FindVarStride : public IRVisitor {
 public:
   int stride_for_var;
   bool is_div;
-  
+
   FindVarStride(string varname, string forname) :
     varname(varname), loopname(forname),
     cur_stride(1), in_var(false), in_div(false),
@@ -290,7 +290,7 @@ class ReplaceForBounds : public IRMutator {
     Expr min = mutate(op->min);
     Expr extent = mutate(op->extent);
     Stmt body = mutate(op->body);
-    
+
     if (scope.contains(op->name + ".min")) {
       auto new_min = scope.get(op->name + ".min");
       auto new_max = scope.get(op->name + ".max");
@@ -313,7 +313,7 @@ class ReplaceForBounds : public IRMutator {
       } else {
         //std::cout << op->name << " same replaced this min from " << min << " to " << new_min << std::endl;
       }
-      
+
     } else {
       //std::cout << "couldn't find for loop " << op->name + ".min\n";
     }
@@ -328,7 +328,7 @@ class ReplaceForBounds : public IRMutator {
                      op->for_type, op->device_api, std::move(body));
 
   }
-  
+
 public:
   ReplaceForBounds() {}
 };
@@ -341,7 +341,7 @@ class FindOutputStencil : public IRVisitor {
   Scope<Expr> scope;
   string store_level;
   string compute_level;
-  
+
   // keep track of lets to later replace variables with constants
   void visit(const LetStmt *op) override {
       ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
@@ -367,8 +367,8 @@ class FindOutputStencil : public IRVisitor {
         //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
     }
-    
-    IRVisitor::visit(op);    
+
+    IRVisitor::visit(op);
   }
 
   void visit(const For *op) override {
@@ -383,7 +383,7 @@ class FindOutputStencil : public IRVisitor {
     stride_map[varname].stride = std::max(stride_map[varname].stride, stride_for_var);
     stride_map[varname].stride = std::max(stride_map[varname].stride, 1);
     stride_map[varname].is_inverse = fvs.is_div;
-    
+
     //std::cout << op->name << " has stride=" << stride_for_var << " in call for " << var
     //          << " stride_map[" << varname << "]=" << stride_map[varname].stride << std::endl;
     //std::cout << op->body << std::endl;
@@ -403,7 +403,7 @@ class FindOutputStencil : public IRVisitor {
       //} else {
       //std::cout << "couldn't find a loop min\n";
       //}
-      
+
       //std::cout << op->body << std::endl;
       //std::cout << new_body << std::endl;
       auto box_read = box_required(new_body, var);
@@ -463,7 +463,7 @@ class FindOutputStencil : public IRVisitor {
       auto unrolled = unroll_loops(remove_trivial_for_loops(Stmt(op)));
       auto letstmtexpr = LetStmt::make("hello", 0, unrolled);
       const LetStmt* letstmt = letstmtexpr.as<LetStmt>();
-      
+
       IRVisitor::visit(letstmt);
       search_for_min = true;
     } else {
@@ -503,7 +503,7 @@ class FindOutputStencil : public IRVisitor {
       Port oport;
       oport.stream_index = port_number;
       oport.mem_indices = mem_indices;
-        
+
       oports[call_indices] = oport;
       //std::cout << "added port " << port_number << " with mem_indices " << mem_indices
       //          << " for " << op->name << call_indices << std::endl;
@@ -512,8 +512,8 @@ class FindOutputStencil : public IRVisitor {
       //          << " with found=" << found_output_min << std::endl;
     }
   }
-  
-  
+
+
 public:
   vector<Expr> output_block_box;
   vector<Expr> output_stencil_box;
@@ -556,7 +556,7 @@ class FindInputStencil : public IRVisitor {
 
       //std::cout << interval << std::endl;
       //std::cout << "we found the input stencil for " << var << op->body << std::endl;
-      
+
       //std::cout << "let's save this input box num_dims=" << func.dimensions() << " box=" << box_write.size() << "\n";
       // save the bounds values in scope
       //Scope<Expr> stencil_bounds;
@@ -572,7 +572,7 @@ class FindInputStencil : public IRVisitor {
       }
 
       input_min_pos_box = vector<Expr>(interval.size());
-      
+
       //std::cout << "HWBuffer Parameter: " << var << " input chunk size - "
       //          << "box extent=[";
 
@@ -596,13 +596,13 @@ class FindInputStencil : public IRVisitor {
       auto interval = box_write;
       //std::cout << "we found the input min pos for " << var << ": " << interval << std::endl;
       input_min_pos_box = vector<Expr>(interval.size());
-    
+
       for (size_t dim=0; dim<interval.size(); ++dim) {
         input_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, stencil_bounds));
         //std::cout << "(" << input_min_pos_box[dim] << "," << interval[dim].min << ")  ";
       }
       //std::cout << "]\n";
-    
+
     }
     IRVisitor::visit(op);
   }
@@ -635,10 +635,10 @@ class ReplaceOutputAccessPatternRanges : public IRMutator {
     Stmt s = IRMutator::visit(old_op);
     const For *op = s.as<For>();
     Stmt for_stmt = For::make(op->name, op->min, new_extent, op->for_type, op->device_api, op->body);
-    
+
     return for_stmt;
   }
-  
+
 
 public:
   ReplaceOutputAccessPatternRanges(const HWBuffer& hwkernel) :
@@ -656,7 +656,7 @@ class HWBuffers : public IRMutator {
     Scope<Expr> scope;
 
     using IRMutator::visit;
-  
+
     Stmt visit(const LetStmt *op) override {
       ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
       return IRMutator::visit(op);
@@ -684,7 +684,7 @@ class HWBuffers : public IRMutator {
         HWBuffer hwbuffer;
         hwbuffer.name = op->name;
         //std::cout << hwbuffer.name << " found realize for new hwbuffer" << std::endl;
-        
+
         hwbuffer.func = func;
         hwbuffer.my_stmt = op->body;
         Stmt new_body = op->body;
@@ -738,6 +738,13 @@ class HWBuffers : public IRMutator {
           Expr extent = simplify(expand_expr(op->bounds.at(i).extent, scope));
           hwbuffer.ldims[i].logical_size = extent;
           hwbuffer.ldims[i].logical_min = Expr(0);
+          //add an helper variable to track the flatten dimension size
+          if (i == 0) {
+              hwbuffer.ldims[i].logical_size_flatten = 1;
+          }
+          else {
+              hwbuffer.ldims[i].logical_size_flatten = simplify(hwbuffer.ldims[i-1].logical_size_flatten * hwbuffer.ldims[i-1].logical_size);
+          }
         }
 
         // HWBuffer Parameter: bool is_output;
@@ -745,10 +752,10 @@ class HWBuffers : public IRMutator {
         if (xcel->name == hwbuffer.name) {
           hwbuffer.is_output = true;
           hwbuffer.is_inlined = false;
-          
+
         } else {
           hwbuffer.is_output = false;
-          
+
           if (hwbuffer.func.schedule().is_accelerator_input() ||
               hwbuffer.func.schedule().store_level().match(xcel->store_level)) {
             hwbuffer.is_inlined = false;
@@ -763,11 +770,11 @@ class HWBuffers : public IRMutator {
           // use sliding window to get stencil sizes
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
           new_body = mutate(new_body);
-          
+
           std::string for_namer = first_for_name(new_body);
           //std::cout << op->name << " sliding output=" << sliding_stencil_map.at(for_namer).output_stencil_box
           //          << " input=" << sliding_stencil_map.at(for_namer).input_chunk_box << std::endl;
-          
+
           auto boxes_write = boxes_provided(new_body);
           auto boxes_read = boxes_required(new_body);
 
@@ -780,7 +787,7 @@ class HWBuffers : public IRMutator {
             box[i] = extent;
           }
 
-          //std::cout << "HWBuffer Parameter: Total buffer box is of size [";          
+          //std::cout << "HWBuffer Parameter: Total buffer box is of size [";
           for (size_t i=0; i<box.size(); ++i) {
             //std::cout << box[i];
             //if (i < box.size() - 1) {std::cout << " "; }
@@ -793,7 +800,7 @@ class HWBuffers : public IRMutator {
             //if (i < box.size() - 1) {std::cout << " "; }
           }
           //std::cout << "]\n";
-          
+
           //std::cout << "HWBuffer Parameter: Output Stencil box is of size [";
           for (size_t i=0; i<box.size(); ++i) {
             //std::cout << box[i];
@@ -821,7 +828,7 @@ class HWBuffers : public IRMutator {
 
           internal_assert(boxes_read.at(op->name).size() == output_block_box.size());
           //internal_assert(boxes_read.at(op->name).size() == input_block_box.size());
-          
+
           //std::cout << "transferring parameters\n";
           std::string for_name = first_for_name(new_body);
           //HWBuffer hwbuffer(output_block_box.size(), sliding_stencil_map.at(for_name));
@@ -829,7 +836,7 @@ class HWBuffers : public IRMutator {
 
           LoopLevel store_l = sched.store_level();
           //hwbuffer.store_level = store_l.lock().func();
-          
+
           //comment hwbuffer.stride_map = fos.stride_map;
           //std::cout << hwbuffer.name << " stride_x=" << hwbuffer.stride_map["x"].stride << std::endl;
 
@@ -849,16 +856,16 @@ class HWBuffers : public IRMutator {
             hwbuffer.dims[i].loop_name = i < loop_names.size() ? loop_names.at(i) : unique_name("loopvar");
           }
           hwbuffer.output_access_pattern = reader_loopnest;
-          
+
           //std::cout << "created hwbuffer " << hwbuffer.name << "\n";
 
           if (buffers.count(hwbuffer.name) == 0) {
             //std::cout << "Here is the hwbuffer (store=compute):" << hwbuffer << std::endl;
             buffers[hwbuffer.name] = hwbuffer;
           }
-          
+
           return IRMutator::visit(op);
-          
+
         } else {
           // look for a sliding window that can be used in a line buffer
           //std::cout << "looking at hwbuffer with diff compute and store levels: " << hwbuffer.name << std::endl;
@@ -882,7 +889,7 @@ class HWBuffers : public IRMutator {
           // use sliding window to get stencil sizes
           // Parameters 1 and 2
           std::string for_namer = first_for_name(new_body);
-          
+
           auto sliding_stencil_map = extract_sliding_stencils(new_body, iter->second);
           new_body = mutate(new_body);
           //std::cout << op->name << " sliding output=" << sliding_stencil_map.at(for_namer).output_stencil_box << " input=" << sliding_stencil_map.at(for_namer).input_chunk_box << std::endl;
@@ -894,7 +901,7 @@ class HWBuffers : public IRMutator {
             input_chunk.at(input_chunk.size()-1 - i) = slide_box.at(i);
           }
           //std::cout << hwbuffer.name << " has the real size of " << input_chunk << std::endl;
-          
+
           //FindOutputStencil fos(op->name, func, xcel_compute_level);
           //FindOutputStencil fos(op->name, op->name, hwbuffer.store_level, hwbuffer.compute_level);
           //new_body.accept(&fos);
@@ -908,7 +915,7 @@ class HWBuffers : public IRMutator {
           //std::cout << "looking for those access patterns for buffer named: " << op->name << new_body;
           //new_body.accept(&counter);
           replaced_body.accept(&counter);
-          
+
           // Parameters 3, 4, 5
           auto output_block_box = counter.output_block_box;
           auto input_block_box = counter.input_block_box;
@@ -926,7 +933,7 @@ class HWBuffers : public IRMutator {
           //std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while " << total_buffer_box.size() << " num box_dims\n";
           //std::cout << " loops are: " << loop_names << std::endl;
           //std::cout << " hwbuffer loops are: " << hwbuffer.streaming_loops << std::endl;
-          
+
           internal_assert(hwbuffer.dims.size() == total_buffer_box.size());
           internal_assert(hwbuffer.dims.size() == output_block_box.size());
           internal_assert(hwbuffer.dims.size() == input_block_box.size());
@@ -942,8 +949,8 @@ class HWBuffers : public IRMutator {
             //std::cout << "hwbuffer " << hwbuffer.name << " finished dim " << i << " has min_pos=" << hwbuffer.dims[i].output_min_pos << std::endl;
           }
           hwbuffer.output_access_pattern = reader_loopnest;
-          
-          if (buffers.count(hwbuffer.name) == 0) {          
+
+          if (buffers.count(hwbuffer.name) == 0) {
             //std::cout << "Here is the hwbuffer:" << hwbuffer << std::endl;
             buffers[hwbuffer.name] = hwbuffer;
           }
@@ -958,7 +965,7 @@ class HWBuffers : public IRMutator {
                                op->bounds, op->condition, new_body);
         }
     }
-  
+
 public:
   HWBuffers(const map<string, Function> &e, const vector<string> &ln, HWXcel *xcel) :
     env(e), loop_names(ln), xcel(xcel) {}
@@ -977,7 +984,7 @@ map<string, HWBuffer> extract_hw_buffers(Stmt s, const map<string, Function> &en
     //std::cout << hwbuffer.first << " is ehb w/ inline=" << hwbuffer.second.is_inlined << std::endl;
     //std::cout << hwbuffer.second << std::endl;
   //}
-    
+
   return ehb.buffers;
 }
 
@@ -998,7 +1005,7 @@ class FindOutputBounds : public IRVisitor {
 
 public:
   Box output_bounds;
-  
+
   FindOutputBounds(LoopLevel compute, Function func)
     : compute_level(compute), func(func) {
     //std::cout << "func trying to find output bounds: " << func.name() << " " << compute.var().name() << std::endl;
@@ -1018,7 +1025,7 @@ void find_output_scope(Stmt s, Function func,
   FindOutputBounds fob(compute_level, func);
   s.accept(&fob);
   auto box = fob.output_bounds;
-  
+
   for (int i = 0; i < func.dimensions(); i++) {
     string stage_name = func.name() + ".s0." + func.args()[i];
     scope.push(stage_name + ".min", box[i].min);
@@ -1029,7 +1036,7 @@ void find_output_scope(Stmt s, Function func,
 
 
 // Second pass through hwbuffers, setting some more parameters, including the consumer outputs.
-void set_output_params(HWXcel *xcel, 
+void set_output_params(HWXcel *xcel,
                        const map<string, Function> &env,
                        const vector<BoundsInference_Stage> &inlined_stages,
                        const vector<string> &streaming_loop_levels,
@@ -1049,7 +1056,7 @@ void set_output_params(HWXcel *xcel,
   // Go through the stages from the output back to the input.
   while (i >= 1) {
     i--;
-    
+
     const BoundsInference_Stage &stage = inlined_stages[i];
     if (in_output && stage.name != xcel->name) {
       continue;
@@ -1058,7 +1065,7 @@ void set_output_params(HWXcel *xcel,
     internal_assert(hwbuffers.count(stage.name));
     auto& hwbuffer = hwbuffers.at(stage.name);
     internal_assert(hwbuffer.name == stage.name);
-    
+
     //std::cout << hwbuffer.name << " before func\n";
 
     Function cur_func = hwbuffer.func;
@@ -1074,12 +1081,12 @@ void set_output_params(HWXcel *xcel,
     //std::cout << "HWBuffer has " << hwbuffer.dims.size() << " dims, while \n";
     //std::cout << " loops are: " << hwbuffer.streaming_loops << std::endl;
     //std::cout << " args are: " << hwbuffer.func.args() << std::endl;
-    
+
     if (!cur_func.schedule().is_hw_kernel()) {
       //std::cout << "skipping " << hwbuffer.name << std::endl;
       continue;
     }
-    
+
     // HWBuffer Parameter: bool is_output;
     //if (xcel->name == hwbuffer.name) {
     if (hwbuffer.is_output) {
@@ -1088,7 +1095,7 @@ void set_output_params(HWXcel *xcel,
         dim.output_stencil = dim.output_block;
       }
       std::cout << hwbuffer.my_stmt << std::endl;
-      
+
       in_output = false;
 
       internal_assert(stage.consumers.size() == 1);
@@ -1109,18 +1116,18 @@ void set_output_params(HWXcel *xcel,
         ostream.odims[dim].output_block = hwbuffer.dims.at(dim).output_block;
         ostream.odims[dim].output_stencil = hwbuffer.dims.at(dim).output_stencil;
       }
-      
+
       continue; // output kernel doesn't need to keep going (no consumers)
     }
     //std::cout << "finished is_output " << stage.consumers.size() << " consumers\n";
-    
+
     //std::cout << hwbuffer.name << " is inline=" << hwbuffer.is_inlined
     //          << " store=" << cur_func.schedule().store_level()
     //          << " compute=" << cur_func.schedule().compute_level()
     //          << " is_xcel=" << cur_func.schedule().is_accelerated()
     //          << " is_hw_kernel=" << cur_func.schedule().is_hw_kernel()
     //          << std::endl;
-    
+
     // HWBuffer Parameter: map<string, HWBuffer&> consumer_buffers
     for (size_t j = 0; j < stage.consumers.size(); j++) {
       internal_assert(stage.consumers[j] < (int)inlined_stages.size());
@@ -1141,7 +1148,7 @@ void set_output_params(HWXcel *xcel,
       if ((!hwbuffer.is_inlined || hwbuffers.at(consumer.name).is_output || xcel->input_streams.count(hwbuffer.name)>0) &&
           hwbuffers.at(consumer.name).istreams.count(hwbuffer.name) == 0 &&
           !hwbuffer.is_inlined) {
-        
+
         InputStream istream;
         istream.name = hwbuffer.name;
         istream.hwref = &hwbuffer;
@@ -1157,11 +1164,11 @@ void set_output_params(HWXcel *xcel,
       const HWBuffer &consumer_buffer = hwbuffers.at(consumer.name);
 
       ostream.hwref = &hwbuffers.at(consumer.name);
-      
+
       std::string func_compute_level = hwbuffer.compute_level;
       const FuncSchedule &sched = cur_func.schedule();
       auto compute_looplevel = sched.compute_level();
-      
+
       //std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name() << " compute=" << cur_func.schedule().compute_level() << " consumer_compute=" << consumer_buffer.compute_level << std::endl;
 
       //FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, func_compute_level);
@@ -1206,13 +1213,13 @@ void set_output_params(HWXcel *xcel,
         port.starting_addr = start_addr;
         //std::cout << port << std::endl;
       }
-      
+
       //std::cout << hwbuffer.name << " stride_x=" << ostream.stride_map["x"].stride << std::endl;
 
       //for (const auto& string_int_pair : hwbuffer.stride_map) {
       //std::cout << string_int_pair.first << "," << string_int_pair.second.stride << std::endl;
       //}
-      
+
       FindInputStencil fis(hwbuffer.name, cur_func, func_compute_level, stencil_bounds);
       hwbuffer.my_stmt.accept(&fis);
       //std::cout << hwbuffer.name << " has input min pos " << fis.input_min_pos_box << std::endl;
@@ -1263,7 +1270,7 @@ void set_output_params(HWXcel *xcel,
         }
 
         //std::cout << "replaced output min pos with new algo: " << hwbuffer.name << idx << "=" << odims.at(idx).output_min_pos << std::endl;
-        
+
         /*
         if (fos.found_output_min) {
           //std::cout << "found the output min for " << hwbuffer.name << " to " << consumer.name << " idx" << idx << ": " << odims.at(idx).output_min_pos;
@@ -1296,7 +1303,7 @@ void set_output_params(HWXcel *xcel,
       //if (!hwbuffer.is_inlined && hwbuffers.count(consumer.name)) {
       if (hwbuffers.count(consumer.name) &&  // does this work?
           (!hwbuffer.is_inlined || xcel->input_streams.count(hwbuffer.name)>0)) {
-        ostream.output_access_pattern = hwbuffer.output_access_pattern;      
+        ostream.output_access_pattern = hwbuffer.output_access_pattern;
         //hwbuffers.at(consumer.name).input_streams.emplace_back(hwbuffer.name);
         ReplaceOutputAccessPatternRanges roapr(consumer_buffer);
         hwbuffer.output_access_pattern = roapr.mutate(hwbuffer.output_access_pattern);
@@ -1317,14 +1324,14 @@ void set_output_params(HWXcel *xcel,
           }
         }
       }
-      
+
     }
 
     // save the bounds values in scope
     internal_assert(cur_func.dimensions() == (int)hwbuffer.ostreams.begin()->second.odims.size());
     for (int i = 0; i < cur_func.dimensions(); i++) {
       string arg = cur_func.name() + ".s" + std::to_string(stage.stage) + "." + cur_func.args()[i];
-      
+
       auto min_pos = hwbuffer.ostreams.begin()->second.odims.at(i).output_min_pos;
       auto max_pos = hwbuffer.ostreams.begin()->second.odims.at(i).output_max_pos;
       stencil_bounds.push(arg + ".min", min_pos);
@@ -1351,7 +1358,7 @@ void set_output_params(HWXcel *xcel,
     }
 
   }
-  
+
 }
 
 
@@ -1374,7 +1381,7 @@ class IdentifyAddressingVar : public IRVisitor {
         stride = id_const_value(expand_expr(op->b, scope));
         dim_ref = asserts_found;
       }
-      
+
     } else if (const Variable* op_b = op->b.as<Variable>()) {
       if (op_b->name == varname) {
         stride = id_const_value(expand_expr(op->a, scope));
@@ -1387,16 +1394,16 @@ class IdentifyAddressingVar : public IRVisitor {
     //std::cout << "woah a divide: " << Expr(op) << "\n";
   }
 
-  
+
   void visit(const AssertStmt *op) {
     IRVisitor::visit(op);
     asserts_found += 1;
   }
-  
+
 public:
   const Scope<Expr> &scope;
   const string varname;
-  
+
 
   // if var not found, dim_ref should be 0
   int dim_ref;
@@ -1414,9 +1421,9 @@ class IdentifyAddressing : public IRVisitor {
   Function func;
   int stream_dim_idx;
   const Scope<Expr> &scope;
-  
+
   using IRVisitor::visit;
-  
+
   void visit(const For *op);
 
 public:
@@ -1425,7 +1432,7 @@ public:
   std::vector<std::string> varnames;
 
   std::map<std::string, int> dim_map;
-  
+
   std::vector<int> ranges;
   std::vector<int> dim_refs;
   std::vector<int> strides_in_dim;
@@ -1447,7 +1454,7 @@ void IdentifyAddressing::visit(const For *op) {
   auto tokens = get_tokens(op->name, ".");
   auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
   std::cout << op->name << " is probably referring to storage " << varname << std::endl;
-    
+
   //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
 
   // determine dim_ref and stride
@@ -1460,7 +1467,7 @@ void IdentifyAddressing::visit(const For *op) {
       //std::cout << string_int_pair.first << "," << string_int_pair.second.stride << "  ";
     //}
     //std::cout << std::endl;
-      
+
     //std::cout << " and mapcount=" << stride_map.size() << " " << stride_map.count(varname) << std::endl;
     int stride = stride_map.count(varname)>0 ? stride_map.at(varname).stride : 1;
     bool is_inv = stride_map.count(varname)>0 ? stride_map.at(varname).is_inverse : false;
@@ -1476,7 +1483,7 @@ void IdentifyAddressing::visit(const For *op) {
       dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
       ranges.insert(ranges.begin(), stride);
       strides_in_dim.insert(strides_in_dim.begin(), 0);
-        
+
     } else {
       //std::cout << "not inverse variable " << varname << " for func " << func.name() << std::endl;
       dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
@@ -1487,7 +1494,7 @@ void IdentifyAddressing::visit(const For *op) {
     //std::cout << op->name << " has stride=" << strides_in_dim.at(0)
     //          << " dim_ref=" << dim_refs.at(0)
     //           << " range=" << ranges.at(0) << "\n";
-      
+
   } else {
     IdentifyAddressingVar iav(op->name, scope);
     //std::cout << "finding stride and range for " << op->name << "\n in: " << op->body << std::endl;
@@ -1523,7 +1530,7 @@ IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &
       dim_map[split.inner] = dim_map.at(split.old_var);
     }
   }
-    
+
   //std::cout << "going to be looking for range and strides where storage=" << storage_names << std::endl;
 }
 
@@ -1540,7 +1547,7 @@ void linearize_address_space(HWBuffer &kernel) {
       auto num_access_levels = id_addr.ranges.size();
       assert(num_access_levels == id_addr.strides_in_dim.size());
       assert(num_access_levels == id_addr.dim_refs.size());
-      
+
       //istream.linear_addr.resize(num_access_levels);
       ostream.linear_access.resize(num_access_levels);
       size_t j = 0;
@@ -1549,7 +1556,7 @@ void linearize_address_space(HWBuffer &kernel) {
           //istream.linear_addr.at(j).range = id_addr.ranges.at(i);
           //istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
           //istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
-          
+
           ostream.linear_access.at(j).range = id_addr.ranges.at(i);
           ostream.linear_access.at(j).stride = id_addr.strides_in_dim.at(i);
           ostream.linear_access.at(j).dim_ref = id_addr.dim_refs.at(i);
@@ -1560,14 +1567,14 @@ void linearize_address_space(HWBuffer &kernel) {
       //istream.linear_addr.resize(j);
       ostream.linear_access.resize(j);
 
-    
+
   }
   //for (auto& istream_pair : kernel.producer_buffers) {
   //HWBuffer& istream = *istream_pair.second;
   for (auto& istream_pair : kernel.istreams) {
     HWBuffer& istream = *istream_pair.second.hwref;
     //std::cout << "dealing with istream " << istream.name << std::endl;
-    
+
     OutputStream& ostream = istream.ostreams.at(kernel.name);
 
     IdentifyAddressing id_addr(istream.func, Scope<Expr>(), ostream.stride_map);
@@ -1585,7 +1592,7 @@ void linearize_address_space(HWBuffer &kernel) {
       auto num_access_levels = id_addr.ranges.size();
       assert(num_access_levels == id_addr.strides_in_dim.size());
       assert(num_access_levels == id_addr.dim_refs.size());
-      
+
       //istream.linear_addr.resize(num_access_levels);
       ostream.linear_access.resize(num_access_levels);
       size_t j = 0;
@@ -1594,7 +1601,7 @@ void linearize_address_space(HWBuffer &kernel) {
           //istream.linear_addr.at(j).range = id_addr.ranges.at(i);
           //istream.linear_addr.at(j).stride = id_addr.strides_in_dim.at(i);
           //istream.linear_addr.at(j).dim_ref = id_addr.dim_refs.at(i);
-          
+
           ostream.linear_access.at(j).range = id_addr.ranges.at(i);
           ostream.linear_access.at(j).stride = id_addr.strides_in_dim.at(i);
           ostream.linear_access.at(j).dim_ref = id_addr.dim_refs.at(i);
@@ -1617,7 +1624,7 @@ void calculate_accumulation(HWBuffer &kernel) {
       Expr store_extent = kernel.ldims[i].logical_size;
       num_logical_pixels *= to_int(store_extent);
     }
-    
+
     //for (auto& istream_pair : kernel.producer_buffers) {
     //auto& istream = *istream_pair.second;
     for (auto& istream_pair : kernel.istreams) {
@@ -1630,7 +1637,7 @@ void calculate_accumulation(HWBuffer &kernel) {
       for (size_t i = 0; i < id_addr.ranges.size(); i++) {
         num_iter *= id_addr.ranges.at(i);
       }
-      
+
       if (has_accum && num_logical_pixels != num_iter) {
         kernel.num_accum_iters = num_iter / num_logical_pixels;
       }
@@ -1654,7 +1661,7 @@ void fixup_hwbuffer(HWBuffer& hwbuffer) {
       }
 
     }
-    
+
     for (auto& dim : ostream.linear_access) {
       if (is_one(dim.dim_ref > 10 || dim.dim_ref < 0)) {
         dim.dim_ref = 0;
@@ -1709,7 +1716,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     calculate_accumulation(hwbuffer_pair.second);
   }
   //std::cout << "linearized address space" << std::endl;
-  
+
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
 
     auto& kernel = hwbuffer_pair.second;
@@ -1728,7 +1735,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
       //std::cout << "no accumulation" << std::endl;
     }
     //std::cout << std::endl;
-    
+
     //kernel.streaming_loops = xcel->streaming_loop_levels;
     //kernel.compute_level = xcel->streaming_loop_levels.back();
   }
@@ -1739,21 +1746,21 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
                                 const vector<BoundsInference_Stage> &inlined_stages) {
 
   vector<HWXcel> xcels;
-  
+
   s = substitute_in_constants(s);
-  
+
   for (auto stage : inlined_stages) {
     //std::cout << "stage includes " << stage.name << std::endl;
   }
-    
-  // for each accelerated function, build a hardware xcel: a dag of HW kernels 
+
+  // for each accelerated function, build a hardware xcel: a dag of HW kernels
   for (const auto &p : env) {
-    
+
     Function func = p.second;
     // skip this function if it is not accelerated
     if(!func.schedule().is_accelerated())
       continue;
-    
+
     //std::cout << "Found accelerate function " << func.name() << "\n";
     LoopLevel store_locked = func.schedule().store_level().lock();
     string store_varname =

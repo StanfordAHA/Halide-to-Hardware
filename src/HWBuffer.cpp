@@ -15,11 +15,11 @@ std::ostream& operator<<(std::ostream& os, const std::vector<AccessDimSize>& vec
     stride.emplace_back(dim.stride);
     dim_ref.emplace_back(dim.dim_ref);
   }
-  
+
   os << "  Range: " << range << std::endl
      << "  Stride: " << stride << std::endl
      << "  Dim Ref: " << dim_ref << std::endl;
-  
+
   return os;
 };
 
@@ -38,15 +38,16 @@ std::ostream& operator<<(std::ostream& os, const map<vector<Expr>, Port, ExprVec
     os << port << ", ";
   }
   os << "}";
-  
+
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
-  vector<Expr> total_buffer_box, input_chunk_box, input_block_box;
+  vector<Expr> total_buffer_box, total_buffer_box_flatten,input_chunk_box, input_block_box;
   vector<Expr> output_stencil_box, output_block_box, output_min_pos;
   for (const auto& dim : buffer.ldims) {
     total_buffer_box.emplace_back(dim.logical_size);
+    total_buffer_box_flatten.emplace_back(dim.logical_size_flatten);
   }
   for (const auto& dim : buffer.dims) {
     input_chunk_box.emplace_back(dim.input_chunk);
@@ -82,9 +83,10 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
 
   //auto num_inputs = 0;//buffer.func.updates().size();
   //auto num_outputs = 0;//buffer.consumer_buffers.size();
-  
+
   os << "HWBuffer: " << buffer.name << std::endl
      << "Logical Buffer: " << total_buffer_box << std::endl
+     << "Logical Buffer flatten: " << total_buffer_box_flatten << std::endl
      << "Input Chunk: " << input_chunk_box << std::endl
      << "Input Block: " << input_block_box << std::endl
      << "Output Stencil: " << output_stencil_box << std::endl
@@ -93,7 +95,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
     //<< "Output Min Pos: " << output_min_pos << std::endl;
 
   //os << buffer.linear_addr << std::endl;
-  
+
   for (const auto& omp_pair : ostream_output_mins) {
     os << "Ostream " << omp_pair.first << " Min Pos: "
        << omp_pair.second << std::endl;
@@ -121,7 +123,7 @@ std::ostream& operator<<(std::ostream& os, const HWBuffer& buffer) {
   //<< "num_inputs=" << num_inputs << std::endl
   //<< "num_output=" << num_outputs << std::endl;
 
-  
+
   return os;
 };
 
@@ -142,16 +144,16 @@ HWBuffer::HWBuffer(string name, vector<MergedDimSize> mdims, vector<AccessDimSiz
 
   InputStream istream;
   istream.idims = std::vector<InputDimSize>(mdims.size());
-    
+
   OutputStream ostream;
   ostream.odims = std::vector<OutputDimSize>(mdims.size());
-    
+
   dims = std::vector<InOutDimSize>(mdims.size());
   for (size_t i=0; i<mdims.size(); ++i) {
     istream.idims.at(i).loop_name       = mdims.at(i).loop_name;
     istream.idims.at(i).input_chunk     = mdims.at(i).input_chunk;
     istream.idims.at(i).input_block     = mdims.at(i).input_block;
-      
+
     ostream.odims.at(i).loop_name      = mdims.at(i).loop_name;
     ostream.odims.at(i).output_stencil = mdims.at(i).output_stencil;
     ostream.odims.at(i).output_block   = mdims.at(i).output_block;
@@ -160,7 +162,7 @@ HWBuffer::HWBuffer(string name, vector<MergedDimSize> mdims, vector<AccessDimSiz
   }
 
   ostream.linear_access = linear_addr;
-  
+
   istreams[iname] = istream;
   ostreams[oname] = ostream;
 
@@ -175,7 +177,7 @@ HWBuffer::HWBuffer(string name, vector<MergedDimSize> mdims, vector<AccessDimSiz
     //dims[i].output_min_pos = mdims[i].output_min_pos;
     //dims[i].output_max_pos = mdims[i].output_max_pos;
   }
-    
+
 };
 
 std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
@@ -193,7 +195,7 @@ std::vector<MergedDimSize> create_hwbuffer_sizes(std::vector<int> logical_size,
            Expr(input_chunk.at(i)), Expr(input_block.at(i)),
            Expr(output_stencil.at(i)), Expr(output_block.at(i)), Expr(0)});
    }
-   
+
    return dims;
 }
 
@@ -208,7 +210,7 @@ std::vector<AccessDimSize> create_linear_addr(std::vector<int> ranges,
    for (size_t i=0; i < ranges.size(); ++i) {
      dims[i] = AccessDimSize({Expr(ranges.at(i)), Expr(strides.at(i)), Expr(dim_refs.at(i))});
    }
-   
+
    return dims;
 }
 
