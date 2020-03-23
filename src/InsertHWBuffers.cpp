@@ -122,8 +122,8 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
     }
 
     Stmt visit(const Provide *op) {
-      //std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
-      //std::cout << Stmt(op) << std::endl;
+      std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
+      std::cout << Stmt(op) << std::endl;
         if (op->name != kernel.name) {
           return IRMutator::visit(op);
         } else {

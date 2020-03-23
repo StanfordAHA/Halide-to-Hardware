@@ -1115,6 +1115,7 @@ void set_output_params(HWXcel *xcel,
       for (size_t dim=0; dim<hwbuffer.dims.size(); dim++) {
         ostream.odims[dim].output_block = hwbuffer.dims.at(dim).output_block;
         ostream.odims[dim].output_stencil = hwbuffer.dims.at(dim).output_stencil;
+        ostream.odims[dim].output_min_pos = fos.output_min_pos_box.at(dim);
       }
 
       continue; // output kernel doesn't need to keep going (no consumers)
