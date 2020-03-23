@@ -1537,8 +1537,9 @@ IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &
 void linearize_address_space(HWBuffer &kernel) {
   std::cout << "linearizing for " << kernel.name << std::endl;
   if (kernel.is_output) {
-    std::cout << kernel << std::endl;
-    OutputStream& ostream = kernel.ostreams.at("output");
+    const auto& ostream_name = kernel.ostreams.cbegin()->second.name;
+    OutputStream& ostream = kernel.ostreams.at(ostream_name);
+    
     IdentifyAddressing id_addr(kernel.func, Scope<Expr>(), ostream.stride_map);
     ostream.output_access_pattern.accept(&id_addr);
     std::cout << "output_access for " << kernel.name << " to " << ostream.name << std::endl
