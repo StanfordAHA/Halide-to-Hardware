@@ -258,7 +258,7 @@ void ubuffer_small_conv_3_3_test() {
   //vector<Argument> args{input};
   //buildModule(context, "coreir_conv_3_3", args, "conv_3_3", hw_output);
 
-  //An hack using JEFF's generator
+  //A hack using JEFF's generator
   system("(cd ../conv_3_3/ && make)");
   string run_generator_cmd = "(cd ../conv_3_3/ && make design-coreir > generator.log)";
   const char* cmd = run_generator_cmd.c_str();
@@ -303,7 +303,7 @@ void ubuffer_small_conv_3_3_test() {
   int n_valids = 0;
   vector<vector<int> > port_values(9, vector<int>(outTileSize*outTileSize, 0));
   for (int t = 0; t < inTileSize*inTileSize; t++) {
-      cout << "At position: " << t << endl;
+    //cout << "At position: " << t << endl;
     state.setValue("self.write_port_0", BitVector(16, t));
     state.setValue("self.write_port_0_en", BitVector(1, 1));
 
@@ -318,7 +318,7 @@ void ubuffer_small_conv_3_3_test() {
         }
     }
     state.exeSequential();
-  cout << "n_valids = " << n_valids << endl;
+    //cout << "n_valids = " << n_valids << endl;
   }
 
   cout << "n_valids = " << n_valids << endl;

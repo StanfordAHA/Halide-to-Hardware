@@ -112,6 +112,7 @@ struct OutputStream {
   std::vector<OutputDimSize> odims;
   std::map<std::vector<Expr>, Port, ExprVecCompare> oports;
   Stmt output_access_pattern;
+  int num_stencil_acc_dim; // which loop level corresponds to the compute level
   std::map<std::string, Stride> stride_map;
   std::vector<AccessDimSize> linear_access;
   //std::shared_ptr<HWBuffer> hwref;

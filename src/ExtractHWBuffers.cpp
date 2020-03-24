@@ -1062,7 +1062,7 @@ void set_output_params(HWXcel *xcel,
       continue;
     }
 
-    internal_assert(hwbuffers.count(stage.name));
+    internal_assert(hwbuffers.count(stage.name)) << "could not find " << stage.name << "\n";
     auto& hwbuffer = hwbuffers.at(stage.name);
     internal_assert(hwbuffer.name == stage.name);
 
@@ -1315,6 +1315,7 @@ void set_output_params(HWXcel *xcel,
 
       for (size_t i=0; i < fos.output_block_box.size(); ++i) {
         ostream.odims.at(i).output_block   = fos.output_block_box.at(i);
+        hwbuffer.dims.at(i).output_block   = fos.output_block_box.at(i);
         ostream.odims.at(i).output_min_pos = fos.output_min_pos_box.at(i);
         if (fos.found_stencil) {
           //std::cout << hwbuffer.name << " output stencil set\n";
