@@ -9,7 +9,7 @@ all: testall
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(MAKE) -sC $@ compare $(HALIDE_DEBUG_REDIRECT); \
+	@$(MAKE) -C $@ compare $(HALIDE_DEBUG_REDIRECT); \
 	EXIT_CODE=$$?; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
 	  printf "%-20s \033[0;32m%s\033[0m\n" $@ "PASSED"; \

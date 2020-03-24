@@ -341,6 +341,7 @@ class FindOutputStencil : public IRVisitor {
   Scope<Expr> scope;
   string store_level;
   string compute_level;
+  string current_loop;
 
   // keep track of lets to later replace variables with constants
   void visit(const LetStmt *op) override {
@@ -349,19 +350,20 @@ class FindOutputStencil : public IRVisitor {
   }
 
   void visit(const ProducerConsumer *op) override {
-    if (store_level == compute_level && op->is_producer && op->name == consumer && false) {
-      found_stencil = true;
+    //if (store_level == compute_level && op->is_producer && op->name == consumer && false) {
+    if (op->name == var && current_loop == compute_level) {
+      //found_stencil = true;
 
       auto box_read = box_required(op->body, var);
       auto interval = box_read;
-      output_min_pos_box = vector<Expr>(interval.size());
+      //output_min_pos_box = vector<Expr>(interval.size());
       output_block_box = vector<Expr>(interval.size());
       //std::cout << "working on " << op->name << " "
       //           << " with size: " << interval.size() << std::endl
       //           << op->body << std::endl;
 
       for (size_t dim=0; dim<interval.size(); ++dim) {
-        output_min_pos_box[dim] = interval[dim].min;
+        //output_min_pos_box[dim] = interval[dim].min;
         auto output_block = simplify(expand_expr(interval[dim].max - interval[dim].min + 1, scope));
         output_block_box[dim] = output_block;
         //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
@@ -372,6 +374,8 @@ class FindOutputStencil : public IRVisitor {
   }
 
   void visit(const For *op) override {
+    string previous_loop = current_loop;
+    current_loop = op->name;
     //std::cout << "saw this for loop " << op->name << " while compute=" << compute_level << std::endl;
 
     auto fvs = FindVarStride(var, op->name);
@@ -469,6 +473,7 @@ class FindOutputStencil : public IRVisitor {
     } else {
       IRVisitor::visit(op);
     }
+    current_loop = previous_loop;
   }
 
   // register call as a port
@@ -1094,7 +1099,7 @@ void set_output_params(HWXcel *xcel,
         dim.output_block = dim.input_block;
         dim.output_stencil = dim.output_block;
       }
-      std::cout << hwbuffer.my_stmt << std::endl;
+      //std::cout << hwbuffer.my_stmt << std::endl;
 
       in_output = false;
 
@@ -1113,7 +1118,7 @@ void set_output_params(HWXcel *xcel,
       ostream.odims.resize(hwbuffer.dims.size());
       internal_assert(hwbuffer.dims.size() == ostream.odims.size());
       for (size_t dim=0; dim<hwbuffer.dims.size(); dim++) {
-        ostream.odims[dim].output_block = hwbuffer.dims.at(dim).output_block;
+        ostream.odims[dim].output_block   = hwbuffer.dims.at(dim).output_block;
         ostream.odims[dim].output_stencil = hwbuffer.dims.at(dim).output_stencil;
         ostream.odims[dim].output_min_pos = fos.output_min_pos_box.at(dim);
       }
@@ -1172,11 +1177,18 @@ void set_output_params(HWXcel *xcel,
 
       //std::cout << hwbuffer.name << " compute loop is using " << func_compute_level << " based on func " << cur_func.name() << " compute=" << cur_func.schedule().compute_level() << " consumer_compute=" << consumer_buffer.compute_level << std::endl;
 
-      //FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, func_compute_level);
-      FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, consumer_buffer.compute_level);
+      FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, hwbuffer.compute_level);
+      //FindOutputStencil fos(hwbuffer.name, consumer.name, hwbuffer.store_level, consumer_buffer.compute_level);
       //std::cout << hwbuffer.name << " going to consumer named " << consumer_buffer.name << std::endl;
       //std::cout << consumer_buffer.my_stmt << std::endl;
       consumer_buffer.my_stmt.accept(&fos);
+
+      //std::cout << hwbuffer.name << " to " << ostream.name << " output_block is " << fos.output_block_box << std::endl;
+      if (hwbuffer.name == "conv" && ostream.name == "hw_output") {
+        //std::cout << consumer_buffer.my_stmt << std::endl;
+      }
+
+      
       //hwbuffer.my_stmt.accept(&fos);
       //std::cout << "output min pos is " << fos.output_min_pos_box << std::endl;
       //std::cout << "looking for output stencil and min for " << hwbuffer.name << " to consumer " << consumer.name
@@ -1254,7 +1266,9 @@ void set_output_params(HWXcel *xcel,
       for (size_t idx=0; idx<hwbuffer.dims.size(); ++idx) {
         //if (fos.found_stencil && idx < fos.output_stencil_box.size()) {
         if (fos.found_stencil) {
-          internal_assert(hwbuffer.dims.size() == fos.output_stencil_box.size());
+          internal_assert(hwbuffer.dims.size() == fos.output_stencil_box.size())
+            << hwbuffer.dims.size() << " vs " << fos.output_stencil_box.size() << "\n";
+
           hwbuffer.dims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
           odims.at(idx).output_stencil = fos.output_stencil_box.at(idx);
 
@@ -1444,7 +1458,7 @@ public:
 
 
 void IdentifyAddressing::visit(const For *op) {
-  std::cout << "looking at " << op->name << std::endl;
+  //std::cout << "looking at " << op->name << std::endl;
   varnames.push_back(op->name);
   //internal_assert(is_zero(op->min)); FIXME
 
@@ -1455,7 +1469,7 @@ void IdentifyAddressing::visit(const For *op) {
 
   auto tokens = get_tokens(op->name, ".");
   auto varname = tokens.size() > 2 ? tokens.at(2) : op->name;
-  std::cout << op->name << " is probably referring to storage " << varname << std::endl;
+  //std::cout << op->name << " is probably referring to storage " << varname << std::endl;
 
   //uint pos = std::find(storage_names.begin(), storage_names.end(), op->name) - storage_names.begin();
 
@@ -1537,15 +1551,15 @@ IdentifyAddressing::IdentifyAddressing(const Function& func, const Scope<Expr> &
 }
 
 void linearize_address_space(HWBuffer &kernel) {
-  std::cout << "linearizing for " << kernel.name << std::endl;
+  //std::cout << "linearizing for " << kernel.name << std::endl;
   if (kernel.is_output) {
     const auto& ostream_name = kernel.ostreams.cbegin()->second.name;
     OutputStream& ostream = kernel.ostreams.at(ostream_name);
     
     IdentifyAddressing id_addr(kernel.func, Scope<Expr>(), ostream.stride_map);
     ostream.output_access_pattern.accept(&id_addr);
-    std::cout << "output_access for " << kernel.name << " to " << ostream.name << std::endl
-              << id_addr.ranges;
+    //std::cout << "output_access for " << kernel.name << " to " << ostream.name << std::endl
+    //          << id_addr.ranges;
 
       auto num_access_levels = id_addr.ranges.size();
       assert(num_access_levels == id_addr.strides_in_dim.size());
@@ -1725,7 +1739,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();

@@ -2384,6 +2384,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     stream << logical_size[i] << " ";
   }
 
+  // create a vector that helps linearize strides
+  auto &capacity = logical_size;
+  vector<int> flat_dim_strides(capacity.size());
+  internal_assert(flat_dim_strides.size() == capacity.size());
+  for (size_t i=0; i<capacity.size(); ++i) {
+    if (i == 0) {
+      flat_dim_strides.at(i) = 1;
+    } else {
+      flat_dim_strides.at(i) = flat_dim_strides.at(i-1) * capacity.at(i-1);
+    }
+  }
+
   nlohmann::json istream_json;
   vector<size_t> input_chunk(num_dims);
   for (size_t i = 0; i < num_dims; ++cur_idx, ++i) {
@@ -2427,6 +2439,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   map<string, vector<size_t>> access_ranges_map;
   map<string, vector<size_t>> access_dim_refs_map;
   map<string, vector<size_t>> access_strides_map;
+  map<string, vector<size_t>> output_strides_map; // linearized version of access strides
 
   // Do every consumer stream
   //for (int ncons=0; ncons<num_consumers; ++ncons) {
@@ -2483,6 +2496,16 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     }
     stream << "\n";
 
+    internal_assert(num_streaming_dims == access_strides_i.size());
+    internal_assert(num_streaming_dims == access_dim_refs_i.size());
+    internal_assert(num_streaming_dims == access_ranges_i.size());
+    vector<size_t> output_strides_i(num_streaming_dims);
+    for (size_t i=0; i<num_streaming_dims; ++i) {
+      output_strides_i.at(i) = access_strides_i.at(i) * 
+        flat_dim_strides.at(access_dim_refs_i.at(i));
+    }
+
+
     // store for the single stream version
     output_name = output_name_i;
     output_stencil = output_stencil_i;
@@ -2509,6 +2532,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     access_ranges_map[output_name_i] = access_ranges_i;
     access_dim_refs_map[output_name_i] = access_dim_refs_i;
     access_strides_map[output_name_i] = access_strides_i;
+    output_strides_map[output_name_i] = output_strides_i;
 
     ncons += 1;
   }
@@ -2536,7 +2560,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   }
 
   auto &input_ports = input_block;
-  auto &capacity = logical_size;
 
   stream << "hwbuffer: " << a0 << std::endl
             << "  input_ports=" << input_ports << std::endl
@@ -2590,16 +2613,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   // set output range and stride based on access pattern
   vector<int> output_stride(std::max((int)num_stream_dims, 6));
   vector<int> output_range(std::max((int)num_stream_dims, 6));
-
-  vector<int> flat_dim_strides(capacity.size());
-  internal_assert(flat_dim_strides.size() == capacity.size());
-  for (size_t i=0; i<capacity.size(); ++i) {
-    if (i == 0) {
-      flat_dim_strides.at(i) = 1;
-    } else {
-      flat_dim_strides.at(i) = flat_dim_strides.at(i-1) * capacity.at(i-1);
-    }
-  }
 
   internal_assert(num_stream_dims <= access_strides.size());
   internal_assert(num_stream_dims <= access_dim_refs.size());
@@ -2776,20 +2789,20 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
   //istream_json["input"]["num_input_ports"] = num_input_ports; // unneeded, just use the number of starting addresses
   
   //nlohmann::json ostream_json;
-  ostream_json[output_name]["output_stride"] = access_strides;
-  ostream_json[output_name]["output_range"] = access_ranges;
-  ostream_json[output_name]["output_starting_addrs"] = output_starting_addrs;
-  ostream_json[output_name]["output_stencil"] = output_stencil;
-  ostream_json[output_name]["output_block"] = output_block;
-  ostream_json[output_name]["num_stencil_acc_dim"] = 0;
-  ostream_json[output_name]["stencil_width"] = {1};                   // default: used only after hw mapping
-  ostream_json[output_name]["iter_cnt"] = 1;                          // remove: this is the product of all ranges
-  ostream_json[output_name]["num_loops"] = dimensionality;            // remove: aka dimensionality, this can be inferred perhaps from the length of each ostream?
-  ostream_json[output_name]["num_output_ports"] = num_output_ports;   // remove: this is the product of output block dims
+  //ostream_json[output_name]["output_stride"] = access_strides;
+  //ostream_json[output_name]["output_range"] = access_ranges;
+  //ostream_json[output_name]["output_starting_addrs"] = output_starting_addrs;
+  //ostream_json[output_name]["output_stencil"] = output_stencil;
+  //ostream_json[output_name]["output_block"] = output_block;
+  //ostream_json[output_name]["num_stencil_acc_dim"] = 0;
+  //ostream_json[output_name]["stencil_width"] = {1};                   // default: used only after hw mapping
+  //ostream_json[output_name]["iter_cnt"] = 1;                          // remove: this is the product of all ranges
+  //ostream_json[output_name]["num_loops"] = dimensionality;            // remove: aka dimensionality, this can be inferred perhaps from the length of each ostream?
+  //ostream_json[output_name]["num_output_ports"] = num_output_ports;   // remove: this is the product of output block dims
 
   cout << "now doing the new ubuffer creation" << endl;
   for (auto consumer_name : consumer_names) {
-    ostream_json[consumer_name]["output_stride"] = access_strides_map[consumer_name];
+    ostream_json[consumer_name]["output_stride"] = output_strides_map[consumer_name];
     ostream_json[consumer_name]["output_range"] = access_ranges_map[consumer_name];
     ostream_json[consumer_name]["output_starting_addrs"] = output_starting_addrs; //**
     ostream_json[consumer_name]["output_stencil"] = output_stencils[consumer_name];
