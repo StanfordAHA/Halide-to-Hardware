@@ -111,6 +111,8 @@ public:
 
         hw_output.bound(x, 0, 58);
         hw_output.bound(y, 0, 58);
+        output.bound(x, 0, 58);
+        output.bound(y, 0, 58);
         cim_output.bound(x, 0, 58);
         cim_output.bound(y, 0, 58);
         //lgxx.bound(x, 0, 60);

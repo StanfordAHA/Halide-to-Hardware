@@ -49,19 +49,12 @@ public:
         hw_output.bound(y, 0, outImgSize);
         output.bound(x, 0, outImgSize);
         output.bound(y, 0, outImgSize);
+        conv2.bound(x, 0, outImgSize);
+        conv2.bound(y, 0, outImgSize);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-
-          hw_output.bound(x, 0, 64);
-          hw_output.bound(y, 0, 64);
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
-          //conv1.bound(x, 0, 67);
-          //conv1.bound(y, 0, 67);
-          conv2.bound(x, 0, 64);
-          conv2.bound(y, 0, 64);
 
           hw_output.compute_root();
           hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)

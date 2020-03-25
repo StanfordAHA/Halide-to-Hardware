@@ -17,7 +17,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<int16_t>(input(x, y));
 
-	Func negatives, shiftr, shiftl;
+        Func negatives, shiftr, shiftl;
         negatives(x,y) = hw_input(x,y) - 100;
         shiftr(x,y) = negatives(x,y) >> 12;
         shiftl(x,y) = negatives(x,y) << 12;
@@ -32,6 +32,9 @@ public:
           
           hw_input.compute_root();
           hw_output.compute_root();
+
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);

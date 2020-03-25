@@ -2,6 +2,15 @@
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
 
+IMG_APPS := pointwise gaussian cascade harris \
+            example fast_corner unsharp \
+            demosaic demosaic_complex camera_pipeline fast_corner unsharp \
+            local_laplacian stereo hdr_plus
+
+DNN_APPS := conv_layer_2D conv_layer_3D gemm unet
+
+OTHER_APPS := smith_waterman
+
 HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 SHELL = /bin/bash
 

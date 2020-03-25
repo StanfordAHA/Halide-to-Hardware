@@ -1729,17 +1729,18 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   //std::cout << "set stream params" << std::endl;
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
-    linearize_address_space(hwbuffer_pair.second);
-    calculate_accumulation(hwbuffer_pair.second);
+    auto& kernel = hwbuffer_pair.second;
+    std::cout << "Our buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    linearize_address_space(kernel);
+    calculate_accumulation(kernel);
   }
   //std::cout << "linearized address space" << std::endl;
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
-
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();
