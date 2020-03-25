@@ -2808,7 +2808,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
     ostream_json[consumer_name]["output_stencil"] = output_stencils[consumer_name];
     ostream_json[consumer_name]["output_block"] = output_blocks[consumer_name];
     ostream_json[consumer_name]["num_stencil_acc_dim"] = 0;
-    ostream_json[consumer_name]["stencil_width"] = {1};                   // default: used only after hw mapping
+    ostream_json[consumer_name]["stencil_width"] = vector<size_t>(access_ranges_map[consumer_name].size(), 0);// default: used only after hw mapping
   }
   stream << ostream_json << std::endl;
 
