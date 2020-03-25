@@ -123,7 +123,7 @@ bool circuit_uses_inputenable(Module *m) {
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
   for (auto wireable_pair : self_conxs) {
     string port_name = wireable_pair.first->toString();
-    if (port_name == "self.in_en") {
+    if (port_name == "self.in_en_arg_0") {
       uses_inputenable = true;
       return uses_inputenable;
     }
@@ -253,7 +253,7 @@ void read_for_cycle(
 
   // Set in_en to 1.
   if (uses_inputenable) {
-    state.setValue("self.in_en", BitVector(1, false));
+    state.setValue("self.in_en_arg_0", BitVector(1, false));
   }
 
   // propogate to all wires
@@ -335,7 +335,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   if (!writeIdx.allDone()) {
 
     if (uses_inputenable) {
-      state.setValue("self.in_en", BitVector(1, true));
+      state.setValue("self.in_en_arg_0", BitVector(1, true));
     }
 
     // Set input value.
@@ -352,11 +352,11 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     writeIdx.increment();
   } else {
     if (uses_inputenable) {
-      state.setValue("self.in_en", BitVector(1, false));
+      state.setValue("self.in_en_arg_0", BitVector(1, false));
     }
   }
   // propogate to all wires
-  state.exeCombinational();
+  state.execute();
 
   // read output wire
   if (uses_valid) {
@@ -408,7 +408,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   }
 
   // give another rising edge (execute seq)
-  state.exeSequential();
+  //state.exeSequential();
 }
 
 template<typename T>
@@ -446,7 +446,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
 
 
-  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.new_unified_buffer"), ubufBuilder}, {string("lakelib.unified_buffer"), ubufBuilder}};
 
   SimulatorState state(m, qualifiedNamesToSimPlugins);
 
@@ -465,15 +465,15 @@ void run_coreir_on_interpreter(string coreir_design,
   cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
 
-/*
-  for (int y = 0; y < input.height(); y++) {
+
+  /*for (int y = 0; y < input.height(); y++) {
     for (int x = 0; x < input.width(); x++) {
       for (int c = 0; c < input.channels(); c++) {
         // set input value
         //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
         state.setValue(input_name, BitVector(16, input(x,y,c)));
         if (uses_valid) {
-          state.setValue("self.in_en", BitVector(1, 1));
+          state.setValue("self.in_en_arg_0", BitVector(1, 1));
         }
 
         // propogate to all wires
@@ -490,14 +490,14 @@ void run_coreir_on_interpreter(string coreir_design,
           if (valid_value) {
             T output_value = state.getBitVec(output_name).to_type<T>();
             coreir_img_writer.write(output_value);
-            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << ((int)input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
           }
         } else {
           T output_value = state.getBitVec(output_name).to_type<T>();
           output(x,y,c) = output_value;
-          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << ((int)input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
-*/
+      }}}*/
   int maxCycles = 10000;
   int cycles = 0;
 
