@@ -63,10 +63,10 @@ public:
         output.bound(y, 0, imgSize);
         blur_unnormalized.bound(x, 0, imgSize);
         blur_unnormalized.bound(y, 0, imgSize);
-        
+
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-          
+
           //hw_input.compute_root();
           //kernel.compute_root();
           hw_output.compute_root();
@@ -79,7 +79,7 @@ public:
           blur_unnormalized.update()
             .unroll(win.x, blockSize)
             .unroll(win.y, blockSize);
-          
+
           blur_unnormalized.linebuffer();
 
           //hw_output.accelerate({hw_input}, xi, xo);
@@ -87,11 +87,10 @@ public:
           hw_input.stream_to_accelerator();
 
         } else {    // schedule to CPU
-          output.tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+          /*output.tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
             .vectorize(xi, 8)
             .fuse(xo, yo, xo)
-            .parallel(xo);
-
+            .parallel(xo);*/
         }
     }
 };
