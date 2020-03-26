@@ -291,7 +291,7 @@ class ReplaceForBounds : public IRMutator {
     Expr extent = mutate(op->extent);
     Stmt body = mutate(op->body);
 
-    if (scope.contains(op->name + ".min")) {
+    if (scope.contains(op->name + ".min") && scope.contains(op->name + ".max")) {
       auto new_min = scope.get(op->name + ".min");
       auto new_max = scope.get(op->name + ".max");
       if (!new_min.same_as(min)) {
@@ -354,7 +354,10 @@ class FindOutputStencil : public IRVisitor {
     if (op->name == var && current_loop == compute_level) {
       //found_stencil = true;
 
-      auto box_read = box_required(op->body, var);
+      ReplaceForBounds rfb;
+      Stmt new_body = rfb.mutate(op->body);
+
+      auto box_read = box_required(new_body, var);
       auto interval = box_read;
       //output_min_pos_box = vector<Expr>(interval.size());
       output_block_box = vector<Expr>(interval.size());
@@ -428,7 +431,6 @@ class FindOutputStencil : public IRVisitor {
       auto interval = box_read;
       output_stencil_box = vector<Expr>(interval.size());
       output_min_pos_box = vector<Expr>(interval.size());
-      //std::cout << "HWBuffer Parameter: " << var << " output stencil size - " << "box extent=[";
 
       for (size_t dim=0; dim<interval.size(); ++dim) {
         found_stencil = true;
@@ -436,13 +438,11 @@ class FindOutputStencil : public IRVisitor {
         Expr lower_expr = find_constant_bound(port_expr, Direction::Lower);
         Expr upper_expr = find_constant_bound(port_expr, Direction::Upper);
         output_stencil_box[dim] = lower_expr.defined() ? lower_expr : port_expr;
-        //std::cout << port_expr << "?" << lower_expr.defined() << ":" << lower_expr << "-" << upper_expr  << " ";
-        //output_min_pos_box[dim] = simplify(expand_expr(interval[dim].min, scope));
         output_min_pos_box[dim] = interval[dim].min;
-        //std::cout << "(" << output_min_pos_box[dim] << "," << interval[dim].min << ")  ";
-        //std::cout << " using " << interval[dim].max - interval[dim].min + 1 << std::endl;
+
       }
-      //std::cout << "]\n";
+      std::cout << "HWBuffer Parameter: " << var << " on loop=" << op->name << " output stencil size - " << output_stencil_box << std::endl
+                << op->body << std::endl;
 
     }
     if (call_at_level(op->body, var) && provide_at_level(op->body, consumer) && search_for_min) {
@@ -1332,7 +1332,7 @@ void set_output_params(HWXcel *xcel,
         hwbuffer.dims.at(i).output_block   = fos.output_block_box.at(i);
         ostream.odims.at(i).output_min_pos = fos.output_min_pos_box.at(i);
         if (fos.found_stencil) {
-          //std::cout << hwbuffer.name << " output stencil set\n";
+          std::cout << hwbuffer.name << " output stencil set" << fos.output_stencil_box << std::endl;
           ostream.odims.at(i).output_stencil = fos.output_stencil_box.at(i);
         } else {
           if (!hwbuffer.is_inlined) {
@@ -1790,7 +1790,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     //std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";
     HWXcel xcel;
-    //std::cout << "initial loopnest is: \n" << s << std::endl;
+    std::cout << "initial loopnest is: \n" << s << std::endl;
     extract_hw_xcel_top_parameters(s, func, env, inlined_stages, &xcel);
     xcels.push_back(xcel);
   }

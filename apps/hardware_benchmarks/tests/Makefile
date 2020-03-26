@@ -7,7 +7,8 @@ ALL_APPS_COREIR := $(patsubst %, %-coreir, $(ALL_APPS))
 # ops fpops convs fpconvs inouts mems
 
 OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
-            scomp sminmax sshift ucomp uminmax ushift
+            scomp sminmax sshift ucomp uminmax ushift \
+            counter
 op_tests op-tests ops: $(OP_TESTS)
 
 FP_OP_TESTS := fp_arith fp_comp fp_round fp_rectifier \
@@ -16,10 +17,10 @@ fp_op_tests fp-op-tests fpops: $(FP_OP_TESTS)
 
 CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
               conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7
-conv_tests conv-tests convs: $(CONV_TESTS)
+conv_tests conv-tests convs conv: $(CONV_TESTS)
 
-FP_CONV_TESTS := fp_conv_1_1 fp_conv_2_2 fp_conv_3_3 fp_conv_4_4 \
-                 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
+FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
+                 fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
 fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 
 INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
@@ -28,6 +29,7 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 MEM_TESTS := rom fifo \
              conv_rolled conv_2x \
              down_sample up_sample strided_conv \
+             conv_3_3 db_3_3 \
              accumulation histogram multi_channel_conv \
              two_level_memory three_level_memory pond
 mem_tests mem-tests mems mem: $(MEM_TESTS)
@@ -39,6 +41,9 @@ HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 SHELL = /bin/bash
 
 #all: testall
+ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
+                   $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS)
+NOT_CLASSIFIED_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
 all: ops fpops convs fpconvs inouts mems
 
 # Default exit 0 on failure so it doesn't stop a make script
@@ -47,10 +52,10 @@ define run_app
 	@make -C $(1) $(2) $(HALIDE_DEBUG_REDIRECT); \
 	EXIT_CODE=$$?; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
-	  printf "%-20s \033[0;32m%s\033[0m\n" $(1) "PASSED"; \
+	  printf "%-25s \033[0;32m%s\033[0m\n" $(1) "PASSED"; \
     (exit $$EXIT_CODE); \
 	else \
-	  printf "%-20s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
+	  printf "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
     (exit $$EXIT_FAIL);  \
 	fi
 endef
@@ -63,12 +68,14 @@ $(ALL_APPS):
 	$(call run_app,$*,bin/design_top.json)
 
 list:
-	@echo $(ALL_APPS)
-
-testall test_all: runall
+	@echo "TESTS:"
+	@echo $(ALL_APPS_SORTED)
+	@echo "NON-CLASSIFIED APPS:"
+	@echo $(NOT_CLASSIFIED_APPS)
 
 testtravis test_travis: conv_3_3
 
+testall test_all: runall
 runall run_all: $(ALL_APPS)
 compileall compile_all coreirall coreir_all: $(ALL_APPS_COREIR)
 
@@ -86,9 +93,8 @@ updategoldens update_goldens goldens:
 	  echo "updated golden files for $$app"; \
 	done
 
-checkall check_all:
-	@echo ""
-	@for app in $(ALL_APPS); do \
+checkall check_all check:
+	@for app in $(ALL_APPS_SORTED); do \
 	  $(MAKE) -sC $$app check; \
 	done
 

@@ -187,28 +187,28 @@ update_golden updategolden golden: $(BIN)/output_cpu.png
 	cp $(BIN)/output_cpu.png $(GOLDEN)/golden_output.png
 
 check:
-	@printf "%-15s" $(TESTNAME);
+	@printf "%-25s" $(TESTNAME);
+	@if [ -f "$(BIN)/ubuffers.json" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " rewrite"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!rewrite"; \
+	fi
 	@if [ -f "$(BIN)/design_prepass.json" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " coreir"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
 	fi
-	@if [ -f "$(BIN)/process" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " process"; \
-	else \
-	  printf "  \033[0;31m%s\033[0m" "!process"; \
-	fi
-	@if [ -f "$(BIN)/output.png" ]; then \
+	@if [ -f "$(BIN)/output_coreir.png" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " output.png"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
 	fi
-	@if [ -f "passed.md5" ]; then \
-	  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
-	fi
-	@if [ -f "failed.md5" ]; then \
-	  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
-	fi
+	#@if [ -f "passed.md5" ]; then \
+	#  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
+	#fi
+	#@if [ -f "failed.md5" ]; then \
+	#  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
+	#fi
 	@printf "\n"
 
 $(BIN)/graph.png: $(BIN)/design_top.txt
@@ -218,5 +218,6 @@ graph.png graph:
 
 clean:
 	rm -rf $(BIN)
+	rm -f ubuffers.json
 
 test: run

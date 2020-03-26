@@ -1261,7 +1261,7 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
   }
 
   // Save ubuffers and finish
-  if (!saveToFile(ns, "ubuffers.json")) {
+  if (!saveToFile(ns, "bin/ubuffers.json")) {
     cout << "Could not save ubuffers" << endl;
     context->die();
   }
