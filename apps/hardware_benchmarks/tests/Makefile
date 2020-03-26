@@ -28,7 +28,7 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 MEM_TESTS := rom fifo \
              conv_rolled conv_2x \
              down_sample up_sample strided_conv \
-             accumulation multi_channel_conv \
+             accumulation histogram multi_channel_conv \
              two_level_memory three_level_memory pond
 mem_tests mem-tests mems mem: $(MEM_TESTS)
 
