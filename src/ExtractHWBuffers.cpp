@@ -1492,19 +1492,19 @@ void IdentifyAddressing::visit(const For *op) {
 
     if (is_inv) {
       // push outer loop first
-      dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
-      strides_in_dim.insert(strides_in_dim.begin(), 1);
-      ranges.insert(ranges.begin(), range / stride);
+      dim_refs.insert(dim_refs.end(), dim_map.at(varname));
+      strides_in_dim.insert(strides_in_dim.end(), 1);
+      ranges.insert(ranges.end(), range / stride);
       // push inner loop that has stride=0
-      dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
-      ranges.insert(ranges.begin(), stride);
-      strides_in_dim.insert(strides_in_dim.begin(), 0);
+      dim_refs.insert(dim_refs.end(), dim_map.at(varname));
+      ranges.insert(ranges.end(), stride);
+      strides_in_dim.insert(strides_in_dim.end(), 0);
 
     } else {
       //std::cout << "not inverse variable " << varname << " for func " << func.name() << std::endl;
-      dim_refs.insert(dim_refs.begin(), dim_map.at(varname));
-      strides_in_dim.insert(strides_in_dim.begin(), stride);
-      ranges.insert(ranges.begin(), range);
+      dim_refs.insert(dim_refs.end(), dim_map.at(varname));
+      strides_in_dim.insert(strides_in_dim.end(), stride);
+      ranges.insert(ranges.end(), range);
     }
 
     //std::cout << op->name << " has stride=" << strides_in_dim.at(0)
@@ -1515,9 +1515,9 @@ void IdentifyAddressing::visit(const For *op) {
     IdentifyAddressingVar iav(op->name, scope);
     //std::cout << "finding stride and range for " << op->name << "\n in: " << op->body << std::endl;
     (op->body).accept(&iav);
-    dim_refs.insert(dim_refs.begin(), iav.dim_ref);
-    strides_in_dim.insert(strides_in_dim.begin(), iav.stride);
-    ranges.insert(ranges.begin(), range);
+    dim_refs.insert(dim_refs.end(), iav.dim_ref);
+    strides_in_dim.insert(strides_in_dim.end(), iav.stride);
+    ranges.insert(ranges.end(), range);
     //std::cout << op->name << " has stride=" << iav.stride << " dim_ref=" << iav.dim_ref << "\n";
   }
 

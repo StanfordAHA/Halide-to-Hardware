@@ -87,10 +87,12 @@ public:
           hw_input.stream_to_accelerator();
 
         } else {    // schedule to CPU
+
           /*output.tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
             .vectorize(xi, 8)
             .fuse(xo, yo, xo)
             .parallel(xo);*/
+
         }
     }
 };
