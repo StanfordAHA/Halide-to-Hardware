@@ -37,6 +37,11 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
           
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
+          conv.bound(x, 0, 64);
+          conv.bound(y, 0, 64);
+
           hw_input.compute_root();
           hw_output.compute_root();
           

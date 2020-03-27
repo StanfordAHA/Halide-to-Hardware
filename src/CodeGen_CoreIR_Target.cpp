@@ -2494,17 +2494,18 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
       stride_type_i = stride_type_i->Arr(access_strides_i[i]);
       stream << access_strides_i[i] << " ";
     }
-    stream << "\n";
 
     internal_assert(num_streaming_dims == access_strides_i.size());
     internal_assert(num_streaming_dims == access_dim_refs_i.size());
     internal_assert(num_streaming_dims == access_ranges_i.size());
     vector<size_t> output_strides_i(num_streaming_dims);
+    stream << " fstride=";
     for (size_t i=0; i<num_streaming_dims; ++i) {
       output_strides_i.at(i) = access_strides_i.at(i) *
         flat_dim_strides.at(access_dim_refs_i.at(i));
+      stream << output_strides_i[i] << " ";
     }
-
+    stream << "\n";
 
     // store for the single stream version
     output_name = output_name_i;

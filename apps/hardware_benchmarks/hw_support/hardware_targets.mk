@@ -175,7 +175,7 @@ compare compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png: $(BIN)/output_c
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
 	EXIT_CODE=$$?; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
-    cp $(BIN)/output_coreir.png output.png \
+    cp $(BIN)/output_coreir.png $(BIN)/output.png; \
     (exit $$EXIT_CODE); \
 	else \
     (exit $$EXIT_CODE);  \
@@ -211,10 +211,10 @@ check:
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
 	fi
-	#@if [ -f "passed.md5" ]; then \
+	@#@if [ -f "passed.md5" ]; then \
 	#  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
 	#fi
-	#@if [ -f "failed.md5" ]; then \
+	@#@if [ -f "failed.md5" ]; then \
 	#  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
 	#fi
 	@printf "\n"

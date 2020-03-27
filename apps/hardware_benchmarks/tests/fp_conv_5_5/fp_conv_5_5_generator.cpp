@@ -25,7 +25,7 @@ public:
         kernel(2,0) = 17.f;      kernel(2,1) = 18.f;      kernel(2,2) = 19.f;      kernel(2,3) = 26.f;      kernel(2,4) = 32.f;
         kernel(3,0) = 20.f;      kernel(3,1) = 29.f;      kernel(3,2) = 22.f;      kernel(3,3) = 24.f;      kernel(3,4) = 34.f;
         kernel(4,0) = 30.f;      kernel(4,1) = 39.f;      kernel(4,2) = 32.f;      kernel(4,3) = 34.f;      kernel(4,4) = 37.f;
-        fp_kernel(x, y) = kernel(x, y);
+        fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
 
         conv(x, y) = cast<bfloat16_t>(0);
 
@@ -43,6 +43,11 @@ public:
           
           hw_input.compute_root();
           hw_output.compute_root();
+
+          output.bound(x, 0, 64-4);
+          output.bound(y, 0, 64-4);
+          conv.bound(x, 0, 64-4);
+          conv.bound(y, 0, 64-4);
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64-4, 64-4)
             .hw_accelerate(xi, xo);
