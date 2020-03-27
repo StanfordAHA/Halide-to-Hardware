@@ -83,10 +83,10 @@ bool compare_images(const Halide::Runtime::Buffer<T>& image0,
   }
 
   for (int y=0; y<image0.height(); y++) {
-    for (int x=0; x<image0.height(); x++) {
+    for (int x=0; x<image0.width(); x++) {
       if(image0(x,y) != image1(x,y)) {
-          std::cout << "pos(x, y) : (" << x << "," << y << ")->original val = "<< (int)image0(x,y) <<
-              ", coreIR val = " << (int)image1(x,y)<< std::endl;
+        std::cout << "y=" << y << "," << "x=" << x << " CPU val = "<< (int)image0(x,y) <<
+          ", CoreIR val = " << (int)image1(x,y)<< std::endl;
         equal_images = false;
       }
     }

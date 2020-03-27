@@ -18,6 +18,10 @@ void ImageWriter<elem_t>::write(elem_t data) {
     assert(current_x < width &&
            current_y < height &&
            current_z < channels);
+    std::cout << "output x=" << current_x
+              << ",y=" << current_y
+              << ",z=" << current_z << " : "
+              << +data << std::endl;
     image(current_x, current_y, current_z) = data;
 
     // increment coords
@@ -506,8 +510,8 @@ void run_coreir_on_interpreter(string coreir_design,
   // TODO: Need to get imagewriter bounds?
   CoordinateVector<int> readIdx({"y", "x", "c"}, {((int)coreir_img_writer.getHeight() - 1), ((int)coreir_img_writer.getWidth()) - 1, ((int) coreir_img_writer.getChannels()) - 1});
   while (cycles < maxCycles && !readIdx.allDone()) {
-    cout << "Read index = " << readIdx.coordString() << endl;
-    cout << "Cycles     = " << cycles << endl;
+    //cout << "Read index = " << readIdx.coordString() << endl;
+    //cout << "Cycles     = " << cycles << endl;
     run_for_cycle(writeIdx, readIdx,
         uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
     cycles++;

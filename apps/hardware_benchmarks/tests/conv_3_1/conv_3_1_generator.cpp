@@ -43,6 +43,8 @@ public:
 
           output.bound(x, 0, 64);
           output.bound(y, 0, 64-2);
+          conv.bound(x, 0, 64);
+          conv.bound(y, 0, 64-2);
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             .hw_accelerate(xi, xo);
@@ -52,7 +54,8 @@ public:
             .unroll(r.y, 3);
 
           conv.linebuffer();
-          
+
+          //kernel.compute_at(hw_output, yi);
           input16.compute_at(hw_output, xi).store_at(hw_output, xo);
           input16.stream_to_accelerator();
           

@@ -41,6 +41,8 @@ public:
 
           output.bound(x, 0, 63);
           output.bound(y, 0, 64);
+          conv.bound(x, 0, 63);
+          conv.bound(y, 0, 64);
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64-1, 64)
             .hw_accelerate(xi, xo);

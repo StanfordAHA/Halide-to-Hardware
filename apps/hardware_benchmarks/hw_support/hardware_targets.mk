@@ -174,6 +174,7 @@ run-vhls: $(BIN)/process
 compare compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
 	EXIT_CODE=$$?; \
+  echo $$EXIT_CODE; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
     cp $(BIN)/output_coreir.png $(BIN)/output.png; \
     (exit $$EXIT_CODE); \

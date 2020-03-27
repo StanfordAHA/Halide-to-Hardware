@@ -155,7 +155,7 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
   run_call();
   std::string output_filename = "bin/output_" + hardware_name + ".png";
   convert_and_save_image(output, output_filename);
-  cout << "First pixe of output..." << endl;
+  cout << "First pixel of output..." << endl;
   cout << (int) output(0, 0) << endl;
 
   std::cout << "Ran " << design_name << " on " << hardware_name << "\n";
