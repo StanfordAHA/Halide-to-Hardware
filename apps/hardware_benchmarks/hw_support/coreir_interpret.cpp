@@ -9,6 +9,20 @@
 using namespace std;
 using namespace CoreIR;
 
+void parse_input_name(Module* m, string & input_name, string& inen_name) {
+    auto record_fields = m->getType()->getFields();
+    for (auto pt_name : record_fields) {
+        auto found_in_pt = pt_name.find("in_arg");
+        if (found_in_pt != std::string::npos) {
+            input_name = "self." + pt_name;
+        }
+        auto found_in_en = pt_name.find("in_en");
+        if (found_in_en != std::string::npos) {
+            inen_name = "self." + pt_name;
+        }
+    }
+}
+
 template <typename elem_t>
 void ImageWriter<elem_t>::write(elem_t data) {
   if (current_x < width &&
@@ -122,12 +136,12 @@ bool circuit_uses_valid(Module *m) {
   return uses_valid;
 }
 
-bool circuit_uses_inputenable(Module *m) {
+bool circuit_uses_inputenable(Module *m, string inen_name) {
   bool uses_inputenable = false;
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
   for (auto wireable_pair : self_conxs) {
     string port_name = wireable_pair.first->toString();
-    if (port_name == "self.in_en_arg_0") {
+    if (port_name == inen_name){
       uses_inputenable = true;
       return uses_inputenable;
     }
@@ -325,6 +339,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     Halide::Runtime::Buffer<T> input,
     Halide::Runtime::Buffer<T> output,
     string input_name,
+    string inen_name,
     string output_name,
 
     CoreIR::SimulatorState& state,
@@ -339,7 +354,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   if (!writeIdx.allDone()) {
 
     if (uses_inputenable) {
-      state.setValue("self.in_en_arg_0", BitVector(1, true));
+      state.setValue(inen_name, BitVector(1, true));
     }
 
     // Set input value.
@@ -356,7 +371,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     writeIdx.increment();
   } else {
     if (uses_inputenable) {
-      state.setValue("self.in_en_arg_0", BitVector(1, false));
+      state.setValue(inen_name, BitVector(1, false));
     }
   }
   // propogate to all wires
@@ -384,7 +399,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
       readIdx.increment();
     }
   } else {
@@ -441,6 +456,11 @@ void run_coreir_on_interpreter(string coreir_design,
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
 
+  //parse the input name, maybe hacky
+  m->getType()->print();
+  string inen_name = "self.in_en_arg_0";
+  parse_input_name(m, input_name, inen_name);
+
   // Build the simulator with the new model
   auto ubufBuilder = [](WireNode& wd) {
     //UnifiedBuffer* ubufModel = std::make_shared<UnifiedBuffer>(UnifiedBuffer()).get();
@@ -462,7 +482,7 @@ void run_coreir_on_interpreter(string coreir_design,
 
   // sets initial values for all inputs/outputs/clock
   bool uses_valid = reset_coreir_circuit(state, m);
-  bool uses_inputenable = circuit_uses_inputenable(m);
+  bool uses_inputenable = circuit_uses_inputenable(m, inen_name);
 
   cout << "starting coreir simulation by calling resetCircuit" << endl;
   state.resetCircuit();
@@ -513,7 +533,7 @@ void run_coreir_on_interpreter(string coreir_design,
     //cout << "Read index = " << readIdx.coordString() << endl;
     //cout << "Cycles     = " << cycles << endl;
     run_for_cycle(writeIdx, readIdx,
-        uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        uses_inputenable, has_float_input, has_float_output, input, output, input_name, inen_name, output_name, state, coreir_img_writer, uses_valid);
     cycles++;
   }
 

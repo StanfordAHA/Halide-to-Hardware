@@ -226,6 +226,6 @@ graph.png graph:
 	$(MAKE) $(BIN)/graph.png
 
 clean:
-	rm -rf $(BIN)
+	rm -rf $(BIN) $(HWSUPPORT)/$(BIN)
 
 test: run
