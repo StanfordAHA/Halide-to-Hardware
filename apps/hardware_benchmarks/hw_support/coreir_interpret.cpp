@@ -32,9 +32,9 @@ void ImageWriter<elem_t>::write(elem_t data) {
     assert(current_x < width &&
            current_y < height &&
            current_z < channels);
-    std::cout << "output x=" << current_x
+    std::cout << "output(x=" << current_x
               << ",y=" << current_y
-              << ",z=" << current_z << " : "
+              << ",z=" << current_z << ") : writing "
               << +data << std::endl;
     image(current_x, current_y, current_z) = data;
 
@@ -284,7 +284,6 @@ void read_for_cycle(
     //std::cout << "got my valid\n";
     //cout << "output_bv_n = " << output_bv_n << endl;
     if (valid_value) {
-      std::cout << "this one is valid\n";
       auto output_bv = state.getBitVec(output_name);
 
       // bitcast to float if it is a float
@@ -299,7 +298,8 @@ void read_for_cycle(
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv=" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name))
+                << " out=" << +output_value << " output_bv=" << state.getBitVec(output_name) << dec << "  valid=1" << endl;
     }
   } else {
     //if (std::is_floating_point<T>::value) {
@@ -365,7 +365,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     } else {
       state.setValue(input_name, BitVector(16, input(x,y,c)));
       //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
-      std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+      //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
     }
 
     writeIdx.increment();
@@ -384,7 +384,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     //std::cout << "got my valid\n";
     //cout << "output_bv_n = " << output_bv_n << endl;
     if (valid_value) {
-      std::cout << "this one is valid\n";
+      //std::cout << "this one is valid\n";
       auto output_bv = state.getBitVec(output_name);
 
       // bitcast to float if it is a float
