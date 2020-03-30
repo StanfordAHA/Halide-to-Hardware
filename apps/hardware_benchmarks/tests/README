@@ -1,0 +1,43 @@
+In order to run the tests, the Makefile in this directory is used. There
+are a couple of make targets specifically to run on all tests, such as:
+
+  make list      # list all of the tests, and which tests are not classified into a test suite
+  make check     # check each test for generated coreir, generated ubuffers, correct output
+  make cleanall  # clean bin folders for each test
+
+The make
+targets in this directory run their associated target in individual tests.
+For example, to generate the coreir for conv_3_3, one can run:
+
+  make conv_3_3-coreir
+
+This results in conv_3_3 creating the coreir file, which then places the
+coreir output file, tests/conv_3_3/bin/design_top.json. Note that the
+output is silent besides a FAILED/PASSED. To run with debug output, change
+to the desired directory and run "make coreir" there.
+
+Test targets are:
+  conv_3_3-coreir   # create coreir hardware design (design_top.json)
+          -run      # create output image using coreir (output_coreir.png)
+          -compare  # compare coreir output image and cpu output image. If matching, save as output.png
+          -check    # check for generated coreir, unified buffers, and correct output image
+          -clean    # delete bin folder for the test
+
+Besides individual tests, one can run a command on multiple tests. The
+tests are grouped into different test suites. The test suites are:
+
+  all     # all tests in a sorted order
+  ops     # single operators, such as + < &&
+  fpops   # single operators using floating point, such as f+ f< sin exp
+  conv    # convolutions of different sizes
+  fpconv  # convolutions of different sizes using floating point numbers
+  inout   # tests of the interface, such as two inputs, bit input, floating point output
+  mem     # tests of the memory tile, such as ROM, downsample, accumulation
+
+For example, to run a comparison to check coreir correctness on the convolutions, use;
+
+  make conv-coreir
+
+Note that parallelism works with these targets, so to run the convolutions in parallel:
+
+  make conv-coreir -j8
