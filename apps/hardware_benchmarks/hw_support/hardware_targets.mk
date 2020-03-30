@@ -171,7 +171,7 @@ run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
-compare compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
+compare compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \
