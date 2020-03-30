@@ -1,8 +1,8 @@
+default: all
+
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
-
-default: all
 
 ### test suites include: ###
 # ops fpops convs fpconvs inouts mems
@@ -12,7 +12,7 @@ TEST_SUITES := ops fpops conv fpconv inout mem
 OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
             scomp sminmax sshift ucomp uminmax ushift \
             counter
-ops = $(OP_TESTS)
+ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
 ### floating point operator tests ###
@@ -56,6 +56,7 @@ SHELL = /bin/bash
 
 ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
                    $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS)
+allapps := $(ALL_APPS_SORTED)
 NOT_CLASSIFIED_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
 
 # Runs one of the functions on an app. Prints out nothing but pass/fail.
@@ -69,7 +70,7 @@ define run_app
     (exit $$EXIT_CODE); \
 	else \
 	  printf "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
-    (exit $$EXIT_FAIL);  \
+    (exit $$EARLY_EXIT);  \
 	fi
 endef
 
@@ -81,14 +82,15 @@ $(ALL_APPS):
 #  on each of the apps in that test suite.
 #  For example, "make ops-coreir" creates the hardware for each op.
 define SUITE_template =
-$(1)-coreir:  $($(1):=-coreir)
-$(1)-run:     $($(1):=-run)
-$(1)-compare: $($(1):=-compare)
-$(1)-check:   $($(1):=-check)
-$(1)-clean:   $($(1):=-clean)
+$(1)-coreir:  $($(2):=-coreir)
+$(1)-run:     $($(2):=-run)
+$(1)-compare: $($(2):=-compare)
+$(1)-check:   $($(2):=-check)
+$(1)-clean:   $($(2):=-clean)
 endef
 
-$(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite))))
+$(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
+$(eval $(call SUITE_template,all,allapps))
 
 %-coreir:
 	@if [ -d $* ]; then \

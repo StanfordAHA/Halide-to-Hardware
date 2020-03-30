@@ -45,27 +45,27 @@ public:
             sum_kernel[i] = kernel_f(i-blockSize/2) + sum_kernel[i-1];
           }
         }
-        kernel(x) = cast<uint16_t>(kernel_f(x) * 255 / sum_kernel[blockSize-1]);
+        kernel(x) = cast<uint16_t>(kernel_f(x) * 256 / sum_kernel[blockSize-1]);
 
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
         blur_unnormalized(x, y) = 0;
-        blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * hw_input(x+win.x, y+win.y) );
+        blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * kernel(win.y) * hw_input(x+win.x, y+win.y) );
         blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
 
         Func hw_output;
         hw_output(x, y) = cast<uint8_t>( blur(x, y) );
         output(x, y) = hw_output(x, y);
 
-        hw_output.bound(x, 0, imgSize);
-        hw_output.bound(y, 0, imgSize);
-        output.bound(x, 0, imgSize);
-        output.bound(y, 0, imgSize);
-        blur_unnormalized.bound(x, 0, imgSize);
-        blur_unnormalized.bound(y, 0, imgSize);
-
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+
+          hw_output.bound(x, 0, imgSize);
+          hw_output.bound(y, 0, imgSize);
+          output.bound(x, 0, imgSize);
+          output.bound(y, 0, imgSize);
+          blur_unnormalized.bound(x, 0, imgSize);
+          blur_unnormalized.bound(y, 0, imgSize);
 
           //hw_input.compute_root();
           //kernel.compute_root();

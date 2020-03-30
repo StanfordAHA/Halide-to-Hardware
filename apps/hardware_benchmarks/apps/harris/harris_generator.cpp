@@ -109,12 +109,6 @@ public:
 
         output(x, y) = hw_output(x, y);
 
-        hw_output.bound(x, 0, 58);
-        hw_output.bound(y, 0, 58);
-        output.bound(x, 0, 58);
-        output.bound(y, 0, 58);
-        cim_output.bound(x, 0, 58);
-        cim_output.bound(y, 0, 58);
         //lgxx.bound(x, 0, 60);
         //lgxx.bound(y, 0, 60);
         //lgxy.bound(x, 0, 60);
@@ -130,6 +124,13 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
+
+          hw_output.bound(x, 0, 58);
+          hw_output.bound(y, 0, 58);
+          output.bound(x, 0, 58);
+          output.bound(y, 0, 58);
+          cim_output.bound(x, 0, 58);
+          cim_output.bound(y, 0, 58);
 
           //output.tile(x, y, xo, yo, xi, yi, 64, 64);
           //padded16.compute_root();

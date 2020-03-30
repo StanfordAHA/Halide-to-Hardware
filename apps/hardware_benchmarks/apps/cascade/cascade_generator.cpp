@@ -44,19 +44,19 @@ public:
         hw_output(x, y) = cast<uint8_t>(conv2(x, y));
         //hw_output(x, y) = cast<uint8_t>(conv1(x, y));
         output(x, y) = hw_output(x,y);
-
-        hw_output.bound(x, 0, outImgSize);
-        hw_output.bound(y, 0, outImgSize);
-        output.bound(x, 0, outImgSize);
-        output.bound(y, 0, outImgSize);
-        conv2.bound(x, 0, outImgSize);
-        conv2.bound(y, 0, outImgSize);
-        conv1.bound(x, 0, outImgSize-2);
-        conv1.bound(y, 0, outImgSize-2);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
+
+          hw_output.bound(x, 0, outImgSize);
+          hw_output.bound(y, 0, outImgSize);
+          output.bound(x, 0, outImgSize);
+          output.bound(y, 0, outImgSize);
+          conv2.bound(x, 0, outImgSize);
+          conv2.bound(y, 0, outImgSize);
+          conv1.bound(x, 0, outImgSize+2);
+          conv1.bound(y, 0, outImgSize+2);
 
           hw_output.compute_root();
           hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)

@@ -67,7 +67,7 @@ design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
 
-design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
+coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 	#$(MAKE) $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
 	 make design-coreir-valid; \
@@ -174,7 +174,7 @@ run-vhls: $(BIN)/process
 compare compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
 	EXIT_CODE=$$?; \
-  echo $$EXIT_CODE; \
+	echo $$EXIT_CODE; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
     cp $(BIN)/output_coreir.png $(BIN)/output.png; \
     (exit $$EXIT_CODE); \

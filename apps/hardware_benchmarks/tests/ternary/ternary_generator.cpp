@@ -35,7 +35,7 @@ public:
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);

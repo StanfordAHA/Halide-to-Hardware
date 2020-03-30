@@ -187,7 +187,7 @@ int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> 
     std::cout << GREEN << "Images are equivalent!" << RESET << std::endl;
     return 0;
   } else {
-    std::cout << RED << "Images are different... hhhh" << RESET << std::endl;
+    std::cout << RED << "Images are different..." << RESET << std::endl;
     return 1;
   }
 
