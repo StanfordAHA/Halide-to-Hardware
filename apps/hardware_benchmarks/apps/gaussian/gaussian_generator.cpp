@@ -37,21 +37,26 @@ public:
 
         // create a normalized set of 8bit weights
         Func kernel;
-        Expr sum_kernel[blockSize];
-        for (int i=0; i<blockSize; ++i) {
-          if (i==0) {
-            sum_kernel[i] = kernel_f(i-blockSize/2);
-          } else {
-            sum_kernel[i] = kernel_f(i-blockSize/2) + sum_kernel[i-1];
+        Expr sum_kernel[blockSize*blockSize];
+        for (int idx=0, i=0; i<blockSize; ++i) {
+          for (int j=0; j<blockSize; ++j) {
+            if (i==0 && j==0) {
+              sum_kernel[idx] = kernel_f(i-blockSize/2) * kernel_f(j-blockSize/2);
+            } else {
+              sum_kernel[idx] = kernel_f(i-blockSize/2) * kernel_f(j-blockSize/2) + sum_kernel[idx-1];
+            }
+            idx++;
           }
         }
-        kernel(x) = cast<uint16_t>(kernel_f(x) * 256 / sum_kernel[blockSize-1]);
+        //kernel(x) = cast<uint16_t>(kernel_f(x) * 64 / sum_kernel[blockSize-1]);
+        kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
+                                     sum_kernel[blockSize*blockSize-1]);
 
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
         blur_unnormalized(x, y) = 0;
-        blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * kernel(win.y) * hw_input(x+win.x, y+win.y) );
-        blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
+        blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x, win.y) * hw_input(x+win.x, y+win.y) );
+        blur(x, y) = blur_unnormalized(x, y) / 256;
 
         Func hw_output;
         hw_output(x, y) = cast<uint8_t>( blur(x, y) );
