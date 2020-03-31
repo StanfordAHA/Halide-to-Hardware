@@ -1,6 +1,6 @@
 include ../../hw_support/Makefile.inc
 
-TESTNAME = stereo
+TESTNAME = exposure_fusion
 USE_COREIR_VALID = 1
 
 include ../../hw_support/hardware_targets.mk

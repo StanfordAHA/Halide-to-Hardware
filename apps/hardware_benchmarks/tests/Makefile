@@ -1,8 +1,11 @@
+SHELL = /bin/bash
+HALIDE_DEBUG_REDIRECT ?= &>/dev/null
+
 default: all
 
 # all directories (just text) excluding a particular list
-ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
-ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
+ALL_TESTS := $(subst /,, $(dir $(wildcard */.)))
+ALL_TESTS := $(filter-out hls_support merged_unit_tests tools, $(ALL_TESTS))
 
 ### test suites include: ###
 # ops fpops convs fpconvs inouts mems
@@ -51,18 +54,16 @@ mem_tests mem-tests mems mem: $(MEM_TESTS)
 ### generator tests ###
 GEN_TESTS := conv_gen random_pipeline
 
-HALIDE_DEBUG_REDIRECT ?= &>/dev/null
-SHELL = /bin/bash
 
-ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
+ALL_TESTS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
                    $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS)
-allapps := $(ALL_APPS_SORTED)
-NOT_CLASSIFIED_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
+alltests := $(ALL_TESTS_SORTED)
+NOT_CLASSIFIED_TESTS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 
-# Runs one of the functions on an app. Prints out nothing but pass/fail.
+# Runs one of the functions on an test. Prints out nothing but pass/fail.
 # Default exit 0 on failure so it doesn't stop a make script
 EARLY_EXIT ?= 0
-define run_app
+define run_test
 	make -C $(1) $(2) $(HALIDE_DEBUG_REDIRECT); \
 	EXIT_CODE=$$?; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
@@ -74,12 +75,8 @@ define run_app
 	fi
 endef
 
-.PHONY: $(ALL_APPS)
-$(ALL_APPS):
-	@$(call run_app,$@,bin/design_top.json)
-
-# For each test suite, append the function to run
-#  on each of the apps in that test suite.
+# For each test suite, testend the function to run
+#  on each of the tests in that test suite.
 #  For example, "make ops-coreir" creates the hardware for each op.
 define SUITE_template =
 $(1)-coreir:  $($(2):=-coreir)
@@ -90,21 +87,21 @@ $(1)-clean:   $($(2):=-clean)
 endef
 
 $(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
-$(eval $(call SUITE_template,all,allapps))
+$(eval $(call SUITE_template,all,alltests))
 
 %-coreir:
 	@if [ -d $* ]; then \
-			$(call run_app,$*,bin/design_top.json); \
+			$(call run_test,$*,bin/design_top.json); \
 	fi
 
 %-run:
 	@if [ -d $* ]; then \
-			$(call run_app,$*,bin/output_coreir.png); \
+			$(call run_test,$*,bin/output_coreir.png); \
 	fi
 
 %-compare:
 	@if [ -d $* ]; then \
-		$(call run_app,$*,compare); \
+		$(call run_test,$*,compare); \
 	fi
 
 %-check:
@@ -114,56 +111,56 @@ $(eval $(call SUITE_template,all,allapps))
 
 %-clean:
 	@if [ -d $* ]; then \
-		$(call run_app,$*,clean); \
+		$(call run_test,$*,clean); \
 	fi
 
-#@$(call run_app,$*,bin/design_top.json)
+#@$(call run_test,$*,bin/design_top.json)
 #	@if [ -d $* ]; then \
-#		$(call run_app,$*,bin/design_top.json); \
+#		$(call run_test,$*,bin/design_top.json); \
 #  else \
-#		for app in $($*); do \
-#			$(MAKE) -s $$app-coreir; \
+#		for test in $($*); do \
+#			$(MAKE) -s $$test-coreir; \
 #		done \
 #	fi
 
+all: $(ALL_TESTS_SORTED)
 
-
-#	@$(call run_app,$*,bin/design_top.json)
-
-list:
-	@echo "TESTS:"
-	@echo $(ALL_APPS_SORTED)
-	@echo "NON-CLASSIFIED APPS:"
-	@echo $(NOT_CLASSIFIED_APPS)
-
-all: $(ALL_APPS_SORTED)
+.PHONY: $(ALL_TESTS)
+$(ALL_TESTS):
+	@$(call run_test,$@,bin/design_top.json)
 
 testtravis test_travis: conv_3_3
 testall test_all: runall
-runall run_all: $(ALL_APPS)
-compileall compile_all coreirall coreir_all: $(ALL_APPS:=-coreir)
+runall run_all: $(ALL_TESTS)
+compileall compile_all coreirall coreir_all: $(ALL_TESTS:=-coreir)
+
+list:
+	@echo "TESTS:"
+	@echo $(ALL_TESTS_SORTED)
+	@echo "NON-CLASSIFIED TESTS:"
+	@echo $(NOT_CLASSIFIED_TESTS)
 
 evalall eval_all:
-	@for app in $(ALL_APPS); do \
-	  echo -n "$$app: "; \
-	  $(MAKE) -sC $$app eval; \
+	@for test in $(ALL_TESTS); do \
+	  echo -n "$$test: "; \
+	  $(MAKE) -sC $$test eval; \
 	done
 
 updategoldens update_goldens goldens:
 	@echo ""
-	@for app in $(ALL_APPS); do \
-	  echo -n "$$app: "; \
-	  $(MAKE) -sC $$app update_golden; \
-	  echo "updated golden files for $$app"; \
+	@for test in $(ALL_TESTS); do \
+	  echo -n "$$test: "; \
+	  $(MAKE) -sC $$test update_golden; \
+	  echo "updated golden files for $$test"; \
 	done
 
 checkall check_all check:
-	@for app in $(ALL_APPS_SORTED); do \
-	  $(MAKE) -sC $$app check; \
+	@for test in $(ALL_TESTS_SORTED); do \
+	  $(MAKE) -sC $$test check; \
 	done
 
 clean_all cleanall:
-	for app in $(ALL_APPS); do \
-	  $(MAKE) -C $$app clean > /dev/null; \
+	for test in $(ALL_TESTS); do \
+	  $(MAKE) -C $$test clean > /dev/null; \
 	done
 

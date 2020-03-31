@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "cascade.h"
+#include "camera_pipeline.h"
 
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
@@ -9,18 +9,12 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-const int inImgSize = 64;
-//const int outImgSize = inImgSize - 2;
-const int outImgSize = inImgSize - 4;
-
-typedef uint8_t Pixel;
-
 int main(int argc, char **argv) {
 
-  OneInOneOut_ProcessController<Pixel> processor("cascade",
+  OneInOneOut_ProcessController<uint8_t> processor("camera_pipeline",
                                             {
                                               {"cpu",
-                                                  [&]() { cascade(processor.input, processor.output); }
+                                                  [&]() { camera_pipeline(processor.input, processor.output); }
                                               },
                                               {"coreir",
                                                   [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
@@ -29,9 +23,9 @@ int main(int argc, char **argv) {
 
                                             });
 
-  processor.input = Buffer<Pixel>(inImgSize, inImgSize);
-  processor.output = Buffer<Pixel>(outImgSize, outImgSize);
+  processor.input = Buffer<uint8_t>(64, 64);
+  processor.output = Buffer<uint8_t>(58, 58, 3);
   
-  return processor.process_command(argc, argv);
-  
+  processor.process_command(argc, argv);
+
 }

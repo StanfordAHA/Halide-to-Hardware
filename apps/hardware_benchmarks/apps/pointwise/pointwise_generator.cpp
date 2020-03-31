@@ -2,7 +2,7 @@
 
 namespace {
 
-  using namespace std;
+using namespace std;
 
 using namespace Halide;
 
@@ -38,8 +38,8 @@ public:
             .hw_accelerate(xi, xo);
           //hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             //.hw_accelerate(xi, xo);
-          hw_output.bound(x, 0, outImgSize);
-          hw_output.bound(y, 0, outImgSize);
+          output.bound(x, 0, outImgSize);
+          output.bound(y, 0, outImgSize);
 
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
 

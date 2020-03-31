@@ -1,45 +1,104 @@
+SHELL = /bin/bash
+HALIDE_DEBUG_REDIRECT ?= &>/dev/null
+
+default: all
+
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
 
+### app suites include: ###
+APP_SUITES := img dnn other
+
+### imaging applications ###
 IMG_APPS := pointwise gaussian cascade harris \
             example fast_corner unsharp \
-            demosaic demosaic_complex camera_pipeline fast_corner unsharp \
+            demosaic demosaic_complex camera_pipeline \
             exposure_fusion local_laplacian stereo hdr_plus
+img := $(IMG_APPS)
 
-DNN_APPS := conv_layer_2D conv_layer_3D gemm unet
+### DNN applications ###
+DNN_APPS := gemm unet \
+            conv_layer_2D conv_layer_3D conv_layer_mobile
+dnn := $(DNN_APPS)
 
+### other applications ###
 OTHER_APPS := smith_waterman
+other := $(OTHER_APPS)
 
-HALIDE_DEBUG_REDIRECT ?= &>/dev/null
-SHELL = /bin/bash
+ALL_APPS_SORTED := $(IMG_APPS) $(DNN_APPS) $(OTHER_APPS)
+allapps := $(ALL_APPS_SORTED)
+NOT_CLASSIFIED_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
 
-all: testall
+# Runs one of the functions on an app. Prints out nothing but pass/fail.
+# Default exit 0 on failure so it doesn't stop a make script
+EARLY_EXIT ?= 0
+define run_app
+	make -C $(1) $(2) $(HALIDE_DEBUG_REDIRECT); \
+	EXIT_CODE=$$?; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+	  printf "%-25s \033[0;32m%s\033[0m\n" $(1) "PASSED"; \
+    (exit $$EXIT_CODE); \
+	else \
+	  printf "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
+    (exit $$EARLY_EXIT);  \
+	fi
+endef
+
+# For each app suite, append the function to run
+#  on each of the apps in that app suite.
+#  For example, "make ops-coreir" creates the hardware for each op.
+define SUITE_template =
+$(1)-coreir:  $($(2):=-coreir)
+$(1)-run:     $($(2):=-run)
+$(1)-compare: $($(2):=-compare)
+$(1)-check:   $($(2):=-check)
+$(1)-clean:   $($(2):=-clean)
+endef
+
+$(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
+$(eval $(call SUITE_template,all,allapps))
+
+%-coreir:
+	@if [ -d $* ]; then \
+			$(call run_app,$*,bin/design_top.json); \
+	fi
+
+%-run:
+	@if [ -d $* ]; then \
+			$(call run_app,$*,bin/output_coreir.png); \
+	fi
+
+%-compare:
+	@if [ -d $* ]; then \
+		$(call run_app,$*,compare); \
+	fi
+
+%-check:
+	@if [ -d $* ]; then \
+		$(MAKE) -sC $* check; \
+	fi
+
+%-clean:
+	@if [ -d $* ]; then \
+		$(call run_app,$*,clean); \
+	fi
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(MAKE) -C $@ compare $(HALIDE_DEBUG_REDIRECT); \
-	EXIT_CODE=$$?; \
-	if [[ $$EXIT_CODE = 0 ]]; then \
-	  printf "%-20s \033[0;32m%s\033[0m\n" $@ "PASSED"; \
-    (exit $$EXIT_CODE); \
-	else \
-	  printf "%-20s \033[0;31m%s\033[0m\n" $@ "FAILED"; \
-    (exit $$EXIT_CODE); \
-	fi
+	@$(call run_app,$@,bin/design_top.json)
+
+all: testall
 
 testall test_all: runall
-# @echo ""
-# @for app in $(ALL_APPS); do \
-#   if [ -f $$app"/design_prepass.json" ]; then \
-#     printf "%-15s \033[0;32m%s\033[0m\n" $$app "PASSED"; \
-#   else \
-#     printf "%-15s \033[0;31m%s\033[0m\n" $$app "FAILED"; \
-#   fi \
-# done
 
 testtravis test_travis: pointwise
 
+list:
+	@echo "APPS:"
+	@echo $(ALL_APPS_SORTED)
+	@echo "NON-CLASSIFIED APPS:"
+	@echo $(NOT_CLASSIFIED_APPS)
 
 runall run_all:
 	@for app in $(ALL_APPS); do \
@@ -61,9 +120,8 @@ updategoldens update_goldens goldens:
 	  echo "updated golden files for $$app"; \
 	done
 
-checkall check_all:
-	@echo ""
-	@for app in $(ALL_APPS); do \
+checkall check_all check:
+	@for app in $(ALL_APPS_SORTED); do \
 	  $(MAKE) -sC $$app check; \
 	done
 
