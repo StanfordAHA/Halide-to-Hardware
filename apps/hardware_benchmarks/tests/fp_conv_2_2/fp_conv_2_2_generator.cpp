@@ -28,7 +28,7 @@ public:
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);

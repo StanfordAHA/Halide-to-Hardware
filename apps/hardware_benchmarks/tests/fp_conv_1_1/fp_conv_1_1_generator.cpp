@@ -19,15 +19,15 @@ public:
         RDom r(0, 1,
                0, 1);
 
-        kernel(x,y) = 0.f;
-        kernel(0,0) = 11.f;
+        kernel(x,y) = bfloat16_t(0.f);
+        kernel(0,0) = bfloat16_t(11.f);
         fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
 
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -54,6 +54,7 @@ public:
 
           conv.linebuffer();
 
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

@@ -151,7 +151,7 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.png:
+run run-cpu $(BIN)/output_cpu.png: $(BIN)/process $(BIN)/$(TESTNAME).generator
 	$(MAKE) $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)

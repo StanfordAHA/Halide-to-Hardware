@@ -407,15 +407,17 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     //  T output_value = state.getBitVec(output_name);
     //  output(x,y,c) = output_value;
     //} else {
-    //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
 
     auto output_bv = state.getBitVec(output_name);
+
 
     // bitcast to float if it is a float
     T output_value;
     if (has_float_output) {
       float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
       output_value = static_cast<T>(output_float);
+      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
     } else {
       output_value = output_bv.to_type<T>();
     }

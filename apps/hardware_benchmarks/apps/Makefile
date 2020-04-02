@@ -8,7 +8,11 @@ ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
 
 ### app suites include: ###
-APP_SUITES := img dnn other
+APP_SUITES := simple img dnn other
+
+### simple applications ###
+SIMPLE_APPS := pointwise gaussian cascade harris
+simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
 IMG_APPS := pointwise gaussian cascade harris \

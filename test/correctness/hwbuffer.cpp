@@ -1025,9 +1025,10 @@ int main(int argc, char **argv) {
     // row of stencil at a time (pixel / 3 cycles)
     // column of stencil at a time (pixel / 3 cycles)
     // pixel of stencil at a time (pixel / 9 cycles)
+    // large unified buffer (chaining)
 
     /*   OTHER TESTS   */
-    // different number of for loops and dimensions
+    // different number of for loops and dimensions (like demosaic)
     // output blocks different compared to stencil (rolled hwbuffer tests)
     // input chunks of different sizes (should happen in sampling cases)
     // input blocks of different sizes

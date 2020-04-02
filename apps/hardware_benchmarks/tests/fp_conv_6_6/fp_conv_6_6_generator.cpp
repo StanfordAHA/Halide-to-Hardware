@@ -19,20 +19,20 @@ public:
         RDom r(0, 6,
                0, 6);
 
-        kernel(x,y) = 0.f;
-        kernel(0,0) = 11.f;      kernel(0,1) = 12.f;      kernel(0,2) = 13.f;      kernel(0,3) = 23.f;      kernel(0,4) = 33.f;      kernel(0,5) = 43.f;
-        kernel(1,0) = 14.f;      kernel(1,1) = 0.f;       kernel(1,2) = 16.f;      kernel(1,3) = 21.f;      kernel(1,4) = 31.f;      kernel(1,5) = 41.f;
-        kernel(2,0) = 17.f;      kernel(2,1) = 18.f;      kernel(2,2) = 19.f;      kernel(2,3) = 26.f;      kernel(2,4) = 32.f;      kernel(2,5) = 42.f;
-        kernel(3,0) = 20.f;      kernel(3,1) = 29.f;      kernel(3,2) = 22.f;      kernel(3,3) = 24.f;      kernel(3,4) = 34.f;      kernel(3,5) = 44.f;
-        kernel(4,0) = 30.f;      kernel(4,1) = 39.f;      kernel(4,2) = 32.f;      kernel(4,3) = 34.f;      kernel(4,4) = 37.f;      kernel(4,5) = 47.f;
-        kernel(5,0) = 40.f;      kernel(5,1) = 49.f;      kernel(5,2) = 42.f;      kernel(5,3) = 44.f;      kernel(5,4) = 47.f;      kernel(5,5) = 48.f;
+        kernel(x,y) = bfloat16_t(0.f);
+        kernel(0,0) = bfloat16_t(11.f);      kernel(0,1) = bfloat16_t(12.f);      kernel(0,2) = bfloat16_t(13.f);      kernel(0,3) = bfloat16_t(23.f);      kernel(0,4) = bfloat16_t(33.f);      kernel(0,5) = bfloat16_t(43.f);
+        kernel(1,0) = bfloat16_t(14.f);      kernel(1,1) = bfloat16_t(0.f);       kernel(1,2) = bfloat16_t(16.f);      kernel(1,3) = bfloat16_t(21.f);      kernel(1,4) = bfloat16_t(31.f);      kernel(1,5) = bfloat16_t(41.f);
+        kernel(2,0) = bfloat16_t(17.f);      kernel(2,1) = bfloat16_t(18.f);      kernel(2,2) = bfloat16_t(19.f);      kernel(2,3) = bfloat16_t(26.f);      kernel(2,4) = bfloat16_t(32.f);      kernel(2,5) = bfloat16_t(42.f);
+        kernel(3,0) = bfloat16_t(20.f);      kernel(3,1) = bfloat16_t(29.f);      kernel(3,2) = bfloat16_t(22.f);      kernel(3,3) = bfloat16_t(24.f);      kernel(3,4) = bfloat16_t(34.f);      kernel(3,5) = bfloat16_t(44.f);
+        kernel(4,0) = bfloat16_t(30.f);      kernel(4,1) = bfloat16_t(39.f);      kernel(4,2) = bfloat16_t(32.f);      kernel(4,3) = bfloat16_t(34.f);      kernel(4,4) = bfloat16_t(37.f);      kernel(4,5) = bfloat16_t(47.f);
+        kernel(5,0) = bfloat16_t(40.f);      kernel(5,1) = bfloat16_t(49.f);      kernel(5,2) = bfloat16_t(42.f);      kernel(5,3) = bfloat16_t(44.f);      kernel(5,4) = bfloat16_t(47.f);      kernel(5,5) = bfloat16_t(48.f);
         fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
 
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -58,7 +58,8 @@ public:
             .unroll(r.y, 6);
 
           conv.linebuffer();
-
+          
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

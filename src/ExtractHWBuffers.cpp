@@ -441,8 +441,8 @@ class FindOutputStencil : public IRVisitor {
         output_min_pos_box[dim] = interval[dim].min;
 
       }
-      std::cout << "HWBuffer Parameter: " << var << " on loop=" << op->name << " output stencil size - " << output_stencil_box << std::endl
-                << op->body << std::endl;
+      //std::cout << "HWBuffer Parameter: " << var << " on loop=" << op->name << " output stencil size - " << output_stencil_box << std::endl
+      //          << op->body << std::endl;
 
     }
     if (call_at_level(op->body, var) && provide_at_level(op->body, consumer) && search_for_min) {
@@ -1333,7 +1333,7 @@ void set_output_params(HWXcel *xcel,
         hwbuffer.dims.at(i).output_block   = fos.output_block_box.at(i);
         ostream.odims.at(i).output_min_pos = fos.output_min_pos_box.at(i);
         if (fos.found_stencil) {
-          std::cout << hwbuffer.name << " output stencil set" << fos.output_stencil_box << std::endl;
+          //std::cout << hwbuffer.name << " output stencil set" << fos.output_stencil_box << std::endl;
           ostream.odims.at(i).output_stencil = fos.output_stencil_box.at(i);
         } else {
           if (!hwbuffer.is_inlined) {
@@ -1507,7 +1507,7 @@ void IdentifyAddressing::visit(const For *op) {
       strides_in_dim.insert(strides_in_dim.begin(), stride);
       ranges.insert(ranges.begin(), range);
     }
-    std::cout << op->name << " added   " << " range=" << ranges << " dim=" << dim_refs << " stride=" << strides_in_dim << std::endl;
+    //std::cout << op->name << " added   " << " range=" << ranges << " dim=" << dim_refs << " stride=" << strides_in_dim << std::endl;
     //std::cout << op->name << " has stride=" << strides_in_dim.at(0)
     //          << " dim_ref=" << dim_refs.at(0)
     //           << " range=" << ranges.at(0) << "\n";
@@ -1731,7 +1731,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
 
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     auto& kernel = hwbuffer_pair.second;
-    std::cout << "Our buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    //std::cout << "Our buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
     linearize_address_space(kernel);
     calculate_accumulation(kernel);
   }
@@ -1741,7 +1741,7 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
-    std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    //std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();
@@ -1791,7 +1791,7 @@ vector<HWXcel> extract_hw_accelerators(Stmt s, const map<string, Function> &env,
     //std::cout << "Found accelerate function " << func.name() << "\n";
     debug(3) << store_locked.func() << " " << store_varname << "\n";
     HWXcel xcel;
-    std::cout << "initial loopnest is: \n" << s << std::endl;
+    //std::cout << "initial loopnest is: \n" << s << std::endl;
     extract_hw_xcel_top_parameters(s, func, env, inlined_stages, &xcel);
     xcels.push_back(xcel);
   }
