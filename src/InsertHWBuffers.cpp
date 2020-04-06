@@ -55,6 +55,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
     const HWBuffer &kernel;
     const HWXcel &xcel;
     Scope<Expr> scope;
+    int num_provides = 0;
 
     using IRMutator::visit;
 
@@ -76,7 +77,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
                 return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, body);
             }
         } else {
-        //std::cout << "starting this replace: " << op->name << "\n";
+        std::cout << "starting this replace: " << op->name << "\n";
             // replace the loop var over the dimensions of the original function
             // realization with the loop var over the stencil dimension.
             // e.g. funcA.s0.x -> funcA.stencil.s0.x
@@ -108,7 +109,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
             // create a let statement for the old_loop_var
             Expr old_min = op->min;
             Expr old_var_value = new_var + old_min;
-            //std::cout << "replacing " << old_var_name << " with the value=" << old_var_value << "\n";
+            std::cout << "replacing " << old_var_name << " with the value=" << old_var_value << "\n";
             
             // traversal down into the body
             scope.push(old_var_name, simplify(expand_expr(old_var_value, scope)));
@@ -122,7 +123,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
     }
 
     Stmt visit(const Provide *op) {
-      //std::cout << "looking at this provide: " << op->name << " while kernel is " << kernel.name << "\n";
+      std::cout << "looking at this provide: " << op->name << " num=" << num_provides << " while kernel is " << kernel.name << "\n";
       //std::cout << Stmt(op) << std::endl;
         if (op->name != kernel.name) {
           return IRMutator::visit(op);
@@ -150,19 +151,27 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
               string output_min_name = kernel.name + ".output_min_pos." + std::to_string(i);
               // check if this is an output that where we saved the min_pos
               if (scope.contains(output_min_name)) {
-                //std::cout << op->name << " provide contains in scope" << std::endl;
+                std::cout << op->name << " provide contains in scope" << std::endl;
                 offset = scope.get(output_min_name);
               } else {
                 //offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 //const auto rand_ostream = kernel.ostreams.at(target_buffer);
                 if (kernel.ostreams.count(kernel.name)) {
-                  const auto rand_ostream = kernel.ostreams.at(kernel.name);
+                  std::cout << "choosing the accumulation output" << std::endl;
+                  //const auto rand_ostream = kernel.name == "conv" ? kernel.ostreams.at("hw_output") : kernel.ostreams.at(kernel.name);
+                  const auto rand_ostream =  kernel.ostreams.at(kernel.name);
                   offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream.odims.at(i).output_min_pos;
+                  std::cout << "offset is " << offset << std::endl;
                 } else {
+                  std::cout << "choosing a random output" << std::endl;
                   const auto rand_ostream = kernel.ostreams.cbegin(); // FIXME: probably should be a specific ostream?
                   offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 }
-                offset = kernel.dims.at(i).input_min_pos;
+                //offset = kernel.dims.at(i).input_min_pos;
+              }
+
+              if (!kernel.is_output) {
+                offset = kernel.up_min_pos.at(num_provides).at(i);
               }
 
               //std::cout << op->name << " provide offsets are=" << offset << std::endl;
@@ -173,7 +182,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
               //new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
               new_args[i] = simplify(expand_expr(mutate(op->args[i]) - offset, scope));
 
-              //std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is "<< offset << "\n";
+              std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is "<< offset << "\n";
               //std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
 
@@ -182,8 +191,9 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            //std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
+            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
 
+            num_provides++;
             return Provide::make(stencil_name, new_values, new_args);
         }
     }
@@ -1303,7 +1313,7 @@ Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
   //}
 
 
-  //std::cout << "stream start: " << std::endl << s << std::endl;
+  std::cout << "stream start: " << std::endl << s << std::endl;
   s = InsertHWBuffers(xcel).mutate(s);
   debug(3) << s << "\n";
   //std::cout << "Inserted hwbuffers: \n" << s << "\n";

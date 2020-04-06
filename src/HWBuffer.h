@@ -80,6 +80,7 @@ struct InputDimSize {
   std::string loop_name;
   Expr input_chunk;
   Expr input_block;
+  Expr input_min_pos;
 };
 
 struct InputStream {
@@ -201,6 +202,7 @@ struct HWBuffer {
   // dimensions for the unassociated hwbuffer streams
   std::vector<LogicalDimSize> ldims;
   std::map<std::string, InputStream> istreams;
+  std::vector<std::vector<Expr> > up_min_pos;
   //std::map<std::string, OutputStream> ustreams;
   std::map<std::string, OutputStream> ostreams;
 
