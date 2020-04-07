@@ -67,7 +67,7 @@ public:
 
           conv.linebuffer();
 
-          kernel.compute_at(hw_output, yi);
+          //kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
 
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();

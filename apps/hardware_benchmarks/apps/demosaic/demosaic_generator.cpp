@@ -79,7 +79,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
             get_target().has_feature(Target::HLS)) {
-          hw_input.compute_root();
+
           hw_output.compute_root();
           
           hw_output.tile(x, y, xo, yo, xi, yi, 62,62)
@@ -90,7 +90,8 @@ public:
           
           demosaic.linebuffer();
           demosaic.unroll(c);
-          
+
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
           
         } else {    // schedule to CPU

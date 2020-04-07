@@ -109,21 +109,35 @@ public:
 
         output(x, y) = hw_output(x, y);
 
-        //lgxx.bound(x, 0, 60);
-        //lgxx.bound(y, 0, 60);
-        //lgxy.bound(x, 0, 60);
-        //lgxy.bound(y, 0, 60);
-        //lgyy.bound(x, 0, 60);
-        //lgyy.bound(y, 0, 60);
-        //lxx.bound(x, 0, 62);
-        //lxx.bound(y, 0, 62);
-        //lxy.bound(x, 0, 62);
-        //lxy.bound(y, 0, 62);
-        //lyy.bound(x, 0, 62);
-        //lyy.bound(y, 0, 62);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
+
+          grad_x.bound(x, -2, 62);
+          grad_x.bound(y, -2, 62);
+          grad_y.bound(x, -2, 62);
+          grad_y.bound(y, -2, 62);
+
+          //grad_xx.bound(x, -2, 62);
+          //grad_xx.bound(y, -2, 62);
+          //grad_xy.bound(x, -2, 62);
+          //grad_xy.bound(y, -2, 62);
+          //grad_yy.bound(x, -2, 62);
+          //grad_yy.bound(y, -2, 62);
+
+          lxx.bound(x, -2, 62);
+          lxx.bound(y, -2, 62);
+          lxy.bound(x, -2, 62);
+          lxy.bound(y, -2, 62);
+          lyy.bound(x, -2, 62);
+          lyy.bound(y, -2, 62);
+
+          lgxx.bound(x, -1, 60);
+          lgxx.bound(y, -1, 60);
+          lgxy.bound(x, -1, 60);
+          lgxy.bound(y, -1, 60);
+          lgyy.bound(x, -1, 60);
+          lgyy.bound(y, -1, 60);
 
           hw_output.bound(x, 0, 58);
           hw_output.bound(y, 0, 58);

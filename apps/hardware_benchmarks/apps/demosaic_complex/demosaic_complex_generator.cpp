@@ -159,24 +159,24 @@ namespace {
 
       //output(x, y, c) = hw_output(x, y, c);
       output(x, y, c) = hw_output(c, x, y);
-      
-      output.bound(x, 0, 64-2);
-      output.bound(y, 0, 64-2);
-      output.bound(c, 0, 3);
-      
+            
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
+        output.bound(x, 0, 64-2);
+        output.bound(y, 0, 64-2);
+        output.bound(c, 0, 3);
+        
         hw_input.compute_root();
         hw_output.compute_root();
           
         hw_output.tile(x, y, xo, yo, xi, yi, 64-2,64-2);
+        hw_output.accelerate({hw_input}, xi, xo, {});
+        hw_output.unroll(c);
           
         demosaicked.linebuffer()
           .unroll(c).unroll(x).unroll(y);
 
-        hw_output.accelerate({hw_input}, xi, xo, {});
-
-        hw_output.unroll(c);
+        hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           
       } else {    // schedule to CPU
         output.tile(x, y, xo, yo, xi, yi, 64-2, 64-2)
