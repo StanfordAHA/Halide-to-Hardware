@@ -16,7 +16,7 @@ GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
 HALIDE_SRC_PATH ?= ../../../..
-LDFLAGS += -lcoreir-lakelib -DVERBOSE=0
+LDFLAGS += -lcoreir-lakelib -DVERBOSE=1
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname

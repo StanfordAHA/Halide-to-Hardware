@@ -69,9 +69,9 @@ class CountBufferUsers : public IRVisitor {
       // look at the readers (reader ports, read address gen)
       if (call_at_level(op->body, var)) {
         auto box_read = box_required(op->body, var);
-        //std::cout << "readers inside pc " << op->name << std::endl;
+        std::cout << "readers inside pc " << op->name << std::endl;
         //std::cout << "Box reader found for " << var << " with box " << box_read << std::endl;
-        //std::cout << Stmt(op->body) << std::endl;
+        std::cout << "OP body: " << Stmt(op->body) << std::endl;
         //std::cout << "HWBuffer Parameter: reader ports - "
         //          << "box extent=[";
         auto interval = box_read;
@@ -473,7 +473,7 @@ class FindOutputStencil : public IRVisitor {
       } else {
         std::cout << var << " output min is not updated" << std::endl;
       }
-      
+
       auto unrolled = unroll_loops(remove_trivial_for_loops(Stmt(op)));
       auto letstmtexpr = LetStmt::make("hello", 0, unrolled);
       const LetStmt* letstmt = letstmtexpr.as<LetStmt>();
@@ -639,7 +639,7 @@ class FindUpdateStencils : public IRVisitor {
   //string current_level;
 
   using IRVisitor::visit;
-  
+
   // keep track of lets to later replace variables with constants
   void visit(const LetStmt *op) override {
     ScopedBinding<Expr> bind(scope, op->name, simplify(expand_expr(op->value, scope)));
@@ -658,24 +658,24 @@ class FindUpdateStencils : public IRVisitor {
         min_pos_box.at(dim) = simplify(expand_expr(box_write[dim].min, scope));
         std::cout << "update hwbuffer " << name << " " << box_write[dim].min << std::endl;
       }
-      
+
       updates_min_pos.push_back(min_pos_box);
     } else {
       std::cout << "no provide for " << name << std::endl;//"in: " << op->body << std::endl;
-      IRVisitor::visit(op);                                                       
+      IRVisitor::visit(op);
     }
   }
-  
+
 public:
   vector<vector<Expr>> updates_min_pos;
-  
+
   //bool found_stencil;
   //Function func;
   //Scope<Expr> &stencil_bounds;
   //FindUpdateStencils(string v, Function func, string cl, Scope<Expr> &stencil_bounds) :
   //name(v), index(0), compute_level(cl), found_stencil(false), func(func), stencil_bounds(stencil_bounds) {}
 
-  FindUpdateStencils(string v) : 
+  FindUpdateStencils(string v) :
     name(v), index(0) {}
 
 };
@@ -1256,7 +1256,7 @@ void set_output_params(HWXcel *xcel,
         //std::cout << consumer_buffer.my_stmt << std::endl;
       }
 
-      
+
       //hwbuffer.my_stmt.accept(&fos);
       //std::cout << "output min pos is " << fos.output_min_pos_box << std::endl;
       //std::cout << "looking for output stencil and min for " << hwbuffer.name << " to consumer " << consumer.name
@@ -1321,7 +1321,7 @@ void set_output_params(HWXcel *xcel,
         std::cout << hwbuffer.name << " up" << idx << " has min_pos=" << fus.updates_min_pos.at(idx) << std::endl;
       }
       hwbuffer.up_min_pos = fus.updates_min_pos;
-      
+
       //std::cout << hwbuffer.name << " set the input min pos as: " << fis.input_min_pos_box << std::endl
       //          << " while the output min pos is: " << fos.output_min_pos_box << std::endl;
 
@@ -1641,7 +1641,7 @@ void linearize_address_space(HWBuffer &kernel) {
   if (kernel.is_output) {
     const auto& ostream_name = kernel.ostreams.cbegin()->second.name;
     OutputStream& ostream = kernel.ostreams.at(ostream_name);
-    
+
     IdentifyAddressing id_addr(kernel.func, Scope<Expr>(), ostream.stride_map);
     ostream.output_access_pattern.accept(&id_addr);
     //std::cout << "output_access for " << kernel.name << " to " << ostream.name << std::endl

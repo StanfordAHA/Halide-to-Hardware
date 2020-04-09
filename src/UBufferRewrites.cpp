@@ -26,6 +26,7 @@ namespace Halide {
       string name;
       map<string, const Provide*> write_ports;
       map<string, const Call*> read_ports;
+      map<string, vector<string> > read_stream_bundle;
 
       //starting address
       map<string, vector<int>> read_ports_offset;
@@ -36,30 +37,47 @@ namespace Halide {
       // outputs
       map<string, StmtSchedule> schedules;
 
+
+      static bool cmp(const pair<string, const Call* > pp1, const pair<string,const Call* > pp2) {
+          auto p1 = pp1.second->args;
+          auto p2 = pp2.second->args;
+          cout << p1.size() << ", " << p2.size() <<endl;
+          cout << pp1.first << ", " << pp2.first << endl;
+          internal_assert(p1.size() == p2.size()) << "two compared vector has different size!\n";
+          int sum = 0;
+          for (size_t i = 0; i < p1.size(); i ++) {
+              int diff = id_const_value(simplify(p1[i] - p2[i]));
+              sum += diff;
+          }
+          return sum <= 0;
+      }
+
       //Use a more generic way to deduce output starting address
-      void get_port_offset(size_t num_dim, IO_TYPE typ) {
-          //TODO: possible bug: default starting port is read_port_0 maybe a problem
-          vector<Expr> baseArgs = map_find(string("read_port_0"), read_ports)->args;
-          for (auto rp : read_ports) {
-              std::cout << "read ports"  << rp.first << endl;
-              vector<Expr> args = rp.second->args;
+      map<string, vector<int> > get_port_offset(map<string, const Call*> ports) {
+
+          map<string, vector<int> > ports_offset;
+
+          vector<pair<string, const Call*> > vec(ports.begin(), ports.end());
+          sort(vec.begin(), vec.end(), cmp);
+
+          vector<Expr> baseArgs = vec.begin()->second->args;
+          cout <<"BASE Arg:" << baseArgs << endl;
+          for (auto pt : ports) {
+              vector<Expr> args = pt.second->args;
+              auto call_name = pt.second->name;
+              std::cout << "read ports: "  << pt.first <<"\nname:" << call_name << args << endl;
               vector<int> offsets;
 
-              //check if the dimension match
-              internal_assert(args.size() == num_dim);
-
               for (size_t i = 0; i < baseArgs.size(); i++) {
-                if(typ == IO_TYPE::READ) {
-                  map_insert(read_ports_offset, rp.first, id_const_value(simplify(args[i] - baseArgs[i])));
-                }
-                else {
-                  map_insert(write_ports_offset, rp.first, id_const_value(simplify(args[i] - baseArgs[i])));
-                }
+                cout << "simplify offset :" << (simplify(args[i] - baseArgs[i])) <<id_const_value(simplify(args[i] - baseArgs[i])) << endl;
+                map_insert(ports_offset, pt.first, id_const_value(simplify(args[i] - baseArgs[i])));
 
               }
 
           }
+          return ports_offset;
       }
+
 
       bool is_write(const std::string& pt) const {
         return contains_key(pt, write_ports);
@@ -166,11 +184,13 @@ namespace Halide {
       using IRGraphVisitor::visit;
 
       vector<VarSpec> activeVars;
+      string provide_name;
       int next_level;
       map<string, vector<const Provide*> > provides;
       map<string, vector<const Call*> > calls;
       map<const Provide*, StmtSchedule> write_scheds;
       map<const Call*, StmtSchedule> read_scheds;
+      map<const Call*, string> read_consumer;
 
       FuncOpCollector() : activeVars({{"", Expr(0), Expr(1)}}), next_level(1) {}
 
@@ -187,11 +207,14 @@ namespace Halide {
           map<string, StmtSchedule> schedules;
           int rd_num = 0;
           map<string, const Call*> reads;
+          map<string, vector<string>> reads_stream_bundle;
           for (auto rd : calls) {
             if (rd.first == b) {
               for (auto rdOp : rd.second) {
-                reads["read_port_" + to_string(rd_num)] = rdOp;
-                schedules["read_port_" + to_string(rd_num)] = map_find(rdOp, read_scheds);
+                string pt_name = "read_port_" + to_string(rd_num);
+                reads[pt_name] = rdOp;
+                schedules[pt_name] = map_find(rdOp, read_scheds);
+                map_insert(reads_stream_bundle, map_find(rdOp, read_consumer), pt_name);
                 rd_num++;
               }
             }
@@ -207,7 +230,7 @@ namespace Halide {
               }
             }
           }
-          bufs[b] = {{}, b, writes, reads, {}, {}, schedules};
+          bufs[b] = {{}, b, writes, reads, reads_stream_bundle, {}, {}, schedules};
         }
         return bufs;
       }
@@ -266,6 +289,10 @@ namespace Halide {
         next_level = 1;
       }
       void visit(const Provide* p) override {
+        //track the string name
+        provide_name = p->name;
+        //cout << "provide name: " << p->name << p->values << endl;
+
         IRGraphVisitor::visit(p);
 
         inc_level();
@@ -276,7 +303,9 @@ namespace Halide {
       void visit(const Call* p) override {
         if (p->call_type == Call::CallType::Halide) {
           inc_level();
+          //cout << provide_name << "\tInsert consumer to map: " << p->name << "\n " << p->args << endl;
           map_insert(calls, p->name, p);
+          read_consumer[p] = provide_name;
           read_scheds[p] = activeVars;
         }
 
@@ -961,50 +990,58 @@ namespace Halide {
         internal_assert(buffer.write_ports.size() == 1);
         std::cout << "Using lake rewrite rules." << std::endl;
 
-        // use this helper IRVisitor to extract the range stride information
-        Scope<Expr> temp;    //create a empty scope
-        //IdentifyAddressing id_addr(buffer.ubuf.func, temp, buffer.ubuf.stride_map);
-        vector<AccessDimSize> id_addr;
-
-        internal_assert(buffer.ubuf.ostreams.size() == 1) << "\n" << "Multiple stream analysis not implemented!\n";
-        id_addr = buffer.ubuf.ostreams.begin()->second.linear_access;
-        //buffer.ubuf.output_access_pattern.accept(&id_addr);
-
-        std::cout << "Read range extracted: \n";
-        std::for_each(id_addr.begin(),
-                id_addr.end(),
-                [] (const AccessDimSize c) {std::cout << to_int(c.range) << "\t" << to_int(c.stride) <<"\t" << to_int(c.dim_ref) << "\n";}
-            );
-        std::cout << endl;
-
 
         coreir_builder_set_context(def->getContext());
         coreir_builder_set_def(def);
 
-        size_t num_dim = buffer.ubuf.ldims.size();
 
-        std::cout << "Extract the offset of read port:\n" ;
-        buffer.get_port_offset(num_dim, IO_TYPE::READ);
+        //internal_assert(buffer.ubuf.ostreams.size() == 1) << "\n" << "Multiple stream analysis not implemented!\n";
+        //Loop over multiple stream
+        for (auto out_stream: buffer.ubuf.ostreams) {
+            string name = out_stream.first;
+            map<string, const Call*> read_ports_in_stream;
+            for (auto pt_name: buffer.read_stream_bundle.at(name)) {
+                read_ports_in_stream.insert(make_pair(pt_name, buffer.read_ports.at(pt_name)) );
+            }
+            auto read_ports_offset = buffer.get_port_offset(read_ports_in_stream);
+            size_t num_dim = buffer.ubuf.ldims.size();
+            std::cout << "Extract the offset of read port:\n" ;
 
-        std::for_each(buffer.read_ports_offset.begin(),
-                buffer.read_ports_offset.end(),
-                [] (const pair<std::string, vector<int>> c) {
-                    std::cout << c.first << " has offset = [";
-                    for (const int val: c.second) {
-                        std::cout << val << " ";
+            internal_assert(read_ports_offset.begin()->second.size() == num_dim);
+
+            //print out the offset
+            std::for_each(read_ports_offset.begin(),
+                    read_ports_offset.end(),
+                    [] (const pair<std::string, vector<int>> c) {
+                        std::cout << c.first << " has offset = [";
+                        for (const int val: c.second) {
+                            std::cout << val << " ";
+                        }
+                        std::cout << "]" << std::endl;
                     }
-                    std::cout << "]" << std::endl;
-                }
-            );
-        std::cout << endl;
+                );
+            std::cout << endl;
 
-        //create the data structure for rewrite
-        RecursiveBuffer port_opt(id_addr, buffer.ubuf, def, buffer.read_ports_offset);
-        cout << "Before Rewrite: " << port_opt;
-        //port_opt.generate_coreir(buffer);
-        port_opt.port_reduction(1);
-        cout << "After Rewrite: " << port_opt;
-        port_opt.generate_coreir(buffer);
+            //get the access pattern
+            vector<AccessDimSize> id_addr;
+            id_addr = out_stream.second.linear_access;
+            std::cout << "Read range extracted: \n";
+            std::for_each(id_addr.begin(),
+                    id_addr.end(),
+                    [] (const AccessDimSize c) {std::cout << to_int(c.range) << "\t" << to_int(c.stride) <<"\t" << to_int(c.dim_ref) << "\n";}
+                );
+            std::cout << endl;
+
+            //TODO: add a pass to merge the stream into one
+
+            //create the data structure for rewrite
+            RecursiveBuffer port_opt(id_addr, buffer.ubuf, def, read_ports_offset);
+            cout << "Before Rewrite: " << port_opt;
+            //port_opt.generate_coreir(buffer);
+            port_opt.port_reduction(1);
+            cout << "After Rewrite: " << port_opt;
+            port_opt.generate_coreir(buffer);
+        }
 
         return;
 
