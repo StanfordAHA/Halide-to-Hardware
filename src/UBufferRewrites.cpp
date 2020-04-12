@@ -194,7 +194,7 @@ namespace Halide {
 
       FuncOpCollector() : activeVars({{"", Expr(0), Expr(1)}}), next_level(1) {}
 
-      map<string, MemoryConstraints> hwbuffers() const {
+      map<string, MemoryConstraints> hwbuffers() {
         map<string, MemoryConstraints> bufs;
         set<string> buffer_names = domain<string, vector<const Call*> >(calls);
         for (auto n : domain(provides)) {
@@ -205,6 +205,33 @@ namespace Halide {
 
         for (auto b : buffer_names) {
           map<string, StmtSchedule> schedules;
+          int wr_num = 0;
+          map<string, const Provide*> writes;
+          for (auto rd : provides) {
+            if (rd.first == b) {
+
+              //first remove the const initialization
+              //FIXME: a better way is rewrite IR
+              size_t offset = 0;
+              for (auto rdOp : rd.second) {
+                if (rdOp->values.size() == 1)
+                    if(id_const_value(rdOp->values.front()) != -1) {
+                        //initial a const value also remove one out port
+                        auto & call_list = calls.at(b);
+                        call_list.erase(call_list.begin());
+                        rd.second.erase(rd.second.begin() + offset);
+                        break;
+                    }
+                offset ++;
+              }
+
+              for (auto rdOp : rd.second) {
+                writes["write_port_" + to_string(wr_num)] = rdOp;
+                schedules["write_port_" + to_string(wr_num)] = map_find(rdOp, write_scheds);
+                wr_num++;
+              }
+            }
+          }
           int rd_num = 0;
           map<string, const Call*> reads;
           map<string, vector<string>> reads_stream_bundle;
@@ -219,18 +246,8 @@ namespace Halide {
               }
             }
           }
-          int wr_num = 0;
-          map<string, const Provide*> writes;
-          for (auto rd : provides) {
-            if (rd.first == b) {
-              for (auto rdOp : rd.second) {
-                writes["write_port_" + to_string(wr_num)] = rdOp;
-                schedules["write_port_" + to_string(wr_num)] = map_find(rdOp, write_scheds);
-                wr_num++;
-              }
-            }
-          }
           bufs[b] = {{}, b, writes, reads, reads_stream_bundle, {}, {}, schedules};
+          cout << "Add buffer constraints for " << b << endl;
         }
         return bufs;
       }
@@ -292,10 +309,29 @@ namespace Halide {
         //track the string name
         provide_name = p->name;
         //cout << "provide name: " << p->name << p->values << endl;
+        cout << Stmt(p) << endl;
 
         IRGraphVisitor::visit(p);
 
         inc_level();
+
+        //FIXME: hacky solution for local accumulation
+        if (provides.find(p->name) != provides.end()) {
+            for (auto pd: provides.at(p->name)) {
+                //cout << "check provide: " << Stmt(pd) << endl;
+                bool is_same = true;
+                for (size_t i = 0; i < std::min(pd->args.size(), p->args.size()); i ++) {
+                  auto target_expr = pd->args[i];
+                  auto cur_expr = p->args[i];
+                  is_same &= (id_const_value(simplify(target_expr -cur_expr)) == 0);
+                }
+                if (is_same) {
+                    //cout << "Update the same location" << endl;
+                    return;
+                }
+            }
+        }
+
         map_insert(provides, p->name, p);
         write_scheds[p] = activeVars;
       }
@@ -697,7 +733,6 @@ namespace Halide {
               for (size_t i = 0; i < loop_dim; i ++) {
                   int c = 1;
                   while (c <= threshold) {
-                      vector<vector<int>> next_addr;
                       for (const auto it: start_addr) {
                           auto temp = it.second;
                           temp[stride_ref_dim[i]] -= c * stride[i];
@@ -707,7 +742,7 @@ namespace Halide {
                                   auto & merge_port = merge_addr[overlap_port.first];
                                   if (std::get<0>(merge_port) == overlap_port.first){
                                       //this port is not merged under this loop dimension
-                                      std::get<0>(merge_port) = std::get<0>(merge_addr[it.first]);
+                                      std::get<0>(merge_port) = it.first;
                                       std::get<1>(merge_port) = c;
                                   }
                                   else
@@ -999,6 +1034,9 @@ namespace Halide {
         //Loop over multiple stream
         for (auto out_stream: buffer.ubuf.ostreams) {
             string name = out_stream.first;
+            //TODO: solve this self update rewrite
+            if (name == buffer.name)
+                continue;
             map<string, const Call*> read_ports_in_stream;
             for (auto pt_name: buffer.read_stream_bundle.at(name)) {
                 read_ports_in_stream.insert(make_pair(pt_name, buffer.read_ports.at(pt_name)) );
@@ -1038,7 +1076,7 @@ namespace Halide {
             RecursiveBuffer port_opt(id_addr, buffer.ubuf, def, read_ports_offset);
             cout << "Before Rewrite: " << port_opt;
             //port_opt.generate_coreir(buffer);
-            port_opt.port_reduction(1);
+            port_opt.port_reduction(2);
             cout << "After Rewrite: " << port_opt;
             port_opt.generate_coreir(buffer);
         }
@@ -1257,7 +1295,8 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
 
   for (auto f : env) {
     if (f.second.schedule().is_accelerated() ||
-        f.second.schedule().is_accelerator_input()) {
+        f.second.schedule().is_accelerator_input() ||
+        (f.second.schedule().is_hw_kernel() && !f.second.schedule().compute_level().is_inlined()) ) {
         //f.second.schedule().is_accelerator_input() ||
         //f.second.schedule().is_hw_kernel()) {
 
