@@ -432,6 +432,79 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   //state.exeSequential();
 }
 
+std::vector<std::string> get_seg_list(std::string str, char token) {
+    std::stringstream st(str);
+    std::vector<std::string> seglist;
+    std::string segment;
+
+    while(std::getline(st, segment, token)) {
+        seglist.push_back(segment);
+    }
+
+    return seglist;
+}
+
+std::string find_text(std::string text, std::string before) {
+    return text.substr(0, text.find(before));
+}
+
+template<typename T>
+void run_coreir_rewrite_on_interpreter(string coreir_design,
+                               string rewrite_buf,
+                               Halide::Runtime::Buffer<T> input,
+                               Halide::Runtime::Buffer<T> output,
+                               string input_name,
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output) {
+    Context* c = newContext();
+    Namespace* g = c->getGlobal();
+    CoreIRLoadLibrary_commonlib(c);
+    CoreIRLoadLibrary_lakelib(c);
+    CoreIRLoadLibrary_float(c);
+    if (!loadFromFile(c, coreir_design)) {
+      cout << "Could not load " << coreir_design
+           << " from json!!" << endl;
+      c->die();
+    }
+
+    if (!loadFromFile(c, rewrite_buf)) {
+      cout << "Could not load " << rewrite_buf
+           << " from json!!" << endl;
+      c->die();
+    }
+
+    c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
+
+    Module* m = g->getModule("DesignTop");
+    auto instances = m->getDef()->getInstances();
+    m->getDef()->print();
+    assert(m != nullptr);
+
+    auto modules = g->getModules();
+    for (auto itr : modules) {
+        cout << "\tName: " << itr.first << " -> \n" << itr.second->toString() << endl;
+        //auto name_list = get_seg_list(itr.first, '_');
+        string ub = find_text(itr.first, "_ubuffer");
+        cout << "\tbuffer name: " << ub << endl;
+        string ub_name = "ub_" + ub + "_stencil_update_stream";
+        if (instances.count(ub_name) != 1)
+            continue;
+        auto ub_ins = instances.at(ub_name);
+        cout << ub_ins->getConnectedWireables().size() << endl;
+        for (auto itr: ub_ins->getSelects()) {
+        for (auto wc : itr.second->getConnectedWireables()) {
+            cout <<"\t" << itr.first << " wire to: " << wc->toString() << endl;
+        }
+
+        }
+    }
+        assert(false);
+
+    cout << "Finished" << endl;
+
+}
+
 template<typename T>
 void run_coreir_on_interpreter(string coreir_design,
                                Halide::Runtime::Buffer<T> input,
@@ -575,6 +648,15 @@ template void run_coreir_on_interpreter<uint16_t>(std::string coreir_design,
 template void run_coreir_on_interpreter<int16_t>(std::string coreir_design,
                                                  Halide::Runtime::Buffer<int16_t> input,
                                                  Halide::Runtime::Buffer<int16_t> output,
+                                                 std::string input_name,
+                                                 std::string output_name,
+                                                 bool has_float_input,
+                                                 bool has_float_output);
+
+template void run_coreir_rewrite_on_interpreter<uint8_t>(std::string coreir_design,
+                                                 std::string rewrite_buf,
+                                                 Halide::Runtime::Buffer<uint8_t> input,
+                                                 Halide::Runtime::Buffer<uint8_t> output,
                                                  std::string input_name,
                                                  std::string output_name,
                                                  bool has_float_input,
