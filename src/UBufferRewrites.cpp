@@ -607,6 +607,7 @@ namespace Halide {
                           //wire the reset and ren
                           //wire the peripherial
                           def->connect(row_buffer_coreir->sel("reset"), def->sel("self")->sel("reset"));
+                          def->connect(row_buffer_coreir->sel("flush"), def->sel("self")->sel("flush"));
 
                           //TODO:use the same const
                           auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
@@ -932,6 +933,7 @@ namespace Halide {
 
                   //wire the peripherial
                   def->connect(ubuf_coreir->sel("reset"), self->sel("reset"));
+                  def->connect(ubuf_coreir->sel("flush"), self->sel("flush"));
 
                   //TODO: Not sure if this is robust, hacky solution for ren
                   auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
@@ -1311,7 +1313,7 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
           }
         }
       }
-      vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
+      vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}, {"flush", context->BitIn()}};
       cout << "\t\tReads..." << endl;
       for (auto rd : buf.read_ports) {
         cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " || " << buf.port_address_stream(rd.first) << endl;
