@@ -42,6 +42,14 @@ void run_coreir_on_interpreter(std::string coreir_design,
                                bool has_float_input=false,
                                bool has_float_output=false);
 
+template<typename T>
+void run_coreir_module_on_interpreter(CoreIR::Module* m,
+                               Halide::Runtime::Buffer<T> input,
+                               Halide::Runtime::Buffer<T> output,
+                               std::string input_name,
+                               std::string output_name,
+                               bool has_float_input,
+                               bool has_float_output);
 
 template<typename T>
 void run_coreir_rewrite_on_interpreter(std::string coreir_design,

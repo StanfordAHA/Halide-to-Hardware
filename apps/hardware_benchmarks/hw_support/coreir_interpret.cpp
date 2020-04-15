@@ -477,6 +477,7 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
     c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
     Module* m = g->getModule("DesignTop");
+    auto moddef = m->getDef();
     auto instances = m->getDef()->getInstances();
     m->getDef()->print();
     assert(m != nullptr);
@@ -490,16 +491,56 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
         string ub_name = "ub_" + ub + "_stencil_update_stream";
         if (instances.count(ub_name) != 1)
             continue;
-        auto ub_ins = instances.at(ub_name);
-        cout << ub_ins->getConnectedWireables().size() << endl;
-        for (auto itr: ub_ins->getSelects()) {
-        for (auto wc : itr.second->getConnectedWireables()) {
-            cout <<"\t" << itr.first << " wire to: " << wc->toString() << endl;
+
+        //add instance into the original module def
+        auto buf_ins = moddef->addInstance(itr.first, itr.second);
+
+        auto rewrite_module = itr.second->getDef();
+        auto interface = rewrite_module->getInterface();
+        for (auto itr_pt : interface->getSelects()) {
+            for (auto wc: itr_pt.second->getConnectedWireables() ) {
+                cout << "\t[" << itr_pt.first << "] wire to: " << wc->toString() << endl;
+            }
         }
 
+        auto ub_ins = instances.at(ub_name);
+        cout << ub_ins->getConnectedWireables().size() << endl;
+        for (auto itr_sel: ub_ins->getSelects()) {
+            auto pt = addPassthrough(itr_sel.second, itr.first + "_" + itr_sel.first);
+            auto pt_name_list = get_seg_list(itr_sel.first, '_');
+            if (pt_name_list.front() == "datain"){
+                moddef->connect(buf_ins->sel("write_port_"+pt_name_list.back()), pt->sel("in"));
+                inlineInstance(pt);
+
+            }
+            else if (pt_name_list.front() == "dataout") {
+                moddef->connect(buf_ins->sel("read_port_"+pt_name_list.back()), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            else if (pt_name_list.front() == "ren") {
+                inlineInstance(pt);
+            }
+            else if (pt_name_list.front() == "wen") {
+                moddef->connect(buf_ins->sel("write_port_0_en"), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            else if (pt_name_list.front() == "valid") {
+                moddef->connect(buf_ins->sel("read_port_0_valid"), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            else {
+                moddef->connect(buf_ins->sel(itr_sel.first), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            for (auto wc : itr_sel.second->getConnectedWireables()) {
+                cout <<"\t" << itr_sel.first << " wire to: " << wc->toString() << endl;
+            }
         }
+        inlineInstance(buf_ins);
+        moddef->removeInstance(ub_name);
     }
-        assert(false);
+    moddef->print();
+    run_coreir_module_on_interpreter<T>(m, input, output, input_name, output_name, has_float_input, has_float_output);
 
     cout << "Finished" << endl;
 
@@ -530,7 +571,18 @@ void run_coreir_on_interpreter(string coreir_design,
 
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
+  run_coreir_module_on_interpreter<T>(m, input, output, input_name, output_name, has_float_input, has_float_output);
+}
 
+
+template<typename T>
+void run_coreir_module_on_interpreter(Module* m,
+                               Halide::Runtime::Buffer<T> input,
+                               Halide::Runtime::Buffer<T> output,
+                               string input_name,
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output) {
   //parse the input name, maybe hacky
   m->getType()->print();
   string inen_name = "self.in_en_arg_0";
@@ -548,6 +600,9 @@ void run_coreir_on_interpreter(string coreir_design,
   map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.new_unified_buffer"), ubufBuilder}, {string("lakelib.unified_buffer"), ubufBuilder}};
 
   SimulatorState state(m, qualifiedNamesToSimPlugins);
+
+  auto c = m->getContext();
+  auto g = c->getGlobal();
 
   if (!saveToFile(g, "bin/design_simulated.json", m)) {
     cout << "Could not save to json!!" << endl;
@@ -661,6 +716,13 @@ template void run_coreir_rewrite_on_interpreter<uint8_t>(std::string coreir_desi
                                                  std::string output_name,
                                                  bool has_float_input,
                                                  bool has_float_output);
+template void run_coreir_module_on_interpreter<uint8_t>(Module* m,
+                               Halide::Runtime::Buffer<uint8_t> input,
+                               Halide::Runtime::Buffer<uint8_t> output,
+                               string input_name,
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output);
 
 template void run_coreir_on_interpreter<uint8_t>(std::string coreir_design,
                                                  Halide::Runtime::Buffer<uint8_t> input,
