@@ -375,7 +375,8 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     }
   }
   // propogate to all wires
-  state.execute();
+  //state.execute();
+  state.exeCombinational();
 
   // read output wire
   if (uses_valid) {
@@ -383,6 +384,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     bool valid_value = state.getBitVec("self.valid").to_type<bool>();
     //std::cout << "got my valid\n";
     //cout << "output_bv_n = " << output_bv_n << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)).to_type<int>() <<  endl;
     if (valid_value) {
       //std::cout << "this one is valid\n";
       auto output_bv = state.getBitVec(output_name);
@@ -429,7 +431,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   }
 
   // give another rising edge (execute seq)
-  //state.exeSequential();
+  state.exeSequential();
 }
 
 std::vector<std::string> get_seg_list(std::string str, char token) {
@@ -474,7 +476,6 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
       c->die();
     }
 
-    c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
 
     Module* m = g->getModule("DesignTop");
     auto moddef = m->getDef();
@@ -540,6 +541,7 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
         moddef->removeInstance(ub_name);
     }
     moddef->print();
+    c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
     run_coreir_module_on_interpreter<T>(m, input, output, input_name, output_name, has_float_input, has_float_output);
 
     cout << "Finished" << endl;

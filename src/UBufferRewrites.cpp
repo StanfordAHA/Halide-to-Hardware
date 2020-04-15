@@ -603,7 +603,6 @@ namespace Halide {
                           //generate coreIR for next level, ignore the inner level stencil valid
                           child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
 
-
                           //wire the reset and ren
                           //wire the peripherial
                           def->connect(row_buffer_coreir->sel("reset"), def->sel("self")->sel("reset"));
