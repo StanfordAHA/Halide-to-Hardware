@@ -654,7 +654,7 @@ void run_coreir_module_on_interpreter(Module* m,
           std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << ((int)input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
         }
       }}}*/
-  int maxCycles = 10000;
+  int maxCycles = 5000;
   int cycles = 0;
 
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});

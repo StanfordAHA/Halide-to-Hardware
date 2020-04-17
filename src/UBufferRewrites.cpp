@@ -487,7 +487,7 @@ namespace Halide {
               }
           }
 
-          Values generate_ubuf_args(string port_name, int stencil_valid_depth, int width, int flatten_size) {
+          Values generate_ubuf_args(string port_name, int stencil_valid_depth, int width, int flatten_size, bool rate_matched=false) {
               auto context = def->getContext();
               json out_start;
               out_start["output_start"][0] = 0;
@@ -502,7 +502,7 @@ namespace Halide {
                       {"stencil_width", Const::make(context, stencil_valid_depth)},
                       {"depth", Const::make(context, flatten_size)},
                       {"chain_idx", Const::make(context, 0)},
-                      {"rate_matched", Const::make(context, false)},
+                      {"rate_matched", Const::make(context, rate_matched)},
                       {"chain_en", Const::make(context, false)},
                       {"dimensionality", Const::make(context, 1)},
                       {"input_stride_0", Const::make(context, 1)},
@@ -589,7 +589,7 @@ namespace Halide {
                               stencil_valid_depth = child_node.stencil_valid_depth;
 
                           //FIXME: possible bug, should use depth of the fifo
-                          auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size);
+                          auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size, true);
                           //add ubuffer and wiring
                           auto row_buffer_coreir = def->addInstance("row_buf_"+context->getUnique(),
                                   "lakelib.unified_buffer", args);
