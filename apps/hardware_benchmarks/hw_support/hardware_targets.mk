@@ -160,6 +160,10 @@ run-coreir $(BIN)/output_coreir.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
 
+run-rewrite $(BIN)/output_rewrite.png: $(BIN)/process $(BIN)/design_top.json
+	@-mkdir -p $(BIN)
+	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
+
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
 	verilator --cc $(BIN)/top.v --exe $(COREIR_DIR)/tools/verilator/tb.cpp
@@ -182,6 +186,16 @@ compare compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BI
     (exit $$EXIT_CODE);  \
 	fi
 
+compare-rewrite: $(BIN)/output_rewrite.png $(BIN)/output_cpu.png $(BIN)/process
+	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_rewrite.png; \
+	EXIT_CODE=$$?; \
+	echo $$EXIT_CODE; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+    cp $(BIN)/output_rewrite.png $(BIN)/output.png; \
+    (exit $$EXIT_CODE); \
+	else \
+    (exit $$EXIT_CODE);  \
+	fi
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
