@@ -371,7 +371,8 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     writeIdx.increment();
   } else {
     if (uses_inputenable) {
-      state.setValue(inen_name, BitVector(1, false));
+      //still need to enable input to push into junk data until get enough output
+      state.setValue(inen_name, BitVector(1, true));
     }
   }
   // propogate to all wires
