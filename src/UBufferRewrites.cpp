@@ -110,8 +110,20 @@ namespace Halide {
           }
       }
 
+      int flatten_portID(string port_name, string ostream_name) {
+          auto output_blk = ubuf.get_output_block(ostream_name);
+          vector<int> flatten_vec;
+          for (size_t i = 0; i < output_blk.size(); i ++) {
+              int temp = std::accumulate(output_blk.begin(), output_blk.begin() + i, 1, std::multiplies<int>());
+              flatten_vec.push_back(temp);
+          }
+          auto pos = read_ports_offset.at(ostream_name).at(port_name);
+          return std::inner_product(pos.begin(), pos.end(), flatten_vec.begin(), 0);
+      }
+
       void rename_rd_pt() {
 
+          cout << ubuf << endl;
           sort_read_stream_bundle();
 
           map<string, const Call*> rd_pt;
@@ -125,14 +137,13 @@ namespace Halide {
           }
           for (auto itr: read_stream_bundle) {
               string stream_name = itr.first;
-              int cnt = 0;
               for (auto old_pt_name: itr.second) {
-                  string new_pt_name = "read_port_" + stream_name + "_" + to_string(cnt);
+                  int ptID = flatten_portID(old_pt_name, stream_name);
+                  string new_pt_name = "read_port_" + stream_name + "_" + to_string(ptID);
                   rd_pt.insert(make_pair(new_pt_name, read_ports.at(old_pt_name)));
                   sched.insert(make_pair(new_pt_name, schedules.at(old_pt_name)));
                   map_insert(rd_stream_bd, stream_name, new_pt_name);
                   rd_pt_offset[stream_name][new_pt_name] = read_ports_offset.at(stream_name).at(old_pt_name);
-                  cnt ++;
               }
           }
           read_ports = rd_pt;
@@ -630,6 +641,9 @@ namespace Halide {
                   //possible bug: cold only support dilation = 1 convolution kernel
                   //add register
                   //add delay use a flag to decide whether use the stencil valid from tile
+
+                  int start_pos = 0;
+
                   for (auto it: port_map) {
                       string port_name = it.second;
                       auto child_node = child[port_name];
@@ -640,20 +654,22 @@ namespace Halide {
                       cout << "visit port: " << port_name << endl;
                       //auto d0 = def->addInstance("d_reg" + context->getUnique(),"corebit.reg",
                       //       {{"width",Const::make(context,width)}});
-                      //FIXME: possible bug, should use depth of the fifo
-                      auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
-                      def->connect(d0->sel("in"), last_data);
-                      last_data = d0->sel("out");
 
+                      //use fifo depth to create the corresponding delay
+                      for (int depth = start_pos; depth < it.first; depth ++) {
+                        auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
+                        def->connect(d0->sel("in"), last_data);
+                        last_data = d0->sel("out");
+                      }
                       //use a dummy data valid since not use in register
                       child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
-
-
+                      start_pos = it.first;
                   }
                   return nullptr;
               }
               else {
                   //add row buffer
+                  int start_pos = 0;
                   for (auto it: port_map) {
                       string port_name = it.second;
                       auto child_node = child[port_name];
@@ -666,38 +682,49 @@ namespace Halide {
                           bool last_port_flag = (port_name == port_map.rbegin()->second);
 
                           int stencil_valid_depth = 0;
-                          if (last_port_flag)
+
+                          for(int depth = start_pos; depth < it.first; depth ++) {
+                            //set stencil valid
+                            if (last_port_flag && (depth == it.first-1))
                               stencil_valid_depth = child_node.stencil_valid_depth;
 
-                          //FIXME: possible bug, should use depth of the fifo
-                          auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size, true);
-                          //add ubuffer and wiring
-                          auto row_buffer_coreir = def->addInstance("row_buf_"+context->getUnique(),
-                                  "lakelib.unified_buffer", args);
-                          def->connect(last_data_valid, row_buffer_coreir->sel("wen"));
-                          def->connect(last_data, row_buffer_coreir->sel("datain0"));
+                            auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size, true);
+                            //add ubuffer and wiring
+                            auto row_buffer_coreir = def->addInstance("row_buf_"+context->getUnique(),
+                                    "lakelib.unified_buffer", args);
+                            def->connect(last_data_valid, row_buffer_coreir->sel("wen"));
+                            def->connect(last_data, row_buffer_coreir->sel("datain0"));
 
-                          //update the last data and valid
-                          last_data = row_buffer_coreir->sel("dataout0");
-                          last_data_valid = row_buffer_coreir->sel("valid");
+                            //update the last data and valid
+                            last_data = row_buffer_coreir->sel("dataout0");
+                            last_data_valid = row_buffer_coreir->sel("valid");
 
-                          //generate coreIR for next level, ignore the inner level stencil valid
-                          child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
 
-                          //wire the reset and ren
-                          //wire the peripherial
-                          def->connect(row_buffer_coreir->sel("reset"), def->sel("self")->sel("reset"));
-                          def->connect(row_buffer_coreir->sel("flush"), def->sel("self")->sel("flush"));
+                            //wire the reset and ren
+                            //wire the peripherial
+                            def->connect(row_buffer_coreir->sel("reset"), def->sel("self")->sel("reset"));
+                            def->connect(row_buffer_coreir->sel("flush"), def->sel("self")->sel("flush"));
 
-                          //TODO:use the same const
-                          auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
-                          def->connect(row_buffer_coreir->sel("ren"), const_true->sel("out"));
+                            //TODO:use the same const
+                            auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
+                            def->connect(row_buffer_coreir->sel("ren"), const_true->sel("out"));
 
-                          //check if the ret is NULL
-                          if (last_port_flag) {
-                              Wireable* next_level_stencil_valid = row_buffer_coreir->sel("valid");
-                              return next_level_stencil_valid;
+                            //check if the ret is NULL
+                            if (depth == it.first - 1) {
+                              //generate coreIR for next level, ignore the inner level stencil valid
+                              child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
+
+                              //wire stencil valid
+                              if (last_port_flag) {
+                                Wireable* next_level_stencil_valid = row_buffer_coreir->sel("valid");
+                                return next_level_stencil_valid;
+                              }
+                            }
+
                           }
+                          start_pos = it.first;
+
+
                       }
                   }
               }
@@ -1397,8 +1424,6 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
       MemoryConstraints buf = map_find(f.first, buffers);
 
-      //get the out_stream port sort in order and rename read port
-      buf.rename_rd_pt();
 
       // Add hwbuffer field to memory constraints wrapper
       for (auto xcel : xcels) {
@@ -1408,6 +1433,10 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
           }
         }
       }
+
+      //get the out_stream port sort in order and rename read port
+      buf.rename_rd_pt();
+
       vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}, {"flush", context->BitIn()}};
       cout << "\t\tReads..." << endl;
       for (auto rd : buf.read_ports) {

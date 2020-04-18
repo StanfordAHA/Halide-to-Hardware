@@ -214,6 +214,15 @@ std::vector<AccessDimSize> create_linear_addr(std::vector<int> ranges,
    return dims;
 }
 
+vector<int> HWBuffer::get_output_block(string os_name) {
+    vector<int> output_blk;
+    auto ostream = ostreams.at(os_name);
+    for (const auto odim : ostream.odims) {
+        output_blk.push_back(id_const_value(odim.output_block));
+    }
+    return output_blk;
+}
+
 
 }  // namespace Internal
 }  // namespace Halide
