@@ -451,6 +451,16 @@ std::string find_text(std::string text, std::string before) {
     return text.substr(0, text.find(before));
 }
 
+std::string vec2string(vector<string> vec, string sep, size_t begin, size_t end) {
+    string ret = "";
+    for (size_t i = begin; i < end; i ++) {
+        auto itr = vec.begin() + i;
+        ret += (*itr) + "_";
+    }
+    ret.pop_back();
+    return ret;
+}
+
 template<typename T>
 void run_coreir_rewrite_on_interpreter(string coreir_design,
                                string rewrite_buf,
@@ -507,6 +517,7 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
 
         auto ub_ins = instances.at(ub_name);
         cout << ub_ins->getConnectedWireables().size() << endl;
+        string stream_name;
         for (auto itr_sel: ub_ins->getSelects()) {
             auto pt = addPassthrough(itr_sel.second, itr.first + "_" + itr_sel.first);
             auto pt_name_list = get_seg_list(itr_sel.first, '_');
@@ -516,7 +527,10 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
 
             }
             else if (pt_name_list.front() == "dataout") {
-                moddef->connect(buf_ins->sel("read_port_"+pt_name_list.back()), pt->sel("in"));
+                stream_name = vec2string(pt_name_list, "_", 1, pt_name_list.size()-1);
+                moddef->connect(
+                        buf_ins->sel("read_port_" +stream_name+"_"+pt_name_list.back()),
+                        pt->sel("in"));
                 inlineInstance(pt);
             }
             else if (pt_name_list.front() == "ren") {
@@ -527,7 +541,8 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
                 inlineInstance(pt);
             }
             else if (pt_name_list.front() == "valid") {
-                moddef->connect(buf_ins->sel("read_port_0_valid"), pt->sel("in"));
+                //TODO valid should be associate with stream
+                moddef->connect(buf_ins->sel("read_port_"+stream_name+"_0_valid"), pt->sel("in"));
                 inlineInstance(pt);
             }
             else {
