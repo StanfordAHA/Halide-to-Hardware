@@ -29,8 +29,8 @@ namespace Halide {
       map<string, vector<string> > read_stream_bundle;
 
       //starting address
-      map<string, vector<int>> read_ports_offset;
-      map<string, vector<int>> write_ports_offset;
+      map<string, map<string, vector<int>> > read_ports_offset;
+      map<string, map<string, vector<int>> > write_ports_offset;
 
       // This is an ordinal schedule, it does not
       // describe cycle accurate timing of inputs and
@@ -50,6 +50,19 @@ namespace Halide {
               sum += diff;
           }
           return sum <= 0;
+      }
+
+      static bool lex_lt(vector<int> p1_vec, vector<int> p2_vec) {
+        internal_assert(p1_vec.size() == p2_vec.size()) << "compared vector has different size!\n";
+        for (size_t i = p1_vec.size()-1; i >= 0; i -- ) {
+            if(p1_vec.at(i) < p2_vec.at(i)) {
+                return true;
+            }
+            else if (p1_vec.at(i) > p2_vec.at(i)) {
+                return false;
+            }
+        }
+        internal_assert(false) << "should not have 2 vector with the same size";
       }
 
       //Use a more generic way to deduce output starting address
@@ -76,6 +89,74 @@ namespace Halide {
 
           }
           return ports_offset;
+      }
+
+
+      void sort_read_stream_bundle() {
+          for (auto & itr : read_stream_bundle) {
+              auto & pt_bundle = itr.second;
+              map<string, const Call*> temp;
+              for(auto pt_name: itr.second) {
+                  temp.insert(make_pair(pt_name, read_ports.at(pt_name)));
+              }
+              auto ports_offset = get_port_offset(temp);
+              read_ports_offset[itr.first] = ports_offset;
+              sort(pt_bundle.begin(), pt_bundle.end(),
+                      [ports_offset](string p1, string p2) {
+                      auto pos1 = ports_offset.at(p1);
+                      auto pos2 = ports_offset.at(p2);
+                      return lex_lt(pos1, pos2);
+                      } );
+          }
+      }
+
+      void rename_rd_pt() {
+
+          sort_read_stream_bundle();
+
+          map<string, const Call*> rd_pt;
+          map<string, vector<string> > rd_stream_bd;
+          map<string, map<string, vector<int> > > rd_pt_offset;
+          map<string, StmtSchedule> sched;
+          for (auto itr: schedules) {
+              if (is_write(itr.first)) {
+                  sched[itr.first] = itr.second;
+              }
+          }
+          for (auto itr: read_stream_bundle) {
+              string stream_name = itr.first;
+              int cnt = 0;
+              for (auto old_pt_name: itr.second) {
+                  string new_pt_name = "read_port_" + stream_name + "_" + to_string(cnt);
+                  rd_pt.insert(make_pair(new_pt_name, read_ports.at(old_pt_name)));
+                  sched.insert(make_pair(new_pt_name, schedules.at(old_pt_name)));
+                  map_insert(rd_stream_bd, stream_name, new_pt_name);
+                  rd_pt_offset[stream_name][new_pt_name] = read_ports_offset.at(stream_name).at(old_pt_name);
+                  cnt ++;
+              }
+          }
+          read_ports = rd_pt;
+          rd_stream_bd = read_stream_bundle;
+          read_ports_offset = rd_pt_offset;
+          schedules = sched;
+      }
+
+      map<string, vector<int> > regenerate_port_map(map<string, vector<int> > port_map, string stream_name) {
+          map<string, vector<int> > ret;
+
+          vector<pair<string, vector<int>>> sort_vec(port_map.begin(), port_map.end());
+          sort(sort_vec.begin(), sort_vec.end(),
+                  [](pair<string, vector<int> > p1, pair<string, vector<int> > p2) {
+                    auto p1_vec = p1.second;
+                    auto p2_vec = p2.second;
+                    return lex_lt(p1_vec, p2_vec);
+                  });
+
+          for (size_t i = 0; i < sort_vec.size(); i++) {
+              string pt_name = "read_port_" + stream_name + "_" + to_string(i);
+              ret.insert(make_pair(pt_name, sort_vec.at(i).second));
+          }
+          return ret;
       }
 
 
@@ -1038,11 +1119,22 @@ namespace Halide {
             //TODO: solve this self update rewrite
             if (name == buffer.name)
                 continue;
-            map<string, const Call*> read_ports_in_stream;
-            for (auto pt_name: buffer.read_stream_bundle.at(name)) {
-                read_ports_in_stream.insert(make_pair(pt_name, buffer.read_ports.at(pt_name)) );
-            }
-            auto read_ports_offset = buffer.get_port_offset(read_ports_in_stream);
+            //map<string, const Call*> read_ports_in_stream;
+            //for (auto pt_name: buffer.read_stream_bundle.at(name)) {
+            //    read_ports_in_stream.insert(make_pair(pt_name, buffer.read_ports.at(pt_name)) );
+            //}
+            //auto read_ports_offset = buffer.get_port_offset(read_ports_in_stream);
+
+            ////rewrite the port name
+            //auto new_read_ports_offset = buffer.regenerate_port_map(read_ports_offset, name);
+            //for (auto itr: new_read_ports_offset) {
+            //    cout << "\t pt: " << itr.first << ", pos: [" << itr.second << "]\n";
+            //}
+
+            //internal_assert(false);
+
+            auto read_ports_offset = buffer.read_ports_offset.at(name);
+
             size_t num_dim = buffer.ubuf.ldims.size();
             std::cout << "Extract the offset of read port:\n" ;
 
@@ -1304,6 +1396,10 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
       cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
       MemoryConstraints buf = map_find(f.first, buffers);
+
+      //get the out_stream port sort in order and rename read port
+      buf.rename_rd_pt();
+
       // Add hwbuffer field to memory constraints wrapper
       for (auto xcel : xcels) {
         for (auto buffer : xcel.hwbuffers) {
