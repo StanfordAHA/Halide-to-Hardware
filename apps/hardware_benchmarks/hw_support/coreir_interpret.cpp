@@ -528,9 +528,11 @@ void run_coreir_rewrite_on_interpreter(string coreir_design,
             }
             else if (pt_name_list.front() == "dataout") {
                 stream_name = vec2string(pt_name_list, "_", 1, pt_name_list.size()-1);
-                moddef->connect(
-                        buf_ins->sel("read_port_" +stream_name+"_"+pt_name_list.back()),
-                        pt->sel("in"));
+                string pt_name = "read_port_" +stream_name+"_"+pt_name_list.back();
+                if(buf_ins->canSel(pt_name)) {
+                    moddef->connect(buf_ins->sel(pt_name), pt->sel("in"));
+                    cout << "\t wire :" << pt_name << endl;
+                }
                 inlineInstance(pt);
             }
             else if (pt_name_list.front() == "ren") {

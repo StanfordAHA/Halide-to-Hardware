@@ -218,6 +218,8 @@ struct HWBuffer {
            std::vector<std::string> loops, int store_index, int compute_index, bool is_inlined, bool is_output,
            std::string iname="input", std::string oname="output");
 
+  std::vector<int> get_output_block(std::string os_name);
+
 };
 
 }  // namespace Internal
