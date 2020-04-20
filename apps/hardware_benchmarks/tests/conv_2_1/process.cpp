@@ -19,6 +19,10 @@ int main(int argc, char **argv) {
                                             {"cpu",
                                                 [&]() { conv_2_1(processor.input, processor.output); }
                                             },
+                                            {"rewrite",
+                                                [&]() { run_coreir_rewrite_on_interpreter<>("bin/design_top.json", "bin/ubuffers.json", processor.input, processor.output,
+                                                                                    "self.in_arg_0_0_0", "self.out_0_0"); }
+                                            },
                                             {"coreir",
                                                 [&]() { run_coreir_on_interpreter<>("bin/design_top.json", processor.input, processor.output,
                                                                                     "self.in_arg_0_0_0", "self.out_0_0"); }
@@ -27,6 +31,6 @@ int main(int argc, char **argv) {
 
   processor.input = Buffer<uint8_t>(64, 64);
   processor.output = Buffer<uint8_t>(64, 63);
-  
+
   processor.process_command(argc, argv);
 }
