@@ -610,6 +610,14 @@ namespace Halide {
               return args;
           }
 
+          Wireable* generate_stencil_valid(Wireable* last_valid, int row_size, int depth) {
+              auto counter = build_counter(def, 16, 0, row_size, 1);
+              auto valid_out = geq(counter->sel("out"), depth);
+              def->connect(counter->sel("en"), last_valid);
+              def->connect(counter->sel("reset"), def->sel("self")->sel("reset"));
+              return valid_out;
+          }
+
           Wireable* generate_coreir(pair<Wireable*, Wireable*> input_pair, string rp,  vector<int> flatten_vec) {
               /* The shift register always have only one input and depth number of output
                * The first port will simply pass through, and the other node will go through
@@ -660,12 +668,18 @@ namespace Halide {
                         auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
                         def->connect(d0->sel("in"), last_data);
                         last_data = d0->sel("out");
+
+                        //add a delay path, maybe leave dangling if have row buffer
+                        //auto delayedEn = def->addInstance("delayed_en" + context->getUnique(),"corebit.reg");
+                        //def->connect(last_data_valid, delayedEn->sel("in"));
+                        //last_data_valid= delayedEn->sel("out");
                       }
                       //use a dummy data valid since not use in register
                       child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
                       start_pos = it.first;
                   }
-                  return nullptr;
+                  last_data_valid = generate_stencil_valid(last_data_valid, range.front()-1, start_pos);
+                  return last_data_valid;
               }
               else {
                   //add row buffer
