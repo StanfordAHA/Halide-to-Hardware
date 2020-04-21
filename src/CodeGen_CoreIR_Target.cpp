@@ -2876,7 +2876,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::visit_hwbuffer(const Call *op) {
       auto cons_ub_outputs = get_wires(coreir_ub, {(size_t)num_output_ports}, "dataout_"+consumer_name+"_");
       auto output_reshape = output_reshapes.at(consumer_name);
       auto coreir_reshape_for_outputs = get_wires(output_reshape->sel("in"), {(size_t)num_output_ports});
-      connect_wires(def, coreir_ub_outputs, coreir_reshape_for_outputs);
+      connect_wires(def, cons_ub_outputs, coreir_reshape_for_outputs);
       add_wire(ub_out_name + "." + consumer_name, output_reshape->sel("out"));
     }
 
