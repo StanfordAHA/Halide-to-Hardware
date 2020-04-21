@@ -1129,8 +1129,9 @@ namespace Halide {
 
           for (size_t i = 1; i < port_list.size(); i++) {
             string next_pt = port_list[i];
+            //cout << "\tnext pt: " << next_pt << ", " << buffer.is_read(next_pt) << ", schedule: " << buffer.schedule(next_pt)  << ", last pt: " << last_pt << ", " << buffer.is_write(last_pt) << ", schedule: " << buffer.schedule(last_pt) << endl;
 
-            if (buffer.is_write(next_pt)) {
+            if (buffer.is_write(last_pt)) {
               auto last_cntrl = def->sel("self." + last_pt + "_" + (buffer.is_write(last_pt) ? "en" : "valid"));
               auto last_data = def->sel("self." + last_pt);
 
