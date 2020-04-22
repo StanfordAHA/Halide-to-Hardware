@@ -51,7 +51,7 @@ public:
           // Produce loop levels: host, global buffer, cgra
           output.tile(x, y, x_host,y_host, xi,yi, 256,256);
           output.tile(xi, yi, x_gb,y_gb, x_cgra,y_cgra, 64-2,64-2);
-          output.hw_accelerate(xi, x_host);
+          output.in().hw_accelerate(xi, x_host);
 
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
@@ -66,7 +66,8 @@ public:
             .unroll(r.y);
 
           // Define some hardware elements
-          conv.linebuffer();
+          //conv.linebuffer();
+          //conv.compute_at(output, xi).store_at(output, x_gb);
           hw_input.stream_to_accelerator();
 
           // compute the kernel values only once (they'll be converted to constants anyway)

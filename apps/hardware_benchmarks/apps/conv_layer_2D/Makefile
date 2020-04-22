@@ -1,17 +1,15 @@
 #### Halide flags
-HALIDE_BIN_PATH := ../../../..
-HALIDE_SRC_PATH := ../../../..
-include ../../../support/Makefile.inc
-
-BIN ?= bin
+#HALIDE_BIN_PATH := ../../../..
+#HALIDE_SRC_PATH := ../../../..
+include ../../hw_support/Makefile.inc
 
 TESTNAME = conv_layer_2D
 USE_COREIR_VALID = 1
 
 include ../../hw_support/hardware_targets.mk
 
-all: $(BIN)/process
-
+#all: $(BIN)/process
+#
 #$(BIN)/conv_layer.generator: conv_layer_generator.cpp $(GENERATOR_DEPS)
 #	@-mkdir -p $(BIN)
 #	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)

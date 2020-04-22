@@ -18,7 +18,7 @@ public:
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
 
         Func mult, div, add, sub, mod, neg;
-        neg(x,y)  = -Expr(bfloat16_t(13.3));
+        neg(x,y)  = 0;//-Expr(bfloat16_t(13.3));
         mult(x,y) = hw_input(x,y) * neg(x,y);
         div(x,y)  = hw_input(x,y) / Expr(bfloat16_t(4.56));
         mod(x,y)  = hw_input(x,y);// % 16;

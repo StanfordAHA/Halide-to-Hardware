@@ -28,11 +28,6 @@ int main(int argc, char **argv) {
   
   int result = processor.process_command(argc, argv);
 
-  for (size_t i=0; i<10; ++i) {
-    std::cout << "input(" << i << ",0) = " << +processor.input(i,0)
-              << "   /pi = " << +processor.output(i,0) << std::endl;
-  }
-
   return result;
   
 }

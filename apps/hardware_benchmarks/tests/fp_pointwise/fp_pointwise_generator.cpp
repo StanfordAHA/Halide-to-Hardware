@@ -19,8 +19,7 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
         Expr pi = bfloat16_t(3.1415926535f); // this should be stored as: 0x4049 == 3.140625
-        //product(x, y)  = hw_input(x, y) * pi;
-        product(x, y)  = hw_input(x, y) + pi;
+        product(x, y)  = hw_input(x, y) * pi;
 
         // with pi, round to even outputs 7 * pi = 22.0
         //    while trunction outputs     7 * pi = 21.875
