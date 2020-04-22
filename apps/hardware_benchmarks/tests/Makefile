@@ -129,7 +129,7 @@ all: $(ALL_TESTS_SORTED)
 $(ALL_TESTS):
 	@$(call run_test,$@,bin/design_top.json)
 
-testtravis test_travis: conv_3_3
+testtravis test_travis: conv_3_3 fp_arith
 testall test_all: runall
 runall run_all: $(ALL_TESTS)
 compileall compile_all coreirall coreir_all: $(ALL_TESTS:=-coreir)

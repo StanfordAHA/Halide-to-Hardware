@@ -1,18 +1,55 @@
-service: docker
-language: minimal
-dist: xenial
-
 notifications:
   email: false
+dist: trusty
+sudo: false
+language: c
+compiler:
+  # Comment out for now to keep build matrix small
+  - gcc
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.9
+      - libedit-dev
+      - libpng-dev
+      - graphviz
+env:
+  # Configurations
+  #
+  # Each line in the ``env`` section represents a set of environment
+  # variables passed to a build configuration
+  #
+  # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
+  # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
+  - LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-4.9 CC_=gcc-4.9
+
+cache: apt
+
+# Note the commands below are written assuming Ubuntu 12.04LTS
+before_install:
+  # set variables necessary for halide
+  - source test/scripts/before_install_travis.sh
+  # set envirnoment variables specific to this repo
+  - export TEST_HALIDE_GEN=true
 
 install:
-  - ./test/scripts/garnet_docker_build.sh
+  # install framework specific to halide
+  - test/scripts/install_travis.sh  
+  
+  # compile coreir
+  - git clone -b master https://github.com/rdaly525/coreir.git
+  - cd coreir/build && cmake .. && make -j2 && cd ../..
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - echo "done with travis before_deploy"
+  - make distrib
+  - rm distrib/halide.tgz
+  - rm distrib/bin/libHalide.so
+  - tar -czvf halide_distrib.tgz distrib
 
 deploy:
   provider: releases
@@ -24,14 +61,22 @@ deploy:
     tags: true
     all_branches: true
 
+before_script:
+  # create Halide compiler
+  - make -j2 distrib
+  
+script:
+  # run test cases for hardware codegens
+  - export HALIDE_DEBUG_REDIRECT=""
+  - bash test/scripts/build_travis.sh
+
 after_script: |
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
   echo "TRAVIS_BRANCH=$TRAVIS_BRANCH TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST"
-  # Is this actually required to deploy?
-  if [[ ($TRAVIS_PULL_REQUEST == false) ]] ; then
+  if [[ ($TRAVIS_BRANCH == master) &&
+        ($TRAVIS_PULL_REQUEST == false) ]] ; then
     curl -LO --retry 3 https://raw.github.com/mernst/plume-lib/master/bin/trigger-travis.sh
     sh trigger-travis.sh StanfordAHA Applications $TRAVIS_ACCESS_TOKEN
   fi
-
     
     

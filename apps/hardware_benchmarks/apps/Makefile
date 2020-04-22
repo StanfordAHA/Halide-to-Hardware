@@ -96,7 +96,7 @@ all: testall
 
 testall test_all: runall
 
-testtravis test_travis: pointwise
+testtravis test_travis: pointwise harris
 
 list:
 	@echo "APPS:"
