@@ -18,10 +18,10 @@ docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/Halide-to-Hardwa
 
 echo 'Running Halide build...'
 # Build coreir
-docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; 	git clone --depth 1 --branch rm-ubuf-master https://github.com/rdaly525/coreir coreir"
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; 	git clone --depth 1 --branch fix-simplugin https://github.com/rdaly525/coreir coreir"
 docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/coreir/build && cmake .. && make -j4"
 # Build BufferMapping
-docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; git clone --branch accumulation --depth 1 https://github.com/joyliu37/BufferMapping"
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; git clone --branch new_config --depth 1 https://github.com/joyliu37/BufferMapping"
 docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/BufferMapping/cfunc; make lib"
 docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/BufferMapping"
 # Run rest of GarnetFlow build script
