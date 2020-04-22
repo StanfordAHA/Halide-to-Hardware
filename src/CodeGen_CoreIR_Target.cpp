@@ -71,6 +71,16 @@ int id_const_value(const Expr e) {
   }
 }
 
+float id_fconst_value(const Expr e) {
+  if (const FloatImm* e_float = e.as<FloatImm>()) {
+    return e_float->value;
+
+  } else {
+    //internal_error << "invalid constant expr\n";
+    return -1;
+  }
+}
+
 vector<CoreIR::Wireable*> get_wires(CoreIR::Wireable* base_wire, const vector<size_t> ports) {
   int num_ports = 1;
   for (const auto& port_length : ports) {
@@ -925,16 +935,6 @@ int CodeGen_CoreIR_Target::CodeGen_CoreIR_C::id_const_value(const Expr e) {
 
   } else if (const UIntImm* e_uint = e.as<UIntImm>()) {
     return e_uint->value;
-
-  } else {
-    //internal_error << "invalid constant expr\n";
-    return -1;
-  }
-}
-
-float id_fconst_value(const Expr e) {
-  if (const FloatImm* e_float = e.as<FloatImm>()) {
-    return e_float->value;
 
   } else {
     //internal_error << "invalid constant expr\n";

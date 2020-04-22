@@ -70,6 +70,16 @@ int id_const_value(const Expr e) {
   }
 }
 
+float id_fconst_value(const Expr e) {
+  if (const FloatImm* e_float = e.as<FloatImm>()) {
+    return e_float->value;
+
+  } else {
+    //internal_error << "invalid constant expr\n";
+    return -1;
+  }
+}
+
 std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter) {
     std::vector<std::string> tokens;
     size_t prev = 0, pos = 0;
@@ -99,7 +109,7 @@ bool is_parallelized(const For *op) {
 
 class FirstForName : public IRVisitor {
   using IRVisitor::visit;
-  
+
   void visit(const For *op) {
     var = op->name;
   }
@@ -116,9 +126,9 @@ std::string first_for_name(Stmt s) {
 
 class ContainsCall : public IRVisitor {
   string var;
-  
+
   using IRVisitor::visit;
-  
+
   void visit(const Call *op) {
     if (op->name == var) {
       found = true;
@@ -139,7 +149,7 @@ bool contains_call(Stmt s, string var) {
 
 class ExamineLoopLevel : public IRVisitor {
   using IRVisitor::visit;
-  
+
   void visit(const For *op) {
     // don't recurse if not parallelized
     if (is_parallelized(op) || is_one(op->extent)) {
@@ -182,11 +192,11 @@ bool call_at_level(Stmt s, string var) {
   s.accept(&ell);
   return ell.found_call;
 }
-  
+
 class ExpandExpr : public IRMutator {
     using IRMutator::visit;
     const Scope<Expr> &scope;
-  
+
     Expr visit(const Variable *var) override {
         if (scope.contains(var->name)) {
             Expr expr = scope.get(var->name);
@@ -201,11 +211,11 @@ class ExpandExpr : public IRMutator {
     Stmt visit(const For *old_op) override {
       Stmt s = IRMutator::visit(old_op);
       const For *op = s.as<For>();
-      
+
       if (is_one(op->extent)) {
         Stmt new_body = substitute(op->name, op->min, op->body);
         return new_body;
-        
+
       } else {
         return op;
       }
@@ -245,7 +255,7 @@ class FindInnerLoops : public IRVisitor {
     //std::cout << "looking at pc " << op->name << " where " << outer_loop_exclusive.lock().func()
     //          << outer_loop_exclusive.lock().var().name() << " and " << Var::outermost().name()
     //          << std::endl;
-    if (outer_loop_exclusive.lock().func() == op->name && 
+    if (outer_loop_exclusive.lock().func() == op->name &&
         outer_loop_exclusive.lock().var().name() == Var::outermost().name()) {
       in_inner_loops = true;
     }
@@ -284,14 +294,14 @@ class FindInnerLoops : public IRVisitor {
     }
   }
 
-public:  
+public:
   FindInnerLoops(Function f, LoopLevel outer_level, LoopLevel inner_level, bool inside)
     : func(f), outer_loop_exclusive(outer_level), inner_loop_inclusive(inner_level),
       in_inner_loops(inside) { }
 
   vector<string> inner_loops;
   vector<string> returned_inner_loops;
-  
+
 };
 
 // Produce a vector of the loops within a for-loop-nest.

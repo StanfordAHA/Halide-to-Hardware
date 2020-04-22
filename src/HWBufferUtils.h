@@ -5,7 +5,7 @@
  *
  * Defines a general utility functions that are used in the
  * hardware passes.
- * 
+ *
  */
 
 #include <map>
@@ -28,6 +28,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<std::string>& vec);
 // consider just using as_const_int from IROperator.h
 int to_int(Expr expr);
 int id_const_value(const Expr e);
+float id_fconst_value(const Expr e);
 
 // consider just using split_string in Util.cpp
 std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);

@@ -38,7 +38,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+
           hw_input.compute_root();
           hw_output.compute_root();
 
@@ -46,7 +46,7 @@ public:
           output.bound(y, 0, 64-2);
           conv.bound(x, 0, 64-2);
           conv.bound(y, 0, 64-2);
-          
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
@@ -56,11 +56,10 @@ public:
 
           conv.linebuffer();
 
-          kernel.compute_at(hw_output, yi);
 
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
-          
+
         } else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();
@@ -68,7 +67,7 @@ public:
             .unroll(r.x, 3)
             .unroll(r.y, 3);
         }
-        
+
     }
 };
 

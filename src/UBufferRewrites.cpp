@@ -307,7 +307,7 @@ namespace Halide {
               size_t offset = 0;
               for (auto rdOp : rd.second) {
                 if (rdOp->values.size() == 1)
-                    if(id_const_value(rdOp->values.front()) != -1) {
+                    if(id_const_value(rdOp->values.front()) != -1 || id_fconst_value(rdOp->values.front()) != -1) {
                         //initial a const value also remove one out port
                         auto & call_list = calls.at(b);
                         call_list.erase(call_list.begin());
