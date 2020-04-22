@@ -39,8 +39,13 @@ install:
   - test/scripts/install_travis.sh  
   
   # compile coreir
-  - git clone -b master https://github.com/rdaly525/coreir.git
+  - git clone -b fix_simplugin https://github.com/rdaly525/coreir.git
   - cd coreir/build && cmake .. && make -j2 && cd ../..
+
+  # compile BufferMapping
+  - git clone -b new_config https://github.com/joyliu37/BufferMapping
+  - cd BufferMapping/cfunc && make lib -j2 && cd ../..
+
 
 before_deploy:
   - git config --local user.name "jeffsetter"
