@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include "ExtractHWBuffers.h"
 #include "HWBuffer.h"
 #include "HWBufferUtils.h"
@@ -1822,11 +1824,16 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
   }
   //std::cout << "linearized address space" << std::endl;
 
+  std::ofstream exfile;
+  exfile.open ("bin/extraction_debug.txt");
+  exfile << "Writing this to a file.\n";
+
   for (auto &hwbuffer_pair : xcel->hwbuffers) {
     auto& kernel = hwbuffer_pair.second;
     fixup_hwbuffer(kernel);
     //std::cout << hwbuffer_pair.first << " is extracted w/ inline=" << kernel.is_inlined << " and num_dims=" << kernel.dims.size() << std::endl;
     std::cout << "Final buffer:\n" << kernel << std::endl; // << kernel.my_stmt;
+    exfile << "Final buffer:\n" << kernel << std::endl;
 
     //auto num_inputs = kernel.func.updates().size() + 1;
     //auto num_outputs = kernel.consumer_buffers.size();
@@ -1843,6 +1850,8 @@ void extract_hw_xcel_top_parameters(Stmt s, Function func,
     //kernel.streaming_loops = xcel->streaming_loop_levels;
     //kernel.compute_level = xcel->streaming_loop_levels.back();
   }
+
+  exfile.close();
 
 }
 

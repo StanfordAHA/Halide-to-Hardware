@@ -405,7 +405,12 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
       std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
       readIdx.increment();
     }
+
+    // give another rising edge (execute seq)
+    state.exeSequential();
+    
   } else {
+    state.execute();
     //if (std::is_floating_point<T>::value) {
     //  T output_value = state.getBitVec(output_name);
     //  output(x,y,c) = output_value;
@@ -432,7 +437,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   }
 
   // give another rising edge (execute seq)
-  state.exeSequential();
+  //state.exeSequential();
 }
 
 std::vector<std::string> get_seg_list(std::string str, char token) {

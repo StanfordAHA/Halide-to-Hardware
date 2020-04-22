@@ -16,7 +16,7 @@ GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
 HALIDE_SRC_PATH ?= ../../../..
-LDFLAGS += -lcoreir-lakelib -DVERBOSE=1
+LDFLAGS += -lcoreir-lakelib
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
@@ -25,6 +25,14 @@ USE_COREIR_VALID ?= 0
 
 # set this to "1>/dev/null" or "&>/dev/null" to suppress debug output to std::cout
 HALIDE_DEBUG_REDIRECT ?=
+# this is used in the buffermapping (especially ubuffer simulation)
+VERBOSE ?= 0
+ifeq ($(VERBOSE), 0)
+	LDFLAGS += -DVERBOSE=0
+else
+	LDFLAGS += -DVERBOSE=1
+endif
+
 
 HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
 
@@ -211,6 +219,16 @@ update_golden updategolden golden: $(BIN)/output_cpu.png
 
 check:
 	@printf "%-25s" $(TESTNAME);
+	@if [ -f "$(BIN)/$(TESTNAME).generator" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " halide"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!halide"; \
+	fi
+	@if [ -f "$(BIN)/extraction_debug.txt" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " extract"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!extract"; \
+	fi
 	@if [ -f "$(BIN)/ubuffers.json" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " rewrite"; \
 	else \

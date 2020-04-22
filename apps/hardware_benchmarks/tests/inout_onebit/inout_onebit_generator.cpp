@@ -9,6 +9,8 @@ public:
     Input<Buffer<bool>>  input{"input", 2};
     Output<Buffer<bool>> output{"output", 2};
 
+    int imgsize = 62;
+  
     void generate() {
         /* THE ALGORITHM */
 
@@ -27,6 +29,9 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
+
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
           
           hw_input.compute_root();
           hw_output.compute_root();

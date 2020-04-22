@@ -11,7 +11,7 @@ public:
 
     void generate() {
         /* THE ALGORITHM */
-        int stride = 1;
+        int stride = 2;
 
         Var x("x"), y("y");
 
@@ -31,6 +31,10 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
             Var xi, yi, xo, yo;
+
+            output.bound(x, 0, 64);
+            output.bound(y, 0, 64);
+            
             hw_input.compute_root();
             hw_output.compute_root();
 
