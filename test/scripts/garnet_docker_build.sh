@@ -25,8 +25,8 @@ docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; git clone --bra
 docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/BufferMapping/cfunc; make lib"
 docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/BufferMapping"
 # Build LLVM
-docker exec -i halide-hw-distro bash -c "export LLVM_VERSION=7"
-docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/install_travis.sh; cp -r ${TRAVIS_BUILD_DIR}/llvm /usr/lib/llvm-7"
+docker exec -i halide-hw-distro bash -c "export LLVM_VERSION=7; cd /GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/install_travis.sh; cp -r ${TRAVIS_BUILD_DIR}/llvm /usr/lib/llvm-7"
+docker exec -i halide-hw-distro bash -c "apt-get update"
 # Run rest of GarnetFlow build script
 docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; ./build_halide_distrib.sh"
 
