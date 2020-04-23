@@ -725,11 +725,14 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         // add as the output
         uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
         if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
+        std::cout << "output width is " << std::to_string(out_bitwidth) << std::endl;
         for (uint i=0; i<indices.size(); ++i) {
+          std::cout << "indices " << std::to_string(i) << std::endl;
           //std::cout << "output with appended width=" << indices[i] << std::endl;
           output_type = output_type->Arr(indices[i]);
           //output_type = output_type->Arr(1);
         }
+        std::cout << "output set adding " << arg_name << std::endl;
         hw_output_set.insert(arg_name);
 
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
