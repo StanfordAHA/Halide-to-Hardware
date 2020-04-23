@@ -97,10 +97,10 @@ void CodeGen_CoreIR_Testbench::visit(const ProducerConsumer *op) {
         string output_name = op->name.substr(target_prefix.length()); 
         CoreIR_Closure c(hw_body, output_name);
         vector<CoreIR_Argument> args = c.arguments(stencils);
-
+        std::cout << "got the arguments" << std::endl;
         // generate CoreIR target code using the child code generator
         string ip_name = unique_name("coreir_target");
-        
+        std::cout << "created a uniquie name" << std::endl;
         cg_target.add_kernel(hw_body, ip_name, args);
 
         // emits the target function call

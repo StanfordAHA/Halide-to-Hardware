@@ -624,8 +624,10 @@ void CodeGen_CoreIR_Target::add_kernel(Stmt s,
                                        const string &name,
                                        const vector<CoreIR_Argument> &args) {
   debug(1) << "CodeGen_CoreIR_Target::add_kernel " << name << "\n";
+  std::cout << "CodeGen_CoreIR_Target::add_kernel " << name << "\n";
 
   hdrc.add_kernel(s, name, args);
+  std::cout << "CodeGen_CoreIR_Target::add_kernel " << name << " for src\n";
   srcc.add_kernel(s, name, args);
 }
 
@@ -668,6 +670,7 @@ uint num_bits(uint N) {
 void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
                                                          const string &name,
                                                          const vector<CoreIR_Argument> &args) {
+  std::cout << "start of add kernel for src" << std::endl;
 
   //if (is_header()) {
   //  return;
@@ -680,8 +683,6 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   //  self = def->sel("self");
   //  return;
   //}
-
-
 
   // Emit the function prototype
   // keep track of number of inputs/outputs to determine if file is needed
