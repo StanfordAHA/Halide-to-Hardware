@@ -173,13 +173,13 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
 FUNCBUF_DIR ?= $(ROOT_DIR)/../BufferMapping/cfunc
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
-COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include
+COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include -Wno-int-in-bool-context
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
 COREIR_LD_FLAGS += -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -lcoreir-lakelib
 COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
-CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wno-int-in-bool-context -Wno-uninitialized -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare
+CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wno-uninitialized -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare
 ifneq (,$(findstring g++,$(CXX_VERSION)))
 GCC_MAJOR_VERSION := $(shell $(CXX) -dumpfullversion -dumpversion | cut -f1 -d.)
 GCC_MINOR_VERSION := $(shell $(CXX) -dumpfullversion -dumpversion | cut -f2 -d.)
