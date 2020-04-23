@@ -1820,6 +1820,7 @@ test_apps: distrib
 	done
 
 test_coreir:  distrib $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
+	echo $CXX
 	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit;
 	$(MAKE) -C apps/hardware_benchmarks/apps  cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
 
