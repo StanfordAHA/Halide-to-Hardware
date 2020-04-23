@@ -10,9 +10,9 @@ if [ ! -f ./.travis.yml ]; then
   echo "This script must be run from the root of the repository"
   exit 1
 fi
-export LLVM_VERSION=6.0.0
+#export LLVM_VERSION=7.0.0
 export BUILD_SYSTEM=MAKE
-export CXX=g++
+#export CXX=g++
 
 : ${LLVM_VERSION:?"LLVM_VERSION must be specified"}
 : ${BUILD_SYSTEM:?"BUILD_SYSTEM must be specified"}
