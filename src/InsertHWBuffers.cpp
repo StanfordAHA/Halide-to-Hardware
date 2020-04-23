@@ -77,7 +77,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
                 return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, body);
             }
         } else {
-        std::cout << "starting this replace: " << op->name << "\n";
+        //std::cout << "starting this replace: " << op->name << "\n";
             // replace the loop var over the dimensions of the original function
             // realization with the loop var over the stencil dimension.
             // e.g. funcA.s0.x -> funcA.stencil.s0.x
@@ -109,7 +109,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
             // create a let statement for the old_loop_var
             Expr old_min = op->min;
             Expr old_var_value = new_var + old_min;
-            std::cout << "replacing " << old_var_name << " with the value=" << old_var_value << "\n";
+            //std::cout << "replacing " << old_var_name << " with the value=" << old_var_value << "\n";
 
             // traversal down into the body
             scope.push(old_var_name, simplify(expand_expr(old_var_value, scope)));
@@ -123,7 +123,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
     }
 
     Stmt visit(const Provide *op) {
-      std::cout << "looking at this provide: " << op->name << " num=" << num_provides << " while kernel is " << kernel.name << "\n";
+      //std::cout << "looking at this provide: " << op->name << " num=" << num_provides << " while kernel is " << kernel.name << "\n";
       //std::cout << Stmt(op) << std::endl;
         if (op->name != kernel.name) {
           return IRMutator::visit(op);
@@ -151,19 +151,19 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
               string output_min_name = kernel.name + ".output_min_pos." + std::to_string(i);
               // check if this is an output that where we saved the min_pos
               if (scope.contains(output_min_name)) {
-                std::cout << op->name << " provide contains in scope" << std::endl;
+                //std::cout << op->name << " provide contains in scope" << std::endl;
                 offset = scope.get(output_min_name);
               } else {
                 //offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 //const auto rand_ostream = kernel.ostreams.at(target_buffer);
                 if (kernel.ostreams.count(kernel.name)) {
-                  std::cout << "choosing the accumulation output" << std::endl;
+                  //std::cout << "choosing the accumulation output" << std::endl;
                   //const auto rand_ostream = kernel.name == "conv" ? kernel.ostreams.at("hw_output") : kernel.ostreams.at(kernel.name);
                   const auto rand_ostream =  kernel.ostreams.at(kernel.name);
                   offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream.odims.at(i).output_min_pos;
-                  std::cout << "offset is " << offset << std::endl;
+                  //std::cout << "offset is " << offset << std::endl;
                 } else {
-                  std::cout << "choosing a random output" << std::endl;
+                  //std::cout << "choosing a random output" << std::endl;
                   const auto rand_ostream = kernel.ostreams.cbegin(); // FIXME: probably should be a specific ostream?
                   offset = kernel.ostreams.size() == 0 ? Expr(0) : rand_ostream->second.odims.at(i).output_min_pos;
                 }
@@ -182,7 +182,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
               //new_args[i] = simplify(expand_expr(mutate(op->args[i]) - kernel.dims.at(i).output_min_pos, scope));
               new_args[i] = simplify(expand_expr(mutate(op->args[i]) - offset, scope));
 
-              std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is "<< offset << "\n";
+              //std::cout << "old_arg" << i << " is " << op->args[i] << " while shift is "<< offset << "\n";
               //std::cout << "new_arg" << i << " is " << new_args[i] << "\n";
             }
 
@@ -191,7 +191,7 @@ class ReplaceReferencesWithBufferStencil : public IRMutator {
                 new_values[i] = mutate(op->values[i]);
             }
             Stmt new_op = Provide::make(stencil_name, new_values, new_args);
-            std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
+            //std::cout << "old provide replaced " << Stmt(op) << " with " << new_op << std::endl;
 
             num_provides++;
             return Provide::make(stencil_name, new_values, new_args);
@@ -435,8 +435,7 @@ bool need_hwbuffer(const HWBuffer &kernel) {
     bool ret = false;
     //std::cout << "checking if kernel " << kernel.name << " needs a hwbuffer...\n";
 
-    std::cout << " this buffer has num_accum=" << kernel.num_accum_iters
-              << " num_ostreams=" << kernel.ostreams.size() << std::endl;
+    //std::cout << " this buffer has num_accum=" << kernel.num_accum_iters << " num_ostreams=" << kernel.ostreams.size() << std::endl;
 
     for (const auto& ostream_pair : kernel.ostreams) {
       const auto& ostream = ostream_pair.second;
@@ -445,9 +444,7 @@ bool need_hwbuffer(const HWBuffer &kernel) {
       for (size_t i=0; i<ostream.odims.size(); ++i) {
         const auto& odim = ostream.odims.at(i);
         const auto& input_chunk = kernel.dims.at(i).input_chunk;
-        std::cout << "kernel " << ostream.name
-                  << " has size=" << odim.output_stencil
-                  << " step=" << input_chunk << std::endl;
+        //std::cout << "kernel " << ostream.name << " has size=" << odim.output_stencil << " step=" << input_chunk << std::endl;
         if (to_int(odim.output_stencil) != to_int(input_chunk)) {
           ret = true;
           break;
@@ -455,11 +452,11 @@ bool need_hwbuffer(const HWBuffer &kernel) {
       }
 
       for (const auto& stride_pair : ostream.stride_map) {
-        std::cout << stride_pair.first << " has stride=";
+        //std::cout << stride_pair.first << " has stride=";
         if (stride_pair.second.is_inverse) {
-          std::cout << "1/";
+          //std::cout << "1/";
         }
-        std::cout << stride_pair.second.stride << "\n";
+        //std::cout << stride_pair.second.stride << "\n";
 
         if (stride_pair.second.is_inverse) {
           return true;
@@ -469,11 +466,11 @@ bool need_hwbuffer(const HWBuffer &kernel) {
 
     // check if there are loops that repeat
     //   for (const auto& stride_pair : kernel.stride_map) {
-    //     std::cout << stride_pair.first << " has stride=";
+    //     //std::cout << stride_pair.first << " has stride=";
     //     if (stride_pair.second.is_inverse) {
-    //       std::cout << "1/";
+    //       //std::cout << "1/";
     //     }
-    //     std::cout << stride_pair.second.stride << "\n";
+    //     //std::cout << stride_pair.second.stride << "\n";
     //
     //     if (stride_pair.second.is_inverse) {
     //       return true;
@@ -481,12 +478,11 @@ bool need_hwbuffer(const HWBuffer &kernel) {
     //   }
 
     if (kernel.num_accum_iters > 0) {
-      std::cout << "creating accumulation for " << kernel.name << " with "
-                << kernel.num_accum_iters << " iterations" << std::endl;
+      //std::cout << "creating accumulation for " << kernel.name << " with "  << kernel.num_accum_iters << " iterations" << std::endl;
       //ret = true;
     }
 
-    std::cout << kernel.name << " is needs_hwbuffer=" << ret << std::endl;
+    //std::cout << kernel.name << " is needs_hwbuffer=" << ret << std::endl;
     return ret;
 }
 
@@ -1114,7 +1110,7 @@ class InsertHWBuffers : public IRMutator {
             //Stmt new_body = transform_hwkernel(body, xcel, scope);
             // insert hardware buffers for input streams
             //for (const string &input_name : xcel.input_streams) {
-            //  std::cout << "let's add input stream " << input_name << std::endl;
+            //  //std::cout << "let's add input stream " << input_name << std::endl;
             //  const HWBuffer &input_kernel = xcel.hwbuffers.find(input_name)->second;
             //  //const HWBuffer &input_kernel = xcel.hwbuffers.at(input_name);
             //  new_body = add_hwbuffer(new_body, input_kernel, xcel, scope);
@@ -1313,7 +1309,7 @@ Stmt insert_hwbuffers(Stmt s, const HWXcel &xcel) {
   //}
 
 
-  std::cout << "stream start: " << std::endl << s << std::endl;
+  //std::cout << "stream start: " << std::endl << s << std::endl;
   s = InsertHWBuffers(xcel).mutate(s);
   debug(3) << s << "\n";
   //std::cout << "Inserted hwbuffers: \n" << s << "\n";

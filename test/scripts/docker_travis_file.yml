@@ -1,0 +1,37 @@
+service: docker
+language: minimal
+dist: xenial
+
+notifications:
+  email: false
+
+install:
+  - ./test/scripts/garnet_docker_build.sh
+
+before_deploy:
+  - git config --local user.name "jeffsetter"
+  - git config --local user.email "setter@stanford.edu"
+  - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
+  - echo "done with travis before_deploy"
+
+deploy:
+  provider: releases
+  api_key:
+    secure: YejtxKjoEnOV0G1Dt6dPbHsrVJNNi2OZ71d9rIfs4B9ker3x0BO1EfLruNZNA1xhV8iAt1sNBzYJocuDqmCSB5j3aqlIfpkRil2HpHfQXbRtNPbwFCbhyBwVbExgXJom9GVip6+flkBMKDl7kXQg36q8f6rN9ldckp8r0SoSKVZN5kyO8NT1AKpjR+fAqzOmES6D3bvabjDWJzaFcP5WFR+ho/ISmcZwr/SpC51NUqtOvIPDlz2OYW/cMvqJrYyoJOtz9nocJuqhi26mN+i3ZMa8EUGl4MFHkiMapV4pLiOaI9OJCmj5xAjiMYUWVHAAyA2yE9jEE5nGl75qll3DQcP3LYxYfcPUlmcuBVTR0Tyx+JQ9qyLfNjGZD3PZK+s5mrN1ja9vzGv3D2Ry0HxZx+sxeoMmIWCDcRPGayhEHwBFKPj8OhCkcwYx/UJFAbnhDSmhgtU4Fq3MQJhGlK/OkP4+sm4WJvSDNdlWnFoU2CPi+mx2ht5DJpj/b55/T0t9t1eZeiAJzroMXeHvMb3/I/ro7BjIpLrfNwhHfYmyX+45RmhoiWGXnwIxy1SBVUSmxNVtdcOmxfGmig2ZR4Nb/l3GCPpyiGwfhiFvKnK2lyFoe9EBpssWbZwiDHSi9QRLK0VmSzrai2BVNE+GPld2thWZLZJEVC3OpEb+MP/ICE0=
+  file: halide_distrib.tgz
+  skip_cleanup: true
+  on:
+    tags: true
+    all_branches: true
+
+after_script: |
+  # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
+  echo "TRAVIS_BRANCH=$TRAVIS_BRANCH TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST"
+  # Is this actually required to deploy?
+  if [[ ($TRAVIS_PULL_REQUEST == false) ]] ; then
+    curl -LO --retry 3 https://raw.github.com/mernst/plume-lib/master/bin/trigger-travis.sh
+    sh trigger-travis.sh StanfordAHA Applications $TRAVIS_ACCESS_TOKEN
+  fi
+
+    
+    
