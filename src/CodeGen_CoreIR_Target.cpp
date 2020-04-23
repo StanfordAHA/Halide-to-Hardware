@@ -695,6 +695,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
   CoreIR::Type* output_type = context->Bit();
 
   stream << "void " << print_name(name) << "(\n";
+  std::cout << "void " << print_name(name) << "(" << std::endl;
   for (size_t i = 0; i < args.size(); i++) {
     string arg_name = "arg_" + std::to_string(i);
 
@@ -704,6 +705,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
                       args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
       stream << print_stencil_type(args[i].stencil_type) << " ";
+      std::cout << print_stencil_type(args[i].stencil_type) << " " << std::endl;
       if (args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         stream << "&";  // hls_stream needs to be passed by reference
       }
@@ -719,6 +721,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       }
 
       if (args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        std::cout << "this is an output" << std::endl;
         // add as the output
         uint out_bitwidth = inst_bitwidth(stype.elemType.bits());
         if (out_bitwidth > 1) { output_type = output_type->Arr(out_bitwidth); }
@@ -730,6 +733,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         hw_output_set.insert(arg_name);
 
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+        std::cout << "this is an input" << std::endl;
         // add another input
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* input_type = in_bitwidth > 1 ? context->BitIn()->Arr(in_bitwidth) : context->BitIn();
@@ -741,6 +745,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
         in_en_types.push_back({arg_name, context->BitIn()});
 
       } else {
+        std::cout << "this is a tap" << std::endl;
         // add another array of taps (configuration changes infrequently)
         uint in_bitwidth = inst_bitwidth(stype.elemType.bits());
         CoreIR::Type* tap_type = context->Bit()->Arr(in_bitwidth);
@@ -760,6 +765,7 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
       tap_types[arg_name] = tap_type;
     }
 
+    std::cout << "finished with arg" << std::to_string(i) << std::endl;
     if (i < args.size()-1) stream << ",\n";
   }
 
