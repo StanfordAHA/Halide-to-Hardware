@@ -90,7 +90,7 @@ $(eval $(call SUITE_template,all,allapps))
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(call run_app,$@,bin/design_top.json)
+	@$(call run_app,$@,compare)
 
 all: testall
 

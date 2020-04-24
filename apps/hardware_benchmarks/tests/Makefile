@@ -127,7 +127,7 @@ all: $(ALL_TESTS_SORTED)
 
 .PHONY: $(ALL_TESTS)
 $(ALL_TESTS):
-	@$(call run_test,$@,bin/design_top.json)
+	@$(call run_test,$@,compare)
 
 testtravis test_travis: conv_3_3 fp_arith
 testall test_all: runall
