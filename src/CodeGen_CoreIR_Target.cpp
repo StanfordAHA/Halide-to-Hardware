@@ -733,7 +733,9 @@ void CodeGen_CoreIR_Target::CodeGen_CoreIR_C::add_kernel(Stmt stmt,
           //output_type = output_type->Arr(1);
         }
         std::cout << "output set adding " << arg_name << std::endl;
+        std::cout << "output set is " << hw_output_set.size() << std::endl;
         hw_output_set.insert(arg_name);
+        std::cout << "output set added " << arg_name << std::endl;
 
       } else if (!args[i].is_output && args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
         std::cout << "this is an input" << std::endl;
