@@ -82,6 +82,7 @@ define SUITE_template =
 $(1)-coreir:  $($(2):=-coreir)
 $(1)-run:     $($(2):=-run)
 $(1)-compare: $($(2):=-compare)
+$(1)-rewrite: $($(2):=-rewrite)
 $(1)-check:   $($(2):=-check)
 $(1)-clean:   $($(2):=-clean)
 endef
@@ -102,6 +103,11 @@ $(eval $(call SUITE_template,all,alltests))
 %-compare:
 	@if [ -d $* ]; then \
 		$(call run_test,$*,compare); \
+	fi
+
+%-rewrite:
+	@if [ -d $* ]; then \
+		$(call run_test,$*,compare-rewrite); \
 	fi
 
 %-check:
@@ -127,7 +133,11 @@ all: $(ALL_TESTS_SORTED)
 
 .PHONY: $(ALL_TESTS)
 $(ALL_TESTS):
-	@$(call run_test,$@,compare)
+	@$(call run_test,$@,compare-coreir)
+	@if [ -f "$@/$(BIN)/output.png" ]; then \
+		exit 1; \
+	fi
+	@$(call run_test,$@,compare-rewrite)
 	@if [ -f "$@/$(BIN)/output.png" ]; then \
 		exit 1; \
 	else \
