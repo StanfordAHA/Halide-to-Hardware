@@ -128,6 +128,12 @@ all: $(ALL_TESTS_SORTED)
 .PHONY: $(ALL_TESTS)
 $(ALL_TESTS):
 	@$(call run_test,$@,compare)
+	@if [ -f "$@/$(BIN)/output.png" ]; then \
+		exit 1; \
+	else \
+		exit 0; \
+	fi
+
 
 testtravis test_travis: conv_3_3 fp_arith
 testall test_all: runall

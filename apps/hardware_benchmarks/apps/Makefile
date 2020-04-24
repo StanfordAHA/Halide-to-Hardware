@@ -91,6 +91,11 @@ $(eval $(call SUITE_template,all,allapps))
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
 	@$(call run_app,$@,compare)
+	@if [ -f "$@/$(BIN)/output.png" ]; then \
+		exit 1; \
+	else \
+		exit 0; \
+	fi
 
 all: testall
 
