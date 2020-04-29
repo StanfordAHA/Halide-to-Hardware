@@ -56,6 +56,7 @@ define SUITE_template =
 $(1)-coreir:  $($(2):=-coreir)
 $(1)-run:     $($(2):=-run)
 $(1)-compare: $($(2):=-compare)
+$(1)-rewrite: $($(2):=-rewrite)
 $(1)-check:   $($(2):=-check)
 $(1)-clean:   $($(2):=-clean)
 endef
@@ -78,6 +79,11 @@ $(eval $(call SUITE_template,all,allapps))
 		$(call run_app,$*,compare); \
 	fi
 
+%-rewrite:
+	@if [ -d $* ]; then \
+		$(call run_test,$*,compare-rewrite); \
+	fi
+
 %-check:
 	@if [ -d $* ]; then \
 		$(MAKE) -sC $* check; \
@@ -91,6 +97,12 @@ $(eval $(call SUITE_template,all,allapps))
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
 	@$(call run_app,$@,compare)
+	@if [ -f "$@/$(BIN)/output.png" ]; then \
+		exit 1; \
+	else \
+		exit 0; \
+	fi
+	@$(call run_test,$@,compare-rewrite)
 	@if [ -f "$@/$(BIN)/output.png" ]; then \
 		exit 1; \
 	else \
