@@ -45,7 +45,11 @@ struct Outputs {
     /** The name of the emitted Vivado HLS source file. Empty if no Vivado HLS source file
      * output is desired. */
     std::string vhls_source_name;
-  
+
+    /** The name of the emitted clockwork source file. Empty if no clockwork source file
+     * output is desired. */
+    std::string clockwork_source_name;
+
     /** The name of the emitted stmt file. Empty if no stmt file
      * output is desired. */
     std::string stmt_name;
@@ -131,6 +135,14 @@ struct Outputs {
     Outputs vhls_source(const std::string &vhls_source_name) {
         Outputs updated = *this;
         updated.vhls_source_name = vhls_source_name;
+        return updated;
+    }  
+
+    /** Make a new Outputs struct that emits everything this one does
+     * and also a Clockwork source file with the given name. */
+    Outputs clockwork_source(const std::string &clockwork_source_name) {
+        Outputs updated = *this;
+        updated.clockwork_source_name = clockwork_source_name;
         return updated;
     }  
   

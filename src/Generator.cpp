@@ -139,6 +139,9 @@ Outputs compute_outputs(const Target &target,
         output_files.vhls_source_name = base_path + get_extension("_vhls.cpp", options);
         output_files.c_header_name = base_path + get_extension("_vhls.h", options);
     }
+    if (options.emit_clockwork) {
+        output_files.clockwork_source_name = base_path + get_extension("_clockworth.cpp", options);
+    }
 
     return output_files;
 }

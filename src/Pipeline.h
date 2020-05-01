@@ -217,7 +217,16 @@ public:
                          const std::vector<Argument> &,
                          const std::string &fn_name = "",
                          const Target &target = get_target_from_environment());
-    
+
+    /** Statically compile a pipeline to clockwork code.
+     * Both hardware accelerator design and testbench wrapper will generated.
+     * Memories and computation are created separately, and schedule vectors
+     * are used to optimize memories. */
+    void compile_to_clockwork(const std::string &filename,
+                              const std::vector<Argument> &,
+                              const std::string &fn_name = "",
+                              const Target &target = get_target_from_environment());
+
     /** Emit a Python extension glue .c file. */
     void compile_to_python_extension(const std::string &filename,
                                      const std::vector<Argument> &args,

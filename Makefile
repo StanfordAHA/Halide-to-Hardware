@@ -389,6 +389,9 @@ SOURCE_FILES = \
   Closure.cpp \
   CodeGen_ARM.cpp \
   CodeGen_C.cpp \
+	CodeGen_Clockwork_Base.cpp \
+	CodeGen_Clockwork_Target.cpp \
+	CodeGen_Clockwork_Testbench.cpp \
 	CodeGen_CoreHLS.cpp \
 	CodeGen_CoreHLS_Kernel.cpp \
   CodeGen_CoreIR_Base.cpp \
