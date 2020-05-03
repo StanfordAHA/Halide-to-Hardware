@@ -8,6 +8,7 @@
 #include "CodeGen_Internal.h"
 #include "CodeGen_CoreIR_Testbench.h"
 #include "CodeGen_VHLS_Testbench.h"
+#include "CodeGen_Clockwork_Testbench.h"
 #include "Debug.h"
 #include "HexagonOffload.h"
 #include "IROperator.h"
@@ -570,6 +571,28 @@ void Module::compile(const Outputs &output_files_arg) const {
       contents->name = oldname + "_vhls";
       
       std::cout << "Module.compile(): vhls_source_name " << output_files.vhls_source_name
+                << " with folder=" << foldername << " and name=" << name() << "\n";
+      cg.compile(*this);
+
+      contents->name = oldname;
+    }
+    if (!output_files.clockwork_source_name.empty()) {
+      debug(1) << "Module.compile(): clockwork_source_name " << output_files.clockwork_source_name << "\n";
+
+      std::string clockwork_output = output_files.clockwork_source_name;
+      std::ofstream file(output_files.clockwork_source_name);
+      Internal::CodeGen_Clockwork_Testbench cg(file,
+                                               target());
+
+      bool uses_folder = (clockwork_output.find("/") != std::string::npos);
+      std::string foldername = uses_folder ?
+        clockwork_output.substr(0, clockwork_output.find_last_of("/")+1) :
+        "";
+      cg.set_output_folder(foldername);
+      std::string oldname = contents->name;
+      contents->name = oldname + "_clockwork";
+      
+      std::cout << "Module.compile(): clockwork_source_name " << output_files.clockwork_source_name
                 << " with folder=" << foldername << " and name=" << name() << "\n";
       cg.compile(*this);
 

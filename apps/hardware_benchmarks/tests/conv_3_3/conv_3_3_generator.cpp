@@ -38,7 +38,9 @@ public:
 
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR)) {
+        if (get_target().has_feature(Target::Clockwork) ||
+            get_target().has_feature(Target::CoreIR) ||
+            get_target().has_feature(Target::HLS)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, imgsize);

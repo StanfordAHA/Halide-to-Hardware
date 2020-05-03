@@ -22,14 +22,16 @@ using std::map;
 
 class Clockwork_Closure : public Closure {
 public:
-    Clockwork_Closure(Stmt s)  {
+  Clockwork_Closure(Stmt s, std::string output_string)  {
         s.accept(this);
+        output_name = output_string;
     }
 
     vector<Clockwork_Argument> arguments(const Scope<CodeGen_Clockwork_Base::Stencil_Type> &scope);
 
 protected:
     using Closure::visit;
+    std::string output_name;
 
 };
 
@@ -37,33 +39,38 @@ protected:
 vector<Clockwork_Argument> Clockwork_Closure::arguments(const Scope<CodeGen_Clockwork_Base::Stencil_Type> &streams_scope) {
     vector<Clockwork_Argument> res;
     for (const pair<string, Closure::Buffer> &i : buffers) {
-        debug(3) << "buffer: " << i.first << " " << i.second.size;
-        if (i.second.read) debug(3) << " (read)";
-        if (i.second.write) debug(3) << " (write)";
-        debug(3) << "\n";
+        std::cout << "buffer: " << i.first << " " << i.second.size;
+        if (i.second.read) std::cout << " (read)";
+        if (i.second.write) std::cout << " (write)";
+        std::cout << "\n";
     }
     internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
-        debug(3) << "var: " << i.first << "\n";
+        std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ) {
             CodeGen_Clockwork_Base::Stencil_Type stype = streams_scope.get(i.first);
-            res.push_back({i.first, true, Type(), stype});
+            if (starts_with(i.first, output_name)) {
+              res.push_back({i.first, true, true, Type(), stype});              
+            } else {
+              res.push_back({i.first, true, false, Type(), stype});              
+            }
+
         } else if (ends_with(i.first, ".stencil_update")) {
             internal_error << "we don't expect to see a stencil_update type in Clockwork_Closure.\n";
         } else {
             // it is a scalar variable
-            res.push_back({i.first, false, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
+          res.push_back({i.first, false, true, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
         }
     }
     return res;
 }
 
 namespace {
-    const string vhls_headers =
+    const string clockwork_headers =
         "#include <hls_stream.h>\n"
         "#include \"Stencil.h\"\n"
-        "#include \"vhls_target.h\"\n";
+        "#include \"clockwork_target.h\"\n";
 }
 
 
@@ -71,27 +78,30 @@ namespace {
   CodeGen_Clockwork_Testbench::CodeGen_Clockwork_Testbench(ostream &tb_stream, Target target)
       : CodeGen_Clockwork_Base(tb_stream, target, CPlusPlusImplementation, ""),
   //: CodeGen_Clockwork_Base(std::cout, target, CPlusPlusImplementation, ""),
-      cg_target("vhls_target", target) {
+      cg_target("clockwork_target", target) {
     cg_target.init_module();
 
-    stream << vhls_headers;
+    stream << clockwork_headers;
 }
 
 CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
 }
 
 void CodeGen_Clockwork_Testbench::visit(const ProducerConsumer *op) {
-    if (starts_with(op->name, "_hls_target.")) {
+    string target_prefix = "_hls_target.";
+    if (starts_with(op->name, target_prefix)) {
       if (op->is_producer) {
         Stmt hw_body = op->body;
+        std::cout << op->body;
 
         debug(1) << "compute the closure for " << op->name << '\n';
         std::cout << "compute the closure for " << op->name << '\n';
-        Clockwork_Closure c(hw_body);
+        string output_name = op->name.substr(target_prefix.length()); 
+        Clockwork_Closure c(hw_body, output_name);
         vector<Clockwork_Argument> args = c.arguments(stencils);
 
         // generate HLS target code using the child code generator
-        string ip_name = unique_name("vhls_target");
+        string ip_name = unique_name("clockwork_target");
         cg_target.add_kernel(hw_body, ip_name, args);
 
         // emits the target function call

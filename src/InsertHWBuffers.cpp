@@ -753,6 +753,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
         // replacing the references to the original realization with refences to stencils
         //std::cout << "replacing some refs: " << produce_node->body << std::endl;
+        //Stmt produce = produce_node->body;//ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(produce_node->body);
         Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(produce_node->body);
         //std::cout << "replacing refs for " << kernel.name << " in:\n" << produce_node->body << std::endl;
         //Stmt update = ReplaceReferencesWitBufferhStencil(kernel, xcel, &scope).mutate(op->update);
@@ -863,6 +864,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
         // replacing the references to the original realization with refences to stencils
         //std::cout << "replacing some output refs: " << s << std::endl;
+        //Stmt produce = s;//ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(s);
         Stmt produce = ReplaceReferencesWithBufferStencil(kernel, xcel, &scope).mutate(s);
 
         // syntax for write_stream()

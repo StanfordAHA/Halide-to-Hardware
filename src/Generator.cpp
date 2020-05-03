@@ -140,7 +140,7 @@ Outputs compute_outputs(const Target &target,
         output_files.c_header_name = base_path + get_extension("_vhls.h", options);
     }
     if (options.emit_clockwork) {
-        output_files.clockwork_source_name = base_path + get_extension("_clockworth.cpp", options);
+        output_files.clockwork_source_name = base_path + get_extension("_clockwork.cpp", options);
     }
 
     return output_files;
@@ -966,6 +966,8 @@ int generate_filter_main(int argc, char **argv, std::ostream &cerr) {
                 emit_options.emit_coreir = true;
             } else if (opt == "vhls") {
                 emit_options.emit_vhls = true;
+            } else if (opt == "clockwork") {
+                emit_options.emit_clockwork = true;
             } else if (opt == "registration") {
                 emit_options.emit_registration = true;
             } else if (!opt.empty()) {

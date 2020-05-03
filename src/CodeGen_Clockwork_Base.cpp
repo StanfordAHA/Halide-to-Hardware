@@ -84,7 +84,7 @@ string CodeGen_Clockwork_Base::print_stencil_pragma(const string &name) {
 }
 
 void CodeGen_Clockwork_Base::visit(const Call *op) {
-  if (op->name == "linebuffer") {
+    if (op->name == "linebuffer") {
         //IR: linebuffer(buffered.stencil_update.stream, buffered.stencil.stream, extent_0[, extent_1, ...])
         //C: linebuffer<extent_0[, extent_1, ...]>(buffered.stencil_update.stream, buffered.stencil.stream)
         internal_assert(op->args.size() >= 3);
@@ -214,6 +214,7 @@ void CodeGen_Clockwork_Base::visit(const Call *op) {
                 stream << ", ";
         }
         stream << ");\n";
+        return;
         // syntax:
         //   dispatch_stream(stream_name, num_of_dimensions,
         //                   stencil_size_dim_0, stencil_step_dim_0, store_extent_dim_0,
@@ -340,11 +341,15 @@ void CodeGen_Clockwork_Base::visit(const Call *op) {
                    << print_name(stencil_name) << ");\n";
             close_scope("");
         }
-
+        std::cout << "finishing with dispatch\n";
         close_scope("");
+        std::cout << "done with dispatch\n";
 
         id = "0"; // skip evaluation
+    } else if (op->name == "hwbuffer") {
+        id = "0"; // skip evaluation
     } else {
+        //std::cout << "No special support for " << op->name << endl;
         CodeGen_C::visit(op);
     }
 }
