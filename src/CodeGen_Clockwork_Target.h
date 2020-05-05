@@ -22,6 +22,7 @@ struct Clockwork_Argument {
     Type scalar_type;
 
     CodeGen_Clockwork_Base::Stencil_Type stencil_type;
+    std::vector<Expr> args;
 };
 
 /** This class emits Xilinx Vivado HLS compatible C++ code.
@@ -79,6 +80,7 @@ protected:
       using CodeGen_Clockwork_Base::visit;
 
       void visit(const Provide *op);
+      void visit(const Store *op);
       void visit(const ProducerConsumer *op);
       void visit(const For *op);
       void visit(const Allocate *op);

@@ -20,6 +20,7 @@ using std::ostream;
 using std::endl;
 using std::string;
 using std::vector;
+using std::map;
 using std::ostringstream;
 using std::ofstream;
 
@@ -42,6 +43,54 @@ bool contain_for_loop(Stmt s) {
     ContainForLoop cfl;
     s.accept(&cfl);
     return cfl.found;
+}
+
+string print_name(const string &name) {
+    ostringstream oss;
+
+    // Prefix an underscore to avoid reserved words (e.g. a variable named "while")
+    if (isalpha(name[0])) {
+        oss << '_';
+    }
+
+    for (size_t i = 0; i < name.size(); i++) {
+	// vivado HLS compiler doesn't like '__'
+        if (!isalnum(name[i])) {
+            oss << "_";
+        }
+        else oss << name[i];
+    }
+    return oss.str();
+}
+
+class RemoveCallIndexes : public IRMutator {
+    using IRMutator::visit;
+    Expr visit(const Call *op) {
+      //return Call::make(op->type, op->name, {}, op->call_type, op->func, op->value_index, op->image, op->param);
+      return Variable::make(op->type, print_name(op->name));
+    }
+    Expr visit(const Load *op) {
+      //return Call::make(op->type, op->name, {}, op->call_type, op->func, op->value_index, op->image, op->param);
+      return Variable::make(op->type, print_name(op->name));
+    }
+
+public:
+    RemoveCallIndexes() {}
+};
+
+Expr remove_call_args(Expr e) {
+    RemoveCallIndexes rci;
+    return rci.mutate(e);
+}
+
+std::string strip_stream(std::string input) {
+  std::string output = input;
+  if (ends_with(input, "_stencil_update_stream")) {
+    output = input.substr(0, input.find("_stencil_update_stream"));
+  } else if (ends_with(input, "_stencil_stream")) {
+    output = input.substr(0, input.find("_stencil_stream"));
+  }
+  return output;
 }
 
 }
@@ -210,18 +259,18 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
           //stream << print_type(args[i].scalar_type) << " " << arg_name;
         }
 
-        if (is_clockwork && args[i].is_output) {
-          memory_stream << "  prg.add_output(\"" << arg_name << "\");" << std::endl;
-          memory_stream << "  prg.buffer_port_widths[\"" << arg_name << "\"] = 16;" << std::endl;
-        } else if (is_clockwork && !args[i].is_output) {
-          memory_stream << "  prg.add_input(\"" << arg_name << "\");" << std::endl;
-          memory_stream << "  prg.buffer_port_widths[\"" << arg_name << "\"] = 16;" << std::endl;
-        }
+        //if (is_clockwork && args[i].is_output) {
+        //  memory_stream << "  prg.add_output(\"" << arg_name << "\");" << std::endl;
+        //  memory_stream << "  prg.buffer_port_widths[\"" << arg_name << "\"] = 16;" << std::endl;
+        //} else if (is_clockwork && !args[i].is_output) {
+        //  memory_stream << "  prg.add_input(\"" << arg_name << "\");" << std::endl;
+        //  memory_stream << "  prg.buffer_port_widths[\"" << arg_name << "\"] = 16;" << std::endl;
+        //}
 
         //if (i < args.size()-1) stream << ",\n";
     }
     
-    memory_stream << std::endl;
+    //memory_stream << std::endl;
     
     if (is_header()) {
       //stream << ");\n";
@@ -265,13 +314,25 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
             do_indent();
             if (args[i].is_stencil) {
                 CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
+                memory_stream << "// " << print_stencil_type(args[i].stencil_type) << " &"
+                              << print_name(args[i].name) << " = " << arg_name << ";\n";
+                string io_name = strip_stream(print_name(args[i].name)) + "_stencil";
+                if (args[i].is_output) {
+                  memory_stream << "  prg.add_output(\"" << io_name << "\");" << endl;
+                } else {
+                  memory_stream << "  prg.add_input(\"" << io_name << "\");" << endl;
+                }
+                memory_stream << "  prg.buffer_port_widths[\"" << io_name << "\"] = 16;" << std::endl;
                 stream << print_stencil_type(args[i].stencil_type) << " &"
                        << print_name(args[i].name) << " = " << arg_name << ";\n";
             } else {
+                memory_stream << print_type(args[i].scalar_type) << " &"
+                              << print_name(args[i].name) << " = " << arg_name << ";\n";
                 stream << print_type(args[i].scalar_type) << " &"
                        << print_name(args[i].name) << " = " << arg_name << ";\n";
             }
         }
+        memory_stream << endl;
         //stream << "\n";
 
         // print body
@@ -300,14 +361,18 @@ public:
   vector<Clockwork_Argument> arguments();
 
 protected:
-    using Closure::visit;
-    std::string output_name;
+  using Closure::visit;
+  std::string output_name;
+  map<string, vector<Expr>> var_args;
 
+  void visit(const Load *op);
+  void visit(const Call *op);
   void found_buffer_ref(const string &name, Type type, bool read, bool written, Halide::Buffer<> image);
+
 };
 
 void Compute_Closure::found_buffer_ref(const string &name, Type type,
-                               bool read, bool written, Halide::Buffer<> image) {
+                                       bool read, bool written, Halide::Buffer<> image) {
   //std::cout << "looking at " << name << " in closure where ignore=" <<
   //ignore.contains(name) << "\n";
   //if (!ignore.contains(name)) {
@@ -328,26 +393,55 @@ void Compute_Closure::found_buffer_ref(const string &name, Type type,
     }
 }
 
+void Compute_Closure::visit(const Load *op) {
+    var_args[op->name] = {op->index};
+    Closure::visit(op);
+}
+
+void Compute_Closure::visit(const Call *op) {
+  if (op->call_type == Call::Intrinsic &&
+      (ends_with(op->name, ".stencil") || ends_with(op->name, ".stencil_update"))) {
+    // consider call to stencil and stencil_update
+    debug(3) << "visit call " << op->name << ": ";
+    if(!ignore.contains(op->name)) {
+      debug(3) << "adding to closure.\n";
+      //std::cout << "adding to closure through call: " << op->name << "\n";
+      vars[op->name] = Type();
+      var_args[op->name] = op->args;
+    } else {
+      debug(3) << "not adding to closure.\n";
+    }
+  }
+  IRVisitor::visit(op);
+}
 
 vector<Clockwork_Argument> Compute_Closure::arguments() {
     vector<Clockwork_Argument> res;
     for (const std::pair<string, Closure::Buffer> &i : buffers) {
-        std::cout << "buffer: " << i.first << " " << i.second.size;
-        if (i.second.read) std::cout << " (read)";
-        if (i.second.write) std::cout << " (write)";
-        std::cout << "\n";
-        res.push_back({i.first, true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
+        //std::cout << "buffer: " << i.first << " " << i.second.size;
+        //if (i.second.read) std::cout << " (read)";
+        //if (i.second.write) std::cout << " (write)";
+        //std::cout << "\n";
+        if (var_args.count(i.first) > 0) {
+          //std::cout << i.first << " has args " << endl;
+          res.push_back({i.first, true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type(), var_args[i.first]});
+        } else {
+          res.push_back({i.first, true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
+        }
     }
     //internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const std::pair<string, Type> &i : vars) {
-        std::cout << "var: " << i.first << "\n";
+        //std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
-           ends_with(i.first, ".stencil") ) {
-            if (starts_with(i.first, output_name)) {
-              res.push_back({i.first, true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
-            } else {
-              res.push_back({i.first, true, false, Type(), CodeGen_Clockwork_Base::Stencil_Type()});              
-            }
+           ends_with(i.first, ".stencil") ||
+           ends_with(i.first, ".stencil_update")) {
+          
+          bool is_output =  (starts_with(i.first, output_name));
+          if (var_args.count(i.first) > 0) {
+            res.push_back({i.first, true, is_output, Type(), CodeGen_Clockwork_Base::Stencil_Type(), var_args[i.first]});
+          } else {
+            res.push_back({i.first, true, is_output, Type(), CodeGen_Clockwork_Base::Stencil_Type()});              
+          }
 
         } else if (ends_with(i.first, ".stencil_update")) {
           //internal_error << "we don't expect to see a stencil_update type in Compute_Closure.\n";
@@ -360,39 +454,54 @@ vector<Clockwork_Argument> Compute_Closure::arguments() {
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
-  // output the memory
+  // Output the memory
   memory_stream << "//store is: " << Stmt(op) << std::endl;
   Compute_Closure c(Stmt(op), op->name);
   vector<Clockwork_Argument> compute_args = c.arguments();
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
-    
+
+  // Add each load
   for (auto arg : compute_args) {
     memory_stream << "  " << func_name << "->add_load(\""
-                  << arg.name << "\""
-                  << ");\n";
+                  << print_name(arg.name) << "\"";
+    for (auto index : arg.args) {
+      memory_stream << ", \"" << index << "\"";
+    }
+    
+    memory_stream << ");\n";
   }
-  
+
+  // Add the store
   memory_stream << "  " << func_name << "->add_store(\""
-                << op->name << "\"";
+                << print_name(op->name) << "\"";
   for (auto arg : op->args) {
     memory_stream << ", \"" << arg << "\"";
   }
   memory_stream << ");\n";
 
-  // output the compute
+  
+  // Output the compute
   compute_stream << "//store is: " << Stmt(op) << std::endl;
-  compute_stream << "int " << func_name << "(";
+  compute_stream << "hw_uint<16> " << func_name << "(";
   for (size_t i=0; i<compute_args.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
-    compute_stream << "int " << compute_args[i].name;
+    compute_stream << "hw_uint<16>& " << print_name(compute_args[i].name);
   }
   compute_stream << ") {\n";
-  
+
+  auto new_expr = remove_call_args(op->values[0]);
   compute_stream << "  return "
-                 << op->values[0] << ";" << endl
+                 << new_expr << ";" << endl
                  << "}" << endl;
       
   CodeGen_Clockwork_Base::visit(op);
+}
+
+void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
+  memory_stream << "  " << func_name << "->add_store(\""
+                << print_name(op->name) << "\""
+                << ", \"" << op->index << "\""
+                << ");\n";
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer *op) {
@@ -401,7 +510,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
   } else {
     //memory_stream << "//consuming " << op->name << endl;
 
-    func_name = "compute_" + op->name;
+    func_name = unique_name("compute_" + print_name(op->name));
     memory_stream << "  auto " << func_name
                   << " = "
                   << mem_bodyname << "->add_op(\""
@@ -504,6 +613,11 @@ public:
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
   //std::cout << " looking at " << op->name << endl;
+  if (op->name == "read_stream") {
+    memory_stream << "// Call - read: " << Expr(op) << endl;
+  } else if (op->name == "write_stream") {
+    memory_stream << "// Call - write: " << Expr(op) << endl;
+  }
   CodeGen_Clockwork_Base::visit(op);
 }
 
