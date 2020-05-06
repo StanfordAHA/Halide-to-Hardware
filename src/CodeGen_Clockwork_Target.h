@@ -74,6 +74,7 @@ protected:
                       const std::vector<Clockwork_Argument> &args);
 
     protected:
+      Scope<Expr> scope;
       std::string print_stencil_pragma(const std::string &name);
       std::string output_base_path;
         
@@ -85,6 +86,7 @@ protected:
       void visit(const For *op);
       void visit(const Allocate *op);
       void visit(const Call *op);
+      void visit(const LetStmt *op);
     };
 
     /** A name for the Clockwork target */

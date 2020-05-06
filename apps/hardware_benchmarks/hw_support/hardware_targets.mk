@@ -101,7 +101,7 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 
 clockwork design-clockwork: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-clockwork -e clockwork $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork $(HALIDE_DEBUG_REDIRECT)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)

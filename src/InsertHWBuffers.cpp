@@ -49,6 +49,44 @@ string find_first_produce(Stmt s) {
 
 }
 
+// Add loop variables
+class AddLoopVariables : public IRMutator {
+  vector<string> loopvars;
+  const HWBuffer &kernel;
+  
+  using IRMutator::visit;
+  
+  Stmt visit(const Provide *op) {
+    if (op->name != "kernel") {
+      vector<Expr> new_args(op->args.size());
+      for (size_t i = 0; i < op->args.size(); i++) {
+        new_args[i] = Add::make(Variable::make(op->args[i].type(), loopvars[i]), op->args[i]);
+      }
+      return Provide::make(op->name, op->values, new_args);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+  Expr visit(const Call *op) {
+    if (op->name == kernel.name || // call to this kernel itself (in update definition)
+        kernel.istreams.count(op->name) > 0) {
+                
+      vector<Expr> new_args(op->args.size());;
+      for (size_t i = 0; i < op->args.size(); i++) {
+        new_args[i] = Add::make(Variable::make(op->args[i].type(), loopvars[i]), op->args[i]);
+      }
+      return Call::make(op->type, op->name, new_args, Call::Intrinsic);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+  public:
+  AddLoopVariables(vector<string> loopvars, const HWBuffer& kernel) :
+    loopvars(loopvars), kernel(kernel) { }
+};
+
 
 // Replace Calls and Provides with stencil indices
 class ReplaceReferencesWithBufferStencil : public IRMutator {
@@ -790,6 +828,7 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
         // insert scan loops
         Stmt scan_loops = stencil_realize;
         int scan_dim = 0;
+        vector<string> loopvars(kernel.dims.size());
         //std::cout << "writing kernel named " << stencil_name << " with bounds \n";
         for(size_t i = 0; i < kernel.dims.size(); i++) {
             if (kernel.dims[i].loop_name == "undef" )
@@ -797,7 +836,9 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
 
             string loop_var_name = kernel.name + "." + kernel.func.args()[i]
                 + ".__scan_dim_" + std::to_string(scan_dim++);
-
+            //loopvars[i] = Variable::make(Int(32), loop_var_name);
+            loopvars[i] = loop_var_name;
+            
             int store_extent_int = to_int(kernel.ldims[i].logical_size);
             //std::cout << store_extent << " ";
 
@@ -820,6 +861,10 @@ Stmt transform_hwkernel(Stmt s, const HWXcel &xcel, Scope<Expr> &scope) {
             scan_loops = For::make(loop_var_name, 0, loop_extent, ForType::Serial, DeviceAPI::Host, scan_loops);
             //std::cout << scan_loops << std::endl;
         }
+        if (!kernel.is_inlined) {
+          scan_loops = AddLoopVariables(loopvars, kernel).mutate(scan_loops);
+        }
+        
         //std::cout << "\n";
 
         // Recurse and find more buffers

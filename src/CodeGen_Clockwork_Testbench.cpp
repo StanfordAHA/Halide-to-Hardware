@@ -44,7 +44,7 @@ vector<Clockwork_Argument> Clockwork_Closure::arguments(const Scope<CodeGen_Cloc
         if (i.second.write) std::cout << " (write)";
         std::cout << "\n";
     }
-    internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
+    //internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
         std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
@@ -88,7 +88,8 @@ CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
 }
 
 void CodeGen_Clockwork_Testbench::visit(const ProducerConsumer *op) {
-    string target_prefix = "_hls_target.";
+    //string target_prefix = "_hls_target.";
+    string target_prefix = "hw_output";
     if (starts_with(op->name, target_prefix)) {
       if (op->is_producer) {
         Stmt hw_body = op->body;

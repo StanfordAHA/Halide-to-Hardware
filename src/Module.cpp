@@ -582,7 +582,7 @@ void Module::compile(const Outputs &output_files_arg) const {
       std::string clockwork_output = output_files.clockwork_source_name;
       std::ofstream file(output_files.clockwork_source_name);
       Internal::CodeGen_Clockwork_Testbench cg(file,
-                                               target());
+                                               target().with_feature(Target::CPlusPlusMangling));
 
       bool uses_folder = (clockwork_output.find("/") != std::string::npos);
       std::string foldername = uses_folder ?

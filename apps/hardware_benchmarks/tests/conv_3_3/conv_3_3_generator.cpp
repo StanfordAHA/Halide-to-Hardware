@@ -38,8 +38,7 @@ public:
 
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::Clockwork) ||
-            get_target().has_feature(Target::CoreIR) ||
+        if (get_target().has_feature(Target::CoreIR) ||
             get_target().has_feature(Target::HLS)) {
           Var xi,yi, xo,yo;
 
@@ -73,7 +72,27 @@ public:
 
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
 
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
+          conv.bound(x, 0, imgsize);
+          conv.bound(y, 0, imgsize);
+
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize);
+
+
+          conv.update()
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
+          //
+          kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
+          //
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
+            
         } else {  // schedule to CPU
           conv.update()
             .unroll(r.x)
