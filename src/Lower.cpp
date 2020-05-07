@@ -196,7 +196,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = allocation_bounds_inference(s, env, func_bounds);
     debug(2) << "Lowering after allocation bounds inference:\n" << s << '\n';
 
-    //std::cout << "doing sliding window lowering pass\n";
+    //std::cout << "doing sliding window lowering pass\n" << s;
     Stmt s_sliding;
     if (t.has_feature(Target::CoreIR)) {
       s_sliding = sliding_window(s, env);
@@ -275,7 +275,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Simplifying...\n";
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
-    //cout << "Lowering after first simplification:\n" << s << "\n\n";
+    //std::cout << "Lowering after first simplification:\n" << s << "\n\n";
 
     //std::cout << "Before storage folding...\n" << s << "\n\n";
     debug(1) << "Performing storage folding optimization...\n";
@@ -319,7 +319,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Performing storage flattening...\n";
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
 
-    s = storage_flattening(s, outputs, env, t);
+    if (true) { //if (!t.has_feature(Target::Clockwork)) {
+      s = storage_flattening(s, outputs, env, t);
+    }
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
     //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
 
@@ -398,7 +400,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = partition_loops(s);
     s = simplify(s);
     debug(2) << "Lowering after partitioning loops:\n" << s << "\n\n";
-    std::cout << "Lowering after partitioning loops:\n" << s << "\n\n";
+    //std::cout << "Lowering after partitioning loops:\n" << s << "\n\n";
 
     debug(1) << "Trimming loops to the region over which they do something...\n";
     s = trim_no_ops(s);

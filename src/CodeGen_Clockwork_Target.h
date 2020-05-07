@@ -58,6 +58,7 @@ protected:
       std::ostringstream memory_stream;
       std::string mem_bodyname;
       std::string func_name;
+      std::set<std::string> buffers;
 
       /** The stream we're outputting the compute on */
       std::ostringstream compute_stream;
@@ -77,6 +78,7 @@ protected:
       Scope<Expr> scope;
       std::string print_stencil_pragma(const std::string &name);
       std::string output_base_path;
+      void add_buffer(const std::string& buffer_name);
         
       using CodeGen_Clockwork_Base::visit;
 

@@ -43,6 +43,13 @@ vector<Clockwork_Argument> Clockwork_Closure::arguments(const Scope<CodeGen_Cloc
         if (i.second.read) std::cout << " (read)";
         if (i.second.write) std::cout << " (write)";
         std::cout << "\n";
+        if (i.second.write) {
+          res.push_back({i.first, true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
+        }
+        if (i.second.read) {
+          res.push_back({i.first, true, false, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
+        }
+
     }
     //internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const pair<string, Type> &i : vars) {
@@ -63,6 +70,7 @@ vector<Clockwork_Argument> Clockwork_Closure::arguments(const Scope<CodeGen_Cloc
           res.push_back({i.first, false, true, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
         }
     }
+    res.push_back({"hw_input", true, false, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
     return res;
 }
 
@@ -88,36 +96,32 @@ CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
 }
 
 void CodeGen_Clockwork_Testbench::visit(const ProducerConsumer *op) {
-    //string target_prefix = "_hls_target.";
     string target_prefix = "hw_output";
-    if (starts_with(op->name, target_prefix)) {
-      if (op->is_producer) {
-        Stmt hw_body = op->body;
-        std::cout << op->body;
+  //string target_prefix = "kernel";
+    if (starts_with(op->name, target_prefix) && op->is_producer) {
+      Stmt hw_body = op->body;
+      std::cout << op->body;
 
-        debug(1) << "compute the closure for " << op->name << '\n';
-        std::cout << "compute the closure for " << op->name << '\n';
-        string output_name = op->name.substr(target_prefix.length()); 
-        Clockwork_Closure c(hw_body, output_name);
-        vector<Clockwork_Argument> args = c.arguments(stencils);
+      debug(1) << "compute the closure for " << op->name << '\n';
+      std::cout << "compute the closure for " << op->name << '\n';
+      string output_name = op->name.substr(target_prefix.length()); 
+      Clockwork_Closure c(hw_body, output_name);
+      vector<Clockwork_Argument> args = c.arguments(stencils);
 
-        // generate HLS target code using the child code generator
-        string ip_name = unique_name("clockwork_target");
-        cg_target.add_kernel(hw_body, ip_name, args);
+      // generate HLS target code using the child code generator
+      string ip_name = unique_name("clockwork_target");
+      cg_target.add_kernel(hw_body, ip_name, args);
 
-        // emits the target function call
-        do_indent();
-        stream << ip_name << "("; // avoid starting with '_'
-        for(size_t i = 0; i < args.size(); i++) {
-            stream << print_name(args[i].name);
-            if(i != args.size() - 1)
-                stream << ", ";
-        }
-        stream <<");\n";
-
-      } else { // is consumer
-        print_stmt(op->body);
+      // emits the target function call
+      do_indent();
+      stream << ip_name << "("; // avoid starting with '_'
+      for(size_t i = 0; i < args.size(); i++) {
+        stream << print_name(args[i].name);
+        if(i != args.size() - 1)
+          stream << ", ";
       }
+      stream <<");\n";
+
     } else {
         CodeGen_Clockwork_Base::visit(op);
     }

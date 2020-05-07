@@ -80,6 +80,7 @@ public:
           conv.bound(x, 0, imgsize);
           conv.bound(y, 0, imgsize);
 
+          hw_input.compute_root();
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize);

@@ -234,7 +234,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
       //stream << "prog " << name << "() {" << std::endl;
       memory_stream << "prog " << name << "() {" << endl
                     << "  prog prg;" << std::endl
-                    << "  prg.compute_unit_file = \"" << name << "_compute.h\"" << std::endl
+                    << "  prg.compute_unit_file = \"" << name << "_compute.h;\"" << std::endl
                     << "  prg.name = \"" << name << "\";" << endl
                     << std::endl;
       mem_bodyname = "prg";
@@ -317,7 +317,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                 CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
                 memory_stream << "// " << print_stencil_type(args[i].stencil_type) << " &"
                               << print_name(args[i].name) << " = " << arg_name << ";\n";
-                string io_name = strip_stream(print_name(args[i].name)) + "_stencil";
+                string io_name = strip_stream(print_name(args[i].name)) + "a0";
                 if (args[i].is_output) {
                   memory_stream << "  prg.add_output(\"" << io_name << "\");" << endl;
                 } else {
@@ -396,10 +396,10 @@ void Compute_Closure::visit(const Call *op) {
 vector<Clockwork_Argument> Compute_Closure::arguments() {
     vector<Clockwork_Argument> res;
     for (const std::pair<string, Closure::Buffer> &i : buffers) {
-        std::cout << "buffer: " << i.first << " " << i.second.size;
-        if (i.second.read) std::cout << " (read)";
-        if (i.second.write) std::cout << " (write)";
-        std::cout << "\n";
+        //std::cout << "buffer: " << i.first << " " << i.second.size;
+        //if (i.second.read) std::cout << " (read)";
+        //if (i.second.write) std::cout << " (write)";
+        //std::cout << "\n";
         if (i.second.read) {
           if (var_args.count(i.first) > 0) {
             //std::cout << i.first << " has args " << endl;
@@ -411,7 +411,7 @@ vector<Clockwork_Argument> Compute_Closure::arguments() {
     }
     //internal_assert(buffers.empty()) << "we expect no references to buffers in a hw pipeline.\n";
     for (const std::pair<string, Type> &i : vars) {
-        std::cout << "var: " << i.first << "\n";
+      //std::cout << "var: " << i.first << "\n";
         if(ends_with(i.first, ".stream") ||
            ends_with(i.first, ".stencil") ||
            ends_with(i.first, ".stencil_update")) {
@@ -477,6 +477,18 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   CodeGen_Clockwork_Base::visit(op);
 }
 
+void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_buffer(const string& buffer_name) {
+  if (buffers.count(buffer_name) == 0) {
+    //std::cout << buffer_name << " added" << std::endl;
+    memory_stream << "  prg.buffer_port_widths[\""
+                  << buffer_name
+                  << "\"] = 16;" << endl;
+    buffers.emplace(buffer_name);
+  } else {
+    //std::cout << buffer_name << " not added" << std::endl;
+  }
+}
+
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
@@ -492,8 +504,11 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
 
   // Add each load
   for (auto arg : compute_args) {
+    string buffer_name = print_name(arg.name);
+    add_buffer(buffer_name);
+    
     memory_stream << "  " << func_name << "->add_load(\""
-                  << print_name(arg.name) << "\"";
+                  << buffer_name << "\"";
     for (auto index : arg.args) {
       memory_stream << ", \"" << expand_expr(index, scope) << "\"";
     }
@@ -502,6 +517,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   }
 
   // Add the store
+  add_buffer(print_name(op->name));
   memory_stream << "  " << func_name << "->add_store(\""
                 << print_name(op->name) << "\"";
   memory_stream << ", \"" << expand_expr(op->index, scope) << "\"";
@@ -581,8 +597,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
 
     string loopname = "loop" + print_name(op->name);
     string bodyname = mem_bodyname;
+    string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
     memory_stream << "  auto " << loopname << " = "
-                  << bodyname << ".add_loop("
+                  << bodyname << addloop
                   << "\"" << print_name(op->name) << "\""
                   << ", " << id_min
                   << ", " << id_extent
