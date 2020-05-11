@@ -46,16 +46,24 @@ bool contain_for_loop(Stmt s) {
     return cfl.found;
 }
 
-string print_name(const string &name) {
+string printname(const string &name) {
     ostringstream oss;
 
     // Prefix an underscore to avoid reserved words (e.g. a variable named "while")
-    if (isalpha(name[0])) {
-        oss << '_';
+    size_t start;
+    //for (start=0; start<name.size(); ++start) {
+    //  if (isalnum(name[start])) {
+    //    break;
+    //  }
+    //}
+    while (start<name.size() && !isalnum(name[start])) {
+      start++;
     }
 
-    for (size_t i = 0; i < name.size(); i++) {
-	// vivado HLS compiler doesn't like '__'
+    internal_assert(start < name.size());
+
+    for (size_t i = start; i < name.size(); i++) {
+      // vivado HLS compiler doesn't like '__'
         if (!isalnum(name[i])) {
             oss << "_";
         }
@@ -68,11 +76,11 @@ class RemoveCallIndexes : public IRMutator {
     using IRMutator::visit;
     Expr visit(const Call *op) {
       //return Call::make(op->type, op->name, {}, op->call_type, op->func, op->value_index, op->image, op->param);
-      return Variable::make(op->type, print_name(op->name));
+      return Variable::make(op->type, printname(op->name));
     }
     Expr visit(const Load *op) {
       //return Call::make(op->type, op->name, {}, op->call_type, op->func, op->value_index, op->image, op->param);
-      return Variable::make(op->type, print_name(op->name));
+      return Variable::make(op->type, printname(op->name));
     }
 
 public:
@@ -212,13 +220,13 @@ string CodeGen_Clockwork_Target::CodeGen_Clockwork_C::print_stencil_pragma(const
     Stencil_Type stype = stencils.get(name);
     if (stype.type == Stencil_Type::StencilContainerType::Stream ||
         stype.type == Stencil_Type::StencilContainerType::AxiStream) {
-        oss << "#pragma HLS STREAM variable=" << print_name(name) << " depth=" << stype.depth << "\n";
+        oss << "#pragma HLS STREAM variable=" << printname(name) << " depth=" << stype.depth << "\n";
         if (stype.depth <= 100) {
             // use shift register implementation when the FIFO is shallow
-            oss << "#pragma HLS RESOURCE variable=" << print_name(name) << " core=FIFO_SRL\n\n";
+            oss << "#pragma HLS RESOURCE variable=" << printname(name) << " core=FIFO_SRL\n\n";
         }
     } else if (stype.type == Stencil_Type::StencilContainerType::Stencil) {
-        oss << "#pragma HLS ARRAY_PARTITION variable=" << print_name(name) << ".value complete dim=0\n\n";
+        oss << "#pragma HLS ARRAY_PARTITION variable=" << printname(name) << ".value complete dim=0\n\n";
     } else {
         internal_error;
     }
@@ -234,7 +242,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
       //stream << "prog " << name << "() {" << std::endl;
       memory_stream << "prog " << name << "() {" << endl
                     << "  prog prg;" << std::endl
-                    << "  prg.compute_unit_file = \"" << name << "_compute.h;\"" << std::endl
+                    << "  prg.compute_unit_file = \"" << name << "_compute.h\";" << std::endl
                     << "  prg.name = \"" << name << "\";" << endl
                     << std::endl;
       mem_bodyname = "prg";
@@ -316,8 +324,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
             if (args[i].is_stencil) {
                 CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
                 memory_stream << "// " << print_stencil_type(args[i].stencil_type) << " &"
-                              << print_name(args[i].name) << " = " << arg_name << ";\n";
-                string io_name = strip_stream(print_name(args[i].name)) + "a0";
+                              << printname(args[i].name) << " = " << arg_name << ";\n";
+                string io_name = strip_stream(printname(args[i].name)) + "a0";
                 if (args[i].is_output) {
                   memory_stream << "  prg.add_output(\"" << io_name << "\");" << endl;
                 } else {
@@ -325,12 +333,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                 }
                 memory_stream << "  prg.buffer_port_widths[\"" << io_name << "\"] = 16;" << std::endl;
                 stream << print_stencil_type(args[i].stencil_type) << " &"
-                       << print_name(args[i].name) << " = " << arg_name << ";\n";
+                       << printname(args[i].name) << " = " << arg_name << ";\n";
             } else {
                 memory_stream << print_type(args[i].scalar_type) << " &"
-                              << print_name(args[i].name) << " = " << arg_name << ";\n";
+                              << printname(args[i].name) << " = " << arg_name << ";\n";
                 stream << print_type(args[i].scalar_type) << " &"
-                       << print_name(args[i].name) << " = " << arg_name << ";\n";
+                       << printname(args[i].name) << " = " << arg_name << ";\n";
             }
         }
         memory_stream << endl;
@@ -339,7 +347,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
         // print body
         print(stmt);
 
-        close_scope("kernel hls_target" + print_name(name));
+        close_scope("kernel hls_target" + printname(name));
     }
     //stream << "\n";
 
@@ -443,7 +451,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Add each load
   for (auto arg : compute_args) {
     memory_stream << "  " << func_name << "->add_load(\""
-                  << print_name(arg.name) << "\"";
+                  << printname(arg.name) << "\"";
     for (auto index : arg.args) {
       memory_stream << ", \"" << index << "\"";
     }
@@ -453,7 +461,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   // Add the store
   memory_stream << "  " << func_name << "->add_store(\""
-                << print_name(op->name) << "\"";
+                << printname(op->name) << "\"";
   for (auto arg : op->args) {
     memory_stream << ", \"" << arg << "\"";
   }
@@ -465,7 +473,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "hw_uint<16> " << func_name << "(";
   for (size_t i=0; i<compute_args.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
-    compute_stream << "hw_uint<16>& " << print_name(compute_args[i].name);
+    compute_stream << "hw_uint<16>& " << printname(compute_args[i].name);
   }
   compute_stream << ") {\n";
 
@@ -493,7 +501,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
-  func_name = unique_name("compute" + print_name(op->name));
+  func_name = printname(unique_name("compute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
                 << func_name << "\");" << endl;
@@ -504,7 +512,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
 
   // Add each load
   for (auto arg : compute_args) {
-    string buffer_name = print_name(arg.name);
+    string buffer_name = printname(arg.name);
     add_buffer(buffer_name);
     
     memory_stream << "  " << func_name << "->add_load(\""
@@ -517,9 +525,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   }
 
   // Add the store
-  add_buffer(print_name(op->name));
+  add_buffer(printname(op->name));
   memory_stream << "  " << func_name << "->add_store(\""
-                << print_name(op->name) << "\"";
+                << printname(op->name) << "\"";
   memory_stream << ", \"" << expand_expr(op->index, scope) << "\"";
   memory_stream << ");\n";
 
@@ -529,7 +537,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   compute_stream << "hw_uint<16> " << func_name << "(";
   for (size_t i=0; i<compute_args.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
-    compute_stream << "hw_uint<16>& " << print_name(compute_args[i].name);
+    compute_stream << "hw_uint<16>& " << printname(compute_args[i].name);
   }
   compute_stream << ") {\n";
 
@@ -543,7 +551,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
 
   
   //memory_stream << "  " << func_name << "->add_store(\""
-  //              << print_name(op->name) << "\""
+  //              << printname(op->name) << "\""
   //              << ", \"" << expand_expr(op->index, scope) << "\""
   //              << ");\n";
 }
@@ -552,7 +560,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
   if (op->is_producer) {
     memory_stream << "////producing " << op->name << endl;
     
-    //func_name = unique_name("compute_" + print_name(op->name));
+    //func_name = unique_name("compute_" + printname(op->name));
     //memory_stream << "  auto " << func_name
     //              << " = "
     //              << mem_bodyname << "->add_op(\""
@@ -585,22 +593,22 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
 
     do_indent();
     stream << "for (int "
-           << print_name(op->name)
+           << printname(op->name)
            << " = " << id_min
            << "; "
-           << print_name(op->name)
+           << printname(op->name)
            << " < " << id_min
            << " + " << id_extent
            << "; "
-           << print_name(op->name)
+           << printname(op->name)
            << "++)\n";
 
-    string loopname = "loop" + print_name(op->name);
+    string loopname = "loop_" + printname(op->name);
     string bodyname = mem_bodyname;
     string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
     memory_stream << "  auto " << loopname << " = "
                   << bodyname << addloop
-                  << "\"" << print_name(op->name) << "\""
+                  << "\"" << printname(op->name) << "\""
                   << ", " << id_min
                   << ", " << id_extent
                   << ");\n";
@@ -617,7 +625,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     op->body.accept(this);
     mem_bodyname = bodyname;
     
-    close_scope("for " + print_name(op->name));
+    close_scope("for " + printname(op->name));
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const LetStmt *op) {
@@ -704,10 +712,10 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
 
     do_indent();
     stream << print_type(op->type) << ' '
-           << print_name(alloc_name)
+           << printname(alloc_name)
            << "[" << constant_size << "];\n";
     // add a 'ARRAY_PARTITION" pragma
-    //stream << "#pragma HLS ARRAY_PARTITION variable=" << print_name(op->name) << " complete dim=0\n\n";
+    //stream << "#pragma HLS ARRAY_PARTITION variable=" << printname(op->name) << " complete dim=0\n\n";
 
     new_body.accept(this);
 
@@ -715,7 +723,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     internal_assert(!allocations.contains(alloc_name))
         << "allocation " << alloc_name << " is not freed.\n";
 
-    //close_scope("alloc " + print_name(op->name));
+    //close_scope("alloc " + printname(op->name));
 
 }
 
