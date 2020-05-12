@@ -31,6 +31,7 @@
 #include "FuseGPUThreadLoops.h"
 #include "FuzzFloatStores.h"
 #include "HexagonOffload.h"
+#include "HWBufferRename.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "IRPrinter.h"
@@ -319,9 +320,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Performing storage flattening...\n";
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
 
-    if (true) { //if (!t.has_feature(Target::Clockwork)) {
-      s = storage_flattening(s, outputs, env, t);
+    if (t.has_feature(Target::Clockwork)) {
+      s = rename_hwbuffers(s);
     }
+    
+    s = storage_flattening(s, outputs, env, t);
+
     debug(2) << "Lowering after storage flattening:\n" << s << "\n\n";
     //std::cout << "Lowering after storage flattening:\n" << s << "\n\n";
 
@@ -372,6 +376,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = reduce_prefetch_dimension(s, t);
     debug(2) << "Lowering after reduce prefetch dimension:\n" << s << "\n";
 
+    //std::cout << "Before unrolling:\n" << s << "\n\n";
     debug(1) << "Unrolling...\n";
     s = unroll_loops(s);
     s = simplify(s);
@@ -469,7 +474,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
-    std::cout << "after passes: " << s << std::endl;
+    //std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

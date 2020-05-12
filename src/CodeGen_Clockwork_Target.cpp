@@ -72,6 +72,19 @@ string printname(const string &name) {
     return oss.str();
 }
 
+string removedots(const string &name) {
+    ostringstream oss;
+    
+    for (size_t i = 0; i < name.size(); i++) {
+        if (name[i] == '.') {
+          oss << "_";
+        } else {
+          oss << name[i];
+        }
+    }
+    return oss.str();
+}
+
 class RemoveCallIndexes : public IRMutator {
     using IRMutator::visit;
     Expr visit(const Call *op) {
@@ -325,13 +338,13 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                 CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
                 memory_stream << "// " << print_stencil_type(args[i].stencil_type) << " &"
                               << printname(args[i].name) << " = " << arg_name << ";\n";
-                string io_name = strip_stream(printname(args[i].name)) + "a0";
+                string io_name = strip_stream(printname(args[i].name));
                 if (args[i].is_output) {
                   memory_stream << "  prg.add_output(\"" << io_name << "\");" << endl;
                 } else {
                   memory_stream << "  prg.add_input(\"" << io_name << "\");" << endl;
                 }
-                memory_stream << "  prg.buffer_port_widths[\"" << io_name << "\"] = 16;" << std::endl;
+                add_buffer(io_name);
                 stream << print_stencil_type(args[i].stencil_type) << " &"
                        << printname(args[i].name) << " = " << arg_name << ";\n";
             } else {
@@ -391,7 +404,6 @@ void Compute_Closure::visit(const Call *op) {
     debug(3) << "visit call " << op->name << ": ";
     if(!ignore.contains(op->name)) {
       debug(3) << "adding to closure.\n";
-      //std::cout << "adding to closure through call: " << op->name << "\n";
       vars[op->name] = Type();
       var_args[op->name] = op->args;
     } else {
@@ -404,10 +416,10 @@ void Compute_Closure::visit(const Call *op) {
 vector<Clockwork_Argument> Compute_Closure::arguments() {
     vector<Clockwork_Argument> res;
     for (const std::pair<string, Closure::Buffer> &i : buffers) {
-        //std::cout << "buffer: " << i.first << " " << i.second.size;
+      std::cout << "buffer: " << i.first << " " << i.second.size;
         //if (i.second.read) std::cout << " (read)";
         //if (i.second.write) std::cout << " (write)";
-        //std::cout << "\n";
+        std::cout << "\n";
         if (i.second.read) {
           if (var_args.count(i.first) > 0) {
             //std::cout << i.first << " has args " << endl;
@@ -424,11 +436,11 @@ vector<Clockwork_Argument> Compute_Closure::arguments() {
            ends_with(i.first, ".stencil") ||
            ends_with(i.first, ".stencil_update")) {
           
-          //bool is_output =  (starts_with(i.first, output_name));
+          bool is_output = (starts_with(i.first, output_name));
           if (var_args.count(i.first) > 0) {
-            //res.push_back({i.first, true, is_output, Type(), CodeGen_Clockwork_Base::Stencil_Type(), var_args[i.first]});
+            res.push_back({i.first, true, is_output, Type(), CodeGen_Clockwork_Base::Stencil_Type(), var_args[i.first]});
           } else {
-            //res.push_back({i.first, true, is_output, Type(), CodeGen_Clockwork_Base::Stencil_Type()});              
+            res.push_back({i.first, true, is_output, Type(), CodeGen_Clockwork_Base::Stencil_Type()});              
           }
 
         } else if (ends_with(i.first, ".stencil_update")) {
@@ -443,33 +455,47 @@ vector<Clockwork_Argument> Compute_Closure::arguments() {
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Output the memory
-  memory_stream << "//store is: " << Stmt(op) << std::endl;
-  Compute_Closure c(Stmt(op), op->name);
+  memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
+
+  func_name = printname(unique_name("compute_" + op->name));
+  memory_stream << "  auto " << func_name  << " = "
+                << mem_bodyname << "->add_op(\""
+                << func_name << "\");" << endl;
+  
+  Compute_Closure c(expand_expr(Stmt(op), scope), op->name);
   vector<Clockwork_Argument> compute_args = c.arguments();
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
 
   // Add each load
   for (auto arg : compute_args) {
+    string buffer_name = printname(arg.name);
+    add_buffer(buffer_name);
+    
     memory_stream << "  " << func_name << "->add_load(\""
-                  << printname(arg.name) << "\"";
+                  << buffer_name << "\"";
     for (auto index : arg.args) {
-      memory_stream << ", \"" << index << "\"";
+      ostringstream index_print;
+      index_print << expand_expr(index, scope);
+      memory_stream << ", \"" << removedots(index_print.str()) << "\"";
     }
     
     memory_stream << ");\n";
   }
 
   // Add the store
+  add_buffer(printname(op->name));
   memory_stream << "  " << func_name << "->add_store(\""
                 << printname(op->name) << "\"";
   for (auto arg : op->args) {
-    memory_stream << ", \"" << arg << "\"";
+    ostringstream arg_print;
+    arg_print << expand_expr(arg, scope);
+    memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
   }
   memory_stream << ");\n";
 
   
   // Output the compute
-  compute_stream << "//store is: " << Stmt(op) << std::endl;
+  compute_stream << std::endl << "//store is: " << Stmt(op);
   compute_stream << "hw_uint<16> " << func_name << "(";
   for (size_t i=0; i<compute_args.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
@@ -567,7 +593,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
     //              << func_name << "\");" << endl;
     
   } else {
-    memory_stream << "//consuming " << op->name << endl;
+    memory_stream << endl << "//consuming " << op->name << endl;
 
 
     //if (starts_with(op->name, "hw_output")) {
@@ -720,8 +746,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     new_body.accept(this);
 
     // Should have been freed internally
-    internal_assert(!allocations.contains(alloc_name))
-        << "allocation " << alloc_name << " is not freed.\n";
+    //internal_assert(!allocations.contains(alloc_name)) << "allocation " << alloc_name << " is not freed.\n";
 
     //close_scope("alloc " + printname(op->name));
 

@@ -444,8 +444,9 @@ SOURCE_FILES = \
   Generator.cpp \
   HexagonOffload.cpp \
   HexagonOptimize.cpp \
-	HWBuffer.cpp \
-	HWBufferUtils.cpp \
+  HWBuffer.cpp \
+  HWBufferRename.cpp \
+  HWBufferUtils.cpp \
   ImageParam.cpp \
   InferArguments.cpp \
   InjectHostDevBufferCopies.cpp \
@@ -623,6 +624,7 @@ HEADER_FILES = \
   HexagonOffload.h \
   HexagonOptimize.h \
   HWBuffer.h \
+  HWBufferRename.h \
   HWBufferUtils.h \
   runtime/HalideRuntime.h \
   runtime/HalideBuffer.h \
