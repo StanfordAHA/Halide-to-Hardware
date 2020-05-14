@@ -378,7 +378,12 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     //std::cout << "Before unrolling:\n" << s << "\n\n";
     debug(1) << "Unrolling...\n";
-    s = unroll_loops(s);
+    if (t.has_feature(Target::Clockwork)) {
+      s = unroll_loops_and_merge(s);
+    } else {
+      s = unroll_loops(s);
+    }
+
     s = simplify(s);
     debug(2) << "Lowering after unrolling:\n" << s << "\n\n";
     //std::cout << "Lowering after unrolling:\n" << s << "\n\n";
