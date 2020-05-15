@@ -16,6 +16,15 @@ class RenameRealize : public IRMutator {
 
   using IRMutator::visit;
 
+  Stmt visit(const ProducerConsumer *op) override {
+    if (op->name == orig_name) {
+      Stmt new_body = mutate(op->body);
+      return ProducerConsumer::make(new_name, op->is_producer, new_body);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+  
   Expr visit(const Call *op) override {
     if (op->name == orig_name ) {
       vector<Expr> new_args;

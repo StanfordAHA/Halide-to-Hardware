@@ -32,6 +32,7 @@
 #include "FuzzFloatStores.h"
 #include "HexagonOffload.h"
 #include "HWBufferRename.h"
+#include "HWBufferSimplications.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "IRPrinter.h"
@@ -380,6 +381,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Unrolling...\n";
     if (t.has_feature(Target::Clockwork)) {
       s = unroll_loops_and_merge(s);
+      s = inline_memory_constants(s);
     } else {
       s = unroll_loops(s);
     }
