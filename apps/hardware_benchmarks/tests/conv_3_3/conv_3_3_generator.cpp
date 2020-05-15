@@ -29,8 +29,10 @@ public:
         conv(x, y) = 0;
 
         Func hw_input("hw_input");
+        Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        hw_input_copy(x, y) = hw_input(x, y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
@@ -80,19 +82,22 @@ public:
           conv.bound(x, 0, imgsize);
           conv.bound(y, 0, imgsize);
 
+          //hw_input.compute_at(hw_output, xo);
           hw_input.compute_root();
+          hw_input_copy.compute_at(hw_output, xo);
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize);
 
-
+          conv.compute_at(hw_output, xo);
+          kernel.compute_at(conv, x);
           conv.update()
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);
           //
-          kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
+          //kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
           //
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
+          //hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
             
         } else {  // schedule to CPU
           conv.update()

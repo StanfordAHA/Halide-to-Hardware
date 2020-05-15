@@ -176,6 +176,71 @@ public:
 
           padded16.store_at(hw_output, xo).compute_at(hw_output, xi);
           padded16.stream_to_accelerator();
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          grad_x.bound(x, -2, 62);
+          grad_x.bound(y, -2, 62);
+          grad_y.bound(x, -2, 62);
+          grad_y.bound(y, -2, 62);
+
+          //grad_xx.bound(x, -2, 62);
+          //grad_xx.bound(y, -2, 62);
+          //grad_xy.bound(x, -2, 62);
+          //grad_xy.bound(y, -2, 62);
+          //grad_yy.bound(x, -2, 62);
+          //grad_yy.bound(y, -2, 62);
+
+          lxx.bound(x, -2, 62);
+          lxx.bound(y, -2, 62);
+          lxy.bound(x, -2, 62);
+          lxy.bound(y, -2, 62);
+          lyy.bound(x, -2, 62);
+          lyy.bound(y, -2, 62);
+
+          lgxx.bound(x, -1, 60);
+          lgxx.bound(y, -1, 60);
+          lgxy.bound(x, -1, 60);
+          lgxy.bound(y, -1, 60);
+          lgyy.bound(x, -1, 60);
+          lgyy.bound(y, -1, 60);
+
+          hw_output.bound(x, 0, 58);
+          hw_output.bound(y, 0, 58);
+          output.bound(x, 0, 58);
+          output.bound(y, 0, 58);
+          cim_output.bound(x, 0, 58);
+          cim_output.bound(y, 0, 58);
+
+          //output.tile(x, y, xo, yo, xi, yi, 64, 64);
+          //padded16.compute_root();
+          //hw_output.compute_at(output, xo);
+          hw_output.compute_root();
+
+          //int tileSize = 8;
+          int tileSize = 58;
+          hw_output
+            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+            .accelerate({padded16}, xi, xo);
+            //.hw_accelerate(xi, xo);
+          //padded16.stream_to_accelerator();
+
+          grad_x.linebuffer();
+          grad_y.linebuffer();
+          lxx.linebuffer();
+          lyy.linebuffer();
+          lxy.linebuffer();
+          lgxx.linebuffer();
+          lgyy.linebuffer();
+          lgxy.linebuffer();
+          //cim.linebuffer();
+          cim_output.linebuffer();
+
+          lgxx.update().unroll(box.x).unroll(box.y);
+          lgyy.update().unroll(box.x).unroll(box.y);
+          lgxy.update().unroll(box.x).unroll(box.y);
+
+          padded16.store_at(hw_output, xo).compute_at(hw_output, xi);
+          padded16.stream_to_accelerator();
           
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 58, 58);

@@ -472,7 +472,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
-  func_name = printname(unique_name("compute_" + op->name));
+  func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
                 << func_name << "\");" << endl;
@@ -549,7 +549,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
-  func_name = printname(unique_name("compute_" + op->name));
+  func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
                 << func_name << "\");" << endl;

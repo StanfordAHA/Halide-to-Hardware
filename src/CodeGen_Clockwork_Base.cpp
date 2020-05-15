@@ -30,7 +30,7 @@ string CodeGen_Clockwork_Base::print_stencil_type(Stencil_Type stencil_type) {
         oss << "Stencil<" << print_type(stencil_type.elemType);
 
         for(const auto &range : stencil_type.bounds) {
-            internal_assert(is_one(simplify(range.min == 0)));
+          //internal_assert(is_one(simplify(range.min == 0)));
             oss << ", " << range.extent;
         }
         oss << ">";

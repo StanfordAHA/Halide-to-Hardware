@@ -83,6 +83,42 @@ public:
           //hw_input.compute_root();
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          hw_output.bound(x, 0, outImgSize);
+          hw_output.bound(y, 0, outImgSize);
+          output.bound(x, 0, outImgSize);
+          output.bound(y, 0, outImgSize);
+          conv2.bound(x, 0, outImgSize);
+          conv2.bound(y, 0, outImgSize);
+          conv1.bound(x, 0, outImgSize+2);
+          conv1.bound(y, 0, outImgSize+2);
+
+          hw_input.compute_root();
+          hw_output.compute_root();
+          hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize);
+
+          //hw_input.compute_root();
+          //hw_input.store_at(hw_output, xo).compute_at(conv1, x);
+          
+          //kernel.compute_at(hw_output, yi);
+
+          conv2.store_at(hw_output, xo).compute_at(hw_output, xo);
+          conv2.update()
+            .unroll(r.x)
+            .unroll(r.y);
+          //conv2.linebuffer();
+          
+          //conv1.linebuffer();
+          conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
+          conv1.update()
+            .unroll(r.x)
+            .unroll(r.y);
+
+          kernel.compute_root();
+          
+          
         } else {  // schedule to CPU
           conv1.update()
             .unroll(r.x)
