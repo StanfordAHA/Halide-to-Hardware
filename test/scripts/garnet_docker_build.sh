@@ -17,7 +17,18 @@ docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts"
 docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/Halide-to-Hardware/"
 
 echo 'Running Halide build...'
-docker exec -i halide-hw-distro bash -c "cd GarnetFlow/scripts; ./build_halide_distrib.sh"
+# Build coreir
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; 	git clone --depth 1 --branch fix_simplugin https://github.com/rdaly525/coreir coreir"
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/coreir/build && cmake .. && make -j4"
+# Build BufferMapping
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; git clone --branch new_config --depth 1 https://github.com/joyliu37/BufferMapping"
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts/BufferMapping/cfunc; make lib"
+docker exec -i halide-hw-distro bash -c "ls /GarnetFlow/scripts/BufferMapping"
+# Build LLVM
+docker exec -i halide-hw-distro bash -c "export LLVM_VERSION=7.0.0; cd /GarnetFlow/scripts/Halide-to-Hardware; ./test/scripts/install_travis.sh; cp -r /llvm /usr/lib/llvm-7"
+docker exec -i halide-hw-distro bash -c "apt-get update"
+# Run rest of GarnetFlow build script
+docker exec -i halide-hw-distro bash -c "cd /GarnetFlow/scripts; ./build_halide_distrib.sh"
 
 # Run the testbench in docker, copy the result to the local travis machine, and
 # then stop the script if the testbench failed.

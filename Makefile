@@ -173,13 +173,13 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
 FUNCBUF_DIR ?= $(ROOT_DIR)/../BufferMapping/cfunc
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
-COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include
+COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include -Wno-int-in-bool-context
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
 COREIR_LD_FLAGS += -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -lcoreir-lakelib
 COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)
-CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare
+CXX_WARNING_FLAGS = -Wall -Werror -Wno-unused-function -Wno-uninitialized -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare
 ifneq (,$(findstring g++,$(CXX_VERSION)))
 GCC_MAJOR_VERSION := $(shell $(CXX) -dumpfullversion -dumpversion | cut -f1 -d.)
 GCC_MINOR_VERSION := $(shell $(CXX) -dumpfullversion -dumpversion | cut -f2 -d.)
@@ -441,7 +441,8 @@ SOURCE_FILES = \
   Generator.cpp \
   HexagonOffload.cpp \
   HexagonOptimize.cpp \
-	HWUtils.cpp \
+	HWBuffer.cpp \
+	HWBufferUtils.cpp \
   ImageParam.cpp \
   InferArguments.cpp \
   InjectHostDevBufferCopies.cpp \
@@ -618,6 +619,10 @@ HEADER_FILES = \
   Generator.h \
   HexagonOffload.h \
   HexagonOptimize.h \
+  HWBuffer.h \
+  HWBufferUtils.h \
+  runtime/HalideRuntime.h \
+  runtime/HalideBuffer.h \
   HWTechLib.h \
   ImageParam.h \
   InferArguments.h \
@@ -1815,6 +1820,7 @@ test_apps: distrib
 	done
 
 test_coreir:  distrib $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
+	$(MAKE) correctness_hwbuffer
 	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit;
 	$(MAKE) -C apps/hardware_benchmarks/apps  cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
 
@@ -2085,7 +2091,7 @@ $(DISTRIB_DIR)/tools/GenGen.cpp: $(ROOT_DIR)/tools/GenGen.cpp
 	@-mkdir -p $(@D)
 	cp $(ROOT_DIR)/tools/GenGen.cpp $(DISTRIB_DIR)/tools
 
-quick_distrib: $(DISTRIB_DIR)/halide_config.make $(DISTRIB_DIR)/lib/libHalide.a $(DISTRIB_DIR)/include/Halide.h $(DISTRIB_DIR)/tools/GenGen.cpp
+compiler quick_distrib: $(DISTRIB_DIR)/halide_config.make $(DISTRIB_DIR)/lib/libHalide.a $(DISTRIB_DIR)/include/Halide.h $(DISTRIB_DIR)/tools/GenGen.cpp
 
 $(BIN_DIR)/HalideTraceViz: $(ROOT_DIR)/util/HalideTraceViz.cpp $(INCLUDE_DIR)/HalideRuntime.h $(ROOT_DIR)/tools/halide_image_io.h $(ROOT_DIR)/tools/halide_trace_config.h
 	$(CXX) $(OPTIMIZE) -std=c++17 $(filter %.cpp,$^) -I$(INCLUDE_DIR) -I$(ROOT_DIR)/tools -L$(BIN_DIR) -o $@

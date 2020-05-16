@@ -2488,8 +2488,8 @@ Func &Func::accelerate(vector<Func> inputs,
 
     debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
              << " " << store_var.name() << "\n";
-    std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
-             << " " << store_var.name() << "\n";
+    //std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+    //         << " " << store_var.name() << "\n";
 
     for (size_t i = 0; i < inputs.size(); i++) {
         Function hw_in = inputs[i].function();
@@ -2507,12 +2507,12 @@ Func &Func::accelerate(vector<Func> inputs,
     func.schedule().is_accelerated() = true;
     func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
     func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
-    std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
-              << " varname=" << func.schedule().accelerate_compute_level().var().name()
-              << "\n";
-    std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
-              << " varname=" << func.schedule().accelerate_store_level().var().name()
-              << "\n";
+    //std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
+    //          << " varname=" << func.schedule().accelerate_compute_level().var().name()
+    //          << "\n";
+    //std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+    //          << " varname=" << func.schedule().accelerate_store_level().var().name()
+    //          << "\n";
     
     // hw_out is stored in kernel buffer slice, this function store in kernel buffer
     //func.schedule().is_kernel_buffer_slice() = true;
@@ -2550,8 +2550,8 @@ Func &Func::hw_accelerate(Var compute_var, Var store_var) {
 
     debug(3) << "accelerate function " << func.name() << " at " << compute_var.name()
              << " " << store_var.name() << "\n";
-    std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
-             << " " << store_var.name() << "\n";
+    //std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+    //         << " " << store_var.name() << "\n";
 
     func.schedule().is_accelerator_output() = true;
     
@@ -2573,12 +2573,12 @@ Func &Func::hw_accelerate(Var compute_var, Var store_var) {
     func.schedule().is_accelerated() = true;
     func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
     func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
-    std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
-              << " varname=" << func.schedule().accelerate_compute_level().var().name()
-              << "\n";
-    std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
-              << " varname=" << func.schedule().accelerate_store_level().var().name()
-              << "\n";
+    //std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
+    //          << " varname=" << func.schedule().accelerate_compute_level().var().name()
+    //          << "\n";
+    //std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+    //          << " varname=" << func.schedule().accelerate_store_level().var().name()
+    //          << "\n";
 
     // mark all the halide functions in the pipeline to be "hw_kernel"
     /*

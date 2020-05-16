@@ -418,6 +418,7 @@ class AttemptStorageFoldingOfFunction : public IRMutator {
     }
 
     Stmt visit(const For *op) override {
+        //std::cout << op->name << " is being looked at\n";
         if (op->for_type != ForType::Serial && op->for_type != ForType::Unrolled) {
             // We can't proceed into a parallel for loop.
 
@@ -505,6 +506,12 @@ class AttemptStorageFoldingOfFunction : public IRMutator {
                      << "Max: " << max << '\n'
                      << "Extent: " << extent << '\n'
                      << "explicit_factor: " << explicit_factor << '\n';
+
+            //std::cout << "\nConsidering folding " << func.name() << " over for loop over " << op->name << " dimension " << i - 1 << '\n'
+            //         << "Min: " << min << '\n'
+            //         << "Max: " << max << '\n'
+            //         << "Extent: " << extent << '\n'
+            //         << "explicit_factor: " << explicit_factor << '\n';
 
             // First, attempt to detect if the loop is monotonically
             // increasing or decreasing (if we allow automatic folding).
@@ -828,7 +835,7 @@ class StorageFolding : public IRMutator {
             ends_with(op->name, ".stencil_update") ||
             ends_with(op->name, ".stream")) {
           debug(3) << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
-          std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
+          //std::cout << "Not attempting to fold " << op->name << " because it is a stream or a stencil.\n";
           
           if (body.same_as(op->body)) {
             return op;
@@ -845,7 +852,7 @@ class StorageFolding : public IRMutator {
         
         AttemptStorageFoldingOfFunction folder(func, explicit_only);
         debug(3) << "Attempting to fold " << op->name << "\n";
-        std::cout << "Attempting to fold " << op->name << "\n";
+        //std::cout << "Attempting to fold " << op->name << "\n";
         body = folder.mutate(body);
 
         if (body.same_as(op->body)) {

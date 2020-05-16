@@ -8,7 +8,7 @@
 #include "CodeGen_CoreIR_Target.h"
 #include "CoreIR_Libs.h"
 #include "Debug.h"
-#include "HWUtils.h"
+#include "HWBufferUtils.h"
 #include "Substitute.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -2728,8 +2728,8 @@ CoreIR::Type* moduleTypeForKernel(CoreIR::Context* context,
         for(const auto &range : stype.bounds) {
           internal_assert(is_const(range.extent));
           indices.push_back(func_id_const_value(range.extent));
-          info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.min)));
-          info.streamParams[arg.name].push_back(to_string(func_id_const_value(range.extent)));
+          info.streamParams[arg.name].push_back(std::to_string(func_id_const_value(range.min)));
+          info.streamParams[arg.name].push_back(std::to_string(func_id_const_value(range.extent)));
         }
 
         if (arg.is_output) {

@@ -4,8 +4,9 @@
 #include "coreir.h"
 
 #include "ExtractHWBuffers.h"
-#include "HWUtils.h"
+#include "HWBufferUtils.h"
 #include "IR.h"
+#include "Simplify.h"
 
 namespace Halide {
   namespace Internal {

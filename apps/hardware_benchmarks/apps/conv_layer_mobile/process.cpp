@@ -11,24 +11,26 @@ using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
-    int Batch = 1;
+     //int Batch = 1;
     int Height = 64;
     int Width = 64;
     int Chin = 32;
     int Chout = 32;
     int Filter_sz = 3;
 
-    Buffer<int8_t> input(Width + Filter_sz - 1, Height + Filter_sz - 1, Chin, Batch);
+    //Buffer<int8_t> input(Width + Filter_sz - 1, Height + Filter_sz - 1, Chin, Batch);
+    Buffer<int8_t> input(Width + Filter_sz - 1, Height + Filter_sz - 1, Chin);
     Buffer<int8_t> filter_dw(Filter_sz, Filter_sz, Chin);
     Buffer<int8_t> filter_pw(Chin, Chout);
     Buffer<int8_t> bias_dw(Chin);
     Buffer<int8_t> bias_pw(Chout);
 
-    for (int n = 0; n < input.dim(3).extent(); n++)
+    //for (int n = 0; n < input.dim(3).extent(); n++)
     for (int c = 0; c < input.channels(); c++)
     for (int h = 0; h < input.height(); h++)
     for (int w = 0; w < input.width(); w++) {
-        input(w, h, c, n) = (int8_t)rand();
+      //input(w, h, c, n) = (int8_t)rand();
+      input(w, h, c) = (int8_t)rand();
     }
 
     for (int c = 0; c < filter_dw.channels(); c++)
@@ -50,17 +52,20 @@ int main(int argc, char **argv) {
           bias_pw(x) = (int8_t)rand();
     }
 
-    Buffer<int8_t> output(Width, Height, Chout, Batch);
+    //Buffer<uint8_t> output(Width, Height, Chout, Batch);
+    Buffer<uint8_t> output(Width, Height, Chout);
 
     printf("Start compile!\n");
-    conv_layer(input, filter_dw, filter_pw, bias_dw, bias_pw, output);
+    //conv_layer(input, filter_dw, filter_pw, bias_dw, bias_pw, output);
+    conv_layer(input, output);
     printf("Finish compile, start running!\n");
 
     // Timing code
 
     // Manually-tuned version
     double min_t_manual = benchmark(1, 2, [&]() {
-        conv_layer(input, filter_dw, filter_pw, bias_dw, bias_pw, output);
+        //conv_layer(input, filter_dw, filter_pw, bias_dw, bias_pw, output);
+        conv_layer(input, output);
     });
     printf("Manually-tuned time: %gms\n", min_t_manual * 1e3);
 

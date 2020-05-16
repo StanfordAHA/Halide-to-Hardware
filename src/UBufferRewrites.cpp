@@ -1,9 +1,13 @@
-#include "UBufferRewrites.h"
+#include "UBufferRewrites.h"//
 #include "ubuf_coreirsim.h"
 #include "lakelib.h"
 
+#include "IRMutator.h"
 #include "RemoveTrivialForLoops.h"
+#include "Simplify.h"
 #include "UnrollLoops.h"
+
+#include "HWBuffer.h"
 #include "CoreIR_Libs.h"
 
 #include "coreir.h"
@@ -22,40 +26,150 @@ namespace Halide {
       string name;
       map<string, const Provide*> write_ports;
       map<string, const Call*> read_ports;
+      map<string, vector<string> > read_stream_bundle;
 
       //starting address
-      map<string, vector<int>> read_ports_offset;
-      map<string, vector<int>> write_ports_offset;
+      map<string, map<string, vector<int>> > read_ports_offset;
+      map<string, map<string, vector<int>> > write_ports_offset;
 
       // This is an ordinal schedule, it does not
       // describe cycle accurate timing of inputs and
       // outputs
       map<string, StmtSchedule> schedules;
 
+
+      static bool cmp(const pair<string, const Call* > pp1, const pair<string,const Call* > pp2) {
+          auto p1 = pp1.second->args;
+          auto p2 = pp2.second->args;
+          cout << p1.size() << ", " << p2.size() <<endl;
+          cout << pp1.first << ", " << pp2.first << endl;
+          internal_assert(p1.size() == p2.size()) << "two compared vector has different size!\n";
+          int sum = 0;
+          for (size_t i = 0; i < p1.size(); i ++) {
+              int diff = id_const_value(simplify(p1[i] - p2[i]));
+              sum += diff;
+          }
+          return sum <= 0;
+      }
+
+      static bool lex_lt(vector<int> p1_vec, vector<int> p2_vec) {
+        internal_assert(p1_vec.size() == p2_vec.size()) << "compared vector has different size!\n";
+        for (size_t i = p1_vec.size()-1; i >= 0; i -- ) {
+            if(p1_vec.at(i) < p2_vec.at(i)) {
+                return true;
+            }
+            else if (p1_vec.at(i) > p2_vec.at(i)) {
+                return false;
+            }
+        }
+        internal_assert(false) << "should not have 2 vector with the same size";
+      }
+
       //Use a more generic way to deduce output starting address
-      void get_port_offset(size_t num_dim, IO_TYPE typ) {
-          //TODO: possible bug: default starting port is read_port_0 maybe a problem
-          vector<Expr> baseArgs = map_find(string("read_port_0"), read_ports)->args;
-          for (auto rp : read_ports) {
-              std::cout << "read ports"  << rp.first << endl;
-              vector<Expr> args = rp.second->args;
+      map<string, vector<int> > get_port_offset(map<string, const Call*> ports) {
+
+          map<string, vector<int> > ports_offset;
+
+          vector<pair<string, const Call*> > vec(ports.begin(), ports.end());
+          sort(vec.begin(), vec.end(), cmp);
+
+          vector<Expr> baseArgs = vec.begin()->second->args;
+          cout <<"BASE Arg:" << baseArgs << endl;
+          for (auto pt : ports) {
+              vector<Expr> args = pt.second->args;
+              auto call_name = pt.second->name;
+              std::cout << "read ports: "  << pt.first <<"\nname:" << call_name << args << endl;
               vector<int> offsets;
 
-              //check if the dimension match
-              internal_assert(args.size() == num_dim);
-
               for (size_t i = 0; i < baseArgs.size(); i++) {
-                if(typ == IO_TYPE::READ) {
-                  map_insert(read_ports_offset, rp.first, id_const_value(simplify(args[i] - baseArgs[i])));
-                }
-                else {
-                  map_insert(write_ports_offset, rp.first, id_const_value(simplify(args[i] - baseArgs[i])));
-                }
+                cout << "simplify offset :" << (simplify(args[i] - baseArgs[i])) <<id_const_value(simplify(args[i] - baseArgs[i])) << endl;
+                map_insert(ports_offset, pt.first, id_const_value(simplify(args[i] - baseArgs[i])));
 
               }
 
           }
+          return ports_offset;
       }
+
+
+      void sort_read_stream_bundle() {
+          for (auto & itr : read_stream_bundle) {
+              auto & pt_bundle = itr.second;
+              map<string, const Call*> temp;
+              for(auto pt_name: itr.second) {
+                  temp.insert(make_pair(pt_name, read_ports.at(pt_name)));
+              }
+              auto ports_offset = get_port_offset(temp);
+              read_ports_offset[itr.first] = ports_offset;
+              sort(pt_bundle.begin(), pt_bundle.end(),
+                      [ports_offset](string p1, string p2) {
+                      auto pos1 = ports_offset.at(p1);
+                      auto pos2 = ports_offset.at(p2);
+                      return lex_lt(pos1, pos2);
+                      } );
+          }
+      }
+
+      int flatten_portID(string port_name, string ostream_name) {
+          auto output_blk = ubuf.get_output_block(ostream_name);
+          vector<int> flatten_vec;
+          for (size_t i = 0; i < output_blk.size(); i ++) {
+              int temp = std::accumulate(output_blk.begin(), output_blk.begin() + i, 1, std::multiplies<int>());
+              flatten_vec.push_back(temp);
+          }
+          auto pos = read_ports_offset.at(ostream_name).at(port_name);
+          return std::inner_product(pos.begin(), pos.end(), flatten_vec.begin(), 0);
+      }
+
+      void rename_rd_pt() {
+
+          cout << ubuf << endl;
+          sort_read_stream_bundle();
+
+          map<string, const Call*> rd_pt;
+          map<string, vector<string> > rd_stream_bd;
+          map<string, map<string, vector<int> > > rd_pt_offset;
+          map<string, StmtSchedule> sched;
+          for (auto itr: schedules) {
+              if (is_write(itr.first)) {
+                  sched[itr.first] = itr.second;
+              }
+          }
+          for (auto itr: read_stream_bundle) {
+              string stream_name = itr.first;
+              for (auto old_pt_name: itr.second) {
+                  int ptID = flatten_portID(old_pt_name, stream_name);
+                  string new_pt_name = "read_port_" + stream_name + "_" + to_string(ptID);
+                  rd_pt.insert(make_pair(new_pt_name, read_ports.at(old_pt_name)));
+                  sched.insert(make_pair(new_pt_name, schedules.at(old_pt_name)));
+                  map_insert(rd_stream_bd, stream_name, new_pt_name);
+                  rd_pt_offset[stream_name][new_pt_name] = read_ports_offset.at(stream_name).at(old_pt_name);
+              }
+          }
+          read_ports = rd_pt;
+          rd_stream_bd = read_stream_bundle;
+          read_ports_offset = rd_pt_offset;
+          schedules = sched;
+      }
+
+      map<string, vector<int> > regenerate_port_map(map<string, vector<int> > port_map, string stream_name) {
+          map<string, vector<int> > ret;
+
+          vector<pair<string, vector<int>>> sort_vec(port_map.begin(), port_map.end());
+          sort(sort_vec.begin(), sort_vec.end(),
+                  [](pair<string, vector<int> > p1, pair<string, vector<int> > p2) {
+                    auto p1_vec = p1.second;
+                    auto p2_vec = p2.second;
+                    return lex_lt(p1_vec, p2_vec);
+                  });
+
+          for (size_t i = 0; i < sort_vec.size(); i++) {
+              string pt_name = "read_port_" + stream_name + "_" + to_string(i);
+              ret.insert(make_pair(pt_name, sort_vec.at(i).second));
+          }
+          return ret;
+      }
+
 
       bool is_write(const std::string& pt) const {
         return contains_key(pt, write_ports);
@@ -162,15 +276,17 @@ namespace Halide {
       using IRGraphVisitor::visit;
 
       vector<VarSpec> activeVars;
+      string provide_name;
       int next_level;
       map<string, vector<const Provide*> > provides;
       map<string, vector<const Call*> > calls;
       map<const Provide*, StmtSchedule> write_scheds;
       map<const Call*, StmtSchedule> read_scheds;
+      map<const Call*, string> read_consumer;
 
       FuncOpCollector() : activeVars({{"", Expr(0), Expr(1)}}), next_level(1) {}
 
-      map<string, MemoryConstraints> hwbuffers() const {
+      map<string, MemoryConstraints> hwbuffers() {
         map<string, MemoryConstraints> bufs;
         set<string> buffer_names = domain<string, vector<const Call*> >(calls);
         for (auto n : domain(provides)) {
@@ -181,21 +297,26 @@ namespace Halide {
 
         for (auto b : buffer_names) {
           map<string, StmtSchedule> schedules;
-          int rd_num = 0;
-          map<string, const Call*> reads;
-          for (auto rd : calls) {
-            if (rd.first == b) {
-              for (auto rdOp : rd.second) {
-                reads["read_port_" + to_string(rd_num)] = rdOp;
-                schedules["read_port_" + to_string(rd_num)] = map_find(rdOp, read_scheds);
-                rd_num++;
-              }
-            }
-          }
           int wr_num = 0;
           map<string, const Provide*> writes;
           for (auto rd : provides) {
             if (rd.first == b) {
+
+              //first remove the const initialization
+              //FIXME: a better way is rewrite IR
+              size_t offset = 0;
+              for (auto rdOp : rd.second) {
+                if (rdOp->values.size() == 1)
+                    if(id_const_value(rdOp->values.front()) != -1 || id_fconst_value(rdOp->values.front()) != -1) {
+                        //initial a const value also remove one out port
+                        auto & call_list = calls.at(b);
+                        call_list.erase(call_list.begin());
+                        rd.second.erase(rd.second.begin() + offset);
+                        break;
+                    }
+                offset ++;
+              }
+
               for (auto rdOp : rd.second) {
                 writes["write_port_" + to_string(wr_num)] = rdOp;
                 schedules["write_port_" + to_string(wr_num)] = map_find(rdOp, write_scheds);
@@ -203,7 +324,22 @@ namespace Halide {
               }
             }
           }
-          bufs[b] = {{}, b, writes, reads, {}, {}, schedules};
+          int rd_num = 0;
+          map<string, const Call*> reads;
+          map<string, vector<string>> reads_stream_bundle;
+          for (auto rd : calls) {
+            if (rd.first == b) {
+              for (auto rdOp : rd.second) {
+                string pt_name = "read_port_" + to_string(rd_num);
+                reads[pt_name] = rdOp;
+                schedules[pt_name] = map_find(rdOp, read_scheds);
+                map_insert(reads_stream_bundle, map_find(rdOp, read_consumer), pt_name);
+                rd_num++;
+              }
+            }
+          }
+          bufs[b] = {{}, b, writes, reads, reads_stream_bundle, {}, {}, schedules};
+          cout << "Add buffer constraints for " << b << endl;
         }
         return bufs;
       }
@@ -262,9 +398,32 @@ namespace Halide {
         next_level = 1;
       }
       void visit(const Provide* p) override {
+        //track the string name
+        provide_name = p->name;
+        //cout << "provide name: " << p->name << p->values << endl;
+        cout << Stmt(p) << endl;
+
         IRGraphVisitor::visit(p);
 
         inc_level();
+
+        //FIXME: hacky solution for local accumulation
+        if (provides.find(p->name) != provides.end()) {
+            for (auto pd: provides.at(p->name)) {
+                //cout << "check provide: " << Stmt(pd) << endl;
+                bool is_same = true;
+                for (size_t i = 0; i < std::min(pd->args.size(), p->args.size()); i ++) {
+                  auto target_expr = pd->args[i];
+                  auto cur_expr = p->args[i];
+                  is_same &= (id_const_value(simplify(target_expr -cur_expr)) == 0);
+                }
+                if (is_same) {
+                    //cout << "Update the same location" << endl;
+                    return;
+                }
+            }
+        }
+
         map_insert(provides, p->name, p);
         write_scheds[p] = activeVars;
       }
@@ -272,7 +431,9 @@ namespace Halide {
       void visit(const Call* p) override {
         if (p->call_type == Call::CallType::Halide) {
           inc_level();
+          //cout << provide_name << "\tInsert consumer to map: " << p->name << "\n " << p->args << endl;
           map_insert(calls, p->name, p);
+          read_consumer[p] = provide_name;
           read_scheds[p] = activeVars;
         }
 
@@ -418,7 +579,7 @@ namespace Halide {
               }
           }
 
-          Values generate_ubuf_args(string port_name, int stencil_valid_depth, int width, int flatten_size) {
+          Values generate_ubuf_args(string port_name, int stencil_valid_depth, int width, int flatten_size, bool rate_matched=false) {
               auto context = def->getContext();
               json out_start;
               out_start["output_start"][0] = 0;
@@ -433,7 +594,7 @@ namespace Halide {
                       {"stencil_width", Const::make(context, stencil_valid_depth)},
                       {"depth", Const::make(context, flatten_size)},
                       {"chain_idx", Const::make(context, 0)},
-                      {"rate_matched", Const::make(context, false)},
+                      {"rate_matched", Const::make(context, rate_matched)},
                       {"chain_en", Const::make(context, false)},
                       {"dimensionality", Const::make(context, 1)},
                       {"input_stride_0", Const::make(context, 1)},
@@ -447,6 +608,14 @@ namespace Halide {
                       {"output_starting_addrs", Const::make(context, out_start)},
                       {"num_stencil_acc_dim", Const::make(context, 1)}};
               return args;
+          }
+
+          Wireable* generate_stencil_valid(Wireable* last_valid, int row_size, int depth) {
+              auto counter = build_counter(def, 16, 0, row_size, 1);
+              auto valid_out = geq(counter->sel("out"), depth);
+              def->connect(counter->sel("en"), last_valid);
+              def->connect(counter->sel("reset"), def->sel("self")->sel("reset"));
+              return valid_out;
           }
 
           Wireable* generate_coreir(pair<Wireable*, Wireable*> input_pair, string rp,  vector<int> flatten_vec) {
@@ -480,6 +649,9 @@ namespace Halide {
                   //possible bug: cold only support dilation = 1 convolution kernel
                   //add register
                   //add delay use a flag to decide whether use the stencil valid from tile
+
+                  int start_pos = 0;
+
                   for (auto it: port_map) {
                       string port_name = it.second;
                       auto child_node = child[port_name];
@@ -490,20 +662,28 @@ namespace Halide {
                       cout << "visit port: " << port_name << endl;
                       //auto d0 = def->addInstance("d_reg" + context->getUnique(),"corebit.reg",
                       //       {{"width",Const::make(context,width)}});
-                      //FIXME: possible bug, should use depth of the fifo
-                      auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
-                      def->connect(d0->sel("in"), last_data);
-                      last_data = d0->sel("out");
 
+                      //use fifo depth to create the corresponding delay
+                      for (int depth = start_pos; depth < it.first; depth ++) {
+                        auto d0 = def->addInstance("d_reg" + context->getUnique(),"mantle.reg",{{"width",Const::make(context,16)},{"has_en",Const::make(context,false)}});
+                        def->connect(d0->sel("in"), last_data);
+                        last_data = d0->sel("out");
+
+                        //add a delay path, maybe leave dangling if have row buffer
+                        //auto delayedEn = def->addInstance("delayed_en" + context->getUnique(),"corebit.reg");
+                        //def->connect(last_data_valid, delayedEn->sel("in"));
+                        //last_data_valid= delayedEn->sel("out");
+                      }
                       //use a dummy data valid since not use in register
                       child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
-
-
+                      start_pos = it.first;
                   }
-                  return nullptr;
+                  last_data_valid = generate_stencil_valid(last_data_valid, range.front()-1, start_pos);
+                  return last_data_valid;
               }
               else {
                   //add row buffer
+                  int start_pos = 0;
                   for (auto it: port_map) {
                       string port_name = it.second;
                       auto child_node = child[port_name];
@@ -516,38 +696,49 @@ namespace Halide {
                           bool last_port_flag = (port_name == port_map.rbegin()->second);
 
                           int stencil_valid_depth = 0;
-                          if (last_port_flag)
+
+                          for(int depth = start_pos; depth < it.first; depth ++) {
+                            //set stencil valid
+                            if (last_port_flag && (depth == it.first-1))
                               stencil_valid_depth = child_node.stencil_valid_depth;
 
-                          //FIXME: possible bug, should use depth of the fifo
-                          auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size);
-                          //add ubuffer and wiring
-                          auto row_buffer_coreir = def->addInstance("row_buf_"+context->getUnique(),
-                                  "lakelib.unified_buffer", args);
-                          def->connect(last_data_valid, row_buffer_coreir->sel("wen"));
-                          def->connect(last_data, row_buffer_coreir->sel("datain0"));
+                            auto args = generate_ubuf_args(port_name, stencil_valid_depth, width, flatten_size, true);
+                            //add ubuffer and wiring
+                            auto row_buffer_coreir = def->addInstance("row_buf_"+context->getUnique(),
+                                    "lakelib.unified_buffer", args);
+                            def->connect(last_data_valid, row_buffer_coreir->sel("wen"));
+                            def->connect(last_data, row_buffer_coreir->sel("datain0"));
 
-                          //update the last data and valid
-                          last_data = row_buffer_coreir->sel("dataout0");
-                          last_data_valid = row_buffer_coreir->sel("valid");
-
-                          //generate coreIR for next level, ignore the inner level stencil valid
-                          child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
+                            //update the last data and valid
+                            last_data = row_buffer_coreir->sel("dataout0");
+                            last_data_valid = row_buffer_coreir->sel("valid");
 
 
-                          //wire the reset and ren
-                          //wire the peripherial
-                          def->connect(row_buffer_coreir->sel("reset"), def->sel("self")->sel("reset"));
+                            //wire the reset and ren
+                            //wire the peripherial
+                            def->connect(row_buffer_coreir->sel("reset"), def->sel("self")->sel("reset"));
+                            def->connect(row_buffer_coreir->sel("flush"), def->sel("self")->sel("flush"));
 
-                          //TODO:use the same const
-                          auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
-                          def->connect(row_buffer_coreir->sel("ren"), const_true->sel("out"));
+                            //TODO:use the same const
+                            auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
+                            def->connect(row_buffer_coreir->sel("ren"), const_true->sel("out"));
 
-                          //check if the ret is NULL
-                          if (last_port_flag) {
-                              Wireable* next_level_stencil_valid = row_buffer_coreir->sel("valid");
-                              return next_level_stencil_valid;
+                            //check if the ret is NULL
+                            if (depth == it.first - 1) {
+                              //generate coreIR for next level, ignore the inner level stencil valid
+                              child_node.generate_coreir(make_pair(last_data, last_data_valid), port_name, flatten_vec);
+
+                              //wire stencil valid
+                              if (last_port_flag) {
+                                Wireable* next_level_stencil_valid = row_buffer_coreir->sel("valid");
+                                return next_level_stencil_valid;
+                              }
+                            }
+
                           }
+                          start_pos = it.first;
+
+
                       }
                   }
               }
@@ -592,19 +783,20 @@ namespace Halide {
           map<string, ShiftReg> HWTree;
           CoreIR::ModuleDef * def;
 
-          RecursiveBuffer(const IdentifyAddressing id_addr, HWBuffer ubuf, CoreIR::ModuleDef * ubuf_def,
+    //RecursiveBuffer(const IdentifyAddressing id_addr, HWBuffer ubuf, CoreIR::ModuleDef * ubuf_def,
+    RecursiveBuffer(const vector<AccessDimSize>& id_addr, HWBuffer ubuf, CoreIR::ModuleDef * ubuf_def,
                   const map<string, vector<int>> read_ports_offset) {
 
               //initialize a bunch of parameter
               def = ubuf_def;
               addr_dim = ubuf.ldims.size();
-              loop_dim = id_addr.ranges.size();
-              for (int rg: id_addr.ranges)
-                  range.push_back(rg);
-              for (int st: id_addr.strides_in_dim)
-                  stride.push_back(st);
-              for (int ref_dim: id_addr.dim_refs)
-                  stride_ref_dim.push_back(ref_dim);
+              loop_dim = id_addr.size();
+              for (auto rg: id_addr)
+                range.push_back(to_int(rg.range));
+              for (auto st: id_addr)
+                stride.push_back(to_int(st.stride));
+              for (auto ref_dim: id_addr)
+                stride_ref_dim.push_back(to_int(ref_dim.dim_ref));
               for (const auto it: read_ports_offset) {
                   start_addr[it.first] = it.second;
                   merge_addr[it.first] = std::make_tuple(it.first, 0);
@@ -663,7 +855,6 @@ namespace Halide {
               for (size_t i = 0; i < loop_dim; i ++) {
                   int c = 1;
                   while (c <= threshold) {
-                      vector<vector<int>> next_addr;
                       for (const auto it: start_addr) {
                           auto temp = it.second;
                           temp[stride_ref_dim[i]] -= c * stride[i];
@@ -673,7 +864,7 @@ namespace Halide {
                                   auto & merge_port = merge_addr[overlap_port.first];
                                   if (std::get<0>(merge_port) == overlap_port.first){
                                       //this port is not merged under this loop dimension
-                                      std::get<0>(merge_port) = std::get<0>(merge_addr[it.first]);
+                                      std::get<0>(merge_port) = it.first;
                                       std::get<1>(merge_port) = c;
                                   }
                                   else
@@ -769,8 +960,10 @@ namespace Halide {
               //initialize the flatten vector, the dot product doing the linearization
               vector<int> flatten_dim_vector;
               vector<int> dim_vector;
+              cout << buffer.ubuf << endl;
               for (size_t idx =0 ; idx < loop_dim; idx ++) {
                   auto ref_dim = stride_ref_dim[idx];
+                  cout << "logical size flatten: " << id_const_value(buffer.ubuf.ldims[ref_dim].logical_size_flatten) << endl;
                   flatten_dim_vector.push_back(id_const_value(buffer.ubuf.ldims[ref_dim].logical_size_flatten));
                   dim_vector.push_back(id_const_value(buffer.ubuf.ldims[ref_dim].logical_size));
               }
@@ -861,6 +1054,7 @@ namespace Halide {
 
                   //wire the peripherial
                   def->connect(ubuf_coreir->sel("reset"), self->sel("reset"));
+                  def->connect(ubuf_coreir->sel("flush"), self->sel("flush"));
 
                   //TODO: Not sure if this is robust, hacky solution for ren
                   auto const_true = def->addInstance("ubuf_bitconst_"+context->getUnique(), "corebit.const", {{"value", COREMK(context, true)}});
@@ -920,6 +1114,7 @@ namespace Halide {
 
     bool use_lake_lib = true;
     if (use_lake_lib) {
+        cout << buffer.read_loop_levels()[0] << "\t"<< buffer.write_loop_levels()[0] << endl;
 
         if (buffer.read_loop_levels()[0] == buffer.write_loop_levels()[0]) {
           set<string> ports = buffer.port_names();
@@ -934,8 +1129,9 @@ namespace Halide {
 
           for (size_t i = 1; i < port_list.size(); i++) {
             string next_pt = port_list[i];
+            //cout << "\tnext pt: " << next_pt << ", " << buffer.is_read(next_pt) << ", schedule: " << buffer.schedule(next_pt)  << ", last pt: " << last_pt << ", " << buffer.is_write(last_pt) << ", schedule: " << buffer.schedule(last_pt) << endl;
 
-            if (buffer.is_write(next_pt)) {
+            if (buffer.is_write(last_pt)) {
               auto last_cntrl = def->sel("self." + last_pt + "_" + (buffer.is_write(last_pt) ? "en" : "valid"));
               auto last_data = def->sel("self." + last_pt);
 
@@ -953,46 +1149,72 @@ namespace Halide {
         internal_assert(buffer.write_ports.size() == 1);
         std::cout << "Using lake rewrite rules." << std::endl;
 
-        // use this helper IRVisitor to extract the range stride information
-        Scope<Expr> temp;    //create a empty scope
-        IdentifyAddressing id_addr(buffer.ubuf.func, temp, buffer.ubuf.stride_map);
-        buffer.ubuf.output_access_pattern.accept(&id_addr);
-
-        std::cout << "Read range extracted: ";
-        std::for_each(id_addr.ranges.begin(),
-                id_addr.ranges.end(),
-                [] (const int c) {std::cout << c << " ";}
-            );
-        std::cout << endl;
-
 
         coreir_builder_set_context(def->getContext());
         coreir_builder_set_def(def);
 
-        size_t num_dim = buffer.ubuf.ldims.size();
 
-        std::cout << "Extract the offset of read port:\n" ;
-        buffer.get_port_offset(num_dim, IO_TYPE::READ);
+        //internal_assert(buffer.ubuf.ostreams.size() == 1) << "\n" << "Multiple stream analysis not implemented!\n";
+        //Loop over multiple stream
+        for (auto out_stream: buffer.ubuf.ostreams) {
+            string name = out_stream.first;
+            //TODO: solve this self update rewrite
+            if (name == buffer.name)
+                continue;
+            //map<string, const Call*> read_ports_in_stream;
+            //for (auto pt_name: buffer.read_stream_bundle.at(name)) {
+            //    read_ports_in_stream.insert(make_pair(pt_name, buffer.read_ports.at(pt_name)) );
+            //}
+            //auto read_ports_offset = buffer.get_port_offset(read_ports_in_stream);
 
-        std::for_each(buffer.read_ports_offset.begin(),
-                buffer.read_ports_offset.end(),
-                [] (const pair<std::string, vector<int>> c) {
-                    std::cout << c.first << " has offset = [";
-                    for (const int val: c.second) {
-                        std::cout << val << " ";
+            ////rewrite the port name
+            //auto new_read_ports_offset = buffer.regenerate_port_map(read_ports_offset, name);
+            //for (auto itr: new_read_ports_offset) {
+            //    cout << "\t pt: " << itr.first << ", pos: [" << itr.second << "]\n";
+            //}
+
+            //internal_assert(false);
+
+            auto read_ports_offset = buffer.read_ports_offset.at(name);
+
+            size_t num_dim = buffer.ubuf.ldims.size();
+            std::cout << "Extract the offset of read port:\n" ;
+
+            internal_assert(read_ports_offset.begin()->second.size() == num_dim);
+
+            //print out the offset
+            std::for_each(read_ports_offset.begin(),
+                    read_ports_offset.end(),
+                    [] (const pair<std::string, vector<int>> c) {
+                        std::cout << c.first << " has offset = [";
+                        for (const int val: c.second) {
+                            std::cout << val << " ";
+                        }
+                        std::cout << "]" << std::endl;
                     }
-                    std::cout << "]" << std::endl;
-                }
-            );
-        std::cout << endl;
+                );
+            std::cout << endl;
 
-        //create the data structure for rewrite
-        RecursiveBuffer port_opt(id_addr, buffer.ubuf, def, buffer.read_ports_offset);
-        cout << "Before Rewrite: " << port_opt;
-        //port_opt.generate_coreir(buffer);
-        port_opt.port_reduction(1);
-        cout << "After Rewrite: " << port_opt;
-        port_opt.generate_coreir(buffer);
+            //get the access pattern
+            vector<AccessDimSize> id_addr;
+            id_addr = out_stream.second.linear_access;
+            std::cout << "Read range extracted: \n";
+            std::for_each(id_addr.begin(),
+                    id_addr.end(),
+                    [] (const AccessDimSize c) {std::cout << to_int(c.range) << "\t" << to_int(c.stride) <<"\t" << to_int(c.dim_ref) << "\n";}
+                );
+            std::cout << endl;
+
+            //TODO: add a pass to merge the stream into one
+
+            //create the data structure for rewrite
+            RecursiveBuffer port_opt(id_addr, buffer.ubuf, def, read_ports_offset);
+            cout << "Before Rewrite: " << port_opt;
+            //port_opt.generate_coreir(buffer);
+            port_opt.port_reduction(2);
+            cout << "After Rewrite: " << port_opt;
+            port_opt.generate_coreir(buffer);
+        }
 
         return;
 
@@ -1208,13 +1430,16 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
 
   for (auto f : env) {
     if (f.second.schedule().is_accelerated() ||
-        f.second.schedule().is_accelerator_input()) {
+        f.second.schedule().is_accelerator_input() ||
+        (f.second.schedule().is_hw_kernel() && !f.second.schedule().compute_level().is_inlined()) ) {
         //f.second.schedule().is_accelerator_input() ||
         //f.second.schedule().is_hw_kernel()) {
 
       cout << "Buffer for " << f.first << endl;
       internal_assert(contains_key(f.first, buffers)) << f.first << " was not found in memory analysis\n";
       MemoryConstraints buf = map_find(f.first, buffers);
+
+
       // Add hwbuffer field to memory constraints wrapper
       for (auto xcel : xcels) {
         for (auto buffer : xcel.hwbuffers) {
@@ -1223,7 +1448,11 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
           }
         }
       }
-      vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}};
+
+      //get the out_stream port sort in order and rename read port
+      buf.rename_rd_pt();
+
+      vector<pair<string, CoreIR::Type*> > ubuffer_fields{{"clk", context->Named("coreir.clkIn")}, {"reset", context->BitIn()}, {"flush", context->BitIn()}};
       cout << "\t\tReads..." << endl;
       for (auto rd : buf.read_ports) {
         cout << "\t\t\t" << rd.first << " : " << buf.port_schedule(rd.first) << " || " << buf.port_address_stream(rd.first) << endl;
@@ -1249,7 +1478,7 @@ synthesize_hwbuffers(const Stmt& stmt, const std::map<std::string, Function>& en
   }
 
   // Save ubuffers and finish
-  if (!saveToFile(ns, "ubuffers.json")) {
+  if (!saveToFile(ns, "bin/ubuffers.json")) {
     cout << "Could not save ubuffers" << endl;
     context->die();
   }

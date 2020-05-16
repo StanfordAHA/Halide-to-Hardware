@@ -39,6 +39,7 @@ public:
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
 
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

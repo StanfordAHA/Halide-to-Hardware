@@ -217,7 +217,7 @@ class LowerBFloatConversions : public IRMutator {
     Expr float_to_bfloat(Expr e) {
         e = reinterpret(UInt(32, e.type().lanes()), e);
 
-        // round float to even
+        // round float to even, comment out this codeblock for truncation
         Expr half = UIntImm::make(UInt(32), 0x00008000);
         Expr sum = e + half;
         // check if bottom bits are all zero

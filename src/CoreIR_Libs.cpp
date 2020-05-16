@@ -220,7 +220,7 @@ void loadHalideLib(CoreIR::Context* context) {
       auto tp = args.at("type")->get<CoreIR::Type*>();
       auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, delay)}});
       //auto sr = def->addInstance("sr", "halidehw.shift_register", {{"type", COREMK(c, tp)}, {"delay", COREMK(c, 9*2 + 2)}});
-      
+
       def->connect(sr->sel("in_data"), self->sel("in"));
       def->connect(sr->sel("in_en"), self->sel("en"));
       def->connect(sr->sel("valid"), self->sel("valid"));
@@ -267,7 +267,7 @@ void loadHalideLib(CoreIR::Context* context) {
       def->connect(self->sel("out_data"), inData);
       def->connect(self->sel("valid"), inEn);
       });
-  
+
   CoreIR::Params widthParams{{"width", context->Int()}};
   CoreIR::Params romParams{{"width", context->Int()}, {"depth", context->Int()}, {"nports", context->Int()}};
   CoreIR::Params widthDimParams{{"width", context->Int()}, {"nrows", context->Int()}, {"ncols", context->Int()}};
@@ -313,7 +313,7 @@ void loadHalideLib(CoreIR::Context* context) {
       }
       });
 
-  
+
   CoreIR::TypeGen* tg = hns->newTypeGen("rd_stream", widthDimParams,
       [](CoreIR::Context* c, CoreIR::Values args) {
       auto nr = args.at("nrows")->get<int>();
@@ -373,7 +373,7 @@ void loadHalideLib(CoreIR::Context* context) {
         });
 
   }
-  
+
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("init_stencil", widthDimParams,
         [](CoreIR::Context* c, CoreIR::Values args) {
@@ -526,7 +526,7 @@ void loadHalideLib(CoreIR::Context* context) {
         }
         });
   }
-  
+
   {
     CoreIR::TypeGen* ws = hns->newTypeGen("create_stencil_3", stencilReadParams3,
         [](CoreIR::Context* c, CoreIR::Values args) {
@@ -541,7 +541,7 @@ void loadHalideLib(CoreIR::Context* context) {
         auto nRows = args.at("nrows")->get<int>();
         auto nCols = args.at("ncols")->get<int>();
         auto nChans = args.at("nchannels")->get<int>();
-        
+
         auto newR = args.at("r")->get<int>();
         auto newC = args.at("c")->get<int>();
         auto newB = args.at("b")->get<int>();

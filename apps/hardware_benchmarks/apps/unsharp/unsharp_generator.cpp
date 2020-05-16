@@ -41,7 +41,8 @@ public:
 
         // create the input
         Func hw_input;
-        hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
+        //hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
+        hw_input(c, x, y) = cast<uint16_t>(input(x, y, c));
 
         // create a grayscale image
         Func gray;
@@ -51,9 +52,10 @@ public:
         
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
-        RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        //RDom win(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        RDom win(0, blockSize, 0, blockSize);
         blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * gray(x+win.x, y+win.y) );
-        blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
+        blur(x, y) = blur_unnormalized(x, y) / 256;
 
         // sharpen the image by subtracting the blurred image
         Func sharpen;
@@ -65,10 +67,18 @@ public:
 
         // Use the ratio to sharpen the input image.
         Func hw_output;
-        hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
+        //hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
+        hw_output(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255));
                 
-        output(c, x, y) = hw_output(c, x, y);
+        //output(c, x, y) = hw_output(c, x, y);
+        output(x, y, c) = hw_output(x, y);
         output.bound(c, 0, 3);
+        output.bound(x, 0, 60);
+        output.bound(y, 0, 60);
+        
+        //hw_output.bound(c, 0, 1);
+        //hw_output.bound(x, 0, 60);
+        //hw_output.bound(y, 0, 60);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
@@ -76,18 +86,25 @@ public:
           hw_input.compute_root();
           hw_output.compute_root();
           
-          output.tile(x, y, xo, yo, xi, yi, 480, 640).reorder(c, xi, yi, xo, yo);
+          //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
 
-          hw_output.tile(x, y, xo, yo, xi, yi, 480, 640).reorder(c, xi, yi, xo, yo);
-          blur_unnormalized.linebuffer()
-            .update().unroll(win.x).unroll(win.y);
+          hw_output.tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo);
+          blur_unnormalized.linebuffer();
+          blur_unnormalized.update()
+            .unroll(win.x).unroll(win.y);
 
-          hw_output.accelerate({hw_input}, xi, xo);
-          gray.linebuffer().fifo_depth(ratio, 20);
+          hw_output.accelerate({gray}, xi, xo);
+          //gray.linebuffer().fifo_depth(ratio, 20);
           //blur_y.linebuffer();
           ratio.linebuffer();
-          hw_output.unroll(c);  // hw output bound
-          hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
+          //hw_output.unroll(c);  // hw output bound
+          //hw_input.unroll(c);  // hw input bound
+          //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
+          gray.fifo_depth(hw_output, 60*9); // hw input bounds
+          gray.stream_to_accelerator();
+
+          kernel.compute_at(hw_output, xo).unroll(x);
+          //kernel.bound(x, -blockSize/2, blockSize);
 
         } else {    // schedule to CPU
           output.compute_root();

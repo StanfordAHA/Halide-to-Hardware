@@ -110,12 +110,15 @@ public:
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-          hw_in.compute_root();
-          hw_output.compute_root();
+          output.bound(x, 0, 64-6);
+          output.bound(y, 0, 64-6);
+          //largest_seg.bound(x, 0, 64-6);
+          //largest_seg.bound(y, 0, 64-6);
           
           hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6);
-          
-          hw_output.accelerate({hw_in}, xi, xo, {});
+          hw_output.compute_root();          
+          //hw_output.accelerate({hw_in}, xi, xo, {});
+          hw_output.hw_accelerate(xi, xo);
           
           lighter.compute_at(hw_output,xi).unroll(l);
           darker.compute_at(hw_output,xi).unroll(l);
@@ -128,6 +131,8 @@ public:
           largest_seg_dark.compute_at(hw_output,xi).unroll(l);
           largest_seg_dark.update().unroll(ring_win).unroll(l);
 
+          hw_in.store_at(hw_output, xo).compute_at(hw_output, xi);
+          hw_in.stream_to_accelerator();
           
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 64-6, 64-6)

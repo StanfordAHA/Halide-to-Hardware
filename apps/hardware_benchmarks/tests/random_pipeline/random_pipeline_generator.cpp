@@ -1308,6 +1308,7 @@ Expr rand_value(Type t) {
         }
         
         Stage casted = cast_stage(output.type(), tail);
+        
         Func hw_output;
         hw_output = casted.func;
         
@@ -1318,6 +1319,12 @@ Expr rand_value(Type t) {
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
+
+          hw_output.bound(x,0,62);
+          hw_output.bound(y,0,62);
+          hw_output.bound(c,0,10);
+          hw_input.bound(x,0,62);
+          hw_input.bound(y,0,62);
           
           hw_input.compute_root();
           hw_output.compute_root();

@@ -1,4 +1,4 @@
 clean_all cleanall:
 	$(MAKE) -C tests cleanall
   $(MAKE) -C apps cleanall
-	rm -rf hw_support/bin
+	$(MAKE) -C hw_support clean

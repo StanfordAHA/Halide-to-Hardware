@@ -25,6 +25,14 @@ USE_COREIR_VALID ?= 0
 
 # set this to "1>/dev/null" or "&>/dev/null" to suppress debug output to std::cout
 HALIDE_DEBUG_REDIRECT ?=
+# this is used in the buffermapping (especially ubuffer simulation)
+VERBOSE ?= 0
+ifeq ($(VERBOSE), 0)
+	LDFLAGS += -DVERBOSE=0
+else
+	LDFLAGS += -DVERBOSE=1
+endif
+
 
 HLS_PROCESS_CXX_FLAGS = -DC_TEST -Wno-unknown-pragmas -Wno-unused-label -Wno-uninitialized -Wno-literal-suffix
 
@@ -46,7 +54,7 @@ $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_hel
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
 
 $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o: $(HWSUPPORT)/coreir_sim_plugins.cpp $(HWSUPPORT)/coreir_sim_plugins.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
@@ -67,8 +75,8 @@ design design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
 
-design-coreir $(BIN)/design_top.json:
-	$(MAKE) $(BIN)/$(TESTNAME).generator
+coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
+	#$(MAKE) $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
 	 make design-coreir-valid; \
 	else \
@@ -151,7 +159,7 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.png:
+run run-cpu $(BIN)/output_cpu.png: $(BIN)/process $(BIN)/$(TESTNAME).generator
 	$(MAKE) $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
@@ -159,6 +167,14 @@ run run-cpu $(BIN)/output_cpu.png:
 run-coreir $(BIN)/output_coreir.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
+
+design-rewrite: $(BIN)/process $(BIN)/design_top.json
+	@-mkdir -p $(BIN)
+	$(BIN)/process run gen_rewrite $(HALIDE_DEBUG_REDIRECT)
+
+run-rewrite $(BIN)/output_rewrite.png: $(BIN)/process $(BIN)/design_top.json
+	@-mkdir -p $(BIN)
+	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
@@ -171,8 +187,27 @@ run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
-compare compare-cpu-coreir compare-coreir-cpu: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
-	$(BIN)/process compare $(BIN)/output_coreir.png $(BIN)/output_cpu.png
+compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png $(BIN)/process
+	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
+	EXIT_CODE=$$?; \
+	echo $$EXIT_CODE; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+    cp $(BIN)/output_coreir.png $(BIN)/output.png; \
+    (exit $$EXIT_CODE); \
+	else \
+    (exit $$EXIT_CODE);  \
+	fi
+
+compare-rewrite compare-rewrite-cpu compare-cpu-rewrite: $(BIN)/output_rewrite.png $(BIN)/output_cpu.png $(BIN)/process
+	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_rewrite.png; \
+	EXIT_CODE=$$?; \
+	echo $$EXIT_CODE; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+    cp $(BIN)/output_rewrite.png $(BIN)/output.png; \
+    (exit $$EXIT_CODE); \
+	else \
+    (exit $$EXIT_CODE);  \
+	fi
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
@@ -187,28 +222,38 @@ update_golden updategolden golden: $(BIN)/output_cpu.png
 	cp $(BIN)/output_cpu.png $(GOLDEN)/golden_output.png
 
 check:
-	@printf "%-15s" $(TESTNAME);
+	@printf "%-25s" $(TESTNAME);
+	@if [ -f "$(BIN)/$(TESTNAME).generator" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " halide"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!halide"; \
+	fi
+	@if [ -f "$(BIN)/extraction_debug.txt" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " extract"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!extract"; \
+	fi
+	@if [ -f "$(BIN)/ubuffers.json" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " rewrite"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!rewrite"; \
+	fi
 	@if [ -f "$(BIN)/design_prepass.json" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " coreir"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
-	fi
-	@if [ -f "$(BIN)/process" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " process"; \
-	else \
-	  printf "  \033[0;31m%s\033[0m" "!process"; \
 	fi
 	@if [ -f "$(BIN)/output.png" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " output.png"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
 	fi
-	@if [ -f "passed.md5" ]; then \
-	  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
-	fi
-	@if [ -f "failed.md5" ]; then \
-	  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
-	fi
+	@#@if [ -f "passed.md5" ]; then \
+	#  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
+	#fi
+	@#@if [ -f "failed.md5" ]; then \
+	#  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
+	#fi
 	@printf "\n"
 
 $(BIN)/graph.png: $(BIN)/design_top.txt
@@ -217,6 +262,6 @@ graph.png graph:
 	$(MAKE) $(BIN)/graph.png
 
 clean:
-	rm -rf $(BIN)
+	rm -rf $(BIN) $(HWSUPPORT)/$(BIN)
 
 test: run

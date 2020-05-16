@@ -12,7 +12,7 @@
 #include "IRMutator.h"
 #include "Simplify.h"
 #include "RemoveTrivialForLoops.h"
-#include "HWUtils.h"
+#include "HWBufferUtils.h"
 #include "UnrollLoops.h"
 
 using namespace std;

@@ -9,6 +9,20 @@
 using namespace std;
 using namespace CoreIR;
 
+void parse_input_name(Module* m, string & input_name, string& inen_name) {
+    auto record_fields = m->getType()->getFields();
+    for (auto pt_name : record_fields) {
+        auto found_in_pt = pt_name.find("in_arg");
+        if (found_in_pt != std::string::npos) {
+            input_name = "self." + pt_name;
+        }
+        auto found_in_en = pt_name.find("in_en");
+        if (found_in_en != std::string::npos) {
+            inen_name = "self." + pt_name;
+        }
+    }
+}
+
 template <typename elem_t>
 void ImageWriter<elem_t>::write(elem_t data) {
   if (current_x < width &&
@@ -18,6 +32,10 @@ void ImageWriter<elem_t>::write(elem_t data) {
     assert(current_x < width &&
            current_y < height &&
            current_z < channels);
+    std::cout << "output(x=" << current_x
+              << ",y=" << current_y
+              << ",z=" << current_z << ") : writing "
+              << +data << std::endl;
     image(current_x, current_y, current_z) = data;
 
     // increment coords
@@ -118,12 +136,12 @@ bool circuit_uses_valid(Module *m) {
   return uses_valid;
 }
 
-bool circuit_uses_inputenable(Module *m) {
+bool circuit_uses_inputenable(Module *m, string inen_name) {
   bool uses_inputenable = false;
   auto self_conxs = m->getDef()->sel("self")->getLocalConnections();
   for (auto wireable_pair : self_conxs) {
     string port_name = wireable_pair.first->toString();
-    if (port_name == "self.in_en") {
+    if (port_name == inen_name){
       uses_inputenable = true;
       return uses_inputenable;
     }
@@ -253,7 +271,7 @@ void read_for_cycle(
 
   // Set in_en to 1.
   if (uses_inputenable) {
-    state.setValue("self.in_en", BitVector(1, false));
+    state.setValue("self.in_en_arg_0", BitVector(1, false));
   }
 
   // propogate to all wires
@@ -266,7 +284,6 @@ void read_for_cycle(
     //std::cout << "got my valid\n";
     //cout << "output_bv_n = " << output_bv_n << endl;
     if (valid_value) {
-      std::cout << "this one is valid\n";
       auto output_bv = state.getBitVec(output_name);
 
       // bitcast to float if it is a float
@@ -281,7 +298,8 @@ void read_for_cycle(
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv=" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name))
+                << " out=" << +output_value << " output_bv=" << state.getBitVec(output_name) << dec << "  valid=1" << endl;
     }
   } else {
     //if (std::is_floating_point<T>::value) {
@@ -321,6 +339,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     Halide::Runtime::Buffer<T> input,
     Halide::Runtime::Buffer<T> output,
     string input_name,
+    string inen_name,
     string output_name,
 
     CoreIR::SimulatorState& state,
@@ -335,7 +354,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   if (!writeIdx.allDone()) {
 
     if (uses_inputenable) {
-      state.setValue("self.in_en", BitVector(1, true));
+      state.setValue(inen_name, BitVector(1, true));
     }
 
     // Set input value.
@@ -346,16 +365,18 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     } else {
       state.setValue(input_name, BitVector(16, input(x,y,c)));
       //std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (int) input(x, y, c) << endl;
-      std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
+      //std::cout << "y=" << y << ",x=" << x << " " << "in=" << (int) input(x, y, c) << endl;
     }
 
     writeIdx.increment();
   } else {
     if (uses_inputenable) {
-      state.setValue("self.in_en", BitVector(1, false));
+      // still need to enable input to push in junk data until get enough output
+      state.setValue(inen_name, BitVector(1, true));
     }
   }
   // propogate to all wires
+  //state.execute();
   state.exeCombinational();
 
   // read output wire
@@ -364,8 +385,9 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     bool valid_value = state.getBitVec("self.valid").to_type<bool>();
     //std::cout << "got my valid\n";
     //cout << "output_bv_n = " << output_bv_n << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)).to_type<int>() <<  endl;
     if (valid_value) {
-      std::cout << "this one is valid\n";
+      //std::cout << "this one is valid\n";
       auto output_bv = state.getBitVec(output_name);
 
       // bitcast to float if it is a float
@@ -380,23 +402,30 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
       readIdx.increment();
     }
+
+    // give another rising edge (execute seq)
+    state.exeSequential();
+
   } else {
+    state.execute();
     //if (std::is_floating_point<T>::value) {
     //  T output_value = state.getBitVec(output_name);
     //  output(x,y,c) = output_value;
     //} else {
-    //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
 
     auto output_bv = state.getBitVec(output_name);
+
 
     // bitcast to float if it is a float
     T output_value;
     if (has_float_output) {
       float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
       output_value = static_cast<T>(output_float);
+      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
     } else {
       output_value = output_bv.to_type<T>();
     }
@@ -408,7 +437,156 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
   }
 
   // give another rising edge (execute seq)
-  state.exeSequential();
+  //state.exeSequential();
+}
+
+std::vector<std::string> get_seg_list(std::string str, char token) {
+    std::stringstream st(str);
+    std::vector<std::string> seglist;
+    std::string segment;
+
+    while(std::getline(st, segment, token)) {
+        seglist.push_back(segment);
+    }
+
+    return seglist;
+}
+
+std::string find_text(std::string text, std::string before) {
+    return text.substr(0, text.find(before));
+}
+
+std::string vec2string(vector<string> vec, string sep, size_t begin, size_t end) {
+    string ret = "";
+    for (size_t i = begin; i < end; i ++) {
+        auto itr = vec.begin() + i;
+        ret += (*itr) + "_";
+    }
+    ret.pop_back();
+    return ret;
+}
+
+Module* substitute_rewrite_module(string coreir_design, string rewrite_buf) {
+
+    Context* c = newContext();
+    Namespace* g = c->getGlobal();
+    CoreIRLoadLibrary_commonlib(c);
+    CoreIRLoadLibrary_lakelib(c);
+    CoreIRLoadLibrary_float(c);
+    if (!loadFromFile(c, coreir_design)) {
+      cout << "Could not load " << coreir_design
+           << " from json!!" << endl;
+      c->die();
+    }
+
+    if (!loadFromFile(c, rewrite_buf)) {
+      cout << "Could not load " << rewrite_buf
+           << " from json!!" << endl;
+      c->die();
+    }
+
+
+    Module* m = g->getModule("DesignTop");
+    auto moddef = m->getDef();
+    auto instances = m->getDef()->getInstances();
+    m->getDef()->print();
+    assert(m != nullptr);
+
+    auto modules = g->getModules();
+    for (auto itr : modules) {
+        cout << "\tName: " << itr.first << " -> \n" << itr.second->toString() << endl;
+        //auto name_list = get_seg_list(itr.first, '_');
+        string ub = find_text(itr.first, "_ubuffer");
+        cout << "\tbuffer name: " << ub << endl;
+        string ub_name = "ub_" + ub + "_stencil_update_stream";
+        if (instances.count(ub_name) != 1)
+            continue;
+
+        //add instance into the original module def
+        auto buf_ins = moddef->addInstance(itr.first, itr.second);
+
+        auto rewrite_module = itr.second->getDef();
+        auto interface = rewrite_module->getInterface();
+        for (auto itr_pt : interface->getSelects()) {
+            for (auto wc: itr_pt.second->getConnectedWireables() ) {
+                cout << "\t[" << itr_pt.first << "] wire to: " << wc->toString() << endl;
+            }
+        }
+
+        auto ub_ins = instances.at(ub_name);
+        cout << ub_ins->getConnectedWireables().size() << endl;
+        string stream_name;
+        for (auto itr_sel: ub_ins->getSelects()) {
+            auto pt = addPassthrough(itr_sel.second, itr.first + "_" + itr_sel.first);
+            auto pt_name_list = get_seg_list(itr_sel.first, '_');
+            if (pt_name_list.front() == "datain"){
+                moddef->connect(buf_ins->sel("write_port_"+pt_name_list.back()), pt->sel("in"));
+                inlineInstance(pt);
+
+            }
+            else if (pt_name_list.front() == "dataout") {
+                stream_name = vec2string(pt_name_list, "_", 1, pt_name_list.size()-1);
+                string pt_name = "read_port_" +stream_name+"_"+pt_name_list.back();
+                if(buf_ins->canSel(pt_name)) {
+                    moddef->connect(buf_ins->sel(pt_name), pt->sel("in"));
+                    cout << "\t wire :" << pt_name << endl;
+                }
+                inlineInstance(pt);
+            }
+            else if (pt_name_list.front() == "ren") {
+                inlineInstance(pt);
+            }
+            else if (pt_name_list.front() == "wen") {
+                moddef->connect(buf_ins->sel("write_port_0_en"), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            else if (pt_name_list.front() == "valid") {
+                //TODO valid should be associate with stream
+                moddef->connect(buf_ins->sel("read_port_"+stream_name+"_0_valid"), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            /*else if (pt_name_list.front() == "reset") {
+                moddef->connect(buf_ins->sel("reset"), pt->sel("in"));
+                inlineInstance(pt);
+            }*/
+            else {
+                moddef->connect(buf_ins->sel(itr_sel.first), pt->sel("in"));
+                inlineInstance(pt);
+            }
+            for (auto wc : itr_sel.second->getConnectedWireables()) {
+                cout <<"\t" << itr_sel.first << " wire to: " << wc->toString() << endl;
+            }
+        }
+        inlineInstance(buf_ins);
+        moddef->removeInstance(ub_name);
+    }
+    moddef->print();
+    c->runPasses({"deletedeadinstances"});
+    c->runPasses({"rungenerators", "flattentypes", "flatten", "wireclocks-coreir"});
+    if (!saveToFile(g, "bin/design_rewrite.json", m)) {
+      cout << "Could not save to json!!" << endl;
+      c->die();
+    }
+
+    cout << "Successfully generate rewrite in /bin/design-rewrite.json" << endl;
+
+    return m;
+}
+
+template<typename T>
+void run_coreir_rewrite_on_interpreter(string coreir_design,
+                               string rewrite_buf,
+                               Halide::Runtime::Buffer<T> input,
+                               Halide::Runtime::Buffer<T> output,
+                               string input_name,
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output) {
+    auto rewrite_module = substitute_rewrite_module(coreir_design, rewrite_buf);
+    run_coreir_module_on_interpreter<T>(rewrite_module, input, output, input_name, output_name, has_float_input, has_float_output);
+
+    cout << "Finished" << endl;
+
 }
 
 template<typename T>
@@ -436,6 +614,22 @@ void run_coreir_on_interpreter(string coreir_design,
 
   Module* m = g->getModule("DesignTop");
   assert(m != nullptr);
+  run_coreir_module_on_interpreter<T>(m, input, output, input_name, output_name, has_float_input, has_float_output);
+}
+
+
+template<typename T>
+void run_coreir_module_on_interpreter(Module* m,
+                               Halide::Runtime::Buffer<T> input,
+                               Halide::Runtime::Buffer<T> output,
+                               string input_name,
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output) {
+  //parse the input name, maybe hacky
+  m->getType()->print();
+  string inen_name = "self.in_en_arg_0";
+  parse_input_name(m, input_name, inen_name);
 
   // Build the simulator with the new model
   auto ubufBuilder = [](WireNode& wd) {
@@ -446,9 +640,12 @@ void run_coreir_on_interpreter(string coreir_design,
 
 
 
-  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.unified_buffer"), ubufBuilder}};
+  map<std::string, SimModelBuilder> qualifiedNamesToSimPlugins{{string("lakelib.new_unified_buffer"), ubufBuilder}, {string("lakelib.unified_buffer"), ubufBuilder}};
 
   SimulatorState state(m, qualifiedNamesToSimPlugins);
+
+  auto c = m->getContext();
+  auto g = c->getGlobal();
 
   if (!saveToFile(g, "bin/design_simulated.json", m)) {
     cout << "Could not save to json!!" << endl;
@@ -458,14 +655,47 @@ void run_coreir_on_interpreter(string coreir_design,
 
   // sets initial values for all inputs/outputs/clock
   bool uses_valid = reset_coreir_circuit(state, m);
-  bool uses_inputenable = circuit_uses_inputenable(m);
+  bool uses_inputenable = circuit_uses_inputenable(m, inen_name);
 
   cout << "starting coreir simulation by calling resetCircuit" << endl;
   state.resetCircuit();
   cout << "finished resetCircuit\n";
   ImageWriter<T> coreir_img_writer(output);
 
-  int maxCycles = 10000;
+
+  /*for (int y = 0; y < input.height(); y++) {
+    for (int x = 0; x < input.width(); x++) {
+      for (int c = 0; c < input.channels(); c++) {
+        // set input value
+        //state.setValue(input_name, BitVector(16, input(x,y,c) & 0xff));
+        state.setValue(input_name, BitVector(16, input(x,y,c)));
+        if (uses_valid) {
+          state.setValue("self.in_en_arg_0", BitVector(1, 1));
+        }
+
+        // propogate to all wires
+        state.execute();
+
+        // give another rising edge (execute seq)
+        //state.exeSequential();
+
+        // read output wire
+        if (uses_valid) {
+          bool valid_value = state.getBitVec("self.valid").to_type<bool>();
+          cout <<"y=" <<y<<", x="<<x<<" output valid= "<< valid_value << endl;
+
+          if (valid_value) {
+            T output_value = state.getBitVec(output_name).to_type<T>();
+            coreir_img_writer.write(output_value);
+            std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << ((int)input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+          }
+        } else {
+          T output_value = state.getBitVec(output_name).to_type<T>();
+          output(x,y,c) = output_value;
+          std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << ((int)input(x,y,c) & 0xff) << " out=" << output_value << dec << endl;
+        }
+      }}}*/
+  int maxCycles = 5000;
   int cycles = 0;
 
   CoordinateVector<int> writeIdx({"y", "x", "c"}, {input.height() - 1, input.width() - 1, input.channels() - 1});
@@ -473,10 +703,10 @@ void run_coreir_on_interpreter(string coreir_design,
   // TODO: Need to get imagewriter bounds?
   CoordinateVector<int> readIdx({"y", "x", "c"}, {((int)coreir_img_writer.getHeight() - 1), ((int)coreir_img_writer.getWidth()) - 1, ((int) coreir_img_writer.getChannels()) - 1});
   while (cycles < maxCycles && !readIdx.allDone()) {
-    cout << "Read index = " << readIdx.coordString() << endl;
-    cout << "Cycles     = " << cycles << endl;
+    //cout << "Read index = " << readIdx.coordString() << endl;
+    //cout << "Cycles     = " << cycles << endl;
     run_for_cycle(writeIdx, readIdx,
-        uses_inputenable, has_float_input, has_float_output, input, output, input_name, output_name, state, coreir_img_writer, uses_valid);
+        uses_inputenable, has_float_input, has_float_output, input, output, input_name, inen_name, output_name, state, coreir_img_writer, uses_valid);
     cycles++;
   }
 
@@ -520,6 +750,22 @@ template void run_coreir_on_interpreter<int16_t>(std::string coreir_design,
                                                  std::string output_name,
                                                  bool has_float_input,
                                                  bool has_float_output);
+
+template void run_coreir_rewrite_on_interpreter<uint8_t>(std::string coreir_design,
+                                                 std::string rewrite_buf,
+                                                 Halide::Runtime::Buffer<uint8_t> input,
+                                                 Halide::Runtime::Buffer<uint8_t> output,
+                                                 std::string input_name,
+                                                 std::string output_name,
+                                                 bool has_float_input,
+                                                 bool has_float_output);
+template void run_coreir_module_on_interpreter<uint8_t>(Module* m,
+                               Halide::Runtime::Buffer<uint8_t> input,
+                               Halide::Runtime::Buffer<uint8_t> output,
+                               string input_name,
+                               string output_name,
+                               bool has_float_input,
+                               bool has_float_output);
 
 template void run_coreir_on_interpreter<uint8_t>(std::string coreir_design,
                                                  Halide::Runtime::Buffer<uint8_t> input,

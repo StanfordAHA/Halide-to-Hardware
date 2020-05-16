@@ -36,6 +36,8 @@ using std::set;
 using std::vector;
 using std::ostream;
 
+#ifndef HALIDE_BOUNDS_INFERENCE_STAGE
+#define HALIDE_BOUNDS_INFERENCE_STAGE
 /** A simplified definition of BoundsInference::Stage
  */
 struct BoundsInference_Stage {
@@ -44,6 +46,7 @@ struct BoundsInference_Stage {
     std::vector<int> consumers;
     std::map<std::pair<std::string, int>, Box> bounds;
 };
+#endif
 
 struct StencilDimSpecs {
     int size;  // stencil window size

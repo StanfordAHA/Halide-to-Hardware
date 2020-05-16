@@ -28,7 +28,7 @@ public:
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -37,6 +37,11 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
+
+          output.bound(x, 0, 64-1);
+          output.bound(y, 0, 64-1);
+          conv.bound(x, 0, 64-1);
+          conv.bound(y, 0, 64-1);
           
           hw_input.compute_root();
           hw_output.compute_root();
@@ -49,7 +54,8 @@ public:
             .unroll(r.y, 2);
 
           conv.linebuffer();
-
+          
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

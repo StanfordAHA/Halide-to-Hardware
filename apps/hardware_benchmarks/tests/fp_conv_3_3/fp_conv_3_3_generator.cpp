@@ -29,19 +29,24 @@ public:
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
-        output(x, y) = cast<uint8_t>(hw_output(x,y) % 256);
+        output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+
           hw_input.compute_root();
           hw_output.compute_root();
-          
+
+          output.bound(x, 0, 64-2);
+          output.bound(y, 0, 64-2);
+          conv.bound(x, 0, 64-2);
+          conv.bound(y, 0, 64-2);
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
@@ -51,10 +56,10 @@ public:
 
           conv.linebuffer();
 
-          kernel.compute_at(hw_output, xo);
 
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
-          
+
         } else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();
@@ -62,7 +67,7 @@ public:
             .unroll(r.x, 3)
             .unroll(r.y, 3);
         }
-        
+
     }
 };
 

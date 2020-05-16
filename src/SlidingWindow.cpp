@@ -76,6 +76,19 @@ Expr expand_expr(Expr e, const Scope<Expr> &scope) {
     return result;
 }
 
+std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
+  os << "[";
+  for (size_t i=0; i<vec.size(); ++i) {
+    os << vec.at(i);
+    if (i < vec.size() - 1) {
+      os << ",";
+    }
+  }
+  os << "]";
+  return os;
+};
+
+
 // Perform sliding window optimization for a function over a
 // particular serial for loop
 class SlidingWindowOnFunctionAndLoop : public IRMutator {
@@ -110,7 +123,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             return IRMutator::visit(op);
         } else {
             Stmt stmt = op;
-            std::cout << "visiting pc sliding window for " << op->name << std::endl;
+            //std::cout << "visiting pc sliding window for " << op->name << std::endl;
             //std::cout << stmt << std::endl;
 
             // We're interested in the case where exactly one of the
@@ -131,6 +144,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             string prefix = func.name() + ".s" + std::to_string(func.updates().size()) + ".";
             const std::vector<string> func_args = func.args();
             for (int i = 0; i < func.dimensions(); i++) {
+              //std::cout << "looking at dim " << i << " for " << func.name() << std::endl;
+              
                 // Look up the region required of this function's last stage
                 string var = prefix + func_args[i];
                 internal_assert(scope.contains(var + ".min") && scope.contains(var + ".max"));
@@ -138,8 +153,8 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
                 Expr max_req = scope.get(var + ".max");
                 min_req = expand_expr(min_req, scope);
                 max_req = expand_expr(max_req, scope);
-                std::cout << "for dim=" << i << "  var=" << var
-                          << "  max=" << max_req << "  min=" << min_req << std::endl;
+                //std::cout << "for dim=" << i << "  var=" << var
+                //          << "  max=" << max_req << "  min=" << min_req << std::endl;
 
                 debug(3) << func_args[i] << ":" << min_req << ", " << max_req  << "\n";
                 if (expr_depends_on_var(min_req, loop_var) ||
@@ -208,7 +223,7 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
 
             if (!can_slide_up && !can_slide_down) {
                 debug(3) << "Not sliding " << func.name()
-                         << " over dimension " << dim
+                         << " over dimension " << dim << "=" << std::to_string(dim_idx)
                          << " along loop variable " << loop_var
                          << " because I couldn't prove it moved monotonically along that dimension\n"
                          << "Min is " << min_required << "\n"
@@ -230,24 +245,26 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             // compute sizes
             Box b_p = box_provided(op->body, func.name());
             Box b_r = box_required(op->body, func.name());
-            std::cout << "func " << func.name() << " provides=" << b_p << " requires=" << b_r << std::endl;
+            //std::cout << "func " << func.name() << " provides=" << b_p << " requires=" << b_r << std::endl;
             Expr output_stencil_size = simplify(expand_expr(max_required - min_required + 1, scope));
-            std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
+            //std::cout << "output stencil: " << output_stencil_size << " for dim " << dim_idx << std::endl;
             output_stencil_box.push_back(output_stencil_size);
             output_min_pos.push_back(min_required);
             
             //Expr input_chunk_size = simplify(expand_expr(max_required + 1 - prev_max_plus_one, scope));
             Expr input_chunk_size = simplify(max_required + 1 - prev_max_plus_one);
             input_chunk_size = is_zero(input_chunk_size) ? 1 : input_chunk_size;
-            std::cout << "input stencil: " << input_chunk_size << std::endl;
-            input_chunk_box.push_back(input_chunk_size);
+            //std::cout << "input stencil: " << input_chunk_size << " for dim_idx=" << dim_idx << std::endl;
+            input_chunk_box.emplace_back(input_chunk_size);
+            //input_chunk_box[dim_idx] = input_chunk_size;
+            //std::cout << "input chunk so far for " << func.name() << " is " << input_chunk_box << std::endl;
 
-            std::cout << "Sliding " << func.name()
-                      << " over dimension " << dim
-                      << " along loop variable " << loop_var << "\n"
-                      << " where min=" << min_required << "  max=" << max_required
-                      << " max_prev_plus_one=" << prev_max_plus_one << "\n"
-                      << "\n";
+            //std::cout << "Sliding " << func.name()
+            //          << " over dimension " << dim << "=" << std::to_string(dim_idx)
+            //          << " along loop variable " << loop_var << "\n"
+            //          << " where min=" << min_required << "  max=" << max_required
+            //          << " max_prev_plus_one=" << prev_max_plus_one << "\n"
+            //          << "\n";
 
 
             // If there's no overlap between adjacent iterations, we shouldn't slide.
@@ -281,9 +298,9 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
                      << "Pushing min up from " << min_required << " to " << new_min << "\n"
                      << "Shrinking max from " << max_required << " to " << new_max << "\n";
 
-            std::cout << "Sliding " << func.name() << ", " << dim << "\n"
-                      << "  Pushing min up from " << min_required << " to " << new_min << "\n"
-                      << "  Shrinking max from " << max_required << " to " << new_max << "\n";
+            //std::cout << "Sliding " << func.name() << ", " << dim << "\n"
+            //          << "  Pushing min up from " << min_required << " to " << new_min << "\n"
+            //          << "  Shrinking max from " << max_required << " to " << new_max << "\n";
 
             
             // Now redefine the appropriate regions required
@@ -339,9 +356,9 @@ class SlidingWindowOnFunctionAndLoop : public IRMutator {
             debug(3) << "Not entering loop over " << op->name
                      << " because the bounds depend on the var we're sliding over: "
                      << min << ", " << extent << "\n";
-            std::cout << "Not entering loop over " << op->name
-                     << " because the bounds depend on the var we're sliding over: "
-                     << min << ", " << extent << "\n";
+            //std::cout << "Not entering loop over " << op->name
+            //         << " because the bounds depend on the var we're sliding over: "
+            //         << min << ", " << extent << "\n";
             return op;
         } else {
             return IRMutator::visit(op);
@@ -372,7 +389,9 @@ public:
     std::vector<Expr> output_min_pos;
     std::vector<Expr> input_chunk_box;
     SlidingWindowOnFunctionAndLoop(Function f, string v, Expr v_min) :
-      func(f), loop_var(v), loop_min(v_min) {}
+      func(f), loop_var(v), loop_min(v_min) {
+      //input_chunk_box = std::vector<Expr>(2);
+    }
 
     // define the copy constructor without Scope (whose copy constructor is private)
     SlidingWindowOnFunctionAndLoop(const SlidingWindowOnFunctionAndLoop &obj) {
@@ -441,8 +460,8 @@ class SlidingWindowVisitorOnFunction : public IRVisitor {
             ss.output_min_pos.insert(ss.output_min_pos.end(), added_min_pos.begin(), added_min_pos.end());
 
             if (added_stencil.size() > 0) {
-              std::cout << "added sliding stencil called " << op->name << " with " << added_stencil.size()
-                        << "more loops resulting in num_total_loops=" << ss.output_stencil_box.size() << "\n";
+              //std::cout << "added sliding stencil called " << op->name << " with " << added_stencil.size()
+              //          << " more loop(s) resulting in num_total_loops=" << ss.output_stencil_box.size() << "\n";
             }
             
             buffer_sliding_stencils[op->name] = ss;

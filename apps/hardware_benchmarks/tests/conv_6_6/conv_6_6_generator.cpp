@@ -43,6 +43,11 @@ public:
           
           hw_input.compute_root();
           hw_output.compute_root();
+
+          output.bound(x, 0, 64-5);
+          output.bound(y, 0, 64-5);
+          conv.bound(x, 0, 64-5);
+          conv.bound(y, 0, 64-5);
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64-5, 64-5)
             .hw_accelerate(xi, xo);
@@ -53,6 +58,7 @@ public:
 
           conv.linebuffer();
 
+          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU
