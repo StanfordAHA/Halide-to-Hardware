@@ -20,7 +20,7 @@ namespace Internal {
  */
 class CodeGen_Clockwork_Testbench : public CodeGen_Clockwork_Base {
 public:
-  CodeGen_Clockwork_Testbench(std::ostream &tb_stream, Target target);
+  CodeGen_Clockwork_Testbench(std::ostream &tb_stream, Target target, std::string filename);
   ~CodeGen_Clockwork_Testbench();
   void set_output_folder(std::string folderpath) {
     cg_target.set_output_folder(folderpath);
@@ -36,6 +36,7 @@ protected:
 
 private:
     CodeGen_Clockwork_Target cg_target;
+    std::string filename;
 };
 
 }

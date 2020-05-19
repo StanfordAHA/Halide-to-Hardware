@@ -79,25 +79,22 @@ public:
 
           output.bound(x, 0, imgsize);
           output.bound(y, 0, imgsize);
-          conv.bound(x, 0, imgsize);
-          conv.bound(y, 0, imgsize);
+          //conv.bound(x, 0, imgsize);
+          //conv.bound(y, 0, imgsize);
 
-          //hw_input.compute_at(hw_output, xo);
-          hw_input.compute_root();
-          hw_input_copy.compute_at(hw_output, xo);
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize);
 
-          conv.compute_at(hw_output, xo);
+          //conv.compute_at(hw_output, xo);
+
           kernel.compute_at(conv, x);
           conv.update()
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);
-          //
-          //kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
-          //
-          //hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
+
+          hw_input_copy.compute_at(hw_output, xo);
+          hw_input.compute_root();
             
         } else {  // schedule to CPU
           conv.update()

@@ -31,10 +31,12 @@ public:
         Var x("x"), y("y");
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
-        Func padded16, padded;
+        Func padded16, padded, hw_input_copy;
         padded(x, y) = input(x+3, y+3);
         //padded16(x, y) = cast<int16_t>(padded(x, y));
-        padded16(x, y) = cast<int16_t>(input(x+3,y+3));
+        hw_input_copy(x, y) = input(x+3,y+3);
+        padded16(x, y) = cast<int16_t>(hw_input_copy(x, y));
+
                                       
 
         // sobel filter
@@ -93,7 +95,8 @@ public:
         Func cim;
         Expr det = lgxx8*lgyy8 - lgxy8*lgxy8;
         Expr trace = lgxx8 + lgyy8;
-        cim(x, y) = det - (trace*trace >> shiftk);
+        //cim(x, y) = det - (trace*trace >> shiftk);
+        cim(x, y) = det - ((lgxx8+lgyy8)*(lgxx8+lgyy8) >> shiftk);
 
         // Perform non-maximal suppression
         Func hw_output;
@@ -178,31 +181,6 @@ public:
           padded16.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
-          grad_x.bound(x, -2, 62);
-          grad_x.bound(y, -2, 62);
-          grad_y.bound(x, -2, 62);
-          grad_y.bound(y, -2, 62);
-
-          //grad_xx.bound(x, -2, 62);
-          //grad_xx.bound(y, -2, 62);
-          //grad_xy.bound(x, -2, 62);
-          //grad_xy.bound(y, -2, 62);
-          //grad_yy.bound(x, -2, 62);
-          //grad_yy.bound(y, -2, 62);
-
-          lxx.bound(x, -2, 62);
-          lxx.bound(y, -2, 62);
-          lxy.bound(x, -2, 62);
-          lxy.bound(y, -2, 62);
-          lyy.bound(x, -2, 62);
-          lyy.bound(y, -2, 62);
-
-          lgxx.bound(x, -1, 60);
-          lgxx.bound(y, -1, 60);
-          lgxy.bound(x, -1, 60);
-          lgxy.bound(y, -1, 60);
-          lgyy.bound(x, -1, 60);
-          lgyy.bound(y, -1, 60);
 
           hw_output.bound(x, 0, 58);
           hw_output.bound(y, 0, 58);
@@ -219,28 +197,28 @@ public:
           //int tileSize = 8;
           int tileSize = 58;
           hw_output
-            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-            .accelerate({padded16}, xi, xo);
+            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize);
             //.hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
 
-          grad_x.linebuffer();
-          grad_y.linebuffer();
-          lxx.linebuffer();
-          lyy.linebuffer();
-          lxy.linebuffer();
-          lgxx.linebuffer();
-          lgyy.linebuffer();
-          lgxy.linebuffer();
-          //cim.linebuffer();
-          cim_output.linebuffer();
+          grad_x.compute_at(hw_output, xo);
+          grad_y.compute_at(hw_output, xo);
+          lxx.compute_at(hw_output, xo);
+          lyy.compute_at(hw_output, xo);
+          lxy.compute_at(hw_output, xo);
+          lgxx.compute_at(hw_output, xo);
+          lgyy.compute_at(hw_output, xo);
+          lgxy.compute_at(hw_output, xo);
+          ////cim.linebuffer();
+          cim.compute_at(hw_output, xo);
+          cim_output.compute_at(hw_output, xo);
 
           lgxx.update().unroll(box.x).unroll(box.y);
           lgyy.update().unroll(box.x).unroll(box.y);
           lgxy.update().unroll(box.x).unroll(box.y);
 
-          padded16.store_at(hw_output, xo).compute_at(hw_output, xi);
-          padded16.stream_to_accelerator();
+          hw_input_copy.compute_root();
+          padded16.compute_at(hw_output, xo);
           
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 58, 58);

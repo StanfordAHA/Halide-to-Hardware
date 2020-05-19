@@ -7,6 +7,7 @@
 #include "CodeGen_Clockwork_Target.h"
 #include "CodeGen_Internal.h"
 #include "Substitute.h"
+#include "IREquality.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "Param.h"
@@ -60,7 +61,7 @@ string printname(const string &name) {
       start++;
     }
 
-    internal_assert(start < name.size());
+    internal_assert(start < name.size()) << "what to do about " << name << "\n";
 
     for (size_t i = start; i < name.size(); i++) {
       // vivado HLS compiler doesn't like '__'
@@ -77,6 +78,8 @@ string removedots(const string &name) {
     
     for (size_t i = 0; i < name.size(); i++) {
         if (name[i] == '.') {
+          oss << "_";
+        } else if (name[i] == '$') {
           oss << "_";
         } else {
           oss << name[i];
@@ -219,7 +222,7 @@ void CodeGen_Clockwork_Target::add_kernel(Stmt s,
 
     //hdrc.add_kernel(s, name, args);
     //srcc.add_kernel(s, name, args);
-    clkc.add_kernel(s, name, args);
+    clkc.add_kernel(s, target_name, args);
 }
 
 void CodeGen_Clockwork_Target::dump() {
@@ -373,6 +376,30 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
     }
 }
 
+/** Substitute an Expr for another Expr in a graph. Unlike substitute,
+ * this only checks for shallow equality. */
+class VarGraphSubstituteExpr : public IRGraphMutator2 {
+    Expr find, replace;
+public:
+
+    using IRGraphMutator2::mutate;
+
+    Expr mutate(const Expr &e) override {
+        if (equal(find, e)) {
+            return replace;
+        } else {
+            return IRGraphMutator2::mutate(e);
+        }
+    }
+
+    VarGraphSubstituteExpr(const Expr &find, const Expr &replace) : find(find), replace(replace) {}
+};
+
+Expr var_graph_substitute(const Expr &name, const Expr &replacement, const Expr &expr) {
+    return VarGraphSubstituteExpr(name, replacement).mutate(expr);
+}
+
+
 struct Compute_Argument {
     std::string name;
 
@@ -383,6 +410,12 @@ struct Compute_Argument {
     std::vector<Expr> args;
     std::string bufname;
     Expr call;
+};
+
+struct CArg_compare {
+    bool operator() (const Compute_Argument& arg1, const Compute_Argument& arg2) const {
+      return !equal(arg1.call, arg2.call);
+    }
 };
 
 class Compute_Closure : public Closure {
@@ -402,6 +435,7 @@ protected:
 
   void visit(const Load *op);
   void visit(const Call *op);
+  std::set<Compute_Argument, CArg_compare> unique_args;
 
 };
 
@@ -417,10 +451,17 @@ void Compute_Closure::visit(const Call *op) {
     debug(3) << "visit call " << op->name << ": ";
     if (!ignore.contains(op->name)) {
       debug(3) << "adding to closure.\n";
-      string argname = unique_name(op->name);
-      vars[argname] = op->type;
-      var_args[argname] = op->args;
-      var_comparg[argname] = Compute_Argument({argname, false, false, op->type, op->args, op->name, Expr(op)});
+
+      auto comp_arg = Compute_Argument({"", false, false, op->type, op->args, op->name, Expr(op)});
+      if (unique_args.count(comp_arg) == 0) {
+        string argname = unique_name(op->name);
+        if (argname == op->name) { argname = unique_name(op->name); }
+        
+        unique_args.insert(comp_arg);
+        vars[argname] = op->type;
+        var_args[argname] = op->args;
+        var_comparg[argname] = Compute_Argument({argname, false, false, op->type, op->args, op->name, Expr(op)});;
+      }
     } else {
       debug(3) << "not adding to closure.\n";
     }
@@ -471,6 +512,7 @@ vector<Compute_Argument> Compute_Closure::arguments() {
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
+  //std::cout << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
   func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
@@ -482,7 +524,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
 
   // Add each load
-  for (auto arg : compute_args) {
+  //for (auto arg : compute_args) {
+  for (size_t i=0; i<compute_args.size(); ++i) {
+    auto arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
     add_buffer(buffer_name);
     
@@ -510,25 +554,76 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   
   // Output the compute
+  map<string, vector<Compute_Argument> > merged_args;
+  vector<string> arg_order;
+  //for (auto compute_arg : compute_args) {
+  for (size_t i=0; i<compute_args.size(); ++i) {
+    auto compute_arg = compute_args[i];
+
+    if (merged_args.count(compute_arg.bufname) == 0) {
+      merged_args[compute_arg.bufname] = {compute_arg};
+      arg_order.emplace_back(compute_arg.bufname);
+    } else {
+      merged_args.at(compute_arg.bufname).emplace_back(compute_arg);
+    }
+  }
+  
   compute_stream << std::endl << "//store is: " << Stmt(op);
   compute_stream << "hw_uint<16> " << func_name << "(";
-  for (size_t i=0; i<compute_args.size(); ++i) {
+  for (size_t i=0; i<arg_order.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
-    compute_stream << "hw_uint<16>& " << printname(compute_args[i].name);
+    auto argname = arg_order[i];
+    compute_stream << "hw_uint<" << merged_args[argname].size() * 16
+                   << ">& " << printname(argname);
   }
   compute_stream << ") {\n";
 
-  //auto new_expr = remove_call_args(op->values[0]);
-  Expr new_expr = op->values[0];
-  for (size_t i=0; i<compute_args.size(); ++i) {
-    auto var_replacement = Variable::make(compute_args[i].type, printname(compute_args[i].name));
-    new_expr = graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
+  for (auto merged_arg : merged_args) {
+    vector<Compute_Argument> arg_components = merged_arg.second;
+    auto bufname = printname(merged_arg.first);
+    if (arg_components.size() == 1) { continue; }
+    //if (arg_components.size() == 1 && arg_components[0].name == merged_arg.first) { continue; }
+    
+    for (size_t i=0; i<arg_components.size(); ++i) {
+      auto arg_component = arg_components[i];
+      compute_stream << "  hw_uint<16> " << printname(arg_component.name) << " = "
+                     << bufname << ".extract<" << 16*i << ", " << 16*i+15 << ">();" << std::endl;
+    }
+    compute_stream << std::endl;
   }
 
-  
+
+  Expr new_expr = expand_expr(substitute_in_all_lets(op->values[0]), scope);
+  for (size_t i=0; i<compute_args.size(); ++i) {
+    string new_name = printname(compute_args[i].name);
+    if (merged_args[compute_args[i].bufname].size() == 1) {
+      new_name = printname(compute_args[i].bufname);
+    }
+    auto var_replacement = Variable::make(compute_args[i].type, new_name);
+    //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
+    new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
+  }
   compute_stream << "  return "
                  << new_expr << ";" << endl
                  << "}" << endl;
+
+  ////compute_stream << std::endl << "//store is: " << Stmt(op);
+  ////compute_stream << "hw_uint<16> " << func_name << "(";
+  ////for (size_t i=0; i<compute_args.size(); ++i) {
+  ////  if (i != 0) { compute_stream << ", "; }
+  ////  compute_stream << "hw_uint<16>& " << printname(compute_args[i].name);
+  ////}
+  ////compute_stream << ") {\n";
+  ////
+  ////Expr new_expr = expand_expr(substitute_in_all_lets(op->values[0]), scope);
+  ////for (size_t i=0; i<compute_args.size(); ++i) {
+  ////  auto var_replacement = Variable::make(compute_args[i].type, printname(compute_args[i].name));
+  ////  //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
+  ////  new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
+  ////}
+  ////compute_stream << "  return "
+  ////               << new_expr << ";" << endl
+  ////               << "}" << endl;
       
   CodeGen_Clockwork_Base::visit(op);
 }

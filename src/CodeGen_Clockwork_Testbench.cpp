@@ -84,13 +84,11 @@ namespace {
 
 
 
-  CodeGen_Clockwork_Testbench::CodeGen_Clockwork_Testbench(ostream &tb_stream, Target target)
-      : CodeGen_Clockwork_Base(tb_stream, target, CPlusPlusImplementation, ""),
-  //: CodeGen_Clockwork_Base(std::cout, target, CPlusPlusImplementation, ""),
-      cg_target("clockwork_target", target) {
-    cg_target.init_module();
-
-    stream << clockwork_headers;
+CodeGen_Clockwork_Testbench::CodeGen_Clockwork_Testbench(ostream &tb_stream, Target target, std::string filename)
+  : CodeGen_Clockwork_Base(tb_stream, target, CPlusPlusImplementation, ""),
+    cg_target(filename, target) {
+  cg_target.init_module();
+  stream << clockwork_headers;
 }
 
 CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
