@@ -20,7 +20,7 @@ class RealizeUsage : public IRVisitor {
       num_loads++;
 
       for (auto arg : op->args) {
-        if (!is_const(arg)) {
+        if (!is_const(simplify(arg))) {
           uses_variable_load_index = true;
         }
       }
@@ -33,12 +33,12 @@ class RealizeUsage : public IRVisitor {
       num_stores++;
 
       for (auto arg : op->args) {
-        if (!is_const(arg)) {
+        if (!is_const(simplify(arg))) {
           uses_variable_store_index = true;
         }
       }
       for (auto value : op->values) {
-        if (!is_const(value)) {
+        if (!is_const(simplify(value))) {
           uses_variable_store_value = true;
         }
       }
@@ -67,6 +67,7 @@ class RealizeUsage : public IRVisitor {
 };
 
 enum MemoryType {
+  NOT_FOUND,
   NO_REALIZATION,
   INOUT_REALIZATION,
   ROM_REALIZATION,
@@ -79,8 +80,18 @@ enum MemoryType {
 MemoryType identify_realization(Stmt s, string realizename) {
   RealizeUsage ru(realizename);
   s.accept(&ru);
+  //std::cout << realizename
+  //          << " has num_stores=" << ru.num_stores
+  //          << " num_loads=" << ru.num_loads
+  //          << " var_load=" << ru.uses_variable_load_index
+  //          << " var_store=" << ru.uses_variable_store_index
+  //          << " var_sval=" << ru.uses_variable_store_value << std::endl;
+  //std::cout << simplify(s);
 
-  if (ru.num_stores == 0 || ru.num_loads == 0) {
+  if (ru.num_stores == 0 && ru.num_loads == 0) {
+    return NOT_FOUND;
+    
+  } else if (ru.num_stores == 0 || ru.num_loads == 0) {
     return INOUT_REALIZATION;
 
   } else if (!ru.uses_variable_load_index &&
@@ -107,6 +118,11 @@ MemoryType identify_realization(Stmt s, string realizename) {
     return UNKNOWN_REALIZATION;
   }
 
+}
+
+bool uses_realization(Stmt s, string realizename) {
+  auto mem_type = identify_realization(s, realizename);
+  return mem_type != NOT_FOUND;
 }
 
 bool provide_matches_call(const Provide* provide, const Call *call) {
@@ -136,11 +152,18 @@ class InlineMemoryConstants : public IRMutator {
       auto mem_type = identify_realization(realize->body, realize->name);
 
 
-      if (mem_type == ROM_REALIZATION) {
+      if (mem_type == NO_REALIZATION || mem_type == ROM_REALIZATION) {
         //   add ROM name to remove Producer of this name, and save provides
-        std::cout << "Realize " << realize->name << " is a rom" << std::endl;
+        //std::cout << "Realize " << realize->name << " is a rom" << std::endl;
         realize_provides[realize->name] = vector<const Provide*>();
-        return mutate(realize->body);
+        auto mutated = IRMutator::visit(realize);
+        //std::cout << "mutated:\n" << mutated << std::endl;
+        if (uses_realization(mutated, realize->name)) {
+          //std::cout << "uses realization\n";
+          return Stmt(realize);
+        } else {
+          return mutate(realize->body);
+        }
         
       } else {
         //std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;

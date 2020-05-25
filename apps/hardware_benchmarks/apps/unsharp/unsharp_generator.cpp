@@ -40,9 +40,10 @@ public:
         kernel(x) = cast<uint16_t>(kernel_f(x) * 255 / sum_kernel[blockSize-1]);
 
         // create the input
-        Func hw_input;
+        Func hw_input, input_copy;
         //hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
-        hw_input(c, x, y) = cast<uint16_t>(input(x, y, c));
+        input_copy(c, x, y) = cast<uint16_t>(input(x, y, c));
+        hw_input(c, x, y) = input_copy(x, y, c);
 
         // create a grayscale image
         Func gray;
@@ -105,6 +106,34 @@ public:
 
           kernel.compute_at(hw_output, xo).unroll(x);
           //kernel.bound(x, -blockSize/2, blockSize);
+
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+
+          hw_output.compute_root();
+          
+          //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
+
+          hw_output.tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo);
+          blur_unnormalized.compute_at(hw_output, xo);
+          blur_unnormalized.update()
+            .unroll(win.x).unroll(win.y);
+
+          //gray.linebuffer().fifo_depth(ratio, 20);
+          //blur_y.linebuffer();
+          ratio.compute_at(hw_output, xo);
+          //hw_output.unroll(c);  // hw output bound
+          //hw_input.unroll(c);  // hw input bound
+          //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
+          gray.fifo_depth(hw_output, 60*9); // hw input bounds
+
+          //kernel.compute_at(hw_output, xo).unroll(x);
+          //kernel.compute_at(blur_unnormalized, x).unroll(x);
+          kernel.compute_at(blur_unnormalized, x).unroll(x);
+
+          gray.compute_at(hw_output, xo);
+
+          hw_input.compute_root();
 
         } else {    // schedule to CPU
           output.compute_root();

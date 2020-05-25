@@ -210,8 +210,11 @@ namespace {
       Func hw_input;
       hw_input(x,y) = input(x+3,y+3);
 
+      Func hw_input_copy;
+      hw_input_copy(x,y) = hw_input(x,y);
+      
       Func denoised;
-      denoised = hot_pixel_suppression(hw_input);
+      denoised = hot_pixel_suppression(hw_input_copy);
 
       Func demosaicked;
       demosaicked = demosaic(denoised);
@@ -231,8 +234,9 @@ namespace {
         curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
       }
 
-      Func hw_output;
-      hw_output = apply_curve(color_corrected, curve);
+      Func hw_output, curve_out;
+      curve_out = apply_curve(color_corrected, curve);
+      hw_output(x, y, c) = curve_out(x, y, c);
 
       output(x, y, c) = hw_output(x, y, c);
 
@@ -249,7 +253,7 @@ namespace {
 
         hw_output.accelerate({hw_input}, xi, xo, {});
         hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
-          .reorder(c,xi,yi,xo,yo);;
+          .reorder(c,xi,yi,xo,yo);
 
         //hw_output.unroll(c).unroll(xi, 2);
         hw_output.unroll(c);
@@ -264,7 +268,30 @@ namespace {
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         
         hw_input.stream_to_accelerator();
-          
+
+      } else if (get_target().has_feature(Target::Clockwork)) {
+        hw_output.compute_root();
+
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
+          .reorder(c,xi,yi,xo,yo);
+
+        //hw_output.unroll(c).unroll(xi, 2);
+        hw_output.unroll(c);
+
+        color_corrected.compute_at(hw_output, xo);
+        
+        demosaicked.compute_at(hw_output, xo);
+        demosaicked.unroll(c);
+        //demosaicked.reorder(c, x, y);
+
+        denoised.compute_at(hw_output, xo);
+        //.unroll(x).unroll(y);
+
+        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+        
+        hw_input_copy.compute_at(hw_output, xo);
+        hw_input.compute_root();
+        
       } else {    // schedule to CPU
         output.tile(x, y, xo, yo, xi, yi, 58,58)
           .compute_root();

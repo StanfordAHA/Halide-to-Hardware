@@ -25,8 +25,9 @@ public:
 
         conv(x, y) = 0;
 
-        Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        Func input_copy, hw_input("hw_input");
+        input_copy(x, y) = cast<uint16_t>(input(x, y));
+        hw_input(x, y) = input_copy(x, y);
         conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
@@ -56,6 +57,26 @@ public:
 
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 63);
+          
+          hw_output.compute_root();          
+          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-1);
+
+          conv.update()
+            .unroll(r.x, 1)
+            .unroll(r.y, 2);
+
+          conv.compute_at(hw_output, xo);
+
+          kernel.compute_at(conv, x);
+
+          hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
+          input_copy.compute_root();
           
         } else {  // schedule to CPU
           kernel.compute_root();

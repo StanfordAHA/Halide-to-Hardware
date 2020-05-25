@@ -202,12 +202,38 @@ class SubstituteInAllLets : public IRGraphMutator2 {
     }
 };
 
+class SubstituteInAllLetStmts : public IRGraphMutator2 {
+
+    using IRGraphMutator2::visit;
+
+    Expr visit(const Let *op) override {
+        Expr value = mutate(op->value);
+        Expr body = mutate(op->body);
+        return graph_substitute(op->name, value, body);
+    }
+  
+    Stmt visit(const LetStmt *op) override {
+        Expr value = mutate(op->value);
+        Stmt body = mutate(op->body);
+        return graph_substitute(op->name, value, body);
+    }
+};
+
+
 Expr substitute_in_all_lets(const Expr &expr) {
     return SubstituteInAllLets().mutate(expr);
 }
 
 Stmt substitute_in_all_lets(const Stmt &stmt) {
     return SubstituteInAllLets().mutate(stmt);
+}
+
+Expr substitute_in_all_letstmts(const Expr &expr) {
+    return SubstituteInAllLetStmts().mutate(expr);
+}
+
+Stmt substitute_in_all_letstmts(const Stmt &stmt) {
+    return SubstituteInAllLetStmts().mutate(stmt);
 }
 
 }  // namespace Internal

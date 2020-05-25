@@ -9,6 +9,7 @@
 #include "Var.h"
 #include "Lerp.h"
 #include "Simplify.h"
+#include "Substitute.h"
 
 namespace Halide {
 namespace Internal {
@@ -98,8 +99,8 @@ void CodeGen_Clockwork_Testbench::visit(const ProducerConsumer *op) {
     string target_prefix = "hw_output";
   //string target_prefix = "kernel";
     if (starts_with(op->name, target_prefix) && op->is_producer) {
-      Stmt hw_body = op->body;
-      std::cout << op->body;
+      Stmt hw_body = substitute_in_all_letstmts(op->body);
+      std::cout << hw_body;
 
       debug(1) << "compute the closure for " << op->name << '\n';
       std::cout << "compute the closure for " << op->name << '\n';

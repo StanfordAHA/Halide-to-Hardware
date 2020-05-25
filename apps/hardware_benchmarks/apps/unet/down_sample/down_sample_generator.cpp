@@ -20,9 +20,10 @@ public:
         RDom r(0, stride,
                0, stride);
 
-        Func hw_input("hw_input");
+        Func input_copy, hw_input("hw_input");
         Func hw_output("hw_output");
-        hw_input(x, y, z) = cast<uint16_t>(input(x, y, z));
+        input_copy(x, y, z) = cast<uint16_t>(input(x, y, z));
+        hw_input(x, y, z) = input_copy(x, y, z);
 
 
         /* max pooling 
@@ -91,7 +92,28 @@ public:
 
             //hw_input.unroll(x, 4);
             hw_input.stream_to_accelerator();
-            
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+            Var xi, yi, xo, yo;
+            hw_output.compute_root();
+
+            hw_output.tile(x, y, xo, yo, xi, yi, 64 / stride, 64 / stride)
+              .reorder(xi,yi,z,xo,yo);
+              //.hw_accelerate(xi, xo);
+
+            //max_pool.unroll(x, stride)
+            //        .unroll(y, stride);
+
+            //max_pool.linebuffer();
+            avg_pool.compute_at(hw_output, xo);
+            avg_pool.update()
+              .unroll(r.x)
+              .unroll(r.y);
+
+            //hw_input.unroll(x, 4);
+            hw_input.compute_at(hw_output, xo);
+            input_copy.compute_root();
+
         } else { // schedule to CPU
             output.compute_root();
         }

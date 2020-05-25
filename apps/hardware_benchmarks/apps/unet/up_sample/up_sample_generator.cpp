@@ -19,8 +19,9 @@ public:
 
         Func nearest_neighbor("nearest_neighbor");
 
-        Func hw_input("hw_input");
-        hw_input(x, y, z) = cast<uint16_t>(input(x, y, z));
+        Func input_copy, hw_input("hw_input");
+        input_copy(x, y, z) = cast<uint16_t>(input(x, y, z));
+        hw_input(x, y, z) = input_copy(x, y, z);
 
         nearest_neighbor(x, y, z) = hw_input(x / factor, y / factor, z);
 
@@ -48,6 +49,27 @@ public:
             nearest_neighbor.linebuffer();
 
             hw_input.stream_to_accelerator();
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+            nearest_neighbor(x, 0, 64);
+            nearest_neighbor(y, 0, 64);
+            nearest_neighbor(z, 0, 4);
+            output.bound(x, 0, 64);
+            output.bound(y, 0, 64);
+            output.bound(z, 0, 4);
+            
+            Var xi, yi, xo, yo;
+
+            hw_output.compute_root();
+
+            hw_output.tile(x, y, xo, yo, xi, yi, 64, 64)
+              .reorder(xi,yi,z,xo,yo);
+
+            nearest_neighbor.compute_at(hw_output, xo);
+
+            hw_input.compute_at(hw_output, xo);
+            input_copy.compute_root();
+            
         } else { // schedule to CPU
             nearest_neighbor.compute_root();
         }

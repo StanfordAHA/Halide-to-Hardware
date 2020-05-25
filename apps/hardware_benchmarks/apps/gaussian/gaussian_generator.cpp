@@ -27,8 +27,10 @@ public:
         // Create a reduction domain of the correct bounds.
         RDom win(0, blockSize, 0, blockSize);
 
-        Func hw_input;
-        hw_input(x, y) = cast<int16_t>(input(x, y));
+        Func hw_input, input_copy;
+        //hw_input(x, y) = cast<int16_t>(input(x, y));
+        input_copy(x, y) = cast<int16_t>(input(x, y));
+        hw_input(x, y) = input_copy(x, y);
 
         // create the gaussian kernel
         Func kernel_f;
@@ -91,6 +93,28 @@ public:
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
 
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          hw_output.bound(x, 0, imgSize);
+          hw_output.bound(y, 0, imgSize);
+          output.bound(x, 0, imgSize);
+          output.bound(y, 0, imgSize);
+
+          //hw_input.compute_root();
+          //kernel.compute_root();
+          hw_output.compute_root();
+
+          hw_output
+            .tile(x, y, xo, yo, xi, yi, imgSize, imgSize);
+
+          blur_unnormalized.update()
+            .unroll(win.x, blockSize)
+            .unroll(win.y, blockSize);
+
+          blur_unnormalized.compute_at(hw_output, xo);
+
+          hw_input.compute_at(hw_output, xo);
+          input_copy.compute_root();
+          
         } else {    // schedule to CPU
 
           /*output.tile(x, y, xo, yo, xi, yi, imgSize, imgSize)

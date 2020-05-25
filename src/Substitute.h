@@ -55,6 +55,9 @@ Stmt graph_substitute(const Expr &find, const Expr &replacement, const Stmt &stm
 Expr substitute_in_all_lets(const Expr &expr);
 Stmt substitute_in_all_lets(const Stmt &stmt);
 // @}
+Expr substitute_in_all_letstmts(const Expr &expr);
+Stmt substitute_in_all_letstmts(const Stmt &stmt);
+
 
 }  // namespace Internal
 }  // namespace Halide

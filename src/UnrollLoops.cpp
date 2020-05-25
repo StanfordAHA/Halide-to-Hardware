@@ -223,12 +223,18 @@ class UnrollLoopsAndMerge : public IRMutator {
 
             if (!contains_accumulate(for_loop->body)) {
               return Block::make(iters);
+              //return substitute_in_all_letstmts(Block::make(iters));
             } else {
               auto cur_block = Block::make(iters);
-              
+              //cur_block = substitute_in_all_letstmts(cur_block);
+
+              //std::cout << "start" << cur_block;
               for (int i=0; i<e->value; ++i) {
                 cur_block = inline_provide_call_pairs(cur_block);
+                //std::cout << "now " << cur_block;
+                //cur_block = substitute_in_all_letstmts(cur_block);
               }
+              
               return cur_block;
             }
 
@@ -258,7 +264,8 @@ Stmt unroll_loops(Stmt s) {
 }
 
 Stmt unroll_loops_and_merge(Stmt s) {
-    return UnrollLoopsAndMerge().mutate(s);
+  Stmt inlined = substitute_in_all_letstmts(s);
+  return UnrollLoopsAndMerge().mutate(inlined);
 }
 
 }  // namespace Internal

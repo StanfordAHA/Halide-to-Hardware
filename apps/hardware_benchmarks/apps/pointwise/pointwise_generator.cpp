@@ -19,9 +19,10 @@ public:
 
         Var x("x"), y("y");
 
-        Func hw_input, hw_output;
+        Func input_copy, hw_input, hw_output;
         Func mult("mult");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        input_copy(x, y) = cast<uint16_t>(input(x, y));
+        hw_input(x, y) = input_copy(x, y);
         
         mult(x, y) = hw_input(x,y) * 2;
         hw_output(x, y) = cast<uint8_t>(mult(x, y));
@@ -48,6 +49,20 @@ public:
           cout << "Loop nest" << endl;
           hw_output.print_loop_nest();
 
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          output.bound(x, 0, outImgSize);
+          output.bound(y, 0, outImgSize);
+          
+          //hw_input.compute_root();
+          hw_output.compute_root();
+          hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize);
+
+          hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
+
+          input_copy.compute_root();
+          
         } else {
           mult.compute_root();
         }
