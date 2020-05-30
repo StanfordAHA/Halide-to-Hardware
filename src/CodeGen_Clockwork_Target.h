@@ -56,7 +56,9 @@ protected:
       
       /** The stream we're outputting the memory on */
       std::ostringstream memory_stream;
-      std::string mem_bodyname;
+      //std::string mem_bodyname;
+      std::vector<std::string> loop_list;
+
       std::string func_name;
       std::set<std::string> buffers;
 

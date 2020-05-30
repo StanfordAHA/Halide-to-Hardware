@@ -194,9 +194,10 @@ namespace {
 
       Func curved("curved");
       Expr in_val = clamp(input(x, y, c), 0, 1023);
-      curved(x, y, c) = select(input(x, y, c) < 0, 0,
-                               input(x, y, c) >= 1024, 255,
-                               curve(in_val));
+      //curved(x, y, c) = select(input(x, y, c) < 0, 0,
+      //                         input(x, y, c) >= 1024, 255,
+      //                         curve(in_val));
+      curved(x, y, c) = curve(clamp(input(x, y, c), 0, 1023));
 
       curved.reorder(x,y,c);
       //curved.bound(c, 0, 3);

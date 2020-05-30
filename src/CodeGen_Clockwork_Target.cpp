@@ -261,7 +261,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                     << "  prg.compute_unit_file = \"" << name << "_compute.h\";" << std::endl
                     << "  prg.name = \"" << name << "\";" << endl
                     << std::endl;
-      mem_bodyname = "prg";
+      loop_list.emplace_back("prg");
+      //mem_bodyname = "prg";
     }
   
     // Emit the function prototype
@@ -399,6 +400,30 @@ Expr var_graph_substitute(const Expr &name, const Expr &replacement, const Expr 
     return VarGraphSubstituteExpr(name, replacement).mutate(expr);
 }
 
+class ContainedLoopNames : public IRVisitor {
+  std::vector<std::string> loopnames;
+  
+  using IRVisitor::visit;
+  void visit(const Variable *op) override {
+    for (auto loopname : loopnames) {
+      string var_as_loop = "loop_" + printname(op->name);
+      if (loopname == var_as_loop) {
+        used_loopnames[loopname] = op;
+        return;
+      }
+    }
+  }
+
+public:
+  map<string, const Variable*> used_loopnames;
+  ContainedLoopNames(vector<string> loopnames) : loopnames(loopnames) {}
+};
+
+std::map<std::string, const Variable*> used_loops(Expr e, std::vector<std::string> loopnames) {
+  ContainedLoopNames cln(loopnames);
+  e.accept(&cln);
+  return cln.used_loopnames;
+}
 
 struct Compute_Argument {
     std::string name;
@@ -436,6 +461,8 @@ protected:
   void visit(const Load *op);
   void visit(const Call *op);
   std::set<Compute_Argument, CArg_compare> unique_args;
+  //std::map<string, int> unique_argstrs;
+  std::set<string> unique_argstrs;
 
 };
 
@@ -452,16 +479,25 @@ void Compute_Closure::visit(const Call *op) {
     if (!ignore.contains(op->name)) {
       debug(3) << "adding to closure.\n";
 
-      auto comp_arg = Compute_Argument({"", false, false, op->type, op->args, op->name, Expr(op)});
-      if (unique_args.count(comp_arg) == 0) {
+      ostringstream arg_print;
+      arg_print << Expr(op);
+      
+      //auto comp_arg = Compute_Argument({"", false, false, op->type, op->args, op->name, Expr(op)});
+      //if (unique_args.count(comp_arg) == 0) {
+      if (unique_argstrs.count(printname(arg_print.str())) == 0) {
         string argname = unique_name(op->name);
         if (argname == op->name) { argname = unique_name(op->name); }
         
-        unique_args.insert(comp_arg);
+        unique_argstrs.insert(printname(arg_print.str()));
         vars[argname] = op->type;
         var_args[argname] = op->args;
         var_comparg[argname] = Compute_Argument({argname, false, false, op->type, op->args, op->name, Expr(op)});;
+
+      } else {
+        //std::cout << "not adding " << Expr(op) << std::endl;
       }
+      // do not recurse
+      return;
     } else {
       debug(3) << "not adding to closure.\n";
     }
@@ -514,6 +550,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
   //std::cout << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
+  auto mem_bodyname = loop_list.back();
   func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
@@ -522,9 +559,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   Compute_Closure c(expand_expr(Stmt(op), scope), op->name);
   vector<Compute_Argument> compute_args = c.arguments();
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
+  //std::cout << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
 
   // Add each load
-  //for (auto arg : compute_args) {
   for (size_t i=0; i<compute_args.size(); ++i) {
     auto arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
@@ -552,7 +589,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
   memory_stream << ");\n";
 
-  
   // Output the compute
   map<string, vector<Compute_Argument> > merged_args;
   vector<string> arg_order;
@@ -603,10 +639,24 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
     new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
   }
+
+  // Add each used loop variable
+  auto loopname_map = used_loops(new_expr, loop_list);
+  for (auto loopname_pair : loopname_map) {
+    auto used_loopname = loopname_pair.first;
+    memory_stream << "  " << func_name << "->compute_unit_needs_index_variable(\""
+                  << used_loopname << "\");" << std::endl;
+    
+    const Variable* old_loopvar = loopname_pair.second;
+    auto var_replacement = Variable::make(old_loopvar->type, used_loopname);
+    //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
+    new_expr = var_graph_substitute(Expr(old_loopvar), var_replacement, new_expr);
+  }
+
   compute_stream << "  return "
                  << new_expr << ";" << endl
                  << "}" << endl;
-
+  
   ////compute_stream << std::endl << "//store is: " << Stmt(op);
   ////compute_stream << "hw_uint<16> " << func_name << "(";
   ////for (size_t i=0; i<compute_args.size(); ++i) {
@@ -644,6 +694,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
+  auto mem_bodyname = loop_list.back();
   func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
@@ -747,7 +798,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
            << "++)\n";
 
     string loopname = "loop_" + printname(op->name);
-    string bodyname = mem_bodyname;
+    //string bodyname = mem_bodyname;
+    string bodyname = loop_list.back();
     string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
     memory_stream << "  auto " << loopname << " = "
                   << bodyname << addloop
@@ -764,9 +816,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
         stream << "#pragma HLS PIPELINE II=1\n";
     }
 
-    mem_bodyname = loopname;
+    //mem_bodyname = loopname;
+    loop_list.emplace_back(loopname);
     op->body.accept(this);
-    mem_bodyname = bodyname;
+    internal_assert(loop_list.back() == loopname);
+    loop_list.pop_back();
+    //mem_bodyname = bodyname;
     
     close_scope("for " + printname(op->name));
 }
