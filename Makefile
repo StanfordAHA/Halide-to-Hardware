@@ -417,6 +417,7 @@ SOURCE_FILES = \
   CodeGen_X86.cpp \
   CoreIR_Libs.cpp \
   CoreIR_Mapper_Compute.cpp \
+  CoreIRCompute.cpp \
   CPlusPlusMangle.cpp \
   CSE.cpp \
   Debug.cpp \

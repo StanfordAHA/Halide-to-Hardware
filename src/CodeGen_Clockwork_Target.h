@@ -10,6 +10,8 @@
 #include "Module.h"
 #include "Scope.h"
 
+#include "coreir.h"
+
 namespace Halide {
 
 namespace Internal {
@@ -64,6 +66,7 @@ protected:
 
       /** The stream we're outputting the compute on */
       std::ostringstream compute_stream;
+      CoreIR::Context* context;
       
       CodeGen_Clockwork_C(std::ostream &s, Target target, OutputKind output_kind) :
         CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false) { }
@@ -96,7 +99,7 @@ protected:
     /** A name for the Clockwork target */
     std::string target_name;
     std::string output_base_path;
-      
+
     /** String streams for building header and source files. */
     // @{
     std::ostringstream hdr_stream;

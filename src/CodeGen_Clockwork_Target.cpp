@@ -1,19 +1,20 @@
-#include <iostream>
-#include <fstream>
-#include <limits>
 #include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <limits>
 
-#include "HWBufferUtils.h"
 #include "CodeGen_Clockwork_Target.h"
 #include "CodeGen_Internal.h"
-#include "Substitute.h"
+#include "CoreIRCompute.h"
+#include "HWBufferUtils.h"
 #include "IREquality.h"
 #include "IRMutator.h"
 #include "IROperator.h"
-#include "Param.h"
-#include "Var.h"
 #include "Lerp.h"
+#include "Param.h"
 #include "Simplify.h"
+#include "Substitute.h"
+#include "Var.h"
 
 namespace Halide {
 namespace Internal {
@@ -161,6 +162,8 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     clk_debug_file.close();
     clk_memory_file.close();
     clk_compute_file.close();
+
+    saveToFile(clkc.context->getGlobal(), output_base_path + "compute.json", NULL);
 }
 
 namespace {
@@ -213,6 +216,7 @@ void CodeGen_Clockwork_Target::init_module() {
                        << "#include \"codegen.h\"\n"
                        << "#include \"prog.h\"\n\n";
 
+    clkc.context = CoreIR::newContext();
 }
 
 void CodeGen_Clockwork_Target::add_kernel(Stmt s,
@@ -555,6 +559,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
                 << func_name << "\");" << endl;
+  CoreIR_Interface iface;
+  iface.name = func_name;
   
   Compute_Closure c(expand_expr(Stmt(op), scope), op->name);
   vector<Compute_Argument> compute_args = c.arguments();
@@ -588,6 +594,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
   }
   memory_stream << ");\n";
+  iface.output = CoreIR_Port({printname(op->name), 16});
 
   // Output the compute
   map<string, vector<Compute_Argument> > merged_args;
@@ -609,17 +616,30 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   for (size_t i=0; i<arg_order.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
     auto argname = arg_order[i];
-    compute_stream << "hw_uint<" << merged_args[argname].size() * 16
-                   << ">& " << printname(argname);
+    uint total_bitwidth = merged_args[argname].size() * 16;
+    compute_stream << "hw_uint<" << total_bitwidth << ">& " << printname(argname);
+
   }
   compute_stream << ") {\n";
 
+  for (auto argname : arg_order) {
+    uint total_bitwidth = merged_args[argname].size() * 16;
+    vector<CoreIR_Port> iports;
+    for (auto arg_component : merged_args[argname]) {
+      if (merged_args[argname].size() == 1) {
+        iports.push_back(CoreIR_Port({printname(arg_component.bufname), 16}));
+      } else {
+        iports.push_back(CoreIR_Port({printname(arg_component.name), 16}));
+      }
+    }
+    iface.inputs.push_back(CoreIR_PortBundle({printname(argname), total_bitwidth, iports}));
+  }
+  
   for (auto merged_arg : merged_args) {
     vector<Compute_Argument> arg_components = merged_arg.second;
     auto bufname = printname(merged_arg.first);
     if (arg_components.size() == 1) { continue; }
-    //if (arg_components.size() == 1 && arg_components[0].name == merged_arg.first) { continue; }
-    
+
     for (size_t i=0; i<arg_components.size(); ++i) {
       auto arg_component = arg_components[i];
       compute_stream << "  hw_uint<16> " << printname(arg_component.name) << " = "
@@ -656,25 +676,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "  return "
                  << new_expr << ";" << endl
                  << "}" << endl;
-  
-  ////compute_stream << std::endl << "//store is: " << Stmt(op);
-  ////compute_stream << "hw_uint<16> " << func_name << "(";
-  ////for (size_t i=0; i<compute_args.size(); ++i) {
-  ////  if (i != 0) { compute_stream << ", "; }
-  ////  compute_stream << "hw_uint<16>& " << printname(compute_args[i].name);
-  ////}
-  ////compute_stream << ") {\n";
-  ////
-  ////Expr new_expr = expand_expr(substitute_in_all_lets(op->values[0]), scope);
-  ////for (size_t i=0; i<compute_args.size(); ++i) {
-  ////  auto var_replacement = Variable::make(compute_args[i].type, printname(compute_args[i].name));
-  ////  //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
-  ////  new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
-  ////}
-  ////compute_stream << "  return "
-  ////               << new_expr << ";" << endl
-  ////               << "}" << endl;
-      
+
+  convert_compute_to_coreir(new_expr, iface, context);
+
   CodeGen_Clockwork_Base::visit(op);
 }
 
