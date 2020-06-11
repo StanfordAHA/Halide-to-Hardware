@@ -217,7 +217,7 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process_clockwork
+run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
 
@@ -249,6 +249,17 @@ compare-rewrite compare-rewrite-cpu compare-cpu-rewrite: $(BIN)/output_rewrite.p
 	echo $$EXIT_CODE; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
     cp $(BIN)/output_rewrite.png $(BIN)/output.png; \
+    (exit $$EXIT_CODE); \
+	else \
+    (exit $$EXIT_CODE);  \
+	fi
+
+compare-clockwork compare-cpu-clockwork compare-clockwork-cpu: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
+	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_clockwork.png; \
+	EXIT_CODE=$$?; \
+	echo $$EXIT_CODE; \
+	if [[ $$EXIT_CODE = 0 ]]; then \
+    cp $(BIN)/output_clockwork.png $(BIN)/output.png; \
     (exit $$EXIT_CODE); \
 	else \
     (exit $$EXIT_CODE);  \
