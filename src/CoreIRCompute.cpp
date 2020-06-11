@@ -378,6 +378,7 @@ void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
       continue;
     }
 
+    // Use slice to index part of each bundled port
     //uint bit_start = 0;
     //for (auto input : input_bundle.ports) {
     //  uint bit_end = bit_start + input.bitwidth;
@@ -392,13 +393,19 @@ void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
     //
     //  bit_start = bit_end;
     //}
-    //for (auto input : input_bundle.ports) {
+
     for (size_t j=0; j<input_bundle.ports.size(); ++j) {
       auto input = input_bundle.ports.at(j);
       hw_input_set[print_name(input.name)] = bundle_wire->sel(j);
       stream << "// recording input " << print_name(input.name) << std::endl;
     }
     
+  }
+
+  for (auto index : iface.indices) {
+    string index_name = index.name;
+    auto index_wire = self->sel(index_name);
+    hw_input_set[print_name(index_name)] = index_wire;
   }
 }
 
@@ -1326,7 +1333,7 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
     //string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     //recordparams.push_back({bundle_name, bundle_type});
 
-    
+    // Check for consistent bitwidth within a bundle
     size_t num_bundles = input_bundle.ports.size();
     internal_assert(num_bundles > 0);
     uint bitwidth = input_bundle.ports.at(0).bitwidth;
@@ -1334,6 +1341,7 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
       internal_assert(bitwidth == input.bitwidth);
     }
 
+    // Create an input array for each bundle
     CoreIR::Type* bundle_type;
     if (num_bundles == 1) {
       bundle_type = context->BitIn()->Arr(bitwidth);
@@ -1342,6 +1350,13 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
     }
     string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     recordparams.push_back({bundle_name, bundle_type});
+  }
+
+  // Add each index as an input
+  for (auto index : iface.indices) {
+    string index_name = index.name;
+    CoreIR::Type* index_type = context->BitIn()->Arr(index.bitwidth);
+    recordparams.push_back({index_name, index_type});
   }
 
   return context->Record(recordparams);

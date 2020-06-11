@@ -15,15 +15,16 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     // assumption that uint8_t phase = 0;
+    int imgsize = 62;
 
     void generate() {
         /* THE ALGORITHM */
         Var c("c"), x("x"), y("y");
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
-        Func hw_input;
-        hw_input(x,y) = cast<uint16_t>(input(x+1,y+1));
-        //hw_input(x,y) = cast<uint16_t>(input(x,y));
+        Func hw_input, hw_input_copy;
+        hw_input_copy(x,y) = cast<uint16_t>(input(x+1,y+1));
+        hw_input(x,y) = hw_input_copy(x,y);
 
         // common patterns: average of four surrounding pixels
         Func neswNeighbors, diagNeighbors;
@@ -93,7 +94,23 @@ public:
 
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
-          
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+            .reorder(c, xi, yi, xo, yo);
+          //hw_output.unroll(c);
+
+          demosaic.compute_at(hw_output, xo);
+
+          //.unroll(c);
+
+          hw_input.compute_at(hw_output, xo);
+          hw_input_copy.compute_root();
+
         } else {    // schedule to CPU
           output.compute_root();
         }

@@ -770,6 +770,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto var_replacement = Variable::make(old_loopvar->type, used_loopname);
     //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
     new_expr = var_graph_substitute(Expr(old_loopvar), var_replacement, new_expr);
+    //iface.indices.emplace_back(CoreIR_Port({used_loopname, (uint)old_loopvar->type.bits()}));
+    iface.indices.emplace_back(CoreIR_Port({used_loopname, 16}));
   }
 
   compute_stream << "  return "

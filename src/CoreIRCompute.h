@@ -27,6 +27,7 @@ struct CoreIR_Interface {
   std::string name;
   CoreIR_Port output;
   std::vector<CoreIR_PortBundle> inputs;
+  std::vector<CoreIR_Port> indices; // x, y, or c used in computation
 };
 
 /** Take a statement with for loops marked for unrolling, and convert
