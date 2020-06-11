@@ -129,6 +129,9 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, Target ta
     //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
 
 
+void print_clockwork_codegen(string appname, ofstream& stream);
+void print_clockwork_execution_header(string appname, ofstream& stream);
+void print_clockwork_execution_cpp(string appname, ofstream& stream);
 
 CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     hdr_stream << "#endif\n";
@@ -139,31 +142,47 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     std::cout << "outputting clockwork target named " << target_name << std::endl;
 
     // write the header and the source streams into files
-    string src_name = output_base_path + target_name + ".cpp";
-    string hdr_name = output_base_path + target_name + ".h";
+    //string src_name = output_base_path + target_name + ".cpp";
+    //string hdr_name = output_base_path + target_name + ".h";
     string clk_debug_name = output_base_path + target_name + "_debug.cpp";
     string clk_memory_name = output_base_path + target_name + "_memory.cpp";
     string clk_compute_name = output_base_path + target_name + "_compute.h";
 
-    ofstream src_file(src_name.c_str());
-    ofstream hdr_file(hdr_name.c_str());
+    //ofstream src_file(src_name.c_str());
+    //ofstream hdr_file(hdr_name.c_str());
     ofstream clk_debug_file(clk_debug_name.c_str());
     ofstream clk_memory_file(clk_memory_name.c_str());
     ofstream clk_compute_file(clk_compute_name.c_str());
 
-    src_file << src_stream.str() << endl;
-    hdr_file << hdr_stream.str() << endl;
+    //src_file << src_stream.str() << endl;
+    //hdr_file << hdr_stream.str() << endl;
     clk_debug_file << clk_stream.str() << endl;
     clk_memory_file << clkc.memory_stream.str() << endl;
     clk_compute_file << clkc.compute_stream.str() << endl;
     
-    src_file.close();
-    hdr_file.close();
+    //src_file.close();
+    //hdr_file.close();
     clk_debug_file.close();
     clk_memory_file.close();
     clk_compute_file.close();
 
     saveToFile(clkc.context->getGlobal(), output_base_path + "compute.json", NULL);
+
+    string clk_codegen_name = output_base_path + "clockwork_codegen.cpp";
+    string clk_exec_h_name = output_base_path + "clockwork_testscript.h";
+    string clk_exec_cpp_name = output_base_path + "clockwork_testscript.cpp";
+    
+    ofstream clk_codegen_file(clk_codegen_name.c_str());
+    ofstream clk_exec_h_file(clk_exec_h_name.c_str());
+    ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
+
+    print_clockwork_codegen(target_name, clk_codegen_file);
+    print_clockwork_execution_header(target_name, clk_exec_h_file);
+    print_clockwork_execution_cpp(target_name, clk_exec_cpp_file);
+
+    clk_codegen_file.close();
+    clk_exec_h_file.close();
+    clk_exec_cpp_file.close();
 }
 
 namespace {
@@ -379,6 +398,86 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
             stencils.pop(args[i].name);
         }
     }
+}
+
+void print_clockwork_codegen(string appname, ofstream& stream) {
+  stream << "#include \"" << appname << "_compute.h\"" << endl
+         << "#include \"" << appname << "_memory.cpp\"" << endl
+         << endl
+         << "int main(int argc, char **argv) {" << endl
+         << "  prog prg = " << appname << "();" << endl
+         << "  std::vector<std::string> args(argv + 1, argv + argc);" << endl
+         << "  size_t i=0;" << endl
+         << "  while (i < args.size()) {" << endl
+         << "    if (args[i] == \"opt\") {" << endl
+         << "      generate_optimized_code(prg);" << endl
+         << "    } else if (args[i] == \"unopt\") {" << endl
+         << "      generate_unoptimized_code(prg);" << endl
+         << "    }" << endl
+         << "    i += 1;" << endl
+         << "  }" << endl
+         << "  return 0;" << endl
+         << "}" << endl;
+}
+
+void print_clockwork_execution_header(string appname, ofstream& stream) {
+  stream << "#pragma once" << endl
+         << "#include \"HalideBuffer.h\"" << endl
+         << endl
+         << "template<typename T>" << endl
+         << "void run_clockwork_program(Halide::Runtime::Buffer<T> input," << endl
+         << "                           Halide::Runtime::Buffer<T> output);" << endl;
+}
+
+void print_clockwork_execution(string appname, ofstream& stream) {
+  stream << "#include \"clockwork_testscript.h\"" << endl
+         << "#include \"unoptimized_" << appname << ".h\"" << endl
+         << endl
+         << "template<typename T>" << endl
+         << "void run_clockwork_program(Halide::Runtime::Buffer<T> input," << endl
+         << "                           Halide::Runtime::Buffer<T> output) {" << endl
+         << "  // input image and run on design" << endl
+         << "  HWStream<hw_uint<16> > input_stream;" << endl
+         << "  HWStream<hw_uint<16> > output_stream;" << endl
+         << "  for (int y = 0; y < input.height(); y++) {" << endl
+         << "  for (int x = 0; x < input.width(); x++) {" << endl
+         << "  for (int c = 0; c < input.channels(); c++) {" << endl
+         << "    hw_uint<16> in_val;" << endl
+         << "    set_at<0*16, 16, 16>(in_val, input(x, y, c));" << endl
+         << "    input_stream.write(in_val);" << endl
+         << "  } } }" << endl
+         << endl
+         << "  // run function" << endl
+         << "  unoptimized_" << appname << "(input_stream, output_stream);" << endl
+         << endl
+         << "  // copy to output" << endl
+         << "  for (int y = 0; y < output.height(); y++) {" << endl
+         << "  for (int x = 0; x < output.width(); x++) {" << endl
+         << "  for (int c = 0; c < output.channels(); c++) {" << endl
+         << "    hw_uint<16> actual = output_stream.read();" << endl
+         << "    auto actual_lane_0 = actual.extract<0*16, 15>();" << endl
+         << "    output(x, y, c) = actual_lane_0;" << endl
+         << "  } } }" << endl
+         << "}" << endl;
+}
+
+void print_clockwork_template(string type, ofstream& stream) {
+  stream << "template void run_clockwork_program<" << type << ">"
+         << "(Halide::Runtime::Buffer<" << type << "> input," << endl
+         << "                                      " << std::string(type.length(), ' ')
+         << "Halide::Runtime::Buffer<" << type << "> output);" << endl;
+}
+ 
+void print_clockwork_execution_cpp(string appname, ofstream& stream) {
+  print_clockwork_execution(appname, stream);
+  stream << endl;
+  
+  vector<string> types = {"bool", "uint8_t", "int8_t", "uint16_t", "int16_t",
+                          "uint32_t", "int32_t", "float"};
+  for (auto type : types) {
+    print_clockwork_template(type, stream);
+    stream << endl;
+  }
 }
 
 /** Substitute an Expr for another Expr in a graph. Unlike substitute,

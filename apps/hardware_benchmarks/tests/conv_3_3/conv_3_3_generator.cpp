@@ -22,9 +22,12 @@ public:
         RDom r(0, ksize,               0, ksize);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 17;     kernel(0,1) = 4;       kernel(0,2) = 6;
-        kernel(1,0) = 7;      kernel(1,1) = 19;      kernel(1,2) = 4;
-        kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
+//        kernel(0,0) = 17;     kernel(0,1) = 4;       kernel(0,2) = 6;
+//        kernel(1,0) = 7;      kernel(1,1) = 19;      kernel(1,2) = 4;
+//        kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
+        kernel(0,0) = 1;      kernel(1,0) = 0;       kernel(2,0) = 0;
+        kernel(0,1) = 0;      kernel(1,1) = 0;       kernel(2,1) = 0;
+        kernel(0,2) = 0;      kernel(1,2) = 0;       kernel(2,2) = 0;
 
         conv(x, y) = 0;
 
@@ -57,7 +60,6 @@ public:
 //          hw_input.store_root().compute_root();
 //          hw_input.in().store_at(output, x_host).compute_at(output,x_gb);
 //          hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
-
 
           hw_output.compute_root();
 

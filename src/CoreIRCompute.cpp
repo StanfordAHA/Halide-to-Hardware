@@ -332,8 +332,8 @@ class CreateCoreIRModule : public CodeGen_C {
   void visit(const Call *op);
   
 public:
-  CreateCoreIRModule(CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) :
-    CodeGen_C(std::cout, Target(), CPlusPlusImplementation, ""), def(def), context(context), self(def->sel("self")) {
+  CreateCoreIRModule(ostringstream& stream, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) :
+    CodeGen_C(stream, Target(), CPlusPlusImplementation, ""), def(def), context(context), self(def->sel("self")) {
     gens = coreir_generators(context);
     record_inputs(iface);
     output_wire = self->sel("out_" + iface.output.name);
@@ -348,10 +348,21 @@ public:
 };
 
 void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) {
-  CreateCoreIRModule ccm(def, iface, context);
+  //ofstream compute_debug_file("bin/compute_debug_" + iface.name + ".cpp");
+  ostringstream compute_debug_str;
+  
+  CreateCoreIRModule ccm(compute_debug_str, def, iface, context);
+  compute_debug_str.str("");
+  compute_debug_str.clear();
   e.accept(&ccm);
 
+  //ofstream compute_debug_file("/dev/null");
+  ofstream compute_debug_file("bin/clockwork_compute_debug.cpp", std::ios::app);
   ccm.connect_output(e);
+  compute_debug_file << iface.name << "() {" << endl
+                     << compute_debug_str.str()
+                     << "}" << endl << endl;
+  compute_debug_file.close();
 }
 
 void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
@@ -359,26 +370,35 @@ void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
     auto input_bundle = iface.inputs[i];
     string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     auto bundle_wire = self->sel(bundle_name);
+
+    if (input_bundle.ports.size() == 1) {
+      auto input_name = print_name(input_bundle.ports[0].name);
+      hw_input_set[input_name] = bundle_wire;
+      stream << "// recording input " << input_name << std::endl;
+      continue;
+    }
+
+    //uint bit_start = 0;
+    //for (auto input : input_bundle.ports) {
+    //  uint bit_end = bit_start + input.bitwidth;
+    //  CoreIR::Values sliceArgs = {{"width", CoreIR::Const::make(context, input_bundle.total_bitwidth)},
+    //                              {"lo", CoreIR::Const::make(context, bit_start)},
+    //                              {"hi", CoreIR::Const::make(context, bit_end)}};
+    //  auto slice = def->addInstance(input.name + "_slice","coreir.slice",sliceArgs);
+    //  
+    //  def->connect(bundle_wire, slice->sel("in"));
+    //  hw_input_set[print_name(input.name)] = slice->sel("out");
+    //  stream << "// recording input " << print_name(input.name) << std::endl;
+    //
+    //  bit_start = bit_end;
+    //}
+    //for (auto input : input_bundle.ports) {
+    for (size_t j=0; j<input_bundle.ports.size(); ++j) {
+      auto input = input_bundle.ports.at(j);
+      hw_input_set[print_name(input.name)] = bundle_wire->sel(j);
+      stream << "// recording input " << print_name(input.name) << std::endl;
+    }
     
-    uint bundle_bitwidth = 0;
-    for (auto input : input_bundle.ports) {
-      bundle_bitwidth += input.bitwidth;
-    }
-
-    uint bit_start = 0;
-    for (auto input : input_bundle.ports) {
-      uint bit_end = bit_start + input.bitwidth;
-      CoreIR::Values sliceArgs = {{"width", CoreIR::Const::make(context, bundle_bitwidth)},
-                                  {"lo", CoreIR::Const::make(context, bit_start)},
-                                  {"hi", CoreIR::Const::make(context, bit_end)}};
-      auto slice = def->addInstance(input.name + "_slice","coreir.slice",sliceArgs);
-      
-      def->connect(bundle_wire, slice->sel("in"));
-      hw_input_set[print_name(input.name)] = slice->sel("out");
-      stream << "recording input " << print_name(input.name) << std::endl;
-
-      bit_start = bit_end;
-    }
   }
 }
 
@@ -1298,12 +1318,28 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
     auto input_bundle = iface.inputs[i];
     
     // calculate the bundle bitwidth
-    uint bundle_bitwidth = 0;
-    for (auto input : input_bundle.ports) {
-      bundle_bitwidth += input.bitwidth;
-    }
-    CoreIR::Type* bundle_type = context->BitIn()->Arr(bundle_bitwidth);
+    //uint bundle_bitwidth = 0;
+    //for (auto input : input_bundle.ports) {
+    //  bundle_bitwidth += input.bitwidth;
+    //}
+    //CoreIR::Type* bundle_type = context->BitIn()->Arr(bundle_bitwidth);
+    //string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
+    //recordparams.push_back({bundle_name, bundle_type});
 
+    
+    size_t num_bundles = input_bundle.ports.size();
+    internal_assert(num_bundles > 0);
+    uint bitwidth = input_bundle.ports.at(0).bitwidth;
+    for (auto input : input_bundle.ports) {
+      internal_assert(bitwidth == input.bitwidth);
+    }
+
+    CoreIR::Type* bundle_type;
+    if (num_bundles == 1) {
+      bundle_type = context->BitIn()->Arr(bitwidth);
+    } else {
+      bundle_type = context->BitIn()->Arr(bitwidth)->Arr(num_bundles);
+    }
     string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     recordparams.push_back({bundle_name, bundle_type});
   }
