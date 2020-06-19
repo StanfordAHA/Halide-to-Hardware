@@ -262,23 +262,6 @@ struct Storage_Def {
   bool is_reg() {return (reg != NULL); };
 };
 
-struct CoreIR_Inst_Args {
-  std::string ref_name = "";
-  std::string name;
-  std::string gen;
-  CoreIR::Values args;
-  CoreIR::Values genargs;
-  std::string wirename;
-  std::string selname;
-
-  CoreIR_Inst_Args() {}
-  CoreIR_Inst_Args(std::string name, std::string wirename, std::string selname,
-                   std::string gen, CoreIR::Values args, CoreIR::Values genargs) :
-    name(name), gen(gen), args(args), genargs(genargs), wirename(wirename), selname(selname) {}
-
-};
-
-
 class CreateCoreIRModule : public CodeGen_C {
   using CodeGen_C::visit;
   
@@ -344,16 +327,28 @@ public:
     auto wire = get_wire(name, e);
     def->connect(wire, output_wire);
     stream << "// connected " << name << " to the output port" << endl;
+    //std::cout << "// connecated " << name << " to the output port" << endl;
   }
+
+  void add_coreir_inst(CoreIR_Inst_Args coreir_inst) {
+    hw_def_set[coreir_inst.ref_name] = std::make_shared<CoreIR_Inst_Args>(coreir_inst);
+  }
+  
 };
 
-void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) {
+void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface,
+                        vector<CoreIR_Inst_Args> coreir_insts, CoreIR::Context* context) {
   //ofstream compute_debug_file("bin/compute_debug_" + iface.name + ".cpp");
   ostringstream compute_debug_str;
   
   CreateCoreIRModule ccm(compute_debug_str, def, iface, context);
   compute_debug_str.str("");
   compute_debug_str.clear();
+
+  for (auto coreir_inst : coreir_insts) {
+    ccm.add_coreir_inst(coreir_inst);
+  }
+
   e.accept(&ccm);
 
   //ofstream compute_debug_file("/dev/null");
@@ -363,6 +358,12 @@ void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface, 
                      << compute_debug_str.str()
                      << "}" << endl << endl;
   compute_debug_file.close();
+}
+
+
+void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) {
+  vector<CoreIR_Inst_Args> coreir_insts;
+  add_coreir_compute(e, def, iface, coreir_insts, context);
 }
 
 void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
@@ -1298,8 +1299,39 @@ void CreateCoreIRModule::visit(const Call *op) {
 
   } else if (ends_with(op->name, ".stencil") ||
              ends_with(op->name, ".stencil_update")) {
-    stream << "shouldn't be seeing " << op->name << endl;
-    cout << "shouldn't be seeing " << op->name << endl;
+
+    if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["rom2"]) {
+      internal_assert(op->args.size() == 1);
+      string id_index = print_expr(op->args[0]);
+      auto name = op->name;
+      ostringstream rhs;
+      
+      rhs << name;
+      rhs << "["
+          << id_index
+          << "][call]";
+
+      string out_var = print_assignment(op->type, rhs.str());
+      if (is_wire(out_var)) { return; }
+
+      stream << "// loading from rom " << name << " with gen " << hw_def_set[name]->gen << std::endl;
+
+      std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[name];
+      string inst_name = unique_name("curve");
+      CoreIR::Wireable* inst = def->addInstance(inst_name, inst_args->gen, inst_args->args, inst_args->genargs);
+      add_wire(out_var, inst->sel(inst_args->selname));
+
+      // attach the read address
+      CoreIR::Wireable* raddr_wire = get_wire(id_index, op->args[0]);
+      def->connect(raddr_wire, inst->sel("raddr"));
+      // attach a read enable
+      CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
+      def->connect(rom_ren->sel("out"), inst->sel("ren"));
+      
+    } else {
+      stream << "shouldn't be seeing " << op->name << endl;
+      cout << "shouldn't be seeing " << op->name << endl;
+    }
 
   } else if (op->name == "dispatch_stream") {
     stream << "shouldn't be seeing " << op->name << endl;
@@ -1313,6 +1345,77 @@ void CreateCoreIRModule::visit(const Call *op) {
   }
 }
 
+class ROMInit : public IRVisitor {
+  using IRVisitor::visit;
+
+  bool is_const(const Expr e) {
+    if (e.as<IntImm>() || e.as<UIntImm>()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  void visit(const Store *op) {
+    if (op->name == allocname) {
+      auto value_expr = op->value;
+      auto index_expr = op->index;
+      //cout << "store: " << Stmt(op) << std::endl;
+      internal_assert(is_const(value_expr) && is_const(index_expr));
+
+      int index = id_const_value(index_expr);
+      int value = id_const_value(value_expr);
+      init_values["init"][index] = value;
+    }
+  }
+
+  void visit(const Provide *op) {
+    if (op->name == allocname) {
+      internal_assert(op->args.size() == 1);
+      internal_assert(op->values.size() == 1);
+      auto value_expr = op->values[0];
+      auto index_expr = op->args[0];
+      //cout << "store: " << Stmt(op) << std::endl;
+      internal_assert(is_const(value_expr) && is_const(index_expr));
+
+      int index = id_const_value(index_expr);
+      int value = id_const_value(value_expr);
+      init_values["init"][index] = value;
+    }
+  }
+
+public:
+  nlohmann::json init_values;
+  string allocname;
+  ROMInit(string allocname) : allocname(allocname) {}
+};
+
+// returns a map with all the initialization values for a rom
+nlohmann::json rom_init(Stmt s, string allocname) {
+  ROMInit rom_init(allocname);
+  s.accept(&rom_init);
+  return rom_init.init_values;
+}
+
+CoreIR_Inst_Args rom_to_coreir(string alloc_name, int size, Stmt body, CoreIR::Context* context) {
+    CoreIR_Inst_Args rom_args;
+    rom_args.ref_name = alloc_name;
+    rom_args.name = "rom_" + alloc_name;
+
+    auto gens = coreir_generators(context);
+    rom_args.gen = gens["rom2"];
+    rom_args.args = {{"width",CoreIR::Const::make(context,16)},
+                     {"depth",CoreIR::Const::make(context,size)}};
+
+    // set initial values for rom
+    nlohmann::json jdata = rom_init(body, alloc_name);
+    //jdata["init"][0] = 0;
+    CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
+    rom_args.genargs = modparams;
+    rom_args.selname = "rdata";
+    
+    return rom_args;
+}
 
 CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context) {
   // add the output
@@ -1376,6 +1479,21 @@ void convert_compute_to_coreir(Expr e, CoreIR_Interface iface, CoreIR::Context* 
   add_coreir_compute(e, def, iface, context);
   design->setDef(def);
 }
+
+void convert_compute_to_coreir(Expr e, CoreIR_Interface iface,
+                               vector<CoreIR_Inst_Args> coreir_insts, CoreIR::Context* context) {
+  CoreIR::Type* compute_type = interface_to_type(iface, context);
+
+  // define the module
+  auto global_ns = context->getNamespace("global");
+  auto design = global_ns->newModuleDecl(iface.name, compute_type);
+  auto def = design->newModuleDef();
+
+  // convert halide expr into coreir module definition and store in context
+  add_coreir_compute(e, def, iface, coreir_insts, context);
+  design->setDef(def);
+}
+
 
 }
 }

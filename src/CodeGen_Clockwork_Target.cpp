@@ -364,6 +364,9 @@ void CodeGen_Clockwork_Target::init_module() {
                        << "#include \"codegen.h\"\n"
                        << "#include \"prog.h\"\n\n";
 
+    ofstream compute_debug_file("bin/clockwork_compute_debug.cpp");
+    compute_debug_file.close();
+
     clkc.context = CoreIR::newContext();
 }
 
@@ -881,7 +884,7 @@ void CodeGen_C_Expr::visit(const Provide *op) {
   stream << op->name << "[" << id_index << "] = " << id_value << ";\n";
 }
 void CodeGen_C_Expr::visit(const Call *op) {
-  if (op->name == "curve.stencil") {
+  if (ends_with(op->name, ".stencil")) {
     internal_assert(op->args.size() == 1);
     string id_index = print_expr(op->args[0]);
 
@@ -921,7 +924,7 @@ string return_c_expr(Expr e) {
   arg_print.str("");
   arg_print.clear();
 
-  std::cout << e << std::endl;
+  //std::cout << e << std::endl;
   e.accept(&compute_codegen);
   compute_codegen.print_output(e);
 
@@ -948,7 +951,7 @@ string rom_to_c(ROM_data rom) {
   auto realize = Realize::make(rom_r->name, rom_r->types, rom_r->memory_type,
                                rom_r->bounds, rom_r->condition, produce);
 
-  std::cout << "rom " << rom.name << " being renamed" << printname(rom.name) << std::endl;
+  //std::cout << "rom " << rom.name << " being renamed " << printname(rom.name) << std::endl;
   Stmt new_realize = RenameRealize(rom.name, printname(rom.name)).mutate(Stmt(realize));
   auto combined = return_c_stmt(new_realize);
 
@@ -1095,12 +1098,17 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
 
   
-  std::cout << op->name << " store: " << new_expr << std::endl;
+  //std::cout << op->name << " store: " << new_expr << std::endl;
   auto found_roms = contains_call(new_expr, rom_set);
+  vector<CoreIR_Inst_Args> coreir_insts;
   for (auto found_rom : found_roms) {
-    std::cout << "  using rom " << found_rom << std::endl;
     auto pc_str = rom_to_c(roms[found_rom]);
     compute_stream << pc_str << std::endl;
+
+    const Realize* rom_r = roms[found_rom].realize.as<Realize>();
+    int rom_size = to_int(rom_r->bounds[0].extent);
+    auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
+    coreir_insts.push_back(coreir_inst);
   }
   auto output = return_c_expr(new_expr);
   //std::cout << output << std::endl;
@@ -1112,7 +1120,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << output << endl;
   compute_stream << "}" << endl;
 
-  //convert_compute_to_coreir(new_expr, iface, context);
+  convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }
@@ -1132,23 +1140,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_buffer(const string& buf
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer *op) {
   if (op->is_producer) {
     memory_stream << "////producing " << op->name << endl;
-    
-    //func_name = unique_name("compute_" + printname(op->name));
-    //memory_stream << "  auto " << func_name
-    //              << " = "
-    //              << mem_bodyname << "->add_op(\""
-    //              << func_name << "\");" << endl;
-    
   } else {
     memory_stream << endl << "//consuming " << op->name << endl;
-
-    //if (starts_with(op->name, "hw_output")) {
-    //  memory_stream << "//let's find a closure\n";
-    //  std::cout <<  "//let's find a closure\n";
-    //  std::cout << op->body << std::endl;
-    //  Compute_Closure c(op->body, op->name);
-    //  vector<Compute_Argument> args = c.arguments();
-    //}
   }
 
   if (roms.count(op->name) > 0 && op->is_producer) {
@@ -1226,7 +1219,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   auto memtype = identify_realization(Stmt(op), op->name);
-  std::cout << op->name << " is a " << memtype << std::endl;
+  //std::cout << op->name << " is a " << memtype << std::endl;
   if (memtype == ROM_REALIZATION) {
     roms[op->name] = ROM_data({op->name, Stmt(op), Stmt()});;
   }
@@ -1246,8 +1239,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     int32_t constant_size;
     constant_size = op->constant_allocation_size();
     if (constant_size > 0) {
-      auto memtype = identify_realization(Stmt(op), op->name);
-      std::cout << op->name << " is a " << memtype << std::endl;
+
     } else {
         internal_error << "Size for allocation " << op->name
                        << " is not a constant.\n";

@@ -81,12 +81,12 @@ class RealizeUsage : public IRVisitor {
 HWMemoryType identify_realization(Stmt s, string realizename) {
   RealizeUsage ru(realizename);
   s.accept(&ru);
-  std::cout << realizename
-            << " has num_stores=" << ru.num_stores
-            << " num_loads=" << ru.num_loads
-            << " var_load=" << ru.uses_variable_load_index
-            << " var_store=" << ru.uses_variable_store_index
-            << " var_sval=" << ru.uses_variable_store_value << std::endl;
+  //std::cout << realizename
+  //          << " has num_stores=" << ru.num_stores
+  //          << " num_loads=" << ru.num_loads
+  //          << " var_load=" << ru.uses_variable_load_index
+  //          << " var_store=" << ru.uses_variable_store_index
+  //          << " var_sval=" << ru.uses_variable_store_value << std::endl;
   //std::cout << simplify(s);
 
   if (ru.num_stores == 0 && ru.num_loads == 0) {
@@ -157,13 +157,13 @@ class InlineMemoryConstants : public IRMutator {
       auto mem_type = identify_realization(realize->body, realize->name);
 
       if (mem_type == ROM_REALIZATION) {
-        std::cout << "Realize " << realize->name << " is a rom" << std::endl;
+        //std::cout << "Realize " << realize->name << " is a rom" << std::endl;
         roms.insert(realize->name);
         return IRMutator::visit(realize);
 
       } else if (mem_type == CONSTS_REALIZATION) {
         //   add ROM name to remove Producer of this name, and save provides
-        std::cout << "Realize " << realize->name << " is a set of consts" << std::endl;
+        //std::cout << "Realize " << realize->name << " is a set of consts" << std::endl;
         realize_provides[realize->name] = vector<const Provide*>();
         auto mutated = IRMutator::visit(realize);
         //std::cout << "mutated:\n" << mutated << std::endl;
@@ -175,7 +175,7 @@ class InlineMemoryConstants : public IRMutator {
         }
         
       } else {
-        std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;
+        //std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;
         return IRMutator::visit(realize);
       }      
     }

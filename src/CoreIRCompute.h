@@ -38,6 +38,27 @@ struct CoreIR_Interface {
 //std::map<std::string, std::string> coreir_generators(CoreIR::Context);
 void convert_compute_to_coreir(Expr, CoreIR_Interface, CoreIR::Context*);
 
+
+struct CoreIR_Inst_Args {
+  std::string ref_name = "";
+  std::string name;
+  std::string gen;
+  CoreIR::Values args;
+  CoreIR::Values genargs;
+  std::string wirename;
+  std::string selname;
+
+  CoreIR_Inst_Args() {}
+  CoreIR_Inst_Args(std::string name, std::string wirename, std::string selname,
+                   std::string gen, CoreIR::Values args, CoreIR::Values genargs) :
+    name(name), gen(gen), args(args), genargs(genargs), wirename(wirename), selname(selname) {}
+};
+
+CoreIR_Inst_Args rom_to_coreir(std::string, int, Stmt, CoreIR::Context*);
+
+void convert_compute_to_coreir(Expr, CoreIR_Interface, std::vector<CoreIR_Inst_Args>, CoreIR::Context*);
+
+
 }  // namespace Internal
 }  // namespace Halide
 
