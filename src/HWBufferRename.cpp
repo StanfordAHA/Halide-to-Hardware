@@ -1,4 +1,5 @@
 #include "HWBufferRename.h"
+#include "HWBufferSimplifications.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "Simplify.h"
@@ -68,6 +69,9 @@ class RenameStencilRealizes : public IRMutator {
     using IRMutator::visit;
 
     Stmt visit(const Realize *op) override {
+      if (false) {//if (op->name == "curve") {
+        return IRMutator::visit(op);
+      }
       string realize_name = op->name + ".stencil";
       Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
       new_body = mutate(new_body);

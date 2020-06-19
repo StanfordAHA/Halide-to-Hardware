@@ -34,10 +34,8 @@ public:
         Func padded16, padded, hw_input_copy;
         padded(x, y) = input(x+3, y+3);
         //padded16(x, y) = cast<int16_t>(padded(x, y));
-        hw_input_copy(x, y) = input(x+3,y+3);
-        padded16(x, y) = cast<int16_t>(hw_input_copy(x, y));
-
-                                      
+        hw_input_copy(x, y) = cast<int16_t>(input(x+3,y+3));
+        padded16(x, y) = hw_input_copy(x, y);
 
         // sobel filter
         Func grad_x_unclamp, grad_y_unclamp, grad_x, grad_y;
@@ -58,18 +56,18 @@ public:
         
         // product of gradients
         Func grad_xx, grad_yy, grad_xy;
-        grad_xx(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_x(x,y));
-        grad_yy(x, y) = cast<int32_t>(grad_y(x,y)) * cast<int32_t>(grad_y(x,y));
-        grad_xy(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_y(x,y));
+        grad_xx(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_x(x,y));
+        grad_yy(x, y) = cast<int16_t>(grad_y(x,y)) * cast<int16_t>(grad_y(x,y));
+        grad_xy(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_y(x,y));
 
         // shift gradients
         Func lxx, lyy, lxy;
         //lxx(x, y) = grad_xx(x, y) >> 7;
         //lyy(x, y) = grad_yy(x, y) >> 7;
         //lxy(x, y) = grad_xy(x, y) >> 7;
-        lxx(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_x(x,y)) >> 7;
-        lyy(x, y) = cast<int32_t>(grad_y(x,y)) * cast<int32_t>(grad_y(x,y)) >> 7;
-        lxy(x, y) = cast<int32_t>(grad_x(x,y)) * cast<int32_t>(grad_y(x,y)) >> 7;
+        lxx(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_x(x,y)) >> 7;
+        lyy(x, y) = cast<int16_t>(grad_y(x,y)) * cast<int16_t>(grad_y(x,y)) >> 7;
+        lxy(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_y(x,y)) >> 7;
 
 
         // box filter (i.e. windowed sum)
@@ -217,8 +215,8 @@ public:
           lgyy.update().unroll(box.x).unroll(box.y);
           lgxy.update().unroll(box.x).unroll(box.y);
 
-          hw_input_copy.compute_root();
           padded16.compute_at(hw_output, xo);
+          hw_input_copy.compute_root();
           
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 58, 58);

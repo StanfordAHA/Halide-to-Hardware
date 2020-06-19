@@ -7,6 +7,8 @@
 #include "CodeGen_Internal.h"
 #include "CoreIRCompute.h"
 #include "HWBufferUtils.h"
+#include "HWBufferSimplifications.h"
+#include "IR.h"
 #include "IREquality.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -24,6 +26,7 @@ using std::endl;
 using std::string;
 using std::vector;
 using std::map;
+using std::set;
 using std::ostringstream;
 using std::ofstream;
 
@@ -46,6 +49,28 @@ bool contain_for_loop(Stmt s) {
     ContainForLoop cfl;
     s.accept(&cfl);
     return cfl.found;
+}
+
+class ContainsCall : public IRVisitor {
+    using IRVisitor::visit;
+    void visit(const Call *op) {
+      if (calls.count(op->name) > 0) {
+        found_calls.emplace_back(op->name);
+      }
+      IRVisitor::visit(op);
+    }
+
+public:
+  vector<string> found_calls;
+  set<string> calls;
+
+  ContainsCall(set<string> calls) : calls(calls) {}
+};
+
+vector<string> contains_call(Expr e, set<string> calls) {
+    ContainsCall cc(calls);
+    e.accept(&cc);
+    return cc.found_calls;
 }
 
 string printname(const string &name) {
@@ -118,6 +143,109 @@ std::string strip_stream(std::string input) {
   }
   return output;
 }
+
+class RenameAllocation : public IRMutator {
+    const string &orig_name;
+    const string &new_name;
+
+    using IRMutator::visit;
+
+    Expr visit(const Load *op) {
+        if (op->name == orig_name ) {
+            Expr index = mutate(op->index);
+            return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, ModulusRemainder());
+        } else {
+            return IRMutator::visit(op);
+        }
+    }
+
+    Stmt visit(const Store *op) {
+        if (op->name == orig_name ) {
+            Expr value = mutate(op->value);
+            Expr index = mutate(op->index);
+            return Store::make(new_name, value, index, op->param, op->predicate, ModulusRemainder());
+        } else {
+            return IRMutator::visit(op);
+        }
+    }
+
+    Stmt visit(const Free *op) {
+        if (op->name == orig_name) {
+            return Free::make(new_name);
+        } else {
+            return IRMutator::visit(op);
+        }
+    }
+
+public:
+    RenameAllocation(const string &o, const string &n)
+        : orig_name(o), new_name(n) {}
+};
+
+class RenameRealize : public IRMutator {
+    const string &orig_name;
+    const string &new_name;
+
+    using IRMutator::visit;
+
+    Expr visit(const Call *op) {
+        if (op->name == orig_name ) {
+          vector<Expr> new_args(op->args.size());
+
+          // Mutate the args
+          for (size_t i = 0; i < op->args.size(); i++) {
+            const Expr &old_arg = op->args[i];
+            Expr new_arg = mutate(old_arg);
+            new_args[i] = std::move(new_arg);
+          }
+          return Call::make(op->type, new_name, new_args, op->call_type, op->func,
+                            op->value_index, op->image, op->param);
+        } else {
+            return IRMutator::visit(op);
+        }
+    }
+
+  Stmt visit(const Provide *op) {
+    if (op->name == orig_name) {
+      vector<Expr> new_args(op->args.size());
+      vector<Expr> new_values(op->values.size());
+
+      // Mutate the args
+      for (size_t i = 0; i < op->args.size(); i++) {
+        const Expr &old_arg = op->args[i];
+        Expr new_arg = mutate(old_arg);
+        new_args[i] = new_arg;
+      }
+
+      for (size_t i = 0; i < op->values.size(); i++) {
+        const Expr &old_value = op->values[i];
+        Expr new_value = mutate(old_value);
+        new_values[i] = new_value;
+      }
+
+      return Provide::make(new_name, new_values, new_args);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+  Stmt visit(const Realize *op) {
+    if (op->name == orig_name) {
+      Stmt body = mutate(op->body);
+      Expr condition = mutate(op->condition);
+      return Realize::make(new_name, op->types, op->memory_type, op->bounds,
+                           std::move(condition), std::move(body));
+    } else {
+      return IRMutator::visit(op);
+    }
+}
+
+
+
+public:
+    RenameRealize(const string &o, const string &n)
+        : orig_name(o), new_name(n) {}
+};
 
 }
 
@@ -227,7 +355,8 @@ void CodeGen_Clockwork_Target::init_module() {
 
     // initialize the clockwork compute file
     clkc.compute_stream << "#pragma once" << endl
-                        << "#include \"hw_classes.h\"" << endl << endl;
+                        << "#include \"hw_classes.h\"" << endl
+                        << "#include \"conv_3x3.h\"" << endl << endl;
 
     // initialize the clockwork memory file
     clkc.memory_stream << "#include \"app.h\"\n"
@@ -480,6 +609,53 @@ void print_clockwork_execution_cpp(string appname, ofstream& stream) {
   }
 }
 
+string type_to_c_type(Type type) {
+  ostringstream oss;
+  
+  if (type.is_float()) {
+    if (type.bits() == 32) {
+      oss << "float";
+    } else if (type.bits() == 64) {
+      oss << "double";
+    } else if (type.bits() == 16 && !type.is_bfloat()) {
+      oss << "float16_t";
+    } else if (type.bits() == 16 && type.is_bfloat()) {
+      oss << "bfloat16_t";
+    } else {
+      user_error << "Can't represent a float with this many bits in C: " << type << "\n";
+    }
+    if (type.is_vector()) {
+      oss << type.lanes();
+    }
+    
+  } else {
+    switch (type.bits()) {
+    case 1:
+      // bool vectors are always emitted as uint8 in the C++ backend
+      if (type.is_vector()) {
+        oss << "uint8x" << type.lanes() << "_t";
+      } else {
+        oss << "bool";
+      }
+      break;
+    case 8: case 16: case 32: case 64:
+      if (type.is_uint()) {
+        oss << 'u';
+      }
+      oss << "int" << type.bits();
+      if (type.is_vector()) {
+        oss << "x" << type.lanes();
+      }
+      oss << "_t";
+      break;
+    default:
+      user_error << "Can't represent an integer with this many bits in C: " << type << "\n";
+    }
+  }
+
+  return oss.str();
+}
+
 /** Substitute an Expr for another Expr in a graph. Unlike substitute,
  * this only checks for shallow equality. */
 class VarGraphSubstituteExpr : public IRGraphMutator2 {
@@ -548,10 +724,15 @@ struct CArg_compare {
 
 class Compute_Closure : public Closure {
 public:
-  Compute_Closure(Stmt s, std::string output_string)  {
-        s.accept(this);
-        output_name = output_string;
+  Compute_Closure(Stmt s, std::string output_string, std::set<string> ignoring)  {
+    for (auto s : ignoring) {
+      //ScopedBinding<> p(ignore, s);
+      ignore.push(s);
     }
+
+    s.accept(this);
+    output_name = output_string;
+  }
 
   vector<Compute_Argument> arguments();
 
@@ -648,20 +829,157 @@ vector<Compute_Argument> Compute_Closure::arguments() {
     return res;
 }
 
+class CodeGen_C_Expr : public CodeGen_C {
+  using IRPrinter::visit;
+  void visit(const Min *op) override;
+  void visit(const Max *op) override;
+  void visit(const Provide *op) override;
+  void visit(const Call *op) override;
+  void visit(const Realize *op) override;
+  
+public:
+  CodeGen_C_Expr(std::ostream& dest, Target target) : CodeGen_C(dest, target) {
+    indent += 2;
+  }
+
+  void print_output(Expr e) {
+    string name = print_expr(e);
+    do_indent();
+    stream << "return " << name << ";";
+  }
+};
+
+void CodeGen_C_Expr::visit(const Min *op) {
+    // clang doesn't support the ternary operator on OpenCL style vectors.
+    // See: https://bugs.llvm.org/show_bug.cgi?id=33103
+    if (op->type.is_scalar()) {
+      print_expr(Call::make(op->type, "min", {op->a, op->b}, Call::Extern));
+    } else {
+      ostringstream rhs;
+      rhs << print_type(op->type) << "::min(" << print_expr(op->a) << ", " << print_expr(op->b) << ")";
+      print_assignment(op->type, rhs.str());
+    }
+}
+void CodeGen_C_Expr::visit(const Max *op) {
+    // clang doesn't support the ternary operator on OpenCL style vectors.
+    // See: https://bugs.llvm.org/show_bug.cgi?id=33103
+    if (op->type.is_scalar()) {
+        print_expr(Call::make(op->type, "max", {op->a, op->b}, Call::Extern));
+    } else {
+        ostringstream rhs;
+        rhs << print_type(op->type) << "::max(" << print_expr(op->a) << ", " << print_expr(op->b) << ")";
+        print_assignment(op->type, rhs.str());
+    }
+}
+void CodeGen_C_Expr::visit(const Provide *op) {
+  internal_assert(op->values.size() == 1);
+  internal_assert(op->args.size() == 1);
+
+  string id_value = print_expr(op->values[0]);
+  string id_index = print_expr(op->args[0]);
+  do_indent();
+  stream << op->name << "[" << id_index << "] = " << id_value << ";\n";
+}
+void CodeGen_C_Expr::visit(const Call *op) {
+  if (op->name == "curve.stencil") {
+    internal_assert(op->args.size() == 1);
+    string id_index = print_expr(op->args[0]);
+
+    ostringstream rhs;
+    do_indent();
+    rhs << printname(op->name) << "[" << id_index << "]";
+    print_assignment(op->type, rhs.str());
+
+  } else {
+    CodeGen_C::visit(op);
+  }
+}
+void CodeGen_C_Expr::visit(const Realize *op) {
+  do_indent();
+  stream << type_to_c_type(op->types[0]) << " " << op->name;
+  for (size_t i = 0; i < op->bounds.size(); i++) {
+    stream << "[";
+    stream << op->bounds[i].extent;
+    stream << "]";
+    if (i < op->bounds.size() - 1) stream << ", ";
+  }
+  if (op->memory_type != MemoryType::Auto) {
+    stream << " in " << op->memory_type;
+  }
+  if (!is_one(op->condition)) {
+    stream << " if ";
+    print(op->condition);
+  }
+  stream << ";";
+
+  print(op->body);
+}
+
+string return_c_expr(Expr e) {
+  ostringstream arg_print;
+  CodeGen_C_Expr compute_codegen(arg_print, Target());
+  arg_print.str("");
+  arg_print.clear();
+
+  std::cout << e << std::endl;
+  e.accept(&compute_codegen);
+  compute_codegen.print_output(e);
+
+  // return output
+  return arg_print.str();
+}
+
+string return_c_stmt(Stmt s) {
+  ostringstream arg_print;
+  CodeGen_C_Expr compute_codegen(arg_print, Target());
+  arg_print.str("");
+  arg_print.clear();
+
+  //std::cout << s << std::endl;
+  s.accept(&compute_codegen);
+
+  // return output
+  return arg_print.str();
+}
+
+string rom_to_c(ROM_data rom) {
+  auto produce = ProducerConsumer::make_produce(rom.name, rom.produce);
+  const Realize* rom_r = rom.realize.as<Realize>();
+  auto realize = Realize::make(rom_r->name, rom_r->types, rom_r->memory_type,
+                               rom_r->bounds, rom_r->condition, produce);
+
+  std::cout << "rom " << rom.name << " being renamed" << printname(rom.name) << std::endl;
+  Stmt new_realize = RenameRealize(rom.name, printname(rom.name)).mutate(Stmt(realize));
+  auto combined = return_c_stmt(new_realize);
+
+  // return output
+  return combined;
+}
+
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
+  //if (false) {
+  if (roms.count(op->name) > 0) {
+    CodeGen_Clockwork_Base::visit(op);
+    return;
+  }
   // Output the memory
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
   //std::cout << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
   auto mem_bodyname = loop_list.back();
-  func_name = printname(unique_name("hcompute_" + op->name));
+  std::string func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
                 << func_name << "\");" << endl;
   CoreIR_Interface iface;
   iface.name = func_name;
+
+  set<string> rom_set;
+  for (auto rom_pair : roms) {
+    rom_set.emplace(rom_pair.first);
+  }
   
-  Compute_Closure c(expand_expr(Stmt(op), scope), op->name);
+  Compute_Closure c(expand_expr(Stmt(op), scope), op->name, rom_set);
   vector<Compute_Argument> compute_args = c.arguments();
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
   //std::cout << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
@@ -725,7 +1043,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     uint total_bitwidth = merged_args[argname].size() * 16;
     vector<CoreIR_Port> iports;
     for (auto arg_component : merged_args[argname]) {
-      if (merged_args[argname].size() == 1) {
+      if (false) {//merged_args[argname].size() == 1) {
         iports.push_back(CoreIR_Port({printname(arg_component.bufname), 16}));
       } else {
         iports.push_back(CoreIR_Port({printname(arg_component.name), 16}));
@@ -737,11 +1055,13 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   for (auto merged_arg : merged_args) {
     vector<Compute_Argument> arg_components = merged_arg.second;
     auto bufname = printname(merged_arg.first);
-    if (arg_components.size() == 1) { continue; }
+    //if (arg_components.size() == 1) { continue; }
 
     for (size_t i=0; i<arg_components.size(); ++i) {
       auto arg_component = arg_components[i];
-      compute_stream << "  hw_uint<16> " << printname(arg_component.name) << " = "
+      string type = type_to_c_type(arg_component.type);
+      compute_stream << "  " << type << " _" << printname(arg_component.name) << " = "
+                     << "(" << type << ") "
                      << bufname << ".extract<" << 16*i << ", " << 16*i+15 << ">();" << std::endl;
     }
     compute_stream << std::endl;
@@ -751,7 +1071,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   Expr new_expr = expand_expr(substitute_in_all_lets(op->values[0]), scope);
   for (size_t i=0; i<compute_args.size(); ++i) {
     string new_name = printname(compute_args[i].name);
-    if (merged_args[compute_args[i].bufname].size() == 1) {
+    if (false) { //if (merged_args[compute_args[i].bufname].size() == 1) {
       new_name = printname(compute_args[i].bufname);
     }
     auto var_replacement = Variable::make(compute_args[i].type, new_name);
@@ -774,11 +1094,25 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     iface.indices.emplace_back(CoreIR_Port({used_loopname, 16}));
   }
 
-  compute_stream << "  return "
-                 << new_expr << ";" << endl
-                 << "}" << endl;
+  
+  std::cout << op->name << " store: " << new_expr << std::endl;
+  auto found_roms = contains_call(new_expr, rom_set);
+  for (auto found_rom : found_roms) {
+    std::cout << "  using rom " << found_rom << std::endl;
+    auto pc_str = rom_to_c(roms[found_rom]);
+    compute_stream << pc_str << std::endl;
+  }
+  auto output = return_c_expr(new_expr);
+  //std::cout << output << std::endl;
+  
 
-  convert_compute_to_coreir(new_expr, iface, context);
+  //compute_stream << "  return "
+  //               << new_expr << ";" << endl
+  //compute_stream << op->name << "store: " << output << std::endl;
+  compute_stream << output << endl;
+  compute_stream << "}" << endl;
+
+  //convert_compute_to_coreir(new_expr, iface, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }
@@ -795,66 +1129,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_buffer(const string& buf
   }
 }
 
-void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Store *op) {
-  // Output the memory
-  memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
-
-  auto mem_bodyname = loop_list.back();
-  func_name = printname(unique_name("hcompute_" + op->name));
-  memory_stream << "  auto " << func_name  << " = "
-                << mem_bodyname << "->add_op(\""
-                << func_name << "\");" << endl;
-  
-  Compute_Closure c(expand_expr(Stmt(op), scope), op->name);
-  vector<Compute_Argument> compute_args = c.arguments();
-  memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
-
-  // Add each load
-  for (auto arg : compute_args) {
-    string buffer_name = printname(arg.name);
-    add_buffer(buffer_name);
-    
-    memory_stream << "  " << func_name << "->add_load(\""
-                  << buffer_name << "\"";
-    for (auto index : arg.args) {
-      memory_stream << ", \"" << expand_expr(index, scope) << "\"";
-    }
-    
-    memory_stream << ");\n";
-  }
-
-  // Add the store
-  add_buffer(printname(op->name));
-  memory_stream << "  " << func_name << "->add_store(\""
-                << printname(op->name) << "\"";
-  memory_stream << ", \"" << expand_expr(op->index, scope) << "\"";
-  memory_stream << ");\n";
-
-  
-  // Output the compute
-  compute_stream << "//store is: " << Stmt(op) << std::endl;
-  compute_stream << "hw_uint<16> " << func_name << "(";
-  for (size_t i=0; i<compute_args.size(); ++i) {
-    if (i != 0) { compute_stream << ", "; }
-    compute_stream << "hw_uint<16>& " << printname(compute_args[i].name);
-  }
-  compute_stream << ") {\n";
-
-  auto new_expr = remove_call_args(op->value);
-  compute_stream << "  return "
-                 << new_expr << ";" << endl
-                 << "}" << endl;
-      
-  CodeGen_Clockwork_Base::visit(op);
-
-
-  
-  //memory_stream << "  " << func_name << "->add_store(\""
-  //              << printname(op->name) << "\""
-  //              << ", \"" << expand_expr(op->index, scope) << "\""
-  //              << ");\n";
-}
-
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer *op) {
   if (op->is_producer) {
     memory_stream << "////producing " << op->name << endl;
@@ -868,7 +1142,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
   } else {
     memory_stream << endl << "//consuming " << op->name << endl;
 
-
     //if (starts_with(op->name, "hw_output")) {
     //  memory_stream << "//let's find a closure\n";
     //  std::cout <<  "//let's find a closure\n";
@@ -876,6 +1149,10 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
     //  Compute_Closure c(op->body, op->name);
     //  vector<Compute_Argument> args = c.arguments();
     //}
+  }
+
+  if (roms.count(op->name) > 0 && op->is_producer) {
+    roms[op->name].produce = op->body;
   }
     
   CodeGen_Clockwork_Base::visit(op);
@@ -888,7 +1165,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
         << "Can only emit serial for loops to HLS C\n";
 
     string id_min = print_expr(op->min);
-    string id_extent = print_expr(op->extent);
+    //string id_extent = print_expr(op->extent);
+    string id_max = print_expr(simplify(op->extent + op->min));
 
     do_indent();
     stream << "for (int "
@@ -896,8 +1174,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
            << " = " << id_min
            << "; "
            << printname(op->name)
-           << " < " << id_min
-           << " + " << id_extent
+           << " < " << id_max
            << "; "
            << printname(op->name)
            << "++)\n";
@@ -910,7 +1187,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
                   << bodyname << addloop
                   << "\"" << printname(op->name) << "\""
                   << ", " << id_min
-                  << ", " << id_extent
+                  << ", " << id_max
                   << ");\n";
     
     open_scope();
@@ -937,51 +1214,21 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const LetStmt *op) {
   IRVisitor::visit(op);
 }
 
-
-class RenameAllocation : public IRMutator {
-    const string &orig_name;
-    const string &new_name;
-
-    using IRMutator::visit;
-
-    Expr visit(const Load *op) {
-        if (op->name == orig_name ) {
-            Expr index = mutate(op->index);
-            return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, ModulusRemainder());
-        } else {
-            return IRMutator::visit(op);
-        }
-    }
-
-    Stmt visit(const Store *op) {
-        if (op->name == orig_name ) {
-            Expr value = mutate(op->value);
-            Expr index = mutate(op->index);
-            return Store::make(new_name, value, index, op->param, op->predicate, ModulusRemainder());
-        } else {
-            return IRMutator::visit(op);
-        }
-    }
-
-    Stmt visit(const Free *op) {
-        if (op->name == orig_name) {
-            return Free::make(new_name);
-        } else {
-            return IRMutator::visit(op);
-        }
-    }
-
-public:
-    RenameAllocation(const string &o, const string &n)
-        : orig_name(o), new_name(n) {}
-};
-
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
   //std::cout << " looking at " << op->name << endl;
   if (op->name == "read_stream") {
     memory_stream << "// Call - read: " << Expr(op) << endl;
   } else if (op->name == "write_stream") {
     memory_stream << "// Call - write: " << Expr(op) << endl;
+  }
+  CodeGen_Clockwork_Base::visit(op);
+}
+
+void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
+  auto memtype = identify_realization(Stmt(op), op->name);
+  std::cout << op->name << " is a " << memtype << std::endl;
+  if (memtype == ROM_REALIZATION) {
+    roms[op->name] = ROM_data({op->name, Stmt(op), Stmt()});;
   }
   CodeGen_Clockwork_Base::visit(op);
 }
@@ -999,7 +1246,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     int32_t constant_size;
     constant_size = op->constant_allocation_size();
     if (constant_size > 0) {
-
+      auto memtype = identify_realization(Stmt(op), op->name);
+      std::cout << op->name << " is a " << memtype << std::endl;
     } else {
         internal_error << "Size for allocation " << op->name
                        << " is not a constant.\n";

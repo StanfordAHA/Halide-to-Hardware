@@ -29,7 +29,6 @@ int main(int argc, char **argv) {
                                               },
                                               {"clockwork",
                                                   [&]() { run_clockwork_program<>(processor.input, processor.output); }
-                                                                                 
                                               }
                                             });
 

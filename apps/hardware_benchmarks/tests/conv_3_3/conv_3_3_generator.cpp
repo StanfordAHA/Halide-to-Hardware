@@ -29,13 +29,13 @@ public:
         kernel(0,1) = 7;       kernel(1,1) = 19;       kernel(2,1) = 4;
         kernel(0,2) = 5;       kernel(1,2) = 21;       kernel(2,2) = 15;
 
-        conv(x, y) = 0;
+        conv(x, y) = cast<uint16_t>(0);
 
         Func hw_input("hw_input");
         Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         hw_input_copy(x, y) = hw_input(x, y);
-        conv(x, y)  += kernel(r.x, r.y) * hw_input_copy(x + r.x, y + r.y);
+        conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));

@@ -371,7 +371,7 @@ void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
     string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     auto bundle_wire = self->sel(bundle_name);
 
-    if (input_bundle.ports.size() == 1) {
+    if (false) {//if (input_bundle.ports.size() == 1) {
       auto input_name = print_name(input_bundle.ports[0].name);
       hw_input_set[input_name] = bundle_wire;
       stream << "// recording input " << input_name << std::endl;
@@ -1308,7 +1308,8 @@ void CreateCoreIRModule::visit(const Call *op) {
   } else {
     stream << "couldn't find op named " << op->name << endl;
     cout << "couldn't find op named " << op->name << endl;
-    CodeGen_C::visit(op);
+    //CodeGen_C::visit(op);
+    IRVisitor::visit(op);
   }
 }
 
@@ -1343,7 +1344,7 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
 
     // Create an input array for each bundle
     CoreIR::Type* bundle_type;
-    if (num_bundles == 1) {
+    if (false) {//(num_bundles == 1) {
       bundle_type = context->BitIn()->Arr(bitwidth);
     } else {
       bundle_type = context->BitIn()->Arr(bitwidth)->Arr(num_bundles);

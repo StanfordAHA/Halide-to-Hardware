@@ -1,4 +1,4 @@
-#include "HWBufferSimplications.h"
+#include "HWBufferSimplifications.h"
 #include "IREquality.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -6,6 +6,7 @@
 #include "Substitute.h"
 
 using std::map;
+using std::set;
 using std::string;
 using std::vector;
 
@@ -66,26 +67,26 @@ class RealizeUsage : public IRVisitor {
                                       realize_name(realizename) {}
 };
 
-enum MemoryType {
-  NOT_FOUND,
-  NO_REALIZATION,
-  INOUT_REALIZATION,
-  ROM_REALIZATION,
-  REGS_REALIZATION,
-  SRAM_REALIZATION,
-  RMW_REALIZATION,
-  UNKNOWN_REALIZATION
-};
+//enum HWMemoryType {
+//  NOT_FOUND,               // no loads or stores
+//  INOUT_REALIZATION,       // only read or only written
+//  CONSTS_REALIZATION,      // replace with const registers
+//  ROM_REALIZATION,         // const values with variable index load
+//  //UNROLLED_ROM_REALIZATION,// unrolled, so no variable store found
+//  RMW_REALIZATION,         // variable reads and writes, but writes are to same address
+//  SRAM_REALIZATION,        // variable reads and variable writes
+//  UNKNOWN_REALIZATION
+//};
 
-MemoryType identify_realization(Stmt s, string realizename) {
+HWMemoryType identify_realization(Stmt s, string realizename) {
   RealizeUsage ru(realizename);
   s.accept(&ru);
-  //std::cout << realizename
-  //          << " has num_stores=" << ru.num_stores
-  //          << " num_loads=" << ru.num_loads
-  //          << " var_load=" << ru.uses_variable_load_index
-  //          << " var_store=" << ru.uses_variable_store_index
-  //          << " var_sval=" << ru.uses_variable_store_value << std::endl;
+  std::cout << realizename
+            << " has num_stores=" << ru.num_stores
+            << " num_loads=" << ru.num_loads
+            << " var_load=" << ru.uses_variable_load_index
+            << " var_store=" << ru.uses_variable_store_index
+            << " var_sval=" << ru.uses_variable_store_value << std::endl;
   //std::cout << simplify(s);
 
   if (ru.num_stores == 0 && ru.num_loads == 0) {
@@ -96,9 +97,12 @@ MemoryType identify_realization(Stmt s, string realizename) {
 
   } else if (!ru.uses_variable_load_index &&
              !ru.uses_variable_store_value) {
-    //&& !ru.uses_variable_store_value) {
-    return NO_REALIZATION;
+    return CONSTS_REALIZATION;
 
+  //} else if (ru.uses_variable_load_index &&
+  //           !ru.uses_variable_store_index && // kernel unrolled so no var store index in init
+  //           !ru.uses_variable_store_value) {
+  //  return UNROLLED_ROM_REALIZATION;
   } else if (ru.uses_variable_load_index &&
              //!ru.uses_variable_store_index &&
              !ru.uses_variable_store_value) {
@@ -145,16 +149,21 @@ class InlineMemoryConstants : public IRMutator {
     using IRMutator::visit;
 
     map<string, vector<const Provide*> > realize_provides;
+    set<string> roms;
 
     Stmt visit(const Realize* realize) override {
 
       // check the stores and loads from the underlying memory
       auto mem_type = identify_realization(realize->body, realize->name);
 
+      if (mem_type == ROM_REALIZATION) {
+        std::cout << "Realize " << realize->name << " is a rom" << std::endl;
+        roms.insert(realize->name);
+        return IRMutator::visit(realize);
 
-      if (mem_type == NO_REALIZATION || mem_type == ROM_REALIZATION) {
+      } else if (mem_type == CONSTS_REALIZATION) {
         //   add ROM name to remove Producer of this name, and save provides
-        //std::cout << "Realize " << realize->name << " is a rom" << std::endl;
+        std::cout << "Realize " << realize->name << " is a set of consts" << std::endl;
         realize_provides[realize->name] = vector<const Provide*>();
         auto mutated = IRMutator::visit(realize);
         //std::cout << "mutated:\n" << mutated << std::endl;
@@ -166,7 +175,7 @@ class InlineMemoryConstants : public IRMutator {
         }
         
       } else {
-        //std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;
+        std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;
         return IRMutator::visit(realize);
       }      
     }
@@ -197,9 +206,12 @@ class InlineMemoryConstants : public IRMutator {
           return body;
         }
         
-      } else {
-        return IRMutator::visit(pc);
+    } else {
+      if (roms.count(pc->name) > 0 && pc->is_producer) {
+        ///std::cout << "ROM " << pc->name << std::endl << "is created by: " << std::endl << pc->body;
       }
+      return IRMutator::visit(pc);
+    }
   }
 
   // in Provide: save for call replacement later

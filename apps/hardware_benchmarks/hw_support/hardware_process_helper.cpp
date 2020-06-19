@@ -93,6 +93,7 @@ std::string enumerate_keys(std::map<std::string, std::function<void()>> run_call
       hardware_set += ",";
     }
     hardware_set += hw_func_pair.first;
+    first_call = false;
   }
   hardware_set += "}";
   return hardware_set;

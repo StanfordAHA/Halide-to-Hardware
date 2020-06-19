@@ -447,7 +447,7 @@ SOURCE_FILES = \
   HexagonOptimize.cpp \
   HWBuffer.cpp \
   HWBufferRename.cpp \
-  HWBufferSimplications.cpp \
+  HWBufferSimplifications.cpp \
   HWBufferUtils.cpp \
   ImageParam.cpp \
   InferArguments.cpp \
@@ -627,7 +627,7 @@ HEADER_FILES = \
   HexagonOptimize.h \
   HWBuffer.h \
   HWBufferRename.h \
-  HWBufferSimplications.h \
+  HWBufferSimplifications.h \
   HWBufferUtils.h \
   runtime/HalideRuntime.h \
   runtime/HalideBuffer.h \

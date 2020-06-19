@@ -129,7 +129,7 @@ $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(BIN)/unoptimize
 $(BIN)/unoptimized_$(TESTNAME).o: $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 
-$(BIN)/process_clockwork: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_conv_3_3.o 
+$(BIN)/process_clockwork: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o 
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
@@ -150,7 +150,7 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
 ifeq ($(WITH_CLOCKWORK), 1)
-$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_conv_3_3.o 
+$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o 
 else
 $(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o
 endif

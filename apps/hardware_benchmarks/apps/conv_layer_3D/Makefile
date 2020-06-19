@@ -2,6 +2,7 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = conv_layer_3D
 USE_COREIR_VALID ?= 1
+USE_CLOCKWORK = 1
 
 include ../../hw_support/hardware_targets.mk
 

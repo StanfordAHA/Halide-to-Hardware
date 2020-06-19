@@ -32,7 +32,7 @@
 #include "FuzzFloatStores.h"
 #include "HexagonOffload.h"
 #include "HWBufferRename.h"
-#include "HWBufferSimplications.h"
+#include "HWBufferSimplifications.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "IRPrinter.h"

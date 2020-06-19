@@ -27,6 +27,12 @@ struct Clockwork_Argument {
     std::vector<Expr> args;
 };
 
+struct ROM_data {
+  std::string name;
+  Stmt realize;
+  Stmt produce;
+};
+
 /** This class emits Xilinx Vivado HLS compatible C++ code.
  */
 class CodeGen_Clockwork_Target {
@@ -50,20 +56,18 @@ public:
       clkc.set_output_path(folderpath);
     }
 
-
 protected:
     class CodeGen_Clockwork_C : public CodeGen_Clockwork_Base {
     public:
       bool is_clockwork;
       
+      //std::string mem_bodyname;
+      std::vector<std::string> loop_list; // current stack of loops
+      std::set<std::string> buffers; // buffers added to module so far
+      std::map<std::string, ROM_data> roms; // roms that have been identified
+
       /** The stream we're outputting the memory on */
       std::ostringstream memory_stream;
-      //std::string mem_bodyname;
-      std::vector<std::string> loop_list;
-
-      std::string func_name;
-      std::set<std::string> buffers;
-
       /** The stream we're outputting the compute on */
       std::ostringstream compute_stream;
       CoreIR::Context* context;
@@ -88,10 +92,11 @@ protected:
       using CodeGen_Clockwork_Base::visit;
 
       void visit(const Provide *op);
-      void visit(const Store *op);
+      //void visit(const Store *op);
       void visit(const ProducerConsumer *op);
       void visit(const For *op);
       void visit(const Allocate *op);
+      void visit(const Realize *op);
       void visit(const Call *op);
       void visit(const LetStmt *op);
     };

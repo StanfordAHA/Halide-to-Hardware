@@ -59,8 +59,9 @@ public:
           hw_output.compute_root();
           hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize);
 
+          mult.compute_at(hw_output, xo);
+          
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
-
           input_copy.compute_root();
           
         } else {

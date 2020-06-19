@@ -28,8 +28,8 @@ public:
         RDom win(0, blockSize, 0, blockSize);
 
         Func hw_input, input_copy;
-        //hw_input(x, y) = cast<int16_t>(input(x, y));
-        input_copy(x, y) = cast<int16_t>(input(x, y));
+        //hw_input(x, y) = cast<uint16_t>(input(x, y));
+        input_copy(x, y) = cast<uint16_t>(input(x, y));
         hw_input(x, y) = input_copy(x, y);
 
         // create the gaussian kernel
@@ -51,13 +51,16 @@ public:
           }
         }
         //kernel(x) = cast<uint16_t>(kernel_f(x) * 64 / sum_kernel[blockSize-1]);
-        kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
+        //kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
+        //                             sum_kernel[blockSize*blockSize-1]);
+        kernel(x,y) = cast<uint32_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
                                      sum_kernel[blockSize*blockSize-1]);
 
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
         blur_unnormalized(x, y) = 0;
-        blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x, win.y) * hw_input(x+win.x, y+win.y) );
+        //blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x, win.y) * hw_input(x+win.x, y+win.y) );
+        blur_unnormalized(x, y) += kernel(win.x, win.y) * hw_input(x+win.x, y+win.y);
         blur(x, y) = blur_unnormalized(x, y) / 256;
 
         Func hw_output;
@@ -94,8 +97,6 @@ public:
           hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
-          hw_output.bound(x, 0, imgSize);
-          hw_output.bound(y, 0, imgSize);
           output.bound(x, 0, imgSize);
           output.bound(y, 0, imgSize);
 
@@ -111,6 +112,7 @@ public:
             .unroll(win.y, blockSize);
 
           blur_unnormalized.compute_at(hw_output, xo);
+          blur.compute_at(hw_output, xo);
 
           hw_input.compute_at(hw_output, xo);
           input_copy.compute_root();
