@@ -51,18 +51,15 @@ public:
             hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
-            nearest_neighbor(x, 0, 64);
-            nearest_neighbor(y, 0, 64);
-            nearest_neighbor(z, 0, 4);
-            output.bound(x, 0, 64);
-            output.bound(y, 0, 64);
+            output.bound(x, 0, 128);
+            output.bound(y, 0, 128);
             output.bound(z, 0, 4);
             
             Var xi, yi, xo, yo;
 
             hw_output.compute_root();
 
-            hw_output.tile(x, y, xo, yo, xi, yi, 64, 64)
+            hw_output.tile(x, y, xo, yo, xi, yi, 128, 128)
               .reorder(xi,yi,z,xo,yo);
 
             nearest_neighbor.compute_at(hw_output, xo);

@@ -2,6 +2,7 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = accumulation
 USE_COREIR_VALID = 1
+WITH_CLOCKWORK = 1
 
 include ../../hw_support/hardware_targets.mk
 

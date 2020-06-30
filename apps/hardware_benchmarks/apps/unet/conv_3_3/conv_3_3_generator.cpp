@@ -12,8 +12,8 @@ public:
 
     int ksize = 3;
     int imgsize = 14;
-    int k_z = 3;
-    int k_w = 3;
+    int k_z = 2;
+    int k_w = 4;
 
     void generate() {
         /* THE ALGORITHM */

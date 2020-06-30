@@ -2,6 +2,7 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = strided_conv
 USE_COREIR_VALID ?= 1
+WITH_CLOCKWORK = 1
 
 include ../../hw_support/hardware_targets.mk
 

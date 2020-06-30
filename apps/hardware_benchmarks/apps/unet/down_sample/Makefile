@@ -5,6 +5,7 @@ include ../../../hw_support/Makefile.inc
 
 TESTNAME = down_sample
 USE_COREIR_VALID ?= 1
+WITH_CLOCKWORK = 1
 
 INPUT =
 

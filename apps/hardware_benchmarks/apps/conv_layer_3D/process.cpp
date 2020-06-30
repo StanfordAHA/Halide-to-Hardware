@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <chrono>
 
-#include "conv_layer.h"
+#include "conv_layer_3D.h"
 //#include "conv_layer_auto_schedule.h"
 
 #include "halide_benchmark.h"

@@ -33,6 +33,21 @@ struct ROM_data {
   Stmt produce;
 };
 
+struct for_loop {
+  std::string name;
+  std::string parent_loopname;
+  int min;
+  int max;
+  bool equal(for_loop other) {
+    if (name != other.name) return false;
+    if (parent_loopname != other.parent_loopname) return false;
+    if (min != other.min) return false;
+    if (max != other.max) return false;
+    //if (!equal(min, other.min)) return false;
+    return true;
+  }
+};
+
 /** This class emits Xilinx Vivado HLS compatible C++ code.
  */
 class CodeGen_Clockwork_Target {
@@ -63,8 +78,10 @@ protected:
       
       //std::string mem_bodyname;
       std::vector<std::string> loop_list; // current stack of loops
+      std::set<std::string> loops; // loops added to module so far
       std::set<std::string> buffers; // buffers added to module so far
       std::map<std::string, ROM_data> roms; // roms that have been identified
+      std::vector<std::string> inputs; // inputs to the function
 
       /** The stream we're outputting the memory on */
       std::ostringstream memory_stream;
@@ -88,6 +105,7 @@ protected:
       std::string print_stencil_pragma(const std::string &name);
       std::string output_base_path;
       void add_buffer(const std::string& buffer_name);
+      void add_loop(const For *op);
         
       using CodeGen_Clockwork_Base::visit;
 

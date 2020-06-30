@@ -15,7 +15,8 @@ const int blockSize = 5;
 class UnsharpFilter : public Halide::Generator<UnsharpFilter> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 3};
-    Output<Buffer<uint8_t>> output{"output", 3};
+  //Output<Buffer<uint8_t>> output{"output", 3};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -70,10 +71,12 @@ public:
         Func hw_output;
         //hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
         hw_output(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255));
-                
+
+        output(x, y) = hw_output(x, y);                
         //output(c, x, y) = hw_output(c, x, y);
-        output(x, y, c) = hw_output(x, y);
-        output.bound(c, 0, 3);
+        
+        //output(x, y, c) = hw_output(x, y);
+        //output.bound(c, 0, 3);
         output.bound(x, 0, 60);
         output.bound(y, 0, 60);
         

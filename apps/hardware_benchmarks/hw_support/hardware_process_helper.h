@@ -32,7 +32,7 @@ template <class T>
 class OneInOneOut_ProcessController : public ProcessController<T> {
  public:
  OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
-  ProcessController<T>(app_name), run_calls(ops), design_name(app_name) { }
+   ProcessController<T>(app_name), run_calls(ops), design_name(app_name) { }
 
   // overridden methods
   virtual int make_image_def(std::vector<std::string> args);
@@ -43,6 +43,37 @@ class OneInOneOut_ProcessController : public ProcessController<T> {
 
   // buffers
   Halide::Runtime::Buffer<T> input;
+  Halide::Runtime::Buffer<T> output;
+  std::map<std::string, std::function<void()>> run_calls;
+
+  // names
+  std::string design_name;
+
+};
+
+template <class T>
+class ManyInOneOut_ProcessController : public ProcessController<T> {
+ public:
+  ManyInOneOut_ProcessController(std::string app_name, std::vector<std::string> filenames,
+                                std::map<std::string, std::function<void()>> ops) :
+    ProcessController<T>(app_name), input_filenames(filenames), inputs_preset(false), design_name(app_name) {
+    for (auto filename : filenames) {
+      inputs[filename] = Halide::Runtime::Buffer<T>();
+    }
+    run_calls = ops;
+  }
+
+  // overridden methods
+  virtual int make_image_def(std::vector<std::string> args);
+  virtual int make_run_def(std::vector<std::string> args);
+  virtual int make_compare_def(std::vector<std::string> args);
+  virtual int make_test_def(std::vector<std::string> args);
+  virtual int make_eval_def(std::vector<std::string> args);
+
+  // buffers
+  std::vector<std::string> input_filenames;
+  std::map<std::string, Halide::Runtime::Buffer<T>> inputs;
+  bool inputs_preset;
   Halide::Runtime::Buffer<T> output;
   std::map<std::string, std::function<void()>> run_calls;
 

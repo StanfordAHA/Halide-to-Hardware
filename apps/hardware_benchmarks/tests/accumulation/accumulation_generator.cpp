@@ -19,17 +19,20 @@ public:
         Func conv("conv");
         RDom r(0, ksize,               0, ksize);
 
-        kernel(x,y) = 0;
-        kernel(0,0) = 1;      kernel(0,1) = 4;       kernel(0,2) = 6;
-        kernel(1,0) = 7;      kernel(1,1) = 3;       kernel(1,2) = 2;
-        kernel(2,0) = 5;      kernel(2,1) = 1;       kernel(2,2) = 1;
+        //kernel(x,y) = 0;
+        //kernel(0,0) = 1;      kernel(0,1) = 4;       kernel(0,2) = 6;
+        //kernel(1,0) = 7;      kernel(1,1) = 3;       kernel(1,2) = 2;
+        //kernel(2,0) = 5;      kernel(2,1) = 1;       kernel(2,2) = 1;
+        kernel(x) = x;
+        //kernel.unroll(x, 9);
 
         conv(x, y) = 0;
 
         Func input_copy, hw_input("hw_input");
         input_copy(x, y) = cast<uint16_t>(input(x, y));
         hw_input(x, y) = input_copy(x, y);
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        //conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += kernel(r.x + 3*r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
@@ -40,8 +43,8 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
+          output.bound(x, 0, 64-ksize);
+          output.bound(y, 0, 64-ksize);
 
           hw_output.compute_root();
           
@@ -60,18 +63,19 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
+          output.bound(x, 0, 64-ksize+1);
+          output.bound(y, 0, 64-ksize+1);
 
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64);
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-ksize+1, 64-ksize+1);
 
           // conv is not unrolled
-          conv.update().unroll(r.y);
+          //conv.update().unroll(r.y);
           conv.store_at(hw_output, xo).compute_at(hw_output, xo);
 
           kernel.compute_at(conv, x);
+          kernel.unroll(x, 9);
           
           hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
           input_copy.compute_root();

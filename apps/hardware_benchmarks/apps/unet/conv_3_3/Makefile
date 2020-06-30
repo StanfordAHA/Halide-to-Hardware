@@ -6,6 +6,7 @@ include ../../../hw_support/Makefile.inc
 
 TESTNAME = conv_3_3
 USE_COREIR_VALID ?= 1
+WITH_CLOCKWORK = 1
 
 INPUT = 
 
