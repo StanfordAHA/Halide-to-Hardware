@@ -857,6 +857,20 @@ vector<Compute_Argument> Compute_Closure::arguments() {
     return res;
 }
 
+// Polyhedral analysis likes floor with div
+class DivWithFloor : public IRMutator {
+  using IRMutator::visit;
+  Expr visit(const Div *op) {
+    return Call::make(op->type, "floor", {Expr(op)}, Call::CallType::PureIntrinsic);
+  }
+public:
+  DivWithFloor() {}
+};
+Expr add_floor_to_divs(Expr e) {
+    DivWithFloor dwf;
+    return dwf.mutate(e);
+}
+
 class CodeGen_C_Expr : public CodeGen_C {
   using IRPrinter::visit;
   void visit(const Min *op) override;
@@ -1022,7 +1036,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
                   << buffer_name << "\"";
     for (auto index : arg.args) {
       ostringstream index_print;
-      index_print << expand_expr(index, scope);
+      index_print << add_floor_to_divs(expand_expr(index, scope));
       memory_stream << ", \"" << removedots(index_print.str()) << "\"";
     }
     
@@ -1178,14 +1192,15 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_loop(const For *op) {
-  if (loops.count(op->name) > 0) { return; } //TODO: also check that loop is equal
+  //if (loops.count(op->name) > 0) { return; } //TODO: also check that loop is equal
 
   string id_min = print_expr(op->min);
   //string id_extent = print_expr(op->extent);
   string id_max = print_expr(simplify(op->extent + op->min));
 
   //string loopname = "loop_" + printname(op->name);
-  string loopname = printname(op->name);
+  //string loopname = printname(op->name);
+  string loopname = unique_name(printname(op->name));
   //string bodyname = mem_bodyname;
   string bodyname = loop_list.back();
   string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
@@ -1196,7 +1211,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_loop(const For *op) {
                 << ", " << id_max
                 << ");\n";
 
-  loops.emplace(op->name);
+  //loops.emplace(op->name);
+  loops.emplace(loopname);
 }
 
 // almost that same as CodeGen_C::visit(const For *)
@@ -1220,8 +1236,24 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
            << printname(op->name)
            << "++)\n";
 
-    string loopname = printname(op->name);
-    add_loop(op);
+    //string loopname = "loop_" + printname(op->name);
+    //string loopname = printname(op->name);
+    string loopname = printname(unique_name(op->name));
+    //string bodyname = mem_bodyname;
+    string bodyname = loop_list.back();
+    string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
+    memory_stream << "  auto " << loopname << " = "
+                  << bodyname << addloop
+                  << "\"" << printname(op->name) << "\""
+                  << ", " << id_min
+                  << ", " << id_max
+                  << ");\n";
+
+    //loops.emplace(op->name);
+    loops.emplace(loopname);
+
+    //string loopname = printname(op->name);
+    //add_loop(op);
     
     open_scope();
     // add a 'PIPELINE' pragma if it is an innermost loop
@@ -1231,7 +1263,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
         stream << "#pragma HLS PIPELINE II=1\n";
     }
 
-    //mem_bodyname = loopname;
     loop_list.emplace_back(loopname);
     op->body.accept(this);
     internal_assert(loop_list.back() == loopname);

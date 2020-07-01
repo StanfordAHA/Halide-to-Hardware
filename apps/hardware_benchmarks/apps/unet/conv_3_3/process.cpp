@@ -40,7 +40,33 @@ int main(int argc, char **argv) {
                                             });
   
   processor.inputs["input.png"] = Buffer<uint8_t>(z, x, y);
-  processor.inputs["kernel.png"] = Buffer<uint8_t>(z, k_x, k_y, w);
+  auto input_copy_stencil = processor.inputs["input.png"];
+  for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
+    for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
+      for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
+        input_copy_stencil(z, x, y) = z + x + y;
+        //input_copy_stencil(z, x, y) = 1;
+  } } }
+
+  std::cout << "input has dims: " << processor.inputs["input.png"].dim(0).extent() << "x"
+            << processor.inputs["input.png"].dim(1).extent() << "x"
+            << processor.inputs["input.png"].dim(2).extent() << "\n";
+
+  
+  processor.inputs["kernel.png"] = Buffer<uint8_t>(z, w, k_x, k_y);
+  auto kernel_copy_stencil = processor.inputs["kernel.png"];
+  for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {
+    for (int x = 0; x < kernel_copy_stencil.dim(2).extent(); x++) {
+      for (int w = 0; w < kernel_copy_stencil.dim(1).extent(); w++) {
+        for (int z = 0; z < kernel_copy_stencil.dim(0).extent(); z++) {
+          kernel_copy_stencil(z, w, x, y) = z + w + x + y;
+          //kernel_copy_stencil(z, w, x, y) = 1;
+   } } } }
+  
+  std::cout << "kernel has dims: " << processor.inputs["kernel.png"].dim(0).extent() << "x"
+            << processor.inputs["kernel.png"].dim(1).extent() << "x"
+            << processor.inputs["kernel.png"].dim(2).extent() << "x"
+            << processor.inputs["kernel.png"].dim(3).extent() << "\n";
   processor.inputs_preset = true;
   processor.output = Buffer<uint8_t>(x - k_x + 1, y - k_y + 1, w);
 

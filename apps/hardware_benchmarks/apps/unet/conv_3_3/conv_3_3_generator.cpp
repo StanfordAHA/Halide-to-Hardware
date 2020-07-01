@@ -35,22 +35,23 @@ public:
                0, ksize,
                0, k_z);
 
-        conv(x, y, w) = 0;
+        conv(x, y, w) = cast<uint16_t>(0);
 
         Func hw_input("hw_input");
         Func clamp_input("clamp_input");
         //clamp_input(x, y, z) = input(clamp(x, 0, width - 1), clamp(y, 0, height - 1), z);
-        clamp_input(z, x, y) = input(z, clamp(x, 0, width - 1), clamp(y, 0, height - 1));
+        //clamp_input(z, x, y) = input(z, clamp(x, 0, width - 1), clamp(y, 0, height - 1));
+        clamp_input(z, x, y) = input(z, x, y);
 
         Func hw_kernel;
         Func kernel_copy, input_copy;
-        kernel_copy(z, w, x, y) = kernel(z, w, x, y);
+        kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
         hw_kernel(z, w, x, y) = kernel_copy(z, w, x, y);
         //hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
         input_copy(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
         hw_input(z, x, y) = input_copy(z, x, y);
         //conv(x, y, w) += hw_kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
-        conv(x, y, w) += hw_kernel(r.z, r.x, r.y, w) * hw_input(r.z, x + r.x, y + r.y);
+        conv(x, y, w) += hw_kernel(r.z, w, r.x, r.y) * hw_input(r.z, x + r.x, y + r.y);
         //conv(w, x, y) += hw_kernel(w, r.z, r.x, r.y) * hw_input(r.z, x + r.x, y + r.y);
 
         Func hw_output("hw_output");
@@ -161,7 +162,7 @@ public:
           //kernel.bound(w, 0, k_w);
           hw_kernel.bound(z, 0, k_z);
           hw_input.bound(z, 0, k_z);
-          hw_kernel.bound(w, 0, k_w);
+          //hw_kernel.bound(w, 0, k_w);
           
           Var xi,yi, xo,yo;
           
@@ -224,7 +225,7 @@ public:
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // weight stationary
             //.unroll(w, ksize).unroll(r.z, ksize);    // channel weight stationary
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
-            .unroll(x, ksize).unroll(y, ksize);      // output stationary
+          .unroll(x, ksize).unroll(y, ksize);      // output stationary
 
 
           conv.compute_at(hw_output, xo);

@@ -43,14 +43,14 @@ public:
         // create the input
         Func hw_input, input_copy;
         //hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
-        input_copy(c, x, y) = cast<uint16_t>(input(x, y, c));
-        hw_input(c, x, y) = input_copy(x, y, c);
+        input_copy(x, y, c) = cast<uint16_t>(input(x, y, c));
+        hw_input(x, y, c) = input_copy(x, y, c);
 
         // create a grayscale image
         Func gray;
-        gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(0, x, y))
-                                    + 150 * cast<uint16_t>(hw_input(1, x, y))
-                                    + 29 * cast<uint16_t>(hw_input(2, x, y))) >> 8);
+        gray(x, y) = cast<uint8_t>((77 * cast<uint16_t>(hw_input(x, y, 0))
+                                    + 150 * cast<uint16_t>(hw_input(x, y, 1))
+                                    + 29 * cast<uint16_t>(hw_input(x, y, 2))) >> 8);
         
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
@@ -71,8 +71,9 @@ public:
         Func hw_output;
         //hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
         hw_output(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255));
+        //hw_output(x, y) = cast<uint8_t>(blur(x, y));
 
-        output(x, y) = hw_output(x, y);                
+        output(x, y) = hw_output(x, y);
         //output(c, x, y) = hw_output(c, x, y);
         
         //output(x, y, c) = hw_output(x, y);
@@ -136,7 +137,9 @@ public:
 
           gray.compute_at(hw_output, xo);
 
-          hw_input.compute_root();
+          //hw_input.compute_root();
+          hw_input.compute_at(hw_output, xo);
+          input_copy.compute_root();
 
         } else {    // schedule to CPU
           output.compute_root();
