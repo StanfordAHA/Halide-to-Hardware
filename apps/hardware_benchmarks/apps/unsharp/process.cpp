@@ -31,6 +31,6 @@ int main(int argc, char **argv) {
   //processor.output = Buffer<uint8_t>(60, 60, 3);
   processor.output = Buffer<uint8_t>(60, 60);
   
-  processor.process_command(argc, argv);
+  return processor.process_command(argc, argv);
   
 }

@@ -1013,7 +1013,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   std::string func_name = printname(unique_name("hcompute_" + op->name));
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << "->add_op(\""
-                << func_name << "\");" << endl;
+                << "op_" + func_name << "\");" << endl;
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
 
   // Find what the interface of this Provide is by using a closure
@@ -1160,7 +1160,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "}" << endl;
 
   // Output the compute to a coreir module
-  //convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
+  convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }

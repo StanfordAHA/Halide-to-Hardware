@@ -97,7 +97,7 @@ CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
 
 void CodeGen_Clockwork_Testbench::visit(const ProducerConsumer *op) {
     string target_prefix = "hw_output";
-  //string target_prefix = "kernel";
+  //string target_prefix = "_hls_target.";
     if (starts_with(op->name, target_prefix) && op->is_producer) {
       Stmt hw_body = substitute_in_all_letstmts(op->body);
       std::cout << hw_body;

@@ -53,12 +53,13 @@ endef
 #  on each of the apps in that app suite.
 #  For example, "make ops-coreir" creates the hardware for each op.
 define SUITE_template =
-$(1)-coreir:  $($(2):=-coreir)
-$(1)-run:     $($(2):=-run)
-$(1)-compare: $($(2):=-compare)
-$(1)-rewrite: $($(2):=-rewrite)
-$(1)-check:   $($(2):=-check)
-$(1)-clean:   $($(2):=-clean)
+$(1)-coreir:    $($(2):=-coreir)
+$(1)-clockwork: $($(2):=-clockwork)
+$(1)-run:       $($(2):=-run)
+$(1)-compare:   $($(2):=-compare)
+$(1)-rewrite:   $($(2):=-rewrite)
+$(1)-check:     $($(2):=-check)
+$(1)-clean:     $($(2):=-clean)
 endef
 
 $(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
@@ -67,6 +68,11 @@ $(eval $(call SUITE_template,all,allapps))
 %-coreir:
 	@if [ -d $* ]; then \
 			$(call run_app,$*,bin/design_top.json); \
+	fi
+
+%-clockwork:
+	@if [ -d $* ]; then \
+			$(call run_app,$*,compare-clockwork); \
 	fi
 
 %-run:

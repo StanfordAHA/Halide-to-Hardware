@@ -227,6 +227,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //  synthesize_hwbuffers(s, env, buf_xcels);
     //}
 
+    if (t.has_feature(Target::Clockwork)) {
+      s = extract_hwxcel(s);
+    }
+    
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
       // passes specific to HLS backend
       debug(1) << "Performing HLS target optimization..\n";
