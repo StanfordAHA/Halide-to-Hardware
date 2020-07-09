@@ -22,6 +22,7 @@
 #include "DebugToFile.h"
 #include "Deinterleave.h"
 #include "EarlyFree.h"
+#include "ExtractHWAccelerators.h"
 #include "ExtractHWKernelDAG.h"
 #include "ExtractHWBuffers.h"
 #include "EmulateFloat16Math.h"
@@ -228,7 +229,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //}
 
     if (t.has_feature(Target::Clockwork)) {
-      s = extract_hwxcel(s);
+      s = extract_hwaccelerators(s, env);
+      std::cout << "IR after hwxcel extracted:\n" << s << std::endl;
     }
     
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
@@ -281,7 +283,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Simplifying...\n";
     s = simplify(s, false); // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n" << s << "\n\n";
-    //std::cout << "Lowering after first simplification:\n" << s << "\n\n";
+    std::cout << "Lowering after first simplification:\n" << s << "\n\n";
 
     //std::cout << "Before storage folding...\n" << s << "\n\n";
     debug(1) << "Performing storage folding optimization...\n";
@@ -301,7 +303,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
     //std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
 
-    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) { // FIXME: don't omit this pass globally with CoreIR
+    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS) && !t.has_feature(Target::Clockwork)) { // FIXME: don't omit this pass globally with CoreIR
       debug(1) << "Forking asynchronous producers...\n";
       s = fork_async_producers(s, env);
       debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
@@ -485,7 +487,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
-    //std::cout << "after passes: " << s << std::endl;
+    std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

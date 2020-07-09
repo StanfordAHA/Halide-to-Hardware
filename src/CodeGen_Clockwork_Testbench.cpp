@@ -71,7 +71,7 @@ vector<Clockwork_Argument> Clockwork_Closure::arguments(const Scope<CodeGen_Cloc
           res.push_back({i.first, false, true, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
         }
     }
-    res.push_back({"hw_output_stencil", true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
+    res.push_back({output_name + "_stencil", true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
     //res.push_back({"hw_input_stencil", true, false, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
     return res;
 }
@@ -96,8 +96,8 @@ CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
 }
 
 void CodeGen_Clockwork_Testbench::visit(const ProducerConsumer *op) {
-    string target_prefix = "hw_output";
-  //string target_prefix = "_hls_target.";
+  //string target_prefix = "hw_output";
+  string target_prefix = "_hls_target.";
     if (starts_with(op->name, target_prefix) && op->is_producer) {
       Stmt hw_body = substitute_in_all_letstmts(op->body);
       std::cout << hw_body;

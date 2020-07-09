@@ -433,6 +433,7 @@ SOURCE_FILES = \
   EliminateBoolVectors.cpp \
   EmulateFloat16Math.cpp \
   Error.cpp \
+  ExtractHWAccelerators.cpp \
   ExtractHWBuffers.cpp \
   ExtractHWKernelDAG.cpp \
   FastIntegerDivide.cpp \

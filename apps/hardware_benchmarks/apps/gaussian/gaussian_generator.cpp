@@ -105,7 +105,8 @@ public:
           hw_output.compute_root();
 
           hw_output
-            .tile(x, y, xo, yo, xi, yi, imgSize, imgSize);
+            .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+            .hw_accelerate(xi, xo);
 
           blur_unnormalized.update()
             .unroll(win.x, blockSize)
@@ -115,6 +116,7 @@ public:
           blur.compute_at(hw_output, xo);
 
           hw_input.compute_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
           input_copy.compute_root();
           
         } else {    // schedule to CPU
