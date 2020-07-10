@@ -20,13 +20,13 @@ using std::vector;
 using std::ostringstream;
 using std::to_string;
 
-string CodeGen_Clockwork_Base::print_stencil_type(HW_Stencil_Type stencil_type) {
+string CodeGen_Clockwork_Base::print_stencil_type(Stencil_Type stencil_type) {
     ostringstream oss;
     // C: Stencil<uint16_t, 1, 1, 1> stencil_var;
     // C: hls::stream<Stencil<uint16_t, 1, 1, 1> > stencil_stream_var;
 
     switch(stencil_type.type) {
-    case HW_Stencil_Type::StencilContainerType::Stencil :
+    case Stencil_Type::StencilContainerType::Stencil :
         oss << "Stencil<" << print_type(stencil_type.elemType);
 
         for(const auto &range : stencil_type.bounds) {
@@ -35,7 +35,7 @@ string CodeGen_Clockwork_Base::print_stencil_type(HW_Stencil_Type stencil_type) 
         }
         oss << ">";
         break;
-    case HW_Stencil_Type::StencilContainerType::Stream :
+    case Stencil_Type::StencilContainerType::Stream :
         oss << "hls::stream<PackedStencil<";
         oss << print_type(stencil_type.elemType);
 
@@ -45,7 +45,7 @@ string CodeGen_Clockwork_Base::print_stencil_type(HW_Stencil_Type stencil_type) 
         }
         oss << "> >";
         break;
-    case HW_Stencil_Type::StencilContainerType::AxiStream :
+    case Stencil_Type::StencilContainerType::AxiStream :
         oss << "hls::stream<AxiPackedStencil<";
         oss << print_type(stencil_type.elemType);
 
@@ -127,8 +127,8 @@ void CodeGen_Clockwork_Base::visit(const Call *op) {
             string packed_stencil_name = stencil_name + "_packed";
 
             internal_assert(stencils.contains(stencil_name));
-            HW_Stencil_Type stencil_type = stencils.get(stencil_name);
-            internal_assert(stencil_type.type == HW_Stencil_Type::StencilContainerType::Stencil);
+            Stencil_Type stencil_type = stencils.get(stencil_name);
+            internal_assert(stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
 
             // emit code declaring the packed stencil
             do_indent();
@@ -269,7 +269,7 @@ void CodeGen_Clockwork_Base::visit(const Call *op) {
 
         // emits declarations of streams for each consumer
         internal_assert(stencils.contains(stream_name));
-        HW_Stencil_Type stream_type = stencils.get(stream_name);
+        Stencil_Type stream_type = stencils.get(stream_name);
 
         // Optimization. if there is only one consumer and its fifo depth is zero
         // , use C++ reference for the consumer stream
@@ -285,7 +285,7 @@ void CodeGen_Clockwork_Base::visit(const Call *op) {
 
         for (size_t i = 0; i < num_of_consumers; i++) {
             string consumer_stream_name = stream_name + ".to." + consumer_names[i];
-            HW_Stencil_Type consumer_stream_type = stream_type;
+            Stencil_Type consumer_stream_type = stream_type;
             consumer_stream_type.depth = std::max(consumer_fifo_depth[i], 1); // HLS tool doesn't support zero-depth FIFO yet
             do_indent();
             stream << print_stencil_type(consumer_stream_type) << ' '
@@ -309,8 +309,8 @@ void CodeGen_Clockwork_Base::visit(const Call *op) {
         // pragma
         stream << "#pragma HLS PIPELINE\n";
         // read stencil from stream
-        HW_Stencil_Type stencil_type = stream_type;
-        stencil_type.type = HW_Stencil_Type::StencilContainerType::Stencil;
+        Stencil_Type stencil_type = stream_type;
+        stencil_type.type = Stencil_Type::StencilContainerType::Stencil;
         string stencil_name = "tmp_stencil";
         do_indent();
         stream << "Packed" << print_stencil_type(stencil_type) << ' '
@@ -359,7 +359,7 @@ void CodeGen_Clockwork_Base::visit(const Realize *op) {
         // create a stream type
         internal_assert(op->types.size() == 1);
         allocations.push(op->name, {op->types[0]});
-        HW_Stencil_Type stream_type({HW_Stencil_Type::StencilContainerType::Stream,
+        Stencil_Type stream_type({Stencil_Type::StencilContainerType::Stream,
                     op->types[0], op->bounds, 1});
         stencils.push(op->name, stream_type);
 
@@ -380,7 +380,7 @@ void CodeGen_Clockwork_Base::visit(const Realize *op) {
         // create a stencil type
         internal_assert(op->types.size() == 1);
         allocations.push(op->name, {op->types[0]});
-        HW_Stencil_Type stype({HW_Stencil_Type::StencilContainerType::Stencil, op->types[0], op->bounds, 1});
+        Stencil_Type stype({Stencil_Type::StencilContainerType::Stencil, op->types[0], op->bounds, 1});
         stencils.push(op->name, stype);
 
         do_indent();

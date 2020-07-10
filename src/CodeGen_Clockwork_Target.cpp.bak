@@ -249,7 +249,7 @@ public:
 
 }
 
-CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Target& target)
+CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, Target target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader), 
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
@@ -372,7 +372,7 @@ void CodeGen_Clockwork_Target::init_module() {
 
 void CodeGen_Clockwork_Target::add_kernel(Stmt s,
                                           const string &name,
-                                          const vector<HW_Arg> &args) {
+                                          const vector<Clockwork_Argument> &args) {
     debug(1) << "CodeGen_Clockwork_Target::add_kernel " << name << "\n";
 
     //hdrc.add_kernel(s, name, args);
@@ -388,15 +388,15 @@ void CodeGen_Clockwork_Target::dump() {
 string CodeGen_Clockwork_Target::CodeGen_Clockwork_C::print_stencil_pragma(const string &name) {
     ostringstream oss;
     internal_assert(stencils.contains(name));
-    HW_Stencil_Type stype = stencils.get(name);
-    if (stype.type == HW_Stencil_Type::StencilContainerType::Stream ||
-        stype.type == HW_Stencil_Type::StencilContainerType::AxiStream) {
+    Stencil_Type stype = stencils.get(name);
+    if (stype.type == Stencil_Type::StencilContainerType::Stream ||
+        stype.type == Stencil_Type::StencilContainerType::AxiStream) {
         oss << "#pragma HLS STREAM variable=" << printname(name) << " depth=" << stype.depth << "\n";
         if (stype.depth <= 100) {
             // use shift register implementation when the FIFO is shallow
             oss << "#pragma HLS RESOURCE variable=" << printname(name) << " core=FIFO_SRL\n\n";
         }
-    } else if (stype.type == HW_Stencil_Type::StencilContainerType::Stencil) {
+    } else if (stype.type == Stencil_Type::StencilContainerType::Stencil) {
         oss << "#pragma HLS ARRAY_PARTITION variable=" << printname(name) << ".value complete dim=0\n\n";
     } else {
         internal_error;
@@ -407,7 +407,7 @@ string CodeGen_Clockwork_Target::CodeGen_Clockwork_C::print_stencil_pragma(const
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                                                                const string &name,
-                                                               const vector<HW_Arg> &args) {
+                                                               const vector<Clockwork_Argument> &args) {
 
     if (is_clockwork) {
       //stream << "prog " << name << "() {" << std::endl;
@@ -420,16 +420,17 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
       //mem_bodyname = "prg";
     }
   
+    // Emit the function prototype
     //stream << "void " << name << "(\n";
     
     for (size_t i = 0; i < args.size(); i++) {
         string arg_name = "arg_" + std::to_string(i);
         if (args[i].is_stencil) {
-            HW_Stencil_Type stype = args[i].stencil_type;
-            internal_assert(args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::AxiStream ||
-                            args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::Stencil);
+            CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
+            internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
+                            args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
             //stream << print_stencil_type(args[i].stencil_type) << " ";
-            if (args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::AxiStream) {
+            if (args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
               //stream << "&";  // hls_stream needs to be passed by reference
             }
             //stream << arg_name;
@@ -493,7 +494,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
             string arg_name = "arg_" + std::to_string(i);
             do_indent();
             if (args[i].is_stencil) {
-                HW_Stencil_Type stype = args[i].stencil_type;
+                CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
                 memory_stream << "// " << print_stencil_type(args[i].stencil_type) << " &"
                               << printname(args[i].name) << " = " << arg_name << ";\n";
                 string io_name = strip_stream(printname(args[i].name));
@@ -525,7 +526,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
 
     for (size_t i = 0; i < args.size(); i++) {
         // Remove buffer arguments from allocation scope
-        if (args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::Stream) {
+        if (args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stream) {
             allocations.pop(args[i].name);
             stencils.pop(args[i].name);
         }
@@ -850,7 +851,7 @@ vector<Compute_Argument> Compute_Closure::arguments() {
           //internal_error << "we don't expect to see a stencil_update type in Compute_Closure.\n";
         } else {
             // it is a scalar variable
-          //res.push_back({i.first, false, true, i.second, HW_Stencil_Type()});
+          //res.push_back({i.first, false, true, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
         }
     }
     return res;
