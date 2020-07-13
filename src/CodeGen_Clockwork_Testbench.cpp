@@ -13,12 +13,10 @@ CodeGen_Clockwork_Testbench::CodeGen_Clockwork_Testbench(ostream& output_stream,
                                                             tgt_codegen(pipeline_name, target),
                                                             tgt_codegen_like(this)
 {
-    stream << "// [GED_DEBUG] CodeGen_Clockwork_Testbench constructor called\n";
     tgt_codegen.init_module();
 }
 
 CodeGen_Clockwork_Testbench::~CodeGen_Clockwork_Testbench() {
-    stream << "// [GED_DEBUG] CodeGen_Clockwork_Testbench destructor called\n";
 }
 
 RDAI_TargetGenLike *CodeGen_Clockwork_Testbench::get_target_codegen() {

@@ -63,6 +63,8 @@ protected:
     void visit(const Provide *op) override;
     void visit(const Realize *op) override;
 
+    std::string print_name(const string& name);
+
 protected:
     Scope<HW_Stencil_Type> stencils;
 

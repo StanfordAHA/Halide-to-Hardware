@@ -1,7 +1,8 @@
 #include <utility>
 
-#include "CodeGen_RDAI.h"
 #include "Closure.h"
+#include "CodeGen_RDAI.h"
+#include "Simplify.h"
 #include "Substitute.h"
 
 namespace Halide::Internal {
@@ -33,7 +34,7 @@ public:
                 result.push_back({v.first, false, true, v.second, HW_Stencil_Type()});
             }
         }
-        result.push_back({"hw_output_stencil", true, true, Type(), HW_Stencil_Type()});
+        result.push_back({"hw_output_stencil", true, true, Type(), streams_scope.get("hw_output.stencil")});
         return result;
     }
 
@@ -46,11 +47,10 @@ CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, const
       target(target),
       pipeline_name(pipeline_name)
 {
-    stream  << "// [GED_DEBUG] CodeGen_RDAI constructor called\n";
+    stream << "#include \"rdai_api.h\"\n";
 }
 
 CodeGen_RDAI::~CodeGen_RDAI() {
-    stream << "// [GED_DEBUG] CodeGen_RDAI destructor called\n";
 }
 
 void CodeGen_RDAI::set_output_folder(const string& out_folder) {
@@ -58,9 +58,45 @@ void CodeGen_RDAI::set_output_folder(const string& out_folder) {
     target_codegen->set_output_folder(out_folder);
 }
 
+string CodeGen_RDAI::print_name(const string& name) {
+    std::ostringstream oss;
+
+    // prefix an underscore to avoid reserved words
+    if(isalpha(name[0])) {
+        oss << '_';
+    }
+    for(size_t i = 0; i < name.size(); i++) {
+        if(!isalnum(name[i])) {
+            oss << "_";
+        } else {
+            oss << name[i];
+        }
+    }
+
+    return oss.str();
+}
+
 void CodeGen_RDAI::visit(const Call *op) {
     if(op->is_intrinsic() && ends_with(op->name, ".stencil")) {
-        stream << "// [GED_DEBUG] Absorbed call to " << op->name << "\n";
+        HW_Stencil_Type stencil = stencils.get(op->name);
+        Region dim_bounds = stencil.bounds;
+        internal_assert(dim_bounds.size() == op->args.size());
+        
+        Expr temp_arg = op->args[0];
+        Expr temp_stride = 1;
+        for (size_t i = 1; i < dim_bounds.size(); i++) {
+            temp_stride = temp_stride * dim_bounds[i-1].extent;
+            temp_arg = temp_arg + (op->args[i] * temp_stride);
+        }
+        temp_arg = simplify(temp_arg);
+        stream << print_expr(temp_arg) << ";\n";
+
+        string elt_type = print_type(stencil.elemType);
+        string op_name = print_name(op->name);
+
+        do_indent();
+        stream << elt_type << " *" << op_name << "_host = (" << elt_type << " *) " << op_name << "->host_ptr;\n";
+        print_assignment(op->type, op_name + "_host[" + id + "]");
     } else {
         CodeGen_C::visit(op); 
     }
@@ -88,7 +124,7 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
 
         stream << "\n";
         do_indent();
-        stream << "RDAI_PlatfomType platform_type = RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM;\n";
+        stream << "RDAI_PlatformType platform_type = RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM;\n";
         do_indent();
         stream << "RDAI_Platform **platforms = RDAI_get_platforms_with_type(&platform_type);\n";
         do_indent();
@@ -100,36 +136,82 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         do_indent();
         stream << "assert(devices && devices[0]);\n";
         do_indent();
-        stream << "RDAI_MemObject **mem_obj_list = (RDAI_MemObject **) malloc(sizeof(RDAI_MemObject*) * " << args.size() + 1 << ";\n";
+        stream << "RDAI_MemObject *mem_obj_list["<< args.size() + 1 <<"] = {\n";
+        for(size_t i = 0; i < args.size(); i++) {
+            do_indent(); do_indent();
+            stream << print_name(args[i].name) << ",\n";
+        }
+        do_indent(); do_indent();
+        stream << "NULL\n";
+        do_indent();
+        stream << "};\n";
+        do_indent();
+        stream << "RDAI_Status status = RDAI_device_run(devices[0], mem_obj_list);\n";
+        stream << "\n";
+
     } else {
         CodeGen_C::visit(op);
     }
 }
 
 void CodeGen_RDAI::visit(const Provide *op) {
-    stream << "// [GED_DEBUG] Absorbed Provide [" << op->name << "]\n";
-    if(op->values.size() > 0) {
-        Expr first = op->values[0];
-        if(const Load *cnt = first.as<Load>()) {
-            stream << "// [GED_DEBUG] found a Load from " << cnt->name << "\n";
-        } else if(const Call *cnt = first.as<Call>()) {
-            stream << "// [GED_DEBUG] found a call to " << cnt->name << "\n";
-        } else {
-            stream << "// [GED_DEBUG] found a NON-VIEW for this PROVIDE node\n";
-        }
+
+    internal_assert(ends_with(op->name, ".stencil"));
+
+    string elt_type = print_type(op->values[0].type());
+    string op_name = print_name(op->name);
+
+    do_indent();
+    stream << "// Provision buffer " << op_name << "\n";
+    stream << print_expr(op->values[0]) << ";\n";
+    string id0 = id;
+    do_indent();
+    stream << elt_type << " *" << op_name << "_host = (" << elt_type << " *) " << op_name << "->host_ptr;\n";
+
+    Region dim_bounds = stencils.get(op->name).bounds;
+    internal_assert(dim_bounds.size() == op->args.size());
+
+    Expr temp_arg = op->args[0];
+    Expr temp_stride = 1;
+    for (size_t i = 1; i < dim_bounds.size(); i++) {
+        temp_stride = temp_stride * dim_bounds[i-1].extent;
+        temp_arg = temp_arg + (op->args[i] * temp_stride);
     }
+    temp_arg = simplify(temp_arg);
+
+    stream << print_expr(temp_arg) << ";\n";
+    string id1 = id;
+
+    do_indent();
+    stream << op_name << "_host["<< id1 <<"] = " << id0 << ";\n";
 }
 
 void CodeGen_RDAI::visit(const Realize *op) {
     if(ends_with(op->name, ".stencil")) {
         // create a stencil type
         internal_assert(op->types.size() == 1);
-        allocations.push(op->name, {op->types[0]});
+        //allocations.push(op->name, {op->types[0]});
         HW_Stencil_Type stype({HW_Stencil_Type::StencilContainerType::Stencil, op->types[0], op->bounds, 1});
         stencils.push(op->name, stype);
-        stream << "// [GED_DEBUG] Absorbed Realize[" << op->name << "]\n";
+        
+        Expr buf_size = op->types[0].bytes();
+        for(size_t i = 0; i < op->bounds.size(); i++) {
+            Range r = op->bounds[i];
+            buf_size = buf_size * r.extent;
+        }
+
+        buf_size = simplify(buf_size);
+
+        do_indent();
+        stream << "// Allocate shared buffer for " << print_name(op->name) << "\n";
+        do_indent();
+        stream << "RDAI_MemObject *" << print_name(op->name) << " = RDAI_mem_shared_allocate(" << buf_size << ");\n";
         op->body.accept(this);
-        allocations.pop(op->name);
+        do_indent();
+        stream << "// Free shared buffer for " << op->name << "\n";
+        do_indent();
+        stream << "RDAI_mem_free(" << print_name(op->name) << ");\n";
+        //allocations.pop(op->name);
         stencils.pop(op->name);
     } else {
         CodeGen_C::visit(op);

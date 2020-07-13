@@ -62,6 +62,8 @@ public:
     }
 
 protected:
+    std::vector<HW_Arg> closure_args;
+
     class CodeGen_Clockwork_C : public CodeGen_Clockwork_Base {
     public:
       bool is_clockwork;
