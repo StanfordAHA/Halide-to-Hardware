@@ -33,7 +33,6 @@ struct RDAI_Info
         string library;
         string name;
         int version;
-        string platform;
         size_t num_inputs;
     };
 };

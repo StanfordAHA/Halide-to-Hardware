@@ -1,4 +1,5 @@
 #include <utility>
+#include <fstream>
 
 #include "Closure.h"
 #include "CodeGen_RDAI.h"
@@ -12,6 +13,7 @@ using std::ostream;
 using std::vector;
 using std::pair;
 using std::ofstream;
+using std::ostringstream;
 
 class RDAI_Closure : public Closure {
 public:
@@ -51,22 +53,66 @@ CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, const
     stream << "#include \"rdai_api.h\"\n";
 }
 
-CodeGen_RDAI::~CodeGen_RDAI() {
-    //string out_path = output_directory.empty() ? rdai_info.platform_name + ".h" :
-    //    output_directory + "/" + pipeline_name + ".h";
-    //
-    //std::ofstream rdai_stream("bin/clockwork_sim.h", std::ofstream::out);
+CodeGen_RDAI::~CodeGen_RDAI() {}
 
-    //rdai_stream << "#ifndef RDAI_CLOCKWORK_SIM\n"
-    //            << "#define RDAI_CLOCKWORK_SIM\n";
+namespace {
+    void render_rdai_data(const string& output_folder, const RDAI_Info& info, const string& pipeline_name) {
 
-    //rdai_stream << "\n\n// Platform Name = " << rdai_info.platform_name << "\n";
-    //rdai_stream << "\n\n";
+        if(info.devices.empty()) return;
 
-    //rdai_stream << "#endif // RDAI_CLOCKWORK_SIM\n";
+        string out_path = output_folder.empty() ? "rdai_clockwork_platform.h" :
+            output_folder + "/" + "rdai_clockwork_platform.h";
+        
+        std::ofstream rdai_stream(out_path, std::ofstream::out);
+
+        rdai_stream << "#ifndef RDAI_CLOCKWORK_PLATFORM\n"
+                    << "#define RDAI_CLOCKWORK_PLATFORM\n";
+
+        rdai_stream << "\n";
+        rdai_stream << "#include \"rdai_api.h\"\n";
+        rdai_stream << "\n";
+
+        ostringstream oss;
+        oss << info.devices[0].vendor << "_" << info.devices[0].library <<
+            "_" << info.devices[0].name << "_" << info.devices[0].version;
+
+        string device_name = oss.str();
+
+        rdai_stream << "extern RDAI_Platform " << info.platform_name << ";\n";
+        rdai_stream << "\n";
+
+        rdai_stream << "static RDAI_Device " << device_name << " = {\n"
+                    << "\t{ 1 },\n"
+                    << "\t{\n"
+                    << "\t\t{ \"" << info.devices[0].vendor  << "\" },\n"
+                    << "\t\t{ \"" << info.devices[0].library << "\"  },\n"
+                    << "\t\t{ \"" << info.devices[0].name  << "\" },\n"
+                    << "\t\t{ " << info.devices[0].version << " },\n"
+                    << "\t},\n"
+                    << "\t&" << info.platform_name << ",\n"
+                    << "\tNULL,\n"
+                    << "\t" << info.devices[0].num_inputs << "\n"
+                    << "};\n";
+        rdai_stream << "\n";
+
+        rdai_stream << "static RDAI_Device *" << info.platform_name << "_devices[2] = { &" << device_name << ", NULL };\n";
+        rdai_stream << "\n";
+
+        rdai_stream << "static RDAI_Platform " << info.platform_name << " = {\n"
+                    << "\tRDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM,\n"
+                    << "\t{ 0 },\n"
+                    << "\tNULL,\n"
+                    << "\t" << info.platform_name << "_devices\n"
+                    << "};\n";
+                    
+        rdai_stream << "\n\n";
+
+        rdai_stream << "#endif // RDAI_CLOCKWORK_PLATFORM\n";
+    }
 }
 
 void CodeGen_RDAI::set_output_folder(const string& out_folder) {
+    output_directory = out_folder;
     RDAI_TargetGenLike *target_codegen = get_target_codegen();
     target_codegen->set_output_folder(out_folder);
 }
@@ -164,8 +210,10 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
 
         // Emit RDAI Info
         rdai_info.platform_type = "RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM";
-        rdai_info.platform_name = "clockwork_sim";
-        rdai_info.devices.push_back({"aha", "halide_hardware", pipeline_name, 1, "clockwork_sim", args.size() - 1});
+        rdai_info.platform_name = "rdai_clockwork_platform";
+        rdai_info.devices.push_back({"aha", "halide_hardware", pipeline_name, 1, args.size() - 1});
+
+        render_rdai_data(output_directory, rdai_info, pipeline_name);
 
     } else {
         CodeGen_C::visit(op);
