@@ -19,6 +19,26 @@ using std::string;
 using std::ostream;
 using std::vector;
 
+struct RDAI_Info
+{
+    struct DeviceInfo;
+
+    string platform_type;
+    string platform_name;
+    vector<DeviceInfo> devices;
+   
+    struct DeviceInfo
+    {
+        string vendor;
+        string library;
+        string name;
+        int version;
+        string platform;
+        size_t num_inputs;
+    };
+};
+
+
 struct HW_Stencil_Type
 {
     enum class StencilContainerType { Stencil, Stream, AxiStream };
@@ -67,10 +87,12 @@ protected:
 
 protected:
     Scope<HW_Stencil_Type> stencils;
+    RDAI_Info rdai_info;
 
 protected:
     const Target& target;
     const string& pipeline_name;
+    string output_directory;
 };
 
 }

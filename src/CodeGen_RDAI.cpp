@@ -11,6 +11,7 @@ using std::string;
 using std::ostream;
 using std::vector;
 using std::pair;
+using std::ofstream;
 
 class RDAI_Closure : public Closure {
 public:
@@ -51,6 +52,18 @@ CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, const
 }
 
 CodeGen_RDAI::~CodeGen_RDAI() {
+    //string out_path = output_directory.empty() ? rdai_info.platform_name + ".h" :
+    //    output_directory + "/" + pipeline_name + ".h";
+    //
+    //std::ofstream rdai_stream("bin/clockwork_sim.h", std::ofstream::out);
+
+    //rdai_stream << "#ifndef RDAI_CLOCKWORK_SIM\n"
+    //            << "#define RDAI_CLOCKWORK_SIM\n";
+
+    //rdai_stream << "\n\n// Platform Name = " << rdai_info.platform_name << "\n";
+    //rdai_stream << "\n\n";
+
+    //rdai_stream << "#endif // RDAI_CLOCKWORK_SIM\n";
 }
 
 void CodeGen_RDAI::set_output_folder(const string& out_folder) {
@@ -148,6 +161,11 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         do_indent();
         stream << "RDAI_Status status = RDAI_device_run(devices[0], mem_obj_list);\n";
         stream << "\n";
+
+        // Emit RDAI Info
+        rdai_info.platform_type = "RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM";
+        rdai_info.platform_name = "clockwork_sim";
+        rdai_info.devices.push_back({"aha", "halide_hardware", pipeline_name, 1, "clockwork_sim", args.size() - 1});
 
     } else {
         CodeGen_C::visit(op);
