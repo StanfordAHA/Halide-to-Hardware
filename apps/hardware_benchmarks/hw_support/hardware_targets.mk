@@ -25,9 +25,6 @@ CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
 CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread
 
-RDAI_PATH ?= $(HALIDE_SRC_PATH)/../rdai
-CXXFLAGS += -I$(RDAI_PATH)/rdai_api
-
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
@@ -121,18 +118,14 @@ $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -o $@
 $(BIN)/unoptimized_$(TESTNAME).cpp clockwork_unopt: $(BIN)/clockwork_codegen
 	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib ./clockwork_codegen unopt >/dev/null && cd ..
-#	@mkdir -p clkbin
-#	cd clkbin && cp ../$(BIN)/clockwork_codegen . && \
-#	LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib ./clockwork_codegen unopt >/dev/null && cd ..
-#	cp clkbin/unoptimized_$(TESTNAME).* $(BIN)
-#$(BIN)/unoptimized_$(TESTNAME).cpp: clockwork_unopt
-
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/unoptimized_$(TESTNAME).o: $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
+$(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) -c $< -o $@
 
-$(BIN)/process_clockwork: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o 
+$(BIN)/process_clockwork: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(BIN)/$(TESTNAME)_clockwork.o
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json

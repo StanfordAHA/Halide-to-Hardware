@@ -5,6 +5,7 @@
 #include "CodeGen_RDAI.h"
 #include "Simplify.h"
 #include "Substitute.h"
+#include "Module.h"
 
 namespace Halide::Internal {
 
@@ -258,6 +259,23 @@ void CodeGen_RDAI::visit(const Provide *op) {
 
 void CodeGen_RDAI::visit(const Realize *op) {
     if(ends_with(op->name, ".stencil")) {
+        // possibly insert _halide_buffer_get_host calls
+        if(!inserted_host_buf_calls && (func_args.size() > 0)) {
+            do_indent();
+            stream << "// get host pointers for input/output halide buffers\n";
+            for(const LoweredArgument& arg : func_args) {
+                Expr var_expr = Variable::make(type_of<struct halide_buffer_t *>(), arg.name + ".buffer");
+                vector<Expr> call_args = {var_expr};
+                Expr call_expr = Call::make(Handle(), "_halide_buffer_get_host", call_args, Call::CallType::Extern);
+                const Call *call_ptr = call_expr.as<Call>();
+                do_indent();
+                stream << "void *" << print_name(arg.name) << " = " << print_extern_call(call_ptr) << ";\n";
+            }
+            stream << "\n";
+
+            inserted_host_buf_calls = true;
+        }
+
         // create a stencil type
         internal_assert(op->types.size() == 1);
         //allocations.push(op->name, {op->types[0]});
@@ -288,5 +306,9 @@ void CodeGen_RDAI::visit(const Realize *op) {
     }
 }
 
+void CodeGen_RDAI::compile(const LoweredFunc &func) {
+    func_args = func.args;
+    CodeGen_C::compile(func);
+}
 
 } // namespace Halide::Internal

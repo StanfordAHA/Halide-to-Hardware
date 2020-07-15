@@ -593,6 +593,17 @@ void Module::compile(const Outputs &output_files_arg) const {
 
       std::string oldname = contents->name;
       contents->name = oldname + "_clockwork";
+
+      // header file generation
+      std::string hdr_filename = uses_folder ? foldername + "/" + oldname + ".h" : oldname + ".h";
+      std::ofstream hdr_file(hdr_filename);
+      Internal::CodeGen_C hdr_cg(hdr_file,
+                                 target().with_feature(Target::CPlusPlusMangling),
+                                 Internal::CodeGen_C::OutputKind::CPlusPlusHeader,
+                                 "PIPELINE_INSTANCE"
+                                );
+      std::cout << "Module.compile(): clockwork header file [" << hdr_filename << "]\n";
+      hdr_cg.compile(*this);
       
       std::cout << "Module.compile(): clockwork_source_name " << output_files.clockwork_source_name
                 << " with folder=" << foldername << " and name=" << name() << "\n";

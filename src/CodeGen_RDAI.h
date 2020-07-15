@@ -74,6 +74,8 @@ public:
 
     virtual ~CodeGen_RDAI();
 
+    using CodeGen_C::compile;
+
 protected:
     using CodeGen_C::visit;
 
@@ -82,6 +84,9 @@ protected:
     void visit(const Provide *op) override;
     void visit(const Realize *op) override;
 
+
+    void compile(const LoweredFunc &func) override;
+    
     std::string print_name(const string& name);
 
 protected:
@@ -92,6 +97,8 @@ protected:
     const Target& target;
     const string& pipeline_name;
     string output_directory;
+    vector<LoweredArgument> func_args;
+    bool inserted_host_buf_calls = false;
 };
 
 }
