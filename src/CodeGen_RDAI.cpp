@@ -87,7 +87,7 @@ namespace {
                     << "\t\t{ \"" << info.devices[0].vendor  << "\" },\n"
                     << "\t\t{ \"" << info.devices[0].library << "\"  },\n"
                     << "\t\t{ \"" << info.devices[0].name  << "\" },\n"
-                    << "\t\t{ " << info.devices[0].version << " },\n"
+                    << "\t\t" << info.devices[0].version << ",\n"
                     << "\t},\n"
                     << "\t&" << info.platform_name << ",\n"
                     << "\tNULL,\n"
@@ -98,7 +98,7 @@ namespace {
         rdai_stream << "static RDAI_Device *" << info.platform_name << "_devices[2] = { &" << device_name << ", NULL };\n";
         rdai_stream << "\n";
 
-        rdai_stream << "static RDAI_Platform " << info.platform_name << " = {\n"
+        rdai_stream << "RDAI_Platform " << info.platform_name << " = {\n"
                     << "\tRDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM,\n"
                     << "\t{ 0 },\n"
                     << "\tNULL,\n"

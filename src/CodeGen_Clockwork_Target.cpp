@@ -619,11 +619,11 @@ void print_clockwork_execution_header(string appname, ofstream& stream) {
 }
 
 void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
-    stream << "#include \"clockwork_testbench.h\"\n"
+    stream << "#include \"clockwork_testscript.h\"\n"
            << "#include \"unoptimized_" << appname << ".h\"\n"
            << "#include \"hw_classes.h\"\n"
            << "\n"
-           << "void run_clockwork_program(RDAI_MemObject **mem_obj_list) {\n";
+           << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
 
     size_t num_buffers = closure_args.size();
 
@@ -677,7 +677,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
             temp_arg = simplify(temp_arg);
             stream << "\t\thw_uint<"<<elt_sizes[i]<<"> in_val;\n";
             stream << "\t\tset_at<0, " << elt_sizes[i] << ", " << elt_sizes[i] << ">(in_val, ";
-            stream <<  "hw_uint<" << elt_sizes[i] << ">(" << printname(closure_args[i].name) << "[" << temp_arg <<"]);\n";
+            stream <<  "hw_uint<" << elt_sizes[i] << ">(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
             stream << "\t\t" << stream_name << ".write(in_val);\n";
 
             stream << "\t";
@@ -725,7 +725,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
         stream << "\t\thw_uint<" << elt_size << "> actual = " << stream_name << ".read();\n";
         stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
         stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
-        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane_0;\n";
+        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
         stream << "\t";
         for(size_t i = 0; i < bounds.size(); i++) {
             stream << "} ";
