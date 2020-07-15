@@ -30,6 +30,28 @@ TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
 
+
+# =========================== RDAI Configuration  ===================================
+
+RDAI_HOST_CXXFLAGS 			= -I$(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/include
+RDAI_PLATFORM_CXXFLAGS 		= -I$(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/include
+RDAI_PLATFORM_CXXFLAGS 		+= -I$(BIN)
+
+RDAI_HOST_SRC				= $(wildcard $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/*.cpp)
+RDAI_PLATFORM_SRC			= $(wildcard $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/*.cpp)
+
+RDAI_HOST_SRC_FILES			= $(notdir $(RDAI_HOST_SRC))
+RDAI_PLATFORM_SRC_FILES 	= $(notdir $(RDAI_PLATFORM_SRC))
+
+RDAI_HOST_OBJ_NAMES			= $(patsubst %.cpp,%.o,$(RDAI_HOST_SRC_FILES))
+RDAI_PLATFORM_OBJ_NAMES 	= $(patsubst %.cpp,%.o,$(RDAI_PLATFORM_SRC_FILES))
+
+RDAI_HOST_OBJ_DEPS 			= $(foreach obj,$(RDAI_HOST_OBJ_NAMES),$(BIN)/rdai_host-$(obj))
+RDAI_PLATFORM_OBJ_DEPS 		= $(foreach obj,$(RDAI_PLATFORM_OBJ_NAMES),$(BIN)/rdai_platform-$(obj))
+
+# =========================== End of RDAI ======================================
+
+
 # set this to "1>/dev/null" or "&>/dev/null" to suppress debug output to std::cout
 HALIDE_DEBUG_REDIRECT ?=
 # this is used in the buffermapping (especially ubuffer simulation)
@@ -124,8 +146,15 @@ $(BIN)/unoptimized_$(TESTNAME).o: $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) -c $< -o $@
+$(BIN)/rdai_host-%.o: $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/%.cpp
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) $(RDAI_HOST_CXXFLAGS) -c $^ -o $@
+$(BIN)/rdai_platform-%.o: $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/%.cpp
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) $(RDAI_PLATFORM_CXXFLAGS) -c $^ -o $@
 
-$(BIN)/process_clockwork: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(BIN)/$(TESTNAME)_clockwork.o
+rdai:
+	@echo "host = $(RDAI_PLATFORM_OBJ_DEPS)"
+
+$(BIN)/process_clockwork: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(BIN)/$(TESTNAME)_clockwork.o $(RDAI_HOST_OBJ_DEPS) $(RDAI_PLATFORM_OBJ_DEPS)
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json

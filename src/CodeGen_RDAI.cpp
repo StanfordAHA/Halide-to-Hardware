@@ -66,8 +66,8 @@ namespace {
         
         std::ofstream rdai_stream(out_path, std::ofstream::out);
 
-        rdai_stream << "#ifndef RDAI_CLOCKWORK_PLATFORM\n"
-                    << "#define RDAI_CLOCKWORK_PLATFORM\n";
+        rdai_stream << "#ifndef RDAI_CLOCKWORK_PLATFORM_H\n"
+                    << "#define RDAI_CLOCKWORK_PLATFORM_H\n";
 
         rdai_stream << "\n";
         rdai_stream << "#include \"rdai_api.h\"\n";
@@ -108,7 +108,7 @@ namespace {
                     
         rdai_stream << "\n\n";
 
-        rdai_stream << "#endif // RDAI_CLOCKWORK_PLATFORM\n";
+        rdai_stream << "#endif // RDAI_CLOCKWORK_PLATFORM_H\n";
     }
 }
 
