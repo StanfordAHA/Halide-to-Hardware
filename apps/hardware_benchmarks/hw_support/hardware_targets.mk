@@ -25,6 +25,9 @@ CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
 CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread
 
+RDAI_PATH ?= $(HALIDE_SRC_PATH)/../rdai
+CXXFLAGS += -I$(RDAI_PATH)/rdai_api
+
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)

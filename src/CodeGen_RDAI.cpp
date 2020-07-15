@@ -206,6 +206,10 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         stream << "};\n";
         do_indent();
         stream << "RDAI_Status status = RDAI_device_run(devices[0], mem_obj_list);\n";
+        do_indent();
+        stream << "RDAI_free_device_list(devices);\n";
+        do_indent();
+        stream << "RDAI_free_platform_list(platforms);\n";
         stream << "\n";
 
         // Emit RDAI Info
