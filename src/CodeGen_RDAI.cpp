@@ -46,7 +46,7 @@ protected:
     const string& output_name;
 };
 
-CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, const string& pipeline_name)
+CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, string pipeline_name)
     : CodeGen_C(pipeline_stream, target, CPlusPlusImplementation, ""),
       target(target),
       pipeline_name(pipeline_name)

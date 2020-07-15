@@ -66,7 +66,7 @@ struct RDAI_TargetGenLike
 
 class CodeGen_RDAI : public CodeGen_C {
 public:
-    CodeGen_RDAI(std::ostream &pipeline_stream, const Target& target, const string& pipeline_name);
+    CodeGen_RDAI(std::ostream &pipeline_stream, const Target& target, string pipeline_name);
 
     void set_output_folder(const string& out_folder);
 
@@ -95,7 +95,7 @@ protected:
 
 protected:
     const Target& target;
-    const string& pipeline_name;
+    string pipeline_name;
     string output_directory;
     vector<LoweredArgument> func_args;
     bool inserted_host_buf_calls = false;
