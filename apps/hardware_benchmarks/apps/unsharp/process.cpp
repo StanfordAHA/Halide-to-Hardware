@@ -1,10 +1,12 @@
 #include <cstdio>
 
-#include "unsharp.h"
-
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
 #include "halide_image_io.h"
+
+#include "unsharp.h"
+#include "rdai_api.h"
+#include "clockwork_tb_platform.h"
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
@@ -21,7 +23,17 @@ int main(int argc, char **argv) {
                                                                                       "self.in_arg_0_0_0", "self.out_0_0"); }
                                               },
                                               {"clockwork",
-                                                  [&]() { unsharp(processor.input, processor.output); }
+                                                  [&]() { 
+                                                    RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_tb_ops);
+                                                    if(rdai_platform) {
+                                                        printf("[INFO]: found an RDAI platform\n");
+                                                        unsharp(processor.input, processor.output); 
+                                                        RDAI_unregister_platform(rdai_platform);
+                                                    } else {
+                                                        printf("failed to register RDAI platform!\n");
+                                                    }
+
+                                                  }
                                               }
 
                                             });

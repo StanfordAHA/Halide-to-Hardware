@@ -3,6 +3,7 @@ include ../../hw_support/Makefile.inc
 TESTNAME = unsharp
 USE_COREIR_VALID = 1
 WITH_CLOCKWORK = 1
+HL_TARGET = host-x86-64
 
 include ../../hw_support/hardware_targets.mk
 

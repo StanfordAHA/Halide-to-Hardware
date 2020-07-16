@@ -35,7 +35,6 @@ USE_COREIR_VALID ?= 0
 
 RDAI_HOST_CXXFLAGS 			= -I$(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/include
 RDAI_PLATFORM_CXXFLAGS 		= -I$(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/include
-RDAI_PLATFORM_CXXFLAGS 		+= -I$(BIN)
 
 RDAI_HOST_SRC				= $(wildcard $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/*.cpp)
 RDAI_PLATFORM_SRC			= $(wildcard $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/*.cpp)
@@ -149,10 +148,12 @@ $(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp
 $(BIN)/rdai_host-%.o: $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/%.cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) $(RDAI_HOST_CXXFLAGS) -c $^ -o $@
 $(BIN)/rdai_platform-%.o: $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/%.cpp
-	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) $(RDAI_PLATFORM_CXXFLAGS) -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(CLOCKWORK_PATH) $(RDAI_PLATFORM_CXXFLAGS) -c $^ -o $@
+$(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
+	$^ -r halide_runtime -e o -o $(BIN) target=$(HL_TARGET)
 
-$(BIN)/process_clockwork: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(BIN)/$(TESTNAME)_clockwork.o $(RDAI_HOST_OBJ_DEPS) $(RDAI_PLATFORM_OBJ_DEPS)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+$(BIN)/process_clockwork: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(BIN)/$(TESTNAME)_clockwork.o $(RDAI_HOST_OBJ_DEPS) $(RDAI_PLATFORM_OBJ_DEPS) $(BIN)/halide_runtime.o
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) $(RDAI_PLATFORM_CXXFLAGS) -Wall $(HLS_PROCESS_CXX_FLAGS) $(HALIDE_SRC_PATH)/distrib/lib/libHalide.a -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	./$(COREIR_DIR)/bin/coreir -i $(ROOT_DIR)/$(BIN)/design_top.json -o $(ROOT_DIR)/$(BIN)/top.v --load_libs $(COREIR_DIR)/lib/libcoreir-commonlib.so
@@ -238,9 +239,9 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process
+run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process_clockwork
 	@-mkdir -p $(BIN)
-	$(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
+	$^ run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
