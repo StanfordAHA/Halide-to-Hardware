@@ -30,6 +30,6 @@ RDAI_HOST_RUNTIME ?= linux_no_cma
 # RDAI platform runtime selection
 # Available options are located in $(RDAI_DIR)/platform_runtimes
 
-RDAI_PLATFORM_RUNTIME ?= clockwork_tb
+RDAI_PLATFORM_RUNTIME ?= clockwork_sim
 
 # ============== End of RDAI =======================================

@@ -6,7 +6,7 @@
 
 #include "unsharp.h"
 #include "rdai_api.h"
-#include "clockwork_tb_platform.h"
+#include "clockwork_sim_platform.h"
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
                                               },
                                               {"clockwork",
                                                   [&]() { 
-                                                    RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_tb_ops);
+                                                    RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
                                                     if(rdai_platform) {
                                                         printf("[INFO]: found an RDAI platform\n");
                                                         unsharp(processor.input, processor.output); 

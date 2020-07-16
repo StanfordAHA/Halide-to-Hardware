@@ -1,11 +1,12 @@
 #include <cstdio>
 
-#include "conv_3_3.h"
-
 #include "hardware_process_helper.h"
 #include "coreir_interpret.h"
 #include "halide_image_io.h"
-#include "clockwork_testscript.h"
+
+#include "conv_3_3.h"
+#include "rdai_api.h"
+#include "clockwork_sim_platform.h"
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
@@ -28,39 +29,24 @@ int main(int argc, char **argv) {
                                                                                       "self.in_arg_0_0_0", "self.out_0_0"); }
                                               },
                                               {"clockwork",
-                                                  [&]() { conv_3_3(processor.input, processor.output); }
+                                                  [&]() { 
+                                                    RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
+                                                    if(rdai_platform) {
+                                                        printf("[INFO]: found an RDAI platform\n");
+                                                        conv_3_3(processor.input, processor.output); 
+                                                        RDAI_unregister_platform(rdai_platform);
+                                                    } else {
+                                                        printf("failed to register RDAI platform!\n");
+                                                    }
+
+                                                  }
                                               }
+
                                             });
 
   processor.input = Buffer<uint8_t>(64, 64);
   processor.output = Buffer<uint8_t>(62, 62);
   
   return processor.process_command(argc, argv);
-  
-  //ManyInOneOut_ProcessController<uint8_t> processor("conv_3_3", {"input.png"},
-  //                                          {
-  //                                            {"cpu",
-  //                                                [&]() { conv_3_3(processor.inputs["input.png"], processor.output); }
-  //                                            },
-  //                                            {"rewrite",
-  //                                                [&]() { run_coreir_rewrite_on_interpreter<>("bin/design_top.json", "bin/ubuffers.json",
-  //                                                                                     processor.inputs["input.png"], processor.output,
-  //                                                                                    "self.in_arg_0_0_0", "self.out_0_0"); }
-  //                                            },
-  //                                            {"coreir",
-  //                                                [&]() { run_coreir_on_interpreter<>("bin/design_top.json",
-  //                                                                                     processor.inputs["input.png"], processor.output,
-  //                                                                                    "self.in_arg_0_0_0", "self.out_0_0"); }
-  //                                            },
-  //                                            {"clockwork",
-  //                                                [&]() { run_clockwork_program<>(processor.inputs["input.png"], processor.output); }
-  //                                            }
-  //                                          });
-  //
-  //
-  //processor.inputs["input.png"] = Buffer<uint8_t>(64, 64);
-  //processor.output = Buffer<uint8_t>(62, 62);
-  //
-  //return processor.process_command(argc, argv);
 
 }
