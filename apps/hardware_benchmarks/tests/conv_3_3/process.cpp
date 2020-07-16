@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
                                                                                       "self.in_arg_0_0_0", "self.out_0_0"); }
                                               },
                                               {"clockwork",
-                                                  [&]() { run_clockwork_program<>(processor.input, processor.output); }
+                                                  [&]() { conv_3_3(processor.input, processor.output); }
                                               }
                                             });
 
