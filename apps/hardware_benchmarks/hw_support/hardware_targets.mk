@@ -357,6 +357,6 @@ graph.png graph:
 	$(MAKE) $(BIN)/graph.png
 
 clean:
-	rm -rf $(BIN) $(HWSUPPORT)/$(BIN)
+	rm -rf $(BIN) $(HWSUPPORT)/$(BIN) *_debug.csv
 
 test: run
