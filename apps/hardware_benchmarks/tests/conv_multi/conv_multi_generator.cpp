@@ -77,14 +77,18 @@ public:
 
           hw_output.compute_root();
 
-          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
-            .reorder(xi,yi, xo,yo);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+              .reorder(xi,yi, xo,yo)
+              .hw_accelerate(xi, xo);
 
           kernel.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.z, zsize);
 
           hw_input_copy.compute_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
+
           hw_input.compute_root();
             
         } else {  // schedule to CPU
