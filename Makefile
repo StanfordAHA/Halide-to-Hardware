@@ -615,6 +615,7 @@ HEADER_FILES = \
   Expr.h \
   ExprUsesVar.h \
   Extern.h \
+  ExtractHWAccelerators.h \
   FastIntegerDivide.h \
   FindCalls.h \
   Float16.h \
