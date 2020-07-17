@@ -118,7 +118,10 @@ public:
           
           //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
 
-          hw_output.tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo);
+          hw_output
+              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+
           blur_unnormalized.compute_at(hw_output, xo);
           blur_unnormalized.update()
             .unroll(win.x).unroll(win.y);
@@ -139,6 +142,8 @@ public:
 
           //hw_input.compute_root();
           hw_input.compute_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
+
           input_copy.compute_root();
 
         } else {    // schedule to CPU
