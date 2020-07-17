@@ -142,11 +142,11 @@ void CodeGen_RDAI::visit(const Call *op) {
         Region dim_bounds = stencil.bounds;
         internal_assert(dim_bounds.size() == op->args.size());
         
-        Expr temp_arg = op->args[0];
+        Expr temp_arg = op->args[0] - dim_bounds[0].min;
         Expr temp_stride = 1;
         for (size_t i = 1; i < dim_bounds.size(); i++) {
             temp_stride = temp_stride * dim_bounds[i-1].extent;
-            temp_arg = temp_arg + (op->args[i] * temp_stride);
+            temp_arg = temp_arg + ((op->args[i] - dim_bounds[i].min) * temp_stride);
         }
         temp_arg = simplify(temp_arg);
         stream << print_expr(temp_arg) << ";\n";
@@ -242,11 +242,11 @@ void CodeGen_RDAI::visit(const Provide *op) {
     Region dim_bounds = stencils.get(op->name).bounds;
     internal_assert(dim_bounds.size() == op->args.size());
 
-    Expr temp_arg = op->args[0];
+    Expr temp_arg = op->args[0] - dim_bounds[0].min;
     Expr temp_stride = 1;
     for (size_t i = 1; i < dim_bounds.size(); i++) {
         temp_stride = temp_stride * dim_bounds[i-1].extent;
-        temp_arg = temp_arg + (op->args[i] * temp_stride);
+        temp_arg = temp_arg + ((op->args[i] - dim_bounds[i].min) * temp_stride);
     }
     temp_arg = simplify(temp_arg);
 
