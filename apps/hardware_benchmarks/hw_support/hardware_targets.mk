@@ -144,16 +144,32 @@ $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(BIN)/unoptimize
 $(BIN)/unoptimized_$(TESTNAME).o: $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp
+	@echo -e "\n[COMPILE_INFO] building clockwork pipeline"
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) -c $< -o $@
 $(BIN)/rdai_host-%.o: $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/%.cpp
+	@echo -e "\n[COMPILE_INFO] building RDAI host runtime"
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) $(RDAI_HOST_CXXFLAGS) -c $^ -o $@
 $(BIN)/rdai_platform-%.o: $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/%.cpp
+	@echo -e "\n[COMPILE_INFO] building RDAI platform runtime"
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(CLOCKWORK_PATH) $(RDAI_PLATFORM_CXXFLAGS) -c $^ -o $@
 $(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
+	@echo -e "\n[COMPILE_INFO] building Halide runtime"
 	$^ -r halide_runtime -e o -o $(BIN) target=$(HL_TARGET)
 
-$(BIN)/process_clockwork: process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(BIN)/$(TESTNAME)_clockwork.o $(RDAI_HOST_OBJ_DEPS) $(RDAI_PLATFORM_OBJ_DEPS) $(BIN)/halide_runtime.o
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) $(RDAI_PLATFORM_CXXFLAGS) -Wall $(HLS_PROCESS_CXX_FLAGS) $(HALIDE_SRC_PATH)/distrib/lib/libHalide.a -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
+$(BIN)/process_clockwork: process.cpp \
+						  $(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
+						  $(HWSUPPORT)/$(BIN)/coreir_interpret.o \
+						  $(HWSUPPORT)/coreir_sim_plugins.o \
+						  $(BIN)/clockwork_testscript.o \
+						  $(BIN)/unoptimized_$(TESTNAME).o \
+						  $(BIN)/$(TESTNAME)_clockwork.o \
+						  $(RDAI_HOST_OBJ_DEPS) \
+						  $(RDAI_PLATFORM_OBJ_DEPS) \
+						  $(BIN)/halide_runtime.o
+	@echo -e "\n[COMPILE_INFO] building process_clockwork"
+	$(CXX) 	$(CXXFLAGS) -O3 -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) \
+			-DWITH_CLOCKWORK $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
+
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	./$(COREIR_DIR)/bin/coreir -i $(ROOT_DIR)/$(BIN)/design_top.json -o $(ROOT_DIR)/$(BIN)/top.v --load_libs $(COREIR_DIR)/lib/libcoreir-commonlib.so
@@ -171,11 +187,12 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #ifeq ($(UNAME), Darwin)
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
-ifeq ($(WITH_CLOCKWORK), 1)
-$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o $(RDAI_HOST_OBJ_DEPS) $(RDAI_PLATFORM_OBJ_DEPS)
-else
-$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o
-endif
+
+$(BIN)/process: process.cpp \
+				$(BIN)/$(TESTNAME).a \
+				$(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
+				$(HWSUPPORT)/$(BIN)/coreir_interpret.o \
+				$(HWSUPPORT)/coreir_sim_plugins.o
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
