@@ -440,15 +440,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
           //stream << print_type(args[i].scalar_type) << " " << arg_name;
         }
 
-        //if (is_clockwork && args[i].is_output) {
-        //  memory_stream << "  prg.add_output(\"" << arg_name << "\");" << std::endl;
-        //  memory_stream << "  prg.buffer_port_widths[\"" << arg_name << "\"] = 16;" << std::endl;
-        //} else if (is_clockwork && !args[i].is_output) {
-        //  memory_stream << "  prg.add_input(\"" << arg_name << "\");" << std::endl;
-        //  memory_stream << "  prg.buffer_port_widths[\"" << arg_name << "\"] = 16;" << std::endl;
-        //}
-
-        //if (i < args.size()-1) stream << ",\n";
     }
     
     //memory_stream << std::endl;
@@ -500,11 +491,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                 string io_name = strip_stream(printname(args[i].name));
                 if (args[i].is_output) {
                   memory_stream << "  prg.add_output(\"" << io_name << "\");" << endl;
+                  output = io_name;
                 } else {
                   memory_stream << "  prg.add_input(\"" << io_name << "\");" << endl;
                   inputs.push_back(io_name);
                 }
-                add_buffer(io_name);
+                add_buffer(io_name, stype.elemType.bits());
                 stream << print_stencil_type(args[i].stencil_type) << " &"
                        << printname(args[i].name) << " = " << arg_name << ";\n";
             } else {
@@ -1030,7 +1022,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   for (size_t i=0; i<compute_args.size(); ++i) {
     auto arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
-    add_buffer(buffer_name);
+    add_buffer(buffer_name, 16);
     
     memory_stream << "  " << func_name << "->add_load(\""
                   << buffer_name << "\"";
@@ -1044,7 +1036,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
 
   // Add the store/provide
-  add_buffer(printname(op->name));
+  add_buffer(printname(op->name), op->values[0].type().bits());
   memory_stream << "  " << func_name << "->add_store(\""
                 << printname(op->name) << "\"";
   for (auto arg : op->args) {
@@ -1069,7 +1061,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   // Output the compute function signature including store variables
   compute_stream << std::endl << "//store is: " << Stmt(op);
-  compute_stream << "hw_uint<16> " << func_name << "(";
+  internal_assert(op->values.size() == 1);
+  auto output_bits = output == printname(op->name) ? 16 : op->values[0].type().bits();
+  compute_stream << "hw_uint<" << output_bits << "> " << func_name << "(";
   for (size_t i=0; i<arg_order.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
     auto argname = arg_order[i];
@@ -1165,12 +1159,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   CodeGen_Clockwork_Base::visit(op);
 }
 
-void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_buffer(const string& buffer_name) {
+void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_buffer(const string& buffer_name, int width) {
   if (buffers.count(buffer_name) == 0) {
     //std::cout << buffer_name << " added" << std::endl;
     memory_stream << "  prg.buffer_port_widths[\""
                   << buffer_name
-                  << "\"] = 16;" << endl;
+                  << "\"] = " << width << ";" << endl;
     buffers.emplace(buffer_name);
   } else {
     //std::cout << buffer_name << " not added" << std::endl;

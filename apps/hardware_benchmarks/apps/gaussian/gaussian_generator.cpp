@@ -53,12 +53,12 @@ public:
         //kernel(x) = cast<uint16_t>(kernel_f(x) * 64 / sum_kernel[blockSize-1]);
         //kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
         //                             sum_kernel[blockSize*blockSize-1]);
-        kernel(x,y) = cast<uint32_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
+        kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
                                      sum_kernel[blockSize*blockSize-1]);
 
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
-        blur_unnormalized(x, y) = 0;
+        blur_unnormalized(x, y) = cast<uint16_t>(0);
         //blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x, win.y) * hw_input(x+win.x, y+win.y) );
         blur_unnormalized(x, y) += kernel(win.x, win.y) * hw_input(x+win.x, y+win.y);
         blur(x, y) = blur_unnormalized(x, y) / 256;

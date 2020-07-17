@@ -103,8 +103,8 @@ public:
             cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
         Func cim_output;
-        cim_output(x,y) = cast<uint8_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
-        hw_output(x, y) = cim_output(x,y);
+        cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        hw_output(x, y) = cast<uint8_t>(cim_output(x,y));
         //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
 
@@ -195,8 +195,8 @@ public:
           //int tileSize = 8;
           int tileSize = 58;
           hw_output
-            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize);
-            //.hw_accelerate(xi, xo);
+            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+            .hw_accelerate(xi, xo);
           //padded16.stream_to_accelerator();
 
           grad_x.compute_at(hw_output, xo);
@@ -216,6 +216,7 @@ public:
           lgxy.update().unroll(box.x).unroll(box.y);
 
           padded16.compute_at(hw_output, xo);
+          padded16.stream_to_accelerator();
           hw_input_copy.compute_root();
           
         } else {    // schedule to CPU

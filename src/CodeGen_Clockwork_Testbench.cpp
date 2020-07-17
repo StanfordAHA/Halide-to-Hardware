@@ -71,7 +71,9 @@ vector<Clockwork_Argument> Clockwork_Closure::arguments(const Scope<CodeGen_Cloc
           res.push_back({i.first, false, true, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
         }
     }
-    res.push_back({output_name + "_stencil", true, true, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
+    auto output_stype = CodeGen_Clockwork_Base::Stencil_Type();
+    output_stype.elemType = UInt(16);
+    res.push_back({output_name + "_stencil", true, true, Type(), output_stype});
     //res.push_back({"hw_input_stencil", true, false, Type(), CodeGen_Clockwork_Base::Stencil_Type()});
     return res;
 }

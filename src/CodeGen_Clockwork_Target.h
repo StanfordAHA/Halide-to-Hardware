@@ -82,6 +82,7 @@ protected:
       std::set<std::string> buffers; // buffers added to module so far
       std::map<std::string, ROM_data> roms; // roms that have been identified
       std::vector<std::string> inputs; // inputs to the function
+      std::string output;
 
       /** The stream we're outputting the memory on */
       std::ostringstream memory_stream;
@@ -104,7 +105,7 @@ protected:
       Scope<Expr> scope;
       std::string print_stencil_pragma(const std::string &name);
       std::string output_base_path;
-      void add_buffer(const std::string& buffer_name);
+      void add_buffer(const std::string& buffer_name, int width);
       void add_loop(const For *op);
         
       using CodeGen_Clockwork_Base::visit;
