@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -27,15 +28,15 @@ public:
         kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
         kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
 
-        conv(x, y) = cast<uint16_t>(0);
+        conv(x, y) = u16(0);
 
         Func input_copy, hw_input("hw_input");
-        input_copy(x, y) = cast<uint16_t>(input(x, y));
+        input_copy(x, y) = u16(input(x, y));
         hw_input(x, y) = input_copy(x, y);
-        conv(x, y)  += cast<uint16_t>(cast<uint16_t>(kernel(r.x, r.y)) * hw_input(x * stride + r.x, y * stride + r.y));
+        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x * stride + r.x, y * stride + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
+        hw_output(x, y) = u8(conv(x, y));
         output(x, y) = hw_output(x,y);
 
         output.bound(x, 0, 31);

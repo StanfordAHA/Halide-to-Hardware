@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
