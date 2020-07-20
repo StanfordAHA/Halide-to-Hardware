@@ -7,6 +7,7 @@
  */
 
 #include "CodeGen_Clockwork_Base.h"
+#include "CodeGen_RDAI.h"
 #include "Module.h"
 #include "Scope.h"
 
@@ -15,17 +16,6 @@
 namespace Halide {
 
 namespace Internal {
-
-struct Clockwork_Argument {
-    std::string name;
-
-    bool is_stencil;
-    bool is_output;
-    Type scalar_type;
-
-    CodeGen_Clockwork_Base::Stencil_Type stencil_type;
-    std::vector<Expr> args;
-};
 
 struct ROM_data {
   std::string name;
@@ -54,17 +44,17 @@ class CodeGen_Clockwork_Target {
 public:
     /** Initialize a C code generator pointing at a particular output
      * stream (e.g. a file, or std::cout) */
-    CodeGen_Clockwork_Target(const std::string &name, Target target);
+    CodeGen_Clockwork_Target(const std::string &name, const Target& target);
     virtual ~CodeGen_Clockwork_Target();
 
     void init_module();
 
     void add_kernel(Stmt stmt,
                     const std::string &name,
-                    const std::vector<Clockwork_Argument> &args);
+                    const std::vector<HW_Arg> &args);
 
     void dump();
-    void set_output_folder(std::string folderpath) {
+    void set_output_folder(const std::string& folderpath) {
       output_base_path = folderpath;
       hdrc.set_output_path(folderpath);
       srcc.set_output_path(folderpath);
@@ -72,6 +62,8 @@ public:
     }
 
 protected:
+    std::vector<HW_Arg> closure_args;
+
     class CodeGen_Clockwork_C : public CodeGen_Clockwork_Base {
     public:
       bool is_clockwork;
@@ -99,7 +91,7 @@ protected:
   
       void add_kernel(Stmt stmt,
                       const std::string &name,
-                      const std::vector<Clockwork_Argument> &args);
+                      const std::vector<HW_Arg> &args);
 
     protected:
       Scope<Expr> scope;

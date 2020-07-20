@@ -5,41 +5,48 @@
  *
  * Defines the code-generator for producing Clockwork testbench code
  */
-#include <sstream>
-
-#include "CodeGen_Clockwork_Base.h"
 #include "CodeGen_Clockwork_Target.h"
+#include "CodeGen_RDAI.h"
 #include "Module.h"
-#include "Scope.h"
 
-namespace Halide {
+namespace Halide::Internal {
 
-namespace Internal {
+using std::string;
+using std::vector;
 
 /** A code generator that emits Xilinx Vivado HLS compatible C++ testbench code.
  */
-class CodeGen_Clockwork_Testbench : public CodeGen_Clockwork_Base {
+class CodeGen_Clockwork_Testbench : public CodeGen_RDAI {
 public:
-  CodeGen_Clockwork_Testbench(std::ostream &tb_stream, Target target, std::string filename);
-  ~CodeGen_Clockwork_Testbench();
-  void set_output_folder(std::string folderpath) {
-    cg_target.set_output_folder(folderpath);
-  }
+    CodeGen_Clockwork_Testbench(std::ostream& output_stream, const Target& target, const std::string& pipeline_name);
 
-protected:
-    using CodeGen_Clockwork_Base::visit;
+    ~CodeGen_Clockwork_Testbench();
 
-    void visit(const ProducerConsumer *);
-    void visit(const Call *);
-    void visit(const Realize *);
-    void visit(const Block *);
+    RDAI_TargetGenLike *get_target_codegen()  override;
 
 private:
-    CodeGen_Clockwork_Target cg_target;
-    std::string filename;
+
+    struct Clockwork_TargetGenLike : public RDAI_TargetGenLike
+    {
+        Clockwork_TargetGenLike(CodeGen_Clockwork_Testbench *parent) : parent(parent) {}
+
+        void add_kernel(Stmt stmt, const string& kernel_name, const vector<HW_Arg>& args) {
+            parent->tgt_codegen.add_kernel(stmt, kernel_name, args);
+        }
+
+        void set_output_folder(const string& out_dir) {
+            parent->tgt_codegen.set_output_folder(out_dir);
+        }
+
+    private:
+        CodeGen_Clockwork_Testbench *parent;
+    };
+
+    CodeGen_Clockwork_Target tgt_codegen;
+
+    Clockwork_TargetGenLike tgt_codegen_like;
 };
 
-}
-}
+} // namespace Halide::Internal
 
 #endif

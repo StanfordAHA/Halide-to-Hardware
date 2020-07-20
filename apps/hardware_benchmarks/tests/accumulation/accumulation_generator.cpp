@@ -68,7 +68,9 @@ public:
 
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-ksize+1, 64-ksize+1);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, 64-ksize+1, 64-ksize+1)
+              .hw_accelerate(xi, xo);
 
           // conv is not unrolled
           //conv.update().unroll(r.y);
@@ -78,6 +80,7 @@ public:
           kernel.unroll(x, 9);
           
           hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
           input_copy.compute_root();
 
         } else {  // schedule to CPU

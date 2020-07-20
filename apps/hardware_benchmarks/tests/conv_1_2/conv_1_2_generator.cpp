@@ -64,7 +64,9 @@ public:
           output.bound(y, 0, 64);
 
           hw_output.compute_root();
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-1, 64);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, 64-1, 64)
+              .hw_accelerate(xi, xo);
 
           conv.update()
             .unroll(r.x, 2)
@@ -75,6 +77,8 @@ public:
           kernel.compute_at(conv, x);
 
           hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
+
           input_copy.compute_root();
           
         } else {  // schedule to CPU

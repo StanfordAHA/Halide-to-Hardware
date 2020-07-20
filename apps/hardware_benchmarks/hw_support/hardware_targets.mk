@@ -30,6 +30,27 @@ TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
 
+
+# =========================== RDAI Configuration  ===================================
+
+RDAI_HOST_CXXFLAGS 			= -I$(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/include
+RDAI_PLATFORM_CXXFLAGS 		= -I$(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/include
+
+RDAI_HOST_SRC				= $(wildcard $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/*.cpp)
+RDAI_PLATFORM_SRC			= $(wildcard $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/*.cpp)
+
+RDAI_HOST_SRC_FILES			= $(notdir $(RDAI_HOST_SRC))
+RDAI_PLATFORM_SRC_FILES 	= $(notdir $(RDAI_PLATFORM_SRC))
+
+RDAI_HOST_OBJ_NAMES			= $(patsubst %.cpp,%.o,$(RDAI_HOST_SRC_FILES))
+RDAI_PLATFORM_OBJ_NAMES 	= $(patsubst %.cpp,%.o,$(RDAI_PLATFORM_SRC_FILES))
+
+RDAI_HOST_OBJ_DEPS 			= $(foreach obj,$(RDAI_HOST_OBJ_NAMES),$(BIN)/rdai_host-$(obj))
+RDAI_PLATFORM_OBJ_DEPS 		= $(foreach obj,$(RDAI_PLATFORM_OBJ_NAMES),$(BIN)/rdai_platform-$(obj))
+
+# =========================== End of RDAI ======================================
+
+
 # set this to "1>/dev/null" or "&>/dev/null" to suppress debug output to std::cout
 HALIDE_DEBUG_REDIRECT ?=
 # this is used in the buffermapping (especially ubuffer simulation)
@@ -104,11 +125,11 @@ design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 
 design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_DEBUG_REDIRECT)
 
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_DEBUG_REDIRECT)
 
 $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp: $(BIN)/$(TESTNAME)_memory.cpp
 
@@ -118,19 +139,36 @@ $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -o $@
 $(BIN)/unoptimized_$(TESTNAME).cpp clockwork_unopt: $(BIN)/clockwork_codegen
 	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib ./clockwork_codegen unopt >/dev/null && cd ..
-#	@mkdir -p clkbin
-#	cd clkbin && cp ../$(BIN)/clockwork_codegen . && \
-#	LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib ./clockwork_codegen unopt >/dev/null && cd ..
-#	cp clkbin/unoptimized_$(TESTNAME).* $(BIN)
-#$(BIN)/unoptimized_$(TESTNAME).cpp: clockwork_unopt
-
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/unoptimized_$(TESTNAME).o: $(BIN)/unoptimized_$(TESTNAME).cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
+$(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp
+	@echo -e "\n[COMPILE_INFO] building clockwork pipeline"
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) -c $< -o $@
+$(BIN)/rdai_host-%.o: $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/%.cpp
+	@echo -e "\n[COMPILE_INFO] building RDAI host runtime"
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) $(RDAI_HOST_CXXFLAGS) -c $^ -o $@
+$(BIN)/rdai_platform-%.o: $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/%.cpp
+	@echo -e "\n[COMPILE_INFO] building RDAI platform runtime"
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(CLOCKWORK_PATH) $(RDAI_PLATFORM_CXXFLAGS) -c $^ -o $@
+$(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
+	@echo -e "\n[COMPILE_INFO] building Halide runtime"
+	$^ -r halide_runtime -e o -o $(BIN) target=$(HL_TARGET)
 
-$(BIN)/process_clockwork: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o 
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+$(BIN)/process_clockwork: process.cpp \
+						  $(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
+						  $(HWSUPPORT)/$(BIN)/coreir_interpret.o \
+						  $(HWSUPPORT)/coreir_sim_plugins.o \
+						  $(BIN)/clockwork_testscript.o \
+						  $(BIN)/unoptimized_$(TESTNAME).o \
+						  $(BIN)/$(TESTNAME)_clockwork.o \
+						  $(RDAI_HOST_OBJ_DEPS) \
+						  $(RDAI_PLATFORM_OBJ_DEPS) \
+						  $(BIN)/halide_runtime.o
+	@echo -e "\n[COMPILE_INFO] building process_clockwork"
+	$(CXX) 	$(CXXFLAGS) -O3 -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) \
+			-DWITH_CLOCKWORK $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
@@ -139,7 +177,7 @@ design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 
 design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls,html $(HALIDE_DEBUG_REDIRECT)
 
 #$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o
 #	@-mkdir -p $(BIN)
@@ -149,15 +187,16 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #ifeq ($(UNAME), Darwin)
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
-ifeq ($(WITH_CLOCKWORK), 1)
-$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o $(BIN)/clockwork_testscript.o $(BIN)/unoptimized_$(TESTNAME).o 
-else
-$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o
-endif
+
+$(BIN)/process: process.cpp \
+				$(BIN)/$(TESTNAME).a \
+				$(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
+				$(HWSUPPORT)/$(BIN)/coreir_interpret.o \
+				$(HWSUPPORT)/coreir_sim_plugins.o
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
@@ -217,9 +256,9 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/process $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process
+run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process_clockwork
 	@-mkdir -p $(BIN)
-	$(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
+	$^ run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
@@ -318,6 +357,6 @@ graph.png graph:
 	$(MAKE) $(BIN)/graph.png
 
 clean:
-	rm -rf $(BIN) $(HWSUPPORT)/$(BIN)
+	rm -rf $(BIN) $(HWSUPPORT)/$(BIN) *_debug.csv
 
 test: run

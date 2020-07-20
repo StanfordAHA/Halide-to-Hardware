@@ -86,7 +86,9 @@ public:
 
           hw_output.compute_root();
 
-          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+              .hw_accelerate(xi, xo);
 
           //conv.compute_at(hw_output, xo);
 
@@ -97,6 +99,7 @@ public:
 
           hw_input_copy.compute_at(hw_output, xo);
           hw_input.compute_root();
+          hw_input.stream_to_accelerator();
             
         } else {  // schedule to CPU
           conv.update()

@@ -99,6 +99,53 @@ string printname(const string &name) {
     return oss.str();
 }
 
+string type_to_c_type(Type type) {
+  ostringstream oss;
+  
+  if (type.is_float()) {
+    if (type.bits() == 32) {
+      oss << "float";
+    } else if (type.bits() == 64) {
+      oss << "double";
+    } else if (type.bits() == 16 && !type.is_bfloat()) {
+      oss << "float16_t";
+    } else if (type.bits() == 16 && type.is_bfloat()) {
+      oss << "bfloat16_t";
+    } else {
+      user_error << "Can't represent a float with this many bits in C: " << type << "\n";
+    }
+    if (type.is_vector()) {
+      oss << type.lanes();
+    }
+    
+  } else {
+    switch (type.bits()) {
+    case 1:
+      // bool vectors are always emitted as uint8 in the C++ backend
+      if (type.is_vector()) {
+        oss << "uint8x" << type.lanes() << "_t";
+      } else {
+        oss << "bool";
+      }
+      break;
+    case 8: case 16: case 32: case 64:
+      if (type.is_uint()) {
+        oss << 'u';
+      }
+      oss << "int" << type.bits();
+      if (type.is_vector()) {
+        oss << "x" << type.lanes();
+      }
+      oss << "_t";
+      break;
+    default:
+      user_error << "Can't represent an integer with this many bits in C: " << type << "\n";
+    }
+  }
+
+  return oss.str();
+}
+
 string removedots(const string &name) {
     ostringstream oss;
     
@@ -249,7 +296,7 @@ public:
 
 }
 
-CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, Target target)
+CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Target& target)
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader), 
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
@@ -258,8 +305,8 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, Target ta
 
 
 void print_clockwork_codegen(string appname, ofstream& stream);
-void print_clockwork_execution_header(string appname, vector<string> inputs, ofstream& stream);
-void print_clockwork_execution_cpp(string appname, vector<string> inputs, ofstream& stream);
+void print_clockwork_execution_header(string appname, ofstream& stream);
+void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream);
 
 CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     hdr_stream << "#endif\n";
@@ -305,8 +352,8 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
 
     print_clockwork_codegen(target_name, clk_codegen_file);
-    print_clockwork_execution_header(target_name, clkc.inputs, clk_exec_h_file);
-    print_clockwork_execution_cpp(target_name, clkc.inputs, clk_exec_cpp_file);
+    print_clockwork_execution_header(target_name, clk_exec_h_file);
+    print_clockwork_execution_cpp(target_name, closure_args, clk_exec_cpp_file);
 
     clk_codegen_file.close();
     clk_exec_h_file.close();
@@ -372,9 +419,10 @@ void CodeGen_Clockwork_Target::init_module() {
 
 void CodeGen_Clockwork_Target::add_kernel(Stmt s,
                                           const string &name,
-                                          const vector<Clockwork_Argument> &args) {
+                                          const vector<HW_Arg> &args) {
     debug(1) << "CodeGen_Clockwork_Target::add_kernel " << name << "\n";
 
+    closure_args = args;
     //hdrc.add_kernel(s, name, args);
     //srcc.add_kernel(s, name, args);
     clkc.add_kernel(s, target_name, args);
@@ -388,15 +436,15 @@ void CodeGen_Clockwork_Target::dump() {
 string CodeGen_Clockwork_Target::CodeGen_Clockwork_C::print_stencil_pragma(const string &name) {
     ostringstream oss;
     internal_assert(stencils.contains(name));
-    Stencil_Type stype = stencils.get(name);
-    if (stype.type == Stencil_Type::StencilContainerType::Stream ||
-        stype.type == Stencil_Type::StencilContainerType::AxiStream) {
+    HW_Stencil_Type stype = stencils.get(name);
+    if (stype.type == HW_Stencil_Type::StencilContainerType::Stream ||
+        stype.type == HW_Stencil_Type::StencilContainerType::AxiStream) {
         oss << "#pragma HLS STREAM variable=" << printname(name) << " depth=" << stype.depth << "\n";
         if (stype.depth <= 100) {
             // use shift register implementation when the FIFO is shallow
             oss << "#pragma HLS RESOURCE variable=" << printname(name) << " core=FIFO_SRL\n\n";
         }
-    } else if (stype.type == Stencil_Type::StencilContainerType::Stencil) {
+    } else if (stype.type == HW_Stencil_Type::StencilContainerType::Stencil) {
         oss << "#pragma HLS ARRAY_PARTITION variable=" << printname(name) << ".value complete dim=0\n\n";
     } else {
         internal_error;
@@ -407,7 +455,7 @@ string CodeGen_Clockwork_Target::CodeGen_Clockwork_C::print_stencil_pragma(const
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                                                                const string &name,
-                                                               const vector<Clockwork_Argument> &args) {
+                                                               const vector<HW_Arg> &args) {
 
     if (is_clockwork) {
       //stream << "prog " << name << "() {" << std::endl;
@@ -420,17 +468,16 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
       //mem_bodyname = "prg";
     }
   
-    // Emit the function prototype
     //stream << "void " << name << "(\n";
     
     for (size_t i = 0; i < args.size(); i++) {
         string arg_name = "arg_" + std::to_string(i);
         if (args[i].is_stencil) {
-            CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
-            internal_assert(args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream ||
-                            args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stencil);
+            HW_Stencil_Type stype = args[i].stencil_type;
+            internal_assert(args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::AxiStream ||
+                            args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::Stencil);
             //stream << print_stencil_type(args[i].stencil_type) << " ";
-            if (args[i].stencil_type.type == Stencil_Type::StencilContainerType::AxiStream) {
+            if (args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::AxiStream) {
               //stream << "&";  // hls_stream needs to be passed by reference
             }
             //stream << arg_name;
@@ -485,7 +532,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
             string arg_name = "arg_" + std::to_string(i);
             do_indent();
             if (args[i].is_stencil) {
-                CodeGen_Clockwork_Base::Stencil_Type stype = args[i].stencil_type;
+                HW_Stencil_Type stype = args[i].stencil_type;
                 memory_stream << "// " << print_stencil_type(args[i].stencil_type) << " &"
                               << printname(args[i].name) << " = " << arg_name << ";\n";
                 string io_name = strip_stream(printname(args[i].name));
@@ -496,7 +543,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                   memory_stream << "  prg.add_input(\"" << io_name << "\");" << endl;
                   inputs.push_back(io_name);
                 }
-                add_buffer(io_name, stype.elemType.bits());
+                //add_buffer(io_name, stype.elemType.bits());
+                add_buffer(io_name, 16);
                 stream << print_stencil_type(args[i].stencil_type) << " &"
                        << printname(args[i].name) << " = " << arg_name << ";\n";
             } else {
@@ -518,7 +566,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
 
     for (size_t i = 0; i < args.size(); i++) {
         // Remove buffer arguments from allocation scope
-        if (args[i].stencil_type.type == Stencil_Type::StencilContainerType::Stream) {
+        if (args[i].stencil_type.type == HW_Stencil_Type::StencilContainerType::Stream) {
             allocations.pop(args[i].name);
             stencils.pop(args[i].name);
         }
@@ -545,135 +593,263 @@ void print_clockwork_codegen(string appname, ofstream& stream) {
          << "}" << endl;
 }
 
-void print_clockwork_execution_header(string appname, vector<string> inputs, ofstream& stream) {
-  stream << "#pragma once" << endl
-         << "#include \"HalideBuffer.h\"" << endl
+void print_clockwork_execution_header(string appname, ofstream& stream) {
+  stream << "#ifndef RDAI_CLOCKWORK_WRAPPER\n"
+         << "#define RDAI_CLOCKWORK_WRAPPER\n"
+         << "\n"
+         << "#include \"rdai_api.h\"\n"
          << endl
-         << "template<typename T>" << endl
-         << "void run_clockwork_program(";
-  string padding_spaces = "                           ";
-  bool first = true;
-  for (auto input : inputs) {
-    if (first) { first = false; } else { stream << padding_spaces; }
-    stream << "Halide::Runtime::Buffer<T> " << input << "," << endl;
-  }
-  stream << padding_spaces << "Halide::Runtime::Buffer<T> output);" << endl;
+         << "/**\n"
+         << " * Run clockwork kernel "<< appname << "\n"
+         << "\n"
+         << " * @param mem_obj_list List of input and output buffers\n"
+         << " * NOTE: last element in mem_obj_list points to output buffer\n"
+         <<  " *       whereas the remaining elements point to input buffers.\n"
+         << " */\n"
+         << "void run_clockwork_program(RDAI_MemObject **mem_obj_list);\n"
+         << "\n"
+         << "#endif // RDAI_CLOCKWORK_WRAPPER";
 }
 
-void print_clockwork_execution(string appname, vector<string> inputs, ofstream& stream) {
-  stream << "#include \"clockwork_testscript.h\"" << endl
-         << "#include \"unoptimized_" << appname << ".h\"" << endl
-         << endl
-         << "template<typename T>" << endl
-         << "void run_clockwork_program(";
-  string padding_spaces = "                           ";
-  bool first = true;
-  for (auto input : inputs) {
-    if (first) { first = false; } else { stream << padding_spaces; }
-    stream << "Halide::Runtime::Buffer<T> " << input << "," << endl;
-  }
-  stream << padding_spaces << "Halide::Runtime::Buffer<T> output) {" << endl
-         << "  // input image and run on design" << endl
-         << "  HWStream<hw_uint<16> > output_stream;" << endl;
-  for (auto input : inputs) {
-    stream << "  HWStream<hw_uint<16> > " << input << "_stream;" << endl
-           << "  for (int y = 0; y < " << input << ".height(); y++) {" << endl
-           << "  for (int x = 0; x < " << input << ".width(); x++) {" << endl
-           << "  for (int c = 0; c < " << input << ".channels(); c++) {" << endl
-           << "    hw_uint<16> in_val;" << endl
-           << "    set_at<0*16, 16, 16>(in_val, " << input << "(x, y, c));" << endl
-           << "    " << input << "_stream.write(in_val);" << endl
-           << "  } } }" << endl
-           << endl;
-  }
-  stream << "  // run function" << endl
-         << "  unoptimized_" << appname << "(";
-  for (auto input : inputs) {
-    stream << input << "_stream, ";
-  }
-  stream << "output_stream);" << endl
-         << endl
-         << "  // copy to output" << endl
-         << "  for (int y = 0; y < output.height(); y++) {" << endl
-         << "  for (int x = 0; x < output.width(); x++) {" << endl
-         << "  for (int c = 0; c < output.channels(); c++) {" << endl
-         << "    hw_uint<16> actual = output_stream.read();" << endl
-         << "    auto actual_lane_0 = actual.extract<0*16, 15>();" << endl
-         << "    output(x, y, c) = actual_lane_0;" << endl
-         << "  } } }" << endl
-         << "}" << endl;
-}
+void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
+    stream << "#include \"clockwork_testscript.h\"\n"
+           << "#include \"unoptimized_" << appname << ".h\"\n"
+           << "#include \"hw_classes.h\"\n"
+           << "\n"
+           << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
 
-void print_clockwork_template(string type, vector<string> inputs, ofstream& stream) {
-  string template_function = "template void run_clockwork_program<";
-  string padding_spaces = std::string(type.length() + template_function.length() + 2, ' ');
-  stream << template_function << type << ">(";
-  bool first = true;
-  for (auto input : inputs) {
-    if (first) { first = false; } else { stream << padding_spaces; }
-    stream << "Halide::Runtime::Buffer<" << type << "> " << input << "," << endl;
-  }
-  stream << padding_spaces << "Halide::Runtime::Buffer<" << type << "> output);" << endl;
-}
- 
-void print_clockwork_execution_cpp(string appname, vector<string> inputs, ofstream& stream) {
-  print_clockwork_execution(appname, inputs, stream);
-  stream << endl;
-  
-  vector<string> types = {"bool", "uint8_t", "int8_t", "uint16_t", "int16_t",
-                          "uint32_t", "int32_t", "float"};
-  for (auto type : types) {
-    print_clockwork_template(type, inputs, stream);
-    stream << endl;
-  }
-}
+    size_t num_buffers = closure_args.size();
 
-string type_to_c_type(Type type) {
-  ostringstream oss;
-  
-  if (type.is_float()) {
-    if (type.bits() == 32) {
-      oss << "float";
-    } else if (type.bits() == 64) {
-      oss << "double";
-    } else if (type.bits() == 16 && !type.is_bfloat()) {
-      oss << "float16_t";
-    } else if (type.bits() == 16 && type.is_bfloat()) {
-      oss << "bfloat16_t";
-    } else {
-      user_error << "Can't represent a float with this many bits in C: " << type << "\n";
+    // get sizes of buffer elements
+    vector<int> elt_sizes(num_buffers);
+    for(size_t i = 0; i < num_buffers; i++) {
+        elt_sizes[i] = closure_args[i].stencil_type.elemType.bytes() * 8;
     }
-    if (type.is_vector()) {
-      oss << type.lanes();
+
+    // emit buffer declarations
+    stream << "\t// input and output memory objects\n";
+    for(size_t i = 0; i < num_buffers; i++) {
+        ostringstream oss;
+        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
+        string type_name = oss.str();
+        stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
+        stream << " mem_object_list[" << i << "]->host_ptr;\n";
+    }
+    stream << "\n";
+
+    // emit input and output stream declarations;
+    stream << "\t// input and output stream declarations\n";
+    for(size_t i = 0; i < num_buffers; i++) {
+        stream << "\tHWStream< hw_uint<16> > " << printname(closure_args[i].name) << "_stream;\n";
+    }
+    stream << "\n";
+
+    // copy inputs from buffers to streams
+    if(num_buffers > 1) {
+        for(size_t i = 0; i < num_buffers - 1; i++) {
+            string stream_name = printname(closure_args[i].name) + "_stream";
+            stream << "\t// provision input stream " << stream_name << "\n";
+            Region bounds = closure_args[i].stencil_type.bounds;
+            for(size_t j = 0; j < bounds.size(); j++) {
+                size_t k = bounds.size() - j - 1;
+                ostringstream oss;
+                oss << "l" << k;
+                string varname = oss.str();
+                stream << "\tfor(int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
+            }
+        
+            Expr temp_stride = 1;
+            Expr temp_arg = Variable::make(Int(32), "l0");
+            for(size_t j = 1; j < bounds.size(); j++) {
+                ostringstream oss;
+                oss << "l" << j;
+                string varname = oss.str();
+                temp_stride = temp_stride * bounds[j-1].extent;
+                temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
+            } 
+            temp_arg = simplify(temp_arg);
+            stream << "\t\thw_uint<16> in_val;\n";
+            stream << "\t\tset_at<0, 16, 16>(in_val, ";
+            stream <<  "hw_uint<16>(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
+            stream << "\t\t" << stream_name << ".write(in_val);\n";
+
+            stream << "\t";
+            for(size_t j = 0; j < bounds.size(); j++) {
+                stream << "} ";
+            }
+            stream << "\n";
+        }
+    }
+    stream << "\n\n";
+
+    // emit kernel call
+    stream << "\t// invoke clockwork program\n";
+    stream << "\tunoptimized_" << appname << "(\n";
+    for(size_t i = 0; i < num_buffers; i++) {
+        stream << "\t\t" << printname(closure_args[i].name) << "_stream";
+        if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
+    }
+    stream << "\t);\n\n";
+
+    // copy output from stream to buffer
+    {
+        HW_Arg stencil_arg = closure_args[num_buffers-1];
+        string stream_name = printname(stencil_arg.name) + "_stream";
+        stream << "\t// provision output buffer\n";
+        Region bounds = stencil_arg.stencil_type.bounds;
+        for(size_t i = 0; i < bounds.size(); i++) {
+            size_t j = bounds.size() - i - 1;
+            ostringstream oss;
+            oss << "l" << j;
+            string varname = oss.str();
+            stream << "\tfor(int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
+        }
+        Expr temp_stride = 1;
+        Expr temp_arg = Variable::make(Int(32), "l0");
+        for(size_t i = 1; i < bounds.size(); i++) {
+            ostringstream oss;
+            oss << "l" << i;
+            string varname = oss.str();
+            temp_stride = temp_stride * bounds[i-1].extent;
+            temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
+        }
+        temp_arg = simplify(temp_arg);
+        int elt_size = elt_sizes[num_buffers-1];
+        stream << "\t\thw_uint<16> actual = " << stream_name << ".read();\n";
+        stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
+        stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
+        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
+        stream << "\t";
+        for(size_t i = 0; i < bounds.size(); i++) {
+            stream << "} ";
+        }
+        stream << "\n";
     }
     
-  } else {
-    switch (type.bits()) {
-    case 1:
-      // bool vectors are always emitted as uint8 in the C++ backend
-      if (type.is_vector()) {
-        oss << "uint8x" << type.lanes() << "_t";
-      } else {
-        oss << "bool";
-      }
-      break;
-    case 8: case 16: case 32: case 64:
-      if (type.is_uint()) {
-        oss << 'u';
-      }
-      oss << "int" << type.bits();
-      if (type.is_vector()) {
-        oss << "x" << type.lanes();
-      }
-      oss << "_t";
-      break;
-    default:
-      user_error << "Can't represent an integer with this many bits in C: " << type << "\n";
-    }
-  }
 
-  return oss.str();
+    stream << "}\n";
 }
+
+void print_clockwork_execution_cpp_correct(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
+    stream << "#include \"clockwork_testscript.h\"\n"
+           << "#include \"unoptimized_" << appname << ".h\"\n"
+           << "#include \"hw_classes.h\"\n"
+           << "\n"
+           << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
+
+    size_t num_buffers = closure_args.size();
+
+    // get sizes of buffer elements
+    vector<int> elt_sizes(num_buffers);
+    for(size_t i = 0; i < num_buffers; i++) {
+        elt_sizes[i] = closure_args[i].stencil_type.elemType.bytes() * 8;
+    }
+
+    // emit buffer declarations
+    stream << "\t// input and output memory objects\n";
+    for(size_t i = 0; i < num_buffers; i++) {
+        ostringstream oss;
+        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
+        string type_name = oss.str();
+        stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
+        stream << " mem_object_list[" << i << "]->host_ptr;\n";
+    }
+    stream << "\n";
+
+    // emit input and output stream declarations;
+    stream << "\t// input and output stream declarations\n";
+    for(size_t i = 0; i < num_buffers; i++) {
+        stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
+    }
+    stream << "\n";
+
+    // copy inputs from buffers to streams
+    if(num_buffers > 1) {
+        for(size_t i = 0; i < num_buffers - 1; i++) {
+            string stream_name = printname(closure_args[i].name) + "_stream";
+            stream << "\t// provision input stream " << stream_name << "\n";
+            Region bounds = closure_args[i].stencil_type.bounds;
+            for(size_t j = 0; j < bounds.size(); j++) {
+                size_t k = bounds.size() - j - 1;
+                ostringstream oss;
+                oss << "l" << k;
+                string varname = oss.str();
+                stream << "\tfor(int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
+            }
+        
+            Expr temp_stride = 1;
+            Expr temp_arg = Variable::make(Int(32), "l0");
+            for(size_t j = 1; j < bounds.size(); j++) {
+                ostringstream oss;
+                oss << "l" << j;
+                string varname = oss.str();
+                temp_stride = temp_stride * bounds[j-1].extent;
+                temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
+            } 
+            temp_arg = simplify(temp_arg);
+            stream << "\t\thw_uint<"<<elt_sizes[i]<<"> in_val;\n";
+            stream << "\t\tset_at<0, " << elt_sizes[i] << ", " << elt_sizes[i] << ">(in_val, ";
+            stream <<  "hw_uint<" << elt_sizes[i] << ">(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
+            stream << "\t\t" << stream_name << ".write(in_val);\n";
+
+            stream << "\t";
+            for(size_t j = 0; j < bounds.size(); j++) {
+                stream << "} ";
+            }
+            stream << "\n";
+        }
+    }
+    stream << "\n\n";
+
+    // emit kernel call
+    stream << "\t// invoke clockwork program\n";
+    stream << "\tunoptimized_" << appname << "(\n";
+    for(size_t i = 0; i < num_buffers; i++) {
+        stream << "\t\t" << printname(closure_args[i].name) << "_stream";
+        if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
+    }
+    stream << "\t);\n\n";
+
+    // copy output from stream to buffer
+    {
+        HW_Arg stencil_arg = closure_args[num_buffers-1];
+        string stream_name = printname(stencil_arg.name) + "_stream";
+        stream << "\t// provision output buffer\n";
+        Region bounds = stencil_arg.stencil_type.bounds;
+        for(size_t i = 0; i < bounds.size(); i++) {
+            size_t j = bounds.size() - i - 1;
+            ostringstream oss;
+            oss << "l" << j;
+            string varname = oss.str();
+            stream << "\tfor(int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
+        }
+        Expr temp_stride = 1;
+        Expr temp_arg = Variable::make(Int(32), "l0");
+        for(size_t i = 1; i < bounds.size(); i++) {
+            ostringstream oss;
+            oss << "l" << i;
+            string varname = oss.str();
+            temp_stride = temp_stride * bounds[i-1].extent;
+            temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
+        }
+        temp_arg = simplify(temp_arg);
+        int elt_size = elt_sizes[num_buffers-1];
+        stream << "\t\thw_uint<" << elt_size << "> actual = " << stream_name << ".read();\n";
+        stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
+        stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
+        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
+        stream << "\t";
+        for(size_t i = 0; i < bounds.size(); i++) {
+            stream << "} ";
+        }
+        stream << "\n";
+    }
+    
+
+    stream << "}\n";
+}
+
+
 
 /** Substitute an Expr for another Expr in a graph. Unlike substitute,
  * this only checks for shallow equality. */
@@ -843,7 +1019,7 @@ vector<Compute_Argument> Compute_Closure::arguments() {
           //internal_error << "we don't expect to see a stencil_update type in Compute_Closure.\n";
         } else {
             // it is a scalar variable
-          //res.push_back({i.first, false, true, i.second, CodeGen_Clockwork_Base::Stencil_Type()});
+          //res.push_back({i.first, false, true, i.second, HW_Stencil_Type()});
         }
     }
     return res;

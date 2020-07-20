@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -30,7 +31,7 @@ public:
         kernel(1,0,1) = 7;      kernel(1,1,1) = 19;      kernel(1,2,1) = 4;
         kernel(2,0,1) = 5;      kernel(2,1,1) = 21;      kernel(2,2,1) = 15;
 
-        conv(x, y) = 0;
+        conv(x, y) = u16(0);
 
         Func hw_input("hw_input");
         Func hw_input_copy("hw_input_copy");
@@ -77,14 +78,18 @@ public:
 
           hw_output.compute_root();
 
-          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
-            .reorder(xi,yi, xo,yo);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+              .reorder(xi,yi, xo,yo)
+              .hw_accelerate(xi, xo);
 
           kernel.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.z, zsize);
 
           hw_input_copy.compute_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
+
           hw_input.compute_root();
             
         } else {  // schedule to CPU

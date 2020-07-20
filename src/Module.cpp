@@ -577,28 +577,38 @@ void Module::compile(const Outputs &output_files_arg) const {
       contents->name = oldname;
     }
     if (!output_files.clockwork_source_name.empty()) {
-      debug(1) << "Module.compile(): clockwork_source_name " << output_files.clockwork_source_name << "\n";
+      
+      std::string clockwork_source_name = output_files.clockwork_source_name;
 
-      std::string clockwork_output = output_files.clockwork_source_name;
-      std::ofstream file(output_files.clockwork_source_name);
+      // Get output directory name
+      bool uses_folder = clockwork_source_name.find("/") != std::string::npos;
+      std::string output_folder_name = uses_folder ? clockwork_source_name.substr(0,
+              clockwork_source_name.find_last_of("/") + 1) : "./";
+
+      // Construct full-pipeline generator
+      std::ofstream file(clockwork_source_name);
       Internal::CodeGen_Clockwork_Testbench cg(file,
                                                target().with_feature(Target::CPlusPlusMangling),
                                                name());
+      cg.set_output_folder(output_folder_name);
 
-      bool uses_folder = (clockwork_output.find("/") != std::string::npos);
-      std::string foldername = uses_folder ?
-        clockwork_output.substr(0, clockwork_output.find_last_of("/")+1) :
-        "";
-      cg.set_output_folder(foldername);
-
+      // Emit pipeline code
+      std::cout << "[INFO] Module.compile(): clockwork_source_name = " << clockwork_source_name << "\n";
       std::string oldname = contents->name;
       contents->name = oldname + "_clockwork";
-      
-      std::cout << "Module.compile(): clockwork_source_name " << output_files.clockwork_source_name
-                << " with folder=" << foldername << " and name=" << name() << "\n";
       cg.compile(*this);
-
       contents->name = oldname;
+
+      // Construct pipeline header file
+      std::string hdr_filename = output_folder_name + name() + ".h";
+      std::ofstream hdr_file(hdr_filename);
+      Internal::CodeGen_C hdr_cg(hdr_file,
+                                 target().with_feature(Target::CPlusPlusMangling),
+                                 Internal::CodeGen_C::OutputKind::CHeader,
+                                 hdr_filename
+                                );
+      std::cout << "[INFO] Module.compile(): clockwork header file = " << hdr_filename << "\n";
+      hdr_cg.compile(*this);
     }
 
     if (!output_files.python_extension_name.empty()) {

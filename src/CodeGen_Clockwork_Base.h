@@ -6,6 +6,7 @@
  * Defines an base class of the Vivado HLS C code-generator
  */
 #include "CodeGen_C.h"
+#include "CodeGen_RDAI.h"
 #include "Module.h"
 #include "Scope.h"
 
@@ -26,18 +27,10 @@ public:
                          const std::string &include_guard = "")
       : CodeGen_C(dest, target, output_kind, include_guard) {}
 
-    struct Stencil_Type {
-        typedef enum {Stencil, Stream, AxiStream} StencilContainerType;
-        StencilContainerType type;
-        Type elemType;  // type of the element
-        Region bounds;  // extent of each dimension
-        int depth;      // FIFO depth if it is a Stream type
-    };
-
 protected:
-    Scope<Stencil_Type> stencils;  // scope of stencils and streams of stencils
+    Scope<HW_Stencil_Type> stencils;  // scope of stencils and streams of stencils
 
-    virtual std::string print_stencil_type(Stencil_Type s);
+    virtual std::string print_stencil_type(HW_Stencil_Type s);
     virtual std::string print_name(const std::string &name);
     virtual std::string print_stencil_pragma(const std::string &name);
 
