@@ -4,6 +4,8 @@
 ## Installation
 Clone the `rdai` repo directly outside the halide-to-hardware compiler's top directory (where `clockwork`, `coreir`, and `BufferMapping` dependencies are expected by default).
 
+RDAI repo is located [here](https://github.com/thenextged/rdai.git)
+
 For a full halide-to-hardware compiler setup on Kiwi (including RDAI), please browse [here](https://github.com/thenextged/rdai/blob/master/INSTALL.md).
 
 ## Applications
