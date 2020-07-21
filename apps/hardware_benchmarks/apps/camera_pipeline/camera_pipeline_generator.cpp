@@ -274,7 +274,8 @@ namespace {
         hw_output.compute_root();
 
         hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
-          .reorder(c,xi,yi,xo,yo);
+          .reorder(c,xi,yi,xo,yo)
+          .hw_accelerate(xi, xo);
 
         //hw_output.unroll(c).unroll(xi, 2);
         hw_output.unroll(c);
@@ -291,6 +292,7 @@ namespace {
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         
         hw_input_copy.compute_at(hw_output, xo);
+        hw_input.stream_to_accelerator();
         hw_input.compute_root();
         
       } else {    // schedule to CPU

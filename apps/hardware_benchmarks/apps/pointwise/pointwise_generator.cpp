@@ -57,11 +57,14 @@ public:
           
           //hw_input.compute_root();
           hw_output.compute_root();
-          hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
+              .hw_accelerate(xi, xo);
 
           mult.compute_at(hw_output, xo);
           
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
           input_copy.compute_root();
           
         } else {

@@ -93,7 +93,9 @@ public:
           output.bound(y, 0, outImgSize);
 
           hw_output.compute_root();
-          hw_output.tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize);
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
+              .hw_accelerate(xi, xo);
 
           //hw_input.compute_root();
           //hw_input.store_at(hw_output, xo).compute_at(conv1, x);
@@ -115,6 +117,7 @@ public:
           kernel.compute_root();//.unroll(x).unroll(y);
 
           hw_input.compute_at(hw_output, xo);
+          hw_input.stream_to_accelerator();
           hw_input_copy.compute_root();
           
         } else {  // schedule to CPU
