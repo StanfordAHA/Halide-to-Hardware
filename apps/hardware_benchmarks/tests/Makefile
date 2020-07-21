@@ -12,47 +12,49 @@ ALL_TESTS := $(filter-out hls_support merged_unit_tests tools, $(ALL_TESTS))
 TEST_SUITES := ops fpops conv fpconv inout mem
 
 ### operator tests ###
-OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
-            scomp sminmax sshift ucomp uminmax ushift \
-            counter
+# OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
+#             scomp sminmax sshift ucomp uminmax ushift \
+#             counter
+OP_TESTS := accumulation 
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
 ### floating point operator tests ###
-FP_OP_TESTS := fp_arith fp_comp fp_round fp_rectifier \
-               fp_exp fp_invtrig fp_trig
-fpops := $(FP_OP_TESTS)
-fp_op_tests fp-op-tests fpops: $(FP_OP_TESTS)
+# FP_OP_TESTS := fp_arith fp_comp fp_round fp_rectifier \
+#                fp_exp fp_invtrig fp_trig
+# fpops := $(FP_OP_TESTS)
+# fp_op_tests fp-op-tests fpops: $(FP_OP_TESTS)
 
 ### convolutions ###
-CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
-              conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7
+# CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
+#               conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7
+CONV_TESTS := conv_1_2 conv_2_1 conv_multi strided_conv
 conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
 
 ### floating point convolutions ###
-FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
-                 fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
-fpconv := $(FP_CONV_TESTS)
-fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
+# FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
+#                  fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
+# fpconv := $(FP_CONV_TESTS)
+# fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 
 ### accelerator interface tests ###
-INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
-inout := $(INOUT_TESTS)
-inout_tests inout-tests inouts inout: $(INOUT_TESTS)
+# INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
+# inout := $(INOUT_TESTS)
+# inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
 ### memory tile tests ###
-MEM_TESTS := rom fifo \
-             conv_rolled conv_2x \
-             down_sample up_sample strided_conv \
-             conv_3_3 db_3_3 \
-             accumulation histogram multi_channel_conv \
-             two_level_memory three_level_memory pond
-mem := $(MEM_TESTS)
-mem_tests mem-tests mems mem: $(MEM_TESTS)
+# MEM_TESTS := rom fifo \
+#              conv_rolled conv_2x \
+#              down_sample up_sample strided_conv \
+#              conv_3_3 db_3_3 \
+#              accumulation histogram multi_channel_conv \
+#              two_level_memory three_level_memory pond
+# mem := $(MEM_TESTS)
+# mem_tests mem-tests mems mem: $(MEM_TESTS)
 
 ### generator tests ###
-GEN_TESTS := conv_gen random_pipeline
+# GEN_TESTS := conv_gen random_pipeline
 
 
 ALL_TESTS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
@@ -77,12 +79,11 @@ endef
 
 # For each test suite, testend the function to run
 #  on each of the tests in that test suite.
-#  For example, "make ops-coreir" creates the hardware for each op.
+#  For example, "make ops-clockwork" creates the hardware for each op.
 define SUITE_template =
-$(1)-coreir:  $($(2):=-coreir)
+$(1)-clockwork:  $($(2):=-clockwork)
 $(1)-run:     $($(2):=-run)
-$(1)-compare: $($(2):=-compare)
-$(1)-rewrite: $($(2):=-rewrite)
+$(1)-compare-clockwork: $($(2):=-compare-clockwork)
 $(1)-check:   $($(2):=-check)
 $(1)-clean:   $($(2):=-clean)
 endef
@@ -90,29 +91,19 @@ endef
 $(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
 $(eval $(call SUITE_template,all,alltests))
 
-%-coreir:
+%-clockwork:
 	@if [ -d $* ]; then \
-			$(call run_test,$*,bin/design_top.json); \
+			$(call run_test,$*,clockwork); \
 	fi
 
 %-run:
 	@if [ -d $* ]; then \
-			$(call run_test,$*,bin/output_coreir.png); \
+			$(call run_test,$*,cpu); \
 	fi
 
-%-compare:
+%-compare-clockwork:
 	@if [ -d $* ]; then \
-		$(call run_test,$*,compare); \
-	fi
-
-%-rewrite:
-	@if [ -d $* ]; then \
-		$(call run_test,$*,compare-rewrite); \
-	fi
-
-%-check:
-	@if [ -d $* ]; then \
-		$(MAKE) -sC $* check; \
+		$(call run_test,$*,compare-clockwork); \
 	fi
 
 %-clean:
@@ -133,12 +124,12 @@ all: $(ALL_TESTS_SORTED)
 
 .PHONY: $(ALL_TESTS)
 $(ALL_TESTS):
-	@$(call run_test,$@,compare-coreir)
-	@if [ -f "$@/$(BIN)/output.png" ]; then \
+	@$(call run_test,$@,clockwork)
+	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
 		exit 1; \
 	fi
-	@$(call run_test,$@,compare-rewrite)
-	@if [ -f "$@/$(BIN)/output.png" ]; then \
+	@$(call run_test,$@,compare-clockwork)
+	@if [ -f "$@/$(BIN)/output_compare.png" ]; then \
 		exit 1; \
 	else \
 		exit 0; \
