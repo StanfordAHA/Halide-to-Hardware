@@ -15,20 +15,21 @@ SIMPLE_APPS := pointwise gaussian cascade harris
 simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
-IMG_APPS := pointwise gaussian cascade harris \
-            example fast_corner unsharp \
-            demosaic demosaic_complex camera_pipeline \
-            exposure_fusion local_laplacian stereo hdr_plus
+# IMG_APPS := pointwise gaussian cascade harris \
+#             example fast_corner unsharp \
+#             demosaic demosaic_complex camera_pipeline \
+#             exposure_fusion local_laplacian stereo hdr_plus
+IMG_APPS := gaussian unsharp
 img := $(IMG_APPS)
 
 ### DNN applications ###
-DNN_APPS := gemm unet \
-            conv_layer_2D conv_layer_3D conv_layer_mobile
-dnn := $(DNN_APPS)
+# DNN_APPS := gemm unet \
+#             conv_layer_2D conv_layer_3D conv_layer_mobile
+# dnn := $(DNN_APPS)
 
 ### other applications ###
-OTHER_APPS := smith_waterman
-other := $(OTHER_APPS)
+# OTHER_APPS := smith_waterman
+# other := $(OTHER_APPS)
 
 ALL_APPS_SORTED := $(IMG_APPS) $(DNN_APPS) $(OTHER_APPS)
 allapps := $(ALL_APPS_SORTED)
@@ -77,7 +78,7 @@ $(eval $(call SUITE_template,all,allapps))
 
 %-run:
 	@if [ -d $* ]; then \
-			$(call run_app,$*,bin/output_coreir.png); \
+			$(call run_app,$*,cpu); \
 	fi
 
 %-compare:
@@ -102,18 +103,18 @@ $(eval $(call SUITE_template,all,allapps))
 
 .PHONY: $(ALL_APPS)
 $(ALL_APPS):
-	@$(call run_app,$@,compare)
-	@if [ -f "$@/$(BIN)/output.png" ]; then \
-		exit 1; \
-	else \
-		exit 0; \
-	fi
-	@$(call run_test,$@,compare-rewrite)
-	@if [ -f "$@/$(BIN)/output.png" ]; then \
-		exit 1; \
-	else \
-		exit 0; \
-	fi
+# 	@$(call run_app,$@,run)
+# 	@if [ -f "$@/$(BIN)/output.png" ]; then \
+# 		exit 1; \
+# 	else \
+# 		exit 0; \
+# 	fi
+# 	@$(call run_app,$@,compare-clockwork)
+# 	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
+# 		exit 1; \
+# 	else \
+# 		exit 0; \
+# 	fi
 
 all: testall
 
@@ -127,11 +128,20 @@ list:
 	@echo "NON-CLASSIFIED APPS:"
 	@echo $(NOT_CLASSIFIED_APPS)
 
-runall run_all:
-	@for app in $(ALL_APPS); do \
-	  echo -n "$$app: "; \
-	  $(MAKE) -sC $$app run; \
-	done
+runall run_all:$(ALL_APPS_SORTED)
+$(ALL_APPS_SORTED):
+	@$(call run_app,$@,run)
+	@if [ -f "$@/$(BIN)/output.png" ]; then \
+		exit 1; \
+	else \
+		exit 0; \
+	fi
+	@$(call run_app,$@,compare-clockwork)
+	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
+		exit 1; \
+	else \
+		exit 0; \
+	fi
 
 evalall eval_all:
 	@for app in $(ALL_APPS); do \
