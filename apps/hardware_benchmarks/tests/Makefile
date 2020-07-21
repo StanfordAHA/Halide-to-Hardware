@@ -124,10 +124,10 @@ all: $(ALL_TESTS_SORTED)
 
 .PHONY: $(ALL_TESTS)
 $(ALL_TESTS):
-	@$(call run_test,$@,clockwork)
-	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
-		exit 1; \
-	fi
+# 	@$(call run_test,$@,clockwork)
+# 	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
+# 		exit 1; \
+# 	fi
 	@$(call run_test,$@,compare-clockwork)
 	@if [ -f "$@/$(BIN)/output_compare.png" ]; then \
 		exit 1; \

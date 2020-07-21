@@ -130,12 +130,12 @@ list:
 
 runall run_all:$(ALL_APPS_SORTED)
 $(ALL_APPS_SORTED):
-	@$(call run_app,$@,run)
-	@if [ -f "$@/$(BIN)/output.png" ]; then \
-		exit 1; \
-	else \
-		exit 0; \
-	fi
+# 	@$(call run_app,$@,run)
+# 	@if [ -f "$@/$(BIN)/output.png" ]; then \
+# 		exit 1; \
+# 	else \
+# 		exit 0; \
+# 	fi
 	@$(call run_app,$@,compare-clockwork)
 	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
 		exit 1; \
