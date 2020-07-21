@@ -6,7 +6,7 @@ Clone the `rdai` repo directly outside the halide-to-hardware compiler's top dir
 
 RDAI repo is located [here](https://github.com/thenextged/rdai.git)
 
-For a full halide-to-hardware compiler setup on Kiwi (including RDAI), please browse [here](https://github.com/thenextged/rdai/blob/master/INSTALL.md).
+For a full halide-to-hardware compiler setup on Kiwi (including RDAI), please browse [here](INSTALL.md).
 
 ## Applications
 Applications are split into two folders in `Halide-to-Hardware/apps/hardware_benchmarks`:
