@@ -163,7 +163,7 @@ void CodeGen_RDAI::visit(const Call *op) {
 }
 
 void CodeGen_RDAI::visit(const ProducerConsumer *op) {
-    string target_prefix = "_hls_target";
+    string target_prefix = "hw_output";
     if(starts_with(op->name, target_prefix) && op->is_producer) {
         
         Stmt hw_body = substitute_in_all_letstmts(op->body);
