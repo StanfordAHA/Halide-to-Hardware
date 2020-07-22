@@ -33,6 +33,8 @@ class OneInOneOut_ProcessController : public ProcessController<T> {
  public:
  OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
    ProcessController<T>(app_name), run_calls(ops), design_name(app_name) { }
+ OneInOneOut_ProcessController(std::string app_name) :
+   ProcessController<T>(app_name), design_name(app_name) { }
 
   // overridden methods
   virtual int make_image_def(std::vector<std::string> args);
@@ -61,6 +63,12 @@ class ManyInOneOut_ProcessController : public ProcessController<T> {
       inputs[filename] = Halide::Runtime::Buffer<T>();
     }
     run_calls = ops;
+  }
+  ManyInOneOut_ProcessController(std::string app_name, std::vector<std::string> filenames) :
+    ProcessController<T>(app_name), input_filenames(filenames), inputs_preset(false), design_name(app_name) {
+    for (auto filename : filenames) {
+      inputs[filename] = Halide::Runtime::Buffer<T>();
+    }
   }
 
   // overridden methods

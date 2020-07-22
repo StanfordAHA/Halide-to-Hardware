@@ -513,7 +513,16 @@ void Module::compile(const Outputs &output_files_arg) const {
               std::cout << "renamed loweredfunc named " << oldname << " with " << f.name << std::endl;
             }
           }
+        }
+        if (!output_files.clockwork_source_name.empty()) {
+          contents->name = oldname + "_clockwork";
 
+          for (auto &f : contents->functions) {
+            if (f.name == oldname) {
+              f.name = oldname + "_clockwork";
+              std::cout << "renamed loweredfunc named " << oldname << " with " << f.name << std::endl;
+            }
+          }
         }
         
         //debug(1) << "Module.compile(): c_header_name " << output_files.c_header_name << "\n";
@@ -577,8 +586,19 @@ void Module::compile(const Outputs &output_files_arg) const {
       contents->name = oldname;
     }
     if (!output_files.clockwork_source_name.empty()) {
+
+      // Emit pipeline code
+      std::string oldname = contents->name;
+      //contents->name = oldname + "_clockwork";
+      for (auto& f : contents->functions) {
+        if (f.name == oldname) {
+          f.name += "_clockwork";
+          std::cout << "[INFO] Adding clockwork to function " + f.name << std::endl;
+        }
+      }
       
       std::string clockwork_source_name = output_files.clockwork_source_name;
+      std::cout << "[INFO] Module.compile(): clockwork_source_name = " << clockwork_source_name << "\n";
 
       // Get output directory name
       bool uses_folder = clockwork_source_name.find("/") != std::string::npos;
@@ -591,16 +611,10 @@ void Module::compile(const Outputs &output_files_arg) const {
                                                target().with_feature(Target::CPlusPlusMangling),
                                                name());
       cg.set_output_folder(output_folder_name);
-
-      // Emit pipeline code
-      std::cout << "[INFO] Module.compile(): clockwork_source_name = " << clockwork_source_name << "\n";
-      std::string oldname = contents->name;
-      contents->name = oldname + "_clockwork";
       cg.compile(*this);
-      contents->name = oldname;
 
       // Construct pipeline header file
-      std::string hdr_filename = output_folder_name + name() + ".h";
+      std::string hdr_filename = output_folder_name + name() + "_clockwork.h";
       std::ofstream hdr_file(hdr_filename);
       Internal::CodeGen_C hdr_cg(hdr_file,
                                  target().with_feature(Target::CPlusPlusMangling),
@@ -609,6 +623,8 @@ void Module::compile(const Outputs &output_files_arg) const {
                                 );
       std::cout << "[INFO] Module.compile(): clockwork header file = " << hdr_filename << "\n";
       hdr_cg.compile(*this);
+
+      contents->name = oldname;
     }
 
     if (!output_files.python_extension_name.empty()) {
