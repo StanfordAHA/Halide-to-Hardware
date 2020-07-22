@@ -15,9 +15,10 @@ int main(int argc, char **argv) {
   //float k = 0.04;
   //float threshold = 100;
 
+  assert(false);
   Image<uint8_t> input = load_image(argv[1]);
-  Image<uint8_t> out_native(input.width()-6, input.height()-6);
-  Image<uint8_t> out_hls(480*2, 640*2);
+  Image<uint8_t> out_native(input.width()-6, input.height()-6, 3);
+  Image<uint8_t> out_hls(480*2, 640*2, 3);
 
   printf("start.\n");
 
