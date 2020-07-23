@@ -1406,9 +1406,10 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
            << printname(op->name)
            << "++)\n";
 
+    // create a unique name for each loop variable and replace names within the body
     //string loopname = "loop_" + printname(op->name);
-    //string loopname = printname(op->name);
     string loopname = printname(unique_name(op->name));
+    auto modified_body = substitute(op->name, Variable::make(Int(32), loopname), op->body);
     //string bodyname = mem_bodyname;
     string bodyname = loop_list.back();
     string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
@@ -1434,7 +1435,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     }
 
     loop_list.emplace_back(loopname);
-    op->body.accept(this);
+    //op->body.accept(this);
+    modified_body.accept(this);
     internal_assert(loop_list.back() == loopname);
     loop_list.pop_back();
     //mem_bodyname = bodyname;
