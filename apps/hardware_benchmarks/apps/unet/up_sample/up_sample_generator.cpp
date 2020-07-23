@@ -53,18 +53,20 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
             output.bound(x, 0, 128);
             output.bound(y, 0, 128);
-            output.bound(z, 0, 4);
+            output.bound(z, 0, 1);
             
             Var xi, yi, xo, yo;
 
             hw_output.compute_root();
 
             hw_output.tile(x, y, xo, yo, xi, yi, 128, 128)
+              .hw_accelerate(xi, xo)
               .reorder(xi,yi,z,xo,yo);
 
             nearest_neighbor.compute_at(hw_output, xo);
 
             hw_input.compute_at(hw_output, xo);
+            hw_input.stream_to_accelerator();
             input_copy.compute_root();
             
         } else { // schedule to CPU

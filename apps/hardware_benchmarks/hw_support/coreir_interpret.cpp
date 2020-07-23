@@ -32,10 +32,10 @@ void ImageWriter<elem_t>::write(elem_t data) {
     assert(current_x < width &&
            current_y < height &&
            current_z < channels);
-    std::cout << "output(x=" << current_x
-              << ",y=" << current_y
-              << ",z=" << current_z << ") : writing "
-              << +data << std::endl;
+    //std::cout << "output(x=" << current_x
+    //          << ",y=" << current_y
+    //          << ",z=" << current_z << ") : writing "
+    //          << +data << std::endl;
     image(current_x, current_y, current_z) = data;
 
     // increment coords
@@ -63,9 +63,9 @@ void ImageWriter<elem_t>::save_image(std::string image_name) {
 
 template <typename elem_t>
 void ImageWriter<elem_t>::print_coords() {
-  std::cout << "y=" << current_y
-            << ",x=" << current_x
-            << ",z=" << current_z << std::endl;
+  //std::cout << "y=" << current_y
+  //          << ",x=" << current_x
+  //          << ",z=" << current_z << std::endl;
 }
 
 // This sets each input for the coreir simulator before testing.
@@ -298,8 +298,8 @@ void read_for_cycle(
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name))
-                << " out=" << +output_value << " output_bv=" << state.getBitVec(output_name) << dec << "  valid=1" << endl;
+     // std::cout << "y=" << y << ",x=" << x << " " << hex << "in=" << (state.getBitVec(input_name))
+     //           << " out=" << +output_value << " output_bv=" << state.getBitVec(output_name) << dec << "  valid=1" << endl;
     }
   } else {
     //if (std::is_floating_point<T>::value) {
@@ -385,7 +385,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     bool valid_value = state.getBitVec("self.valid").to_type<bool>();
     //std::cout << "got my valid\n";
     //cout << "output_bv_n = " << output_bv_n << endl;
-      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)).to_type<int>() <<  endl;
+    //std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)).to_type<int>() <<  endl;
     if (valid_value) {
       //std::cout << "this one is valid\n";
       auto output_bv = state.getBitVec(output_name);
@@ -402,7 +402,7 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
 
       coreir_img_writer.write(output_value);
 
-      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      //std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
       readIdx.increment();
     }
 
@@ -424,8 +424,8 @@ void run_for_cycle(CoordinateVector<int>& writeIdx,
     if (has_float_output) {
       float output_float = bitCastToFloat(output_bv.to_type<int>() << 16);
       output_value = static_cast<T>(output_float);
-      std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
-      std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
+      //std::cout << "y=" << y << ",x=" << x << " " << dec << "in=" << (state.getBitVec(input_name)) << " out=" << +output_value << " output_bv =" << state.getBitVec(output_name) << dec << endl;
+      //std::cout << "to int=" << output_bv.to_type<int>() << "  float=" << output_float << std::endl;
     } else {
       output_value = output_bv.to_type<T>();
     }

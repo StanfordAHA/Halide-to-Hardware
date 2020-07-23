@@ -22,7 +22,7 @@ HWSUPPORT ?= ../../../hw_support
 #
 ###############################################################################
 
-include $(HWSUPPORT)//Makefile.inc
+include $(HWSUPPORT)/Makefile.inc
 
 
 
@@ -51,5 +51,5 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 #
 ###############################################################################
 
-include $(HWSUPPORT)//hardware_targets.mk
+include $(HWSUPPORT)/hardware_targets.mk
 

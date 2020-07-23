@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 const int inImgSize = 64;
 //const int outImgSize = inImgSize - 2;
@@ -31,15 +32,15 @@ public:
         Func conv1("conv1");
         Func conv2("conv2");
 
-        conv1(x, y) = 0;
-        conv2(x, y) = 0;
+        conv1(x, y) = u16(0);
+        conv2(x, y) = u16(0);
 
         Func hw_input("hw_input"), hw_input_copy;
         hw_input_copy(x, y) = cast<uint16_t>(input(x, y));
         hw_input(x, y) = hw_input_copy(x, y);
-        conv1(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv1(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         
-        conv2(x, y)  += kernel(r.x, r.y) * conv1(x + r.x, y + r.y);
+        conv2(x, y)  += u16(kernel(r.x, r.y)) * conv1(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv2(x, y));

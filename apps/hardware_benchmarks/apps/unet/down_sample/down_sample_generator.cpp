@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class MaxPoolKernel : public Halide::Generator<MaxPoolKernel> {
 public:
@@ -22,7 +23,7 @@ public:
 
         Func input_copy, hw_input("hw_input");
         Func hw_output("hw_output");
-        input_copy(x, y, z) = cast<uint16_t>(input(x, y, z));
+        input_copy(x, y, z) = u16(input(x, y, z));
         hw_input(x, y, z) = input_copy(x, y, z);
 
 
@@ -60,9 +61,9 @@ public:
         
         /* Average pooling (instead of maximum) works using these lines) */
         Func avg_pool("avg_pool");
-        avg_pool(x, y, z) = 0;
+        avg_pool(x, y, z) = u16(0);
         avg_pool(x, y, z) += hw_input(x * stride + r.x, y * stride + r.y, z);
-        hw_output(x, y, z) = cast<uint8_t>(avg_pool(x, y, z) / 4);
+        hw_output(x, y, z) = u8(avg_pool(x, y, z) / 4);
 
         output(x, y, z) = hw_output(x, y, z);
 
@@ -98,8 +99,8 @@ public:
             hw_output.compute_root();
 
             hw_output.tile(x, y, xo, yo, xi, yi, 64 / stride, 64 / stride)
-              .reorder(xi,yi,z,xo,yo);
-              //.hw_accelerate(xi, xo);
+              .reorder(xi,yi,z,xo,yo)
+              .hw_accelerate(xi, xo);
 
             //max_pool.unroll(x, stride)
             //        .unroll(y, stride);
@@ -112,6 +113,7 @@ public:
 
             //hw_input.unroll(x, 4);
             hw_input.compute_at(hw_output, xo);
+            hw_input.stream_to_accelerator();
             input_copy.compute_root();
 
         } else { // schedule to CPU

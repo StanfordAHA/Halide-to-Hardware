@@ -159,20 +159,20 @@ $(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
 	@echo -e "\n[COMPILE_INFO] building Halide runtime"
 	$^ -r halide_runtime -e o -o $(BIN) target=$(HL_TARGET)
 
-$(BIN)/process_clockwork: process.cpp \
-						  $(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
-						  $(HWSUPPORT)/$(BIN)/coreir_interpret.o \
-						  $(HWSUPPORT)/coreir_sim_plugins.o \
-						  $(BIN)/halide_runtime.o \
-							$(BIN)/clockwork_testscript.o \
-						  $(BIN)/unoptimized_$(TESTNAME).o \
-						  $(BIN)/$(TESTNAME)_clockwork.o \
-						  $(RDAI_HOST_OBJ_DEPS) \
-						  $(RDAI_PLATFORM_OBJ_DEPS) \
-							$(BIN)/$(TESTNAME).a
-	@echo -e "\n[COMPILE_INFO] building process_clockwork"
-	$(CXX) 	$(CXXFLAGS) -O3 -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) \
-			-DWITH_CLOCKWORK $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
+#$(BIN)/process_clockwork: process.cpp \
+#						  $(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
+#						  $(HWSUPPORT)/$(BIN)/coreir_interpret.o \
+#						  $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o \
+#						  $(BIN)/halide_runtime.o \
+#							$(BIN)/clockwork_testscript.o \
+#						  $(BIN)/unoptimized_$(TESTNAME).o \
+#						  $(BIN)/$(TESTNAME)_clockwork.o \
+#						  $(RDAI_HOST_OBJ_DEPS) \
+#						  $(RDAI_PLATFORM_OBJ_DEPS) \
+#							$(BIN)/$(TESTNAME).a
+#	@echo -e "\n[COMPILE_INFO] building process_clockwork"
+#	$(CXX) 	$(CXXFLAGS) -O3 -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) \
+#			-DWITH_CLOCKWORK $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
@@ -193,7 +193,7 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #endif
 
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/coreir_sim_plugins.o
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
@@ -234,6 +234,8 @@ endif
 #				$(HWSUPPORT)/$(BIN)/coreir_interpret.o \
 #				$(HWSUPPORT)/coreir_sim_plugins.o
 
+# we should remake process in case there are extra dependencies
+.PHONY: $(BIN)/process
 $(BIN)/process: $(PROCESS_DEPS)
 	echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
@@ -417,6 +419,6 @@ graph.png graph:
 	$(MAKE) $(BIN)/graph.png
 
 clean:
-	rm -rf $(BIN) $(HWSUPPORT)/$(BIN) *_debug.csv
+	rm -rf $(BIN) *_debug.csv
 
 test: run

@@ -1,65 +1,62 @@
+#include <iostream>
 #include <cstdio>
-
-// Halide helpers
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 
-// CoreIR interpretor header
-#include "coreir_interpret.h"
+#if defined(WITH_CPU)
+   #include "conv_3_3.h"
+#endif
 
-// Clockwork - RDAI
-#ifdef WITH_CLOCKWORK
+#if defined(WITH_COREIR)
+    #include "coreir_interpret.h"
+#endif
+
+#if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-#endif // WITH_CLOCKWORK
-
-// Pipeline header
-#include "conv_3_3.h"
+    #include "conv_3_3_clockwork.h"
+#endif
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-int main( int argc, char **argv )
-{
-    auto cpu_process = [&]( auto &proc ) {
-      conv_3_3(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
-    };
+int main( int argc, char **argv ) {
+  std::map<std::string, std::function<void()>> functions;
+  ManyInOneOut_ProcessController<uint8_t> processor("unet_conv_3_3", {"input.png", "kernel.png"});
 
-    auto rewrite_process = [&]( auto &proc ) {
-      run_coreir_rewrite_on_interpreter<>("bin/design_top.json", "bin/ubuffers.json",
-                                          proc.inputs["input.png"], proc.output,
-                                          "self.in_arg_0_0_0", "self.out_0_0");
-    };
-    auto coreir_process = [&]( auto &proc ) {
-      run_coreir_on_interpreter<>("bin/design_top.json",
-                                  proc.inputs["input.png"], proc.output,
-                                  "self.in_arg_0_0_0", "self.out_0_0");
-    };
+  #if defined(WITH_CPU)
+      auto cpu_process = [&]( auto &proc ) {
+        conv_3_3(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
+      };
+      functions["cpu"] = [&](){ cpu_process( processor ); } ;
+  #endif
+  
+  #if defined(WITH_COREIR)
+      auto coreir_process = [&]( auto &proc ) {
+          run_coreir_on_interpreter<>( "bin/design_top.json",
+                                       proc.inputs["input.png"], proc.output,
+                                       "self.in_arg_0_0_0", "self.out_0_0" );
+      };
+      functions["coreir"] = [&](){ coreir_process( processor ); };
+  #endif
+  
+  #if defined(WITH_CLOCKWORK)
+      auto clockwork_process = [&]( auto &proc ) {
+        RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
+        if ( rdai_platform ) {
+          printf( "[RUN_INFO] found an RDAI platform\n" );
+          conv_3_3(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
+          RDAI_unregister_platform( rdai_platform );
+        } else {
+          printf("[RUN_INFO] failed to register RDAI platform!\n");
+        }
+      };
+      functions["clockwork"] = [&](){ clockwork_process( processor ); };
+  #endif
 
-    auto clockwork_process = [&]( auto &proc ) {
-        #ifdef WITH_CLOCKWORK
-            RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
-            if( rdai_platform ) {
-                printf( "[RUN_INFO] found an RDAI platform\n" );
-                conv_3_3(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
-                RDAI_unregister_platform( rdai_platform );
-            } else {
-                printf("[RUN_INFO] failed to register RDAI platform!\n");
-            }
-        #else
-            printf("[RUN_INFO] Please run the run-clockwork target instead!\n");
-        #endif // WITH_CLOCKWORK
-    };
-
-    ManyInOneOut_ProcessController<uint8_t> processor( "unet_conv_3_3", {"input.png", "kernel.png"},
-                                                    {
-                                                      { "cpu",          [&](){ cpu_process( processor ); } },
-                                                      { "coreir",       [&](){ coreir_process( processor ); } },
-                                                      { "rewrite",      [&](){ rewrite_process( processor ); } },
-                                                      { "clockwork",    [&](){ clockwork_process( processor ); } }
-                                                    }
-                                                  );
-
+    // Add all defined functions
+    processor.run_calls = functions;
+  
     int X = 16;
     int Y = 16;
     int K_X = 3;
