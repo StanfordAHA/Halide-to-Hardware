@@ -288,7 +288,7 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.png: $(BIN)/$(TESTNAME).generator
+run run-cpu $(BIN)/output_cpu.png: $(BIN)/$(TESTNAME).a
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
 	$(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
@@ -303,7 +303,7 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/design_top.json
 	$(MAKE) $(BIN)/process WITH_COREIR=1
 	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.png:
+run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process $(BIN)/clockwork_testscript.o
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
 	$(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
@@ -347,10 +347,10 @@ compare-rewrite compare-rewrite-cpu compare-cpu-rewrite:
     (exit $$EXIT_CODE);  \
 	fi
 
-#compare-clockwork compare-cpu-clockwork compare-clockwork-cpu: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png
-compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
-	$(MAKE) $(BIN)/output_cpu.png
-	$(MAKE) $(BIN)/output_clockwork.png 
+compare-clockwork compare-cpu-clockwork compare-clockwork-cpu: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
+#compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
+#	$(MAKE) $(BIN)/output_cpu.png
+#	$(MAKE) $(BIN)/output_clockwork.png 
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_clockwork.png; \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \

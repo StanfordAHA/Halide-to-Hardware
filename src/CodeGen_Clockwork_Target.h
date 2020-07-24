@@ -98,7 +98,6 @@ protected:
       std::string print_stencil_pragma(const std::string &name);
       std::string output_base_path;
       void add_buffer(const std::string& buffer_name, int width);
-      void add_loop(const For *op);
         
       using CodeGen_Clockwork_Base::visit;
 

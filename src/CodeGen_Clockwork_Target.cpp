@@ -1267,7 +1267,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
                   << used_loopname << "\");" << std::endl;
     
     iface.indices.emplace_back(CoreIR_Port({used_loopname, 16}));
-    compute_stream << ", int _" << used_loopname;
+    compute_stream << ", const int _" << used_loopname;
   }
   compute_stream << ") {\n";
 
@@ -1361,30 +1361,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
   CodeGen_Clockwork_Base::visit(op);
 }
 
-void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_loop(const For *op) {
-  //if (loops.count(op->name) > 0) { return; } //TODO: also check that loop is equal
-
-  string id_min = print_expr(op->min);
-  //string id_extent = print_expr(op->extent);
-  string id_max = print_expr(simplify(op->extent + op->min));
-
-  //string loopname = "loop_" + printname(op->name);
-  //string loopname = printname(op->name);
-  string loopname = unique_name(printname(op->name));
-  //string bodyname = mem_bodyname;
-  string bodyname = loop_list.back();
-  string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
-  memory_stream << "  auto " << loopname << " = "
-                << bodyname << addloop
-                << "\"" << printname(op->name) << "\""
-                << ", " << id_min
-                << ", " << id_max
-                << ");\n";
-
-  //loops.emplace(op->name);
-  loops.emplace(loopname);
-}
-
 // almost that same as CodeGen_C::visit(const For *)
 // we just add a 'HLS PIPELINE' pragma after the 'for' statement
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
@@ -1415,7 +1391,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";
     memory_stream << "  auto " << loopname << " = "
                   << bodyname << addloop
-                  << "\"" << printname(op->name) << "\""
+                  << "\"" << loopname << "\""
                   << ", " << id_min
                   << ", " << id_max
                   << ");\n";
