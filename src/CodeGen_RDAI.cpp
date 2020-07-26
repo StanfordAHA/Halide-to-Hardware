@@ -177,7 +177,7 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         // Launch target codegen
         string hw_ip_name = unique_name("clockwork_target_" + pipeline_name);
         RDAI_TargetGenLike *cg_target = get_target_codegen();
-        //std::cout << op->body << std::endl; // show the accelerated section
+        std::cout << op->body << std::endl; // show the accelerated section
         cg_target->add_kernel(hw_body, hw_ip_name, args);
 
         // Emit RDAI API

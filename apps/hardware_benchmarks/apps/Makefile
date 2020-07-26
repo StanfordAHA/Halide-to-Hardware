@@ -58,6 +58,7 @@ $(1)-coreir:    $($(2):=-coreir)
 $(1)-clockwork: $($(2):=-clockwork)
 $(1)-run:       $($(2):=-run)
 $(1)-compare:   $($(2):=-compare)
+$(1)-compare-clockwork: $($(2):=-compare-clockwork)
 $(1)-rewrite:   $($(2):=-rewrite)
 $(1)-check:     $($(2):=-check)
 $(1)-clean:     $($(2):=-clean)
@@ -79,6 +80,11 @@ $(eval $(call SUITE_template,all,allapps))
 %-run:
 	@if [ -d $* ]; then \
 			$(call run_app,$*,cpu); \
+	fi
+
+%-compare-clockwork:
+	@if [ -d $* ]; then \
+		$(call run_test,$*,compare-clockwork); \
 	fi
 
 %-compare:

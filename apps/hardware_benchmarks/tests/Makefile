@@ -81,11 +81,11 @@ endef
 #  on each of the tests in that test suite.
 #  For example, "make ops-clockwork" creates the hardware for each op.
 define SUITE_template =
-$(1)-clockwork:  $($(2):=-clockwork)
-$(1)-run:     $($(2):=-run)
+$(1)-clockwork:         $($(2):=-clockwork)
+$(1)-run:               $($(2):=-run)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
-$(1)-check:   $($(2):=-check)
-$(1)-clean:   $($(2):=-clean)
+$(1)-check:             $($(2):=-check)
+$(1)-clean:             $($(2):=-clean)
 endef
 
 $(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))

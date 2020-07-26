@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -25,9 +26,10 @@ public:
 
         //conv(x, y) = 0;
 
-        Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        Func hw_input("hw_input"), input_copy;
+        input_copy(x, y) = u16(input(x, y));
+        hw_input(x, y) = input_copy(x, y);
+        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         //conv(x,y) =
         //  kernel(0,0)*hw_input(x,y) +
         //  kernel(1,0)*hw_input(x+1,y) +
@@ -39,8 +41,11 @@ public:
         //  kernel(1,2)*hw_input(x+1,y+2) +
         //  kernel(2,2)*hw_input(x+2,y+2);
 
-        Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
+        Func hw_output("hw_output"), output_copy;
+        output_copy(x, y) = conv(x, y);
+        hw_output(x, y) = cast<uint8_t>(output_copy(x, y));
+        //hw_output(x, y) = cast<uint8_t>(conv(x, y));
+
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
@@ -89,6 +94,50 @@ public:
           // conv.linebuffer();
           // 
           // hw_input.stream_to_accelerator();
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
+          Var xi,yi;
+
+          int tilesize = 64;
+          int gbsize = tilesize * 4;
+
+          hw_output.compute_root();
+          output.bound(x, 0, gbsize);
+          output.bound(y, 0, gbsize);
+          
+          // Produce loop levels: host, global buffer, cgra
+          hw_output
+            .tile(x, y, x_host,y_host, xi,yi, gbsize,gbsize)
+            .tile(xi, yi, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize)
+            .reorder(x_cgra, y_cgra, x_gb, y_gb, x_host, y_host)
+            .hw_accelerate(xi, x_host);
+
+          output_copy.compute_at(hw_output, x_host);
+          output_copy
+            .tile(x, y, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize);
+
+          // Unroll the computation loops to duplicate hardware
+          conv.update()
+            .unroll(r.x)
+            .unroll(r.y);
+          conv.compute_at(output_copy, x_gb);
+
+          // compute the kernel values only once (they'll be converted to constants anyway)
+          kernel.compute_at(output_copy, x_gb);
+
+          hw_input.compute_at(output_copy, x_gb);
+          hw_input.stream_to_accelerator();
+
+          // Three buffers: one at host,
+          //                a copy stage as the global buffer,
+          //                another copy stage as the memory tiles
+          input_copy.store_root().compute_root();
+          input_copy.in().compute_at(hw_output,x_host);
+          input_copy.in().in().compute_at(output_copy, x_gb);
+          //input_copy.in().store_at(hw_output, x_host).compute_at(hw_output,x_gb);
+          //input_copy.in().in().store_at(hw_output, x_gb).compute_at(hw_output,x_cgra);
+          hw_output.in().compute_root();
           
         } else {  // schedule to CPU
           
