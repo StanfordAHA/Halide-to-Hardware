@@ -58,8 +58,31 @@ public:
 
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          output.bound(x, 0, 64-3);
+          output.bound(y, 0, 64-3);
           
-        } else {  // schedule to CPU
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, 64-3, 64-3)
+            .hw_accelerate(xi, xo);
+
+            
+          kernel.compute_at(conv, x);
+          conv.update()
+            .unroll(r.x, 4)
+            .unroll(r.y, 4);
+
+          // conv.compute_at(hw_output, xo);
+
+          hw_input.compute_at(hw_output, xo);
+          hw_input.compute_root();
+          hw_input.stream_to_accelerator();
+
+
+        }  else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();
           conv.update()
