@@ -25,11 +25,13 @@ public:
         kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;      kernel(2,3) = 32;
         kernel(3,0) = 20;      kernel(3,1) = 29;      kernel(3,2) = 22;      kernel(3,3) = 24;
  
-        conv(x, y) = 0;
+        conv(x, y) = cast<uint16_t>(0);;
 
         Func hw_input("hw_input");
+        Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        hw_input_copy(x, y) = hw_input(x, y);
+        conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
@@ -77,7 +79,7 @@ public:
 
           // conv.compute_at(hw_output, xo);
 
-          hw_input.compute_at(hw_output, xo);
+          hw_input_copy.compute_at(hw_output, xo);
           hw_input.compute_root();
           hw_input.stream_to_accelerator();
 
