@@ -1419,7 +1419,7 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, int size, Stmt body, CoreIR::C
 
 CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context) {
   // add the output
-  CoreIR::Type* out_type = context->Bit()->Arr(iface.output.bitwidth);
+  CoreIR::Type* out_type = context->Bit()->Arr(inst_bitwidth(iface.output.bitwidth));
   CoreIR::RecordParams recordparams = {
     {"out_" + iface.output.name, out_type}
   };
@@ -1450,7 +1450,7 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
     if (false) {//(num_bundles == 1) {
       bundle_type = context->BitIn()->Arr(bitwidth);
     } else {
-      bundle_type = context->BitIn()->Arr(bitwidth)->Arr(num_bundles);
+      bundle_type = context->BitIn()->Arr(inst_bitwidth(bitwidth))->Arr(num_bundles);
     }
     string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     recordparams.push_back({bundle_name, bundle_type});
@@ -1459,7 +1459,7 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
   // Add each index as an input
   for (auto index : iface.indices) {
     string index_name = index.name;
-    CoreIR::Type* index_type = context->BitIn()->Arr(index.bitwidth);
+    CoreIR::Type* index_type = context->BitIn()->Arr(inst_bitwidth(index.bitwidth));
     recordparams.push_back({index_name, index_type});
   }
 

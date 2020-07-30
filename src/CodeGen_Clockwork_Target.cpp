@@ -543,8 +543,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                   memory_stream << "  prg.add_input(\"" << io_name << "\");" << endl;
                   inputs.push_back(io_name);
                 }
-                //add_buffer(io_name, stype.elemType.bits());
-                add_buffer(io_name, 16);
+                add_buffer(io_name, stype.elemType.bits());
+                //add_buffer(io_name, 16);
                 stream << print_stencil_type(args[i].stencil_type) << " &"
                        << printname(args[i].name) << " = " << arg_name << ";\n";
             } else {
@@ -611,7 +611,7 @@ void print_clockwork_execution_header(string appname, ofstream& stream) {
          << "#endif // RDAI_CLOCKWORK_WRAPPER";
 }
 
-void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
+void print_clockwork_execution_cpp_16bit(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
     stream << "#include \"clockwork_testscript.h\"\n"
            << "#include \"unoptimized_" << appname << ".h\"\n"
            << "#include \"hw_classes.h\"\n"
@@ -730,7 +730,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     stream << "}\n";
 }
 
-void print_clockwork_execution_cpp_correct(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
+void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
     stream << "#include \"clockwork_testscript.h\"\n"
            << "#include \"unoptimized_" << appname << ".h\"\n"
            << "#include \"hw_classes.h\"\n"
@@ -1198,7 +1198,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   for (size_t i=0; i<compute_args.size(); ++i) {
     auto arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
-    add_buffer(buffer_name, 16);
+    add_buffer(buffer_name, arg.type.bits());
     
     memory_stream << "  " << func_name << "->add_load(\""
                   << buffer_name << "\"";
@@ -1212,7 +1212,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
 
   // Add the store/provide
-  add_buffer(printname(op->name), op->values[0].type().bits());
+  uint store_size = op->values[0].type().bits();
+  add_buffer(printname(op->name), store_size);
   memory_stream << "  " << func_name << "->add_store(\""
                 << printname(op->name) << "\"";
   for (auto arg : op->args) {
@@ -1221,7 +1222,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
   }
   memory_stream << ");\n";
-  iface.output = CoreIR_Port({printname(op->name), 16});
+  iface.output = CoreIR_Port({printname(op->name), store_size});
 
   // Output the compute. Starting with merging the arguments to the same buffer
   map<string, vector<Compute_Argument> > merged_args;
@@ -1238,12 +1239,18 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Output the compute function signature including store variables
   compute_stream << std::endl << "//store is: " << Stmt(op);
   internal_assert(op->values.size() == 1);
-  auto output_bits = output == printname(op->name) ? 16 : op->values[0].type().bits();
+  //auto output_bits = output == printname(op->name) ? 16 : op->values[0].type().bits();
+  auto output_bits = op->values[0].type().bits();
   compute_stream << "hw_uint<" << output_bits << "> " << func_name << "(";
   for (size_t i=0; i<arg_order.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
     auto argname = arg_order[i];
-    uint total_bitwidth = merged_args[argname].size() * 16;
+    
+    uint total_bitwidth = 0;
+    for (auto arg : merged_args[argname]) {
+      total_bitwidth += arg.type.bits();
+    }
+    //uint total_bitwidth = merged_args[argname].size() * esize;
     compute_stream << "hw_uint<" << total_bitwidth << ">& " << printname(argname);
   }
 
@@ -1266,20 +1273,26 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     memory_stream << "  " << func_name << "->compute_unit_needs_index_variable(\""
                   << used_loopname << "\");" << std::endl;
     
-    iface.indices.emplace_back(CoreIR_Port({used_loopname, 16}));
+    iface.indices.emplace_back(CoreIR_Port({used_loopname, 16})); // loops use 16 bit variables
     compute_stream << ", const int _" << used_loopname;
   }
   compute_stream << ") {\n";
 
   // Add each of the stores to the coreir interface
   for (auto argname : arg_order) {
-    uint total_bitwidth = merged_args[argname].size() * 16;
+    //uint total_bitwidth = merged_args[argname].size() * esize;
+    uint total_bitwidth = 0;
+    for (auto arg : merged_args[argname]) {
+      total_bitwidth += arg.type.bits();
+    }
+    
     vector<CoreIR_Port> iports;
     for (auto arg_component : merged_args[argname]) {
+      uint esize = arg_component.type.bits();
       if (false) {//merged_args[argname].size() == 1) {
-        iports.push_back(CoreIR_Port({printname(arg_component.bufname), 16}));
+        iports.push_back(CoreIR_Port({printname(arg_component.bufname), esize}));
       } else {
-        iports.push_back(CoreIR_Port({printname(arg_component.name), 16}));
+        iports.push_back(CoreIR_Port({printname(arg_component.name), esize}));
       }
     }
     iface.inputs.push_back(CoreIR_PortBundle({printname(argname), total_bitwidth, iports}));
@@ -1293,10 +1306,11 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
     for (size_t i=0; i<arg_components.size(); ++i) {
       auto arg_component = arg_components[i];
+      int esize = arg_component.type.bits();
       string type = type_to_c_type(arg_component.type);
       compute_stream << "  " << type << " _" << printname(arg_component.name) << " = "
                      << "(" << type << ") "
-                     << bufname << ".extract<" << 16*i << ", " << 16*i+15 << ">();" << std::endl;
+                     << bufname << ".extract<" << esize*i << ", " << esize*(i+1)-1 << ">();" << std::endl;
     }
     compute_stream << std::endl;
   }

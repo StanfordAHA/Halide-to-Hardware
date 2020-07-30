@@ -3,7 +3,7 @@
 #include "halide_image_io.h"
 
 #if defined(WITH_CPU)
-   #include "camera_pipe.h"
+   #include "camera_pipeline.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -13,7 +13,7 @@
 #if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-    #include "camera_pipe_clockwork.h"
+    #include "camera_pipeline_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -21,11 +21,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<uint8_t> processor("camera_pipe");
+  OneInOneOut_ProcessController<uint8_t> processor("camera_pipeline");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        camera_pipe( proc.input, proc.output );
+        camera_pipeline( proc.input, proc.output );
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -44,7 +44,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          camera_pipe_clockwork( proc.input, proc.output );
+          camera_pipeline_clockwork( proc.input, proc.output );
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");

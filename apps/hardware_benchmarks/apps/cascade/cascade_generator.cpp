@@ -23,8 +23,8 @@ public:
         //Func conv1("conv1"), conv2("conv2");
         RDom r(0, 3,
                0, 3);
-        RDom rs(0, 2,
-                0, 2);
+        RDom r2(0, 3,
+                0, 3);
 
         kernel(x,y) = 0;
         kernel(0,0) = 1;      kernel(0,1) = 2;      kernel(0,2) = 1;
@@ -42,7 +42,7 @@ public:
         hw_input(x, y) = hw_input_copy(x, y);
         conv1(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         
-        conv2(x, y)  += u16(kernel(rs.x, rs.y)) * conv1(x + rs.x, y + rs.y);
+        conv2(x, y)  += u16(kernel(r2.x, r2.y) * 33) * conv1(x + r2.x, y + r2.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv2(x, y));
@@ -107,13 +107,15 @@ public:
 
           conv2.store_at(hw_output, xo).compute_at(hw_output, xo);
           conv2.update()
-            .unroll(rs.x)
-            .unroll(rs.y);
+            .reorder(r2.x, r2.y)
+            .unroll(r2.x)
+            .unroll(r2.y);
           //conv2.linebuffer();
           
           //conv1.linebuffer();
           conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
           conv1.update()
+            .reorder(r.y, r.x)
             .unroll(r.x)
             .unroll(r.y);
 
