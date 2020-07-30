@@ -81,20 +81,20 @@ $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_hel
 
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@ 
 
 $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o: $(HWSUPPORT)/coreir_sim_plugins.cpp $(HWSUPPORT)/coreir_sim_plugins.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
 
 
 .PHONY: generator
 generator $(BIN)/$(TESTNAME).generator: $(TESTNAME)_generator.cpp $(GENERATOR_DEPS)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -g -fno-rtti $(filter-out %.h,$^) $(LDFLAGS) -o $@
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
@@ -113,22 +113,22 @@ coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot $< $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
 $(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top.json $(BIN)/design_top.txt
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp: $(BIN)/$(TESTNAME)_memory.cpp
 
@@ -157,7 +157,7 @@ $(BIN)/rdai_platform-%.o: $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)
 	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(CLOCKWORK_PATH) $(RDAI_PLATFORM_CXXFLAGS) -c $^ -o $@
 $(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
 	@echo -e "\n[COMPILE_INFO] building Halide runtime"
-	$^ -r halide_runtime -e o -o $(BIN) target=$(HL_TARGET)
+	$^ -r halide_runtime -e o  target=$(HL_TARGET) -o $(BIN)
 
 #$(BIN)/process_clockwork: process.cpp \
 #						  $(HWSUPPORT)/$(BIN)/hardware_process_helper.o \
@@ -176,18 +176,18 @@ $(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
-	./$(COREIR_DIR)/bin/coreir -i $(ROOT_DIR)/$(BIN)/design_top.json -o $(ROOT_DIR)/$(BIN)/top.v --load_libs $(COREIR_DIR)/lib/libcoreir-commonlib.so
+	./$(COREIR_DIR)/bin/coreir -i $(ROOT_DIR)/$(BIN)/design_top.json --load_libs $(COREIR_DIR)/lib/libcoreir-commonlib.so -o $(ROOT_DIR)/$(BIN)/top.v
 	@echo -e "\033[0;32m coreir verilog generated \033[0m"
 
 design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls,html $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-hls-legacy_buffer_wrappers -e vhls,html $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 #$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o
 #	@-mkdir -p $(BIN)
-#	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-#	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-#	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+#	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
+#	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
+#	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
 #ifeq ($(UNAME), Darwin)
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
@@ -241,7 +241,7 @@ $(BIN)/process: $(PROCESS_DEPS)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS)
+	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $^  $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
@@ -320,7 +320,7 @@ run-vhls: $(BIN)/process
 	$(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
 #compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
-compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png:
+compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png:
 	$(MAKE) $(BIN)/output_cpu.png
 	$(MAKE) $(BIN)/output_coreir.png
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
@@ -347,7 +347,7 @@ compare-rewrite compare-rewrite-cpu compare-cpu-rewrite:
     (exit $$EXIT_CODE);  \
 	fi
 
-compare-clockwork compare-cpu-clockwork compare-clockwork-cpu: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
+compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
 #compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
 #	$(MAKE) $(BIN)/output_cpu.png
 #	$(MAKE) $(BIN)/output_clockwork.png 

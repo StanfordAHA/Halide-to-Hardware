@@ -19,13 +19,16 @@ simple := $(SIMPLE_APPS)
 #             example fast_corner unsharp \
 #             demosaic demosaic_complex camera_pipeline \
 #             exposure_fusion local_laplacian stereo hdr_plus
-IMG_APPS := gaussian unsharp
+IMG_APPS := pointwise cascade gaussian unsharp \
+						camera_pipeline
 img := $(IMG_APPS)
 
 ### DNN applications ###
 # DNN_APPS := gemm unet \
 #             conv_layer_2D conv_layer_3D conv_layer_mobile
-# dnn := $(DNN_APPS)
+DNN_APPS := unet/conv_3_3 unet/down_sample unet/up_sample \
+            conv_layer_mobile
+dnn := $(DNN_APPS)
 
 ### other applications ###
 # OTHER_APPS := smith_waterman
@@ -54,18 +57,25 @@ endef
 #  on each of the apps in that app suite.
 #  For example, "make ops-coreir" creates the hardware for each op.
 define SUITE_template =
-$(1)-coreir:    $($(2):=-coreir)
-$(1)-clockwork: $($(2):=-clockwork)
-$(1)-run:       $($(2):=-run)
-$(1)-compare:   $($(2):=-compare)
+$(1)-cpu:               $($(2):=-cpu)
+$(1)-coreir:            $($(2):=-coreir)
+$(1)-clockwork:         $($(2):=-clockwork)
+$(1)-run:               $($(2):=-run)
+$(1)-compare:           $($(2):=-compare)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
-$(1)-rewrite:   $($(2):=-rewrite)
-$(1)-check:     $($(2):=-check)
-$(1)-clean:     $($(2):=-clean)
+$(1)-compare-coreir:    $($(2):=-compare-coreir)
+$(1)-rewrite:           $($(2):=-rewrite)
+$(1)-check:             $($(2):=-check)
+$(1)-clean:             $($(2):=-clean)
 endef
 
 $(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
 $(eval $(call SUITE_template,all,allapps))
+
+%-cpu:
+	@if [ -d $* ]; then \
+			$(call run_app,$*,cpu); \
+	fi
 
 %-coreir:
 	@if [ -d $* ]; then \
@@ -74,7 +84,7 @@ $(eval $(call SUITE_template,all,allapps))
 
 %-clockwork:
 	@if [ -d $* ]; then \
-			$(call run_app,$*,compare-clockwork); \
+			$(call run_app,$*,clockwork); \
 	fi
 
 %-run:
@@ -82,9 +92,9 @@ $(eval $(call SUITE_template,all,allapps))
 			$(call run_app,$*,cpu); \
 	fi
 
-%-compare-clockwork:
+%-compare-clockwork %-cclockwork:
 	@if [ -d $* ]; then \
-		$(call run_test,$*,compare-clockwork); \
+		$(call run_app,$*,compare-clockwork); \
 	fi
 
 %-compare:
@@ -94,7 +104,7 @@ $(eval $(call SUITE_template,all,allapps))
 
 %-rewrite:
 	@if [ -d $* ]; then \
-		$(call run_test,$*,compare-rewrite); \
+		$(call run_app,$*,compare-rewrite); \
 	fi
 
 %-check:

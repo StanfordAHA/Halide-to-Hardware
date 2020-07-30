@@ -32,9 +32,9 @@ template <class T>
 class OneInOneOut_ProcessController : public ProcessController<T> {
  public:
  OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
-   ProcessController<T>(app_name), run_calls(ops), design_name(app_name) { }
+   ProcessController<T>(app_name), inputs_preset(false), run_calls(ops), design_name(app_name) { }
  OneInOneOut_ProcessController(std::string app_name) :
-   ProcessController<T>(app_name), design_name(app_name) { }
+   ProcessController<T>(app_name), inputs_preset(false), design_name(app_name) { }
 
   // overridden methods
   virtual int make_image_def(std::vector<std::string> args);
@@ -46,6 +46,7 @@ class OneInOneOut_ProcessController : public ProcessController<T> {
   // buffers
   Halide::Runtime::Buffer<T> input;
   Halide::Runtime::Buffer<T> output;
+  bool inputs_preset;
   std::map<std::string, std::function<void()>> run_calls;
 
   // names
@@ -81,8 +82,8 @@ class ManyInOneOut_ProcessController : public ProcessController<T> {
   // buffers
   std::vector<std::string> input_filenames;
   std::map<std::string, Halide::Runtime::Buffer<T>> inputs;
-  bool inputs_preset;
   Halide::Runtime::Buffer<T> output;
+  bool inputs_preset;
   std::map<std::string, std::function<void()>> run_calls;
 
   // names

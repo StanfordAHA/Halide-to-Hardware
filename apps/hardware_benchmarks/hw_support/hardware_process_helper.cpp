@@ -132,7 +132,9 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
   if (args.size() == 1 && hw_name_defined) {
     create_image(&input);
   } else if (args.size() == 2 && hw_name_defined) {
-    input = load_and_convert_image(args[1]);
+    if (!inputs_preset) {
+      input = load_and_convert_image(args[1]);
+    }
     //input(0, 0) = 22.f;
     //input(1, 0) = 1.0f;
     //input(2, 0) = 3.17188f;
