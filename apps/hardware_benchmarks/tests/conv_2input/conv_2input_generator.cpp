@@ -28,13 +28,14 @@ public:
         kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
 
         
+        conv(x, y) = cast<uint16_t>(0);
 
-        conv(x, y) = 0;
-
-        Func hw_input("hw_input"), hw_weight("hw_weight");
+        Func hw_input("hw_input"), hw_weight("hw_weight"); 
+        Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         hw_weight(x, y) = cast<uint16_t>(weight(x, y));
-        conv(x, y)  += hw_weight(x + r.x, y + r.y) * hw_input(x + r.x, y + r.y);
+        hw_input_copy(x, y) = hw_input(x, y);
+        conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
@@ -74,6 +75,27 @@ public:
           hw_input.stream_to_accelerator();
           hw_weight.stream_to_accelerator();
           kernel.compute_at(hw_output, xo);
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+          
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+            .hw_accelerate(xi, xo);
+
+            
+          kernel.compute_at(conv, x);
+          conv.update()
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
+
+          hw_input_copy.compute_at(hw_output, xo);
+          hw_weight.compute_at(hw_output, xo);
+          hw_input.compute_root();
+          hw_input.stream_to_accelerator();
+          hw_weight.stream_to_accelerator();
+
 
         } else {  // schedule to CPU
 //          kernel.compute_root();

@@ -20,7 +20,9 @@ public:
                0, stride);
 
         Func hw_input("hw_input");
+        Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
+        hw_input_copy(x, y) = hw_input(x, y);
 
         max_pool(x, y) = maximum(hw_input(x * stride + r.x, y * stride + r.y));
 
@@ -47,6 +49,25 @@ public:
             max_pool.linebuffer();
 
             hw_input.stream_to_accelerator();
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
+          
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, 32, 32)
+            .hw_accelerate(xi, xo);
+
+          max_pool.unroll(x, stride)
+                    .unroll(y, stride);
+
+          hw_input_copy.compute_at(hw_output, xo);
+          hw_input.compute_root();
+          hw_input.stream_to_accelerator();
+
+
         } else { // schedule to CPU
             max_pool.compute_root();
             max_pool.unroll(x, stride)
