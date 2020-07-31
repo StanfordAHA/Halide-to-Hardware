@@ -15,7 +15,8 @@ TEST_SUITES := ops fpops conv fpconv inout mem
 # OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
 #             scomp sminmax sshift ucomp uminmax ushift \
 #             counter
-OP_TESTS := accumulation 
+OP_TESTS := absolute arith \
+            counter
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
@@ -26,9 +27,9 @@ op_tests op-tests ops: $(OP_TESTS)
 # fp_op_tests fp-op-tests fpops: $(FP_OP_TESTS)
 
 ### convolutions ###
-# CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
-#               conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7
-CONV_TESTS := conv_1_2 conv_2_1 conv_multi strided_conv
+CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
+              conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7
+#CONV_TESTS := conv_1_2 conv_2_1 conv_multi strided_conv
 conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
 
@@ -40,7 +41,7 @@ conv_tests conv-tests convs conv: $(CONV_TESTS)
 
 ### accelerator interface tests ###
 # INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
-INOUT_TESTS := bitwidth
+INOUT_TESTS := bitwidth conv_2input
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
@@ -51,8 +52,12 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 #              conv_3_3 db_3_3 \
 #              accumulation histogram multi_channel_conv \
 #              two_level_memory three_level_memory pond
-# mem := $(MEM_TESTS)
-# mem_tests mem-tests mems mem: $(MEM_TESTS)
+MEM_TESTS := conv_2x \
+             down_sample \
+             conv_3_3 db_3_3 \
+             accumulation
+mem := $(MEM_TESTS)
+mem_tests mem-tests mems mem: $(MEM_TESTS)
 
 ### generator tests ###
 # GEN_TESTS := conv_gen random_pipeline

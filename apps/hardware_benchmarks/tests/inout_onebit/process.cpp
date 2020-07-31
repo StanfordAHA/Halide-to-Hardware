@@ -25,6 +25,6 @@ int main(int argc, char **argv) {
   processor.input = Buffer<bool>(64, 64);
   processor.output = Buffer<bool>(64, 64);
   
-  processor.process_command(argc, argv);
+ return processor.process_command(argc, argv);
   
 }

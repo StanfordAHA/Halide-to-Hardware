@@ -38,6 +38,6 @@ int main(int argc, char **argv) {
 
                                             }, &inputs, &outputs);
  
-  processor.process_command(argc, argv);
+  return processor.process_command(argc, argv);
   
 }
