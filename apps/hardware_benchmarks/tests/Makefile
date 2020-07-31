@@ -40,8 +40,9 @@ conv_tests conv-tests convs conv: $(CONV_TESTS)
 
 ### accelerator interface tests ###
 # INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
-# inout := $(INOUT_TESTS)
-# inout_tests inout-tests inouts inout: $(INOUT_TESTS)
+INOUT_TESTS := bitwidth
+inout := $(INOUT_TESTS)
+inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
 ### memory tile tests ###
 # MEM_TESTS := rom fifo \
@@ -81,15 +82,30 @@ endef
 #  on each of the tests in that test suite.
 #  For example, "make ops-clockwork" creates the hardware for each op.
 define SUITE_template =
+$(1)-cpu:               $($(2):=-cpu)
+$(1)-coreir:            $($(2):=-coreir)
 $(1)-clockwork:         $($(2):=-clockwork)
 $(1)-run:               $($(2):=-run)
+$(1)-compare:           $($(2):=-compare)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
+$(1)-compare-coreir:    $($(2):=-compare-coreir)
+$(1)-rewrite:           $($(2):=-rewrite)
 $(1)-check:             $($(2):=-check)
 $(1)-clean:             $($(2):=-clean)
 endef
 
 $(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
 $(eval $(call SUITE_template,all,alltests))
+
+%-cpu:
+	@if [ -d $* ]; then \
+			$(call run_test,$*,cpu); \
+	fi
+
+%-coreir:
+	@if [ -d $* ]; then \
+			$(call run_test,$*,bin/design_top.json); \
+	fi
 
 %-clockwork:
 	@if [ -d $* ]; then \
@@ -101,9 +117,24 @@ $(eval $(call SUITE_template,all,alltests))
 			$(call run_test,$*,cpu); \
 	fi
 
-%-compare-clockwork:
+%-compare-clockwork %-cclockwork:
 	@if [ -d $* ]; then \
 		$(call run_test,$*,compare-clockwork); \
+	fi
+
+%-compare:
+	@if [ -d $* ]; then \
+		$(call run_test,$*,compare); \
+	fi
+
+%-rewrite:
+	@if [ -d $* ]; then \
+		$(call run_test,$*,compare-rewrite); \
+	fi
+
+%-check:
+	@if [ -d $* ]; then \
+		$(MAKE) -sC $* check; \
 	fi
 
 %-clean:
