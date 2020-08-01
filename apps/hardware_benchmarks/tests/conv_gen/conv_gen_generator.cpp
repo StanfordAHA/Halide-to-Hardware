@@ -51,14 +51,16 @@ public:
         kernel(8,0)=7;   kernel(8,1)=7;  kernel(8,2)=7;  kernel(8,3)=7;  kernel(8,4)=7;  kernel(8,5)=7;  kernel(8,6)=7;  kernel(8,7)=7;  kernel(8,8)=7;  kernel(8,9)=7;
         kernel(9,0)=7;   kernel(9,1)=7;  kernel(9,2)=7;  kernel(9,3)=7;  kernel(9,4)=7;  kernel(9,5)=7;  kernel(9,6)=7;  kernel(9,7)=7;  kernel(9,8)=7;  kernel(9,9)=7;
         
-        conv(x, y) = 0;
+        conv(x, y) = cast<uint16_t>(0);
 
         Func hw_input("hw_input");
+        Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
+        hw_input_copy(x, y) = hw_input(x, y);
         if (is_upsample) {
-          conv(x, y)  += kernel(r.x, r.y) * hw_input(x/stride + r.x, y/stride + r.y);
+          conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y) * hw_input_copy(x/stride + r.x, y/stride + r.y));
         } else {
-          conv(x, y)  += kernel(r.x, r.y) * hw_input(x*stride + r.x, y*stride + r.y);
+          conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y) * hw_input_copy(x*stride + r.x, y*stride + r.y));
         }
 
         Func hw_output("hw_output");
@@ -117,6 +119,40 @@ public:
           hw_input.stream_to_accelerator();
           kernel.compute_at(hw_output, yi);
           //kernel.compute_root();
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+          
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+            .hw_accelerate(xi, xo);
+
+            
+          kernel.compute_at(conv, x);
+          if (par_mode == 0) {
+            // fully sequential, so no unroll needed
+          } else if (par_mode == 1) {
+            conv.update()
+              .unroll(r.x);
+          } else if (par_mode == 2) {
+            conv.update()
+              .unroll(r.y);
+          } else if (par_mode == 3) {
+            conv.update()
+              .unroll(r.x)
+              .unroll(r.y)
+              .unroll(x, stride);
+          } else {
+            conv.update()
+              .unroll(r.x)
+              .unroll(r.y);
+          }
+
+          hw_input_copy.compute_at(hw_output, xo);
+          hw_input.compute_root();
+          hw_input.stream_to_accelerator();
+
 
         } else {  // schedule to CPU
 //          kernel.compute_root();

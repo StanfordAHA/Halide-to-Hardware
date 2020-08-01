@@ -75,7 +75,7 @@ public:
             .unroll(r.x, 1)
             .unroll(r.y, 1);
 
-          // conv.compute_at(hw_output, xo);
+          conv.compute_at(hw_output, xo);
 
           hw_input_copy.compute_at(hw_output, xo);
           hw_input.compute_root();

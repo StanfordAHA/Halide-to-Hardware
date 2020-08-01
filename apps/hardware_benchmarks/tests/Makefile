@@ -15,7 +15,7 @@ TEST_SUITES := ops fpops conv fpconv inout mem
 # OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
 #             scomp sminmax sshift ucomp uminmax ushift \
 #             counter
-OP_TESTS := absolute arith \
+OP_TESTS := absolute arith bitwise boolean_ops\
             counter
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
@@ -28,7 +28,8 @@ op_tests op-tests ops: $(OP_TESTS)
 
 ### convolutions ###
 CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
-              conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7
+              conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7  \
+              conv_multi strided_conv conv_rolled
 #CONV_TESTS := conv_1_2 conv_2_1 conv_multi strided_conv
 conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
