@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <iostream>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 
@@ -59,6 +60,12 @@ int main( int argc, char **argv ) {
   processor.input   = Buffer<uint8_t>(64, 64);
   processor.output  = Buffer<uint8_t>(64, 64);
   
-  return processor.process_command(argc, argv);
-  
+  auto return_value = processor.process_command(argc, argv);
+  std::cout << +processor.output(0, 0) << std::endl
+            << +processor.output(0, 1) << std::endl
+            << +processor.output(0, 2) << std::endl
+            << +processor.output(1, 0) << std::endl
+            << +processor.output(1, 1) << std::endl;
+    
+  return return_value;
 }

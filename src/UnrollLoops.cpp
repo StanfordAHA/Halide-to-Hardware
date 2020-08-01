@@ -222,10 +222,13 @@ class UnrollLoopsAndMerge : public IRMutator {
             }
 
             if (!contains_accumulate(for_loop->body)) {
-              return Block::make(iters);
+              auto cur_block = Block::make(iters);
+              std::cout << "block with no inlining:\n" << cur_block << std::endl;
+              return cur_block;
               //return substitute_in_all_letstmts(Block::make(iters));
             } else {
               auto cur_block = Block::make(iters);
+              std::cout << "block for inlining:\n" << cur_block << std::endl;
               //cur_block = substitute_in_all_letstmts(cur_block);
 
               //std::cout << "start" << cur_block;

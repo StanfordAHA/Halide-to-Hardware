@@ -28,6 +28,7 @@ public:
         Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         hw_input_copy(x, y) = hw_input(x, y);
+        
         conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
@@ -70,7 +71,8 @@ public:
             .hw_accelerate(xi, xo);
 
             
-          kernel.compute_at(conv, x);
+          //kernel.compute_at(conv, x);
+          //kernel.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.x, 1)
             .unroll(r.y, 1);

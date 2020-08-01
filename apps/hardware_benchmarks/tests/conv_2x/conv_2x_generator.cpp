@@ -68,16 +68,17 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
+          output.bound(x, 0, 62);
+          output.bound(y, 0, 62);
           
           hw_output.compute_root();
 
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
+          hw_output.tile(x,y, xo,yo, xi,yi, 62, 62)
             .hw_accelerate(xi, xo);
-          hw_output.unroll(xo, 2);
+
+          hw_output.unroll(xi, 2);
             
-          kernel.compute_at(conv, x);
+          //kernel.compute_at(conv, x);
           conv.update()
             .unroll(x, 2)
             .unroll(r.x, ksize)
