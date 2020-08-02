@@ -2,20 +2,21 @@ SHELL = /bin/bash
 HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 
 default: all
+travis testtravis: arith conv_3_3 
 
 # all directories (just text) excluding a particular list
-ALL_TESTS := $(subst /,, $(dir $(wildcard */.)))
-ALL_TESTS := $(filter-out hls_support merged_unit_tests tools, $(ALL_TESTS))
+ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
+ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 
-### test suites include: ###
+### app suites include: ###
 # ops fpops convs fpconvs inouts mems
-TEST_SUITES := ops fpops conv fpconv inout mem
+APP_SUITES := ops fpops conv fpconv inout mem
 
 ### operator tests ###
 # OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
 #             scomp sminmax sshift ucomp uminmax ushift \
 #             counter
-OP_TESTS := absolute arith bitwise boolean_ops\
+OP_TESTS := absolute arith bitwise boolean_ops \
             counter
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
@@ -64,147 +65,17 @@ mem_tests mem-tests mems mem: $(MEM_TESTS)
 # GEN_TESTS := conv_gen random_pipeline
 
 
-ALL_TESTS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
+ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
                    $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS)
-alltests := $(ALL_TESTS_SORTED)
-NOT_CLASSIFIED_TESTS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 
-# Runs one of the functions on an test. Prints out nothing but pass/fail.
-# Default exit 0 on failure so it doesn't stop a make script
-EARLY_EXIT ?= 0
-define run_test
-	make -C $(1) $(2) $(HALIDE_DEBUG_REDIRECT); \
-	EXIT_CODE=$$?; \
-	if [[ $$EXIT_CODE = 0 ]]; then \
-	  printf "%-25s \033[0;32m%s\033[0m\n" $(1) "PASSED"; \
-    (exit $$EXIT_CODE); \
-	else \
-	  printf "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
-    (exit $$EARLY_EXIT);  \
-	fi
-endef
-
-# For each test suite, testend the function to run
-#  on each of the tests in that test suite.
-#  For example, "make ops-clockwork" creates the hardware for each op.
-define SUITE_template =
-$(1)-cpu:               $($(2):=-cpu)
-$(1)-coreir:            $($(2):=-coreir)
-$(1)-clockwork:         $($(2):=-clockwork)
-$(1)-run:               $($(2):=-run)
-$(1)-compare:           $($(2):=-compare)
-$(1)-compare-clockwork: $($(2):=-compare-clockwork)
-$(1)-compare-coreir:    $($(2):=-compare-coreir)
-$(1)-rewrite:           $($(2):=-rewrite)
-$(1)-check:             $($(2):=-check)
-$(1)-clean:             $($(2):=-clean)
-endef
-
-$(foreach suite,$(TEST_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
-$(eval $(call SUITE_template,all,alltests))
-
-%-cpu:
-	@if [ -d $* ]; then \
-			$(call run_test,$*,cpu); \
-	fi
-
-%-coreir:
-	@if [ -d $* ]; then \
-			$(call run_test,$*,bin/design_top.json); \
-	fi
-
-%-clockwork:
-	@if [ -d $* ]; then \
-			$(call run_test,$*,clockwork); \
-	fi
-
-%-run:
-	@if [ -d $* ]; then \
-			$(call run_test,$*,cpu); \
-	fi
-
-%-compare-clockwork %-cclockwork:
-	@if [ -d $* ]; then \
-		$(call run_test,$*,compare-clockwork); \
-	fi
-
-%-compare:
-	@if [ -d $* ]; then \
-		$(call run_test,$*,compare); \
-	fi
-
-%-rewrite:
-	@if [ -d $* ]; then \
-		$(call run_test,$*,compare-rewrite); \
-	fi
-
-%-check:
-	@if [ -d $* ]; then \
-		$(MAKE) -sC $* check; \
-	fi
-
-%-clean:
-	@if [ -d $* ]; then \
-		$(call run_test,$*,clean); \
-	fi
-
-#@$(call run_test,$*,bin/design_top.json)
-#	@if [ -d $* ]; then \
-#		$(call run_test,$*,bin/design_top.json); \
-#  else \
-#		for test in $($*); do \
-#			$(MAKE) -s $$test-coreir; \
-#		done \
-#	fi
-
-all: $(ALL_TESTS_SORTED)
-
-.PHONY: $(ALL_TESTS)
-$(ALL_TESTS):
-# 	@$(call run_test,$@,clockwork)
-# 	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
-# 		exit 1; \
-# 	fi
-	@$(call run_test,$@,compare-clockwork)
-	@if [ -f "$@/$(BIN)/output_compare.png" ]; then \
-		exit 1; \
-	else \
-		exit 0; \
-	fi
+NOT_CLASSIFIED_APPS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 
 
-testtravis test_travis: conv_3_3 fp_arith
-testall test_all: runall
-runall run_all: $(ALL_TESTS)
-compileall compile_all coreirall coreir_all: $(ALL_TESTS:=-coreir)
-
-list:
-	@echo "TESTS:"
-	@echo $(ALL_TESTS_SORTED)
-	@echo "NON-CLASSIFIED TESTS:"
-	@echo $(NOT_CLASSIFIED_TESTS)
-
-evalall eval_all:
-	@for test in $(ALL_TESTS); do \
-	  echo -n "$$test: "; \
-	  $(MAKE) -sC $$test eval; \
-	done
-
-updategoldens update_goldens goldens:
-	@echo ""
-	@for test in $(ALL_TESTS); do \
-	  echo -n "$$test: "; \
-	  $(MAKE) -sC $$test update_golden; \
-	  echo "updated golden files for $$test"; \
-	done
-
-checkall check_all check:
-	@for test in $(ALL_TESTS_SORTED); do \
-	  $(MAKE) -sC $$test check; \
-	done
-
-clean_all cleanall:
-	for test in $(ALL_TESTS); do \
-	  $(MAKE) -C $$test clean > /dev/null; \
-	done
-
+# Define targets for running each app and suite including:
+#  $(APP)-cpu:               create cpu design files without running
+#  $(APP)-clockwork:         create clockwork files without running
+#  $(APP)-compare-clockwork: run cpu and clockwork and compare output images
+#  $(APP)-check:             see what files were successfully generated
+#  $(APP)-golden:            copy generated files to golden directory
+#  $(APP)-clean:             remove all generated files from the app
+include ../include.mk
