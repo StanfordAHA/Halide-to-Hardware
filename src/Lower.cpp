@@ -383,13 +383,13 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = reduce_prefetch_dimension(s, t);
     debug(2) << "Lowering after reduce prefetch dimension:\n" << s << "\n";
 
-    std::cout << "Before unrolling:\n" << s << "\n\n";
+    //std::cout << "Before unrolling:\n" << s << "\n\n";
     debug(1) << "Unrolling...\n";
     if (t.has_feature(Target::Clockwork)) {
       s = unroll_loops_and_merge(s);
-      std::cout << "After unrolling:\n" << s << "\n\n";
+      //std::cout << "After unrolling:\n" << s << "\n\n";
       s = inline_memory_constants(s);
-      std::cout << "After inlining:\n" << s << "\n\n";
+      //std::cout << "After inlining:\n" << s << "\n\n";
     } else {
       s = unroll_loops(s);
     }
@@ -489,7 +489,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
-    std::cout << "after passes: " << s << std::endl;
+    //std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

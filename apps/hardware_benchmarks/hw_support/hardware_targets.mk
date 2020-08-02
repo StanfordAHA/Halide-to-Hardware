@@ -323,7 +323,7 @@ run-vhls: $(BIN)/process
 	$(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
 #compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
-compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png:
+compare-coreir compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png:
 	$(MAKE) $(BIN)/output_cpu.png
 	$(MAKE) $(BIN)/output_coreir.png
 	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
@@ -350,7 +350,7 @@ compare-rewrite compare-rewrite-cpu compare-cpu-rewrite:
     (exit $$EXIT_CODE);  \
 	fi
 
-compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
+compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.png: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
 #compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
 #	$(MAKE) $(BIN)/output_cpu.png
 #	$(MAKE) $(BIN)/output_clockwork.png 
@@ -372,9 +372,12 @@ eval-coreir: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process eval coreir input.png
 
-update_golden updategolden golden: $(BIN)/output_cpu.png
+update_golden updategolden golden: $(BIN)/output_cpu.png $(BIN)/$(TESTNAME)_memory.cpp
 	@-mkdir -p $(GOLDEN)
 	cp $(BIN)/output_cpu.png $(GOLDEN)/golden_output.png
+	cp $(BIN)/$(TESTNAME)_memory.cpp $(GOLDEN)/$(TESTNAME)_memory.cpp
+	cp $(BIN)/$(TESTNAME)_memory.h $(GOLDEN)/$(TESTNAME)_memory.h
+	cp $(BIN)/$(TESTNAME)_compute.h $(GOLDEN)/$(TESTNAME)_compute.h
 
 check:
 	@printf "%-25s" $(TESTNAME);
@@ -383,17 +386,17 @@ check:
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!halide"; \
 	fi
-	@if [ -f "$(BIN)/extraction_debug.txt" ]; then \
+#	@if [ -f "$(BIN)/extraction_debug.txt" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " extract"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!extract"; \
 	fi
-	@if [ -f "$(BIN)/ubuffers.json" ]; then \
+#	@if [ -f "$(BIN)/ubuffers.json" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " rewrite"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!rewrite"; \
 	fi
-	@if [ -f "$(BIN)/design_prepass.json" ]; then \
+#	@if [ -f "$(BIN)/design_prepass.json" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " coreir"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
@@ -408,12 +411,17 @@ check:
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
 	fi
-	@#@if [ -f "passed.md5" ]; then \
-	#  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
-	#fi
-	@#@if [ -f "failed.md5" ]; then \
-	#  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
-	#fi
+	@if [ -f "$(GOLDEN)/$(TESTNAME)_memory.cpp" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " golden"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!golden"; \
+	fi
+#	@@if [ -f "passed.md5" ]; then \
+	  printf "  \033[0;32m%s\033[0m" "passed.md5"; \
+	fi
+#	@@if [ -f "failed.md5" ]; then \
+	  printf "  \033[0;31m%s\033[0m" "failed.md5"; \
+	fi
 	@printf "\n"
 
 $(BIN)/graph.png: $(BIN)/design_top.txt

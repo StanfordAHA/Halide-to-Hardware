@@ -59,12 +59,13 @@ endef
 define SUITE_template =
 $(1)-cpu:               $($(2):=-cpu)
 $(1)-coreir:            $($(2):=-coreir)
+$(1)-rewrite:           $($(2):=-rewrite)
 $(1)-clockwork:         $($(2):=-clockwork)
 $(1)-run:               $($(2):=-run)
 $(1)-compare:           $($(2):=-compare)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
 $(1)-compare-coreir:    $($(2):=-compare-coreir)
-$(1)-rewrite:           $($(2):=-rewrite)
+$(1)-golden:             $($(2):=-golden)
 $(1)-check:             $($(2):=-check)
 $(1)-clean:             $($(2):=-clean)
 endef
@@ -105,6 +106,11 @@ $(eval $(call SUITE_template,all,allapps))
 %-rewrite:
 	@if [ -d $* ]; then \
 		$(call run_app,$*,compare-rewrite); \
+	fi
+
+%-golden:
+	@if [ -d $* ]; then \
+		$(call run_app,$*,golden); \
 	fi
 
 %-check:
@@ -160,14 +166,14 @@ $(ALL_APPS_SORTED):
 	fi
 
 evalall eval_all:
-	@for app in $(ALL_APPS); do \
+	@for app in $(ALL_APPS_SORTED); do \
 	  echo -n "$$app: "; \
 	  $(MAKE) -sC $$app eval; \
 	done
 
 updategoldens update_goldens goldens:
 	@echo ""
-	@for app in $(ALL_APPS); do \
+	@for app in $(ALL_APPS_SORTED); do \
 	  echo -n "$$app: "; \
 	  $(MAKE) -sC $$app update_golden; \
 	  echo "updated golden files for $$app"; \
@@ -179,7 +185,7 @@ checkall check_all check:
 	done
 
 clean_all cleanall:
-	for app in $(ALL_APPS); do \
+	for app in $(ALL_APPS_SORTED); do \
 	  $(MAKE) -C $$app clean > /dev/null; \
 	done
 

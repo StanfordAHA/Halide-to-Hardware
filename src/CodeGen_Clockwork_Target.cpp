@@ -321,24 +321,28 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     //string hdr_name = output_base_path + target_name + ".h";
     string clk_debug_name = output_base_path + target_name + "_debug.cpp";
     string clk_memory_name = output_base_path + target_name + "_memory.cpp";
+    string clk_memory_header_name = output_base_path + target_name + "_memory.h";
     string clk_compute_name = output_base_path + target_name + "_compute.h";
 
     //ofstream src_file(src_name.c_str());
     //ofstream hdr_file(hdr_name.c_str());
     ofstream clk_debug_file(clk_debug_name.c_str());
     ofstream clk_memory_file(clk_memory_name.c_str());
+    ofstream clk_memory_header_file(clk_memory_header_name.c_str());
     ofstream clk_compute_file(clk_compute_name.c_str());
 
     //src_file << src_stream.str() << endl;
     //hdr_file << hdr_stream.str() << endl;
     clk_debug_file << clk_stream.str() << endl;
     clk_memory_file << clkc.memory_stream.str() << endl;
+    clk_memory_header_file << "prog " << target_name << "();" << std::endl;
     clk_compute_file << clkc.compute_stream.str() << endl;
     
     //src_file.close();
     //hdr_file.close();
     clk_debug_file.close();
     clk_memory_file.close();
+    clk_memory_header_file.close();
     clk_compute_file.close();
 
     saveToFile(clkc.context->getGlobal(), output_base_path + "compute.json", NULL);
@@ -1202,7 +1206,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     
     memory_stream << "  " << func_name << "->add_load(\""
                   << buffer_name << "\"";
-    for (auto index : arg.args) {
+    //for (auto index : arg.args) {
+    for (int argi=arg.args.size()-1; argi>=0; --argi) {
+      auto index = arg.args[argi];
       ostringstream index_print;
       index_print << add_floor_to_divs(expand_expr(index, scope));
       memory_stream << ", \"" << removedots(index_print.str()) << "\"";
@@ -1216,7 +1222,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   add_buffer(printname(op->name), store_size);
   memory_stream << "  " << func_name << "->add_store(\""
                 << printname(op->name) << "\"";
-  for (auto arg : op->args) {
+  //for (auto arg : op->args) {
+  for (int argi=op->args.size()-1; argi>=0; --argi) {
+    auto arg = op->args[argi];
     ostringstream arg_print;
     arg_print << expand_expr(arg, scope);
     memory_stream << ", \"" << removedots(arg_print.str()) << "\"";

@@ -217,7 +217,6 @@ class InlineMemoryConstants : public IRMutator {
 
   // in Provide: save for call replacement later
   Stmt visit(const Provide* provide) override {
-    std::cout << " found this provide: " << Stmt(provide);
     if (realize_provides.count(provide->name)) {
       realize_provides.at(provide->name).emplace_front(provide);
     }
@@ -227,7 +226,6 @@ class InlineMemoryConstants : public IRMutator {
   Expr visit(const Call* call) override {
     if (realize_provides.count(call->name)) {
       for (auto provide : realize_provides.at(call->name)) {
-        std::cout << "comparing " << Expr(call) << " to " << Stmt(provide) << std::endl;
         if (provide_matches_call(provide, call)) {
           return provide->values[0];
         }
