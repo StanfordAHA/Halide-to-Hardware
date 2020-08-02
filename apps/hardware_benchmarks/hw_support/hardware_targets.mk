@@ -30,6 +30,9 @@ TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
 
+# set this for Halide generator arguments
+HALIDE_GEN_ARGS ?= 
+
 
 # =========================== RDAI Configuration  ===================================
 
@@ -101,7 +104,7 @@ endif
 
 design cpu design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_DEBUG_REDIRECT)
+	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT)
 
 coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
@@ -120,15 +123,15 @@ $(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir -e coreir $(HALIDE_DEBUG_REDIRECT) $(HALIDE_GEN_ARGS) -o $(BIN)
 
 design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp: $(BIN)/$(TESTNAME)_memory.cpp
 

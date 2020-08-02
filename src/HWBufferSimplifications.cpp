@@ -5,10 +5,11 @@
 #include "Simplify.h"
 #include "Substitute.h"
 
+using std::string;
 using std::map;
 using std::set;
-using std::string;
 using std::vector;
+using std::deque;
 
 namespace Halide {
 namespace Internal {
@@ -148,7 +149,7 @@ bool provide_matches_call(const Provide* provide, const Call *call) {
 class InlineMemoryConstants : public IRMutator {
     using IRMutator::visit;
 
-    map<string, vector<const Provide*> > realize_provides;
+    map<string, deque<const Provide*> > realize_provides;
     set<string> roms;
 
     Stmt visit(const Realize* realize) override {
@@ -164,7 +165,7 @@ class InlineMemoryConstants : public IRMutator {
       } else if (mem_type == CONSTS_REALIZATION) {
         //   add ROM name to remove Producer of this name, and save provides
         //std::cout << "Realize " << realize->name << " is a set of consts" << std::endl;
-        realize_provides[realize->name] = vector<const Provide*>();
+        realize_provides[realize->name] = deque<const Provide*>();
         auto mutated = IRMutator::visit(realize);
         //std::cout << "mutated:\n" << mutated << std::endl;
         if (uses_realization(mutated, realize->name)) {
@@ -216,8 +217,9 @@ class InlineMemoryConstants : public IRMutator {
 
   // in Provide: save for call replacement later
   Stmt visit(const Provide* provide) override {
+    std::cout << " found this provide: " << Stmt(provide);
     if (realize_provides.count(provide->name)) {
-      realize_provides.at(provide->name).emplace_back(provide);
+      realize_provides.at(provide->name).emplace_front(provide);
     }
     return IRMutator::visit(provide);
   }
@@ -225,6 +227,7 @@ class InlineMemoryConstants : public IRMutator {
   Expr visit(const Call* call) override {
     if (realize_provides.count(call->name)) {
       for (auto provide : realize_provides.at(call->name)) {
+        std::cout << "comparing " << Expr(call) << " to " << Stmt(provide) << std::endl;
         if (provide_matches_call(provide, call)) {
           return provide->values[0];
         }

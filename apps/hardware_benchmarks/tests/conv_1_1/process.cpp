@@ -61,11 +61,5 @@ int main( int argc, char **argv ) {
   processor.output  = Buffer<uint8_t>(64, 64);
   
   auto return_value = processor.process_command(argc, argv);
-  std::cout << +processor.output(0, 0) << std::endl
-            << +processor.output(0, 1) << std::endl
-            << +processor.output(0, 2) << std::endl
-            << +processor.output(1, 0) << std::endl
-            << +processor.output(1, 1) << std::endl;
-    
   return return_value;
 }

@@ -28,6 +28,7 @@ public:
     GeneratorParam<uint8_t> par_mode{"par_mode", 3};  // default: 3
     GeneratorParam<uint8_t> unroll{"unroll", 1};  // default: 1
 
+  //int imgsize = 64 - ksize + 1;
     int imgsize = 62;
 
     void generate() {
@@ -58,21 +59,17 @@ public:
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         hw_input_copy(x, y) = hw_input(x, y);
         if (is_upsample) {
-          conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y) * hw_input_copy(x/stride + r.x, y/stride + r.y));
+          conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x/stride + r.x, y/stride + r.y);
         } else {
-          conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y) * hw_input_copy(x*stride + r.x, y*stride + r.y));
+          conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x*stride + r.x, y*stride + r.y);
         }
 
         Func hw_output("hw_output");
         hw_output(x, y) = cast<uint8_t>(conv(x, y));
         output(x, y) = hw_output(x,y);
 
-        output.bound(x, 0, imgsize);
-        output.bound(y, 0, imgsize);
-        //hw_output.bound(x, 0, imgsize);
-        //hw_output.bound(y, 0, imgsize);
-        conv.bound(x, 0, imgsize);
-        conv.bound(y, 0, imgsize);
+        //output.bound(x, 0, imgsize);
+        //output.bound(y, 0, imgsize);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -128,6 +125,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             .hw_accelerate(xi, xo);
 
+          conv.compute_at(hw_output, xo);
             
           kernel.compute_at(conv, x);
           if (par_mode == 0) {

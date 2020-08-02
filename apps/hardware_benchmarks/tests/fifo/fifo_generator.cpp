@@ -20,10 +20,11 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = cast<int16_t>(input(x, y));
 
-        lookup(x,y) = curve(in_val);
+        conv(x, y) = hw_input(x, y) + hw_input(x+1, y+1);
+        merge(x, y) = conv(x, y) + hw_input(x, y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(lookup(x, y));
+        hw_output(x, y) = cast<uint8_t>(merge(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
