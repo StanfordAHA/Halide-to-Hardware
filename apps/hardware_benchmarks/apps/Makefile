@@ -6,7 +6,7 @@ travis testtravis: pointwise harris
 
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
-ALL_APPS := $(filter-out hls_support tools, $(ALL_APPS))
+ALL_APPS := $(filter-out hls_support tools unet, $(ALL_APPS))
 
 ### app suites include: ###
 APP_SUITES := simple img dnn other
@@ -20,7 +20,8 @@ simple := $(SIMPLE_APPS)
 #             example fast_corner unsharp \
 #             demosaic demosaic_complex camera_pipeline \
 #             exposure_fusion local_laplacian stereo hdr_plus
-IMG_APPS := pointwise cascade gaussian unsharp \
+IMG_APPS := pointwise gaussian cascade harris \
+						unsharp \
 						camera_pipeline
 img := $(IMG_APPS)
 
@@ -28,6 +29,7 @@ img := $(IMG_APPS)
 # DNN_APPS := gemm unet \
 #             conv_layer_2D conv_layer_3D conv_layer_mobile
 DNN_APPS := unet/conv_3_3 unet/down_sample unet/up_sample \
+						resnet resnet_stride resnet_block \
             conv_layer_mobile
 dnn := $(DNN_APPS)
 

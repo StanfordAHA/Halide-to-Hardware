@@ -9,6 +9,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
+  // Set enviroment variable to set these:
+  //  HALIDE_GEN_ARGS="ksize=3 stride=2 is_upsample=true"
+  
     // ksize determines the output stencil size
     GeneratorParam<uint8_t> ksize{"ksize", 3};    // default: 3
 
@@ -28,10 +31,11 @@ public:
     GeneratorParam<uint8_t> par_mode{"par_mode", 3};  // default: 3
     GeneratorParam<uint8_t> unroll{"unroll", 1};  // default: 1
 
-  //int imgsize = 64 - ksize + 1;
-    int imgsize = 62;
-
     void generate() {
+      int imgsize = is_upsample ?
+        (64 - ksize + 1)*stride :
+        (64 - ksize + 1)/stride;
+      
         /* THE ALGORITHM */
 
         Var x("x"), y("y");
@@ -119,6 +123,9 @@ public:
 
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
+
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
           
           hw_output.compute_root();
 

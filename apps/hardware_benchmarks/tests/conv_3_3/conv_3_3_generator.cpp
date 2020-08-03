@@ -102,7 +102,7 @@ public:
 
           hw_input_copy.compute_at(hw_output, xo);
           hw_input.compute_root();
-          //hw_input.stream_to_accelerator();
+          hw_input.stream_to_accelerator();
             
         } else {  // schedule to CPU
           conv.update()

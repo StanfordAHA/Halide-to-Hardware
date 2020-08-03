@@ -17,9 +17,11 @@ public:
 
         Var x("x"), y("y");
 
-        Func hw_input("hw_input");
-        hw_input(x, y) = cast<int16_t>(input(x, y));
+        Func hw_input("hw_input"), input_copy;
+        input_copy(x, y) = cast<int16_t>(input(x, y));
+        hw_input(x, y) = input_copy(x, y);
 
+        Func conv, merge;
         conv(x, y) = hw_input(x, y) + hw_input(x+1, y+1);
         merge(x, y) = conv(x, y) + hw_input(x, y);
 
@@ -29,20 +31,25 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
+          output.bound(x, 0, 63);
+          output.bound(y, 0, 63);
 
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          curve.compute_at(hw_output, yi).unroll(x);  // synthesize curve to a ROM
+          merge.compute_at(hw_output, xo);
+          conv.compute_at(hw_output, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
+          hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
+          input_copy.compute_root();
+          
           
         } else {  // schedule to CPU
           output.compute_root();
@@ -53,4 +60,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(UnitTestFIFO, fifo)
+HALIDE_REGISTER_GENERATOR(UnitTestFIFO, fifo_test)

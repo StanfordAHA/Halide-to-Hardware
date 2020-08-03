@@ -251,15 +251,15 @@ endif
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image
+	$(BIN)/process image $(HALIDE_GEN_ARGS) 
 
 image-ascending: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image 1
+	$(BIN)/process image 1 $(HALIDE_GEN_ARGS) 
 
 image-float: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image 3
+	$(BIN)/process image 3 $(HALIDE_GEN_ARGS) 
 
 $(BIN)/input.png: input.png
 	@-mkdir -p $(BIN)
@@ -294,22 +294,22 @@ $(BIN)/%.pgm: $(BIN)/%.png
 run run-cpu $(BIN)/output_cpu.png: $(BIN)/$(TESTNAME).a
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
-	$(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
+	 $(HALIDE_GEN_ARGS) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-coreir $(BIN)/output_coreir.png: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_COREIR=1
-	$(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-rewrite $(BIN)/output_rewrite.png: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_COREIR=1
-	$(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process $(BIN)/clockwork_testscript.o
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
-	$(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
@@ -320,7 +320,7 @@ run-verilog: $(BIN)/top.v $(BIN)/input.raw
 
 run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
 #compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
 compare-coreir compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png:

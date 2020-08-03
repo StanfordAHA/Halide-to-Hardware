@@ -33,13 +33,11 @@ include ../../hw_support/Makefile.inc
 # RDAI_PLATFORM_RUNTIME         : RDAI platform runtime to use 
 ###############################################################################
 
-TESTNAME                        = conv_gen
+TESTNAME                        = fifo_test
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
 
-# Set enviroment variable to set these:
-#  HALIDE_GEN_ARGS="ksize=3 stride=2 is_upsample=true"
 
 
 ###############################################################################
@@ -50,3 +48,5 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 ###############################################################################
 
 include ../../hw_support/hardware_targets.mk
+
+

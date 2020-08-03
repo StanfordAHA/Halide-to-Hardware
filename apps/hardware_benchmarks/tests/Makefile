@@ -54,7 +54,8 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 #              conv_3_3 db_3_3 \
 #              accumulation histogram multi_channel_conv \
 #              two_level_memory three_level_memory pond
-MEM_TESTS := conv_2x \
+MEM_TESTS := fifo_test \
+						 conv_2x \
              down_sample \
              conv_3_3 db_3_3 \
              accumulation

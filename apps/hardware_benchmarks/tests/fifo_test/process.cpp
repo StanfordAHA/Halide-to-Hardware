@@ -3,7 +3,7 @@
 #include "halide_image_io.h"
 
 #if defined(WITH_CPU)
-   #include "conv_gen.h"
+   #include "fifo_test.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -13,7 +13,7 @@
 #if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-    #include "conv_gen_clockwork.h"
+    #include "fifo_test_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -21,11 +21,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<uint8_t> processor("conv_gen");
+  OneInOneOut_ProcessController<uint8_t> processor("fifo_test");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        conv_gen( proc.input, proc.output );
+        fifo_test( proc.input, proc.output );
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -44,7 +44,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          conv_gen_clockwork( proc.input, proc.output );
+          fifo_test_clockwork( proc.input, proc.output );
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -52,29 +52,13 @@ int main( int argc, char **argv ) {
       };
       functions["clockwork"] = [&](){ clockwork_process( processor ); };
   #endif
-      
+
   // Add all defined functions
   processor.run_calls = functions;
 
-  // Set enviroment variable to set these:
-  //  HALIDE_GEN_ARGS="ksize=3 stride=2 is_upsample=true"
-
-  auto K = getenv("ksize");
-  auto S = getenv("stride");
-  auto U = getenv("is_upsample");
-  
-  auto ksize = K ? atoi(K) : 3;
-  auto stride = S ? atoi(S) : 1;
-  auto is_upsample = U ? std::string(U)=="true" : false;
-
-  
   processor.input   = Buffer<uint8_t>(64, 64);
-  int imgsize = is_upsample ?
-    (64 - ksize + 1)*stride :
-    (64 - ksize + 1)/stride;
-  std::cout << "ksize=" << ksize << " stride=" << stride << " size=" << imgsize << std::endl;
-  processor.output  = Buffer<uint8_t>(imgsize, imgsize);
+  processor.output  = Buffer<uint8_t>(63, 63);
   
- return processor.process_command(argc, argv);
+  return processor.process_command(argc, argv);
   
 }
