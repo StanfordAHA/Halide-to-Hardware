@@ -1087,21 +1087,39 @@ void CodeGen_C_Expr::visit(const Max *op) {
 }
 void CodeGen_C_Expr::visit(const Provide *op) {
   internal_assert(op->values.size() == 1);
-  internal_assert(op->args.size() == 1) << "provide has 2+ args: " << Stmt(op) << "\n";
+  //internal_assert(op->args.size() == 1) << "provide has 2+ args: " << Stmt(op) << "\n";
+  vector<string> indices;
+  for (auto index : op->args) {
+    string id_index = print_expr(index);
+    indices.emplace_back(id_index);
+  }
 
   string id_value = print_expr(op->values[0]);
-  string id_index = print_expr(op->args[0]);
+  //string id_index = print_expr(op->args[0]);
   do_indent();
-  stream << op->name << "[" << id_index << "] = " << id_value << ";\n";
+  stream << op->name;
+  for (auto id_index : indices) {
+    stream << "[" << id_index << "]";
+  }
+  stream << " = " << id_value << ";\n";
 }
 void CodeGen_C_Expr::visit(const Call *op) {
   if (ends_with(op->name, ".stencil")) {
-    internal_assert(op->args.size() == 1);
-    string id_index = print_expr(op->args[0]);
+    //internal_assert(op->args.size() == 1);
+    //string id_index = print_expr(op->args[0]);
+    vector<string> indices;
+    for (auto index : op->args) {
+      string id_index = print_expr(index);
+      indices.emplace_back(id_index);
+    }
 
     ostringstream rhs;
     do_indent();
-    rhs << printname(op->name) << "[" << id_index << "]";
+    rhs << printname(op->name);// << "[" << id_index << "]";
+    for (auto id_index : indices) {
+      rhs << "[" << id_index << "]";
+    }
+
     print_assignment(op->type, rhs.str());
 
   } else {
@@ -1115,7 +1133,6 @@ void CodeGen_C_Expr::visit(const Realize *op) {
     stream << "[";
     stream << op->bounds[i].extent;
     stream << "]";
-    if (i < op->bounds.size() - 1) stream << ", ";
   }
   if (op->memory_type != MemoryType::Auto) {
     stream << " in " << op->memory_type;
@@ -1340,10 +1357,10 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto pc_str = rom_to_c(roms[found_rom]);
     compute_stream << pc_str << std::endl;
 
-    const Realize* rom_r = roms[found_rom].realize.as<Realize>();
-    int rom_size = to_int(rom_r->bounds[0].extent);
-    auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
-    coreir_insts.push_back(coreir_inst);
+    //const Realize* rom_r = roms[found_rom].realize.as<Realize>();
+    //int rom_size = to_int(rom_r->bounds[0].extent);
+    //auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
+    //coreir_insts.push_back(coreir_inst);
   }
   auto output = return_c_expr(new_expr);
 
@@ -1352,7 +1369,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "}" << endl;
 
   // Output the compute to a coreir module
-  convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
+  //convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }

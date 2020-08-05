@@ -109,8 +109,8 @@ public:
           hw_input.compute_root();
 
           // should work with these lines commented out
-          add1.compute_root();
-          add2.compute_root();
+          //add1.compute_root();
+          //add2.compute_root();
 
             
         } else {  // schedule to CPU

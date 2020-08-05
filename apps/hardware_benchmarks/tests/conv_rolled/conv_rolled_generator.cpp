@@ -40,8 +40,6 @@ public:
         output.bound(y, 0, imgsize);
         //hw_output.bound(x, 0, imgsize);
         //hw_output.bound(y, 0, imgsize);
-        conv.bound(x, 0, imgsize);
-        conv.bound(y, 0, imgsize);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -68,6 +66,21 @@ public:
 
           hw_input.stream_to_accelerator();
           kernel.compute_at(hw_output, yi);
+          //kernel.compute_root();
+          
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
+
+          hw_output.compute_root();
+
+          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+            .hw_accelerate(xi, xo);
+
+          conv.compute_at(hw_output, xo);
+          //hw_input.linebuffer();
+
+          hw_input.stream_to_accelerator();
+          kernel.compute_at(hw_output, xo);
           //kernel.compute_root();
 
         } else {  // schedule to CPU
