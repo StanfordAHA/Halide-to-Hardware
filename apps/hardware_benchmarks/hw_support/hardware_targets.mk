@@ -240,7 +240,7 @@ endif
 # we should remake process in case there are extra dependencies
 .PHONY: $(BIN)/process
 $(BIN)/process: $(PROCESS_DEPS)
-	echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
+	@echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)

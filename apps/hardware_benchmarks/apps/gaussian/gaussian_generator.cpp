@@ -28,9 +28,9 @@ public:
         RDom win(0, blockSize, 0, blockSize);
 
         Func hw_input, input_copy;
-        //hw_input(x, y) = cast<uint16_t>(input(x, y));
-        input_copy(x, y) = cast<uint16_t>(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        //input_copy(x, y) = cast<uint16_t>(input(x, y));
+        //hw_input(x, y) = input_copy(x, y);
 
         // create the gaussian kernel
         Func kernel_f;
@@ -115,9 +115,12 @@ public:
           blur_unnormalized.compute_at(hw_output, xo);
           blur.compute_at(hw_output, xo);
 
-          hw_input.compute_at(hw_output, xo);
-          hw_input.stream_to_accelerator();
-          input_copy.compute_root();
+          hw_input.stream_to_accelerator();//.compute_root();//at(output, xo);
+          //hw_input.compute_root();
+          
+          //hw_input.compute_at(hw_output, xo);
+          //input_copy.stream_to_accelerator();
+          //input_copy.compute_root();
           
         } else {    // schedule to CPU
 

@@ -2604,10 +2604,24 @@ Func &Func::hw_accelerate(Var compute_var, Var store_var) {
     return *this;
 }
 
-Func &Func::stream_to_accelerator() {
-  //func.schedule().accelerate_inputs().insert(hw_in.name());
+// Set this as an accelerator input. This will be converted into a stencil
+// to count as a valid input into a hardware accelerator.
+Func &Func::accelerator_input() {
   func.schedule().is_accelerator_input() = true;
   return *this;
+}
+
+// Set this as an accelerator input, create a copy stage, and properly
+// schedule each func. The accelerator input is computed at the root level.
+// The copy stage is computed at the accelerator storage level.
+Func Func::stream_to_accelerator() {
+  //invalidate_cache();
+  //func.schedule().accelerate_inputs().insert(hw_in.name());
+  func.schedule().is_accelerator_input() = true;
+  func.schedule().compute_level() = LoopLevel::root();
+
+  auto new_func = get_wrapper(func, name() + "_global_wrapper", {}, false);
+  return new_func;
 }
   
 Func &Func::linebuffer() {

@@ -24,6 +24,13 @@ public:
 
     vector<HW_Arg> arguments(const Scope<HW_Stencil_Type>& streams_scope) {
         vector<HW_Arg> result;
+        if (!buffers.empty()) {
+          std::cout << "buffers include: ";
+          for (auto buffer : buffers) {
+            std::cout << buffer.first << ", ";
+          }
+          std::cout << std::endl;
+        }
         internal_assert(buffers.empty()) << "we expect no references to buffers in a hardware pipeline\n";
         for(const pair<string, Type> &v : vars) {
             if(ends_with(v.first, ".stencil")) {
@@ -38,7 +45,7 @@ public:
                 result.push_back({v.first, false, true, v.second, HW_Stencil_Type()});
             }
         }
-        result.push_back({"hw_output_stencil", true, true, Type(), streams_scope.get("hw_output.stencil")});
+        result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get("hw_output.stencil")});
         return result;
     }
 

@@ -328,7 +328,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
 
     if (t.has_feature(Target::Clockwork)) {
-      s = rename_hwbuffers(s);
+      s = rename_hwbuffers(s, env);
     }
     
     s = storage_flattening(s, outputs, env, t);
@@ -489,7 +489,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
-    //std::cout << "after passes: " << s << std::endl;
+    std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

@@ -11,7 +11,7 @@
 namespace Halide {
 namespace Internal {
 
-Stmt rename_hwbuffers(Stmt s);
+Stmt rename_hwbuffers(Stmt s, const std::map<std::string, Function> &env);
 
 }  // namespace Internal
 }  // namespace Halide
