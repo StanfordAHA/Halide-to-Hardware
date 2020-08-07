@@ -2070,7 +2070,7 @@ Stmt schedule_functions(const vector<Function> &outputs,
                 is_output = is_output | o.same_as(f);
             }
 
-            // if the function is linebuffered hardware kernel,
+            // if the function is a linebuffered hardware kernel,
             // copy the compute and store levels from the accelerator
             // pipeline exit function
             if (f.schedule().is_hw_kernel() && f.schedule().is_linebuffered()) {
@@ -2078,9 +2078,20 @@ Stmt schedule_functions(const vector<Function> &outputs,
               Function func_exit = env.find(f.schedule().accelerate_exit())->second;
               f.schedule().compute_level() = func_exit.schedule().accelerate_compute_level();
               f.schedule().store_level() = func_exit.schedule().accelerate_store_level();
-
-
             }
+
+            if (f.is_wrapper() && env.count(f.is_wrapper()->name)) {
+              std::cout << f.name() << " is a wrapper for " << f.is_wrapper()->name << std::endl;
+              Function orig_func = env.find(f.is_wrapper()->name)->second;
+              
+              if (orig_func.schedule().is_hw_kernel() && orig_func.schedule().is_accelerator_input()) {
+                internal_assert(env.count(orig_func.schedule().accelerate_exit()));
+                Function func_exit = env.find(f.schedule().accelerate_exit())->second;
+                f.schedule().compute_level() = func_exit.schedule().accelerate_store_level();
+                f.schedule().store_level() = func_exit.schedule().accelerate_store_level();
+              }
+            }
+
             //std::cout << name << " has hw_kernel=" << f.schedule().is_hw_kernel() << " lb=" << f.schedule().is_linebuffered() << std::endl;
 
             // The way in which the function was referred to in the

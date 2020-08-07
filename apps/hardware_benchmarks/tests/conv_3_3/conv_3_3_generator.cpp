@@ -32,9 +32,12 @@ public:
 
         conv(x, y) = cast<uint16_t>(0);
 
-        Func hw_input("hw_input");
+        Func hw_input("hw_input"), add1, add2;
         Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        //hw_input(x, y) = cast<uint16_t>(input(x, y));
+        add1(x, y) = cast<uint16_t>(input(x, y) + 1);
+        add2(x, y) = add1(x, y) + 2;
+        hw_input(x, y) = cast<uint16_t>(add2(x, y));
         hw_input_copy(x, y) = hw_input(x, y);
         conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
@@ -101,10 +104,18 @@ public:
             .unroll(r.y, ksize);
 
           hw_input_copy.compute_at(hw_output, xo);
+          
+          hw_input.accelerator_input();
           hw_input.compute_root();
-          hw_input.stream_to_accelerator();
+
+          // should work with these lines commented out
+          add1.compute_root();
+          add2.compute_root();
+
             
         } else {  // schedule to CPU
+          kernel.compute_at(output, x);
+          
           conv.update()
             .unroll(r.x)
             .unroll(r.y);
