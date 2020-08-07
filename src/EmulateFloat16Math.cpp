@@ -182,7 +182,7 @@ class WidenMath : public IRMutator {
 
     // Run the bfloat conversion only on the hardware, which is identified by _hls_target
     Stmt visit(const ProducerConsumer *op) override {
-      if (starts_with(op->name, "_hls_target")) {
+      if (false) {
         Stmt new_body = BFloatMath().mutate(op->body);
         new_body = ConvertToBFloat().mutate(new_body);
         return ProducerConsumer::make(op->name, op->is_producer, new_body);
@@ -266,7 +266,7 @@ class LowerBFloatConversions : public IRMutator {
 
   // ignore hardware accelerator block
   Stmt visit(const ProducerConsumer *op) override {
-    if (starts_with(op->name, "_hls_target")) {
+    if (false) {
       return ProducerConsumer::make(op->name, op->is_producer, op->body);
     } else {
       return IRMutator::visit(op);
@@ -426,7 +426,7 @@ class LowerFloat16Conversions : public IRMutator {
 
     // ignore hardware accelerator block
     Stmt visit(const ProducerConsumer *op) override {
-    if (starts_with(op->name, "_hls_target")) {
+    if (false) {
       return ProducerConsumer::make(op->name, op->is_producer, op->body);
     } else {
       return IRMutator::visit(op);
