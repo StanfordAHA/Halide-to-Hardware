@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -21,42 +22,40 @@ public:
 
         kernel(x,y) = bfloat16_t(0.f);
         kernel(0,0) = bfloat16_t(11.f);
-        fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
+        fp_kernel(x, y) = cast<bfloat16_t>(kernel(x,y));
 
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = conv(x, y);
-        output(x, y) = cast<uint8_t>(hw_output(x,y) % 256);
+        hw_output(x, y) = f32(conv(x, y));
+        output(x, y) = u8(ceil(hw_output(x,y)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
-          
+
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
-          conv.bound(x, 0, 64);
-          conv.bound(y, 0, 64);
 
-          hw_input.compute_root();
           hw_output.compute_root();
-          
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
-            .hw_accelerate(xi, xo);
+
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, 64, 64)
+              .hw_accelerate(xi, xo);
 
           conv.update()
             .unroll(r.x, 1)
             .unroll(r.y, 1);
 
-          conv.linebuffer();
+          conv.compute_at(hw_output, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
-          
+            
         } else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();

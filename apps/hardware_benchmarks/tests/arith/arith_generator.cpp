@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class UnitTestArith : public Halide::Generator<UnitTestArith> {
 public:
@@ -15,9 +16,7 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input_copy(x, y) = hw_input(x, y);
+        hw_input(x, y) = u16(input(x, y));
 
         Func mult, div, add, sub, mod;
         mult(x,y) = hw_input(x,y) * 13;
@@ -27,9 +26,9 @@ public:
         sub(x,y) = mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(sub(x, y));
-        output(x, y) = hw_output(x,y);
-
+        hw_output(x, y) = u8(sub(x, y));
+        output(x, y) = u8(hw_output(x,y));
+        
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
@@ -43,7 +42,6 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
@@ -57,10 +55,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_input.compute_root();
           hw_input.stream_to_accelerator();
-
 
         } else {  // schedule to CPU
           output.compute_root();

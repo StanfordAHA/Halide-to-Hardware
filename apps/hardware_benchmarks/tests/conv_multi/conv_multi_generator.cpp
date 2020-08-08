@@ -34,16 +34,13 @@ public:
         conv(x, y) = u16(0);
 
         Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y, z) = cast<uint16_t>(input(x, y, z));
-        hw_input_copy(x, y, z) = hw_input(x, y, z);
+        hw_input(x, y, z) = u16(input(x, y, z));
         //conv(x, y)  += kernel(r.x, r.y, r.z) * hw_input_copy(x + r.x, y + r.y, r.z);
-        conv(x, y)  += hw_input_copy(x + r.x, y + r.y, r.z);
+        conv(x, y)  += hw_input(x + r.x, y + r.y, r.z);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
-
+        hw_output(x, y) = u8(conv(x, y));
+        output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
@@ -66,7 +63,6 @@ public:
 
           //kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
@@ -87,11 +83,8 @@ public:
           conv.update()
             .unroll(r.z, zsize);
 
-          hw_input_copy.compute_at(hw_output, xo);
           hw_input.stream_to_accelerator();
 
-          hw_input.compute_root();
-            
         } else {  // schedule to CPU
           conv.update()
             .unroll(r.x)

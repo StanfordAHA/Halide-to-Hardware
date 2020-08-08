@@ -30,7 +30,7 @@ op_tests op-tests ops: $(OP_TESTS)
 ### convolutions ###
 CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
               conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7  \
-              conv_multi strided_conv conv_gen
+              conv_multi conv_gen
 #CONV_TESTS := conv_1_2 conv_2_1 conv_multi strided_conv
 conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
@@ -41,7 +41,7 @@ conv_tests conv-tests convs conv: $(CONV_TESTS)
 # fpconv := $(FP_CONV_TESTS)
 # fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 FP_CONV_TESTS := fp_arith fp_comp fp_conv_1_1 fp_conv_2_2 \
-				 fp_conv_3_3 fp_conv_4_4 fp_conv_5_5 fpconv_6_6 \
+				 fp_conv_3_3 fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 \
 				 fp_conv_7_7 fp_exp fp_invtrig fp_pointwise \
 				 fp_rectifier fp_round fp_trig
 ### accelerator interface tests ###
@@ -58,6 +58,8 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 #              accumulation histogram multi_channel_conv \
 #              two_level_memory three_level_memory pond
 MEM_TESTS := fifo_test \
+             conv_2x \
+             strided_conv \
              down_sample \
              db_3_3 \
              accumulation

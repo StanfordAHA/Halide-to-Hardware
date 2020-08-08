@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class UnitTestBoolean : public Halide::Generator<UnitTestBoolean> {
 public:
@@ -15,9 +16,7 @@ public:
         Var x("x"), y("y");
 
        Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input_copy(x, y) = hw_input(x, y);
+        hw_input(x, y) = u16(input(x, y));
 
         Func lt1, lt2;
         lt1(x,y) = hw_input(x,y) < 128;
@@ -30,8 +29,8 @@ public:
         bool_xor(x,y) = bool_or(x,y) ^ bool_not(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(select(bool_xor(x, y), 200, 0));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = u8(select(bool_xor(x, y), 200, 0));
+        output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -40,13 +39,11 @@ public:
           
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
@@ -60,8 +57,6 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_input.compute_root();
           hw_input.stream_to_accelerator();
 
         } else {  // schedule to CPU
