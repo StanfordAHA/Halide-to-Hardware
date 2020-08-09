@@ -23,41 +23,46 @@ public:
         kernel(0,0) = bfloat16_t(1.1);      kernel(0,1) = bfloat16_t(1.2);     kernel(0,2) = bfloat16_t(1.3);
         kernel(1,0) = bfloat16_t(2.4);      kernel(1,1) = bfloat16_t(0);       kernel(1,2) = bfloat16_t(2.6);
         kernel(2,0) = bfloat16_t(3.7);      kernel(2,1) = bfloat16_t(3.8);     kernel(2,2) = bfloat16_t(3.9);
-        fp_kernel(x, y) = cast<bfloat16_t>(kernel(x, y));
+        //fp_kernel(x,y) = cast<bfloat16_t>(kernel(x,y));
+        fp_kernel(x) = cast<bfloat16_t>(3*x);
 
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<bfloat16_t>(input(x, y));
-        conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        //conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = conv(x, y);
-        output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
+        hw_output(x, y) = cast<uint16_t>(conv(x, y));
+        //output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
+        output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          hw_input.compute_root();
+          //hw_input.compute_root();
           hw_output.compute_root();
 
           output.bound(x, 0, 64-2);
           output.bound(y, 0, 64-2);
-          conv.bound(x, 0, 64-2);
-          conv.bound(y, 0, 64-2);
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
-          conv.update()
-            .unroll(r.x, 3)
-            .unroll(r.y, 3);
+          //conv.update()
+          //  .unroll(r.x, 3)
+          //  .unroll(r.y, 3);
 
-          conv.linebuffer();
+          //conv.linebuffer();
+          conv.compute_at(hw_output, xo);
 
-
-          hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
+          fp_kernel.compute_at(hw_output, xo);//.unroll(x).unroll(y);
+          
+          //hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
 
         } else {  // schedule to CPU

@@ -182,7 +182,7 @@ class WidenMath : public IRMutator {
 
     // Run the bfloat conversion only on the hardware, which is identified by _hls_target
     Stmt visit(const ProducerConsumer *op) override {
-      if (starts_with(op->name, "_hls_target")) {
+      if (false) {//if (starts_with(op->name, "_hls_target")) {
         Stmt new_body = BFloatMath().mutate(op->body);
         new_body = ConvertToBFloat().mutate(new_body);
         return ProducerConsumer::make(op->name, op->is_producer, new_body);
@@ -266,7 +266,7 @@ class LowerBFloatConversions : public IRMutator {
 
   // ignore hardware accelerator block
   Stmt visit(const ProducerConsumer *op) override {
-    if (starts_with(op->name, "_hls_target")) {
+    if (false) {//if (starts_with(op->name, "_hls_target")) {
       return ProducerConsumer::make(op->name, op->is_producer, op->body);
     } else {
       return IRMutator::visit(op);
@@ -426,12 +426,12 @@ class LowerFloat16Conversions : public IRMutator {
 
     // ignore hardware accelerator block
     Stmt visit(const ProducerConsumer *op) override {
-    if (starts_with(op->name, "_hls_target")) {
-      return ProducerConsumer::make(op->name, op->is_producer, op->body);
-    } else {
-      return IRMutator::visit(op);
+      if (false) { //if (starts_with(op->name, "_hls_target")) {
+        return ProducerConsumer::make(op->name, op->is_producer, op->body);
+      } else {
+        return IRMutator::visit(op);
+      }
     }
-  }
 
 };
 
@@ -447,9 +447,11 @@ Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
       s = ConvertToBFloat().mutate(s);
     } else {
     */
-    
+    //std::cout << "original before bfloat" << std::endl << s;
     s = WidenMath().mutate(s);
+    //std::cout << "after widen" << std::endl << s;
     s = LowerBFloatConversions().mutate(s);
+    //std::cout << "after bfloat conversion" << std::endl << s;
     // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
     s = LowerFloat16Conversions().mutate(s);
 
