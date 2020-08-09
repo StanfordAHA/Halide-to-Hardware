@@ -2638,7 +2638,7 @@ void CodeGen_C::visit(const Allocate *op) {
     op->body.accept(this);
 
     // Should have been freed internally
-    internal_assert(!allocations.contains(op->name));
+    internal_assert(!allocations.contains(op->name)) << op->name << " was not freed correctly" << "\n";
 
     close_scope("alloc " + print_name(op->name));
 }

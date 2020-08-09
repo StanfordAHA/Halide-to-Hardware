@@ -54,7 +54,7 @@ struct CoreIR_Inst_Args {
     name(name), gen(gen), args(args), genargs(genargs), wirename(wirename), selname(selname) {}
 };
 
-CoreIR_Inst_Args rom_to_coreir(std::string, int, Stmt, CoreIR::Context*);
+CoreIR_Inst_Args rom_to_coreir(std::string, std::vector<int>, Stmt, CoreIR::Context*);
 
 void convert_compute_to_coreir(Expr, CoreIR_Interface, std::vector<CoreIR_Inst_Args>, CoreIR::Context*);
 

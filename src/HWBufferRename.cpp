@@ -4,6 +4,7 @@
 #include "IROperator.h"
 #include "Simplify.h"
 #include "Substitute.h"
+#include "UnrollLoops.h"
 
 using std::map;
 using std::string;
@@ -74,7 +75,11 @@ class RenameStencilRealizes : public IRMutator {
 
     Stmt visit(const Realize *op) override {
       auto func = env.at(op->name);
-      if (in_xcel || func.schedule().is_accelerator_input()) {
+
+      // ROMs should be flattened, so don't append ".stencil"
+      auto realization_type = identify_realization(unroll_loops(Stmt(op)), op->name);
+
+      if (realization_type != ROM_REALIZATION && (in_xcel || func.schedule().is_accelerator_input())) {
         string realize_name = op->name + ".stencil";
         Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
         new_body = mutate(new_body);

@@ -313,9 +313,10 @@ class CreateCoreIRModule : public CodeGen_C {
   void visit_ternop(Type t, Expr a, Expr b, Expr c, const char*  op_sym1, const char* op_sym2, std::string op_name);
   void visit(const Select *op);
   void visit(const Call *op);
+  void visit(const Load *op);
   
 public:
-  CreateCoreIRModule(ostringstream& stream, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) :
+  CreateCoreIRModule(ostream& stream, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) :
     CodeGen_C(stream, Target(), CPlusPlusImplementation, ""), def(def), context(context), self(def->sel("self")) {
     gens = coreir_generators(context);
     record_inputs(iface);
@@ -331,6 +332,7 @@ public:
   }
 
   void add_coreir_inst(CoreIR_Inst_Args coreir_inst) {
+    stream << "// adding coreir inst " << coreir_inst.ref_name << std::endl;
     hw_def_set[coreir_inst.ref_name] = std::make_shared<CoreIR_Inst_Args>(coreir_inst);
   }
   
@@ -342,6 +344,7 @@ void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface,
   ostringstream compute_debug_str;
   
   CreateCoreIRModule ccm(compute_debug_str, def, iface, context);
+  //CreateCoreIRModule ccm(std::cout, def, iface, context);
   compute_debug_str.str("");
   compute_debug_str.clear();
 
@@ -1169,6 +1172,67 @@ void CreateCoreIRModule::visit(const Select *op) {
   }
 }
 
+void CreateCoreIRModule::visit(const Load *op) {
+  Type t = op->type;
+  bool type_cast_needed =
+    !allocations.contains(op->name) ||
+    allocations.get(op->name).type != t;
+
+  string id_index = print_expr(op->index);
+  string name = print_name(op->name);
+  ostringstream rhs;
+  if (type_cast_needed) {
+    rhs << "(("
+        << print_type(op->type)
+        << " *)"
+        << name
+        << ")";
+  } else {
+    rhs << name;
+  }
+  rhs << "["
+      << id_index
+      << "][load]";
+
+  string out_var = print_assignment(op->type, rhs.str());
+
+  // generate coreir
+  if (is_const(op->index)) {
+    string in_var = name + "_" + id_index;
+    rename_wire(out_var, in_var, Expr());
+
+  } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["rom2"]) {
+    stream << "loading from rom " << op->name << " with gen " << hw_def_set[op->name]->gen << std::endl;
+
+    std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[op->name];
+    string inst_name = unique_name(inst_args->name);
+    CoreIR::Wireable* inst = def->addInstance(inst_name, inst_args->gen, inst_args->args, inst_args->genargs);
+    add_wire(out_var, inst->sel(inst_args->selname));
+
+    // attach the read address
+    CoreIR::Wireable* raddr_wire = get_wire(id_index, op->index);
+    def->connect(raddr_wire, inst->sel("raddr"));
+    //attach a read enable
+    CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
+    def->connect(rom_ren->sel("out"), inst->sel("ren"));
+
+  } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["ram2"]) {
+    stream << "loading from sram " << name << std::endl;
+
+    add_wire(out_var, get_wire(name, Expr()));
+
+    // attach the read address
+    CoreIR::Wireable* raddr_wire = get_wire(id_index, op->index);
+    auto ram_raddr = get_wire(name+"_raddr", Expr());
+    def->disconnect(ram_raddr);
+    def->connect(raddr_wire, ram_raddr);
+
+  } else { // variable load: use a mux for where data originates
+    internal_error << "variable load not supported yet";
+  }
+
+}
+
 void CreateCoreIRModule::visit(const Cast *op) {
   stream << "[cast]";
   string in_var = print_expr(op->value);
@@ -1346,6 +1410,7 @@ void CreateCoreIRModule::visit(const Call *op) {
 }
 
 class ROMInit : public IRVisitor {
+  vector<int> strides;
   using IRVisitor::visit;
 
   bool is_const(const Expr e) {
@@ -1361,54 +1426,79 @@ class ROMInit : public IRVisitor {
       auto value_expr = op->value;
       auto index_expr = op->index;
       //cout << "store: " << Stmt(op) << std::endl;
-      internal_assert(is_const(value_expr) && is_const(index_expr));
-
-      int index = id_const_value(index_expr);
-      int value = id_const_value(value_expr);
-      init_values["init"][index] = value;
+      //internal_assert(is_const(value_expr) && is_const(index_expr));
+      if (is_const(value_expr) && is_const(index_expr)) {
+        int index = id_const_value(index_expr);
+        int value = id_const_value(value_expr);
+        init_values["init"][index] = value;
+      }
     }
+    IRVisitor::visit(op);
   }
 
   void visit(const Provide *op) {
     if (op->name == allocname) {
-      internal_assert(op->args.size() == 1);
+      //internal_assert(op->args.size() == 1);
       internal_assert(op->values.size() == 1);
+      internal_assert(op->args.size() == strides.size())
+        << "args size=" << op->args.size() << " while strides size=" << strides.size() << "\n";
       auto value_expr = op->values[0];
-      auto index_expr = op->args[0];
+      //auto index_expr = op->args[0];
+      int index = 0;
+      for (size_t i=0; i<strides.size(); ++i) {
+        internal_assert(is_const(op->args[i]));
+        index += id_const_value(op->args[i]) * strides[i];
+      }
+      
       //cout << "store: " << Stmt(op) << std::endl;
-      internal_assert(is_const(value_expr) && is_const(index_expr));
+      //internal_assert(is_const(value_expr) && is_const(index_expr));
+      internal_assert(is_const(value_expr));
 
-      int index = id_const_value(index_expr);
+      //int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
+
       init_values["init"][index] = value;
     }
+    IRVisitor::visit(op);
   }
 
 public:
   nlohmann::json init_values;
   string allocname;
-  ROMInit(string allocname) : allocname(allocname) {}
+  ROMInit(string allocname, vector<int> strides) : strides(strides), allocname(allocname) {}
 };
 
 // returns a map with all the initialization values for a rom
-nlohmann::json rom_init(Stmt s, string allocname) {
-  ROMInit rom_init(allocname);
+nlohmann::json rom_init(Stmt s, vector<int> strides, string allocname) {
+  ROMInit rom_init(allocname, strides);
   s.accept(&rom_init);
   return rom_init.init_values;
 }
 
-CoreIR_Inst_Args rom_to_coreir(string alloc_name, int size, Stmt body, CoreIR::Context* context) {
+CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt body, CoreIR::Context* context) {
     CoreIR_Inst_Args rom_args;
     rom_args.ref_name = alloc_name;
     rom_args.name = "rom_" + alloc_name;
 
+    int total_size = 1;
+    vector<int> stride(rom_size.size());
+    //for (auto len : size) {
+    for (size_t i=0; i<rom_size.size(); ++i) {
+      if (i==0) {
+        stride[i] = 1;
+      } else {
+        stride[i] = stride[i-1] * rom_size[i-1];
+      }
+      total_size *= rom_size[i];
+    }
+
     auto gens = coreir_generators(context);
     rom_args.gen = gens["rom2"];
     rom_args.args = {{"width",CoreIR::Const::make(context,16)},
-                     {"depth",CoreIR::Const::make(context,size)}};
+                     {"depth",CoreIR::Const::make(context,total_size)}};
 
     // set initial values for rom
-    nlohmann::json jdata = rom_init(body, alloc_name);
+    nlohmann::json jdata = rom_init(body, stride, alloc_name);
     //jdata["init"][0] = 0;
     CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
     rom_args.genargs = modparams;

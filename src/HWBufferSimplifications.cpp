@@ -158,7 +158,7 @@ class InlineMemoryConstants : public IRMutator {
       auto mem_type = identify_realization(realize->body, realize->name);
 
       if (mem_type == ROM_REALIZATION) {
-        //std::cout << "Realize " << realize->name << " is a rom" << std::endl;
+        std::cout << "Realize " << realize->name << " is a rom" << std::endl;
         roms.insert(realize->name);
         return IRMutator::visit(realize);
 

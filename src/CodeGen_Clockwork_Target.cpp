@@ -60,6 +60,13 @@ class ContainsCall : public IRVisitor {
       IRVisitor::visit(op);
     }
 
+    void visit(const Load *op) {
+      if (calls.count(op->name) > 0) {
+        found_calls.emplace_back(op->name);
+      }
+      IRVisitor::visit(op);
+    }
+  
 public:
   vector<string> found_calls;
   set<string> calls;
@@ -110,7 +117,8 @@ string type_to_c_type(Type type) {
     } else if (type.bits() == 16 && !type.is_bfloat()) {
       oss << "float16_t";
     } else if (type.bits() == 16 && type.is_bfloat()) {
-      oss << "bfloat16_t";
+      //oss << "bfloat16_t";
+      oss << "uint16_t";
     } else {
       user_error << "Can't represent a float with this many bits in C: " << type << "\n";
     }
@@ -198,7 +206,7 @@ class RenameAllocation : public IRMutator {
     using IRMutator::visit;
 
     Expr visit(const Load *op) {
-        if (op->name == orig_name ) {
+        if (op->name == orig_name) {
             Expr index = mutate(op->index);
             return Load::make(op->type, new_name, index, op->image, op->param, op->predicate, ModulusRemainder());
         } else {
@@ -207,7 +215,7 @@ class RenameAllocation : public IRMutator {
     }
 
     Stmt visit(const Store *op) {
-        if (op->name == orig_name ) {
+        if (op->name == orig_name) {
             Expr value = mutate(op->value);
             Expr index = mutate(op->index);
             return Store::make(new_name, value, index, op->param, op->predicate, ModulusRemainder());
@@ -222,6 +230,15 @@ class RenameAllocation : public IRMutator {
         } else {
             return IRMutator::visit(op);
         }
+    }
+
+    Stmt visit(const ProducerConsumer *op) {
+      if (op->name == orig_name) {
+        auto body = mutate(op->body);
+        return ProducerConsumer::make(new_name, op->is_producer, body);
+      } else {
+        return IRMutator::visit(op);
+      }
     }
 
 public:
@@ -300,8 +317,8 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Tar
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader), 
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
-    clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
-    //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
+    //clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
+    clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
 
 
 void print_clockwork_codegen(string appname, ofstream& stream);
@@ -334,9 +351,9 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     //src_file << src_stream.str() << endl;
     //hdr_file << hdr_stream.str() << endl;
     clk_debug_file << clk_stream.str() << endl;
-    clk_memory_file << clkc.memory_stream.str() << endl;
+    clk_memory_file << clkc.memory_oss.str() << endl;
     clk_memory_header_file << "prog " << target_name << "();" << std::endl;
-    clk_compute_file << clkc.compute_stream.str() << endl;
+    clk_compute_file << clkc.compute_oss.str() << endl;
     
     //src_file.close();
     //hdr_file.close();
@@ -363,6 +380,10 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     clk_exec_h_file.close();
     clk_exec_cpp_file.close();
 }
+
+//CodeGen_Clockwork_Target::CodeGen_Clockwork_C(std::ostream &s, Target target, OutputKind output_kind) :
+//CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false), memory_stream( { }
+
 
 namespace {
 const string clockwork_header_includes =
@@ -951,8 +972,36 @@ protected:
 };
 
 void Compute_Closure::visit(const Load *op) {
-    var_args[op->name] = {op->index};
-    Closure::visit(op);
+  //var_args[op->name] = {op->index};
+  //Closure::visit(op);
+
+  if (!ignore.contains(op->name)) {
+    debug(3) << "adding to closure.\n";
+
+    ostringstream arg_print;
+    arg_print << Expr(op);
+      
+    //auto comp_arg = Compute_Argument({"", false, false, op->type, op->args, op->name, Expr(op)});
+    //if (unique_args.count(comp_arg) == 0) {
+    if (unique_argstrs.count(printname(arg_print.str())) == 0) {
+      string argname = unique_name(op->name);
+      if (argname == op->name) { argname = unique_name(op->name); }
+        
+      unique_argstrs.insert(printname(arg_print.str()));
+      vars[argname] = op->type;
+      var_comparg[argname] = Compute_Argument({argname, false, false, op->type, {op->index}, op->name, Expr(op)});;
+
+    } else {
+      //std::cout << "not adding " << Expr(op) << std::endl;
+    }
+    // do not recurse
+    return;
+  } else {
+    debug(3) << "not adding to closure.\n";
+  }
+
+  Closure::visit(op);
+  
 }
 
 void Compute_Closure::visit(const Call *op) {
@@ -997,9 +1046,11 @@ vector<Compute_Argument> Compute_Closure::arguments() {
         //if (i.second.write) std::cout << " (write)";
         std::cout << "\n";
         if (i.second.read) {
-          if (var_args.count(i.first) > 0) {
-            //std::cout << i.first << " has args " << endl;
-            res.push_back({i.first, true, true, Type(), var_args[i.first]});
+          if (var_comparg.count(i.first) > 0) {
+            res.push_back(var_comparg[i.first]);
+          } else if (var_args.count(i.first) > 0) {
+            std::cout << i.first << " has args " << endl;
+            res.push_back({i.first, true, true, Type(), var_args[i.first], i.first});
           } else {
             res.push_back({i.first, true, true, Type()});
           }
@@ -1050,6 +1101,7 @@ class CodeGen_C_Expr : public CodeGen_C {
   void visit(const Provide *op) override;
   void visit(const Call *op) override;
   void visit(const Realize *op) override;
+  void visit(const Allocate *op) override;
   
 public:
   CodeGen_C_Expr(std::ostream& dest, Target target) : CodeGen_C(dest, target) {
@@ -1146,6 +1198,45 @@ void CodeGen_C_Expr::visit(const Realize *op) {
   print(op->body);
 }
 
+void CodeGen_C_Expr::visit(const Allocate *op) {
+    string op_name = print_name(op->name);
+    string op_type = print_type(op->type, AppendSpace);
+
+    internal_assert(!op->new_expr.defined());
+    internal_assert(!is_zero(op->condition));
+    int32_t constant_size;
+    string size_id;
+    constant_size = op->constant_allocation_size();
+    if (constant_size > 0) {
+      int64_t stack_bytes = constant_size * op->type.bytes();
+
+      if (stack_bytes > ((int64_t(1) << 31) - 1)) {
+        user_error << "Total size for allocation "
+                   << op->name << " is constant but exceeds 2^31 - 1.\n";
+      } else {
+        size_id = print_expr(Expr(static_cast<int32_t>(constant_size)));
+      }
+    } else {
+      internal_error << "Size for allocation " << op->name
+                     << " is not a constant.\n";
+    }
+          
+    Allocation alloc;
+    alloc.type = op->type;
+    allocations.push(op->name, alloc);
+
+    do_indent();
+    stream << op_type;
+
+    stream << op_name
+           << "[" << size_id << "];\n";
+
+    op->body.accept(this);
+
+    // Should have been freed internally
+    //internal_assert(!allocations.contains(op->name)) << op->name << " was not freed correctly" << "\n";
+}
+
 string return_c_expr(Expr e) {
   ostringstream arg_print;
   CodeGen_C_Expr compute_codegen(arg_print, Target());
@@ -1175,16 +1266,26 @@ string return_c_stmt(Stmt s) {
 
 string rom_to_c(ROM_data rom) {
   auto produce = ProducerConsumer::make_produce(rom.name, rom.produce);
-  const Realize* rom_r = rom.realize.as<Realize>();
-  auto realize = Realize::make(rom_r->name, rom_r->types, rom_r->memory_type,
-                               rom_r->bounds, rom_r->condition, produce);
+  if (const Realize* rom_r = rom.stmt.as<Realize>()) {
+    auto realize = Realize::make(rom_r->name, rom_r->types, rom_r->memory_type,
+                                 rom_r->bounds, rom_r->condition, produce);
 
-  //std::cout << "rom " << rom.name << " being renamed " << printname(rom.name) << std::endl;
-  Stmt new_realize = RenameRealize(rom.name, printname(rom.name)).mutate(Stmt(realize));
-  auto combined = return_c_stmt(new_realize);
+    //std::cout << "rom " << rom.name << " being renamed " << printname(rom.name) << std::endl;
+    Stmt new_realize = RenameRealize(rom.name, printname(rom.name)).mutate(Stmt(realize));
+    auto combined = return_c_stmt(new_realize);
 
-  // return output
-  return combined;
+    // return output
+    return combined;
+  } else if (const Allocate* rom_r = rom.stmt.as<Allocate>()) {
+    auto allocate = Allocate::make(rom_r->name, rom_r->type, rom_r->memory_type,
+                                  rom_r->extents, rom_r->condition, produce);
+    auto combined = return_c_stmt(allocate);
+    return combined;
+
+  } else {
+    internal_error << "rom data ill formed\n";
+    return "error";
+  }
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
@@ -1299,7 +1400,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
                   << used_loopname << "\");" << std::endl;
     
     iface.indices.emplace_back(CoreIR_Port({used_loopname, 16})); // loops use 16 bit variables
-    compute_stream << ", const int _" << used_loopname;
+    if (arg_order.size() > 0) { compute_stream << ", "; }
+    compute_stream << "const int _" << used_loopname;
   }
   compute_stream << ") {\n";
 
@@ -1357,11 +1459,20 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto pc_str = rom_to_c(roms[found_rom]);
     compute_stream << pc_str << std::endl;
 
-    //const Realize* rom_r = roms[found_rom].realize.as<Realize>();
-    //int rom_size = to_int(rom_r->bounds[0].extent);
-    //auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
-    //coreir_insts.push_back(coreir_inst);
+    vector<int> rom_size;
+    if (const Realize* rom_r = roms[found_rom].stmt.as<Realize>()) {
+      for (auto bound : rom_r->bounds) {
+        rom_size.emplace_back(to_int(bound.extent));
+      }
+    } else if (const Allocate* rom_a = roms[found_rom].stmt.as<Allocate>()) {
+      for (auto bound : rom_a->extents) {
+        rom_size.emplace_back(to_int(bound));
+      }
+    }
+    auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
+    coreir_insts.push_back(coreir_inst);
   }
+  std::cout << "done of roms" << std::endl;
   auto output = return_c_expr(new_expr);
 
   // Output the c expr to the compute
@@ -1369,7 +1480,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "}" << endl;
 
   // Output the compute to a coreir module
-  //convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
+  convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }
@@ -1510,6 +1621,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     Allocation alloc;
     alloc.type = op->type;
     allocations.push(alloc_name, alloc);
+
+    auto new_alloc = Allocate::make(alloc_name, op->type, op->memory_type, op->extents, op->condition, new_body);
+    roms[alloc_name] = ROM_data({alloc_name, Stmt(new_alloc), Stmt()});;
 
     do_indent();
     stream << print_type(op->type) << ' '

@@ -19,7 +19,7 @@ namespace Internal {
 
 struct ROM_data {
   std::string name;
-  Stmt realize;
+  Stmt stmt;
   Stmt produce;
 };
 
@@ -77,13 +77,19 @@ protected:
       std::string output;
 
       /** The stream we're outputting the memory on */
-      std::ostringstream memory_stream;
+      std::ostringstream memory_oss;
+      std::ostream& memory_stream;
       /** The stream we're outputting the compute on */
-      std::ostringstream compute_stream;
+      std::ostringstream compute_oss;
+      std::ostream& compute_stream;
+      
       CoreIR::Context* context;
       
       CodeGen_Clockwork_C(std::ostream &s, Target target, OutputKind output_kind) :
-        CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false) { }
+        CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false), memory_stream(memory_oss), compute_stream(compute_oss) { }
+        //CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false), memory_stream(std::cout), compute_stream(compute_oss) { }
+        //CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false), memory_stream(memory_oss), compute_stream(std::cout) { }
+        //CodeGen_Clockwork_Base(s, target, output_kind), is_clockwork(false), memory_stream(std::cout), compute_stream(std::cout) { }
 
       void set_output_path(std::string pathname) {
         output_base_path = pathname;
