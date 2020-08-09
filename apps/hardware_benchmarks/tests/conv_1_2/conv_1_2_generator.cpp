@@ -26,13 +26,12 @@ public:
         conv(x, y) = u16(0);
 
         Func input_copy, hw_input("hw_input");
-        input_copy(x, y) = u16(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        hw_input(x, y) = u16(input(x, y));
         conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = conv(x, y);
+        output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -77,10 +76,7 @@ public:
 
           kernel.compute_at(conv, x);
 
-          hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
-
-          input_copy.compute_root();
           
         } else {  // schedule to CPU
           kernel.compute_root();

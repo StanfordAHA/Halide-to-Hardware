@@ -30,8 +30,8 @@ public:
         conv(x, y) = u16(0);
 
         Func input_copy, hw_input("hw_input");
-        input_copy(x, y) = u16(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        //input_copy(x, y) = u16(input(x, y));
+        hw_input(x, y) = u16(input(x, y));
         //conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
         conv(x, y)  += u16(kernel(r.x + 3*r.y)) * hw_input(x + r.x, y + r.y);
 
@@ -80,9 +80,9 @@ public:
           kernel.compute_at(conv, x);
           kernel.unroll(x, 9);
           
-          hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
+          //hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
-          input_copy.compute_root();
+          //input_copy.compute_root();
 
         } else {  // schedule to CPU
           output.compute_root();

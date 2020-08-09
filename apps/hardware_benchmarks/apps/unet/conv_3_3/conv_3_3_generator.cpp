@@ -56,9 +56,9 @@ public:
 
         Func hw_output("hw_output");
         //hw_output(w, x, y) = cast<uint8_t>(conv(w, x, y));
-        hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
+        hw_output(x, y, w) = conv(x, y, w);
         //output(w, x, y) = max(0, hw_output(w, x, y));
-        output(x, y, w) = max(0, hw_output(x, y, w));
+        output(x, y, w) = cast<uint8_t>(max(0, hw_output(x, y, w)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -231,8 +231,12 @@ public:
           conv.compute_at(hw_output, xo);
           
           hw_input.compute_at(hw_output, xo);
+
           hw_kernel.compute_at(hw_output, xo);
+
+          input_copy.accelerator_input();
           input_copy.compute_root();
+          kernel_copy.accelerator_input();
           kernel_copy.compute_root();
           
         } else {  // schedule to CPU

@@ -18,6 +18,8 @@ public:
   //Output<Buffer<uint8_t>> output{"output", 3};
     Output<Buffer<uint8_t>> output{"output", 2};
 
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+
     void generate() {
         /* THE ALGORITHM */
         Var c("c"), x("x"), y("y");
@@ -43,8 +45,9 @@ public:
         // create the input
         Func hw_input, input_copy;
         //hw_input(c, x, y) = cast<uint16_t>(input(x+blockSize/2, y+blockSize/2, c));
-        input_copy(x, y, c) = cast<uint16_t>(input(x, y, c));
-        hw_input(x, y, c) = input_copy(x, y, c);
+        //input_copy(x, y, c) = cast<uint16_t>(input(x, y, c));
+        //hw_input(x, y, c) = input_copy(x, y, c);
+        hw_input(x, y, c) = cast<uint16_t>(input(x, y, c));
 
         // create a grayscale image
         Func gray;
@@ -70,10 +73,10 @@ public:
         // Use the ratio to sharpen the input image.
         Func hw_output;
         //hw_output(c, x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
-        hw_output(x, y) = cast<uint8_t>(clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255));
+        hw_output(x, y) = clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255);
         //hw_output(x, y) = cast<uint8_t>(blur(x, y));
 
-        output(x, y) = hw_output(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x, y));
         //output(c, x, y) = hw_output(c, x, y);
         
         //output(x, y, c) = hw_output(x, y);
@@ -113,38 +116,55 @@ public:
 
 
         } else if (get_target().has_feature(Target::Clockwork)) {
+          if (schedule == 1) { // single buffer
+            hw_output.compute_root();
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            
+            kernel.compute_at(blur_unnormalized, x).unroll(x);
+            hw_input.stream_to_accelerator();
 
-          hw_output.compute_root();
+          } else if (schedule == 2) { // all buffers
+            hw_output.compute_root();
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            
+            blur_unnormalized.compute_at(hw_output, xo);
+            ratio.compute_at(hw_output, xo);
+            gray.compute_at(hw_output, xo);
+            kernel.compute_at(blur_unnormalized, x).unroll(x);
+            hw_input.stream_to_accelerator();
+            
+          } else {
+            hw_output.compute_root();
           
-          //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
-
-          hw_output
+            hw_output
               .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
 
-          blur_unnormalized.compute_at(hw_output, xo);
-          blur_unnormalized.update()
-            .unroll(win.x).unroll(win.y);
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur_unnormalized.update()
+              .unroll(win.x).unroll(win.y);
 
-          //gray.linebuffer().fifo_depth(ratio, 20);
-          //blur_y.linebuffer();
-          ratio.compute_at(hw_output, xo);
-          //hw_output.unroll(c);  // hw output bound
-          //hw_input.unroll(c);  // hw input bound
-          //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
-          gray.fifo_depth(hw_output, 60*9); // hw input bounds
+            //gray.linebuffer().fifo_depth(ratio, 20);
+            //blur_y.linebuffer();
+            ratio.compute_at(hw_output, xo);
+            //hw_output.unroll(c);  // hw output bound
+            //hw_input.unroll(c);  // hw input bound
+            //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
+            gray.fifo_depth(hw_output, 60*9); // hw input bounds
 
-          //kernel.compute_at(hw_output, xo).unroll(x);
-          //kernel.compute_at(blur_unnormalized, x).unroll(x);
-          kernel.compute_at(blur_unnormalized, x).unroll(x);
+            //kernel.compute_at(hw_output, xo).unroll(x);
+            kernel.compute_at(blur_unnormalized, x).unroll(x);
 
-          gray.compute_at(hw_output, xo);
+            gray.compute_at(hw_output, xo);
 
-          //hw_input.compute_root();
-          hw_input.compute_at(hw_output, xo);
-          hw_input.stream_to_accelerator();
-
-          input_copy.compute_root();
+            //hw_input.compute_at(hw_output, xo);
+            hw_input.stream_to_accelerator();
+            //input_copy.compute_root();
+          }
 
         } else {    // schedule to CPU
           output.compute_root();

@@ -38,16 +38,16 @@ public:
         conv2(x, y) = u16(0);
 
         Func hw_input("hw_input"), hw_input_copy;
-        hw_input_copy(x, y) = cast<uint16_t>(input(x, y));
-        hw_input(x, y) = hw_input_copy(x, y);
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        //hw_input(x, y) = hw_input_copy(x, y);
         conv1(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         
         conv2(x, y)  += u16(kernel(r2.x, r2.y) * 33) * conv1(x + r2.x, y + r2.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv2(x, y));
+        hw_output(x, y) = conv2(x, y);
         //hw_output(x, y) = cast<uint8_t>(conv1(x, y));
-        output(x, y) = hw_output(x,y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -119,11 +119,11 @@ public:
             .unroll(r.x)
             .unroll(r.y);
 
-          kernel.compute_root();//.unroll(x).unroll(y);
+          //kernel.compute_root();//.unroll(x).unroll(y);
 
-          hw_input.compute_at(hw_output, xo);
+          //hw_input.compute_at(hw_output, xo);
           hw_input.stream_to_accelerator();
-          hw_input_copy.compute_root();
+          //hw_input_copy.compute_root();
           
         } else {  // schedule to CPU
           conv1.update()

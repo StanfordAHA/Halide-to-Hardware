@@ -22,13 +22,12 @@ public:
         Func hw_input("hw_input");
         Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input_copy(x, y) = hw_input(x, y);
 
-        max_pool(x, y) = maximum(hw_input_copy(x * stride + r.x, y * stride + r.y));
+        max_pool(x, y) = maximum(hw_input(x * stride + r.x, y * stride + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(max_pool(x, y) + 10);
-        output(x ,y) = hw_output(x, y);
+        hw_output(x, y) = max_pool(x, y);
+        output(x ,y) = cast<uint8_t>(hw_output(x, y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -62,10 +61,8 @@ public:
 
           max_pool.compute_at(hw_output, xo);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_input_copy.stream_to_accelerator();
-          
-          hw_input.compute_root();
+          hw_input.stream_to_accelerator();
+
 
         } else { // schedule to CPU
             max_pool.compute_root();

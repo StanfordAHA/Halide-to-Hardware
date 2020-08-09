@@ -26,8 +26,8 @@ public:
         merge(x, y) = conv(x, y) + hw_input(x, y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(merge(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = merge(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -47,7 +47,7 @@ public:
           conv.compute_at(hw_output, xo);
 
           hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
-          hw_input.stream_to_accelerator();
+          input_copy.accelerator_input();
           input_copy.compute_root();
           
           

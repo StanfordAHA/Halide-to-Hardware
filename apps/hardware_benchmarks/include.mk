@@ -22,7 +22,7 @@ define run_app
 	  printf "%-25s \033[0;32m%s\033[0m\n" $(1) "PASSED"; \
     (exit $$EXIT_CODE); \
 	else \
-	  printfnn "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
+	  printf "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
     (exit $$EARLY_EXIT);  \
 	fi
 endef

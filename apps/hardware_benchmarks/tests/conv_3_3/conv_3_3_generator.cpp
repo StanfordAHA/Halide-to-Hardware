@@ -42,8 +42,8 @@ public:
         conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = conv(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
 
 
         /* THE SCHEDULE */
