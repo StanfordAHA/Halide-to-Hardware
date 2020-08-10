@@ -1,22 +1,16 @@
-/*
- *
- */
-
-
 #include "Halide.h"
 
 namespace {
 
   using namespace Halide;
-  Var x("x"), y("y"), z("z"), c("c");
-  Var x_grid("x_grid"), y_grid("y_grid"), xo("xo"), yo("yo"), x_in("x_in"), y_in("y_in");
+
+      Var x("x"), y("y");
+      Var xo("xo"), yo("yo"), xi("xi"), yi("yi"), z("z"), c("c");
 
   class StereoPipeline : public Halide::Generator<StereoPipeline> {  
   public:
-    Input<Buffer<uint8_t>> left{"input_left", 3};
-    Input<Buffer<uint8_t>> right{"input_right", 3};
-    Input<Buffer<uint8_t>> left_remap{"left_remap", 3};
-    Input<Buffer<uint8_t>> right_remap{"right_remap", 3};
+    Input<Buffer<uint8_t>> left{"left", 2};
+    Input<Buffer<uint8_t>> right{"right", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
     int windowR = 4;
@@ -54,104 +48,70 @@ namespace {
       return interpolated;
     }
 
-    Func rectify_noop(Func img, Func remap) {
-      Func pass("pass");
-      pass(x, y) = img(x, y, 1);
-      return pass;
-    }
-
     void generate() {
-      Func left_padded, right_padded, left_remap_padded, right_remap_padded;
+      
+      
+      Func left_padded, right_padded;
       Func left_remapped, right_remapped;
-      Func SAD, offset, hw_output;
+      Func SAD, offset0, offset1, hw_output;
       RDom win(-windowR, windowR*2, -windowR, windowR*2);
       RDom search(0, searchR);
-        
-      right_padded = BoundaryConditions::constant_exterior(right, 0);
-      left_padded = BoundaryConditions::constant_exterior(left, 0);
-      right_remap_padded = BoundaryConditions::constant_exterior(right_remap, 128);
-      left_remap_padded = BoundaryConditions::constant_exterior(left_remap, 128);
 
-      right_remapped = rectify_noop(right_padded, right_remap_padded);
-      left_remapped = rectify_noop(left_padded, left_remap_padded);
+      Func hw_right_input;
+      hw_right_input(x, y) = cast<uint16_t>(right(x, y));
 
+      Func hw_left_input;
+      hw_left_input(x, y) = cast<uint16_t>(left(x, y));
+
+      right_padded = BoundaryConditions::constant_exterior(hw_right_input, 0);
+      left_padded = BoundaryConditions::constant_exterior(hw_left_input, 0);
+
+      right_remapped = right_padded;
+      left_remapped = left_padded;
+
+
+      SAD(x, y, c) = 0;
       SAD(x, y, c) += cast<uint16_t>(absd(right_remapped(x+win.x, y+win.y),
                                           left_remapped(x+win.x+20+c, y+win.y)));
 
-      //offset(x, y) = argmin(SAD(x, y, search.x));
-      // avoid using the form of the inlined reduction function of "argmin",
-      // so that we can get a handle for scheduling
-      offset(x, y) = {cast<int8_t>(0), cast<uint16_t>(65535)};
-      offset(x, y) = {select(SAD(x, y, search.x) < offset(x, y)[1],
-                             cast<int8_t>(search.x),
-                             offset(x, y)[0]),
-                      min(SAD(x, y, search.x), offset(x, y)[1])};
 
-      hw_output(x, y) = cast<uint8_t>(cast<uint16_t>(offset(x, y)[0]) * 255 / searchR);
+      offset0(x, y) = cast<uint16_t>(0);
+      offset1(x, y) = cast<uint16_t>(65535);
+      offset1(x, y) = cast<uint16_t>(min(SAD(x, y, search.x), offset1(x, y)));
+      offset0(x, y) = cast<uint16_t>(select(SAD(x, y, search.x) < offset1(x, y), cast<uint16_t>(search.x), offset0(x, y)));
+
+      hw_output(x, y) = cast<uint8_t>(cast<uint16_t>(offset0(x, y)) * 255 / searchR);
+
       output(x, y) = hw_output(x, y);
 
-      // all inputs has three channels
-      //right_padded.bound(c, 0, 3);
-      //left_padded.bound(c, 0, 3);
-      //right_remap_padded.bound(c, 0, 3);
-      //left_remap_padded.bound(c, 0, 3);
-      SAD.bound(c, 0, 3);
+      output.bound(x, 0, 128);
+      output.bound(y, 0, 128);
 
 
-      if (get_target().has_feature(Target::CoreIR)) {
-        right_padded.compute_root();
-        left_padded.compute_root();
-        right_remap_padded.compute_root();
-        left_remap_padded.compute_root();
-
+      if (get_target().has_feature(Target::Clockwork)) {
         hw_output.compute_root();
-        hw_output.tile(x, y, xo, yo, x_in, y_in, 256, 256);
-        hw_output.accelerate({right_remapped, left_remapped}, x_in, xo);
+        hw_output.tile(x, y, xo, yo, xi, yi, 128, 128).hw_accelerate(xi, xo);
+        
+        offset0.compute_root();
+        offset1.compute_root();
+
+        SAD.compute_root();
+
         right_remapped.compute_root();
         left_remapped.compute_root();
 
-        RVar so("so"), si("si");
-        //offset.update(0).unroll(search.x, 16); // the unrolling doesn's generate code that balances the computation, creating a long critical path
-        //offset.update(0).split(search.x, so, si, 16);
-        //SAD.compute_at(offset, so);
-        SAD.unroll(c);
-        SAD.update(0).unroll(win.x).unroll(win.y).unroll(c);
-
-      } else if (get_target().has_feature(Target::Clockwork)) {
         right_padded.compute_root();
         left_padded.compute_root();
-        right_remap_padded.compute_root();
-        left_remap_padded.compute_root();
 
-        hw_output.compute_root();
-        hw_output.tile(x, y, xo, yo, x_in, y_in, 256, 256);
-        hw_output.accelerate({right_remapped, left_remapped}, x_in, xo);
-        right_remapped.compute_root();
-        left_remapped.compute_root();
-
-        RVar so("so"), si("si");
+        hw_right_input.stream_to_accelerator();
+        hw_left_input.stream_to_accelerator();
+        // RVar so("so"), si("si");
         //offset.update(0).unroll(search.x, 16); // the unrolling doesn's generate code that balances the computation, creating a long critical path
         //offset.update(0).split(search.x, so, si, 16);
         //SAD.compute_at(offset, so);
-        SAD.unroll(c);
-        SAD.update(0).unroll(win.x).unroll(win.y).unroll(c);
+        // SAD.unroll(c);
+        // SAD.update(0).unroll(win.x).unroll(win.y).unroll(c);
 
-      } else if (get_target().has_feature(Target::CoreIR)) {
-        output.tile(x, y, xo, yo, x_in, y_in, 256, 64);
-        output.fuse(xo, yo, xo).parallel(xo);
-        //output.split(y, yo, y_in, 64).parallel(yo);
-
-        right_padded.compute_at(output, xo).vectorize(_0, 16);
-        left_padded.compute_at(output, xo).vectorize(_0, 16);
-        right_remap_padded.compute_at(output, xo).vectorize(_0, 16);
-        left_remap_padded.compute_at(output, xo).vectorize(_0, 16);
-
-        //right_remapped.compute_at(output, yo);
-        //left_remapped.compute_at(output, yo);
-
-        SAD.compute_at(output, x_in);
-        SAD.unroll(c);
-        SAD.update(0).vectorize(c, 8).unroll(win.x).unroll(win.y);
       }
     }
   };
