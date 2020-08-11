@@ -20,14 +20,15 @@ public:
         Func nearest_neighbor("nearest_neighbor");
 
         Func input_copy, hw_input("hw_input");
-        input_copy(x, y, z) = cast<uint16_t>(input(x, y, z));
-        hw_input(x, y, z) = input_copy(x, y, z);
+        //input_copy(x, y, z) = cast<uint16_t>(input(x, y, z));
+        //hw_input(x, y, z) = input_copy(x, y, z);
+        hw_input(x, y, z) = cast<uint16_t>(input(x, y, z));
 
         nearest_neighbor(x, y, z) = hw_input(x / factor, y / factor, z);
 
         Func hw_output("hw_output");
-        hw_output(x, y, z) = cast<uint8_t>(nearest_neighbor(x, y, z));
-        output(x, y, z) = hw_output(x, y, z);
+        hw_output(x, y, z) = nearest_neighbor(x, y, z);
+        output(x, y, z) = cast<uint8_t>(hw_output(x, y, z));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

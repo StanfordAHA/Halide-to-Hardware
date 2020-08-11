@@ -317,8 +317,8 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Tar
   : target_name(name),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader), 
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
-    //clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
-    clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
+    clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
+    //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
 
 
 void print_clockwork_codegen(string appname, ofstream& stream);
@@ -1472,7 +1472,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
     coreir_insts.push_back(coreir_inst);
   }
-  std::cout << "done of roms" << std::endl;
   auto output = return_c_expr(new_expr);
 
   // Output the c expr to the compute

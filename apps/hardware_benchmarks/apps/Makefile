@@ -6,7 +6,8 @@ travis testtravis: pointwise harris
 
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
-ALL_APPS := $(filter-out hls_support tools unet, $(ALL_APPS))
+ALL_APPS := $(filter-out hls_support tools unet bilateral_grid_old, $(ALL_APPS))
+ALL_APPS += $(dir $(wildcard unet/*/.))
 
 ### app suites include: ###
 APP_SUITES := simple img dnn other
@@ -29,7 +30,7 @@ img := $(IMG_APPS)
 # DNN_APPS := gemm unet \
 #             conv_layer_2D conv_layer_3D conv_layer_mobile
 DNN_APPS := unet/conv_3_3 unet/down_sample unet/up_sample \
-						resnet resnet_stride resnet_block \
+						resnet resnet_stride resnet_layer_gen resnet_block \
             conv_layer_mobile
 dnn := $(DNN_APPS)
 

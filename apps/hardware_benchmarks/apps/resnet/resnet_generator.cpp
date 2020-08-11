@@ -45,20 +45,21 @@ public:
 
         Func hw_kernel;
         Func kernel_copy, input_copy;
-        kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
-        hw_kernel(z, w, x, y) = kernel_copy(z, w, x, y);
-        //hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
-        input_copy(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
-        hw_input(z, x, y) = input_copy(z, x, y);
-        //conv(x, y, w) += hw_kernel(r.x, r.y, r.z, w) * hw_input(x + r.x, y + r.y, r.z);
+        hw_kernel(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
+        //kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
+        //hw_kernel(z, w, x, y) = kernel_copy(z, w, x, y);
+        hw_input(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
+        //input_copy(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
+        //hw_input(z, x, y) = input_copy(z, x, y);
+
         conv(x, y, w) += hw_kernel(r.z, w, r.x, r.y) * hw_input(r.z, x + r.x, y + r.y);
-        //conv(w, x, y) += hw_kernel(w, r.z, r.x, r.y) * hw_input(r.z, x + r.x, y + r.y);
+
 
         Func hw_output("hw_output");
         //hw_output(w, x, y) = cast<uint8_t>(conv(w, x, y));
-        hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
+        hw_output(x, y, w) = conv(x, y, w);
         //output(w, x, y) = max(0, hw_output(w, x, y));
-        output(x, y, w) = max(0, hw_output(x, y, w));
+        output(x, y, w) = cast<uint8_t>(max(0, hw_output(x, y, w)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -230,10 +231,12 @@ public:
 
           conv.compute_at(hw_output, xo);
           
-          hw_input.compute_at(hw_output, xo);
-          hw_kernel.compute_at(hw_output, xo);
-          input_copy.compute_root();
-          kernel_copy.compute_root();
+          //hw_input.compute_at(hw_output, xo);
+          //hw_kernel.compute_at(hw_output, xo);
+          //input_copy.compute_root();
+          //kernel_copy.compute_root();
+          hw_input.stream_to_accelerator();
+          hw_kernel.stream_to_accelerator();
           
         } else {  // schedule to CPU
           conv.compute_root();

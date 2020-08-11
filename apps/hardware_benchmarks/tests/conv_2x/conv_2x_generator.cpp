@@ -38,8 +38,8 @@ public:
         conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = conv(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -78,7 +78,7 @@ public:
 
           hw_output.unroll(xi, 2);
             
-          //kernel.compute_at(conv, x);
+          kernel.compute_at(hw_output, xo);
           conv.update()
             .unroll(x, 2)
             .unroll(r.x, ksize)
@@ -86,8 +86,9 @@ public:
 
           hw_input_copy.unroll(x,2);
           hw_input_copy.compute_at(hw_output, xo);
+          hw_input.accelerator_input();
           hw_input.compute_root();
-          hw_input.stream_to_accelerator();
+
 
 
         } else {  // schedule to CPU

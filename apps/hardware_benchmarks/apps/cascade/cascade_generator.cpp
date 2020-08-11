@@ -68,8 +68,8 @@ public:
 
           //hw_input.compute_root();
           //hw_input.store_at(hw_output, xo).compute_at(conv1, x);
-          
-          //kernel.compute_at(hw_output, yi);
+
+          kernel.compute_at(hw_output, xo);
 
           conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
           conv2.update()
@@ -120,6 +120,7 @@ public:
             .unroll(r.y);
 
           //kernel.compute_root();//.unroll(x).unroll(y);
+          kernel.compute_at(hw_output, xo);
 
           //hw_input.compute_at(hw_output, xo);
           hw_input.stream_to_accelerator();

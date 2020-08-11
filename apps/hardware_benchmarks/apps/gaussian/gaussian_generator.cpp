@@ -64,8 +64,8 @@ public:
         blur(x, y) = blur_unnormalized(x, y) / 256;
 
         Func hw_output;
-        hw_output(x, y) = cast<uint8_t>( blur(x, y) );
-        output(x, y) = hw_output(x, y);
+        hw_output(x, y) = blur(x, y);
+        output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

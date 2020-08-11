@@ -106,11 +106,11 @@ public:
             cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
         Func cim_output;
         cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
-        hw_output(x, y) = cast<uint8_t>(cim_output(x,y));
+        hw_output(x, y) = cim_output(x,y);
         //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
 
-        output(x, y) = hw_output(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x, y));
 
 
         /* THE SCHEDULE */

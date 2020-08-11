@@ -21,12 +21,13 @@ public:
 
         Func input_copy, hw_input, hw_output;
         Func mult("mult");
-        input_copy(x, y) = cast<uint16_t>(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        //input_copy(x, y) = cast<uint16_t>(input(x, y));
+        //hw_input(x, y) = input_copy(x, y);
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
         
         mult(x, y) = hw_input(x,y) * 2;
-        hw_output(x, y) = cast<uint8_t>(mult(x, y));
-        output(x, y) = hw_output(x, y);
+        hw_output(x, y) = mult(x, y);
+        output(x, y) = cast<uint8_t>(hw_output(x, y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
@@ -63,9 +64,9 @@ public:
 
           mult.compute_at(hw_output, xo);
           
-          hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
+          //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           hw_input.stream_to_accelerator();
-          input_copy.compute_root();
+          //input_copy.compute_root();
           
         } else {
           mult.compute_root();

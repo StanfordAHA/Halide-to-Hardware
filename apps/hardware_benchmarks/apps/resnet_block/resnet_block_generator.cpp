@@ -47,13 +47,15 @@ public:
 
         Func hw_kernel, hw_kernel2;
         Func kernel_copy, kernel_copy2, input_copy;
-        kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
-        hw_kernel(z, w, x, y) = kernel_copy(z, w, x, y);
-        kernel_copy2(z, w, x, y) = cast<uint16_t>(kernel2(z, w, x, y));
-        hw_kernel2(z, w, x, y) = kernel_copy2(z, w, x, y);
-        //hw_input(x, y, z) = cast<uint16_t>(clamp_input(x, y, z));
-        input_copy(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
-        hw_input(z, x, y) = input_copy(z, x, y);
+        //kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
+        //hw_kernel(z, w, x, y) = kernel_copy(z, w, x, y);
+        hw_kernel(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
+        //kernel_copy2(z, w, x, y) = cast<uint16_t>(kernel2(z, w, x, y));
+        //hw_kernel2(z, w, x, y) = kernel_copy2(z, w, x, y);
+        hw_kernel2(z, w, x, y) = cast<uint16_t>(kernel2(z, w, x, y));
+        //input_copy(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
+        //hw_input(z, x, y) = input_copy(z, x, y);
+        hw_input(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
 
         Func conv1("conv1"), conv2("conv2");
         Func relu1("relu1"), relu2("relu2");
@@ -67,9 +69,9 @@ public:
 
         Func hw_output("hw_output");
         //hw_output(w, x, y) = cast<uint8_t>(conv(w, x, y));
-        hw_output(x, y, w) = cast<uint8_t>(relu2(x, y, w));
+        hw_output(x, y, w) = relu2(x, y, w);
         //output(w, x, y) = max(0, hw_output(w, x, y));
-        output(x, y, w) = hw_output(x, y, w);
+        output(x, y, w) = cast<uint8_t>(hw_output(x, y, w));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -253,13 +255,15 @@ public:
             .unroll(w, k_w).unroll(r2.z, k_w);
           conv2.compute_at(hw_output, xo);
           
-          hw_input.compute_at(hw_output, xo);
-          hw_kernel.compute_at(hw_output, xo);
-          hw_kernel2.compute_at(hw_output, xo);
-          
-          input_copy.compute_root();
-          kernel_copy.compute_root();
-          kernel_copy2.compute_root();
+          //hw_input.compute_at(hw_output, xo);
+          //hw_kernel.compute_at(hw_output, xo);
+          //hw_kernel2.compute_at(hw_output, xo);
+          //input_copy.compute_root();
+          //kernel_copy.compute_root();
+          //kernel_copy2.compute_root();
+          hw_input.stream_to_accelerator();
+          hw_kernel.stream_to_accelerator();
+          hw_kernel2.stream_to_accelerator();
           
         } else {  // schedule to CPU
           conv1.compute_root();

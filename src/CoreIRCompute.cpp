@@ -328,7 +328,6 @@ public:
     auto wire = get_wire(name, e);
     def->connect(wire, output_wire);
     stream << "// connected " << name << " to the output port" << endl;
-    //std::cout << "// connecated " << name << " to the output port" << endl;
   }
 
   void add_coreir_inst(CoreIR_Inst_Args coreir_inst) {
@@ -490,7 +489,9 @@ CoreIR::Wireable* CreateCoreIRModule::get_wire(string name, Expr e, std::vector<
   if (is_iconst(e)) {
     // Create a constant.
     int const_value = id_const_value(e);
-    string const_name = unique_name("const" + std::to_string(const_value) + "_" + name);
+    string const_name = const_value >= 0 ?
+      unique_name("const_p" + std::to_string(std::abs(const_value)) + "_" + name) :
+      unique_name("const_n" + std::to_string(std::abs(const_value)) + "_" + name);
     CoreIR::Wireable* const_inst;
 
     uint const_bitwidth = get_const_bitwidth(e);
@@ -686,7 +687,9 @@ void CreateCoreIRModule::rename_wire(string new_name, string in_name, Expr in_ex
     assert(indices.empty());
     // add hardware definition, but don't create it yet
     int const_value = id_const_value(in_expr);
-    string const_name = "const" + std::to_string(const_value) + "_" + in_name;
+    string const_name = const_value >= 0 ?
+      "const_p" + std::to_string(std::abs(const_value)) + "_" + in_name :
+      "const_n" + std::to_string(std::abs(const_value)) + "_" + in_name;
     string gen_const;
     CoreIR::Values args, genargs;
 
@@ -1430,7 +1433,8 @@ class ROMInit : public IRVisitor {
       if (is_const(value_expr) && is_const(index_expr)) {
         int index = id_const_value(index_expr);
         int value = id_const_value(value_expr);
-        init_values["init"][index] = value;
+        //init_values["init"][index] = value;
+        init_values[index] = value;
       }
     }
     IRVisitor::visit(op);
@@ -1457,7 +1461,8 @@ class ROMInit : public IRVisitor {
       //int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
 
-      init_values["init"][index] = value;
+      //init_values["init"][index] = value;
+      init_values[index] = value;
     }
     IRVisitor::visit(op);
   }

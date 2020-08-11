@@ -218,10 +218,10 @@ int ksize = 7;
       hw_input(x,y) = u16(input(x+(ksize-1)/2, y+(ksize-1)/2));
 
       Func hw_input_copy;
-      hw_input_copy(x,y) = hw_input(x,y);
+      //hw_input_copy(x,y) = hw_input(x,y);
       
       Func denoised;
-      denoised = hot_pixel_suppression(hw_input_copy);
+      denoised = hot_pixel_suppression(hw_input);
 
       Func demosaicked;
       demosaicked = demosaic(denoised);
@@ -244,10 +244,8 @@ int ksize = 7;
       Func hw_output, curve_out;
       curve_out = apply_curve(color_corrected, curve);
       
-      hw_output(x, y, c) = u8(curve_out(x, y, c));
-      //hw_output(x, y, c) = u8(denoised(x, y));
-      //hw_output(x, y, c) = u8(hw_input_copy(x, y));
-      output(x, y, c) = hw_output(x, y, c);
+      hw_output(x, y, c) = curve_out(x, y, c);
+      output(x, y, c) = u8(hw_output(x, y, c));
 
       curve.bound(x, 0, 256);
       output.bound(c, 0, 3);
@@ -284,11 +282,14 @@ int ksize = 7;
         hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
           .reorder(xi,yi,c,xo,yo)
           .hw_accelerate(xi, xo);
+        hw_output.unroll(c);
 
         //hw_output.unroll(c).unroll(xi, 2);
         curve_out.compute_at(hw_output, xo);
+        curve_out.unroll(c);
         
         color_corrected.compute_at(hw_output, xo);
+        color_corrected.unroll(c);
         
         demosaicked.compute_at(hw_output, xo);
         demosaicked.unroll(c);
@@ -299,9 +300,9 @@ int ksize = 7;
 
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         
-        hw_input_copy.compute_at(hw_output, xo);
+        //hw_input_copy.compute_at(hw_output, xo);
         hw_input.stream_to_accelerator();
-        hw_input.compute_root();
+        //hw_input.compute_root();
         
       } else {    // schedule to CPU
         output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)

@@ -36,8 +36,9 @@ public:
         RVar pw_c("c");
         RDom r_pw(0, num_in_ch);
 
-        input_copy(x, y, c) = u16(input(x, y, c));
-        hw_input(x, y, c) = input_copy(x, y, c);
+        //input_copy(x, y, c) = u16(input(x, y, c));
+        //hw_input(x, y, c) = input_copy(x, y, c);
+        hw_input(x, y, c) = u16(input(x, y, c));
 
         //depthwise ConvolutionLayer
         dw_conv(x, y, c) = i16(0);//cast<int16_t>(bias_dw(c));
@@ -49,11 +50,11 @@ public:
         pw_conv(k, x, y, c) += i16(filter_pw(k, c) * dw_conv(x, y, c));
         pw_conv_reduction(k, x, y) = i16(0);
         pw_conv_reduction(k, x, y) += i16(pw_conv(k, x, y, r_pw.x));
-        hw_output(x, y, k) = u8(max(0, pw_conv_reduction(k, x, y)));
+        hw_output(x, y, k) = max(0, pw_conv_reduction(k, x, y));
         //hw_output(x, y, k) = u8(hw_input(x, y, 0));
         //hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
 
-        output(x, y, k) = hw_output(x, y, k);
+        output(x, y, k) = u8(hw_output(x, y, k));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -192,9 +193,10 @@ public:
             .unroll(c);
 
           //add input stream
-          hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
-          input_copy.stream_to_accelerator();
-          input_copy.compute_root();
+          //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
+          //input_copy.stream_to_accelerator();
+          //input_copy.compute_root();
+          hw_input.stream_to_accelerator();
         }
 
 
