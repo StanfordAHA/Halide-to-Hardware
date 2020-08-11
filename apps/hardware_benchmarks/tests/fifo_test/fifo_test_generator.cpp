@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 float gamma = 1.0f;
 float contrast = 1.0f;
@@ -17,9 +18,8 @@ public:
 
         Var x("x"), y("y");
 
-        Func hw_input("hw_input"), input_copy;
-        input_copy(x, y) = cast<int16_t>(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        Func hw_input("hw_input");
+        hw_input(x, y) = u16(input(x, y));
 
         Func conv, merge;
         conv(x, y) = hw_input(x, y) + hw_input(x+1, y+1);
@@ -46,10 +46,7 @@ public:
           merge.compute_at(hw_output, xo);
           conv.compute_at(hw_output, xo);
 
-          hw_input.compute_at(hw_output, xo).store_at(hw_output, xo);
-          input_copy.accelerator_input();
-          input_copy.compute_root();
-          
+          hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU
           output.compute_root();

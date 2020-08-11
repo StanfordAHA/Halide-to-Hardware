@@ -45,7 +45,6 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
 
-          hw_input.compute_root();
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, (64 - (filter - 1))/stride, (64 - (filter - 1))/stride )

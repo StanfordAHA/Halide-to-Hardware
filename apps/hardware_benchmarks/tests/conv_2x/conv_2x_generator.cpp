@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 float gamma = 1.0f;
 float contrast = 1.0f;
@@ -29,13 +30,12 @@ public:
         kernel(1,0) = 7;      kernel(1,1) = 19;      kernel(1,2) = 4;
         kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
 
-        conv(x, y) = cast<uint16_t>(0);
+        conv(x, y) = u16(0);
 
-        Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        Func hw_input("hw_input"), hw_input_copy;
+        hw_input(x, y) = u16(input(x, y));
         hw_input_copy(x, y) = hw_input(x, y);
-        conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
+        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -62,7 +62,6 @@ public:
           conv.linebuffer();
 
           hw_input.unroll(x, 2);
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
@@ -76,9 +75,11 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 62, 62)
             .hw_accelerate(xi, xo);
 
+
           hw_output.unroll(xi, 2);
             
           kernel.compute_at(hw_output, xo);
+
           conv.update()
             .unroll(x, 2)
             .unroll(r.x, ksize)
@@ -88,8 +89,6 @@ public:
           hw_input_copy.compute_at(hw_output, xo);
           hw_input.accelerator_input();
           hw_input.compute_root();
-
-
 
         } else {  // schedule to CPU
           output.compute_root();

@@ -30,11 +30,10 @@ public:
         cast_u32(x, y) = cast<uint32_t>(0);
 
         Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
         hw_input(x, y) = cast<uint32_t>(input(x, y));
-        hw_input_copy(x, y) = cast<int8_t>(hw_input(x, y));
-        cast_u32(x, y)  += cast<uint32_t>(kernel(r.x, r.y)) * cast<uint32_t>(hw_input_copy(x + r.x, y + r.y));
-        cast_i16(x, y)  = cast<int16_t>(cast_u32(x, y)) * cast<int16_t>(hw_input_copy(x, y));
+
+        cast_u32(x, y)  += cast<uint32_t>(kernel(r.x, r.y)) * cast<uint32_t>(hw_input(x + r.x, y + r.y));
+        cast_i16(x, y)  = cast<int16_t>(cast_u32(x, y)) * cast<int16_t>(hw_input(x, y));
         cast_u16(x, y)  = cast<uint16_t>(cast_i16(x, y)) + cast<uint16_t>(100);
         cast_i8(x, y)   = cast<int8_t>(cast_u16(x, y)) + cast<int8_t>(cast_u16(x, y));
         cast_i32(x, y)  = cast<int32_t>(cast_i8(x, y)) * cast<int32_t>(333) * cast<int32_t>(cast_u32(x, y));
@@ -53,7 +52,6 @@ public:
           output.bound(x, 0, imgsize);
           output.bound(y, 0, imgsize);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
@@ -80,8 +78,6 @@ public:
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_input.compute_root();
           hw_input.stream_to_accelerator();
             
         } else {  // schedule to CPU
@@ -93,4 +89,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(BitCastingKernel, bitwidth)
+HALIDE_REGISTER_GENERATOR(BitCastingKernel, casts)

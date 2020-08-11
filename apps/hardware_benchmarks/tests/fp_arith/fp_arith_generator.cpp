@@ -3,12 +3,14 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class UnitTestFPArith : public Halide::Generator<UnitTestFPArith> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
+    int imgsize = 64;
     void generate() {
         /* THE ALGORITHM */
 
@@ -27,34 +29,32 @@ public:
         sub(x,y)  = mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
-        Func postprocess("postprocess");
-        hw_output(x, y) = cast<uint8_t>(mult(x, y));
-        //output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
-        output(x, y) = hw_output(x,y);
+        hw_output(x,y) = u16(mult(x,y));
+        output(x,y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
-          
-          hw_output.compute_root();
-          
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
-            .hw_accelerate(xi, xo);
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
 
-          //neg.compute_at(hw_output, xo);
+          hw_output.compute_root();
+
+          hw_output
+              .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+              .hw_accelerate(xi, xo);
+
           mult.compute_at(hw_output, xo);
           div.compute_at(hw_output, xo);
           mod.compute_at(hw_output, xo);
           add.compute_at(hw_output, xo);
           sub.compute_at(hw_output, xo);
 
-          //hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
-          
+            
         } else {  // schedule to CPU
           output.compute_root();
         }

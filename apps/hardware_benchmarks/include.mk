@@ -44,8 +44,8 @@ $(1)-golden:            $($(2):=-golden)
 $(1)-clean:             $($(2):=-clean)
 endef
 
-$(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
-$(eval $(call SUITE_template,all,allapps))
+# $(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
+# $(eval $(call SUITE_template,all,allapps))
 
 %-cpu:
 	@if [ -d $* ]; then \
@@ -145,8 +145,10 @@ checkall check_all check:
 	  $(MAKE) -sC $$app check; \
 	done
 
+MISSING_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
+
 clean_all cleanall:
-	for app in $(ALL_APPS); do \
+	for app in $(ALL_APPS_SORTED); do \
 	  $(MAKE) -C $$app clean > /dev/null; \
 	done
 

@@ -30,6 +30,7 @@ public:
         conv(x, y) = u16(0);
 
         Func input_copy, hw_input("hw_input");
+
         //input_copy(x, y) = u16(input(x, y));
         hw_input(x, y) = u16(input(x, y));
         //conv(x, y)  += kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
@@ -37,7 +38,7 @@ public:
 
         Func hw_output("hw_output");
         hw_output(x, y) = u8(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        output(x, y) = u8(hw_output(x,y));
 
       
         /* THE SCHEDULE */
@@ -58,7 +59,6 @@ public:
 
           kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
           
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {

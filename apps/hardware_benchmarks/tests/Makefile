@@ -17,7 +17,7 @@ APP_SUITES := ops fpops conv fpconv inout mem
 #             scomp sminmax sshift ucomp uminmax ushift \
 #             counter
 OP_TESTS := absolute arith bitwise boolean_ops \
-            counter
+            counter equal 
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
@@ -38,13 +38,13 @@ conv_tests conv-tests convs conv: $(CONV_TESTS)
 ### floating point convolutions ###
 # FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
 #                  fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
-FP_CONV_TESTS := fp_conv_3_3
-fpconv := $(FP_CONV_TESTS)
+# fpconv := $(FP_CONV_TESTS)
 fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
+FP_CONV_TESTS := fp_conv_3_3
 
 ### accelerator interface tests ###
 # INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
-INOUT_TESTS := bitwidth conv_2input
+INOUT_TESTS := casts conv_2input
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
@@ -64,11 +64,13 @@ mem := $(MEM_TESTS)
 mem_tests mem-tests mems mem: $(MEM_TESTS)
 
 ### generator tests ###
-# GEN_TESTS := conv_gen random_pipeline
+# random_pipeline
+GEN_TESTS := conv_gen 
 
 
 ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
-                   $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS)
+                   $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS) \
+                   $(GEN_TESTS)
 
 NOT_CLASSIFIED_APPS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 

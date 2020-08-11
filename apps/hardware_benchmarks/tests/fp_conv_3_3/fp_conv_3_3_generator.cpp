@@ -3,12 +3,14 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
-
+    int ksize = 3;
+    int imgsize = 62;
     void generate() {
         /* THE ALGORITHM */
 
@@ -23,7 +25,6 @@ public:
         kernel(0,0) = bfloat16_t(1.1);      kernel(0,1) = bfloat16_t(1.2);     kernel(0,2) = bfloat16_t(1.3);
         kernel(1,0) = bfloat16_t(2.4);      kernel(1,1) = bfloat16_t(0);       kernel(1,2) = bfloat16_t(2.6);
         kernel(2,0) = bfloat16_t(3.7);      kernel(2,1) = bfloat16_t(3.8);     kernel(2,2) = bfloat16_t(3.9);
-        //fp_kernel(x,y) = cast<bfloat16_t>(kernel(x,y));
         fp_kernel(x) = cast<bfloat16_t>(3*x);
 
         conv(x, y) = cast<bfloat16_t>(0);
@@ -64,7 +65,7 @@ public:
           
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
-
+            
         } else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();

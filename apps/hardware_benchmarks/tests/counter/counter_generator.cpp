@@ -16,17 +16,15 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input_copy(x, y) = hw_input(x, y);
+        hw_input(x, y) = u16(input(x, y));
 
         Func countx, county;
         countx(x,y) = x + hw_input(x,y);
         county(x,y) = y + hw_input(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(countx(x, y) + county(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = u8(countx(x, y) + county(x, y));
+        output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -55,10 +53,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_input.compute_root();
           hw_input.stream_to_accelerator();
-
 
         }else {  // schedule to CPU
           output.compute_root();

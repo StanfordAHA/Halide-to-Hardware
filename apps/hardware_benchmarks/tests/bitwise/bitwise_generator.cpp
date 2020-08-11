@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class UnitTestBitwise : public Halide::Generator<UnitTestBitwise> {
 public:
@@ -15,9 +16,7 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input_copy(x, y) = hw_input(x, y);
+        hw_input(x, y) = u16(input(x, y));
 
         Func bitwise_and, bitwise_or, bitwise_inv, bitwise_xor;
         bitwise_and(x,y) = hw_input(x,y) & 235;
@@ -26,9 +25,9 @@ public:
         bitwise_xor(x,y) = bitwise_inv(x,y) ^ bitwise_or(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(bitwise_xor(x, y));
-        output(x, y) = hw_output(x,y);
-
+        hw_output(x, y) = u8(bitwise_xor(x, y));
+        output(x, y) = u8(hw_output(x,y));
+        
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
@@ -42,7 +41,6 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
@@ -56,10 +54,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_input.compute_root();
           hw_input.stream_to_accelerator();
-
 
         } else {  // schedule to CPU
           output.compute_root();

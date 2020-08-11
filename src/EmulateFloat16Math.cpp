@@ -182,6 +182,7 @@ class WidenMath : public IRMutator {
 
     // Run the bfloat conversion only on the hardware, which is identified by _hls_target
     Stmt visit(const ProducerConsumer *op) override {
+
       if (false) {//if (starts_with(op->name, "_hls_target")) {
         Stmt new_body = BFloatMath().mutate(op->body);
         new_body = ConvertToBFloat().mutate(new_body);

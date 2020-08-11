@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -28,18 +29,16 @@ public:
         kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
 
         
-        conv(x, y) = cast<uint16_t>(0);
+        conv(x, y) = u16(0);
 
         Func hw_input("hw_input"), hw_weight("hw_weight"); 
-        Func hw_input_copy("hw_input_copy");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_weight(x, y) = cast<uint16_t>(weight(x, y));
-        hw_input_copy(x, y) = hw_input(x, y);
-        conv(x, y)  += cast<uint16_t>(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
+        hw_input(x, y) = u16(input(x, y));
+        hw_weight(x, y) = u16(weight(x, y));
+        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(conv(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = u8(conv(x, y));
+        output(x, y) = u8(hw_output(x,y));
 
         output.bound(x, 0, imgsize);
         output.bound(y, 0, imgsize);
@@ -84,15 +83,11 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             .hw_accelerate(xi, xo);
 
-            
           kernel.compute_at(conv, x);
           conv.update()
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);
 
-          hw_input_copy.compute_at(hw_output, xo);
-          hw_weight.compute_at(hw_output, xo);
-          hw_input.compute_root();
           hw_input.stream_to_accelerator();
           hw_weight.stream_to_accelerator();
 
