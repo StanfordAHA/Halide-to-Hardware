@@ -57,10 +57,10 @@ namespace {
       RDom win(-windowR, windowR*2, -windowR, windowR*2);
       RDom search(0, searchR);
 
-      Func hw_right_input;
+      Func hw_right_input("hw_right_input");
       hw_right_input(x, y) = cast<uint16_t>(right(x, y));
 
-      Func hw_left_input;
+      Func hw_left_input("hw_left_input");
       hw_left_input(x, y) = cast<uint16_t>(left(x, y));
 
       right_padded = BoundaryConditions::constant_exterior(hw_right_input, 0, 129,129);
@@ -105,7 +105,6 @@ namespace {
 
         hw_right_input.accelerator_input();
         hw_left_input.accelerator_input();
-
         // RVar so("so"), si("si");
         //offset.update(0).unroll(search.x, 16); // the unrolling doesn's generate code that balances the computation, creating a long critical path
         //offset.update(0).split(search.x, so, si, 16);

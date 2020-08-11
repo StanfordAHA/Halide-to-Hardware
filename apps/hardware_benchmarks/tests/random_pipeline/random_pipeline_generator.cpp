@@ -7,6 +7,7 @@
 
 using namespace Halide;
 using namespace Halide::Internal;
+using namespace Halide::ConciseCasts;
 using std::vector;
 using std::unordered_map;
 
@@ -157,7 +158,7 @@ public:
     GeneratorParam<bool> gen_cond{            "gen_cond", true};
 
   //Input<Buffer<float>>  input{"input", 3};
-    Input<Buffer<uint16_t>>  input{"input", 3};
+    Input<Buffer<uint8_t>>  input{"input", 3};
   
   // Input<Buffer<uint8_t>>  uint8_weights {"uint8_weights", 4};
   // Input<Buffer<uint16_t>>  uint16_weights{"uint16_weights", 4};
@@ -168,7 +169,7 @@ public:
   // Input<Buffer<float>>  float32_weights{"float32_weights", 4};
 
   //Output<Buffer<float>> output{"output", 3};
-    Output<Buffer<uint16_t>> output{"output", 3};
+    Output<Buffer<uint8_t>> output{"output", 3};
 
 Expr random_condition(vector<Expr> inputs, int depth, int func_size) {
     Expr a = random_expr(inputs, depth, func_size);
@@ -1278,9 +1279,9 @@ Expr rand_value(Type t) {
 
 
         Func hw_input;
-        hw_input(x,y,c) = input(x, y, c);
+        hw_input(x,y,c) = u16(input(x, y, c));
         Func first;
-        first(x, y, c) = hw_input(x, y, c);
+        first(x, y, c) = u16(hw_input(x, y, c));
         
 
         vector<Stage> stages;
@@ -1312,12 +1313,13 @@ Expr rand_value(Type t) {
         Func hw_output;
         hw_output = casted.func;
         
-        output(x,y,c) = hw_output(x,y,c);
+        output(x,y,c) = u8(hw_output(x,y,c));
 
         //input.dim(2).set_bounds(0, 3);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
           hw_output.bound(x,0,62);
@@ -1326,7 +1328,6 @@ Expr rand_value(Type t) {
           hw_input.bound(x,0,62);
           hw_input.bound(y,0,62);
           
-          hw_input.compute_root();
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)

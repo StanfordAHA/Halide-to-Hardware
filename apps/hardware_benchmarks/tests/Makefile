@@ -44,7 +44,7 @@ FP_CONV_TESTS := fp_conv_3_3
 
 ### accelerator interface tests ###
 # INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
-INOUT_TESTS := casts conv_2input
+INOUT_TESTS := casts conv_2input inout_fp
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
@@ -56,10 +56,13 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 #              accumulation histogram multi_channel_conv \
 #              two_level_memory three_level_memory pond
 MEM_TESTS := fifo_test \
-						 conv_2x \
-             down_sample strided_conv \
-             conv_3_3 db_3_3 \
-             accumulation
+             conv_2x \
+             strided_conv \
+             down_sample \
+             db_3_3 \
+             accumulation histogram multi_channel_conv \
+             two_level_memory three_level_memory pond
+
 mem := $(MEM_TESTS)
 mem_tests mem-tests mems mem: $(MEM_TESTS)
 

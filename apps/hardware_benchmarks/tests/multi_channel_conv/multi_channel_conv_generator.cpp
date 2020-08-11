@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -14,13 +15,14 @@ public:
 
         Var x("x"), y("y"), z("z");
 
+        int imgsize = 62;
         int channels = 3;
-        int filter = 3;
+        int ksize = 3;
 
         Func kernel("kernel");
         Func conv("conv");
-        RDom r(0, filter,
-               0, filter);
+        RDom r(0, ksize,
+               0, ksize);
 
         kernel(x,y,z) = 0;
         kernel(0,0,0) = 11;      kernel(0,1,0) = 12;      kernel(0,2,0) = 13;
@@ -35,31 +37,34 @@ public:
         kernel(1,0,2) = 34;      kernel(1,1,2) = 3;       kernel(1,2,2) = 36;
         kernel(2,0,2) = 37;      kernel(2,1,2) = 38;      kernel(2,2,2) = 39;
 
-        conv(x, y, z) = 0;
+        conv(x, y, z) = u16(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        conv(x, y, z)  += kernel(r.x, r.y, z) * hw_input(x + r.x, y + r.y);
+        hw_input(x, y) = u16(input(x, y));
+        conv(x, y, z)  += u16(kernel(r.x, r.y, z) * hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y, z) = cast<uint8_t>(conv(x, y, z));
-        output(x, y, z) = hw_output(x,y,z);
+        hw_output(x, y, z) = u8(conv(x, y, z));
+        output(x, y, z) = u8(hw_output(x,y,z));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
+
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-(filter-1), 64-(filter-1))
+          hw_output
+            .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             .hw_accelerate(xi, xo);
 
+          conv.compute_at(hw_output,xo);
           conv.update()
-            .unroll(r.x, filter)
-            .unroll(r.y, filter);
-
-          //conv.linebuffer();
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
 
           hw_input.stream_to_accelerator();
           
@@ -67,8 +72,8 @@ public:
           kernel.compute_root();
           conv.compute_root();
           conv.update()
-            .unroll(r.x, filter)
-            .unroll(r.y, filter);
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
         }
         
     }

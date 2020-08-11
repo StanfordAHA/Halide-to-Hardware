@@ -44,6 +44,7 @@ public:
         clamp_input(z, x, y) = input(z, x, y);
 
         Func hw_kernel;
+
         Func kernel_copy, input_copy;
         hw_kernel(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
         //kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
