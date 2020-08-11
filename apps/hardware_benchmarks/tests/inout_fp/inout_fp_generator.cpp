@@ -7,7 +7,7 @@ using namespace Halide;
 class PointwiseKernel : public Halide::Generator<PointwiseKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
-    Output<Buffer<uint32_t>> output{"output", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */

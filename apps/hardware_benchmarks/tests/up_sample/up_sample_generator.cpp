@@ -28,18 +28,17 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
             Var xi, yi, xo, yo;
 
-            output.bound(x, 0, 64);
-            output.bound(y, 0, 64);
+            output.bound(x, 0, 128);
+            output.bound(y, 0, 128);
             
-            hw_input.compute_root();
             hw_output.compute_root();
 
             hw_output.tile(x, y, xo, yo, xi, yi, 128, 128)
                 .hw_accelerate(xi, xo);
-
-            nearest_neighbor.linebuffer();
 
             hw_input.stream_to_accelerator();
         } else { // schedule to CPU

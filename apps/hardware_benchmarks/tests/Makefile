@@ -22,16 +22,15 @@ ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
 ### floating point operator tests ###
-# FP_OP_TESTS := fp_arith fp_comp fp_round fp_rectifier \
-#                fp_exp fp_invtrig fp_trig
-FP_OP_TESTS := fp_arith
+FP_OP_TESTS := fp_arith fp_comp fp_round fp_rectifier \
+               fp_exp fp_invtrig fp_trig
 fpops := $(FP_OP_TESTS)
 fp_op_tests fp-op-tests fpops: $(FP_OP_TESTS)
 
 ### convolutions ###
 CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
               conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7  \
-              conv_multi strided_conv conv_rolled
+              conv_multi
 conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
 
@@ -40,7 +39,8 @@ conv_tests conv-tests convs conv: $(CONV_TESTS)
 #                  fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
 # fpconv := $(FP_CONV_TESTS)
 fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
-FP_CONV_TESTS := fp_conv_3_3
+FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
+                 fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
 
 ### accelerator interface tests ###
 # INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
@@ -55,10 +55,10 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 #              conv_3_3 db_3_3 \
 #              accumulation histogram multi_channel_conv \
 #              two_level_memory three_level_memory pond
-MEM_TESTS := fifo_test \
-             conv_2x \
+MEM_TESTS := rom fifo_test \
+             conv_rolled conv_2x \
              strided_conv \
-             down_sample \
+             down_sample up_sample\
              db_3_3 \
              accumulation histogram multi_channel_conv \
              two_level_memory three_level_memory pond
@@ -68,7 +68,7 @@ mem_tests mem-tests mems mem: $(MEM_TESTS)
 
 ### generator tests ###
 # random_pipeline
-GEN_TESTS := conv_gen 
+GEN_TESTS := conv_gen random_pipeline
 
 
 ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
