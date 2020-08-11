@@ -6,7 +6,7 @@ using namespace Halide;
 
 class PointwiseKernel : public Halide::Generator<PointwiseKernel> {
 public:
-    Input<Buffer<uint32_t>>  input{"input", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint32_t>> output{"output", 2};
 
     void generate() {
@@ -30,9 +30,9 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
           hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
