@@ -14,6 +14,7 @@ public:
 
     void generate() {
         /* THE ALGORITHM */
+        // similar to conv_2input, look at resnet process.cpp
 
         Var x("x"), y("y");
 
@@ -23,7 +24,7 @@ public:
                0, 1);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 1;  kernel(1,0) = 3;  kernel(2,0) = 7;  kernel(3,0) = 18;
+        kernel(0,0) = 1;  kernel(1,0) = 3;  kernel(2,0) = 7;  kernel(3,0) = 18; //pass the kernel in as an input
         
         Func hw_input("hw_input");
         hw_input(x, y) = cast<int16_t>(input(x, y));

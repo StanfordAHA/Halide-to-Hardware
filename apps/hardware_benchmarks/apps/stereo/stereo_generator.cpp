@@ -63,8 +63,8 @@ namespace {
       Func hw_left_input;
       hw_left_input(x, y) = cast<uint16_t>(left(x, y));
 
-      right_padded = BoundaryConditions::constant_exterior(hw_right_input, 0);
-      left_padded = BoundaryConditions::constant_exterior(hw_left_input, 0);
+      right_padded = BoundaryConditions::constant_exterior(hw_right_input, 0, 129,129);
+      left_padded = BoundaryConditions::constant_exterior(hw_left_input, 0, 129,129);
 
       right_remapped = right_padded;
       left_remapped = left_padded;
@@ -103,8 +103,9 @@ namespace {
         right_padded.compute_root();
         left_padded.compute_root();
 
-        hw_right_input.stream_to_accelerator();
-        hw_left_input.stream_to_accelerator();
+        hw_right_input.accelerator_input();
+        hw_left_input.accelerator_input();
+
         // RVar so("so"), si("si");
         //offset.update(0).unroll(search.x, 16); // the unrolling doesn's generate code that balances the computation, creating a long critical path
         //offset.update(0).split(search.x, so, si, 16);
