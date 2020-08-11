@@ -12,6 +12,9 @@ coreirall coreir_all: $(ALL_APPS:=-coreir)
 compileall compile_all clockworkall clockwork_all clockwork-all: $(ALL_APPS_SORTED:=-clockwork)
 compareall compare_all compare-all: $(ALL_APPS_SORTED:=-compare-clockwork)
 
+halide compiler:
+	$(MAKE) -C ../../.. quick_distrib
+
 # Runs one of the functions on an app. Prints out nothing but pass/fail.
 # Default exit 0 on failure so it doesn't stop a make script
 EARLY_EXIT ?= 0

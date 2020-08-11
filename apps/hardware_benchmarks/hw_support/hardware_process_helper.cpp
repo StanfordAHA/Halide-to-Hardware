@@ -117,7 +117,12 @@ int OneInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> ar
     create_image(&input, static_cast<ImageType>(stoi(args[0])));
   }
   std::cout << "Generated input image\n";
-  save_image(input, "bin/input.png");
+  
+  if (input.channels() > 4) {
+    save_image(input, "bin/input.mat");
+  } else {
+    save_image(input, "bin/input.png");
+  }
 
   std::cout << "Generated and saved input image\n";
   return 0;
@@ -156,7 +161,9 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
   std::string hardware_name = args[0];
   std::function<void()> run_call = run_calls.at(hardware_name);
   run_call();
-  std::string output_filename = "bin/output_" + hardware_name + ".png";
+
+  std::string extension = output.channels() > 4 ? "mat" : "png";
+  std::string output_filename = "bin/output_" + hardware_name + "." + extension;
   convert_and_save_image(output, output_filename);
   cout << "First pixel of output..." << endl;
   cout << (int) output(0, 0) << endl;
@@ -247,6 +254,7 @@ int ManyInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> a
       create_image(&inputs[filename], static_cast<ImageType>(stoi(args[0])));
     }
     std::cout << "Generated input image\n";
+    
     save_image(inputs[filename], "bin/" + filename);
     
     std::cout << "Generated and saved input image " + filename + "\n";
@@ -282,8 +290,11 @@ int ManyInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> arg
   // run on input image
   std::string hardware_name = args[0];
   std::function<void()> run_call = run_calls.at(hardware_name);
+  
   run_call();
-  std::string output_filename = "bin/output_" + hardware_name + ".png";
+
+  std::string extension = output.channels() > 4 ? "mat" : "png";
+  std::string output_filename = "bin/output_" + hardware_name + "." + extension;
   convert_and_save_image(output, output_filename);
   cout << "First pixel of output..." << endl;
   cout << (int) output(0, 0) << endl;

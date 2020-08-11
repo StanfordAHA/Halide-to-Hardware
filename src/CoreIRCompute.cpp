@@ -141,7 +141,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
 
   // add all generators from coreirprims
   context->getNamespace("coreir");
-  std::vector<string> corelib_gen_names = {"mul", "add", "sub",
+  std::vector<string> corelib_gen_names = {"mul", "add", "sub", "udiv", "sdiv",
                                            "and", "or", "xor", "not",
                                            "eq", "neq",
                                            "ult", "ugt", "ule", "uge",
@@ -157,7 +157,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
 
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
-  std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax", "div",
+  std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
                                              "reg_array", "reshape", "transpose_reshape"
@@ -979,9 +979,21 @@ void CreateCoreIRModule::visit(const Div *op) {
       visit_binop(op->type, op->a, shift_expr, ">>", "ashr");
     }
   } else {
-    stream << "// divide is not fully supported" << endl;
-    user_warning << "WARNING: divide is not fully supported!!!!\n";
-    visit_binop(op->type, op->a, op->b, "/", "div");
+    if (op->a.type().is_float()) {
+      visit_binop(op->type, op->a, op->b, "f/", "fdiv");
+
+    } else if (op->a.type().is_uint()) {
+      internal_assert(op->a.type().bits() == op->b.type().bits());
+      visit_binop(op->type, op->a, op->b, "u/", "udiv");
+
+    } else {
+      internal_assert(!op->b.type().is_uint());
+      internal_assert(op->a.type().bits() > 1);
+      visit_binop(op->type, op->a, op->b, "s/", "sdiv");
+    }
+    //stream << "// divide is not fully supported" << endl;
+    //user_warning << "WARNING: divide is not fully supported!!!!\n";
+    //visit_binop(op->type, op->a, op->b, "/", "div");
   }
 }
 
