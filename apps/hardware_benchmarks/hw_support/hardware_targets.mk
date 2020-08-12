@@ -29,6 +29,7 @@ CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthre
 TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
+EXT ?= png
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?= 
@@ -261,9 +262,9 @@ image-float: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(BIN)/process image 3 $(HALIDE_GEN_ARGS) 
 
-$(BIN)/input.png: input.png
+$(BIN)/input.$(EXT): input.$(EXT)
 	@-mkdir -p $(BIN)
-	cp input.png $(BIN)/input.png
+	cp input.$(EXT) $(BIN)/input.$(EXT)
 
 $(BIN)/input.raw: input.png
 	@-mkdir -p $(BIN)
@@ -291,12 +292,12 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.png: $(BIN)/$(TESTNAME).a
+run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
 	 $(HALIDE_GEN_ARGS) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-coreir $(BIN)/output_coreir.png: $(BIN)/design_top.json
+run-coreir $(BIN)/output_coreir.$(EXT): $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_COREIR=1
 	$(HALIDE_GEN_ARGS) $(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
@@ -306,7 +307,7 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/design_top.json
 	$(MAKE) $(BIN)/process WITH_COREIR=1
 	$(HALIDE_GEN_ARGS) $(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.png: $(BIN)/process $(BIN)/clockwork_testscript.o
+run-clockwork $(BIN)/output_clockwork.$(EXT): $(BIN)/process $(BIN)/clockwork_testscript.o
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
 	$(HALIDE_GEN_ARGS) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
@@ -323,14 +324,14 @@ run-vhls: $(BIN)/process
 	$(HALIDE_GEN_ARGS) $(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
 #compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
-compare-coreir compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png:
-	$(MAKE) $(BIN)/output_cpu.png
-	$(MAKE) $(BIN)/output_coreir.png
-	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_coreir.png; \
+compare-coreir compare-cpu-coreir compare-coreir-cpu $(BIN)/output.$(EXT):
+	$(MAKE) $(BIN)/output_cpu.$(EXT)
+	$(MAKE) $(BIN)/output_coreir.$(EXT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process compare $(BIN)/output_cpu.$(EXT) $(BIN)/output_coreir.$(EXT); \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
-    cp $(BIN)/output_coreir.png $(BIN)/output.png; \
+    cp $(BIN)/output_coreir.$(EXT) $(BIN)/output.$(EXT); \
     (exit $$EXIT_CODE); \
 	else \
     (exit $$EXIT_CODE);  \
@@ -338,27 +339,27 @@ compare-coreir compare-cpu-coreir compare-coreir-cpu $(BIN)/output.png:
 
 #compare-rewrite compare-rewrite-cpu compare-cpu-rewrite: $(BIN)/output_rewrite.png $(BIN)/output_cpu.png $(BIN)/process
 compare-rewrite compare-rewrite-cpu compare-cpu-rewrite:
-	$(MAKE) $(BIN)/output_cpu.png
-	$(MAKE) $(BIN)/output_rewrite.png
-	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_rewrite.png; \
+	$(MAKE) $(BIN)/output_cpu.$(EXT)
+	$(MAKE) $(BIN)/output_rewrite.$(EXT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process compare $(BIN)/output_cpu.$(EXT) $(BIN)/output_rewrite.$(EXT); \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
-    cp $(BIN)/output_rewrite.png $(BIN)/output.png; \
+    cp $(BIN)/output_rewrite.$(EXT) $(BIN)/output.$(EXT); \
     (exit $$EXIT_CODE); \
 	else \
     (exit $$EXIT_CODE);  \
 	fi
 
-compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.png: $(BIN)/output_clockwork.png $(BIN)/output_cpu.png $(BIN)/process
+compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(EXT): $(BIN)/output_clockwork.$(EXT) $(BIN)/output_cpu.$(EXT) $(BIN)/process
 #compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
-#	$(MAKE) $(BIN)/output_cpu.png
-#	$(MAKE) $(BIN)/output_clockwork.png 
-	$(BIN)/process compare $(BIN)/output_cpu.png $(BIN)/output_clockwork.png; \
+#	$(MAKE) $(BIN)/output_cpu.$(EXT)
+#	$(MAKE) $(BIN)/output_clockwork.$(EXT) 
+	$(HALIDE_GEN_ARGS) $(BIN)/process compare $(BIN)/output_cpu.$(EXT) $(BIN)/output_clockwork.$(EXT); \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
-    cp $(BIN)/output_clockwork.png $(BIN)/output.png; \
+    cp $(BIN)/output_clockwork.$(EXT) $(BIN)/output.$(EXT); \
     (exit $$EXIT_CODE); \
 	else \
     (exit $$EXIT_CODE);  \
@@ -366,15 +367,15 @@ compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.png
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process eval cpu input.png
+	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)
 
 eval-coreir: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process eval coreir input.png
+	$(HALIDE_GEN_ARGS) $(BIN)/process eval coreir input.$(EXT)
 
-update_golden updategolden golden: $(BIN)/output_cpu.png $(BIN)/$(TESTNAME)_memory.cpp
+update_golden updategolden golden: $(BIN)/output_cpu.$(EXT) $(BIN)/$(TESTNAME)_memory.cpp
 	@-mkdir -p $(GOLDEN)
-	cp $(BIN)/output_cpu.png $(GOLDEN)/golden_output.png
+	cp $(BIN)/output_cpu.$(EXT) $(GOLDEN)/golden_output.$(EXT)
 	cp $(BIN)/$(TESTNAME)_memory.cpp $(GOLDEN)/$(TESTNAME)_memory.cpp
 	cp $(BIN)/$(TESTNAME)_memory.h $(GOLDEN)/$(TESTNAME)_memory.h
 	cp $(BIN)/$(TESTNAME)_compute.h $(GOLDEN)/$(TESTNAME)_compute.h
@@ -406,7 +407,7 @@ check:
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!clockwork"; \
 	fi
-	@if [ -f "$(BIN)/output.png" ]; then \
+	@if [ -f "$(BIN)/output.$(EXT)" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " output.png"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!output.png"; \

@@ -13,7 +13,7 @@ ALL_APPS += $(dir $(wildcard unet/*/.))
 APP_SUITES := simple img dnn other
 
 ### simple applications ###
-SIMPLE_APPS := pointwise gaussian cascade harris
+SIMPLE_APPS := pointwise gaussian brighten_and_blur cascade harris
 simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
@@ -21,13 +21,13 @@ simple := $(SIMPLE_APPS)
 #             example fast_corner unsharp \
 #             demosaic demosaic_complex camera_pipeline \
 #             exposure_fusion local_laplacian stereo hdr_plus
-IMG_APPS := pointwise gaussian cascade harris \
+IMG_APPS := pointwise gaussian brighten_and_blur cascade harris \
 						unsharp \
 						camera_pipeline
 img := $(IMG_APPS)
 
 ### DNN applications ###
-# DNN_APPS := gemm unet \
+# DNN_APPS := gemm \
 #             conv_layer_2D conv_layer_3D conv_layer_mobile
 DNN_APPS := unet/conv_3_3 unet/down_sample unet/up_sample \
 						resnet resnet_stride resnet_layer_gen resnet_block \

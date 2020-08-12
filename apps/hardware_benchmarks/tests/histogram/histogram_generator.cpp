@@ -5,29 +5,31 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-float gamma = 1.0f;
-float contrast = 1.0f;
-
 class MemTestHistogram : public Halide::Generator<MemTestHistogram> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
+        int outimgsize = 64;
+      
         /* THE ALGORITHM */
-
-        Var x("x"), y("y");
+        Var x("x"), y("y"), b("b");
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
 
         Func bin, histogram;
-        bin(x, y) = u8(hw_input(x, y) % 8);
-        histogram(x) = 0;
-        histogram(bin(x, y)) += 1;
+        Expr width = outimgsize;
+        Expr height = outimgsize;
+        RDom r(0, width, 0, height);
+        
+        bin(x, y) = hw_input(x, y);
+        histogram(b) = u16(0);
+        histogram(bin(r.x, r.y)) += u16(1);
         
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(histogram(x));
+        hw_output(x, y) = histogram(x);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
@@ -35,13 +37,14 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {          
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, 64);
-          output.bound(y, 0, 64);
+          output.bound(x, 0, outimgsize);
+          output.bound(y, 0, outimgsize);
+          histogram.bound(b, 0, 256);
 
           hw_output.compute_root();
           
           hw_output
-            .tile(x,y, xo,yo, xi,yi, 64, 64)
+            .tile(x,y, xo,yo, xi,yi, outimgsize, outimgsize)
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();
