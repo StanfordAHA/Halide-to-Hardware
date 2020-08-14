@@ -141,7 +141,8 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
 
   // add all generators from coreirprims
   context->getNamespace("coreir");
-  std::vector<string> corelib_gen_names = {"mul", "add", "sub", "udiv", "sdiv",
+  std::vector<string> corelib_gen_names = {"mul", "add", "sub",
+                                           "udiv", "sdiv", "urem", "srem",
                                            "and", "or", "xor", "not",
                                            "eq", "neq",
                                            "ult", "ugt", "ule", "uge",
@@ -1007,11 +1008,12 @@ void CreateCoreIRModule::visit(const Mod *op) {
     visit_binop(op->type, op->a, mask_expr, "&", "and");
 
   } else if (op->type.is_int()) {
-    stream << "// mod is not fully supported" << endl;
+    //stream << "// mod is not fully supported" << endl;
     //print_expr(lower_euclidean_mod(op->a, op->b));
+    visit_binop(op->type, op->a, op->b, "s%", "srem");
   } else {
-    stream << "// mod is not fully supported" << endl;
-    //visit_binop(op->type, op->a, op->b, "%", "mod");
+    //stream << "// mod is not fully supported" << endl;
+    visit_binop(op->type, op->a, op->b, "u%", "urem");
   }
 
 }
@@ -1526,7 +1528,9 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
 
 CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context) {
   // add the output
-  CoreIR::Type* out_type = context->Bit()->Arr(inst_bitwidth(iface.output.bitwidth));
+  CoreIR::Type* out_type = iface.output.bitwidth == 1 ?
+    context->Bit() :
+    context->Bit()->Arr(inst_bitwidth(iface.output.bitwidth));
   CoreIR::RecordParams recordparams = {
     {"out_" + iface.output.name, out_type}
   };
@@ -1557,7 +1561,9 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
     if (false) {//(num_bundles == 1) {
       bundle_type = context->BitIn()->Arr(bitwidth);
     } else {
-      bundle_type = context->BitIn()->Arr(inst_bitwidth(bitwidth))->Arr(num_bundles);
+      bundle_type = bitwidth == 1 ?
+        context->BitIn()->Arr(num_bundles) :
+        context->BitIn()->Arr(inst_bitwidth(bitwidth))->Arr(num_bundles);
     }
     string bundle_name = "in" + std::to_string(i) + "_" + input_bundle.name;
     recordparams.push_back({bundle_name, bundle_type});

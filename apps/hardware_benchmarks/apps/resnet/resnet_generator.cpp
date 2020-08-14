@@ -207,7 +207,8 @@ public:
             .reorder(w,r.z,x,y,r.x,r.y);
             //.reorder(r.y,y,w,r.z,r.x,r.z,y);
             //.reorder(x,y,w,r.z,r.x,r.y);
-          
+
+          conv.unroll(w, k_w);
           conv.update()
             //.unroll(r.z, k_z/2);                     // unroll input channel
             //.unroll(r.z);                            // unroll input channel

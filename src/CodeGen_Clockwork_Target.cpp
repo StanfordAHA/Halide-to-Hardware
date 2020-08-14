@@ -648,7 +648,7 @@ void print_clockwork_execution_cpp_16bit(string appname, const vector<HW_Arg>& c
     // get sizes of buffer elements
     vector<int> elt_sizes(num_buffers);
     for(size_t i = 0; i < num_buffers; i++) {
-        elt_sizes[i] = closure_args[i].stencil_type.elemType.bytes() * 8;
+        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
     }
 
     // emit buffer declarations
@@ -767,7 +767,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     // get sizes of buffer elements
     vector<int> elt_sizes(num_buffers);
     for(size_t i = 0; i < num_buffers; i++) {
-        elt_sizes[i] = closure_args[i].stencil_type.elemType.bytes() * 8;
+        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
     }
 
     // emit buffer declarations

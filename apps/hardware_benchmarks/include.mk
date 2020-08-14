@@ -47,8 +47,8 @@ $(1)-golden:            $($(2):=-golden)
 $(1)-clean:             $($(2):=-clean)
 endef
 
-# $(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
-# $(eval $(call SUITE_template,all,allapps))
+$(foreach suite,$(APP_SUITES),$(eval $(call SUITE_template,$(suite),$(suite))))
+$(eval $(call SUITE_template,all,allapps))
 
 %-cpu:
 	@if [ -d $* ]; then \

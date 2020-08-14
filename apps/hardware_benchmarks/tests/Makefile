@@ -16,8 +16,8 @@ APP_SUITES := ops fpops conv fpconv inout mem
 # OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
 #             scomp sminmax sshift ucomp uminmax ushift \
 #             counter
-OP_TESTS := absolute arith bitwise boolean_ops \
-            counter equal 
+OP_TESTS := absolute arith bitwise boolean_ops equal \
+            counter 
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
@@ -43,23 +43,18 @@ fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 FP_CONV_TESTS := fp_conv_3_3
 
 ### accelerator interface tests ###
-# INOUT_TESTS := conv_2input inout_fp inout_onebit tap_param
-INOUT_TESTS := casts conv_2input inout_fp
+# INOUT_TESTS := inout_fp inout_onebit tap_param
+INOUT_TESTS := casts conv_2input inout_onebit inout_fp
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
 ### memory tile tests ###
-# MEM_TESTS := rom fifo_test \
-#              conv_rolled conv_2x \
-#              down_sample up_sample strided_conv \
-#              conv_3_3 db_3_3 \
-#              accumulation histogram multi_channel_conv \
+# MEM_TESTS := accumulation histogram multi_channel_conv \
 #              two_level_memory three_level_memory pond
-MEM_TESTS := fifo_test \
-             conv_2x \
-             strided_conv \
-             down_sample \
-             db_3_3 \
+MEM_TESTS := rom fifo_test \
+             conv_rolled conv_2x \
+             down_sample up_sample strided_conv \
+             conv_3_3 db_3_3 \
              accumulation histogram multi_channel_conv \
              two_level_memory three_level_memory pond
 

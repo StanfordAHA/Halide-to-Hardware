@@ -295,7 +295,7 @@ $(BIN)/%.pgm: $(BIN)/%.png
 run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
-	 $(HALIDE_GEN_ARGS) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-coreir $(BIN)/output_coreir.$(EXT): $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
