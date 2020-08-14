@@ -63,28 +63,28 @@ int main( int argc, char **argv ) {
     int L_Y = 128;
   
     processor.inputs["right.png"] = Buffer<uint8_t>(R_X, R_Y);
-    auto right_copy_stencil = processor.inputs["right.png"];
-    for (int y = 0; y < right_copy_stencil.dim(1).extent(); y++) {
-      for (int x = 0; x < right_copy_stencil.dim(0).extent(); x++) {
-          right_copy_stencil(x, y) = x + y;
-          //input_copy_stencil(z, x, y) = 1;
-        } }
+    // auto right_copy_stencil = processor.inputs["right.png"];
+    // for (int y = 0; y < right_copy_stencil.dim(1).extent(); y++) {
+    //   for (int x = 0; x < right_copy_stencil.dim(0).extent(); x++) {
+    //       right_copy_stencil(x, y) = x + y;
+    //       //input_copy_stencil(z, x, y) = 1;
+    //     } }
 
-    std::cout << "right has dims: " << processor.inputs["right.png"].dim(0).extent() << "x"
-              << processor.inputs["right.png"].dim(1).extent() << "\n";
+    // std::cout << "right has dims: " << processor.inputs["right.png"].dim(0).extent() << "x"
+    //           << processor.inputs["right.png"].dim(1).extent() << "\n";
 
   
     processor.inputs["left.png"] = Buffer<uint8_t>(L_X, L_Y);
-    auto left_copy_stencil = processor.inputs["left.png"];
-    for (int y = 0; y < left_copy_stencil.dim(1).extent(); y++) {
-      for (int x = 0; x < left_copy_stencil.dim(0).extent(); x++) {
-            left_copy_stencil(x, y) = x + y;
-            //kernel_copy_stencil(z, w, x, y) = 1;
-          } }
+    // auto left_copy_stencil = processor.inputs["left.png"];
+    // for (int y = 0; y < left_copy_stencil.dim(1).extent(); y++) {
+    //   for (int x = 0; x < left_copy_stencil.dim(0).extent(); x++) {
+    //         left_copy_stencil(x, y) = x + y;
+    //         //kernel_copy_stencil(z, w, x, y) = 1;
+    //       } }
   
-    std::cout << "left has dims: " << processor.inputs["left.png"].dim(0).extent() << "x"
-              << processor.inputs["left.png"].dim(1).extent() << "\n";
-    processor.inputs_preset = true;
+    // std::cout << "left has dims: " << processor.inputs["left.png"].dim(0).extent() << "x"
+    //           << processor.inputs["left.png"].dim(1).extent() << "\n";
+    // processor.inputs_preset = true;
     processor.output = Buffer<uint8_t>(128,128);
   
   return processor.process_command(argc, argv);

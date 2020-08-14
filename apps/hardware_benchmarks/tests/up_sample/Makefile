@@ -21,7 +21,6 @@
 include ../../hw_support/Makefile.inc
 
 
-
 ###############################################################################
 # MODIFICATION: OPTIONAL
 #------------------------------------------------------------------------------
@@ -46,5 +45,3 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 # Include hardwrae build targets
 #
 ###############################################################################
-
-include ../../hw_support/hardware_targets.mk

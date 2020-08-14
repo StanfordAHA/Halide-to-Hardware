@@ -30,14 +30,14 @@ public:
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        hw_input(x, y) = u16(input(x, y));
         //conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
         conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint16_t>(conv(x, y));
+        hw_output(x, y) = f32(conv(x, y));
         //output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
-        output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)));
+        output(x, y) = u8(ceil(hw_output(x,y)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

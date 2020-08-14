@@ -26,9 +26,8 @@ public:
 
         //conv(x, y) = 0;
 
-        Func hw_input("hw_input"), input_copy;
-        input_copy(x, y) = u16(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        Func hw_input("hw_input");
+        hw_input(x, y) = u16(input(x, y));
         conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         //conv(x,y) =
         //  kernel(0,0)*hw_input(x,y) +
@@ -127,14 +126,16 @@ public:
           kernel.compute_at(output_copy, x_gb);
 
           hw_input.compute_at(output_copy, x_gb);
-          hw_input.stream_to_accelerator();
 
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
           //                another copy stage as the memory tiles
-          input_copy.store_root().compute_root();
-          input_copy.in().compute_at(hw_output,x_host);
-          input_copy.in().in().compute_at(output_copy, x_gb);
+          // input_copy.store_root().compute_root();
+          // input_copy.in().compute_at(hw_output,x_host);
+          // input_copy.in().in().compute_at(output_copy, x_gb);
+          hw_input.stream_to_accelerator();
+          hw_input.in().stream_to_accelerator();
+          hw_input.in().in().stream_to_accelerator();
           //input_copy.in().store_at(hw_output, x_host).compute_at(hw_output,x_gb);
           //input_copy.in().in().store_at(hw_output, x_gb).compute_at(hw_output,x_cgra);
           hw_output.in().compute_root();
