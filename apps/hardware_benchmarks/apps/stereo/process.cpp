@@ -45,7 +45,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          stereo(proc.inputs["left.png"], proc.inputs["right.png"], proc.output);
+          stereo_clockwork(proc.inputs["left.png"], proc.inputs["right.png"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");

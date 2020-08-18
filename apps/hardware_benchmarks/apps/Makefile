@@ -22,7 +22,7 @@ simple := $(SIMPLE_APPS)
 #             demosaic demosaic_complex camera_pipeline \
 #             exposure_fusion local_laplacian stereo hdr_plus
 IMG_APPS := pointwise gaussian brighten_and_blur cascade harris \
-						unsharp \
+						unsharp stereo \
 						camera_pipeline
 img := $(IMG_APPS)
 
