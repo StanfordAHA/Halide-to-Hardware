@@ -216,9 +216,13 @@ int OneInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> arg
 
   // Input image: create or load
   if (args.size() == 1 && hw_name_defined) {
-    create_image(&input);
+    if (!inputs_preset) {
+      create_image(&input);
+    }
   } else if (args.size() == 2 && hw_name_defined) {
-    input = load_and_convert_image(args[1]);
+    if (!inputs_preset) {
+      input = load_and_convert_image(args[1]);
+    }
   } else {
     std::string hardware_set = enumerate_keys(run_calls);
     std::cout << "Usage:\n"
@@ -348,8 +352,10 @@ int ManyInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> ar
   // Input image: create or load
   if ((args.size() == 1 || args.size() == 2) && hw_name_defined) {
     // Note that we ignore a single which probably is "input.png"
-    for (auto filename : input_filenames) {
-      inputs[filename] = load_and_convert_image(filename);
+    if (!inputs_preset) {
+      for (auto filename : input_filenames) {
+        inputs[filename] = load_and_convert_image(filename);
+      }
     }
 
   } else {

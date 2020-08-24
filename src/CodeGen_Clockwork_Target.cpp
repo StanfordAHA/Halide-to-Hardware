@@ -874,8 +874,6 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     stream << "}\n";
 }
 
-
-
 /** Substitute an Expr for another Expr in a graph. Unlike substitute,
  * this only checks for shallow equality. */
 class VarGraphSubstituteExpr : public IRGraphMutator2 {
@@ -942,6 +940,98 @@ struct CArg_compare {
       return !equal(arg1.call, arg2.call);
     }
 };
+
+void merge_arguments(vector<Compute_Argument>& compute_args,
+                     map<string, vector<Compute_Argument> >& merged_args,
+                     vector<string>& arg_order) {
+  for (auto compute_arg : compute_args) {
+    if (merged_args.count(compute_arg.bufname) == 0) {
+      merged_args[compute_arg.bufname] = {compute_arg};
+      arg_order.emplace_back(compute_arg.bufname);
+    } else {
+      merged_args.at(compute_arg.bufname).emplace_back(compute_arg);
+    }
+  }
+}
+
+Expr substitute_compute_args(Expr expr, vector<Compute_Argument>& compute_args) {
+  Expr new_expr = expr;
+  for (size_t i=0; i<compute_args.size(); ++i) {
+    string new_name = printname(compute_args[i].name);
+    if (false) { //if (merged_args[compute_args[i].bufname].size() == 1) {
+      new_name = printname(compute_args[i].bufname);
+    }
+    auto var_replacement = Variable::make(compute_args[i].type, new_name);
+    //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
+    new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
+  }
+  
+  return new_expr;
+}
+
+Expr substitute_loop_vars(Expr expr, map<string, const Variable*>& loopname_map) {
+  Expr new_expr = expr;
+  
+  for (auto loopname_pair : loopname_map) {
+    auto used_loopname = loopname_pair.first;
+    
+    const Variable* old_loopvar = loopname_pair.second;
+    auto var_replacement = Variable::make(old_loopvar->type, used_loopname);
+    //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
+    new_expr = var_graph_substitute(Expr(old_loopvar), var_replacement, new_expr);
+  }
+
+  return new_expr;
+}
+
+void add_stores_to_coreir_interface(CoreIR_Interface& iface,
+                                    vector<string>& arg_order,
+                                    map<string, vector<Compute_Argument> >& merged_args) {
+  for (auto argname : arg_order) {
+    //uint total_bitwidth = merged_args[argname].size() * esize;
+    uint total_bitwidth = 0;
+    for (auto arg : merged_args[argname]) {
+      total_bitwidth += arg.type.bits();
+    }
+    
+    vector<CoreIR_Port> iports;
+    for (auto arg_component : merged_args[argname]) {
+      uint esize = arg_component.type.bits();
+      if (false) {//merged_args[argname].size() == 1) {
+        iports.push_back(CoreIR_Port({printname(arg_component.bufname), esize}));
+      } else {
+        iports.push_back(CoreIR_Port({printname(arg_component.name), esize}));
+      }
+    }
+    iface.inputs.push_back(CoreIR_PortBundle({printname(argname), total_bitwidth, iports}));
+  }
+}
+
+string rom_to_c(ROM_data rom);
+void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
+                 std::ostream& compute_stream, vector<CoreIR_Inst_Args>& coreir_insts,
+                 CoreIR::Context* context) {
+  for (auto found_rom : found_roms) {
+    auto pc_str = rom_to_c(roms[found_rom]);
+    compute_stream << pc_str << std::endl;
+
+    vector<int> rom_size;
+    if (const Realize* rom_r = roms[found_rom].stmt.as<Realize>()) {
+      for (auto bound : rom_r->bounds) {
+        rom_size.emplace_back(to_int(bound.extent));
+      }
+    } else if (const Allocate* rom_a = roms[found_rom].stmt.as<Allocate>()) {
+      for (auto bound : rom_a->extents) {
+        rom_size.emplace_back(to_int(bound));
+      }
+    }
+    auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
+    coreir_insts.push_back(coreir_inst);
+  }
+}
+
+
+
 
 class Compute_Closure : public Closure {
 public:
@@ -1321,15 +1411,29 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
     add_buffer(buffer_name, arg.type.bits());
-    
-    memory_stream << "  " << func_name << "->add_load(\""
-                  << buffer_name << "\"";
-    //for (auto index : arg.args) {
-    for (int argi=arg.args.size()-1; argi>=0; --argi) {
-      auto index = arg.args[argi];
-      ostringstream index_print;
-      index_print << add_floor_to_divs(expand_expr(index, scope));
-      memory_stream << ", \"" << removedots(index_print.str()) << "\"";
+
+    if (false) { //(contains_call(index)) {
+      memory_stream << "  " << func_name << "->add_dynamic_load(\""
+                    << buffer_name << "\"";
+
+      //auto lookup_index = output_memory_call(index, memory_stream);
+      for (int argi=arg.args.size()-1; argi>=0; --argi) {
+        auto index = arg.args[argi];
+        ostringstream index_print;
+        index_print << add_floor_to_divs(expand_expr(index, scope));
+        memory_stream << ", \"" << removedots(index_print.str()) << "\"";
+      }
+      
+    } else {
+      memory_stream << "  " << func_name << "->add_load(\""
+                    << buffer_name << "\"";
+      //for (auto index : arg.args) {
+      for (int argi=arg.args.size()-1; argi>=0; --argi) {
+        auto index = arg.args[argi];
+        ostringstream index_print;
+        index_print << add_floor_to_divs(expand_expr(index, scope));
+        memory_stream << ", \"" << removedots(index_print.str()) << "\"";
+      }
     }
     
     memory_stream << ");\n";
@@ -1338,29 +1442,30 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Add the store/provide
   uint store_size = op->values[0].type().bits();
   add_buffer(printname(op->name), store_size);
-  memory_stream << "  " << func_name << "->add_store(\""
-                << printname(op->name) << "\"";
-  //for (auto arg : op->args) {
-  for (int argi=op->args.size()-1; argi>=0; --argi) {
-    auto arg = op->args[argi];
-    ostringstream arg_print;
-    arg_print << expand_expr(arg, scope);
-    memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
+
+  if (false) { //if (contains_call(op->args)) {
+    memory_stream << "  " << func_name << "->add_dynamic_store(\""
+                  << printname(op->name) << "\"";
+    memory_stream << ");\n";
+    
+  } else {
+    memory_stream << "  " << func_name << "->add_store(\""
+                  << printname(op->name) << "\"";
+    //for (auto arg : op->args) {
+    for (int argi=op->args.size()-1; argi>=0; --argi) {
+      auto arg = op->args[argi];
+      ostringstream arg_print;
+      arg_print << expand_expr(arg, scope);
+      memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
+    }
+    memory_stream << ");\n";
   }
-  memory_stream << ");\n";
   iface.output = CoreIR_Port({printname(op->name), store_size});
 
   // Output the compute. Starting with merging the arguments to the same buffer
   map<string, vector<Compute_Argument> > merged_args;
   vector<string> arg_order;
-  for (auto compute_arg : compute_args) {
-    if (merged_args.count(compute_arg.bufname) == 0) {
-      merged_args[compute_arg.bufname] = {compute_arg};
-      arg_order.emplace_back(compute_arg.bufname);
-    } else {
-      merged_args.at(compute_arg.bufname).emplace_back(compute_arg);
-    }
-  }
+  merge_arguments(compute_args, merged_args, arg_order);
 
   // Output the compute function signature including store variables
   compute_stream << std::endl << "//store is: " << Stmt(op);
@@ -1382,15 +1487,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   // Substitute each store variable in the compute statement
   Expr new_expr = expand_expr(substitute_in_all_lets(op->values[0]), scope);
-  for (size_t i=0; i<compute_args.size(); ++i) {
-    string new_name = printname(compute_args[i].name);
-    if (false) { //if (merged_args[compute_args[i].bufname].size() == 1) {
-      new_name = printname(compute_args[i].bufname);
-    }
-    auto var_replacement = Variable::make(compute_args[i].type, new_name);
-    //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
-    new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
-  }
+  new_expr = substitute_compute_args(new_expr, compute_args);
   
   // Add each used loop variable to memory, compute signature, coreir interface
   auto loopname_map = used_loops(new_expr, loop_list);
@@ -1406,24 +1503,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << ") {\n";
 
   // Add each of the stores to the coreir interface
-  for (auto argname : arg_order) {
-    //uint total_bitwidth = merged_args[argname].size() * esize;
-    uint total_bitwidth = 0;
-    for (auto arg : merged_args[argname]) {
-      total_bitwidth += arg.type.bits();
-    }
-    
-    vector<CoreIR_Port> iports;
-    for (auto arg_component : merged_args[argname]) {
-      uint esize = arg_component.type.bits();
-      if (false) {//merged_args[argname].size() == 1) {
-        iports.push_back(CoreIR_Port({printname(arg_component.bufname), esize}));
-      } else {
-        iports.push_back(CoreIR_Port({printname(arg_component.name), esize}));
-      }
-    }
-    iface.inputs.push_back(CoreIR_PortBundle({printname(argname), total_bitwidth, iports}));
-  }
+  add_stores_to_coreir_interface(iface, arg_order, merged_args);
 
   // Extract each indiviaul store from the merged arguments
   for (auto merged_arg : merged_args) {
@@ -1443,38 +1523,15 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
 
   // Substitute each loop variable in the compute statement
-  for (auto loopname_pair : loopname_map) {
-    auto used_loopname = loopname_pair.first;
-    
-    const Variable* old_loopvar = loopname_pair.second;
-    auto var_replacement = Variable::make(old_loopvar->type, used_loopname);
-    //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
-    new_expr = var_graph_substitute(Expr(old_loopvar), var_replacement, new_expr);
-  }
+  new_expr = substitute_loop_vars(new_expr, loopname_map);
 
   // Output each of the ROMs to the compute (c and coreir)
   auto found_roms = contains_call(new_expr, rom_set);
   vector<CoreIR_Inst_Args> coreir_insts;
-  for (auto found_rom : found_roms) {
-    auto pc_str = rom_to_c(roms[found_rom]);
-    compute_stream << pc_str << std::endl;
-
-    vector<int> rom_size;
-    if (const Realize* rom_r = roms[found_rom].stmt.as<Realize>()) {
-      for (auto bound : rom_r->bounds) {
-        rom_size.emplace_back(to_int(bound.extent));
-      }
-    } else if (const Allocate* rom_a = roms[found_rom].stmt.as<Allocate>()) {
-      for (auto bound : rom_a->extents) {
-        rom_size.emplace_back(to_int(bound));
-      }
-    }
-    auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
-    coreir_insts.push_back(coreir_inst);
-  }
-  auto output = return_c_expr(new_expr);
+  output_roms(found_roms, roms, compute_stream, coreir_insts, context);
 
   // Output the c expr to the compute
+  auto output = return_c_expr(new_expr);
   compute_stream << output << endl;
   compute_stream << "}" << endl;
 

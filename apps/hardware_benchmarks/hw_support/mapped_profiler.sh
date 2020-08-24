@@ -6,3 +6,10 @@ NUM_MEM=`grep -o "cgralib.Mem" $FILE | wc -l`
 NUM_IO=`grep -o "cgralib.IO" $FILE | wc -l`
 
 echo "PE=$NUM_PE  MEM=$NUM_MEM  IO=$NUM_IO"
+
+NUM_ADD=`grep -o "coreir.add" $FILE | wc -l`
+NUM_SUB=`grep -o "coreir.sub" $FILE | wc -l`
+NUM_MUL=`grep -o "coreir.mul" $FILE | wc -l`
+NUM_SHR=`grep -o "coreir.ashr" $FILE | wc -l`
+NUM_CONST=`grep -o "coreir.const" $FILE | wc -l`
+NUM_ABSD=`grep -o "commonlib.absd" $FILE | wc -l`

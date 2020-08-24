@@ -61,8 +61,9 @@ int main( int argc, char **argv ) {
     int Y = 30;
     int K_X = 3;
     int K_Y = 3;
-    int Z = 8; // input channel 
-    int W = 3; // output channel (should be 8)
+    //int Z = 8; // input channel
+    int Z = 2;
+    int W = 4; // output channel (should be 8)
   
     processor.inputs["input.png"] = Buffer<uint8_t>(Z, X, Y);
     auto input_copy_stencil = processor.inputs["input.png"];

@@ -24,7 +24,7 @@ public:
         Expr height = outimgsize;
         RDom r(0, width, 0, height);
         
-        bin(x, y) = hw_input(x, y);
+        bin(x, y) = i32(hw_input(x, y));
         histogram(b) = u16(0);
         histogram(bin(r.x, r.y)) += u16(1);
         
@@ -46,6 +46,8 @@ public:
           hw_output
             .tile(x,y, xo,yo, xi,yi, outimgsize, outimgsize)
             .hw_accelerate(xi, xo);
+          
+          bin.compute_at(hw_output, xo);
 
           hw_input.stream_to_accelerator();
           

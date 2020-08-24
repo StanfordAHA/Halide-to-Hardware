@@ -56,6 +56,20 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
+//  std::string image_name = "winter.png";
+//  auto input = Buffer<uint8_t>(64, 64);
+//  auto output = Buffer<uint8_t>(64, 64);
+//  
+//  input = load_and_convert_image(image_name);
+//  
+//  for (int y=0; y<input.height(); ++y) {
+//    for (int x=0; x<input.width(); ++x) {
+//      output(x, y) = input(x, y, 0);
+//    }
+//  }
+//  
+//  convert_and_save_image(output, image_name);
+
   processor.input   = Buffer<uint8_t>(64, 64);
   processor.output  = Buffer<uint8_t>(62, 62);
   

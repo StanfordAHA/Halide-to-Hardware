@@ -15,6 +15,7 @@ namespace Internal {
 struct CoreIR_Port {
   std::string name;
   uint bitwidth;
+  bool is_dynamic;
 };
 
 struct CoreIR_PortBundle {
