@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestTernary : public Halide::Generator<UnitTestTernary> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Input<Buffer<int8_t>>  input{"input", 2};
+    Output<Buffer<int8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -22,23 +22,23 @@ public:
         sel(x,y) = select( mad(x,y) > 52, 39, 7);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(sel(x, y));
+        hw_output(x, y) = cast<int8_t>(sel(x, y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-          Var xi,yi, xo,yo;
           
-          hw_input.compute_root();
-          hw_output.compute_root();
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi,yi, xo,yo;
 
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
+
+          hw_output.compute_root();
           
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

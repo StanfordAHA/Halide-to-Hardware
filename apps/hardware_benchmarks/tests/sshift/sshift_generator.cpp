@@ -6,8 +6,8 @@ using namespace Halide;
 
 class UnitTestSshift : public Halide::Generator<UnitTestSshift> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Input<Buffer<int8_t>>  input{"input", 2};
+    Output<Buffer<int8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -23,23 +23,23 @@ public:
         shiftl(x,y) = negatives(x,y) << 12;
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(shiftr(x,y) + shiftl(x,y));
+        hw_output(x, y) = cast<int8_t>(shiftr(x,y) + shiftl(x,y));
         output(x, y) = hw_output(x,y);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
-          
-          hw_input.compute_root();
-          hw_output.compute_root();
 
           output.bound(x, 0, 64);
           output.bound(y, 0, 64);
           
+          hw_output.compute_root();
+          
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
-          hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

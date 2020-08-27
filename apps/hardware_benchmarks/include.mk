@@ -122,12 +122,12 @@ $(ALL_APPS):
 		exit 0; \
 	fi
 
-NOT_CLASSIFIED_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
+UNCLASSIFIED_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))
 list:
 	@echo "APPS:"
 	@echo $(ALL_APPS_SORTED)
-	@echo "NON-CLASSIFIED APPS:"
-	@echo $(NOT_CLASSIFIED_APPS)
+	@echo "UNCLASSIFIED APPS:"
+	@echo $(UNCLASSIFIED_APPS)
 
 evalall eval_all:
 	@for app in $(ALL_APPS_SORTED); do \

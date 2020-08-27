@@ -9,7 +9,6 @@ ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 
 ### app suites include: ###
-# ops fpops convs fpconvs inouts mems
 APP_SUITES := ops fpops conv fpconv inout mem
 
 ### operator tests ###
@@ -39,14 +38,11 @@ fpconv := $(FP_CONV_TESTS)
 fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 
 ### accelerator interface tests ###
-# INOUT_TESTS := inout_fp inout_onebit tap_param
-INOUT_TESTS := casts conv_2input inout_onebit inout_fp
+INOUT_TESTS := casts conv_2input inout_onebit inout_fp tap_param
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
 ### memory tile tests ###
-# MEM_TESTS := accumulation histogram multi_channel_conv \
-#              two_level_memory three_level_memory pond
 MEM_TESTS := rom fifo_test \
              conv_rolled conv_2x \
              strided_conv \
@@ -59,7 +55,6 @@ mem := $(MEM_TESTS)
 mem_tests mem-tests mems mem: $(MEM_TESTS)
 
 ### generator tests ###
-# random_pipeline
 GEN_TESTS := conv_gen random_pipeline
 
 
