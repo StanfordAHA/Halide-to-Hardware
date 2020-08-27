@@ -54,14 +54,14 @@ bool contain_for_loop(Stmt s) {
 class ContainsCall : public IRVisitor {
     using IRVisitor::visit;
     void visit(const Call *op) {
-      if (calls.count(op->name) > 0) {
+      if (match_any || calls.count(op->name) > 0) {
         found_calls.emplace_back(op->name);
       }
       IRVisitor::visit(op);
     }
 
     void visit(const Load *op) {
-      if (calls.count(op->name) > 0) {
+      if (match_any || calls.count(op->name) > 0) {
         found_calls.emplace_back(op->name);
       }
       IRVisitor::visit(op);
@@ -70,15 +70,35 @@ class ContainsCall : public IRVisitor {
 public:
   vector<string> found_calls;
   set<string> calls;
+  bool match_any;
 
-  ContainsCall(set<string> calls) : calls(calls) {}
+  ContainsCall(set<string> calls, bool match) : calls(calls), match_any(match) {}
 };
 
 vector<string> contains_call(Expr e, set<string> calls) {
-    ContainsCall cc(calls);
+    ContainsCall cc(calls, false);
     e.accept(&cc);
     return cc.found_calls;
 }
+
+vector<string> contains_call(Expr e) {
+    ContainsCall cc({}, true);
+    e.accept(&cc);
+    return cc.found_calls;
+}
+
+bool contains_call(vector<Expr> args, vector<bool>& calls_found) {
+  bool one_found = false;
+    for (auto& e : args) {
+      ContainsCall cc({}, true);
+      e.accept(&cc);
+      bool found = cc.found_calls.size() > 0;
+      calls_found.push_back(found);
+      one_found = one_found || found;
+    }
+    return one_found;
+}
+
 
 string printname(const string &name) {
     ostringstream oss;
@@ -428,7 +448,7 @@ void CodeGen_Clockwork_Target::init_module() {
     // initialize the clockwork compute file
     clkc.compute_stream << "#pragma once" << endl
                         << "#include \"hw_classes.h\"" << endl
-                        << "#include \"conv_3x3.h\"" << endl << endl;
+                        << "#include \"clockwork_standard_compute_units.h\"" << endl << endl;
 
     // initialize the clockwork memory file
     clkc.memory_stream << "#include \"app.h\"\n"
@@ -928,9 +948,11 @@ struct Compute_Argument {
 
     bool is_stencil;
     bool is_output;
+    bool is_dynamic;
     Type type;
 
     std::vector<Expr> args;
+    std::vector<bool> args_is_dynamic;
     std::string bufname;
     Expr call;
 };
@@ -940,6 +962,37 @@ struct CArg_compare {
       return !equal(arg1.call, arg2.call);
     }
 };
+
+Expr add_floor_to_divs(Expr);
+void print_dynamic_args(const vector<Expr>& args,
+                        const vector<bool>& dynamic_calls_found,
+                        const Scope<Expr>& scope,
+                        ostream& memory_stream) {
+  for (int argi=args.size()-1; argi>=0; --argi) {
+    auto arg = args[argi];
+    ostringstream arg_print;
+    if (dynamic_calls_found[argi]) {
+      const Call* index_call = arg.as<Call>();
+      internal_assert(index_call) <<
+        "dynamic argument must be a call:" << Expr(index_call) << "\n";
+
+      memory_stream << ", \"" << printname(index_call->name) << "\"";
+      //std::cout << ", \"" << printname(index_call->name) << "\"";
+      for (int argi=index_call->args.size()-1; argi>=0; --argi) {
+        auto dynamic_index = index_call->args[argi];
+        ostringstream index_print;
+        index_print << add_floor_to_divs(expand_expr(dynamic_index, scope));
+        memory_stream << ", \"" << removedots(index_print.str()) << "\"";
+        //std::cout << ", \"" << removedots(index_print.str()) << "\"";
+      }
+
+    } else {
+      arg_print << expand_expr(arg, scope);
+      memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
+    }
+    //std::cout << ");" << std::endl;
+  }
+}
 
 void merge_arguments(vector<Compute_Argument>& compute_args,
                      map<string, vector<Compute_Argument> >& merged_args,
@@ -1050,19 +1103,25 @@ public:
 protected:
   using Closure::visit;
   std::string output_name;
-  map<string, vector<Expr>> var_args;
   map<string, Compute_Argument> var_comparg;
 
   void visit(const Load *op);
   void visit(const Call *op);
+  void visit(const Provide *op);
   std::set<Compute_Argument, CArg_compare> unique_args;
   //std::map<string, int> unique_argstrs;
   std::set<string> unique_argstrs;
 
 };
 
+void Compute_Closure::visit(const Provide *op) {
+  // only go through RHS, not LHS
+  for (size_t i = 0; i < op->values.size(); i++) {
+    op->values[i].accept(this);
+  }
+}
+
 void Compute_Closure::visit(const Load *op) {
-  //var_args[op->name] = {op->index};
   //Closure::visit(op);
 
   if (!ignore.contains(op->name)) {
@@ -1079,7 +1138,10 @@ void Compute_Closure::visit(const Load *op) {
         
       unique_argstrs.insert(printname(arg_print.str()));
       vars[argname] = op->type;
-      var_comparg[argname] = Compute_Argument({argname, false, false, op->type, {op->index}, op->name, Expr(op)});;
+      vector<bool> calls_found;
+      bool is_dynamic = contains_call({op->index}, calls_found);
+      var_comparg[argname] = Compute_Argument({argname, false, false, is_dynamic, op->type,
+            {op->index}, calls_found, op->name, Expr(op)});;
 
     } else {
       //std::cout << "not adding " << Expr(op) << std::endl;
@@ -1109,12 +1171,15 @@ void Compute_Closure::visit(const Call *op) {
       //if (unique_args.count(comp_arg) == 0) {
       if (unique_argstrs.count(printname(arg_print.str())) == 0) {
         string argname = unique_name(op->name);
+        std::cout << "adding arg " << argname << Expr(op);
         if (argname == op->name) { argname = unique_name(op->name); }
         
         unique_argstrs.insert(printname(arg_print.str()));
         vars[argname] = op->type;
-        var_args[argname] = op->args;
-        var_comparg[argname] = Compute_Argument({argname, false, false, op->type, op->args, op->name, Expr(op)});;
+        vector<bool> calls_found;
+        bool is_dynamic = contains_call(op->args, calls_found);
+        var_comparg[argname] = Compute_Argument({argname, false, false, is_dynamic, op->type,
+              op->args, calls_found, op->name, Expr(op)});;
 
       } else {
         //std::cout << "not adding " << Expr(op) << std::endl;
@@ -1125,6 +1190,7 @@ void Compute_Closure::visit(const Call *op) {
       debug(3) << "not adding to closure.\n";
     }
   }
+  std::cout << "recursing for " << Expr(op);
   IRVisitor::visit(op);
 }
 
@@ -1138,11 +1204,8 @@ vector<Compute_Argument> Compute_Closure::arguments() {
         if (i.second.read) {
           if (var_comparg.count(i.first) > 0) {
             res.push_back(var_comparg[i.first]);
-          } else if (var_args.count(i.first) > 0) {
-            std::cout << i.first << " has args " << endl;
-            res.push_back({i.first, true, true, Type(), var_args[i.first], i.first});
           } else {
-            res.push_back({i.first, true, true, Type()});
+            res.push_back({i.first, true, true, false, Type()});
           }
         }
     }
@@ -1157,7 +1220,7 @@ vector<Compute_Argument> Compute_Closure::arguments() {
           if (var_comparg.count(i.first) > 0) {
             res.push_back(var_comparg[i.first]);
           } else {
-            res.push_back({i.first, true, is_output, Type()});
+            res.push_back({i.first, true, is_output, false, Type()});
           }
 
         } else if (ends_with(i.first, ".stencil_update")) {
@@ -1405,24 +1468,23 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
   Compute_Closure c(expand_expr(Stmt(op), scope), op->name, rom_set);
   vector<Compute_Argument> compute_args = c.arguments();
+  std::cout << func_name << " has args ";
 
   // Add each load/call/used-data for this provide
   for (size_t i=0; i<compute_args.size(); ++i) {
-    auto arg = compute_args[i];
+    auto& arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
+    std::cout << buffer_name << ", ";
     add_buffer(buffer_name, arg.type.bits());
 
-    if (false) { //(contains_call(index)) {
+    if (arg.is_dynamic) { //(contains_call(arg.args)) {
       memory_stream << "  " << func_name << "->add_dynamic_load(\""
                     << buffer_name << "\"";
+      std::cout << "  " << func_name << "->add_dynamic_load(\""
+                    << buffer_name << "\"";
 
-      //auto lookup_index = output_memory_call(index, memory_stream);
-      for (int argi=arg.args.size()-1; argi>=0; --argi) {
-        auto index = arg.args[argi];
-        ostringstream index_print;
-        index_print << add_floor_to_divs(expand_expr(index, scope));
-        memory_stream << ", \"" << removedots(index_print.str()) << "\"";
-      }
+      print_dynamic_args(arg.args, arg.args_is_dynamic, scope, memory_stream);
+      std::cout << ");" << std::endl;
       
     } else {
       memory_stream << "  " << func_name << "->add_load(\""
@@ -1436,16 +1498,21 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
       }
     }
     
-    memory_stream << ");\n";
+    memory_stream << ");" << std::endl;
   }
+  std::cout << std::endl;
 
   // Add the store/provide
   uint store_size = op->values[0].type().bits();
   add_buffer(printname(op->name), store_size);
 
-  if (false) { //if (contains_call(op->args)) {
+  vector<bool> dynamic_stores_found;
+  if (contains_call(op->args, dynamic_stores_found)) {
+    std::cout << Stmt(op) << std::endl;
     memory_stream << "  " << func_name << "->add_dynamic_store(\""
                   << printname(op->name) << "\"";
+    std::cout << "  " << func_name << "->add_dynamic_store(\"" << printname(op->name) << "\"";
+    print_dynamic_args(op->args, dynamic_stores_found, scope, memory_stream);
     memory_stream << ");\n";
     
   } else {
@@ -1536,7 +1603,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "}" << endl;
 
   // Output the compute to a coreir module
-  convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
+  //convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }
