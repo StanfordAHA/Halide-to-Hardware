@@ -28,12 +28,12 @@ public:
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = u16(input(x, y));
+        hw_input(x, y) = cast<bfloat16_t>(input(x, y));
         conv(x, y)  += fp_kernel(r.x + 2*r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = f32(conv(x, y));
-        output(x, y) = u8(hw_output(x,y));
+        hw_output(x, y) = u8(conv(x, y));
+        output(x, y) = u8(ceil(hw_output(x,y)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -54,7 +54,7 @@ public:
           //   .unroll(r.y, 2);
 
           conv.compute_at(hw_output, xo);
-          fp_kernel.compute_at(hw_output, xo);
+          //fp_kernel.compute_at(hw_output, xo);
 
           hw_input.stream_to_accelerator();
           

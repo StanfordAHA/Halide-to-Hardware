@@ -1171,7 +1171,7 @@ void Compute_Closure::visit(const Call *op) {
       //if (unique_args.count(comp_arg) == 0) {
       if (unique_argstrs.count(printname(arg_print.str())) == 0) {
         string argname = unique_name(op->name);
-        std::cout << "adding arg " << argname << Expr(op);
+        //std::cout << "adding arg " << argname << Expr(op);
         if (argname == op->name) { argname = unique_name(op->name); }
         
         unique_argstrs.insert(printname(arg_print.str()));
@@ -1190,7 +1190,6 @@ void Compute_Closure::visit(const Call *op) {
       debug(3) << "not adding to closure.\n";
     }
   }
-  std::cout << "recursing for " << Expr(op);
   IRVisitor::visit(op);
 }
 
@@ -1309,7 +1308,54 @@ void CodeGen_C_Expr::visit(const Provide *op) {
   stream << " = " << id_value << ";\n";
 }
 void CodeGen_C_Expr::visit(const Call *op) {
-  if (ends_with(op->name, ".stencil")) {
+  if (op->name == "floor_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "floorf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "round_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "roundf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "ceil_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "ceilf32(" + print_expr(op->args[0]) + ")");
+
+  } else if (op->name == "log_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "logf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "exp_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "expf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "sqrt_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "sqrtf32(" + print_expr(op->args[0]) + ")");
+    
+  } else if (op->name == "sin_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "sinf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "cos_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "cosf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "tan_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "tanf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "tanh_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "tanhf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "asin_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "asinf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "acos_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "acosf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "atan_f32") {
+    internal_assert(op->args.size() == 1);
+    print_assignment(op->type, "atanf32(" + print_expr(op->args[0]) + ")");
+  } else if (op->name == "atan2_f32") {
+    internal_assert(op->args.size() == 2);
+    string y = print_expr(op->args[0]);
+    string x = print_expr(op->args[1]);
+    print_assignment(op->type, "atan2f32(" + y + ", " + x + ")");
+    
+  } else if (ends_with(op->name, ".stencil")) {
     //internal_assert(op->args.size() == 1);
     //string id_index = print_expr(op->args[0]);
     vector<string> indices;
@@ -1468,23 +1514,18 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
   Compute_Closure c(expand_expr(Stmt(op), scope), op->name, rom_set);
   vector<Compute_Argument> compute_args = c.arguments();
-  std::cout << func_name << " has args ";
 
   // Add each load/call/used-data for this provide
   for (size_t i=0; i<compute_args.size(); ++i) {
     auto& arg = compute_args[i];
     string buffer_name = printname(arg.bufname);
-    std::cout << buffer_name << ", ";
     add_buffer(buffer_name, arg.type.bits());
 
     if (arg.is_dynamic) { //(contains_call(arg.args)) {
       memory_stream << "  " << func_name << "->add_dynamic_load(\""
                     << buffer_name << "\"";
-      std::cout << "  " << func_name << "->add_dynamic_load(\""
-                    << buffer_name << "\"";
 
       print_dynamic_args(arg.args, arg.args_is_dynamic, scope, memory_stream);
-      std::cout << ");" << std::endl;
       
     } else {
       memory_stream << "  " << func_name << "->add_load(\""
@@ -1500,7 +1541,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     
     memory_stream << ");" << std::endl;
   }
-  std::cout << std::endl;
 
   // Add the store/provide
   uint store_size = op->values[0].type().bits();
@@ -1508,10 +1548,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   vector<bool> dynamic_stores_found;
   if (contains_call(op->args, dynamic_stores_found)) {
-    std::cout << Stmt(op) << std::endl;
     memory_stream << "  " << func_name << "->add_dynamic_store(\""
                   << printname(op->name) << "\"";
-    std::cout << "  " << func_name << "->add_dynamic_store(\"" << printname(op->name) << "\"";
     print_dynamic_args(op->args, dynamic_stores_found, scope, memory_stream);
     memory_stream << ");\n";
     
@@ -1558,13 +1596,14 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   
   // Add each used loop variable to memory, compute signature, coreir interface
   auto loopname_map = used_loops(new_expr, loop_list);
+  bool first_var = arg_order.size() == 0;
   for (auto loopname_pair : loopname_map) {
     auto used_loopname = loopname_pair.first;
     memory_stream << "  " << func_name << "->compute_unit_needs_index_variable(\""
                   << used_loopname << "\");" << std::endl;
     
     iface.indices.emplace_back(CoreIR_Port({used_loopname, 16})); // loops use 16 bit variables
-    if (arg_order.size() > 0) { compute_stream << ", "; }
+    if (!first_var) { compute_stream << ", "; } else { first_var = false; }
     compute_stream << "const int _" << used_loopname;
   }
   compute_stream << ") {\n";
@@ -1603,7 +1642,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << "}" << endl;
 
   // Output the compute to a coreir module
-  //convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
+  convert_compute_to_coreir(new_expr, iface, coreir_insts, context);
 
   CodeGen_Clockwork_Base::visit(op);
 }

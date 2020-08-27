@@ -13,11 +13,9 @@ ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 APP_SUITES := ops fpops conv fpconv inout mem
 
 ### operator tests ###
-# OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
-#             scomp sminmax sshift ucomp uminmax ushift \
-#             counter
-OP_TESTS := absolute arith bitwise boolean_ops equal \
-            counter 
+OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
+            scomp sminmax sshift ucomp uminmax ushift \
+            counter
 ops := $(OP_TESTS)
 op_tests op-tests ops: $(OP_TESTS)
 
@@ -35,12 +33,10 @@ conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
 
 ### floating point convolutions ###
-# FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
-#                  fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
-# fpconv := $(FP_CONV_TESTS)
-fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 FP_CONV_TESTS := fp_pointwise fp_conv_1_1 fp_conv_2_2 fp_conv_3_3  \
                  fp_conv_4_4 fp_conv_5_5 fp_conv_6_6 fp_conv_7_7
+fpconv := $(FP_CONV_TESTS)
+fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 
 ### accelerator interface tests ###
 # INOUT_TESTS := inout_fp inout_onebit tap_param

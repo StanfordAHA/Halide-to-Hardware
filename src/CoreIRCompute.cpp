@@ -172,11 +172,16 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   // add all generators from fplib which include floating point operators
   CoreIRLoadLibrary_float(context);
   std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv",
-                                         "feq", //"fneq",
+                                         "fneg", "frem",
+                                         "fabs", "fmin", "fmax", "fmux",
+                                         "feq", "fneq",
                                          "flt", "fgt", "fle", "fge",
+                                         "frnd", "fflr", "fceil",
+                                         "fsqrt", "fsqr", "fpower", "fexp", "fln",
+                                         "fsin", "fcos", "ftan", "ftanh",
+                                         "fasin", "facos", "fatan", "fatan2",
+
   };
-                                         //"fmin", "fmax",
-                                         //"fmux", "fconst"};
 
   for (auto gen_name : fplib_gen_names) {
     // floating point library does not start with "f"
@@ -1355,6 +1360,68 @@ void CreateCoreIRModule::visit(const Call *op) {
 
     // generate coreir: expecting to find the expr is a constant
     rename_wire(in_var, in_var, op->args[0]);
+
+
+  } else if (op->name == "floor_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "floor", "fflr");
+  } else if (op->name == "round_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "round", "frnd");
+  } else if (op->name == "ceil_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "ceil", "fceil");
+
+    
+  } else if (op->name == "exp_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "exp", "fexp");
+
+  } else if (op->name == "sqrt_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "sqrt", "fsqrt");
+
+  } else if (op->name == "log_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "ln", "fln");
+
+  } else if (op->name == "sin_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "sin", "fsin");
+  } else if (op->name == "cos_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "cos", "fcos");
+  } else if (op->name == "tan_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "tan", "ftan");
+
+  } else if (op->name == "asin_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "asin", "fasin");
+  } else if (op->name == "acos_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "acos", "facos");
+  } else if (op->name == "atan_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "atan", "fatan");
+  } else if (op->name == "atan2_f32") {
+    internal_assert(op->args.size() == 2);
+    Expr a = op->args[0];
+    Expr b = op->args[1];
+    visit_binop(op->type, a, b, "atan2", "fatan2");
+
 
 // This intrisic was removed:
 //  } else if (op->is_intrinsic(Call::address_of)) {

@@ -35,7 +35,7 @@ public:
         conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = f32(conv(x, y));
+        hw_output(x, y) = u8(conv(x, y));
         //output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
         output(x, y) = u8(ceil(hw_output(x,y)));
 
@@ -45,12 +45,11 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          //hw_input.compute_root();
-          hw_output.compute_root();
-
           output.bound(x, 0, 64-2);
           output.bound(y, 0, 64-2);
-
+          
+          hw_output.compute_root();
+          
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
@@ -58,12 +57,10 @@ public:
           //  .unroll(r.x, 3)
           //  .unroll(r.y, 3);
 
-          //conv.linebuffer();
           conv.compute_at(hw_output, xo);
 
           fp_kernel.compute_at(hw_output, xo);//.unroll(x).unroll(y);
           
-          //hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
             
         } else {  // schedule to CPU

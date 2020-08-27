@@ -38,7 +38,7 @@ public:
         conv(x, y)  += fp_kernel(r.x + 7* r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = f32(conv(x, y));
+        hw_output(x, y) = u8(conv(x, y));
         output(x, y) = u8(ceil(hw_output(x,y)));
 
         /* THE SCHEDULE */
