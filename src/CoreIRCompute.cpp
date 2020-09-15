@@ -137,7 +137,9 @@ void connect_wires(CoreIR::ModuleDef *def, vector<CoreIR::Wireable*> in_wires, v
 
 map<string, string> coreir_generators(CoreIR::Context* context) {
   // set up coreir generation
-  map<string, string> gens;
+  static map<string, string> gens;
+
+  if(!gens.empty()) return gens;
 
   // add all generators from coreirprims
   context->getNamespace("coreir");
