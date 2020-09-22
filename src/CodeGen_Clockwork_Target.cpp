@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <utility>
 
 #include "CodeGen_Clockwork_Target.h"
 #include "CodeGen_Internal.h"
@@ -331,6 +332,41 @@ public:
         : orig_name(o), new_name(n) {}
 };
 
+struct OutputInfoExtract : public IRVisitor {
+    std::vector<std::pair<std::string, Expr>> info;
+
+    OutputInfoExtract(const std::string &output_buf_name)
+        : output_name(output_buf_name)
+    {}
+
+protected:
+    using IRVisitor::visit;
+
+    void visit(const For *op) {
+        std::string loop_name = printname(op->name);
+        Expr loop_max = simplify(op->min + op->extent);
+        loop_info.push(loop_name, loop_max);
+        IRVisitor::visit(op);
+    }
+
+    void visit(const Provide *op) {
+        if(printname(op->name) == output_name) {
+            for(Expr e : op->args) {
+                const Variable *v = e.as<Variable>();
+                internal_assert(v && loop_info.contains(printname(v->name)));
+                std::string loop_name = printname(v->name);
+                info.push_back({loop_name, loop_info.get(loop_name)});
+            }
+        } else {
+            IRVisitor::visit(op);
+        }
+    }
+
+private:
+    std::string output_name;
+    Scope<Expr> loop_info;
+};
+
 }
 
 CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Target& target)
@@ -576,6 +612,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
         // create alias (references) of the arguments using the names in the IR
         do_indent();
         stream << "// alias the arguments\n";
+        int output_count = 0;
         for (size_t i = 0; i < args.size(); i++) {
             string arg_name = "arg_" + std::to_string(i);
             do_indent();
@@ -587,6 +624,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                 if (args[i].is_output) {
                   memory_stream << "  prg.add_output(\"" << io_name << "\");" << endl;
                   output = io_name;
+                  output_count++;
                 } else {
                   memory_stream << "  prg.add_input(\"" << io_name << "\");" << endl;
                   inputs.push_back(io_name);
@@ -602,11 +640,66 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                        << printname(args[i].name) << " = " << arg_name << ";\n";
             }
         }
+
         memory_stream << endl;
         //stream << "\n";
 
         // print body
         print(stmt);
+
+        // TLAST
+        if(output_count == 1) {
+
+            // Get output buffer closure argument
+            const HW_Arg *output_arg = nullptr;
+            for(size_t i = 0; i < args.size(); i++) {
+                if(args[i].is_output) {
+                    output_arg = &args[i];
+                    break;
+                }
+            }
+            
+            if(output_arg) {
+                // Memory
+                memory_stream << "\n// TLAST Generation";
+
+                // Add "tlast" output
+                memory_stream << "\n  prg.add_output(\"tlast\");\n";
+                memory_stream << "  prg.buffer_port_widths[\"tlast\"] = 1;\n";
+
+                OutputInfoExtract ie { printname(output_arg->name) };
+                stmt.accept(&ie);
+                size_t n_loop_vars = ie.info.size();
+                internal_assert(n_loop_vars > 0) << "no loop variables found for output buffer";
+                std::string inner_lvar_name = ie.info[0].first;
+                
+                memory_stream << "  auto hcompute_tlast_op = " << inner_lvar_name << "->add_op(\"op_hcompute_tlast\");\n";
+                memory_stream << "  hcompute_tlast_op->add_function(\"hcompute_tlast\");\n";
+                memory_stream << "  hcompute_tlast_op->add_store(\"tlast\"";
+                for(const auto &p : ie.info) {
+                    memory_stream << ", \"" << p.first << "\"";
+                }
+                memory_stream << ");";
+
+                for(const auto &p : ie.info) {
+                    memory_stream << "\n  hcompute_tlast_op->compute_unit_needs_index_variable(\"" << p.first << "\");";
+                }
+                memory_stream << endl;
+
+                // Compute
+                std::ostringstream comp_args, bound_checks;
+                comp_args << "const int " << ie.info[0].first;
+                bound_checks << "(" << ie.info[0].first << " == " << print_expr(ie.info[0].second) << ")";
+                for(size_t i = 1; i < ie.info.size(); i++) {
+                    comp_args << ", const int " << ie.info[i].first;
+                    bound_checks << " && (" << ie.info[i].first << " == " << print_expr(ie.info[i].second) << ")";
+                }
+                compute_stream << "\nhw_uint<1> hcompute_tlast(" << comp_args.str() << ") {\n";
+                compute_stream << "  return (" << bound_checks.str() << ") ? 1 : 0;\n";
+                compute_stream << "}";
+            }
+
+        }
 
         close_scope("kernel hls_target" + printname(name));
     }
@@ -690,6 +783,7 @@ void print_clockwork_execution_cpp_16bit(string appname, const vector<HW_Arg>& c
     for(size_t i = 0; i < num_buffers; i++) {
         stream << "\tHWStream< hw_uint<16> > " << printname(closure_args[i].name) << "_stream;\n";
     }
+    stream << "\tHWStream< hw_uint<1> > tlast_stream;\n";
     stream << "\n";
 
     // copy inputs from buffers to streams
@@ -734,9 +828,9 @@ void print_clockwork_execution_cpp_16bit(string appname, const vector<HW_Arg>& c
     stream << "\t// invoke clockwork program\n";
     stream << "\tunoptimized_" << appname << "(\n";
     for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\t\t" << printname(closure_args[i].name) << "_stream";
-        if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
+        stream << "\t\t" << printname(closure_args[i].name) << "_stream,\n";
     }
+    stream << "\t\ttlast_stream\n";
     stream << "\t);\n\n";
 
     // copy output from stream to buffer
@@ -811,6 +905,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     for(size_t i = 0; i < num_buffers; i++) {
         stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
     }
+    stream << "\tHWStream < hw_uint<1> > tlast_stream;\n";
     stream << "\n";
 
     // copy inputs from buffers to streams
@@ -855,9 +950,9 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     stream << "\t// invoke clockwork program\n";
     stream << "\tunoptimized_" << appname << "(\n";
     for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\t\t" << printname(closure_args[i].name) << "_stream";
-        if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
+        stream << "\t\t" << printname(closure_args[i].name) << "_stream,\n";
     }
+    stream << "\t\ttlast_stream\n";
     stream << "\t);\n\n";
 
     // copy output from stream to buffer
