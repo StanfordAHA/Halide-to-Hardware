@@ -382,7 +382,7 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     clk_memory_header_file.close();
     clk_compute_file.close();
 
-    saveToFile(clkc.context->getGlobal(), output_base_path + "compute.json", NULL);
+    saveToFile(clkc.context->getGlobal(), output_base_path + target_name + "_compute.json", NULL);
 
     string clk_codegen_name = output_base_path + "clockwork_codegen.cpp";
     string clk_exec_h_name = output_base_path + "clockwork_testscript.h";
@@ -393,8 +393,11 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
 
     print_clockwork_codegen(target_name, clk_codegen_file);
+    std::cout << "printed codegen" << std::endl;
     print_clockwork_execution_header(target_name, clk_exec_h_file);
+    std::cout << "printed execution header" << std::endl;
     print_clockwork_execution_cpp(target_name, closure_args, clk_exec_cpp_file);
+    std::cout << "printed execution cpp" << std::endl;
 
     clk_codegen_file.close();
     clk_exec_h_file.close();
@@ -792,7 +795,9 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
 
     // emit buffer declarations
     stream << "\t// input and output memory objects\n";
+    //std::cout << "num_buffers=" << num_buffers << "  ending with " << closure_args[num_buffers-1].name << std::endl;
     for(size_t i = 0; i < num_buffers; i++) {
+      //std::cout << printname(closure_args[i].name) << std::endl;
         ostringstream oss;
         oss << type_to_c_type(closure_args[i].stencil_type.elemType);
         string type_name = oss.str();
@@ -1310,50 +1315,50 @@ void CodeGen_C_Expr::visit(const Provide *op) {
 void CodeGen_C_Expr::visit(const Call *op) {
   if (op->name == "floor_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "floorf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "floorf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "round_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "roundf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "roundf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "ceil_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "ceilf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "ceilf(" + print_expr(op->args[0]) + ")");
 
   } else if (op->name == "log_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "logf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "logf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "exp_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "expf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "expf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "sqrt_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "sqrtf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "sqrtf(" + print_expr(op->args[0]) + ")");
     
   } else if (op->name == "sin_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "sinf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "sinf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "cos_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "cosf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "cosf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "tan_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "tanf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "tanf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "tanh_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "tanhf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "tanhf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "asin_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "asinf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "asinf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "acos_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "acosf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "acosf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "atan_f32") {
     internal_assert(op->args.size() == 1);
-    print_assignment(op->type, "atanf32(" + print_expr(op->args[0]) + ")");
+    print_assignment(op->type, "atanf(" + print_expr(op->args[0]) + ")");
   } else if (op->name == "atan2_f32") {
     internal_assert(op->args.size() == 2);
     string y = print_expr(op->args[0]);
     string x = print_expr(op->args[1]);
-    print_assignment(op->type, "atan2f32(" + y + ", " + x + ")");
+    print_assignment(op->type, "atan2f(" + y + ", " + x + ")");
     
   } else if (ends_with(op->name, ".stencil")) {
     //internal_assert(op->args.size() == 1);
@@ -1496,6 +1501,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   
   // Debug output the provide we trying to do
   memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
+  //std::cout << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
   // Output the function in relation to the loop level
   auto mem_bodyname = loop_list.back();

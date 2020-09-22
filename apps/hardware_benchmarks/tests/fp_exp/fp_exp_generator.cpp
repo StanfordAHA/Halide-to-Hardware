@@ -22,10 +22,11 @@ public:
         exponential(x,y) = exp(hw_input(x,y));
         natural_log(x,y) = exponential(x,y) + log(hw_input(x,y));
         power(x,y) = pow(natural_log(x,y), 3);
-        square_root(x,y) = sqrt(power(x,y));
+        square_root(x,y) = sqrt(power(x,y) + 1);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(square_root(x, y));
+        //hw_output(x, y) = u8(square_root(x, y));
+        hw_output(x, y) = u8(power(x, y));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
@@ -38,8 +39,6 @@ public:
 
           hw_output.compute_root();
           
-          square_root.compute_at(hw_output, xo);
-
           hw_output
             .tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);

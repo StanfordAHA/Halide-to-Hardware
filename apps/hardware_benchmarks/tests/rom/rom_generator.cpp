@@ -34,7 +34,7 @@ public:
           curve(x) = cast<uint16_t>(clamp(val*256.0f, 0.0f, 255.0f));
         }
         
-        Expr in_val = clamp(hw_input(x, y) * 4, i16(0), i16(255));
+        Expr in_val = clamp(hw_input(x, y), i16(0), i16(1023));
         lookup(x,y) = curve(in_val);
 
         Func hw_output("hw_output");

@@ -82,10 +82,16 @@ bool call_matches_provide(const Call *call, const Provide* provide) {
 }
 
 class ContainsAccumulate : public IRVisitor {
+  string name;
+  
   using IRVisitor::visit;
   void visit(const Provide *op) override {
     //std::cout << "storing provide: " << Stmt(op) << std::endl;
-    provides[op->name] = op;
+    if (name == "") {
+      provides[op->name] = op;
+    } else if (name == op->name) {
+      provides[name] = op;
+    }
     
     IRVisitor::visit(op);
   }
@@ -105,8 +111,15 @@ class ContainsAccumulate : public IRVisitor {
 public:
   bool found;
   map<string, const Provide*> provides;
-  ContainsAccumulate() : found(false) {}
+  ContainsAccumulate(string name) : name(name), found(false) {}
+  ContainsAccumulate() : name(""), found(false) {}
 };
+
+bool contains_accumulate(string name, Stmt s) {
+  ContainsAccumulate ca(name);
+  s.accept(&ca);
+  return ca.found;
+}
 
 bool contains_accumulate(Stmt s) {
   ContainsAccumulate ca;
@@ -192,6 +205,24 @@ class UnrollLoopsAndMerge : public IRMutator {
     using IRMutator::visit;
 
     bool permit_failed_unroll = false;
+
+    //Stmt visit(const ProducerConsumer *pc) override {
+    //  Stmt body = mutate(pc->body);
+    //  if (pc->is_producer && contains_accumulate(pc->name, body)) {
+    //    //std::cout << "block for inlining:\n" << cur_block << std::endl;
+    //    //cur_block = substitute_in_all_letstmts(cur_block);
+    //
+    //    //std::cout << "start " << body;
+    //    auto cur_block = inline_provide_call_pairs(body);
+    //    //std::cout << "now " << cur_block;
+    //    //cur_block = substitute_in_all_letstmts(cur_block);
+    //          
+    //    return ProducerConsumer::make_produce(pc->name, cur_block);
+    //
+    //  } else {
+    //    return IRMutator::visit(pc);
+    //  }
+    //}
   
     Stmt visit(const For *for_loop) override {
         if (for_loop->for_type == ForType::Unrolled) {

@@ -22,8 +22,8 @@ public:
 
         kernel(x,y) = uint16_t(0);
         kernel(0,0) = uint16_t(11);
-        kernel(1,0) = uint16_t(14);
-        kernel(2,0) = uint16_t(17);
+        kernel(0,1) = uint16_t(14);
+        kernel(0,2) = uint16_t(17);
 
         conv(x, y) = u16(0);
 

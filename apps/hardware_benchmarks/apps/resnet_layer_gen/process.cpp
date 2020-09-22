@@ -23,7 +23,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint8_t> processor("unet_resnet_layer_gen", {"input.png", "kernel.png"});
+  ManyInOneOut_ProcessController<uint8_t> processor("resnet_layer_gen", {"input.png", "kernel.png"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -59,7 +59,7 @@ int main( int argc, char **argv ) {
     processor.run_calls = functions;
 
     // Set enviroment variable to set these:
-    //  HALIDE_GEN_ARGS="in_img=30 ksize=3 stride=2 k_ic=5 k_oc=2"
+    //  HALIDE_GEN_ARGS="in_img=28 pad=1 ksize=3 stride=1 k_ic=8 k_oc=6"
 
     auto OX = getenv("in_img");
     auto P = getenv("pad");
@@ -72,8 +72,8 @@ int main( int argc, char **argv ) {
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
-    auto k_ic = S ? atoi(IC) : 8;
-    auto k_oc = S ? atoi(OC) : 6;
+    auto k_ic = IC ? atoi(IC) : 8;
+    auto k_oc = OC ? atoi(OC) : 6;
 
     int X = in_img;
     int Y = X;

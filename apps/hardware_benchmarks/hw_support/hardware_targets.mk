@@ -116,8 +116,10 @@ coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 
 coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cwlib -DCOREIR -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cwlib -lclkwrk -DCOREIR -o $(HWSUPPORT)/$(BIN)/coreir_to_dot 
 
 $(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top.json $(BIN)/design_top.txt
