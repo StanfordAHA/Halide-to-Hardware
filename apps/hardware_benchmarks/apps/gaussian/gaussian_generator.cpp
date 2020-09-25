@@ -50,7 +50,7 @@ public:
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
         blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * hw_input(x+win.x, y+win.y) );
-        blur(x, y) = blur_unnormalized(x, y) / 256 / 256;
+        blur(x, y) = blur_unnormalized(x, y) / 256;
 
         Func hw_output;
         hw_output(x, y) = cast<uint8_t>( blur(x, y) );
