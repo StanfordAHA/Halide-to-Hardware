@@ -21,7 +21,8 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<uint8_t> processor("gaussian");
+  //OneInOneOut_ProcessController<uint8_t> processor("gaussian");
+  OneInOneOut_ProcessController<uint16_t> processor("gaussian");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -56,8 +57,10 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(62, 62);
+  //processor.input   = Buffer<uint8_t>(64, 64);
+  //processor.output  = Buffer<uint8_t>(62, 62);
+    processor.input   = Buffer<uint16_t>(64, 64);
+    processor.output  = Buffer<uint16_t>(62, 62);
   
   return processor.process_command(argc, argv);
   
