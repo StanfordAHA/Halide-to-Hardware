@@ -26,8 +26,10 @@ public:
         // Create a reduction domain of the correct bounds.
         RDom win(0, blockSize, 0, blockSize);
 
-        Func hw_input;
-        hw_input(x, y) = cast<int16_t>(input(x, y));
+        Func hw_input, input_copy;
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        //input_copy(x, y) = cast<uint16_t>(input(x, y));
+        //hw_input(x, y) = input_copy(x, y);
 
         // create the gaussian kernel
         Func kernel_f;
@@ -36,30 +38,33 @@ public:
 
         // create a normalized set of 8bit weights
         Func kernel;
-        Expr sum_kernel[blockSize];
-        for (int i=0; i<blockSize; ++i) {
-          if (i==0) {
-            sum_kernel[i] = kernel_f(i-blockSize/2);
-          } else {
-            sum_kernel[i] = kernel_f(i-blockSize/2) + sum_kernel[i-1];
+        Expr sum_kernel[blockSize*blockSize];
+        for (int idx=0, i=0; i<blockSize; ++i) {
+          for (int j=0; j<blockSize; ++j) {
+            if (i==0 && j==0) {
+              sum_kernel[idx] = kernel_f(i-blockSize/2) * kernel_f(j-blockSize/2);
+            } else {
+              sum_kernel[idx] = kernel_f(i-blockSize/2) * kernel_f(j-blockSize/2) + sum_kernel[idx-1];
+            }
+            idx++;
           }
         }
-
-        kernel(x) = cast<uint16_t>(kernel_f(x) * 255 / sum_kernel[blockSize-1]);
+        //kernel(x) = cast<uint16_t>(kernel_f(x) * 64 / sum_kernel[blockSize-1]);
+        //kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
+        //                             sum_kernel[blockSize*blockSize-1]);
+        kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
+                                     sum_kernel[blockSize*blockSize-1]);
 
         // Use a 2D filter to blur the input
         Func blur_unnormalized, blur;
-        blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x) * hw_input(x+win.x, y+win.y) );
+        blur_unnormalized(x, y) = cast<uint16_t>(0);
+        //blur_unnormalized(x, y) += cast<uint16_t>( kernel(win.x, win.y) * hw_input(x+win.x, y+win.y) );
+        blur_unnormalized(x, y) += kernel(win.x, win.y) * hw_input(x+win.x, y+win.y);
         blur(x, y) = blur_unnormalized(x, y) / 256;
 
         Func hw_output;
-        hw_output(x, y) = cast<uint8_t>( blur(x, y) );
-        output(x, y) = hw_output(x, y);
-
-        hw_output.bound(x, 0, 60);
-        hw_output.bound(y, 0, 60);
-        output.bound(x, 0, 60);
-        output.bound(y, 0, 60);
+        hw_output(x, y) = blur(x, y);
+        output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
