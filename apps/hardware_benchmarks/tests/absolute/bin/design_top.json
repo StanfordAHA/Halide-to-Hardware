@@ -1,0 +1,157 @@
+{"top":"global.DesignTop",
+"namespaces":{
+  "commonlib":{
+    "typegens":{
+      "accumulation_register_type":[{"iterations":"Int", "width":"Int"},"implicit"],
+      "bitopN_type":[{"N":"Int", "operator":"String"},"implicit"],
+      "counter_type":[{"inc":"Int", "max":"Int", "min":"Int", "width":"Int"},"implicit"],
+      "deserializer_type":[{"rate":"Int", "width":"Int"},"implicit"],
+      "lutNType":[{"N":"Int"},"sparse",[
+        [{"N":["Int",3]},["Record",[["in",["Array",3,"BitIn"]],["out","Bit"]]]]
+      ]],
+      "muxN_type":[{"N":"Int", "width":"Int"},"implicit"],
+      "opN_type":[{"N":"Int", "operator":"String", "width":"Int"},"implicit"],
+      "reshape_type":[{"input_type":"CoreIRType", "output_type":"CoreIRType"},"implicit"],
+      "serializer_type":[{"rate":"Int", "width":"Int"},"implicit"],
+      "transpose_type":[{"input_type":"CoreIRType"},"implicit"]
+    }
+  },
+  "global":{
+    "modules":{
+      "DesignTop":{
+        "type":["Record",[
+          ["in",["Record",[["arg_0",["Array",1,["Array",1,["Array",16,"BitIn"]]]]]]],
+          ["reset","BitIn"],
+          ["out",["Array",1,["Array",1,["Array",16,"Bit"]]]],
+          ["valid","Bit"],
+          ["in_en","BitIn"]
+        ]],
+        "instances":{
+          "compute_module_compute_kernel_0$abs4$is_pos$compop":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","combined"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","ge"], "bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "flag_sel":["String","pe"], "lut_value":[["BitVector",8],"8'h00"], "signed":["Bool",true]}
+          },
+          "compute_module_compute_kernel_0$abs4$mult$binop":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","mult_0"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "signed":["Bool",false]}
+          },
+          "compute_module_compute_kernel_0$abs4$negone_const":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'hffff"]}
+          },
+          "compute_module_compute_kernel_0$abs4$out_mux$mux":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","combined"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","sel"], "bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "flag_sel":["String","pe"], "lut_value":[["BitVector",8],"8'h00"], "signed":["Bool",false]}
+          },
+          "compute_module_compute_kernel_0$abs4$zero_const":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "compute_module_compute_kernel_0$absd6$abs$is_pos$compop":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","combined"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","ge"], "bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "flag_sel":["String","pe"], "lut_value":[["BitVector",8],"8'h00"], "signed":["Bool",true]}
+          },
+          "compute_module_compute_kernel_0$absd6$abs$mult$binop":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","mult_0"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "signed":["Bool",false]}
+          },
+          "compute_module_compute_kernel_0$absd6$abs$negone_const":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'hffff"]}
+          },
+          "compute_module_compute_kernel_0$absd6$abs$out_mux$mux":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","combined"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","sel"], "bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "flag_sel":["String","pe"], "lut_value":[["BitVector",8],"8'h00"], "signed":["Bool",false]}
+          },
+          "compute_module_compute_kernel_0$absd6$abs$zero_const":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "compute_module_compute_kernel_0$absd6$sub$binop":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","sub"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "signed":["Bool",false]}
+          },
+          "compute_module_compute_kernel_0$add_3$binop":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","add"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "signed":["Bool",false]}
+          },
+          "compute_module_compute_kernel_0$const__U7_0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'hff9c"]}
+          },
+          "compute_module_compute_kernel_0$const__U8_0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h001e"]}
+          },
+          "io16_out_0_0":{
+            "genref":"cgralib.IO",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"mode":["String","out"]}
+          },
+          "io16in_in_arg_0_0_0":{
+            "genref":"cgralib.IO",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"mode":["String","in"]}
+          },
+          "io1_valid":{
+            "modref":"cgralib.BitIO",
+            "modargs":{"mode":["String","out"]}
+          },
+          "io1in_in_en":{
+            "modref":"cgralib.BitIO",
+            "modargs":{"mode":["String","in"]}
+          },
+          "io1in_reset":{
+            "modref":"cgralib.BitIO",
+            "modargs":{"mode":["String","in"]}
+          }
+        },
+        "connections":[
+          ["compute_module_compute_kernel_0$abs4$out_mux$mux.bit.in.0","compute_module_compute_kernel_0$abs4$is_pos$compop.bit.out"],
+          ["compute_module_compute_kernel_0$add_3$binop.data.out","compute_module_compute_kernel_0$abs4$is_pos$compop.data.in.0"],
+          ["compute_module_compute_kernel_0$abs4$zero_const.out","compute_module_compute_kernel_0$abs4$is_pos$compop.data.in.1"],
+          ["compute_module_compute_kernel_0$abs4$negone_const.out","compute_module_compute_kernel_0$abs4$mult$binop.data.in.0"],
+          ["compute_module_compute_kernel_0$add_3$binop.data.out","compute_module_compute_kernel_0$abs4$mult$binop.data.in.1"],
+          ["compute_module_compute_kernel_0$abs4$out_mux$mux.data.in.1","compute_module_compute_kernel_0$abs4$mult$binop.data.out"],
+          ["compute_module_compute_kernel_0$add_3$binop.data.out","compute_module_compute_kernel_0$abs4$out_mux$mux.data.in.0"],
+          ["compute_module_compute_kernel_0$absd6$sub$binop.data.in.0","compute_module_compute_kernel_0$abs4$out_mux$mux.data.out"],
+          ["compute_module_compute_kernel_0$absd6$abs$out_mux$mux.bit.in.0","compute_module_compute_kernel_0$absd6$abs$is_pos$compop.bit.out"],
+          ["compute_module_compute_kernel_0$absd6$sub$binop.data.out","compute_module_compute_kernel_0$absd6$abs$is_pos$compop.data.in.0"],
+          ["compute_module_compute_kernel_0$absd6$abs$zero_const.out","compute_module_compute_kernel_0$absd6$abs$is_pos$compop.data.in.1"],
+          ["compute_module_compute_kernel_0$absd6$abs$negone_const.out","compute_module_compute_kernel_0$absd6$abs$mult$binop.data.in.0"],
+          ["compute_module_compute_kernel_0$absd6$sub$binop.data.out","compute_module_compute_kernel_0$absd6$abs$mult$binop.data.in.1"],
+          ["compute_module_compute_kernel_0$absd6$abs$out_mux$mux.data.in.1","compute_module_compute_kernel_0$absd6$abs$mult$binop.data.out"],
+          ["compute_module_compute_kernel_0$absd6$sub$binop.data.out","compute_module_compute_kernel_0$absd6$abs$out_mux$mux.data.in.0"],
+          ["io16_out_0_0.in","compute_module_compute_kernel_0$absd6$abs$out_mux$mux.data.out"],
+          ["compute_module_compute_kernel_0$const__U8_0.out","compute_module_compute_kernel_0$absd6$sub$binop.data.in.1"],
+          ["io16in_in_arg_0_0_0.out","compute_module_compute_kernel_0$add_3$binop.data.in.0"],
+          ["compute_module_compute_kernel_0$const__U7_0.out","compute_module_compute_kernel_0$add_3$binop.data.in.1"],
+          ["io1in_in_en.out","io1_valid.in"]
+        ]
+      }
+    }
+  },
+  "mantle":{
+    "typegens":{
+      "addType":[{"has_cin":"Bool", "has_cout":"Bool", "width":"Int"},"implicit"],
+      "counter_type":[{"has_en":"Bool", "has_max":"Bool", "has_srst":"Bool", "width":"Int"},"implicit"],
+      "regType":[{"has_clr":"Bool", "has_en":"Bool", "has_rst":"Bool", "width":"Int"},"implicit"],
+      "wire":[{"type":"CoreIRType"},"implicit"]
+    }
+  }
+}
+}
