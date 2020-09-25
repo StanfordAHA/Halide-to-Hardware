@@ -27,7 +27,8 @@ public:
     GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
 
     // k_oc determines the number of channel sizes
-    GeneratorParam<int> k_oc{"k_oc", 6};    // default: 6
+  //GeneratorParam<int> k_oc{"k_oc", 6};    // default: 6
+  GeneratorParam<int> k_oc{"k_oc", 3};    // default: 6
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
