@@ -22,9 +22,9 @@ public:
         RDom r(0, ksize,               0, ksize);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 17;      kernel(0,1) = 4;      kernel(0,2) = 6;
-        kernel(1,0) = 5;      kernel(1,1) = 19;       kernel(1,2) = 4;
-        kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
+        kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+        kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;
+        kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
 
         conv(x, y) = 0;
 
