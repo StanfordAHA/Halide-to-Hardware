@@ -752,126 +752,6 @@ void print_clockwork_execution_header(string appname, ofstream& stream) {
          << "#endif // RDAI_CLOCKWORK_WRAPPER";
 }
 
-void print_clockwork_execution_cpp_16bit(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
-    stream << "#include \"clockwork_testscript.h\"\n"
-           << "#include \"unoptimized_" << appname << ".h\"\n"
-           << "#include \"hw_classes.h\"\n"
-           << "\n"
-           << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
-
-    size_t num_buffers = closure_args.size();
-
-    // get sizes of buffer elements
-    vector<int> elt_sizes(num_buffers);
-    for(size_t i = 0; i < num_buffers; i++) {
-        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
-    }
-
-    // emit buffer declarations
-    stream << "\t// input and output memory objects\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        ostringstream oss;
-        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
-        string type_name = oss.str();
-        stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
-        stream << " mem_object_list[" << i << "]->host_ptr;\n";
-    }
-    stream << "\n";
-
-    // emit input and output stream declarations;
-    stream << "\t// input and output stream declarations\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\tHWStream< hw_uint<16> > " << printname(closure_args[i].name) << "_stream;\n";
-    }
-    stream << "\tHWStream< hw_uint<1> > tlast_stream;\n";
-    stream << "\n";
-
-    // copy inputs from buffers to streams
-    if(num_buffers > 1) {
-        for(size_t i = 0; i < num_buffers - 1; i++) {
-            string stream_name = printname(closure_args[i].name) + "_stream";
-            stream << "\t// provision input stream " << stream_name << "\n";
-            Region bounds = closure_args[i].stencil_type.bounds;
-            for(size_t j = 0; j < bounds.size(); j++) {
-                size_t k = bounds.size() - j - 1;
-                ostringstream oss;
-                oss << "l" << k;
-                string varname = oss.str();
-                stream << "\tfor(int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
-            }
-        
-            Expr temp_stride = 1;
-            Expr temp_arg = Variable::make(Int(32), "l0");
-            for(size_t j = 1; j < bounds.size(); j++) {
-                ostringstream oss;
-                oss << "l" << j;
-                string varname = oss.str();
-                temp_stride = temp_stride * bounds[j-1].extent;
-                temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-            } 
-            temp_arg = simplify(temp_arg);
-            stream << "\t\thw_uint<16> in_val;\n";
-            stream << "\t\tset_at<0, 16, 16>(in_val, ";
-            stream <<  "hw_uint<16>(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
-            stream << "\t\t" << stream_name << ".write(in_val);\n";
-
-            stream << "\t";
-            for(size_t j = 0; j < bounds.size(); j++) {
-                stream << "} ";
-            }
-            stream << "\n";
-        }
-    }
-    stream << "\n\n";
-
-    // emit kernel call
-    stream << "\t// invoke clockwork program\n";
-    stream << "\tunoptimized_" << appname << "(\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\t\t" << printname(closure_args[i].name) << "_stream,\n";
-    }
-    stream << "\t\ttlast_stream\n";
-    stream << "\t);\n\n";
-
-    // copy output from stream to buffer
-    {
-        HW_Arg stencil_arg = closure_args[num_buffers-1];
-        string stream_name = printname(stencil_arg.name) + "_stream";
-        stream << "\t// provision output buffer\n";
-        Region bounds = stencil_arg.stencil_type.bounds;
-        for(size_t i = 0; i < bounds.size(); i++) {
-            size_t j = bounds.size() - i - 1;
-            ostringstream oss;
-            oss << "l" << j;
-            string varname = oss.str();
-            stream << "\tfor(int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
-        }
-        Expr temp_stride = 1;
-        Expr temp_arg = Variable::make(Int(32), "l0");
-        for(size_t i = 1; i < bounds.size(); i++) {
-            ostringstream oss;
-            oss << "l" << i;
-            string varname = oss.str();
-            temp_stride = temp_stride * bounds[i-1].extent;
-            temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-        }
-        temp_arg = simplify(temp_arg);
-        int elt_size = elt_sizes[num_buffers-1];
-        stream << "\t\thw_uint<16> actual = " << stream_name << ".read();\n";
-        stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
-        stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
-        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
-        stream << "\t";
-        for(size_t i = 0; i < bounds.size(); i++) {
-            stream << "} ";
-        }
-        stream << "\n";
-    }
-    
-
-    stream << "}\n";
-}
-
 void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
     stream << "#include \"clockwork_testscript.h\"\n"
            << "#include \"unoptimized_" << appname << ".h\"\n"
@@ -905,7 +785,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     for(size_t i = 0; i < num_buffers; i++) {
         stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
     }
-    stream << "\tHWStream < hw_uint<1> > tlast_stream;\n";
+    stream << "\tHWStream< hw_uint<1> > tlast_stream;\n";
     stream << "\n";
 
     // copy inputs from buffers to streams
