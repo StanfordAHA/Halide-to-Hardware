@@ -28,8 +28,9 @@ public:
         RDom win(0, blockSize, 0, blockSize);
 
         Func hw_input, f0;
-        hw_input = Halide::BoundaryConditions::repeat_edge(input);
-        // hw_input(x, y) = cast<uint16_t>(input(x, y));
+        Func casted;
+        casted = Halide::BoundaryConditions::repeat_edge(input);
+        hw_input(x, y) = cast<uint16_t>(casted(x, y));
         
        
         
