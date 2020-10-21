@@ -85,7 +85,7 @@
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "stencil_valid":{"dimensionality": 3, "cycle_starting_addr":[7625], "extent": [28,28,100], "cycle_stride": [1,30,60000]},
+                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[7625], "extent": [28,28], "cycle_stride": [1,30]},
                              "in2agg_0":{"dimensionality": 5, "cycle_starting_addr":[905], "extent": [28,28,3,3,100], "cycle_stride": [1,30,840,2520,7560],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,0,0,0,0]},
                              "agg2sram":{"dimensionality": 5, "cycle_starting_addr":[909], "extent": [7,28,3,3,100], "cycle_stride": [4,30,840,2520,7560],
