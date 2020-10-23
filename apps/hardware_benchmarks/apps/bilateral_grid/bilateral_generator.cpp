@@ -25,11 +25,10 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         Func clamped = Halide::BoundaryConditions::repeat_edge(input);
-        hw_input(x, y) = clamped(x, y);
 
         RDom r(0, s_sigma, 0, s_sigma);
         //Expr val = cast<uint16_t>(clamped(x*s_sigma + r.x, y*s_sigma + r.y));
-        Expr val = cast<uint16_t>(hw_input(x*s_sigma + r.x, y*s_sigma + r.y));
+        Expr val = cast<uint16_t>(clamped(x*s_sigma + r.x, y*s_sigma + r.y));
         val = cast<uint16_t>(clamp(val, 0, 255));
 
         Expr zi = cast<int>(val/r_sigma);
