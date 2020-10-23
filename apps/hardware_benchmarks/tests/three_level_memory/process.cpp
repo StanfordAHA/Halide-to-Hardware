@@ -56,8 +56,16 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(62, 62);
+  processor.input   = Buffer<uint8_t>(258, 258);
+  processor.output  = Buffer<uint8_t>(256, 256);
+
+  int i=0;
+  for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+    for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+      processor.input(x, y) = i;
+      i = i+1;
+    } }
+  save_image(processor.input, "bin/input.png");
   
  return processor.process_command(argc, argv);
   

@@ -1688,6 +1688,13 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     string id_min = print_expr(op->min);
     //string id_extent = print_expr(op->extent);
     string id_max = print_expr(simplify(op->extent + op->min));
+    //memory_stream << "// for loop: min=" << expand_expr(op->min, scope) << " extent=" << op->extent << std::endl;
+    auto body = op->body;
+    if (!is_const(op->min)) {
+      body = substitute(op->name, Add::make(op->min, Variable::make(Int(32), op->name)), op->body);
+      id_min = print_expr(0);
+      id_max = print_expr(op->extent);
+    }
 
     do_indent();
     stream << "for (int "
@@ -1703,7 +1710,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     // create a unique name for each loop variable and replace names within the body
     //string loopname = "loop_" + printname(op->name);
     string loopname = printname(unique_name(op->name));
-    auto modified_body = substitute(op->name, Variable::make(Int(32), loopname), op->body);
+    auto modified_body = substitute(op->name, Variable::make(Int(32), loopname), body);
     //string bodyname = mem_bodyname;
     string bodyname = loop_list.back();
     string addloop = bodyname == "prg" ? ".add_loop(" : "->add_loop(";

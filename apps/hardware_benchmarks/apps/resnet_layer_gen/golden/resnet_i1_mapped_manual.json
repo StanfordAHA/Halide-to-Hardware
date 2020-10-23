@@ -34,18 +34,18 @@
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "stencil_valid":{"dimensionality": 4, "cycle_starting_addr":[900], "extent": [28,28,9,100], "cycle_stride": [1,30,900,8100]},
+                             "stencil_valid":{"dimensionality": 4, "cycle_starting_addr":[905], "extent": [28,28,9,100], "cycle_stride": [1,30,930,8100]},
                              "in2agg_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [900,100], "cycle_stride": [1,8190],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,0]},
                              "agg2sram":{"dimensionality": 2, "cycle_starting_addr":[4], "extent": [225,100], "cycle_stride": [4,0],
-                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "read_data_starting_addr": [0], "read_data_stride": [0,0],
+                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "read_data_starting_addr": [0], "read_data_stride": [1,0],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "write_data_starting_addr": [0], "write_data_stride": [1,256]},
-                             "sram2tb":{"dimensionality": 3, "cycle_starting_addr":[900], "extent": [225,9,100], "cycle_stride": [4,900,8100],
+                             "sram2tb":{"dimensionality": 3, "cycle_starting_addr":[902], "extent": [225,9,100], "cycle_stride": [4,900,8100],
                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "read_data_starting_addr": [0], "read_data_stride": [1,0,256],
                                         "mux_write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "mux_write_data_starting_addr": [0], "mux_write_data_stride": [0,0,0],
                                         "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "write_data_starting_addr": [0], "write_data_stride": [1,0,0]},
                              "tb2out_0":{"dimensionality": 5, "cycle_starting_addr":[905], "extent": [28,28,3,3,100], "cycle_stride": [1,30,900,2730,8190],
-                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,2,1,2,0]}
+                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,6,1,6,0]}
                          }]}}
         },
         "connections":[

@@ -2081,10 +2081,13 @@ Stmt schedule_functions(const vector<Function> &outputs,
             }
 
             if (f.is_wrapper() && env.count(f.is_wrapper()->name)) {
-              std::cout << f.name() << " is a wrapper for " << f.is_wrapper()->name << std::endl;
+              //std::cout << f.name() << " is a wrapper for " << f.is_wrapper()->name << std::endl;
               Function orig_func = env.find(f.is_wrapper()->name)->second;
               
-              if (orig_func.schedule().is_hw_kernel() && orig_func.schedule().is_accelerator_input()) {
+              if (orig_func.schedule().is_hw_kernel() && orig_func.schedule().is_accelerator_input() &&
+                  f.schedule().store_level().is_inlined()) {
+                  //ends_with(f.name(), "global_wrapper")) {
+                std::cout << f.name() << " has had its schedule altered to match accelerator" << std::endl;
                 internal_assert(env.count(orig_func.schedule().accelerate_exit()));
                 Function func_exit = env.find(f.schedule().accelerate_exit())->second;
                 f.schedule().compute_level() = func_exit.schedule().accelerate_store_level();
