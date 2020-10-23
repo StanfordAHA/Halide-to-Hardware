@@ -1,6 +1,7 @@
 HALIDE_BIN_PATH ?= ../..
 HALIDE_SRC_PATH ?= ../..
 COREIR_DIR ?= ../../../coreir
+CLOCKWORK_DIR ?= ../../../clockwork
 
 HALIDE_DISTRIB_PATH ?= $(HALIDE_SRC_PATH)/distrib
 LDFLAGS ?=
@@ -129,3 +130,6 @@ HL_VIDEOPLAYER ?= mplayer
 LDFLAGS += -lcurses
 LDFLAGS += -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
 LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
+LDFLAGS += -L$(CLOCKWORK_DIR)/lib -Wl,-rpath,$(CLOCKWORK_DIR)/lib
+LDFLAGS += -lcoreir-cgralib
+

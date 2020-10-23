@@ -172,10 +172,13 @@ RTTI_CXX_FLAGS=$(if $(WITH_RTTI), , -fno-rtti )
 # Compiling for CoreIR requires some extra links
 COREIR_DIR ?= $(ROOT_DIR)/../coreir
 FUNCBUF_DIR ?= $(ROOT_DIR)/../BufferMapping/cfunc
+CLOCKWORK_DIR ?= $(ROOT_DIR)/../clockwork
 COREIR_CXX_FLAGS = -I$(COREIR_DIR)/include -fexceptions
 COREIR_CXX_FLAGS += -I$(FUNCBUF_DIR)/include -Wno-int-in-bool-context
+COREIR_CXX_FLAGS += -I$(CLOCKWORK_DIR)
 COREIR_LD_FLAGS = -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
 COREIR_LD_FLAGS += -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin -lcoreir-lakelib
+COREIR_LD_FLAGS += -L$(CLOCKWORK_DIR)/lib -Wl,-rpath,$(CLOCKWORK_DIR)/lib -lcoreir-cgralib
 COMMON_LD_FLAGS += $(COREIR_LD_FLAGS)
 
 CXX_VERSION = $(shell $(CXX) --version | head -n1)

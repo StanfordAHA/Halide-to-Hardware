@@ -14,6 +14,7 @@
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
 #include "lakelib.h"
+#include "cgralib.h"
 
 namespace Halide {
 namespace Internal {
@@ -228,6 +229,11 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
       << "could not find " << gen_name << "\n";
   }
 
+  CoreIRLoadLibrary_cgralib(context);
+  gens["lake"] = "cgralib.Mem";
+  gens["Mem"] = "cgralib.Mem";
+  internal_assert(context->hasGenerator(gens["lake"])) << "could not find " << "cwlib.Mem" << "\n";
+  
   // passthrough is now just a mantle wire
   gens["passthrough"] = "mantle.wire";
   assert(context->hasGenerator(gens["passthrough"]));
@@ -1225,7 +1231,8 @@ void CreateCoreIRModule::visit(const Load *op) {
     string in_var = name + "_" + id_index;
     rename_wire(out_var, in_var, Expr());
 
-  } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["rom2"]) {
+    //} else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["rom2"]) {
+  } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["lake"]) {
     stream << "loading from rom " << op->name << " with gen " << hw_def_set[op->name]->gen << std::endl;
 
     std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[op->name];
@@ -1235,10 +1242,11 @@ void CreateCoreIRModule::visit(const Load *op) {
 
     // attach the read address
     CoreIR::Wireable* raddr_wire = get_wire(id_index, op->index);
-    def->connect(raddr_wire, inst->sel("raddr"));
+    //def->connect(raddr_wire, inst->sel("raddr")); // for a rom2
+    def->connect(raddr_wire, inst->sel("data_in_0"));
     //attach a read enable
-    CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
-    def->connect(rom_ren->sel("out"), inst->sel("ren"));
+    //CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
+    //def->connect(rom_ren->sel("out"), inst->sel("ren"));
 
   } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["ram2"]) {
     stream << "loading from sram " << name << std::endl;
@@ -1516,8 +1524,8 @@ class ROMInit : public IRVisitor {
       if (is_const(value_expr) && is_const(index_expr)) {
         int index = id_const_value(index_expr);
         int value = id_const_value(value_expr);
-        //init_values["init"][index] = value;
-        init_values[index] = value;
+        init_values["init"][index] = value;
+        //init_values[index] = value;
       }
     }
     IRVisitor::visit(op);
@@ -1544,8 +1552,8 @@ class ROMInit : public IRVisitor {
       //int index = id_const_value(index_expr);
       int value = id_const_value(value_expr);
 
-      //init_values["init"][index] = value;
-      init_values[index] = value;
+      init_values["init"][index] = value;
+      //init_values[index] = value;
     }
     IRVisitor::visit(op);
   }
@@ -1581,16 +1589,27 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
     }
 
     auto gens = coreir_generators(context);
-    rom_args.gen = gens["rom2"];
-    rom_args.args = {{"width",CoreIR::Const::make(context,16)},
-                     {"depth",CoreIR::Const::make(context,total_size)}};
 
     // set initial values for rom
     nlohmann::json jdata = rom_init(body, stride, alloc_name);
-    //jdata["init"][0] = 0;
-    CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
+    jdata["mode"] = "sram";
+
+    rom_args.gen = gens["lake"];
+    rom_args.genargs = {{"mode",CoreIR::Const::make(context,"lake")},
+                     {"config",CoreIR::Const::make(context, jdata)}};
+    CoreIR::Values modparams = {{"width",CoreIR::Const::make(context,16)},
+                                {"num_inputs",CoreIR::Const::make(context,1)},
+                                {"num_outputs",CoreIR::Const::make(context,1)}};
+    rom_args.selname = "data_out_0";
+    rom_args.args = modparams;
+
+    //rom_args.gen = gens["rom2"];
+    ////jdata["init"][0] = 0;
+    //rom_args.args = {{"width",CoreIR::Const::make(context,16)},
+    //                 {"depth",CoreIR::Const::make(context,total_size)}};
+    //CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
+    //rom_args.selname = "rdata";
     rom_args.genargs = modparams;
-    rom_args.selname = "rdata";
     
     return rom_args;
 }

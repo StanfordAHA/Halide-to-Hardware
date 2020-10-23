@@ -118,10 +118,11 @@ coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp 
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
-	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cwlib -DCOREIR -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cwlib -lclkwrk -DCOREIR -o $(HWSUPPORT)/$(BIN)/coreir_to_dot 
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
-$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
+#$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
+$(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top.json $(BIN)/design_top.txt
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
@@ -247,7 +248,7 @@ $(BIN)/process: $(PROCESS_DEPS)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $^  $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
+	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $^  $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
@@ -297,22 +298,22 @@ $(BIN)/%.pgm: $(BIN)/%.png
 run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
-	$(HALIDE_GEN_ARGS) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-coreir $(BIN)/output_coreir.$(EXT): $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_COREIR=1
-	$(HALIDE_GEN_ARGS) $(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run coreir input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-rewrite $(BIN)/output_rewrite.png: $(BIN)/design_top.json
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_COREIR=1
-	$(HALIDE_GEN_ARGS) $(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-clockwork $(BIN)/output_clockwork.$(EXT): $(BIN)/process $(BIN)/clockwork_testscript.o
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
-	$(HALIDE_GEN_ARGS) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
@@ -323,7 +324,7 @@ run-verilog: $(BIN)/top.v $(BIN)/input.raw
 
 run-vhls: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(HALIDE_GEN_ARGS) $(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run vhls input.png $(HALIDE_DEBUG_REDIRECT)
 
 #compare compare-coreir compare-cpu-coreir compare-coreir-cpu output.png $(BIN)/output.png: $(BIN)/output_coreir.png $(BIN)/output_cpu.png
 compare-coreir compare-cpu-coreir compare-coreir-cpu $(BIN)/output.$(EXT):

@@ -162,7 +162,9 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
   std::function<void()> run_call = run_calls.at(hardware_name);
   run_call();
 
-  std::string extension = output.channels() > 4 ? "mat" : "png";
+  //std::string extension = output.channels() > 4 ? "mat" : "png";
+  std::string extension = getenv("EXT");
+  std::cout << "using extension " << extension << std::endl;
   std::string output_filename = "bin/output_" + hardware_name + "." + extension;
   convert_and_save_image(output, output_filename);
   cout << "First pixel of output..." << endl;
@@ -297,7 +299,10 @@ int ManyInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> arg
   
   run_call();
 
-  std::string extension = output.channels() > 4 ? "mat" : "png";
+  //std::string extension = output.channels() > 4 ? "mat" : "png";
+  std::string extension = getenv("EXT");
+  std::cout << "using extension " << extension << std::endl;
+
   std::string output_filename = "bin/output_" + hardware_name + "." + extension;
   convert_and_save_image(output, output_filename);
   cout << "First pixel of output..." << endl;
