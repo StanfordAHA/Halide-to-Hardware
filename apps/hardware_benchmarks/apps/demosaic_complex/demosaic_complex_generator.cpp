@@ -7,7 +7,7 @@
 #include "Halide.h"
 
 namespace {
-
+int ksize = 3;
   using namespace Halide;
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
@@ -177,6 +177,26 @@ namespace {
           .unroll(c).unroll(x).unroll(y);
 
         hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
+
+      } else if (get_target().has_feature(Target::Clockwork)) {
+        output.bound(c, 0, 3);
+        output.bound(x, 0, 64-ksize+1);
+        output.bound(y, 0, 64-ksize+1);
+
+        hw_output.compute_root();
+
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+          //.reorder(xi,yi,c,xo,yo)
+          .hw_accelerate(xi, xo);
+        
+        demosaicked.compute_at(hw_output, xo);
+        demosaicked.unroll(c);
+        //demosaicked.reorder(c, x, y);
+        
+        //hw_input_copy.compute_at(hw_output, xo);
+        hw_input.stream_to_accelerator();
+        //hw_input.compute_root();
+
           
       } else {    // schedule to CPU
         output.tile(x, y, xo, yo, xi, yi, 64-2, 64-2)

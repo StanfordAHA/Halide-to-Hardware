@@ -42,7 +42,7 @@ public:
         //hw_input(x, y) = hw_input_copy(x, y);
         conv1(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         
-        conv2(x, y)  += u16(kernel(r2.x, r2.y) * 33) * conv1(x + r2.x, y + r2.y);
+        conv2(x, y)  += u16(kernel(r2.x, r2.y)) * conv1(x + r2.x, y + r2.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv2(x, y);
