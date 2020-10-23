@@ -24,11 +24,13 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+  //GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+  //GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
+  GeneratorParam<int> k_ic{"k_ic", 1};    // default: 1
 
     // k_oc determines the number of channel sizes
   //GeneratorParam<int> k_oc{"k_oc", 6};    // default: 6
-  GeneratorParam<int> k_oc{"k_oc", 3};    // default: 6
+  GeneratorParam<int> k_oc{"k_oc", 1};    // default: 1
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
@@ -74,6 +76,7 @@ public:
         hw_input(z, x, y) = u16(clamp_input(z, x, y));
 
         conv(x, y, w) += hw_kernel(r.z, w, r.x, r.y) * hw_input(r.z, stride*x + r.x, stride*y + r.y);
+        //conv(x, y, w) += hw_input(r.z, stride*x, stride*y);
 
         Func hw_output("hw_output");
         hw_output(x, y, w) = conv(x, y, w);
