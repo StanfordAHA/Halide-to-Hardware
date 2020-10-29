@@ -32,10 +32,9 @@ public:
         casted = Halide::BoundaryConditions::repeat_edge(input);
         hw_input(x, y) = cast<uint16_t>(casted(x, y));
         
-       
-        
         f0(x, y) = hw_input(x, y);
 
+        /*
         // create the gaussian kernel
         Func kernel_f;
         float sigma = 1.5f;
@@ -59,6 +58,13 @@ public:
         //                             sum_kernel[blockSize*blockSize-1]);
         kernel(x,y) = cast<uint16_t>(kernel_f(x-blockSize/2) * kernel_f(y-blockSize/2) * 256.0f /
                                      sum_kernel[blockSize*blockSize-1]);
+        */
+
+        Func kernel("kernel");
+        kernel(x,y) = cast<uint16_t>(0);
+        kernel(0,0) = cast<uint16_t>(3);       kernel(1,0) = cast<uint16_t>(21);       kernel(2,0) = cast<uint16_t>(3);
+        kernel(0,1) = cast<uint16_t>(21);       kernel(1,1) = cast<uint16_t>(158);       kernel(2,1) = cast<uint16_t>(21);
+        kernel(0,2) = cast<uint16_t>(3);       kernel(1,2) = cast<uint16_t>(21);       kernel(2,2) = cast<uint16_t>(3);
 
         // Use a 2D filter to blur the input
         Func blur_unnormalized, l0;
@@ -148,6 +154,8 @@ public:
           //hw_input.compute_root();
           //kernel.compute_root();
           hw_output.compute_root();
+
+          kernel.compute_at(hw_output, xo);
 
           hw_output
             .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
