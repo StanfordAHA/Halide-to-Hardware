@@ -117,6 +117,46 @@ namespace {
 
         rdai_stream << "#endif // RDAI_CLOCKWORK_PLATFORM_H\n";
     }
+    
+    void render_json_config(const string& output_folder, const RDAI_Info& info, const string& pipeline_name) {
+
+        if(info.devices.empty()) return;    
+
+        string out_path = output_folder.empty() ? "config.json" :
+            output_folder + "/" + "config.json";
+
+        std::ofstream config_stream(out_path, std::ofstream::out);
+
+        config_stream << "{\n";
+        config_stream << "\t\"config\": {\n";
+
+        config_stream << "\t\t\"version\": \"1.0\",\n"
+                      << "\t\t\"name\": \"" << info.devices[0].name << "\",\n"
+                      << "\t\t\"xcel_ip_vlnv\": {\"name\": \"" << info.devices[0].name << "\", \"library\": \"" << info.devices[0].library << "\", \"vendor\": \""
+                      << info.devices[0].vendor << "\", \"version\": \"1.0\"},\n"
+                      << "\t\t\"xcel_top_fn\": \"unoptimized_" << info.devices[0].name << "_rdai\",\n"
+                      << "\t\t\"xcel_clock_period\": \"5\",\n"
+                      << "\t\t\"xcel_ip_inputs\": [\n";
+        
+        for(size_t i = 0; i < info.devices[0].num_inputs; i++) {
+            config_stream << "\t\t\t{\"name\": \"arg_in" << i << "\", \"width\": 16}";
+            if(i+1 < info.devices[0].num_inputs) config_stream << ",\n";
+            else config_stream << "\n";
+        }
+
+        config_stream << "\t\t],\n"
+                      << "\t\t\"xcel_ip_output\": {\"name\": \"arg_out\", \"width\": 16},\n"
+                      << "\t\t\"xcel_rdai_vlnv\": {\"name\": \"" << info.devices[0].name << "\", \"library\": \"" << info.devices[0].library << "\", \"vendor\": \""
+                      << info.devices[0].vendor << "\", \"version\": \"1.0\"},\n"
+                      << "\t\t\"xlnx_chip_part\": \"{xczu7ev-ffvc1156-2-e}\",\n"
+                      << "\t\t\"xlnx_board_part\": \"NONE\",\n"
+                      << "\t\t\"vivado_user_ip_repo\": \"NONE\",\n"
+                      << "\t\t\"vivado_version\": \"2020.1\",\n"
+                      << "\t\t\"vivado_handoff_dir\": \"NONE\"\n";
+                      
+        config_stream << "\t}\n";
+        config_stream << "}\n";
+    }
 }
 
 void CodeGen_RDAI::set_output_folder(const string& out_folder) {
@@ -227,6 +267,9 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         rdai_info.devices.push_back({"aha", "halide_hardware", pipeline_name, 1, args.size() - 1});
 
         render_rdai_data(output_directory, rdai_info, pipeline_name);
+
+        // Emit config.json for backend tools
+        render_json_config(output_directory, rdai_info, pipeline_name);
 
     } else {
         CodeGen_C::visit(op);
