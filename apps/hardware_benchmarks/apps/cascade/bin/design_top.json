@@ -385,7 +385,7 @@
               "genargs":{"num_inputs":["Int",1], "num_outputs":["Int",2], "width":["Int",16]},
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 3],
                          "config":["Json", {
-                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[260], "extent": [60,100], "cycle_stride": [1,64]},
+                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[260], "extent": [60,60], "cycle_stride": [1,64]},
                              "in2agg_0":{"dimensionality": 4, "cycle_starting_addr":[130], "extent": [4,16,62,1], "cycle_stride": [1,4,64,0], "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,0,0,0]},
                              "agg2sram":{"dimensionality": 3, "cycle_starting_addr":[134], "extent": [16,62,1], "cycle_stride": [4,64,0], "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "read_data_starting_addr": [0], "read_data_stride": [0,0,0], "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "write_data_starting_addr": [0], "write_data_stride": [1,16,0]},
                              "sram2tb":{"dimensionality": 4, "cycle_starting_addr":[253], "extent": [2,16,60,1], "cycle_stride": [2,4,64,0], "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "read_data_starting_addr": [0], "read_data_stride": [16,1,16,0], "mux_write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "mux_write_data_starting_addr": [0], "mux_write_data_stride": [1,0,0,0], "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "write_data_starting_addr": [0], "write_data_stride": [0,1,16,0]},
