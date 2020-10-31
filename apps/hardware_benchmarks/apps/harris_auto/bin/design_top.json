@@ -1344,7 +1344,7 @@
                   "sram2tb":{"cycle_starting_addr":[383],"cycle_stride":[2,4,64,0],"dimensionality":4,"extent":[2,15,58,1],"mux_write_data_starting_addr":[0],"mux_write_data_stride":[1,0,0,0],"read_data_starting_addr":[0],"read_data_stride":[15,1,15,0],"write_data_starting_addr":[0],"write_data_stride":[0,1,3,0]},
                   "stencil_valid":{"cycle_starting_addr":[390],"cycle_stride":[1,64,0],"dimensionality":3,"extent":[58,58,1]},
                   "tb2out_0":{"cycle_starting_addr":[388],"cycle_stride":[1,4,64,0],"dimensionality":4,"extent":[4,15,58,1],"read_data_starting_addr":[0],"read_data_stride":[1,4,12,0]},
-                  "tb2out_1":{"cycle_starting_addr":[388],"cycle_stride":[1,4,64,0],"dimensionality":4,"extent":[4,15,58,1],"read_data_starting_addr":[60],"read_data_stride":[1,4,12,0]}}], "mode":["String","lake"]}
+                  "tb2out_1":{"cycle_starting_addr":[388],"cycle_stride":[1,4,64,0],"dimensionality":4,"extent":[4,15,58,1],"read_data_starting_addr":[0],"read_data_stride":[1,4,12,0]}}], "mode":["String","lake"]}
           },
           "cim_stencil$ub_cim_stencil_op_hcompute_cim_stencil_61_to_cim_stencil_op_hcompute_cim_output_stencil_69_clk_en_const":{
             "modref":"corebit.const",
