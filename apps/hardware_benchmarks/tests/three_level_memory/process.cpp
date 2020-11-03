@@ -56,8 +56,10 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(258, 258);
-  processor.output  = Buffer<uint8_t>(256, 256);
+  //processor.input   = Buffer<uint8_t>(258, 258);
+  //processor.output  = Buffer<uint8_t>(256, 256);
+  processor.input   = Buffer<uint8_t>(514, 514);
+  processor.output  = Buffer<uint8_t>(512, 512);
 
   int i=0;
   for (int y = 0; y < processor.input.dim(1).extent(); y++) {

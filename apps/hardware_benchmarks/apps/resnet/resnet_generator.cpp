@@ -13,8 +13,8 @@ public:
     int ksize = 3;
     int imgsize = 28;
   //int k_z = 8;
-  int k_z = 2;
-    int k_w = 4; // should be 8 output channels
+  int k_z = 4; //input channel
+    int k_w = 3; // should be 8 output channels
 
     void generate() {
         /* THE ALGORITHM */
@@ -170,6 +170,7 @@ public:
           Var xi,yi, xo,yo;
           
           hw_output.compute_root();
+          hw_output.unroll(w);
           
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             //.reorder_storage(w,x,y)
@@ -238,6 +239,7 @@ public:
           //hw_kernel.compute_at(hw_output, xo);
           //input_copy.compute_root();
           //kernel_copy.compute_root();
+          //hw_input.unroll(z);
           hw_input.stream_to_accelerator();
           hw_kernel.stream_to_accelerator();
           

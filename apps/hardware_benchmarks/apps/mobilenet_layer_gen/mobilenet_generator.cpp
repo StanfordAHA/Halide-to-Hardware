@@ -25,10 +25,10 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+    GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
 
     // k_oc determines the number of channel sizes
-    GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
+    GeneratorParam<int> k_oc{"k_oc", 3};    // default: 3
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
@@ -46,6 +46,8 @@ public:
 
         Func hw_input("hw_input");
         Func clamp_input("clamp_input");
+
+        // add padding to the input using a repeated edge
         clamp_input(c, x, y) = input(c, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1));
         hw_input(c, x, y) = i16(clamp_input(c, x, y));
 
@@ -61,21 +63,23 @@ public:
 
         //pointwise ConvolutionLayer
         Func pw_conv("pw_conv");
-        pw_conv(k, c, x, y) = i16(0);//cast<int16_t>(bias_pw(k));
-        pw_conv(k, c, x, y) += i16(hw_filter_pw(k, c) *
-                                   dw_conv(c, x, y));
+        //pw_conv(k, c, x, y) = cast<int16_t>(bias_pw(k));
+        pw_conv(k, c, x, y) = i16(hw_filter_pw(k, c) *
+                                  dw_conv(c, x, y));
 
         Func pw_conv_reduction;
         pw_conv_reduction(k, x, y) = i16(0);
-        pw_conv_reduction(k, x, y) += i16(pw_conv(k, r_pw.x, x, y));
+        //pw_conv_reduction(k, x, y) += i16(pw_conv(k, r_pw.x, x, y));
+        pw_conv_reduction(k,x,y) += i16(hw_filter_pw(k, r_pw.x) *
+                                        dw_conv(r_pw.x, x, y));
 
         Func hw_output("hw_output");
-        //hw_output(k, x, y) = max(0, pw_conv_reduction(k, x, y));
         hw_output(k, x, y) = pw_conv_reduction(k, x, y);
+
+        //hw_output(k, x, y) = max(0, pw_conv_reduction(k, x, y));
         //hw_output(x, y, k) = u8(hw_input(x, y, 0));
         //hw_output(x, y, k) = cast<int8_t>(max(0, dw_conv(x, y, k)));
 
-        //output(x, y, k) = u8(hw_output(x, y, k));
         output(k, x, y) = u8(max(0, hw_output(k, x, y)));
 
         /* THE SCHEDULE */
@@ -88,7 +92,6 @@ public:
           output.bound(y, 0, imgsize);
           
           output.bound(k, 0, k_oc);
-          //hw_output.bound(k, 0, k_oc);
           pw_conv_reduction.bound(k, 0, k_oc);
           
           pw_conv.bound(c, 0, k_ic);
@@ -100,19 +103,24 @@ public:
           hw_output.compute_root();
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize,imgsize)
             .hw_accelerate(xi, xo);
+          hw_output.unroll(k);
 
           pw_conv_reduction.compute_at(hw_output, xo);
-          //pw_conv_reduction.update().unroll(r_pw.x);
+          pw_conv_reduction.unroll(k);
+          pw_conv_reduction.update().unroll(r_pw.x).unroll(k);
           
           pw_conv.compute_at(hw_output, xo);
-          //pw_conv.update().unroll(c);
+          pw_conv.unroll(c).unroll(k);
 
           dw_conv.compute_at(hw_output, xo);
-          //dw_conv.update().reorder(r_dw.x, r_dw.y, c, x, y);
-          dw_conv.update().unroll(r_dw.x).unroll(r_dw.y);
-          
+          dw_conv.unroll(c);
+          dw_conv.update().unroll(r_dw.x).unroll(r_dw.y).unroll(c);
+
+          hw_input.in().unroll(c);
           hw_input.stream_to_accelerator();
+          hw_filter_dw.in().unroll(c);
           hw_filter_dw.stream_to_accelerator();
+          hw_filter_pw.in().unroll(c).unroll(k);
           hw_filter_pw.stream_to_accelerator();
           
         } else {  // schedule to CPU

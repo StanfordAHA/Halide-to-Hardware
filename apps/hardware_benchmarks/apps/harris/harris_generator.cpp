@@ -9,6 +9,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 // Size of blur for gradients.
 int blockSize = 3;
@@ -41,18 +42,29 @@ public:
 
         // sobel filter
         Func grad_x_unclamp, grad_y_unclamp, grad_x, grad_y;
-        grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x-1,y-1) +   padded16(x+1,y-1)
-                                             -2*padded16(x-1,y)   + 2*padded16(x+1,y)
-                                               -padded16(x-1,y+1) +   padded16(x+1,y+1));
-        grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
-                                              2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
-                                                padded16(x+1,y+1) -   padded16(x+1,y-1));
-        //RDom r(-1, 3, -1, 3);
-        //grad_x_unclamp(x, y) = 0;
-        //grad_x_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
-        //grad_y_unclamp(x, y) = 0;
-        //grad_y_unclamp(x, y) += cast<int16_t>(padded16(x+r.x, y+r.y));
-
+        Func kernel_x, kernel_y;
+        RDom r(-1, 3, -1, 3);
+        if (schedule == 1 || schedule == 2) {
+          grad_x_unclamp(x, y) = cast<int16_t>(  -padded16(x-1,y-1) +   padded16(x+1,y-1)
+                                               -2*padded16(x-1,y)   + 2*padded16(x+1,y)
+                                                 -padded16(x-1,y+1) +   padded16(x+1,y+1));
+          grad_y_unclamp(x, y) = cast<int16_t>(   padded16(x-1,y+1) -   padded16(x-1,y-1) +
+                                                2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
+                                                  padded16(x+1,y+1) -   padded16(x+1,y-1));
+        } else {
+          kernel_x(x,y) = 0;
+          kernel_x(-1,-1) = -1;    kernel_x(-1,0) = -2;    kernel_x(-1, 1) = -1;
+          kernel_x(1, -1) = 1;     kernel_x(1, 0) = 2;     kernel_x( 1, 1) = 1;
+          kernel_y(x,y) = 0;
+          kernel_y(-1, 1) = -1;   kernel_y( 0, 1) = -2;   kernel_y( 1, 1) = -1;
+          kernel_y(-1,-1) = 1;    kernel_y( 0,-1) = 2;    kernel_y( 1,-1) = 1;
+        
+          grad_x_unclamp(x, y) = i16(0);
+          grad_x_unclamp(x, y) += padded16(x+r.x, y+r.y) * i16(kernel_x(r.x, r.y));
+          grad_y_unclamp(x, y) = i16(0);
+          grad_y_unclamp(x, y) += padded16(x+r.x, y+r.y) * i16(kernel_y(r.x, r.y));
+        }
+        
         grad_x(x, y) = clamp(grad_x_unclamp(x,y), -255, 255);
         grad_y(x, y) = clamp(grad_y_unclamp(x,y), -255, 255);
         
@@ -74,11 +86,27 @@ public:
 
         // box filter (i.e. windowed sum)
         Func lgxx, lgyy, lgxy;
-        RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
         //RDom box(0, blockSize, 0, blockSize);
-        lgxx(x, y) += lxx(x+box.x, y+box.y);
-        lgyy(x, y) += lyy(x+box.x, y+box.y);
-        lgxy(x, y) += lxy(x+box.x, y+box.y);
+        RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
+        
+        if (schedule == 1) {
+          lgxx(x, y) =
+            lxx(x-1, y-1) + lxx(x, y-1) + lxx(x+1, y-1) +
+            lxx(x-1, y) + lxx(x, y) + lxx(x+1, y) +
+            lxx(x-1, y+1) + lxx(x, y+1) + lxx(x+1, y+1);
+          lgyy(x, y) =
+            lyy(x-1, y-1) + lyy(x, y-1) + lyy(x+1, y-1) +
+            lyy(x-1, y) + lyy(x, y) + lyy(x+1, y) +
+            lyy(x-1, y+1) + lyy(x, y+1) + lyy(x+1, y+1);
+          lgxy(x, y) =
+            lxy(x-1, y-1) + lxy(x, y-1) + lxy(x+1, y-1) +
+            lxy(x-1, y) + lxy(x, y) + lxy(x+1, y) +
+            lxy(x-1, y+1) + lxy(x, y+1) + lxy(x+1, y+1);
+        } else {
+          lgxx(x, y) += lxx(x+box.x, y+box.y);
+          lgyy(x, y) += lyy(x+box.x, y+box.y);
+          lgxy(x, y) += lxy(x+box.x, y+box.y);
+        }
 
         Expr lgxx8 = lgxx(x,y) >> 6;
         Expr lgyy8 = lgyy(x,y) >> 6;
@@ -100,10 +128,11 @@ public:
 
         // Perform non-maximal suppression
         Func hw_output;
-        Expr is_max = cim(x, y) > cim(x-1, y-1) && cim(x, y) > cim(x, y-1) &&
-            cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
-            cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
-            cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
+        Expr is_max =
+          cim(x, y) > cim(x-1, y-1) && cim(x, y) > cim(x, y-1) &&
+          cim(x, y) > cim(x+1, y-1) && cim(x, y) > cim(x-1, y) &&
+          cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
+          cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
         Func cim_output;
         cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
         hw_output(x, y) = cim_output(x,y);
@@ -114,7 +143,246 @@ public:
 
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
+        if (get_target().has_feature(Target::Clockwork)) {
+          int tileSize = 58;
+
+          hw_output.compute_root();
+          //kernel.compute_at(hw_output, xo);
+
+          if (schedule == 1) { // no buffers
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            padded16.stream_to_accelerator();
+
+          } else if (schedule == 2) { // few buffers
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            
+            padded16.stream_to_accelerator();
+            
+          } else if (schedule == 3) { // all buffers
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            grad_x.compute_at(hw_output, xo);
+            grad_y.compute_at(hw_output, xo);
+            lxx.compute_at(hw_output, xo);
+            lyy.compute_at(hw_output, xo);
+            lxy.compute_at(hw_output, xo);
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            cim.compute_at(hw_output, xo);
+            cim_output.compute_at(hw_output, xo);
+
+            padded16.stream_to_accelerator();
+
+          } else if (schedule == 4) { // unroll some
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            grad_x.compute_at(hw_output, xo);
+            grad_y.compute_at(hw_output, xo);
+            lxx.compute_at(hw_output, xo);
+            lyy.compute_at(hw_output, xo);
+            lxy.compute_at(hw_output, xo);
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            cim.compute_at(hw_output, xo);
+            cim_output.compute_at(hw_output, xo);
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
+            //kernel_x.unroll(x).unroll(y);
+            //kernel_y.unroll(x).unroll(y);
+            
+            grad_x_unclamp.update().unroll(r.x);
+            grad_y_unclamp.update().unroll(r.x);
+            
+            lgxx.update().unroll(box.x);
+            lgyy.update().unroll(box.x);
+            lgxy.update().unroll(box.x);
+            
+            padded16.stream_to_accelerator();
+
+          } else if (schedule == 5) { // unroll all
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            grad_x.compute_at(hw_output, xo);
+            grad_y.compute_at(hw_output, xo);
+            lxx.compute_at(hw_output, xo);
+            lyy.compute_at(hw_output, xo);
+            lxy.compute_at(hw_output, xo);
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            cim.compute_at(hw_output, xo);
+            cim_output.compute_at(hw_output, xo);
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
+            kernel_x.unroll(x).unroll(y);
+            kernel_y.unroll(x).unroll(y);
+            
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y);
+
+            lgxx.update().unroll(box.x).unroll(box.y);
+            lgyy.update().unroll(box.x).unroll(box.y);
+            lgxy.update().unroll(box.x).unroll(box.y);
+            
+            padded16.stream_to_accelerator();
+
+          } else if (schedule == 6) { // unroll all, unroll 2x
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            hw_output.unroll(xi, 2);
+            grad_x.unroll(x, 2);
+            grad_y.unroll(x, 2);
+            lxx.unroll(x, 2);
+            lyy.unroll(x, 2);
+            lxy.unroll(x, 2);
+            lgxx.unroll(x, 2);
+            lgyy.unroll(x, 2);
+            lgxy.unroll(x, 2);
+            cim.unroll(x, 2);
+            cim_output.unroll(x, 2);
+            
+            grad_x.compute_at(hw_output, xo);
+            grad_y.compute_at(hw_output, xo);
+            lxx.compute_at(hw_output, xo);
+            lyy.compute_at(hw_output, xo);
+            lxy.compute_at(hw_output, xo);
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            cim.compute_at(hw_output, xo);
+            cim_output.compute_at(hw_output, xo);
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
+            kernel_x.unroll(x).unroll(y);
+            kernel_y.unroll(x).unroll(y);
+            
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y);
+
+            lgxx.update().unroll(box.x).unroll(box.y);
+            lgyy.update().unroll(box.x).unroll(box.y);
+            lgxy.update().unroll(box.x).unroll(box.y);
+            
+            padded16.stream_to_accelerator();
+            
+          } else if (schedule == 7) { // increase tile size
+
+            tileSize = 122;
+            //cim.compute_root();
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            grad_x.compute_at(hw_output, xo);
+            grad_y.compute_at(hw_output, xo);
+            lxx.compute_at(hw_output, xo);
+            lyy.compute_at(hw_output, xo);
+            lxy.compute_at(hw_output, xo);
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            cim.compute_at(hw_output, xo);
+            cim_output.compute_at(hw_output, xo);
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
+            kernel_x.unroll(x).unroll(y);
+            kernel_y.unroll(x).unroll(y);
+            
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y);
+            
+            lgxx.update().unroll(box.x).unroll(box.y);
+            lgyy.update().unroll(box.x).unroll(box.y);
+            lgxy.update().unroll(box.x).unroll(box.y);
+            
+            padded16.stream_to_accelerator();
+
+          } else if (schedule == 8) { // end at cim
+            cim.compute_root();
+            cim
+              .tile(x, y, xo, yo, xi, yi, tileSize+2, tileSize+2)
+              .hw_accelerate(xi, xo);
+
+            grad_x.compute_at(cim, xo);
+            grad_y.compute_at(cim, xo);
+            lxx.compute_at(cim, xo);
+            lyy.compute_at(cim, xo);
+            lxy.compute_at(cim, xo);
+            lgxx.compute_at(cim, xo);
+            lgyy.compute_at(cim, xo);
+            lgxy.compute_at(cim, xo);
+
+            kernel_x.compute_at(cim, xo);
+            kernel_y.compute_at(cim, xo);
+            kernel_x.unroll(x).unroll(y);
+            kernel_y.unroll(x).unroll(y);
+            
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y);
+            
+            lgxx.update().unroll(box.x).unroll(box.y);
+            lgyy.update().unroll(box.x).unroll(box.y);
+            lgxy.update().unroll(box.x).unroll(box.y);
+            
+            padded16.stream_to_accelerator();
+            
+          } else {
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+            //padded16.stream_to_accelerator();
+
+            grad_x.compute_at(hw_output, xo);
+            grad_y.compute_at(hw_output, xo);
+            lxx.compute_at(hw_output, xo);
+            lyy.compute_at(hw_output, xo);
+            lxy.compute_at(hw_output, xo);
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            ////cim.linebuffer();
+            cim.compute_at(hw_output, xo);
+            cim_output.compute_at(hw_output, xo);
+
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y);
+            
+            lgxx.update().unroll(box.x).unroll(box.y);
+            lgyy.update().unroll(box.x).unroll(box.y);
+            lgxy.update().unroll(box.x).unroll(box.y);
+
+            //padded16.compute_at(hw_output, xo);
+            padded16.stream_to_accelerator();
+            //hw_input_copy.compute_root();
+          }
+          
+          output.bound(x, 0, tileSize);
+          output.bound(y, 0, tileSize);
+          
+       } else if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
 
           grad_x.bound(x, -2, 62);
           grad_x.bound(y, -2, 62);
@@ -179,134 +447,7 @@ public:
 
           padded16.store_at(hw_output, xo).compute_at(hw_output, xi);
           padded16.stream_to_accelerator();
-
-        } else if (get_target().has_feature(Target::Clockwork)) {
-          output.bound(x, 0, 58);
-          output.bound(y, 0, 58);
-
-          hw_output.compute_root();
-          int tileSize = 58;
-
-          if (schedule == 1) { // few buffers
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .hw_accelerate(xi, xo);
-
-            lgxx.compute_at(hw_output, xo);
-            lgyy.compute_at(hw_output, xo);
-            lgxy.compute_at(hw_output, xo);
-            
-            padded16.stream_to_accelerator();
-            
-          } else if (schedule == 2) { // more buffers
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .hw_accelerate(xi, xo);
-
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
-            lxx.compute_at(hw_output, xo);
-            lyy.compute_at(hw_output, xo);
-            lxy.compute_at(hw_output, xo);
-            lgxx.compute_at(hw_output, xo);
-            lgyy.compute_at(hw_output, xo);
-            lgxy.compute_at(hw_output, xo);
-            cim.compute_at(hw_output, xo);
-            cim_output.compute_at(hw_output, xo);
-
-            padded16.stream_to_accelerator();
-
-          } else if (schedule == 3) { // unroll some
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .hw_accelerate(xi, xo);
-
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
-            lxx.compute_at(hw_output, xo);
-            lyy.compute_at(hw_output, xo);
-            lxy.compute_at(hw_output, xo);
-            lgxx.compute_at(hw_output, xo);
-            lgyy.compute_at(hw_output, xo);
-            lgxy.compute_at(hw_output, xo);
-            cim.compute_at(hw_output, xo);
-            cim_output.compute_at(hw_output, xo);
-
-            lgxx.update().unroll(box.x);
-            lgyy.update().unroll(box.x);
-            lgxy.update().unroll(box.x);
-            
-            padded16.stream_to_accelerator();
-
-          } else if (schedule == 4) { // unroll all
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .hw_accelerate(xi, xo);
-
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
-            lxx.compute_at(hw_output, xo);
-            lyy.compute_at(hw_output, xo);
-            lxy.compute_at(hw_output, xo);
-            lgxx.compute_at(hw_output, xo);
-            lgyy.compute_at(hw_output, xo);
-            lgxy.compute_at(hw_output, xo);
-            cim.compute_at(hw_output, xo);
-            cim_output.compute_at(hw_output, xo);
-
-            lgxx.update().unroll(box.x).unroll(box.y);
-            lgyy.update().unroll(box.x).unroll(box.y);
-            lgxy.update().unroll(box.x).unroll(box.y);
-            
-            padded16.stream_to_accelerator();
-
-          } else if (schedule == 5) { // end at cim
-            //cim.compute_root();
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .hw_accelerate(xi, xo);
-
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
-            lxx.compute_at(hw_output, xo);
-            lyy.compute_at(hw_output, xo);
-            lxy.compute_at(hw_output, xo);
-            lgxx.compute_at(hw_output, xo);
-            lgyy.compute_at(hw_output, xo);
-            lgxy.compute_at(hw_output, xo);
-
-            lgxx.update().unroll(box.x).unroll(box.y);
-            lgyy.update().unroll(box.x).unroll(box.y);
-            lgxy.update().unroll(box.x).unroll(box.y);
-            
-            padded16.stream_to_accelerator();
-            
-          } else {
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .hw_accelerate(xi, xo);
-            //padded16.stream_to_accelerator();
-
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
-            lxx.compute_at(hw_output, xo);
-            lyy.compute_at(hw_output, xo);
-            lxy.compute_at(hw_output, xo);
-            lgxx.compute_at(hw_output, xo);
-            lgyy.compute_at(hw_output, xo);
-            lgxy.compute_at(hw_output, xo);
-            ////cim.linebuffer();
-            cim.compute_at(hw_output, xo);
-            cim_output.compute_at(hw_output, xo);
-
-            lgxx.update().unroll(box.x).unroll(box.y);
-            lgyy.update().unroll(box.x).unroll(box.y);
-            lgxy.update().unroll(box.x).unroll(box.y);
-
-            //padded16.compute_at(hw_output, xo);
-            padded16.stream_to_accelerator();
-            //hw_input_copy.compute_root();
-          }
+          
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 58, 58);
         
@@ -323,10 +464,6 @@ public:
           lgyy.compute_at(output, xo).vectorize(x, 4);
           lgxy.compute_at(output, xo).vectorize(x, 4);
           cim.compute_at(output, xo).vectorize(x, 4);
-
-          lgxx.update(0).unroll(box.x).unroll(box.y);
-          lgyy.update(0).unroll(box.x).unroll(box.y);
-          lgxy.update(0).unroll(box.x).unroll(box.y);
 
           output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
         }

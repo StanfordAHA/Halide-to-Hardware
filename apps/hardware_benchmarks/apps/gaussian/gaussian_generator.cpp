@@ -18,6 +18,8 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
+  //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
+
     void generate() {
         /* THE ALGORITHM */
 
@@ -32,7 +34,7 @@ public:
         //input_copy(x, y) = cast<uint16_t>(input(x, y));
         //hw_input(x, y) = input_copy(x, y);
 
-        // create the gaussian kernel
+        // create the gaussia nkernel
         Func kernel_f;
         float sigma = 1.5f;
         kernel_f(x) = exp(-x*x/(2*sigma*sigma)) / (sqrtf(2*M_PI)*sigma);
@@ -97,15 +99,18 @@ public:
           hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
-          output.bound(x, 0, imgSize);
-          output.bound(y, 0, imgSize);
+          //output.bound(x, 0, imgSize);
+          //output.bound(y, 0, imgSize);
 
-          //hw_input.compute_root();
-          //kernel.compute_root();
+          int tilesize = imgSize;
+          output.bound(x, 0, tilesize);
+          output.bound(y, 0, tilesize);
+
           hw_output.compute_root();
 
           hw_output
-            .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+            //.tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+            .tile(x, y, xo, yo, xi, yi, tilesize, tilesize)
             .hw_accelerate(xi, xo);
 
           blur_unnormalized.update()

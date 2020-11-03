@@ -24,13 +24,14 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-  //GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
-  //GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
-  GeneratorParam<int> k_ic{"k_ic", 1};    // default: 1
-
+    //GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+    GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
+    //GeneratorParam<int> k_ic{"k_ic", 1};    // default: 1
+  
     // k_oc determines the number of channel sizes
-  //GeneratorParam<int> k_oc{"k_oc", 6};    // default: 6
-  GeneratorParam<int> k_oc{"k_oc", 1};    // default: 1
+    //GeneratorParam<int> k_oc{"k_oc", 6};    // default: 6
+    GeneratorParam<int> k_oc{"k_oc", 3};    // default: 3
+    //GeneratorParam<int> k_oc{"k_oc", 1};    // default: 1
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
@@ -189,6 +190,7 @@ public:
           Var xi,yi, xo,yo;
           
           hw_output.compute_root();
+          hw_output.unroll(w);
           
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             //.reorder_storage(w,x,y)
@@ -227,7 +229,8 @@ public:
             .reorder(w,r.z,x,y,r.x,r.y);
             //.reorder(r.y,y,w,r.z,r.x,r.z,y);
             //.reorder(x,y,w,r.z,r.x,r.y);
-          
+
+          conv.unroll(w, k_oc);
           conv.update()
             //.unroll(r.z, k_ic/2);                     // unroll input channel
             //.unroll(r.z);                            // unroll input channel
@@ -251,6 +254,8 @@ public:
 
 
           conv.compute_at(hw_output, xo);
+
+          hw_input.in().unroll(z);
           
           hw_input.stream_to_accelerator();
           hw_kernel.stream_to_accelerator();

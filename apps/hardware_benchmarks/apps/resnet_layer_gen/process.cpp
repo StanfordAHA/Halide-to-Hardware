@@ -73,11 +73,11 @@ int main( int argc, char **argv ) {
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
     //auto k_ic = IC ? atoi(IC) : 8;
-    //auto k_ic = IC ? atoi(IC) : 4;
-    auto k_ic = IC ? atoi(IC) : 1;
+    auto k_ic = IC ? atoi(IC) : 4;
+    //auto k_ic = IC ? atoi(IC) : 1;
     //auto k_oc = OC ? atoi(OC) : 6;
-    //auto k_oc = OC ? atoi(OC) : 3;
-    auto k_oc = OC ? atoi(OC) : 1;
+    auto k_oc = OC ? atoi(OC) : 3;
+    //auto k_oc = OC ? atoi(OC) : 1;
 
     int X = in_img;
     int Y = X;
@@ -104,8 +104,15 @@ int main( int argc, char **argv ) {
               << processor.inputs["input.png"].dim(1).extent() << "x"
               << processor.inputs["input.png"].dim(2).extent() << "\n";
 
+    bool write_images = false;
+
     Buffer<uint8_t> full_input(Z, X + pad*2, Y + pad*2);
     Buffer<uint8_t> oned_input(Z *(X + pad*2), Y + pad*2);
+    std::vector<Buffer<uint8_t>> inputs;
+    for (int i=0; i<Z; ++i) {
+      inputs.emplace_back(Buffer<uint8_t>(X + pad*2, Y + pad*2));
+    }
+    
     for (int y = 0; y < full_input.dim(2).extent(); y++) {
       for (int x = 0; x < full_input.dim(1).extent(); x++) {
         for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
@@ -113,11 +120,18 @@ int main( int argc, char **argv ) {
           auto y_coord = y-pad<0 ? 0 : y-pad >= Y ? Y-1 : y-pad;
           full_input(z, x, y) = input_copy_stencil(z, x_coord, y_coord);
           oned_input(z + Z*x, y) = input_copy_stencil(z, x_coord, y_coord);
-          std::cout << z << "," << x << "," << y << " = " << +full_input(z,x,y) << std::endl;
+          
+          inputs[z](x, y) = input_copy_stencil(z, x_coord, y_coord);
+          //std::cout << z << "," << x << "," << y << " = " << +full_input(z,x,y) << std::endl;
         } } }
     std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
     //save_image(full_input, "bin/input.png");
-    save_image(oned_input, "bin/input.png");
+    if (write_images) {
+      save_image(oned_input, "bin/input.png");
+      for (size_t i=0; i<inputs.size(); ++i) {
+        save_image(inputs[i], "bin/input_" + std::to_string(i) + ".png");
+      }
+    }
 
   
     processor.inputs["kernel.png"] = Buffer<uint8_t>(Z, W, K_X, K_Y);
@@ -133,8 +147,7 @@ int main( int argc, char **argv ) {
             kernel_copy_stencil(z, w, x, y) = j;
             if (first && j==Z) { first = false; j=0; }
             j = j+1;
-            std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = "
-                      << +kernel_copy_stencil(z,w,x,y) << std::endl;
+            //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
           } } } }
     std::cout << "kernel 2,1 = 6 ?= " << +kernel_copy_stencil(0,0,2,1) << std::endl;
   
@@ -154,20 +167,29 @@ int main( int argc, char **argv ) {
 
 
     auto output = processor.process_command(argc, argv);
-    std::cout << "output 0 0 ?= " << +processor.output(8,4,0) << std::endl;
+    //std::cout << "output 0 0 ?= " << +processor.output(8,4,0) << std::endl;
 
     Buffer<uint8_t> oned_output(imgsize_x * imgsize_y, W);
+    std::vector<Buffer<uint8_t>> outputs;
+    for (int i=0; i<W; ++i) {
+      outputs.emplace_back(Buffer<uint8_t>(imgsize_x, imgsize_y));
+    }
+
     for (int w = 0; w < processor.output.dim(2).extent(); w++) {
       for (int y = 0; y < processor.output.dim(1).extent(); y++) {
         for (int x = 0; x < processor.output.dim(0).extent(); x++) {
           oned_output(x + y*imgsize_x, w) = processor.output(x,y,w);
-          std::cout << x << "," << y << "," << w << " = " << +processor.output(x,y,w)
-                    << " = " << std::hex << +processor.output(x,y,w) << std::dec << std::endl;
+          outputs[w](x,y) = processor.output(x,y,w);
+          //std::cout << x << "," << y << "," << w << " = " << +processor.output(x,y,w) << " = " << std::hex << +processor.output(x,y,w) << std::dec << std::endl;
         } } }
-    if(true) {//if (processor.output(0,0,0,0) == 198) {
+    if (write_images) {//if (processor.output(0,0,0,0) == 198) {
       //save_image(oned_output, "bin/output_gold.png");
       save_image(processor.output, "bin/output_gold.png");
+      for (size_t i=0; i<outputs.size(); ++i) {
+        save_image(outputs[i], "bin/output_" + std::to_string(i) + ".png");
+      }
     }
+
     
     return output;
 }  

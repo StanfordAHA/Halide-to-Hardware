@@ -32,6 +32,7 @@ public:
         input_host(x, y) = u16(input(x, y)); // store this in the host
         input_gb(x, y) = input_host(x, y); // store this in the gb
         hw_input(x, y) = input_gb(x, y); // store this in a mem tile
+        
         //conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         conv(x, y)  += hw_input(x + r.x, y + r.y);
         //conv(x,y) =
@@ -131,7 +132,7 @@ public:
           conv.update()
             .unroll(r.x)
             .unroll(r.y);
-          conv.store_at(output_gb, x_gb).compute_at(output_gb, x_gb); // memtile
+          conv.compute_at(output_gb, x_gb); // memtile
 
           // compute the kernel values only once (they'll be converted to constants anyway)
           kernel.compute_at(output_gb, x_gb);
