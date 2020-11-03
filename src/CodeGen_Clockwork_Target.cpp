@@ -396,6 +396,11 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     std::cout << "printed codegen" << std::endl;
     print_clockwork_execution_header(target_name, clk_exec_h_file);
     std::cout << "printed execution header" << std::endl;
+
+    for (auto& closure_arg : closure_args) {
+      std::cout << "  closure arg: " << closure_arg.name << std::endl;
+    }
+    
     print_clockwork_execution_cpp(target_name, closure_args, clk_exec_cpp_file);
     std::cout << "printed execution cpp" << std::endl;
 
@@ -799,6 +804,9 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     for(size_t i = 0; i < num_buffers; i++) {
       //std::cout << printname(closure_args[i].name) << std::endl;
         ostringstream oss;
+        std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
+                  << closure_args[i].stencil_type.elemType << std::endl;
+        if (!closure_args[i].is_stencil) { continue; }
         oss << type_to_c_type(closure_args[i].stencil_type.elemType);
         string type_name = oss.str();
         stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
@@ -1069,9 +1077,11 @@ string rom_to_c(ROM_data rom);
 void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
                  std::ostream& compute_stream, vector<CoreIR_Inst_Args>& coreir_insts,
                  CoreIR::Context* context) {
+  set<string> finished_roms;
   for (auto found_rom : found_roms) {
+    std::cout << "rom found named " << found_rom << std::endl;
+    
     auto pc_str = rom_to_c(roms[found_rom]);
-    compute_stream << pc_str << std::endl;
 
     vector<int> rom_size;
     if (const Realize* rom_r = roms[found_rom].stmt.as<Realize>()) {
@@ -1085,11 +1095,13 @@ void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
     }
     auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
     coreir_insts.push_back(coreir_inst);
+
+    if (finished_roms.count(found_rom) > 0) { continue; }
+    finished_roms.insert(found_rom);
+    compute_stream << pc_str << std::endl;
+
   }
 }
-
-
-
 
 class Compute_Closure : public Closure {
 public:
@@ -1505,9 +1517,10 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   // Output the function in relation to the loop level
   auto mem_bodyname = loop_list.back();
-  std::string func_name = printname(unique_name("hcompute_" + op->name));
+  string func_name = printname(unique_name("hcompute_" + op->name));
+  string mem_access = mem_bodyname == "prg" ? "." : "->";
   memory_stream << "  auto " << func_name  << " = "
-                << mem_bodyname << "->add_op(\""
+                << mem_bodyname << mem_access << "add_op(\""
                 << "op_" + func_name << "\");" << endl;
   memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
 
