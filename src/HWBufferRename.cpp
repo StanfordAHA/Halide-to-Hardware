@@ -74,7 +74,17 @@ class RenameStencilRealizes : public IRMutator {
     using IRMutator::visit;
 
     Stmt visit(const Realize *op) override {
-      auto func = env.at(op->name);
+      string funcname;
+      if (ends_with(op->name, ".0")) { // complexfuncs get separated with .0 and .1
+        funcname = op->name.substr(0, op->name.find(".0"));
+      } else if (ends_with(op->name, ".1")) {
+        funcname = op->name.substr(0, op->name.find(".1"));
+      } else {
+        funcname = op->name;
+      }
+      //std::cout << "looking for realize " << op->name << " using name " << funcname << std::endl;
+      
+      auto func = env.at(funcname);
 
       // ROMs should be flattened, so don't append ".stencil"
       auto realization_type = identify_realization(unroll_loops(Stmt(op)), op->name);

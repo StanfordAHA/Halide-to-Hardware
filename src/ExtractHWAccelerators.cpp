@@ -27,13 +27,14 @@ class InsertHWXcel : public IRMutator {
       // should be left with store level match; we should produce hls_target
       debug(3) << "find the pipeline producing " << xcel.name << "\n";
 
-      Stmt body = Stmt(op);
+      //Stmt body = Stmt(op);
+      Stmt body = op->body;
 
       //stmt = For::make(xcel.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
       Stmt new_body_produce = ProducerConsumer::make_produce("_hls_target." + xcel.name, body);
       Stmt new_body_consume = ProducerConsumer::make_consume("_hls_target." + xcel.name, Evaluate::make(0));
       Stmt stmt = Block::make(new_body_produce, new_body_consume);
-      return stmt;
+      return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, stmt);
 
     } else {
       return IRMutator::visit(op);
