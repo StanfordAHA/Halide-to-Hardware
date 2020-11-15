@@ -103,7 +103,7 @@
                                           "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "read_data_starting_addr": [0], "read_data_stride": [1,7,256],
                                           "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "write_data_starting_addr": [0], "write_data_stride": [1,0,0]},
                              "tb2out_0":{"dimensionality": 5, "cycle_starting_addr":[905], "extent": [28,28,3,3,100], "cycle_stride": [1,30,900,2730,8190],
-                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,0,0,0,0]}
+                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,0,0,0,0]},
                              "tb2out_1":{"dimensionality": 3, "cycle_starting_addr":[9095], "extent": [28,28,100], "cycle_stride": [1,28,8190],
                                          "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,0,0]}
                          }]}}
