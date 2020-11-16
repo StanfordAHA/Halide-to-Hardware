@@ -918,7 +918,7 @@ void CreateCoreIRModule::visit_ternop(Type t, Expr a, Expr b, Expr c, const char
     }
 
     // wiring names are different for each operator
-    if (op_name.compare("bitmux")==0 || op_name.compare("mux")==0) {
+    if (op_name.compare("bitmux")==0 || op_name.compare("mux")==0 || op_name.compare("fmux")==0) {
       def->connect(a_wire, coreir_inst->sel("sel"));
       def->connect(b_wire, coreir_inst->sel("in1"));
       def->connect(c_wire, coreir_inst->sel("in0"));
@@ -1233,14 +1233,16 @@ void CreateCoreIRModule::visit(const Load *op) {
 
   } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["rom2"]) {
     //} else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["lake"]) {
-    stream << "loading from rom " << op->name << " with gen " << hw_def_set[op->name]->gen << std::endl;
+    stream << "// loading from rom " << op->name << " with gen " << hw_def_set[op->name]->gen << std::endl;
     
+    std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[op->name];
+    //if (def->getInstances().count(inst_args->name) > 0) { stream << "// rom already created\n"; return; } // if already has been created, we are done
     if (is_wire(out_var)) { return; } // if already has been created, we are done
-    
-    std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[op->name];    
+
     string inst_name = unique_name(inst_args->name);
     CoreIR::Wireable* inst = def->addInstance(inst_name, inst_args->gen, inst_args->args, inst_args->genargs);
     add_wire(out_var, inst->sel(inst_args->selname));
+    stream << "// created rom named " << inst_name << std::endl;
 
     // attach the read address
     CoreIR::Wireable* raddr_wire = get_wire(id_index, op->index);
@@ -1288,7 +1290,7 @@ void CreateCoreIRModule::visit(const Cast *op) {
 
   } else if (!is_iconst(in_var)) {
     // only add to list, don't duplicate constants
-    stream << "renaming " << in_var << " to " << out_var << std::endl;
+    stream << "// renaming " << in_var << " to " << out_var << std::endl;
     rename_wire(out_var, in_var, op->value);
   }
 }
@@ -1536,6 +1538,7 @@ class ROMInit : public IRVisitor {
 
   void visit(const Provide *op) {
     if (op->name == allocname) {
+      //std::cout << "doing provide " << Stmt(op);
       //internal_assert(op->args.size() == 1);
       internal_assert(op->values.size() == 1);
       internal_assert(op->args.size() == strides.size())
@@ -1595,6 +1598,10 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
 
     // set initial values for rom
     nlohmann::json jdata = rom_init(body, stride, alloc_name);
+    nlohmann::json empty_json;
+    for (int i=0; i<total_size; ++i) {
+      internal_assert(jdata[i] != empty_json[0]) << "init value for " + rom_args.name + " at index " + std::to_string(i) + " is null\n";
+    }
     //jdata["mode"] = "sram";
 
     //rom_args.gen = gens["lake"];

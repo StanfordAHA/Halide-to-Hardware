@@ -157,7 +157,11 @@ class InlineMemoryConstants : public IRMutator {
       // check the stores and loads from the underlying memory
       auto mem_type = identify_realization(realize->body, realize->name);
 
-      if (mem_type == ROM_REALIZATION) {
+      if (ends_with(realize->name, ".stencil")) {
+        // .stencils are not roms
+        return IRMutator::visit(realize);
+        
+      } else if (mem_type == ROM_REALIZATION) {
         std::cout << "Realize " << realize->name << " is a rom" << std::endl;
         roms.insert(realize->name);
         return IRMutator::visit(realize);
