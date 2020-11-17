@@ -41,8 +41,8 @@
                              "mode":"lake",
                              "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [64,100], "cycle_stride": [1,64],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [0,0]},
-                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [7,2], "cycle_stride": [1,7],
-                                            "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,1]}
+                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [8,2], "cycle_stride": [1,8],
+                                            "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,0]}
                          }]}},
           "rf_flush":{
               "genref":"cgralib.Mem",
@@ -58,7 +58,7 @@
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[7], "extent": [512,100], "cycle_stride": [8,4096]}
+                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[8], "extent": [512,100], "cycle_stride": [8,4096]}
                          }]}}
         },
         "connections":[
