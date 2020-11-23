@@ -24,7 +24,6 @@ export CLANG="/usr/bin/clang-6.0"
 alias clang='clang-6.0'
 alias clang++='clang++-6.0'
 alias llvm-config='llvm-config-6.0'</code></pre>
-cd ../
 
 ### Build RDAI:
 <pre><code>git clone https://github.com/thenextged/rdai.git</code></pre>
