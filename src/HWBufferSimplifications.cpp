@@ -157,7 +157,7 @@ class InlineMemoryConstants : public IRMutator {
       // check the stores and loads from the underlying memory
       auto mem_type = identify_realization(realize->body, realize->name);
 
-      if (ends_with(realize->name, ".stencil")) {
+      if (ends_with(realize->name, ".stencil") && !ends_with(realize->name, ".const.stencil")) {
         // .stencils are not roms
         return IRMutator::visit(realize);
         
@@ -168,7 +168,7 @@ class InlineMemoryConstants : public IRMutator {
 
       } else if (mem_type == CONSTS_REALIZATION) {
         //   add ROM name to remove Producer of this name, and save provides
-        //std::cout << "Realize " << realize->name << " is a set of consts" << std::endl;
+        std::cout << "Realize " << realize->name << " is a set of consts" << std::endl;
         realize_provides[realize->name] = deque<const Provide*>();
         auto mutated = IRMutator::visit(realize);
         //std::cout << "mutated:\n" << mutated << std::endl;
@@ -180,7 +180,7 @@ class InlineMemoryConstants : public IRMutator {
         }
         
       } else {
-        //std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;
+        std::cout << "Realize " << realize->name << " is a " << mem_type << std::endl;
         return IRMutator::visit(realize);
       }      
     }

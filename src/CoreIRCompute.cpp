@@ -1700,6 +1700,8 @@ void convert_compute_to_coreir(Expr e, CoreIR_Interface iface,
   auto design = global_ns->newModuleDecl(iface.name, compute_type);
   auto def = design->newModuleDef();
 
+  //std::cout << "block:" << std::endl << e << std::endl;
+
   // convert halide expr into coreir module definition and store in context
   add_coreir_compute(e, def, iface, coreir_insts, context);
   design->setDef(def);

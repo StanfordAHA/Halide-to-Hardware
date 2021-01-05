@@ -153,7 +153,7 @@ private:
         vector<int> storage_permutation;
         {
             auto iter = env.find(op->name);
-            internal_assert(iter != env.end()) << "Realize node refers to function not in environment.\n";
+            internal_assert(iter != env.end()) << "Realize node refers to function not in environment.\n Could not find " + op->name + "\n";
             Function f = iter->second.first;
             const vector<StorageDim> &storage_dims = f.schedule().storage_dims();
             const vector<string> &args = f.args();
