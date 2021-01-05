@@ -103,8 +103,8 @@ bool function_defined(std::string key, std::map<std::string, std::function<void(
   return map.count(key) > 0;
 }
 
-template <class T>
-int OneInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> args) {
+template <class TI, class TO>
+int OneInOneOut_ProcessController<TI,TO>::make_image_def(std::vector<std::string> args) {
   if (args.size() != 0 && args.size() != 1) {
     std::cout << "Usage:\n"
               << "  ./process image [image_type]\n";
@@ -128,8 +128,8 @@ int OneInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> ar
   return 0;
 }
 
-template <class T>
-int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args) {
+template <class TI, class TO>
+int OneInOneOut_ProcessController<TI,TO>::make_run_def(std::vector<std::string> args) {
   // Check hardware name used exists in run_calls
   bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
 
@@ -175,9 +175,9 @@ int OneInOneOut_ProcessController<T>::make_run_def(std::vector<std::string> args
 
 }
 
-template <class T>
-int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> args) {
-  Buffer<T> output_comparison(output);
+template <class TI, class TO>
+int OneInOneOut_ProcessController<TI,TO>::make_compare_def(std::vector<std::string> args) {
+  Buffer<TO> output_comparison(output);
 
   // Input image: create or load images
   if (args.size() == 2) {
@@ -190,7 +190,7 @@ int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> 
   }
 
   // compare images
-  bool equal_images = compare_images<T>(output, output_comparison);
+  bool equal_images = compare_images<TO>(output, output_comparison);
 
   std::string GREEN = "\033[32m";
   std::string RED = "\033[31m";
@@ -205,14 +205,14 @@ int OneInOneOut_ProcessController<T>::make_compare_def(std::vector<std::string> 
 
 }
 
-template <class T>
-int OneInOneOut_ProcessController<T>::make_test_def(std::vector<std::string> args) {
+template <class TI, class TO>
+int OneInOneOut_ProcessController<TI,TO>::make_test_def(std::vector<std::string> args) {
   std::cout << "make test: Not yet defined" << std::endl;
   return 1;
 }
 
-template <class T>
-int OneInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> args) {
+template <class TI, class TO>
+int OneInOneOut_ProcessController<TI,TO>::make_eval_def(std::vector<std::string> args) {
   // Check hardware name used exists in run_calls
   bool hw_name_defined = args.size() > 0 ? function_defined(args[0], run_calls) : false;
 
@@ -244,6 +244,26 @@ int OneInOneOut_ProcessController<T>::make_eval_def(std::vector<std::string> arg
   return 0;
 }
 
+// template <class TI, class TO>
+// int OneInOneOut_ProcessController<TI,TO>::make_image_def(std::vector<std::string> args) {
+//   return OneInOneOut_ProcessController<TI>::make_image_def(args);
+// }
+// 
+// template <class TI, class TO>
+// int OneInOneOut_ProcessController<TI,TO>::make_run_def(std::vector<std::string> args) {
+//   return OneInOneOut_ProcessController<TO>::make_run_def(args);
+// }
+// 
+// 
+// template <class TI, class TO>
+// int OneInOneOut_ProcessController<TI,TO>::make_compare_def(std::vector<std::string> args) {
+//   return OneInOneOut_ProcessController<TO>::make_compare_def(args);
+// }
+// 
+// template <class TI, class TO>
+// int OneInOneOut_ProcessController<TI,TO>::make_eval_def(std::vector<std::string> args) {
+//   return OneInOneOut_ProcessController<TO>::make_eval_def(args);
+// }
 
 template <class T>
 int ManyInOneOut_ProcessController<T>::make_image_def(std::vector<std::string> args) {
@@ -501,3 +521,9 @@ template int OneInOneOut_ProcessController<int32_t>::make_run_def(std::vector<st
 template int OneInOneOut_ProcessController<int32_t>::make_compare_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<int32_t>::make_test_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<int32_t>::make_eval_def(std::vector<std::string> args);
+
+template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_eval_def(std::vector<std::string> args);

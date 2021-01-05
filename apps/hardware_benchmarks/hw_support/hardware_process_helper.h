@@ -29,13 +29,39 @@ class ProcessController {
   
 };
 
-template <class T>
-class OneInOneOut_ProcessController : public ProcessController<T> {
+// template <class TI, class TO>
+// class OneInOneOut_ProcessController : public ProcessController<TI> {
+//  public:
+//  OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
+//    ProcessController<TI>(app_name), inputs_preset(false), run_calls(ops), design_name(app_name) { }
+//  OneInOneOut_ProcessController(std::string app_name) :
+//    ProcessController<TI>(app_name), inputs_preset(false), design_name(app_name) { }
+// 
+//   // overridden methods
+//   virtual int make_image_def(std::vector<std::string> args);
+//   virtual int make_run_def(std::vector<std::string> args);
+//   virtual int make_compare_def(std::vector<std::string> args);
+//   virtual int make_test_def(std::vector<std::string> args);
+//   virtual int make_eval_def(std::vector<std::string> args);
+// 
+//   // buffers
+//   Halide::Runtime::Buffer<TI> input;
+//   Halide::Runtime::Buffer<TO> output;
+//   bool inputs_preset;
+//   std::map<std::string, std::function<void()>> run_calls;
+// 
+//   // names
+//   std::string design_name;
+// 
+// };
+
+template <class TI, class TO = TI>
+class OneInOneOut_ProcessController : public ProcessController<TO> {
  public:
  OneInOneOut_ProcessController(std::string app_name, std::map<std::string, std::function<void()>> ops) :
-   ProcessController<T>(app_name), inputs_preset(false), run_calls(ops), design_name(app_name) { }
+   ProcessController<TO>(app_name), inputs_preset(false), run_calls(ops), design_name(app_name) { }
  OneInOneOut_ProcessController(std::string app_name) :
-   ProcessController<T>(app_name), inputs_preset(false), design_name(app_name) { }
+   ProcessController<TO>(app_name), inputs_preset(false), design_name(app_name) { }
 
   // overridden methods
   virtual int make_image_def(std::vector<std::string> args);
@@ -45,8 +71,8 @@ class OneInOneOut_ProcessController : public ProcessController<T> {
   virtual int make_eval_def(std::vector<std::string> args);
 
   // buffers
-  Halide::Runtime::Buffer<T> input;
-  Halide::Runtime::Buffer<T> output;
+  Halide::Runtime::Buffer<TI> input;
+  Halide::Runtime::Buffer<TO> output;
   bool inputs_preset;
   std::map<std::string, std::function<void()>> run_calls;
 

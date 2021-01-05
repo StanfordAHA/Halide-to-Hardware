@@ -7,14 +7,18 @@
 #include "Halide.h"
 
 namespace {
-int ksize = 7;
+int ksize = 9;
+//int ksize = 1;
 
   using namespace Halide;
   using namespace Halide::ConciseCasts;
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
-  int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
-                          {-38,  159, -21, -2541},
-                          {-8, -73,  228, -2008}};
+  int16_t matrix[3][4] = {{549, -103,   7, -10221},
+                          {-96,  373,  62,  -7254},
+                          {-31, -261, 883,  -5563}};
+  //int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
+  //                        {-38,  159, -21, -2541},
+  //                        {-8, -73,  228, -2008}};
   //uint16_t matrix[3][4] = {{20, 44,  170,  39},
   //                         {38,  15, 210,  25},
   //                         {8,   73,  2008, 28}};
@@ -23,23 +27,37 @@ int ksize = 7;
   class CameraPipeline : public Halide::Generator<CameraPipeline> {
     
   public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
+    //Input<Buffer<uint8_t>>  input{"input", 2};
+    Input<Buffer<uint16_t>>  input{"input", 2};
+    //Output<Buffer<uint16_t>> output{"output", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
-    GeneratorParam<float> gamma{"gamma", /*default=*/1.0};
-    GeneratorParam<float> contrast{"contrast", /*default=*/1.0};
+    GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
+    GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
 
-    Func interleave_x(Func a, Func b) {
-      Func out;
-      out(x, y) = select((x%2)==0, a(x, y), b(x-1, y));
-      return out;
-    }
+    //Func interleave_x(Func a, Func b) {
+    //  Func out;
+    //  out(x, y) = select((x%2)==0, a(x, y), b(x-1, y));
+    //  return out;
+    //}
+    //
+    //Func interleave_y(Func a, Func b) {
+    //  Func out;
+    //  out(x, y) = select((y%2)==0, a(x, y), b(x, y-1));
+    //  return out;
+    //}
 
-    Func interleave_y(Func a, Func b) {
-      Func out;
-      out(x, y) = select((y%2)==0, a(x, y), b(x, y-1));
-      return out;
-    }
+Func interleave_x(Func a, Func b) {
+    Func out;
+    out(x, y) = select((x%2)==0, a(x/2, y), b(x/2, y));
+    return out;
+}
+
+Func interleave_y(Func a, Func b) {
+    Func out;
+    out(x, y) = select((y%2)==0, a(x, y/2), b(x, y/2));
+    return out;
+}
 
     Expr avg(Expr a, Expr b) {
       return (a + b + 1) >> 1;
@@ -53,7 +71,8 @@ int ksize = 7;
       Expr min_value = min(min(input(x-2, y), input(x+2, y)),
                            min(input(x, y-2), input(x, y+2)));
       
-      denoised(x, y) = clamp(input(x,y), min_value, max_value);
+      //denoised(x, y) = clamp(input(x,y), min_value, max_value);
+      denoised(x, y) = clamp(input(x,y), 0, max_value);
       return denoised;
     }
 
@@ -81,10 +100,14 @@ int ksize = 7;
 
       // Give more convenient names to the four channels we know
       Func r_r, g_gr, g_gb, b_b;
-      g_gr(x, y) = raw(x, y);//deinterleaved(x, y, 0);
-      r_r(x, y)  = raw(x+1, y);//deinterleaved(x, y, 1);
-      b_b(x, y)  = raw(x, y+1);//deinterleaved(x, y, 2);
-      g_gb(x, y) = raw(x+1, y+1);//deinterleaved(x, y, 3);
+      //g_gr(x, y) = raw(x, y);//deinterleaved(x, y, 0);
+      //r_r(x, y)  = raw(x+1, y);//deinterleaved(x, y, 1);
+      //b_b(x, y)  = raw(x, y+1);//deinterleaved(x, y, 2);
+      //g_gb(x, y) = raw(x+1, y+1);//deinterleaved(x, y, 3);
+      g_gr(x, y) = raw(2*x, 2*y);//deinterleaved(x, y, 0);
+      r_r(x, y)  = raw(2*x+1, 2*y);//deinterleaved(x, y, 1);
+      b_b(x, y)  = raw(2*x, 2*y+1);//deinterleaved(x, y, 2);
+      g_gb(x, y) = raw(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
 
       // These are the ones we need to interpolate
       Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
@@ -166,24 +189,25 @@ int ksize = 7;
       demosaicked(x, y, c) = select(c == 0, r(x, y),
                                     c == 1, g(x, y),
                                     b(x, y));
-      demosaicked.bound(c, 0, 3);
+      //demosaicked.bound(c, 0, 3);
       return demosaicked;
     }
 
     // Applies a color correction matrix to redefine rgb values.
-    Func color_correct(Func input, int32_t matrix[3][4]) {
-    //Func color_correct(Func input, uint16_t matrix[3][4]) {
-      Expr ir = i16(input(x, y, 0));
-      Expr ig = i16(input(x, y, 1));
-      Expr ib = i16(input(x, y, 2));
+    // Matrix is defined in 8.8 fixed point
+    //Func color_correct(Func input, int32_t matrix[3][4]) {
+    Func color_correct(Func input, int16_t matrix[3][4]) {
+      Expr ir = i32(input(x, y, 0));
+      Expr ig = i32(input(x, y, 1));
+      Expr ib = i32(input(x, y, 2));
 
       Expr r = matrix[0][3] + matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
       Expr g = matrix[1][3] + matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
       Expr b = matrix[2][3] + matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
 
-      r = cast<uint16_t>(r/256);
-      g = cast<uint16_t>(g/256);
-      b = cast<uint16_t>(b/256);
+      r = i16(r/256);
+      g = i16(g/256);
+      b = i16(b/256);
 
       Func corrected("corrected");
       corrected(x, y, c) = select(c == 0, r,
@@ -199,11 +223,12 @@ int ksize = 7;
       // copied from FCam
 
       Func curved("curved");
-      Expr in_val = clamp(input(x, y, c), 0, 1023);
+      Expr in_val = clamp(input(x, y, c), u16(0), u16(1023));
       //curved(x, y, c) = select(input(x, y, c) < 0, 0,
       //                         input(x, y, c) >= 1024, 255,
       //                         curve(in_val));
-      curved(x, y, c) = curve(clamp(input(x, y, c), 0, 255));
+      //curved(x, y, c) = curve(clamp(input(x, y, c), 0, 1023));
+      curved(x, y, c) = curve(u16(in_val));
 
       //acurved.reorder(x,y,c);
       //curved.bound(c, 0, 3);
@@ -216,6 +241,7 @@ int ksize = 7;
 
       Func hw_input;
       hw_input(x,y) = u16(input(x+(ksize-1)/2, y+(ksize-1)/2));
+      //hw_input(x,y) = i16(input(x+16, y+12));
 
       Func hw_input_copy;
       //hw_input_copy(x,y) = hw_input(x,y);
@@ -231,7 +257,7 @@ int ksize = 7;
 
       Func curve;
       {
-        Expr xf = x/1024.0f;
+        Expr xf = clamp(cast<float>(x)/1024.0f, 0.f, 1.f);
         Expr g = pow(xf, 1.0f/gamma);
         Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
         Expr a = 2.0f - 2.0f*b;
@@ -239,6 +265,7 @@ int ksize = 7;
                           1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
                           a*g*g + b*g);
         curve(x) = u16(clamp(val*256.0f, 0.0f, 255.0f));
+        //curve(x) = clamp(val*256.0f, 0.0f, 255.0f);
       }
 
       Func hw_output, curve_out;
@@ -246,8 +273,9 @@ int ksize = 7;
       
       hw_output(x, y, c) = curve_out(x, y, c);
       output(x, y, c) = u8(hw_output(x, y, c));
+      //output(x, y, c) = u16(hw_output(x, y, c));
 
-      curve.bound(x, 0, 256);
+      //curve.bound(x, 0, 256);
       output.bound(c, 0, 3);
       output.bound(x, 0, 64-ksize+1);
       output.bound(y, 0, 64-ksize+1);
@@ -305,10 +333,9 @@ int ksize = 7;
         //hw_input.compute_root();
         
       } else {    // schedule to CPU
-        output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-          .compute_root();
-
-        output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+        //output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+        //  .compute_root();
+        //output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
       }
     }
   };
