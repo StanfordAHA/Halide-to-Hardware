@@ -409,22 +409,38 @@ void CameraPipe::generate() {
 
     Func curved = apply_curve(corrected);
 
-    processed(x, y, c) = sharpen(curved)(x, y, c);
-
+    //processed(x, y, c) = sharpen(curved)(x, y, c);
+    processed(x, y, c) = curved(x, y, c);
+    
     // Schedule
     if (auto_schedule) {
-        input.dim(0).set_bounds_estimate(0, 2592);
-        input.dim(1).set_bounds_estimate(0, 1968);
+      input.dim(0).set_bounds_estimate(0, 90);
+      input.dim(1).set_bounds_estimate(0, 90);
+      
+      matrix_3200.dim(0).set_bounds_estimate(0, 4);
+      matrix_3200.dim(1).set_bounds_estimate(0, 3);
+      matrix_7000.dim(0).set_bounds_estimate(0, 4);
+      matrix_7000.dim(1).set_bounds_estimate(0, 3);
+      
+      processed
+        .estimate(c, 0, 3)
+        .estimate(x, 0, 90)
+        .estimate(y, 0, 90);
+      
 
-        matrix_3200.dim(0).set_bounds_estimate(0, 4);
-        matrix_3200.dim(1).set_bounds_estimate(0, 3);
-        matrix_7000.dim(0).set_bounds_estimate(0, 4);
-        matrix_7000.dim(1).set_bounds_estimate(0, 3);
-
-        processed
-            .estimate(c, 0, 3)
-            .estimate(x, 0, 2592)
-            .estimate(y, 0, 1968);
+      
+        //input.dim(0).set_bounds_estimate(0, 2592);
+        //input.dim(1).set_bounds_estimate(0, 1968);
+        //
+        //matrix_3200.dim(0).set_bounds_estimate(0, 4);
+        //matrix_3200.dim(1).set_bounds_estimate(0, 3);
+        //matrix_7000.dim(0).set_bounds_estimate(0, 4);
+        //matrix_7000.dim(1).set_bounds_estimate(0, 3);
+        //
+        //processed
+        //    .estimate(c, 0, 3)
+        //    .estimate(x, 0, 2592)
+        //    .estimate(y, 0, 1968);
 
     } else {
 

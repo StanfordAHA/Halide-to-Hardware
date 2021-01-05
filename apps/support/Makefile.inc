@@ -129,7 +129,13 @@ HL_VIDEOPLAYER ?= mplayer
 # For CoreIR generation
 LDFLAGS += -lcurses
 LDFLAGS += -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
-LDFLAGS += -lcoreir-commonlib -lcoreir -lcoreirsim -lcoreir-float
+LDFLAGS += -lcoreir -lcoreir-commonlib -lcoreirsim -lcoreir-float
 LDFLAGS += -L$(CLOCKWORK_DIR)/lib -Wl,-rpath,$(CLOCKWORK_DIR)/lib
 LDFLAGS += -lcoreir-cgralib
 
+FUNCBUF_DIR ?= $(HALIDE_BIN_PATH)/../BufferMapping/cfunc
+CXXFLAGS += -I $(FUNCBUF_DIR)/include -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin
+CLOCKWORK_DIR ?= $(HALIDE_BIN_PATH)/../clockwork
+CXXFLAGS += -I $(CLOCKWORK_DIR) -L$(CLOCKWORK_DIR)/lib -Wl,-rpath,$(CLOCKWORK_DIR)/lib  
+LDFLAGS += -I $(FUNCBUF_DIR)/include -L$(FUNCBUF_DIR)/bin -Wl,-rpath,$(FUNCBUF_DIR)/bin
+LDFLAGS += -lcoreir-lakelib

@@ -42,12 +42,12 @@ int main(int argc, char **argv) {
     // These color matrices are for the sensor in the Nokia N900 and are
     // taken from the FCam source.
     float _matrix_3200[][4] = {{ 1.6697f, -0.2693f, -0.4004f, -42.4346f},
-                                {-0.3576f,  1.0615f,  1.5949f, -37.1158f},
-                                {-0.2175f, -1.8751f,  6.9640f, -26.6970f}};
+                               {-0.3576f,  1.0615f,  1.5949f, -37.1158f},
+                               {-0.2175f, -1.8751f,  6.9640f, -26.6970f}};
 
     float _matrix_7000[][4] = {{ 2.2997f, -0.4478f,  0.1706f, -39.0923f},
-                                {-0.3826f,  1.5906f, -0.2080f, -25.4311f},
-                                {-0.0888f, -0.7344f,  2.2832f, -20.0826f}};
+                               {-0.3826f,  1.5906f, -0.2080f, -25.4311f},
+                               {-0.0888f, -0.7344f,  2.2832f, -20.0826f}};
     Buffer<float> matrix_3200(4, 3), matrix_7000(4, 3);
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 4; j++) {
@@ -56,11 +56,11 @@ int main(int argc, char **argv) {
         }
     }
 
-    float color_temp = (float) atof(argv[2]);
-    float gamma = (float) atof(argv[3]);
-    float contrast = (float) atof(argv[4]);
-    float sharpen = (float) atof(argv[5]);
-    int timing_iterations = atoi(argv[6]);
+    float color_temp = (float) atof(argv[2]); // 3700
+    float gamma = (float) atof(argv[3]);      // 2.0
+    float contrast = (float) atof(argv[4]);   // 50
+    float sharpen = (float) atof(argv[5]);    // 1.0
+    int timing_iterations = atoi(argv[6]);    // 5
     int blackLevel = 25;
     int whiteLevel = 1023;
 
@@ -85,6 +85,32 @@ int main(int argc, char **argv) {
     fprintf(stderr, "output: %s\n", argv[7]);
     convert_and_save_image(output, argv[7]);
     fprintf(stderr, "        %d %d\n", output.width(), output.height());
+
+    int isize = 64;
+    Buffer<uint16_t> small_input(isize, isize);
+    for (int y=1324, yidx=0; yidx<isize; ++y, ++yidx) {
+      for (int x=1600, xidx=0; xidx<isize; ++x, ++xidx) {
+        small_input(xidx, yidx) = input(x, y);
+      }
+    }
+    convert_and_save_image(small_input, "bin/input64.png");
+
+    Buffer<uint8_t> small_output_run(64, 64, 3);
+    camera_pipe_auto_schedule(small_input, matrix_3200, matrix_7000,
+                color_temp, gamma, contrast, sharpen, blackLevel, whiteLevel,
+                small_output_run);
+    convert_and_save_image(small_output_run, "bin/output_run64.png");
+
+    Buffer<uint8_t> small_output(64, 64, 3);
+    for (int y=1300, yidx=0; yidx<64; ++y, ++yidx) {
+      for (int x=1600, xidx=0; xidx<64; ++x, ++xidx) {
+        for (int c=0; c<3; ++c) {
+          small_output(xidx, yidx, c) = output(x, y, c);
+        }
+      }
+    }
+    convert_and_save_image(small_output, "bin/output64.png");
+
 
     return 0;
 }

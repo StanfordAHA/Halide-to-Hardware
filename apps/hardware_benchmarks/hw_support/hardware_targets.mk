@@ -103,9 +103,9 @@ ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
 
-design cpu design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator
+design cpu design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT)
+	$< -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT)
 
 coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
@@ -133,9 +133,9 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
-clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator
+clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
-	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp: $(BIN)/$(TESTNAME)_memory.cpp
 
@@ -252,6 +252,23 @@ $(BIN)/process: $(PROCESS_DEPS)
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
+
+# Always run this, but only write the file if the variable changes
+$(BIN)/halide_gen_args: FORCE
+	@LAST_HALIDE_GEN_ARGS=`cat $(BIN)/halide_gen_args`; \
+	if [[ "$$LAST_HALIDE_GEN_ARGS" == 'empty' && "$$HALIDE_GEN_ARGS" == '' ]]; then \
+		echo "HALIDE_GEN_ARGS still empty"; \
+	elif [[ "$$HALIDE_GEN_ARGS" == '' ]]; then \
+		echo "HALIDE_GEN_ARGS is empty. Writing to file"; \
+		echo "empty" > $@; \
+	elif [[ "$$LAST_HALIDE_GEN_ARGS" != '$(HALIDE_GEN_ARGS)' ]]; then \
+		echo "HALIDE_GEN_ARGS changed to $(HALIDE_GEN_ARGS)"; \
+		echo $(HALIDE_GEN_ARGS) > $@; \
+	else \
+		echo "HALIDE_GEN_ARGS has not changed from '$(HALIDE_GEN_ARGS)'"; \
+	fi
+
+FORCE:
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
