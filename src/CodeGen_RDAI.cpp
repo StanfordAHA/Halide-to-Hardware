@@ -32,8 +32,8 @@ public:
           std::cout << std::endl;
         }
         internal_assert(buffers.empty()) << "we expect no references to buffers in a hardware pipeline\n";
-        for(const pair<string, Type> &v : vars) {
-            if(ends_with(v.first, ".stencil")) {
+        for (const pair<string, Type> &v : vars) {
+            if (ends_with(v.first, ".stencil")) {
                 HW_Stencil_Type stencil_type = streams_scope.get(v.first);
                 if(starts_with(v.first, output_name)) {
                     result.push_back({v.first, true, true, Type(), stencil_type});
@@ -45,7 +45,13 @@ public:
                 result.push_back({v.first, false, true, v.second, HW_Stencil_Type()});
             }
         }
-        result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get("hw_output.stencil")});
+
+        //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get("hw_output.stencil")});
+        //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get("cim.stencil")});
+        
+        //std::cout << "output name is " << output_name << std::endl;        
+        string out_scope_name = output_name.substr(1); // removes the preceding .
+        result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get(out_scope_name + ".stencil")});
         return result;
     }
 
