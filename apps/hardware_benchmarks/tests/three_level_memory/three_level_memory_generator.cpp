@@ -111,9 +111,9 @@ public:
           int gbsize = tilesize * 4;
 
           hw_output.compute_root();
-          //output.bound(x, 0, gbsize*2);
+          //output.bound(x, 0, gbsize*2); // 4 glb tiles
           //output.bound(y, 0, gbsize*2);
-          output.bound(x, 0, gbsize);
+          output.bound(x, 0, gbsize);     // 1 glb tile
           output.bound(y, 0, gbsize);
           
           // Produce loop levels: host, global buffer, cgra
@@ -146,9 +146,9 @@ public:
           hw_input.compute_at(output_gb, x_gb);   // mem tile
 
           //hw_input.compute_root();
-          //hw_input.in().accelerator_input();
+          //hw_input.accelerator_input();
           //hw_input.in().compute_at(hw_output, x_host);
-          //hw_input.in().in().compute_at(conv, x_gb);
+          //hw_input.in().in().compute_at(output_gb, x_gb);
           
         } else {  // schedule to CPU
 /*          

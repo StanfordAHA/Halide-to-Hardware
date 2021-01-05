@@ -13,7 +13,8 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     // in_img determines the input image size
-    GeneratorParam<int> in_img{"in_img", 28};    // default: 28
+    //GeneratorParam<int> in_img{"in_img", 28};    // default: 28
+    GeneratorParam<int> in_img{"in_img", 30};    // default: 30
 
     // pad determines the padding to the input image size
     GeneratorParam<int> pad{"pad", 1};    // default: 1
@@ -120,7 +121,7 @@ public:
           hw_input.stream_to_accelerator();
           hw_filter_dw.in().unroll(c);
           hw_filter_dw.stream_to_accelerator();
-          hw_filter_pw.in().unroll(c).unroll(k);
+          //hw_filter_pw.in().unroll(c).unroll(k);
           hw_filter_pw.stream_to_accelerator();
           
         } else {  // schedule to CPU

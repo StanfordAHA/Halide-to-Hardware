@@ -21,12 +21,17 @@ int shiftk = 4; // equiv to k = 0.0625
 // Threshold for cornerness measure.
 int threshold = 1;
 
+int tileSize_x = 58;
+int tileSize_y = 58;
+
 class HarrisCornerDetector : public Halide::Generator<HarrisCornerDetector> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
+    //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
     void generate() {
         /* THE ALGORITHM */
@@ -52,12 +57,12 @@ public:
                                                 2*padded16(x,  y+1) - 2*padded16(x,  y-1) +
                                                   padded16(x+1,y+1) -   padded16(x+1,y-1));
         } else {
-          kernel_x(x,y) = 0;
-          kernel_x(-1,-1) = -1;    kernel_x(-1,0) = -2;    kernel_x(-1, 1) = -1;
-          kernel_x(1, -1) = 1;     kernel_x(1, 0) = 2;     kernel_x( 1, 1) = 1;
-          kernel_y(x,y) = 0;
-          kernel_y(-1, 1) = -1;   kernel_y( 0, 1) = -2;   kernel_y( 1, 1) = -1;
-          kernel_y(-1,-1) = 1;    kernel_y( 0,-1) = 2;    kernel_y( 1,-1) = 1;
+          kernel_x(x,y) = i16(0);
+          kernel_x(-1,-1) = i16(-1);    kernel_x(-1,0) = i16(-2);     kernel_x(-1, 1) = i16(-1);
+          kernel_x(1, -1) = i16(1);     kernel_x(1, 0) = i16(2);      kernel_x( 1, 1) = i16(1);
+          kernel_y(x,y) = i16(0);
+          kernel_y(-1, 1) = i16( 1);    kernel_y( 0, 1) = i16( 2);    kernel_y( 1, 1) = i16( 1);
+          kernel_y(-1,-1) = i16(-1);    kernel_y( 0,-1) = i16(-2);    kernel_y( 1,-1) = i16(-1);
         
           grad_x_unclamp(x, y) = i16(0);
           grad_x_unclamp(x, y) += padded16(x+r.x, y+r.y) * i16(kernel_x(r.x, r.y));
@@ -65,8 +70,8 @@ public:
           grad_y_unclamp(x, y) += padded16(x+r.x, y+r.y) * i16(kernel_y(r.x, r.y));
         }
         
-        grad_x(x, y) = clamp(grad_x_unclamp(x,y), -255, 255);
-        grad_y(x, y) = clamp(grad_y_unclamp(x,y), -255, 255);
+        grad_x(x, y) = clamp(grad_x_unclamp(x,y), -180, 180); // 180^2 cannot overflow 15 bits
+        grad_y(x, y) = clamp(grad_y_unclamp(x,y), -180, 180);
         
         // product of gradients
         Func grad_xx, grad_yy, grad_xy;
@@ -79,9 +84,9 @@ public:
         //lxx(x, y) = grad_xx(x, y) >> 7;
         //lyy(x, y) = grad_yy(x, y) >> 7;
         //lxy(x, y) = grad_xy(x, y) >> 7;
-        lxx(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_x(x,y)) >> 7;
-        lyy(x, y) = cast<int16_t>(grad_y(x,y)) * cast<int16_t>(grad_y(x,y)) >> 7;
-        lxy(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_y(x,y)) >> 7;
+        lxx(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_x(x,y)) >> 6;
+        lyy(x, y) = cast<int16_t>(grad_y(x,y)) * cast<int16_t>(grad_y(x,y)) >> 6;
+        lxy(x, y) = cast<int16_t>(grad_x(x,y)) * cast<int16_t>(grad_y(x,y)) >> 6;
 
 
         // box filter (i.e. windowed sum)
@@ -89,7 +94,7 @@ public:
         //RDom box(0, blockSize, 0, blockSize);
         RDom box(-blockSize/2, blockSize, -blockSize/2, blockSize);
         
-        if (schedule == 1) {
+        if (schedule == 1 || schedule == 2) {
           lgxx(x, y) =
             lxx(x-1, y-1) + lxx(x, y-1) + lxx(x+1, y-1) +
             lxx(x-1, y) + lxx(x, y) + lxx(x+1, y) +
@@ -167,7 +172,7 @@ public:
             
             padded16.stream_to_accelerator();
             
-          } else if (schedule == 3) { // all buffers
+          } else if (schedule == 3) { // all buffers, 1 pixel per 9 cycles
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
               .hw_accelerate(xi, xo);
@@ -183,6 +188,17 @@ public:
             cim.compute_at(hw_output, xo);
             cim_output.compute_at(hw_output, xo);
 
+            //kernel_x.compute_at(hw_output, xo);
+            //kernel_y.compute_at(hw_output, xo);
+            kernel_x.compute_at(hw_output, xo).store_in(MemoryType::Stack);
+            kernel_y.compute_at(hw_output, xo).store_in(MemoryType::Stack);
+            kernel_x.unroll(x, 3).unroll(y, 3);
+            kernel_y.unroll(x, 3).unroll(y, 3);
+
+            lgxx.unroll(x, 3).unroll(y, 3);
+            lgxy.unroll(x, 3).unroll(y, 3);
+            lgyy.unroll(x, 3).unroll(y, 3);
+            
             padded16.stream_to_accelerator();
 
           } else if (schedule == 4) { // unroll some
@@ -201,14 +217,17 @@ public:
             cim.compute_at(hw_output, xo);
             cim_output.compute_at(hw_output, xo);
 
-            kernel_x.compute_at(hw_output, xo);
-            kernel_y.compute_at(hw_output, xo);
-            //kernel_x.unroll(x).unroll(y);
-            //kernel_y.unroll(x).unroll(y);
+            kernel_x.compute_at(hw_output, xo).store_in(MemoryType::Stack);
+            kernel_y.compute_at(hw_output, xo).store_in(MemoryType::Stack);
+            kernel_x.unroll(x).unroll(y);
+            kernel_y.unroll(x).unroll(y);
             
             grad_x_unclamp.update().unroll(r.x);
             grad_y_unclamp.update().unroll(r.x);
-            
+
+            lgxx.unroll(x, 3).unroll(y, 3);
+            lgxy.unroll(x, 3).unroll(y, 3);
+            lgyy.unroll(x, 3).unroll(y, 3);
             lgxx.update().unroll(box.x);
             lgyy.update().unroll(box.x);
             lgxy.update().unroll(box.x);
@@ -251,8 +270,9 @@ public:
               .hw_accelerate(xi, xo);
 
             hw_output.unroll(xi, 2);
-            grad_x.unroll(x, 2);
-            grad_y.unroll(x, 2);
+            padded16.in().unroll(x, 2);
+            grad_x_unclamp.unroll(x, 2);
+            grad_y_unclamp.unroll(x, 2);
             lxx.unroll(x, 2);
             lyy.unroll(x, 2);
             lxy.unroll(x, 2);
@@ -262,8 +282,8 @@ public:
             cim.unroll(x, 2);
             cim_output.unroll(x, 2);
             
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
+            grad_x_unclamp.compute_at(hw_output, xo);
+            grad_y_unclamp.compute_at(hw_output, xo);
             lxx.compute_at(hw_output, xo);
             lyy.compute_at(hw_output, xo);
             lxy.compute_at(hw_output, xo);
@@ -278,21 +298,21 @@ public:
             kernel_x.unroll(x).unroll(y);
             kernel_y.unroll(x).unroll(y);
             
-            grad_x_unclamp.update().unroll(r.x).unroll(r.y);
-            grad_y_unclamp.update().unroll(r.x).unroll(r.y);
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y).unroll(x, 2);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y).unroll(x, 2);
 
-            lgxx.update().unroll(box.x).unroll(box.y);
-            lgyy.update().unroll(box.x).unroll(box.y);
-            lgxy.update().unroll(box.x).unroll(box.y);
+            lgxx.update().unroll(box.x).unroll(box.y).unroll(x, 2);
+            lgyy.update().unroll(box.x).unroll(box.y).unroll(x, 2);
+            lgxy.update().unroll(box.x).unroll(box.y).unroll(x, 2);
             
             padded16.stream_to_accelerator();
             
           } else if (schedule == 7) { // increase tile size
 
-            tileSize = 122;
+            auto largeTileSize = (tileSize+6)*2 - 6;//122;
             //cim.compute_root();
             hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .tile(x, y, xo, yo, xi, yi, largeTileSize, largeTileSize)
               .hw_accelerate(xi, xo);
 
             grad_x.compute_at(hw_output, xo);
@@ -349,9 +369,10 @@ public:
             
             padded16.stream_to_accelerator();
             
-          } else {
+          } else { // default, basically sch5 with all buffers, 1 pixel/cycle
             hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              //.tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .tile(x, y, xo, yo, xi, yi, tileSize_x, tileSize_y)
               .hw_accelerate(xi, xo);
             //padded16.stream_to_accelerator();
 
@@ -363,9 +384,13 @@ public:
             lgxx.compute_at(hw_output, xo);
             lgyy.compute_at(hw_output, xo);
             lgxy.compute_at(hw_output, xo);
-            ////cim.linebuffer();
             cim.compute_at(hw_output, xo);
             cim_output.compute_at(hw_output, xo);
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
+            kernel_x.unroll(x).unroll(y);
+            kernel_y.unroll(x).unroll(y);
 
             grad_x_unclamp.update().unroll(r.x).unroll(r.y);
             grad_y_unclamp.update().unroll(r.x).unroll(r.y);
@@ -379,8 +404,8 @@ public:
             //hw_input_copy.compute_root();
           }
           
-          output.bound(x, 0, tileSize);
-          output.bound(y, 0, tileSize);
+          output.bound(x, 0, tileSize_x);
+          output.bound(y, 0, tileSize_y);
           
        } else if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
 

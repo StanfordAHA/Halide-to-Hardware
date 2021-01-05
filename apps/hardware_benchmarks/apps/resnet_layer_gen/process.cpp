@@ -23,7 +23,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint8_t> processor("resnet_layer_gen", {"input.png", "kernel.png"});
+  ManyInOneOut_ProcessController<int16_t> processor("resnet_layer_gen", {"input.png", "kernel.png"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -72,8 +72,8 @@ int main( int argc, char **argv ) {
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
-    //auto k_ic = IC ? atoi(IC) : 8;
-    auto k_ic = IC ? atoi(IC) : 4;
+    auto k_ic = IC ? atoi(IC) : 8;
+    //auto k_ic = IC ? atoi(IC) : 4;
     //auto k_ic = IC ? atoi(IC) : 1;
     //auto k_oc = OC ? atoi(OC) : 6;
     auto k_oc = OC ? atoi(OC) : 3;
@@ -87,18 +87,24 @@ int main( int argc, char **argv ) {
     int P_Y = P_X;
     int Z = k_ic; // input channel 
     int W = k_oc; // output channel
-  
-    processor.inputs["input.png"] = Buffer<uint8_t>(Z, X, Y);
+
+    ///// INPUT IMAGE /////
+    processor.inputs["input.png"] = Buffer<int16_t>(Z, X, Y);
     auto input_copy_stencil = processor.inputs["input.png"];
-    int i=1;
+    //int i=1;
+    int max_rand = pow(2,8) - 1;
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
-          //input_copy_stencil(z, x, y) = z + x + y;
-          //input_copy_stencil(z, x, y) = 1;
-          input_copy_stencil(z, x, y) = i;
-          i = i+1;
-        } } }
+          //input_copy_stencil(z, x, y) = z + x + y;      // diagonal
+          //input_copy_stencil(z, x, y) = 1;              // all ones
+          //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
+          if (rand() % 100 < 60) { // 60% zero, else rand
+            input_copy_stencil(z, x, y) = 0;
+          } else {
+            input_copy_stencil(z, x, y) = (rand() % (max_rand));
+          }
+    } } }
 
     std::cout << "input has dims: " << processor.inputs["input.png"].dim(0).extent() << "x"
               << processor.inputs["input.png"].dim(1).extent() << "x"
@@ -106,11 +112,12 @@ int main( int argc, char **argv ) {
 
     bool write_images = false;
 
-    Buffer<uint8_t> full_input(Z, X + pad*2, Y + pad*2);
-    Buffer<uint8_t> oned_input(Z *(X + pad*2), Y + pad*2);
-    std::vector<Buffer<uint8_t>> inputs;
+    Buffer<int16_t> full_input(Z, X + pad*2, Y + pad*2);
+    Buffer<int16_t> oned_input(Z *(X + pad*2), Y + pad*2);
+    Buffer<int16_t> interleaved_input(Z *(X + pad*2) * 2, Y + pad*2);
+    std::vector<Buffer<int16_t>> inputs;
     for (int i=0; i<Z; ++i) {
-      inputs.emplace_back(Buffer<uint8_t>(X + pad*2, Y + pad*2));
+      inputs.emplace_back(Buffer<int16_t>(X + pad*2, Y + pad*2));
     }
     
     for (int y = 0; y < full_input.dim(2).extent(); y++) {
@@ -120,6 +127,8 @@ int main( int argc, char **argv ) {
           auto y_coord = y-pad<0 ? 0 : y-pad >= Y ? Y-1 : y-pad;
           full_input(z, x, y) = input_copy_stencil(z, x_coord, y_coord);
           oned_input(z + Z*x, y) = input_copy_stencil(z, x_coord, y_coord);
+          interleaved_input(2*(z + Z*x) + 0, y) = input_copy_stencil(z, x_coord, y_coord);
+          interleaved_input(2*(z + Z*x) + 1, y) = input_copy_stencil(z, x_coord, y_coord);
           
           inputs[z](x, y) = input_copy_stencil(z, x_coord, y_coord);
           //std::cout << z << "," << x << "," << y << " = " << +full_input(z,x,y) << std::endl;
@@ -128,28 +137,37 @@ int main( int argc, char **argv ) {
     //save_image(full_input, "bin/input.png");
     if (write_images) {
       save_image(oned_input, "bin/input.png");
+      save_image(interleaved_input, "bin/input_interleaved.png");
       for (size_t i=0; i<inputs.size(); ++i) {
         save_image(inputs[i], "bin/input_" + std::to_string(i) + ".png");
       }
     }
 
-  
-    processor.inputs["kernel.png"] = Buffer<uint8_t>(Z, W, K_X, K_Y);
+    ///// KERNEL WEIGHTS /////  
+    processor.inputs["kernel.png"] = Buffer<int16_t>(Z, W, K_X, K_Y);
     auto kernel_copy_stencil = processor.inputs["kernel.png"];
-    int j=1;
-    bool first = true;
+    //int j=1;
+    //bool first = true;
     for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {
       for (int x = 0; x < kernel_copy_stencil.dim(2).extent(); x++) {
         for (int w = 0; w < kernel_copy_stencil.dim(1).extent(); w++) {
           for (int z = 0; z < kernel_copy_stencil.dim(0).extent(); z++) {
             //kernel_copy_stencil(z, w, x, y) = z + w + x + y;
             //kernel_copy_stencil(z, w, x, y) = 1;
-            kernel_copy_stencil(z, w, x, y) = j;
-            if (first && j==Z) { first = false; j=0; }
-            j = j+1;
-            //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
-          } } } }
-    std::cout << "kernel 2,1 = 6 ?= " << +kernel_copy_stencil(0,0,2,1) << std::endl;
+            
+            //kernel_copy_stencil(z, w, x, y) = j;
+            //if (first && j==Z) { first = false; j=0; }
+            //j = j+1;
+
+            if (rand() % 100 < 60) { // 60% zero, else rand
+              kernel_copy_stencil(z, w, x, y) = 0;
+            } else {
+              kernel_copy_stencil(z, w, x, y) = (rand() % (2*max_rand)) - max_rand;
+            }
+            
+            std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
+    } } } }
+    //std::cout << "kernel 2,1 = 6 ?= " << +kernel_copy_stencil(0,0,2,1) << std::endl;
   
     std::cout << "kernel has dims: " << processor.inputs["kernel.png"].dim(0).extent() << "x"
               << processor.inputs["kernel.png"].dim(1).extent() << "x"
@@ -159,7 +177,7 @@ int main( int argc, char **argv ) {
     
     int imgsize_x = std::floor( (X + 2*P_X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y + 2*P_Y - K_Y) / stride ) + 1;
-    processor.output = Buffer<uint8_t>(imgsize_x, imgsize_y, W);
+    processor.output = Buffer<int16_t>(imgsize_x, imgsize_y, W);
 
     std::cout << "output has dims: " << processor.output.dim(0).extent() << "x"
               << processor.output.dim(1).extent() << "x"
@@ -169,10 +187,10 @@ int main( int argc, char **argv ) {
     auto output = processor.process_command(argc, argv);
     //std::cout << "output 0 0 ?= " << +processor.output(8,4,0) << std::endl;
 
-    Buffer<uint8_t> oned_output(imgsize_x * imgsize_y, W);
-    std::vector<Buffer<uint8_t>> outputs;
+    Buffer<int16_t> oned_output(imgsize_x * imgsize_y, W);
+    std::vector<Buffer<int16_t>> outputs;
     for (int i=0; i<W; ++i) {
-      outputs.emplace_back(Buffer<uint8_t>(imgsize_x, imgsize_y));
+      outputs.emplace_back(Buffer<int16_t>(imgsize_x, imgsize_y));
     }
 
     for (int w = 0; w < processor.output.dim(2).extent(); w++) {
@@ -183,8 +201,8 @@ int main( int argc, char **argv ) {
           //std::cout << x << "," << y << "," << w << " = " << +processor.output(x,y,w) << " = " << std::hex << +processor.output(x,y,w) << std::dec << std::endl;
         } } }
     if (write_images) {//if (processor.output(0,0,0,0) == 198) {
-      //save_image(oned_output, "bin/output_gold.png");
-      save_image(processor.output, "bin/output_gold.png");
+      save_image(oned_output, "bin/output_gold.png");
+      //save_image(processor.output, "bin/output_gold.png");
       for (size_t i=0; i<outputs.size(); ++i) {
         save_image(outputs[i], "bin/output_" + std::to_string(i) + ".png");
       }

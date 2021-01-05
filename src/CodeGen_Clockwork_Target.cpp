@@ -1079,7 +1079,7 @@ void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
                  CoreIR::Context* context) {
   set<string> finished_roms;
   for (auto found_rom : found_roms) {
-    std::cout << "rom found named " << found_rom << std::endl;
+    //std::cout << "rom found named " << found_rom << std::endl;
     
     auto pc_str = rom_to_c(roms[found_rom]);
 
@@ -1093,10 +1093,14 @@ void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
         rom_size.emplace_back(to_int(bound));
       }
     }
+
+    if (finished_roms.count(found_rom) > 0) {
+      //std::cout << "skipping this rom" << std::endl;
+      continue;
+    }
     auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
     coreir_insts.push_back(coreir_inst);
-
-    if (finished_roms.count(found_rom) > 0) { continue; }
+    
     finished_roms.insert(found_rom);
     compute_stream << pc_str << std::endl;
 
@@ -1157,6 +1161,7 @@ void Compute_Closure::visit(const Load *op) {
       vars[argname] = op->type;
       vector<bool> calls_found;
       bool is_dynamic = contains_call({op->index}, calls_found);
+      std::cout << "adding " << Expr(op) << " with dyn=" << is_dynamic << std::endl;
       var_comparg[argname] = Compute_Argument({argname, false, false, is_dynamic, op->type,
             {op->index}, calls_found, op->name, Expr(op)});;
 
@@ -1700,8 +1705,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
 
     string id_min = print_expr(op->min);
     //string id_extent = print_expr(op->extent);
-    string id_max = print_expr(simplify(op->extent + op->min));
-    //memory_stream << "// for loop: min=" << expand_expr(op->min, scope) << " extent=" << op->extent << std::endl;
+    //string id_max = print_expr(simplify(expand_expr(op->extent + op->min, scope)));
+    ostringstream oss;
+    oss << simplify(op->extent + op->min);
+    string id_max = oss.str();
+    //memory_stream << "// for loop: min=" << expand_expr(op->min, scope) << " extent=" << op->extent << "  id_max=" << id_max << std::endl;
+    
     auto body = op->body;
     if (!is_const(op->min)) {
       body = substitute(op->name, Add::make(op->min, Variable::make(Int(32), op->name)), op->body);
@@ -1775,11 +1784,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
-  auto memtype = identify_realization(Stmt(op), op->name);
-  //std::cout << op->name << " is a " << memtype << std::endl;
-  if (memtype == ROM_REALIZATION) {
-    roms[op->name] = ROM_data({op->name, Stmt(op), Stmt()});;
-  }
+  // realizes ending in .stencil cannot be a rom
+  // auto memtype = identify_realization(Stmt(op), op->name);
+  // //std::cout << op->name << " is a " << memtype << std::endl;
+  // if (memtype == ROM_REALIZATION) {
+  //   roms[op->name] = ROM_data({op->name, Stmt(op), Stmt()});;
+  // }
   CodeGen_Clockwork_Base::visit(op);
 }
 
@@ -1811,6 +1821,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     allocations.push(alloc_name, alloc);
 
     auto new_alloc = Allocate::make(alloc_name, op->type, op->memory_type, op->extents, op->condition, new_body);
+    //std::cout << "adding rom named " << alloc_name << std::endl;
     roms[alloc_name] = ROM_data({alloc_name, Stmt(new_alloc), Stmt()});;
 
     do_indent();

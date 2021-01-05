@@ -19,6 +19,7 @@ public:
     Output<Buffer<uint8_t>> output{"output", 2};
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
+    int tilesize = imgSize;
 
     void generate() {
         /* THE ALGORITHM */
@@ -102,7 +103,6 @@ public:
           //output.bound(x, 0, imgSize);
           //output.bound(y, 0, imgSize);
 
-          int tilesize = imgSize;
           output.bound(x, 0, tilesize);
           output.bound(y, 0, tilesize);
 

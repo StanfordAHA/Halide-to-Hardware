@@ -59,6 +59,25 @@ int main( int argc, char **argv ) {
   processor.input   = Buffer<uint8_t>(64, 64);
   processor.output  = Buffer<uint8_t>(128, 128);
 
-  return processor.process_command(argc, argv);
-  
+  auto return_value = processor.process_command(argc, argv);
+  std::cout << "input is size " << processor.input.dim(1).extent() << " x "
+            << processor.input.dim(0).extent() << std::endl;
+
+  bool write_large_input = true;
+  if (write_large_input) {
+    Buffer<uint8_t> large_in(128, 128);
+    for (int y=0; y<large_in.dim(1).extent(); ++y) {
+      for (int x=0; x<large_in.dim(0).extent(); ++x) {
+        if (y%2==0 && x%2==0) {
+          large_in(x, y) = processor.input(x/2, y/2);
+        } else {
+          large_in(x, y) = 0;
+        }
+        //std::cout << "y=" << y << " x=" << x << " : " << +large_in(x, y) << std::endl;
+      }
+    }
+    save_image(large_in, "bin/input_large.png");
+  }
+
+  return return_value;
 }

@@ -9,9 +9,12 @@ class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
-
-  int ksize = 3;
-  int imgsize = 62;
+  
+  int ksize = 3;  
+  //Input<int32_t> tilesize_x{"tilesize_x", 64, 8, 128}; // default 64. bounded between 8 and 128
+  //Input<int32_t> tilesize_y{"tilesize_y", 64, 8, 128}; // default 64. bounded between 8 and 128
+  int tilesize_x = 64-ksize+1;
+  int tilesize_y = 64-ksize+1;
 
     void generate() {
         /* THE ALGORITHM */
@@ -49,10 +52,8 @@ public:
         if (get_target().has_feature(Target::CoreIR) ||
             get_target().has_feature(Target::HLS)) {
           Var xi,yi, xo,yo;
-          output.bound(x, 0, imgsize);
-          output.bound(y, 0, imgsize);
-          conv.bound(x, 0, imgsize);
-          conv.bound(y, 0, imgsize);
+          output.bound(x, 0, tilesize_x);
+          output.bound(y, 0, tilesize_y);
 //          Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
 //          // Produce loop levels: host, global buffer, cgra
 //          output.tile(x, y, x_host,y_host, xi,yi, 256,256);
@@ -62,7 +63,7 @@ public:
 //          hw_input.in().store_at(output, x_host).compute_at(output,x_gb);
 //          hw_input.in().in().store_at(output, x_gb).compute_at(output,x_cgra);
           hw_output.compute_root();
-          hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+          hw_output.tile(x,y, xo,yo, xi,yi, tilesize_x, tilesize_y)
             .hw_accelerate(xi, xo);
           conv.update()
             .unroll(r.y, ksize)
@@ -74,16 +75,18 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, imgsize);
-          output.bound(y, 0, imgsize);
+          output.bound(x, 0, tilesize_x);
+          output.bound(y, 0, tilesize_y);
 
           hw_output.compute_root();
 
           hw_output
-              .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+              .tile(x,y, xo,yo, xi,yi, tilesize_x, tilesize_y)
               .hw_accelerate(xi, xo);
 
-          kernel.compute_at(conv, x);
+          //kernel.compute_at(conv, x);
+          kernel.compute_at(hw_output, xo);
+          conv.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);

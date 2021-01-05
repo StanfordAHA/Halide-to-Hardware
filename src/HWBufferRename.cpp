@@ -94,8 +94,18 @@ class RenameStencilRealizes : public IRMutator {
 
       if (tagged_rom ||
           (realization_type != ROM_REALIZATION &&
+           realization_type != CONSTS_REALIZATION &&
            (in_xcel || func.schedule().is_accelerator_input()))) {
         string realize_name = op->name + ".stencil";
+        //std::cout << op->name << " getting new name " << realize_name << " with type=" << realization_type << std::endl;
+        Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
+        new_body = mutate(new_body);
+        return Realize::make(realize_name, op->types, op->memory_type,
+                             op->bounds, op->condition, new_body);
+      } else if (realization_type == CONSTS_REALIZATION &&
+                 (in_xcel || func.schedule().is_accelerator_input())) {
+        string realize_name = op->name + ".const.stencil";
+        //std::cout << op->name << " getting new name " << realize_name << " with type=" << realization_type << std::endl;
         Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
         new_body = mutate(new_body);
         return Realize::make(realize_name, op->types, op->memory_type,

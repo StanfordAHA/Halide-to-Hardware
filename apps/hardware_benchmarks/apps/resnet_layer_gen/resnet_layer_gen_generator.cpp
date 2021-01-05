@@ -7,9 +7,9 @@ using namespace Halide::ConciseCasts;
 
 class ResnetKernel : public Halide::Generator<ResnetKernel> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 3};
-    Input<Buffer<uint8_t>>  kernel{"kernel", 4};
-    Output<Buffer<uint8_t>> output{"output", 3};
+    Input<Buffer<int16_t>>  input{"input", 3};
+    Input<Buffer<int16_t>>  kernel{"kernel", 4};
+    Output<Buffer<int16_t>> output{"output", 3};
 
     // in_img determines the input image size
     GeneratorParam<int> in_img{"in_img", 28};    // default: 28
@@ -18,14 +18,14 @@ public:
     GeneratorParam<int> pad{"pad", 1};    // default: 1
   
     // ksize determines the output stencil size
-    GeneratorParam<uint8_t> ksize{"ksize", 3};    // default: 3
+    GeneratorParam<int> ksize{"ksize", 3};    // default: 3
   
     // Stride determines the sampling rate for the down sample
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    //GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
-    GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
+    GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+    //GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
     //GeneratorParam<int> k_ic{"k_ic", 1};    // default: 1
   
     // k_oc determines the number of channel sizes
@@ -47,18 +47,12 @@ public:
         Expr height = imgsize;
         Expr width = imgsize;
 
-        //Func kernel;
-        //kernel(x,y,z,w) = 0;
-        //kernel(0,0,0,0) = 11;      kernel(0,1,0,0) = 12;      kernel(0,2,0,0) = 13;
-        //kernel(1,0,0,0) = 14;      kernel(1,1,0,0) = 0;       kernel(1,2,0,0) = 16;
-        //kernel(2,0,0,0) = 17;      kernel(2,1,0,0) = 18;      kernel(2,2,0,0) = 19;
-
         Func conv("conv");
         RDom r(0, ksize,
                0, ksize,
                0, k_ic);
 
-        conv(x, y, w) = cast<uint16_t>(0);
+        conv(x, y, w) = i16(0);
 
         Func hw_input("hw_input");
         Func clamp_input("clamp_input");
@@ -70,18 +64,19 @@ public:
         Func kernel_copy, input_copy;
         //kernel_copy(z, w, x, y) = cast<uint16_t>(kernel(z, w, x, y));
         //hw_kernel(z, w, x, y) = kernel_copy(z, w, x, y);
-        hw_kernel(z, w, x, y) = u16(kernel(z, w, x, y));
+        hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
 
         //input_copy(z, x, y) = cast<uint16_t>(clamp_input(z, x, y));
         //hw_input(z, x, y) = input_copy(z, x, y);
-        hw_input(z, x, y) = u16(clamp_input(z, x, y));
+        hw_input(z, x, y) = i16(clamp_input(z, x, y));
 
         conv(x, y, w) += hw_kernel(r.z, w, r.x, r.y) * hw_input(r.z, stride*x + r.x, stride*y + r.y);
         //conv(x, y, w) += hw_input(r.z, stride*x, stride*y);
 
         Func hw_output("hw_output");
         hw_output(x, y, w) = conv(x, y, w);
-        output(x, y, w) = max(0, u8(hw_output(x, y, w)));
+        //output(x, y, w) = max(0, u8(hw_output(x, y, w)));
+        output(x, y, w) = max(0, i16(hw_output(x, y, w)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

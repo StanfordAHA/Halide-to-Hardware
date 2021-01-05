@@ -7,12 +7,16 @@ using namespace Halide::ConciseCasts;
 
 const int inImgSize = 64;
 //const int outImgSize = inImgSize - 2;
-const int outImgSize = inImgSize - 4;
+const int outImgSizeX = inImgSize - 4;
+const int outImgSizeY = inImgSize - 4;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
+
+  //Input<int32_t> outImgSizeX{"outImgSizeX", 64, 8, 128};    // default: 64. bounded between 8 and 128
+  //Input<int32_t> outImgSizeY{"outImgSizeY", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
     void generate() {
         /* THE ALGORITHM */
@@ -31,7 +35,7 @@ public:
         kernel(1,0) = 2;      kernel(1,1) = 4;      kernel(1,2) = 2;
         kernel(2,0) = 1;      kernel(2,1) = 2;      kernel(2,2) = 1;
 
-        Func conv1("conv1");
+        Func conv1("conv1"), conv1_shift("conv1_shift");
         Func conv2("conv2");
 
         conv1(x, y) = u16(0);
@@ -41,18 +45,22 @@ public:
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         //hw_input(x, y) = hw_input_copy(x, y);
         conv1(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
+        conv1_shift(x, y) = conv1(x,y) / 16;
         
-        conv2(x, y)  += u16(kernel(r2.x, r2.y)) * conv1(x + r2.x, y + r2.y);
+        conv2(x, y)  += u16(kernel(r2.x, r2.y)) * conv1_shift(x + r2.x, y + r2.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = conv2(x, y);
+        hw_output(x, y) = conv2(x, y) / 16;
         //hw_output(x, y) = cast<uint8_t>(conv1(x, y));
         output(x, y) = cast<uint8_t>(hw_output(x,y));
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          
           Var xi,yi, xo,yo;
 
+          auto outImgSize = 64;
+          
           hw_output.bound(x, 0, outImgSize);
           hw_output.bound(y, 0, outImgSize);
           output.bound(x, 0, outImgSize);
@@ -90,14 +98,14 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          hw_output.bound(x, 0, outImgSize);
-          hw_output.bound(y, 0, outImgSize);
-          output.bound(x, 0, outImgSize);
-          output.bound(y, 0, outImgSize);
+          hw_output.bound(x, 0, outImgSizeX);
+          hw_output.bound(y, 0, outImgSizeY);
+          output.bound(x, 0, outImgSizeX);
+          output.bound(y, 0, outImgSizeY);
 
           hw_output.compute_root();
           hw_output
-              .tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
+              .tile(x,y, xo,yo, xi,yi, outImgSizeX, outImgSizeY)
               .hw_accelerate(xi, xo);
 
           //hw_input.compute_root();
@@ -113,7 +121,7 @@ public:
           //conv2.linebuffer();
           
           //conv1.linebuffer();
-          conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
+          conv1_shift.store_at(hw_output, xo).compute_at(hw_output, xo);
           conv1.update()
             .reorder(r.y, r.x)
             .unroll(r.x)

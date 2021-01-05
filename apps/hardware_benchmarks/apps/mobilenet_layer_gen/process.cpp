@@ -68,7 +68,7 @@ int main( int argc, char **argv ) {
     auto IC = getenv("k_ic");
     auto OC = getenv("k_oc");
 
-    auto in_img = OX ? atoi(OX) : 28;
+    auto in_img = OX ? atoi(OX) : 30;
     auto pad = P ? atoi(P) : 1;
     auto ksize = KX ? atoi(KX) : 3;
     auto stride = S ? atoi(S) : 1;
@@ -113,9 +113,11 @@ int main( int argc, char **argv ) {
     
     processor.inputs["filter_pw.png"] = Buffer<uint8_t>(K, C);
     auto filter_pw_copy_stencil = processor.inputs["filter_pw.png"];
-    for (int k = 0; k < filter_pw_copy_stencil.dim(1).extent(); k++) {
-      for (int c = 0; c < filter_pw_copy_stencil.dim(0).extent(); c++) {
+
+      for (int k = 0; k < filter_pw_copy_stencil.dim(1).extent(); k++) {
+        for (int c = 0; c < filter_pw_copy_stencil.dim(0).extent(); c++) {
         filter_pw_copy_stencil(k, c) = k + c;
+        std::cout << "k=" <<k << ", c=" << c << " := " << +filter_pw_copy_stencil(k, c) << std::endl;
         //filter_pw_copy_stencil(k, c) = 1;
       } }
 
@@ -123,6 +125,19 @@ int main( int argc, char **argv ) {
               << processor.inputs["filter_pw.png"].dim(1).extent() << "\n";
     
     processor.inputs_preset = true;
+
+    bool gen_interleaved_input = true;
+    if (gen_interleaved_input) {
+      int input_size = 32*32;
+      int num_inputs = 20;
+      Buffer<uint8_t> input_interleaved(num_inputs, input_size);
+      for (int i=0; i<num_inputs; ++i) {
+        for (int j=0; j<input_size; ++j) {
+          input_interleaved(i, j) = i*17 + 3*j;
+        }
+      }
+      save_image(input_interleaved, "bin/input_interleaved.png");
+    }
     
     int imgsize_x = std::floor( (X + 2*P_X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y + 2*P_Y - K_Y) / stride ) + 1;
@@ -132,5 +147,21 @@ int main( int argc, char **argv ) {
               << processor.output.dim(1).extent() << "x"
               << processor.output.dim(2).extent() << "\n";
 
-    return processor.process_command(argc, argv);
+    int return_value =  processor.process_command(argc, argv);
+
+    bool write_output = true;
+    if (write_output) {
+      int output_size = imgsize_x*imgsize_y;
+      int num_oc = K;
+      Buffer<uint8_t> output_flat(num_oc, output_size);
+      for (int i=0; i<imgsize_x; ++i) {
+        for (int j=0; j<imgsize_y; ++j) {
+          for (int k=0; k<num_oc; ++k) {
+            output_flat(k, i+ imgsize_x*j) = processor.output(k, i, j);
+          }
+        }
+      }
+      save_image(output_flat, "bin/output_flat.png");
+    }
+    return return_value;
 }  
