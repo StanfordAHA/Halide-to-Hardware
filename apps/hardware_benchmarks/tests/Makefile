@@ -49,7 +49,8 @@ MEM_TESTS := rom fifo_test \
              down_sample up_sample\
              db_3_3 \
              accumulation histogram multi_channel_conv \
-             two_level_memory three_level_memory pond
+             two_level_memory three_level_memory \
+             pond pond_accum
 
 mem := $(MEM_TESTS)
 mem_tests mem-tests mems mem: $(MEM_TESTS)

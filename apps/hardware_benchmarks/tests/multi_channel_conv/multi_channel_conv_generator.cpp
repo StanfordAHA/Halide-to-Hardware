@@ -54,11 +54,13 @@ public:
           
           output.bound(x, 0, imgsize);
           output.bound(y, 0, imgsize);
+          output.bound(z, 0, 3);
 
           hw_output.compute_root();
           
           hw_output
             .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+            .reorder(xi, yi, z, xo, yo)
             .hw_accelerate(xi, xo);
 
           conv.compute_at(hw_output,xo);

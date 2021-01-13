@@ -30,8 +30,9 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         Func hw_in, in_copy;
-        in_copy(x, y) = cast<uint16_t>(input(x+3, y+3));
-        hw_in(x, y) = in_copy(x, y);
+        //in_copy(x, y) = cast<uint16_t>(input(x+3, y+3));
+        //hw_in(x, y) = in_copy(x, y);
+        hw_in(x, y) = cast<uint16_t>(input(x+3, y+3));
                                       
         // Map stencil indices to contiguous segment.
         Func segment;
@@ -140,9 +141,11 @@ public:
           output.bound(y, 0, 64-6);
           //largest_seg.bound(x, 0, 64-6);
           //largest_seg.bound(y, 0, 64-6);
-          
-          hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6);
-          hw_output.compute_root();          
+
+          hw_output.compute_root();
+          hw_output
+            .tile(x, y, xo, yo, xi, yi, 64-6,64-6)
+            .hw_accelerate(xi, xo);
           
           lighter.compute_at(hw_output,xo).unroll(l);
           darker.compute_at(hw_output,xo).unroll(l);
@@ -156,8 +159,8 @@ public:
           largest_seg_dark.update().unroll(ring_win).unroll(l);
 
 
-          hw_in.compute_at(hw_output, xo);
-          in_copy.compute_root();
+          hw_in.stream_to_accelerator();
+            //in_copy.compute_root();
 
         } else {    // schedule to CPU
           output.tile(x, y, xo, yo, xi, yi, 64-6, 64-6)

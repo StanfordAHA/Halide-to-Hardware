@@ -6,14 +6,18 @@ travis testtravis: pointwise harris
 
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
-ALL_APPS := $(filter-out hls_support tools unet bilateral_grid_old, $(ALL_APPS))
-ALL_APPS += $(dir $(wildcard unet/*/.))
+ALL_APPS += $(subst / , , $(dir $(wildcard unet/*/.)))
+IGNORED_DIRS := hls_support tools unet \
+								unet/conv_3_3/ example gemm conv_layer_2D
+ALL_APPS := $(filter-out $(IGNORED_DIRS), $(ALL_APPS))
+#ALL_APPS += $(dir $(wildcard unet/*/.))
 
 ### app suites include: ###
-APP_SUITES := simple img dnn other
+APP_SUITES := simple img video dnn soc other
 
 ### simple applications ###
-SIMPLE_APPS := pointwise gaussian brighten_and_blur cascade harris
+SIMPLE_APPS := pointwise brighten_and_blur cascade \
+							 demosaic demosaic_complex
 simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
@@ -21,24 +25,36 @@ simple := $(SIMPLE_APPS)
 #             example fast_corner unsharp \
 #             demosaic demosaic_complex camera_pipeline \
 #             exposure_fusion local_laplacian stereo hdr_plus
-IMG_APPS := pointwise gaussian brighten_and_blur cascade harris \
-						unsharp stereo \
-						camera_pipeline
+IMG_APPS := gaussian harris \
+						unsharp camera_pipeline fast_corner lens_distortion \
+						local_laplacian laplacian_pyramid bilateral_grid \
+            lucas_kanade stereo 
 img := $(IMG_APPS)
+
+### VIDEO APPS ###
+VIDEO_APPS := exposure_fusion \
+							hdr_plus \
+							hologram_wgs
 
 ### DNN applications ###
 # DNN_APPS := gemm \
 #             conv_layer_2D conv_layer_3D conv_layer_mobile
-DNN_APPS := unet/conv_3_3 unet/down_sample unet/up_sample \
+DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_sample \
+            conv_layer_3D \
 						resnet resnet_stride resnet_layer_gen resnet_block \
-            conv_layer_mobile
+            conv_layer_mobile mobilenet_layer_gen
 dnn := $(DNN_APPS)
 
-### other applications ###
-# OTHER_APPS := smith_waterman
-# other := $(OTHER_APPS)
 
-ALL_APPS_SORTED := $(IMG_APPS) $(DNN_APPS) $(OTHER_APPS)
+### SOC applications ###
+SOC_APPS := resnet_full_layer resnet_multi_layer
+soc := $(SOC_APPS)
+
+### other applications ###
+OTHER_APPS := smith_waterman
+other := $(OTHER_APPS)
+
+ALL_APPS_SORTED := $(SIMPLE_APPS) $(IMG_APPS) $(VIDEO_APPS) $(DNN_APPS) $(SOC_APPS) $(OTHER_APPS)
 
 # Define targets for running each app and suite including:
 #  $(APP)-cpu:               create cpu design files without running

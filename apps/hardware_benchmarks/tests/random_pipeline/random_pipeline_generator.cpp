@@ -132,7 +132,7 @@ class RandomPipeline : public Halide::Generator<RandomPipeline> {
 public:
     int num_stage_types = 18;
     // The random seed to use to generate the pipeline.
-    GeneratorParam<int> seed{"seed", 1};
+    GeneratorParam<int> seed{"seed", 10}; // seed=7 is quite complex
     // The approximate max number of stages to generate in the random pipeline.
     GeneratorParam<int> max_stages{"max_stages", 30};
 
@@ -1279,7 +1279,7 @@ Expr rand_value(Type t) {
 
 
         Func hw_input;
-        hw_input(x,y,c) = u16(input(x, y, c));
+        hw_input(x,y,c) = u16(input(x+6, y+6, c));
         Func first;
         first(x, y, c) = u16(hw_input(x, y, c));
         
@@ -1315,22 +1315,21 @@ Expr rand_value(Type t) {
         
         output(x,y,c) = u8(hw_output(x,y,c));
 
-        //input.dim(2).set_bounds(0, 3);
+        input.dim(2).set_bounds(0, 3);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          hw_output.bound(x,0,62);
-          hw_output.bound(y,0,62);
-          hw_output.bound(c,0,10);
-          hw_input.bound(x,0,62);
-          hw_input.bound(y,0,62);
+          hw_output.bound(x,0,50);
+          hw_output.bound(y,0,50);
+          hw_output.bound(c,0,3);
           
           hw_output.compute_root();
 
-          hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
+          hw_output.tile(x,y, xo,yo, xi,yi, 50, 50)
+            .reorder(xi, yi, c, xo, yo)
             .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();

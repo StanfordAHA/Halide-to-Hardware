@@ -154,11 +154,11 @@ int ksize = 3;
       demosaicked = demosaic(hw_input);
 
       Func hw_output;
-      //hw_output(x,y,c) = cast<uint8_t>(demosaicked(x,y,c));
-      hw_output(c,x,y) = cast<uint8_t>(demosaicked(x,y,c));
+      hw_output(x,y,c) = cast<uint8_t>(demosaicked(x,y,c));
+      //hw_output(c,x,y) = cast<uint8_t>(demosaicked(x,y,c));
 
-      //output(x, y, c) = hw_output(x, y, c);
-      output(x, y, c) = hw_output(c, x, y);
+      output(x, y, c) = hw_output(x, y, c);
+      //output(x, y, c) = hw_output(c, x, y);
             
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
@@ -186,8 +186,10 @@ int ksize = 3;
         hw_output.compute_root();
 
         hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-          //.reorder(xi,yi,c,xo,yo)
+          .reorder(xi,yi,c,xo,yo)
           .hw_accelerate(xi, xo);
+        
+        hw_output.unroll(c);
         
         demosaicked.compute_at(hw_output, xo);
         demosaicked.unroll(c);

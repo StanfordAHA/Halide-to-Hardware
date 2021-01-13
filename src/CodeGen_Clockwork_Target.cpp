@@ -400,7 +400,7 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     for (auto& closure_arg : closure_args) {
       std::cout << "  closure arg: " << closure_arg.name << std::endl;
     }
-    
+
     print_clockwork_execution_cpp(target_name, closure_args, clk_exec_cpp_file);
     std::cout << "printed execution cpp" << std::endl;
 
@@ -791,18 +791,22 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
            << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
 
     size_t num_buffers = closure_args.size();
+    if (num_buffers == 0) {
+      return;
+    }
 
     // get sizes of buffer elements
     vector<int> elt_sizes(num_buffers);
-    for(size_t i = 0; i < num_buffers; i++) {
+    for (size_t i = 0; i < num_buffers; i++) {
+        if (!closure_args[i].is_stencil) { continue; }
         elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
     }
 
     // emit buffer declarations
     stream << "\t// input and output memory objects\n";
-    //std::cout << "num_buffers=" << num_buffers << "  ending with " << closure_args[num_buffers-1].name << std::endl;
-    for(size_t i = 0; i < num_buffers; i++) {
-      //std::cout << printname(closure_args[i].name) << std::endl;
+    std::cout << "num_buffers=" << num_buffers << "  ending with " << closure_args[num_buffers-1].name << std::endl;
+    for (size_t i = 0; i < num_buffers; i++) {
+        std::cout << printname(closure_args[i].name) << std::endl;
         ostringstream oss;
         std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
                   << closure_args[i].stencil_type.elemType << std::endl;

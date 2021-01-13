@@ -23,8 +23,9 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         Func hw_input, hw_input_copy;
-        hw_input_copy(x,y) = cast<uint16_t>(input(x+1,y+1));
-        hw_input(x,y) = hw_input_copy(x,y);
+        //hw_input_copy(x,y) = cast<uint16_t>(input(x+1,y+1));
+        //hw_input(x,y) = hw_input_copy(x,y);
+        hw_input(x,y) = cast<uint16_t>(input(x+1,y+1));
 
         // common patterns: average of four surrounding pixels
         Func neswNeighbors, diagNeighbors;
@@ -70,16 +71,11 @@ public:
                                                c == 1, green(x, y),
                                                blue(x, y)));
 
-        hw_output(x,y,c) = demosaic(x,y,c);
-        output(x,y,c) = hw_output(x,y,c);
-
-        output.bound(c, 0, 3);
-        output.bound(x, 0, 62);
-        output.bound(y, 0, 62);
-            
+        hw_output(c,x,y) = demosaic(x,y,c);
+        output(x,y,c) = hw_output(c,x,y);
+        
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::CoreIR) ||
-            get_target().has_feature(Target::HLS)) {
+        if (get_target().has_feature(Target::CoreIR)) {
 
           hw_output.compute_root();
           
@@ -96,20 +92,26 @@ public:
           hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
+          output.bound(c, 0, 3);
+          output.bound(x, 0, 62);
+          output.bound(y, 0, 62);
+
           Var xi,yi, xo,yo;
 
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
-            .reorder(c, xi, yi, xo, yo);
+            //.reorder(c, xi, yi, xo, yo)
+            .hw_accelerate(xi, xo);
           //hw_output.unroll(c);
 
           demosaic.compute_at(hw_output, xo);
 
-          //.unroll(c);
+          demosaic.unroll(c);
 
-          hw_input.compute_at(hw_output, xo);
-          hw_input_copy.compute_root();
+          hw_input.stream_to_accelerator();
+          //hw_input.compute_at(hw_output, xo);
+          //hw_input_copy.compute_root();
 
         } else {    // schedule to CPU
           output.compute_root();
