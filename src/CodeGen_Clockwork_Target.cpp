@@ -991,7 +991,7 @@ void print_dynamic_args(const vector<Expr>& args,
     if (dynamic_calls_found[argi]) {
       const Call* index_call = arg.as<Call>();
       internal_assert(index_call) <<
-        "dynamic argument must be a call:" << Expr(index_call) << "\n";
+        "dynamic argument must be a call:" << Expr(arg) << "\n";
 
       memory_stream << ", \"" << printname(index_call->name) << "\"";
       //std::cout << ", \"" << printname(index_call->name) << "\"";
@@ -1552,6 +1552,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     if (arg.is_dynamic) { //(contains_call(arg.args)) {
       memory_stream << "  " << func_name << "->add_dynamic_load(\""
                     << buffer_name << "\"";
+      std::cout << "  " << func_name << "->add_dynamic_load(\""
+                    << buffer_name << "\"\n";
 
       print_dynamic_args(arg.args, arg.args_is_dynamic, scope, memory_stream);
       
@@ -1578,6 +1580,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   if (contains_call(op->args, dynamic_stores_found)) {
     memory_stream << "  " << func_name << "->add_dynamic_store(\""
                   << printname(op->name) << "\"";
+    std::cout << "  " << func_name << "->add_dynamic_load(\""
+              << op->name << "\"\n";
     print_dynamic_args(op->args, dynamic_stores_found, scope, memory_stream);
     memory_stream << ");\n";
     

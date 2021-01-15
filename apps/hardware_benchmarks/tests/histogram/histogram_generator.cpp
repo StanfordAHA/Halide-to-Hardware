@@ -22,13 +22,18 @@ public:
         Func bin, histogram;
         Expr width = outimgsize;
         Expr height = outimgsize;
-        RDom r(0, width, 0, height);
+        //RDom r(0, width, 0, height);
+        RDom r(0, width);
         
-        bin(x, y) = i32(hw_input(x, y));
+        //bin(x, y) = i32(hw_input(x, y));
+        //histogram(b) = u16(0);
+        //histogram(bin(r.x, r.y)) += u16(1);
+        bin(x) = i32(hw_input(x, 0));
         histogram(b) = u16(0);
-        histogram(bin(r.x, r.y)) += u16(1);
+        histogram(bin(r.x)) += u16(1);
         
         Func hw_output("hw_output");
+        //hw_output(x, y) = histogram(x,y);
         hw_output(x, y) = histogram(x);
         output(x, y) = u8(hw_output(x,y));
 

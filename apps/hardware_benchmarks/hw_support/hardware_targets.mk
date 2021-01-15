@@ -432,7 +432,7 @@ check:
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
 	fi
-	@if [ -f "$(GOLDEN)/$(TESTNAME)_memory.cpp" ]; then \
+#	@if [ -f "$(GOLDEN)/$(TESTNAME)_memory.cpp" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " golden"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!golden"; \

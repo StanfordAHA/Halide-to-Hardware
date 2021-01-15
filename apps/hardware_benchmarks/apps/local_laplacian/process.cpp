@@ -1,52 +1,65 @@
 #include <cstdio>
-#include <chrono>
-
-#include "local_laplacian.h"
-#ifndef NO_AUTO_SCHEDULE
-#include "local_laplacian_auto_schedule.h"
-#endif
-
-#include "halide_benchmark.h"
-#include "HalideBuffer.h"
+#include "hardware_process_helper.h"
 #include "halide_image_io.h"
 
-using namespace Halide::Runtime;
+#if defined(WITH_CPU)
+   #include "local_laplacian.h"
+#endif
+
+#if defined(WITH_COREIR)
+    #include "coreir_interpret.h"
+#endif
+
+#if defined(WITH_CLOCKWORK)
+    #include "rdai_api.h"
+    #include "clockwork_sim_platform.h"
+    #include "local_laplacian_clockwork.h"
+#endif
+
 using namespace Halide::Tools;
+using namespace Halide::Runtime;
 
-int main(int argc, char **argv) {
-    if (argc < 7) {
-        printf("Usage: ./process input.png levels alpha beta timing_iterations output.png\n"
-               "e.g.: ./process input.png 8 1 1 10 output.png\n");
-        return 0;
-    }
+int main( int argc, char **argv ) {
+  std::map<std::string, std::function<void()>> functions;
+  OneInOneOut_ProcessController<uint16_t> processor("local_laplacian");
+  // OneInOneOut_ProcessController<uint16_t> processor("local_laplacian");
 
-    // Input may be a PNG8
-    Buffer<uint16_t> input = load_and_convert_image(argv[1]);
+  #if defined(WITH_CPU)
+      auto cpu_process = [&]( auto &proc ) {
+        local_laplacian( proc.input, 8, 0.14f, 1.f, proc.output );
+      };
+      functions["cpu"] = [&](){ cpu_process( processor ); } ;
+  #endif
+  
+  #if defined(WITH_COREIR)
+      auto coreir_process = [&]( auto &proc ) {
+          run_coreir_on_interpreter<>( "bin/design_top.json",
+                                       proc.input, proc.output,
+                                       "self.in_arg_0_0_0", "self.out_0_0" );
+      };
+      functions["coreir"] = [&](){ coreir_process( processor ); };
+  #endif
+  
+  #if defined(WITH_CLOCKWORK)
+      auto clockwork_process = [&]( auto &proc ) {
+        RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
+        if ( rdai_platform ) {
+          printf( "[RUN_INFO] found an RDAI platform\n" );
+          local_laplacian_clockwork( proc.input, proc.output );
+          RDAI_unregister_platform( rdai_platform );
+        } else {
+          printf("[RUN_INFO] failed to register RDAI platform!\n");
+        }
+      };
+      functions["clockwork"] = [&](){ clockwork_process( processor ); };
+  #endif
 
-    int levels = atoi(argv[2]);
-    float alpha = atof(argv[3]), beta = atof(argv[4]);
-    Buffer<uint16_t> output(input.width(), input.height(), 3);
-    int timing = atoi(argv[5]);
+  // Add all defined functions
+  processor.run_calls = functions;
 
-    local_laplacian(input, levels, alpha/(levels-1), beta, output);
-
-    // Timing code
-
-    // Manually-tuned version
-    double best_manual = benchmark(timing, 1, [&]() {
-        local_laplacian(input, levels, alpha/(levels-1), beta, output);
-    });
-    printf("Manually-tuned time: %gms\n", best_manual * 1e3);
-
-    #ifndef NO_AUTO_SCHEDULE
-    // Auto-scheduled version
-    double best_auto = benchmark(timing, 1, [&]() {
-        local_laplacian_auto_schedule(input, levels, alpha/(levels-1), beta, output);
-    });
-    printf("Auto-scheduled time: %gms\n", best_auto * 1e3);
-    #endif
-
-    convert_and_save_image(output, argv[6]);
-
-    return 0;
+  processor.input   = Buffer<uint16_t>(64, 64, 3);
+  processor.output  = Buffer<uint16_t>(64, 64, 3);
+  // 64 62 31 29 15
+  return processor.process_command(argc, argv);
+  
 }

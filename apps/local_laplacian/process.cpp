@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <chrono>
 
+#define NO_AUTO_SCHEDULE 1
+
 #include "local_laplacian.h"
 #ifndef NO_AUTO_SCHEDULE
 #include "local_laplacian_auto_schedule.h"

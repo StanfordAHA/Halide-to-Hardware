@@ -154,10 +154,10 @@ int ksize = 3;
       demosaicked = demosaic(hw_input);
 
       Func hw_output;
-      hw_output(x,y,c) = cast<uint8_t>(demosaicked(x,y,c));
+      hw_output(x,y,c) = demosaicked(x,y,c);
       //hw_output(c,x,y) = cast<uint8_t>(demosaicked(x,y,c));
 
-      output(x, y, c) = hw_output(x, y, c);
+      output(x, y, c) = cast<uint8_t>(hw_output(x, y, c));
       //output(x, y, c) = hw_output(c, x, y);
             
       /* THE SCHEDULE */

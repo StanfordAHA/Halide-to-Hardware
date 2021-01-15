@@ -7,12 +7,12 @@ constexpr int maxJ = 20;
 
 class LocalLaplacian : public Halide::Generator<LocalLaplacian> {
 public:
-    GeneratorParam<int>     pyramid_levels{"pyramid_levels", 8, 1, maxJ};
+    GeneratorParam<int>     pyramid_levels{"pyramid_levels", 3, 1, maxJ};
 
     Input<Buffer<uint16_t>> input{"input", 3};
-    Input<int>              levels{"levels"};
-    Input<float>            alpha{"alpha"};
-    Input<float>            beta{"beta"};
+    //Input<int>              levels{"levels"};   // sample value: 8
+    //Input<float>            alpha{"alpha"};     // sample value: 1/7
+    //Input<float>            beta{"beta"};       // sample value: 1
 
     Output<Buffer<uint16_t>> output{"output", 3};
 
@@ -23,7 +23,7 @@ public:
         // Make the remapping function as a lookup table.
         Func remap;
         Expr fx = cast<float>(x) / 256.0f;
-        remap(x) = alpha*fx*exp(-fx*fx/2.0f);
+        remap(x) = 1/7.f *fx*exp(-fx*fx/2.0f); //remap(x) = alpha*fx*exp(-fx*fx/2.0f);
 
         // Set a boundary condition
         Func clamped = Halide::BoundaryConditions::repeat_edge(input);
@@ -39,10 +39,10 @@ public:
         // Make the processed Gaussian pyramid.
         Func gPyramid[maxJ];
         // Do a lookup into a lut with 256 entires per intensity level
-        Expr level = k * (1.0f / (levels - 1));
-        Expr idx = gray(x, y)*cast<float>(levels-1)*256.0f;
-        idx = clamp(cast<int>(idx), 0, (levels-1)*256);
-        gPyramid[0](x, y, k) = beta*(gray(x, y) - level) + level + remap(idx - 256*k);
+        Expr level = k * (1.0f / (8 - 1)); //Expr level = k * (1.0f / (levels - 1));
+        Expr idx = gray(x, y)*cast<float>(8-1)*256.0f; //Expr idx = gray(x, y)*cast<float>(levels-1)*256.0f;
+        idx = clamp(cast<int>(idx), 0, (8-1)*256); //idx = clamp(cast<int>(idx), 0, (levels-1)*256);
+        gPyramid[0](x, y, k) = 1*(gray(x, y) - level) + level + remap(idx - 256*k); //gPyramid[0](x, y, k) = beta*(gray(x, y) - level) + level + remap(idx - 256*k);
         for (int j = 1; j < J; j++) {
             gPyramid[j](x, y, k) = downsample(gPyramid[j-1])(x, y, k);
         }
@@ -63,13 +63,16 @@ public:
 
         // Make the laplacian pyramid of the output
         Func outLPyramid[maxJ];
+        Func li[maxJ];
+        Func lipo[maxJ];
         for (int j = 0; j < J; j++) {
             // Split input pyramid value into integer and floating parts
-            Expr level = inGPyramid[j](x, y) * cast<float>(levels-1);
-            Expr li = clamp(cast<int>(level), 0, levels-2);
-            Expr lf = level - cast<float>(li);
+            Expr level = inGPyramid[j](x, y) * cast<float>(8-1); //Expr level = inGPyramid[j](x, y) * cast<float>(levels-1);
+            li[j](x, y) = clamp(cast<int>(level), 0, 8-2); //Expr li = clamp(cast<int>(level), 0, levels-2);
+            Expr lf = level - cast<float>(li[j](x,y));
+            lipo[j](x, y) = li[j](x, y) + 1;
             // Linearly interpolate between the nearest processed pyramid levels
-            outLPyramid[j](x, y) = (1.0f - lf) * lPyramid[j](x, y, li) + lf * lPyramid[j](x, y, li+1);
+            outLPyramid[j](x, y) = (1.0f - lf) * lPyramid[j](x, y, li[j](x, y)) + lf * lPyramid[j](x, y, lipo[j](x,y));
         }
 
         // Make the Gaussian pyramid of the output
@@ -85,7 +88,9 @@ public:
         color(x, y, c) = outGPyramid[0](x, y) * (floating(x, y, c)+eps) / (gray(x, y)+eps);
 
         // Convert back to 16-bit
-        output(x, y, c) = cast<uint16_t>(clamp(color(x, y, c), 0.0f, 1.0f) * 65535.0f);
+        Func hw_output("hw_output");
+        hw_output(x, y, c) = cast<uint16_t>(clamp(color(x, y, c), 0.0f, 1.0f) * 65535.0f);
+        output(x, y, c) = hw_output(x, y, c);
 
         /* THE SCHEDULE */
 
@@ -96,9 +101,9 @@ public:
         input.dim(1).set_bounds_estimate(0, 2560);
         input.dim(2).set_bounds_estimate(0, 3);
         // Provide estimates on the parameters
-        levels.set_estimate(8);
-        alpha.set_estimate(1);
-        beta.set_estimate(1);
+        //levels.set_estimate(8);
+        //alpha.set_estimate(1);
+        //beta.set_estimate(1);
         // Provide estimates on the pipeline output
         output.estimate(x, 0, 1536)
               .estimate(y, 0, 2560)
@@ -125,21 +130,30 @@ public:
             }
         } else if (get_target().has_feature(Target::Clockwork)) {
             // clockwork schedule
-            remap.compute_root();
-            Var xi, yi;
-            output.compute_root().gpu_tile(x, y, xi, yi, 16, 8);
+            output.bound(x, 0, 128);
+            output.bound(y, 0, 128);
+            output.bound(c, 0, 3);
+            output.compute_root();          
+
+            Var xi, yi, xo, yo;
+            hw_output
+              .compute_root()
+              .tile(x, y, xo, yo, xi, yi, 64, 64)
+              .hw_accelerate(xi, xo);
+            
             for (int j = 0; j < J; j++) {
-                int blockw = 16, blockh = 8;
-                if (j > 3) {
-                    blockw = 2;
-                    blockh = 2;
-                }
                 if (j > 0) {
-                    inGPyramid[j].compute_root().gpu_tile(x, y, xi, yi, blockw, blockh);
-                    gPyramid[j].compute_root().reorder(k, x, y).gpu_tile(x, y, xi, yi, blockw, blockh);
+                  inGPyramid[j].compute_at(hw_output, xo);
+                  gPyramid[j].compute_at(hw_output, xo).reorder(k, x, y);
+                  lPyramid[j].compute_at(hw_output, xo).reorder(k, x, y);
                 }
-                outGPyramid[j].compute_root().gpu_tile(x, y, xi, yi, blockw, blockh);
+                li[j].compute_at(hw_output, xo);
+                lipo[j].compute_at(hw_output, xo);
+                outLPyramid[j].compute_at(hw_output, xo);
+                outGPyramid[j].compute_at(hw_output, xo);
             }
+
+            clamped.stream_to_accelerator();
         } else {
             // cpu schedule
             remap.compute_root();
