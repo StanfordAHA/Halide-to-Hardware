@@ -2383,14 +2383,6 @@
             "modref":"cgralib.BitIO",
             "modargs":{"mode":["String","out"]}
           },
-          "io1_hw_output_stencil_clkwrk_1_op_hcompute_hw_output_stencil_1_write_valid":{
-            "modref":"cgralib.BitIO",
-            "modargs":{"mode":["String","out"]}
-          },
-          "io1_hw_output_stencil_clkwrk_2_op_hcompute_hw_output_stencil_2_write_valid":{
-            "modref":"cgralib.BitIO",
-            "modargs":{"mode":["String","out"]}
-          },
           "io1in_reset":{
             "modref":"cgralib.BitIO",
             "modargs":{"mode":["String","in"]}
@@ -4077,8 +4069,6 @@
           ["op_hcompute_demosaicked_1_stencil_2$inner_compute$absd_hw_input_global_wrapper_stencil_15_hw_input_global_wrapper_stencil_16_930$sub$binop.data.in.1","io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0.out"],
           ["op_hcompute_demosaicked_1_stencil_2$inner_compute$add_hw_input_global_wrapper_stencil_16_hw_input_global_wrapper_stencil_15_933$binop.data.in.0","io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0.out"],
           ["op_hcompute_hw_output_stencil_port_controller_garnet.stencil_valid","io1_hw_output_stencil_clkwrk_0_op_hcompute_hw_output_stencil_write_valid.in"],
-          ["op_hcompute_hw_output_stencil_1_port_controller_garnet.stencil_valid","io1_hw_output_stencil_clkwrk_1_op_hcompute_hw_output_stencil_1_write_valid.in"],
-          ["op_hcompute_hw_output_stencil_2_port_controller_garnet.stencil_valid","io1_hw_output_stencil_clkwrk_2_op_hcompute_hw_output_stencil_2_write_valid.in"],
           ["op_hcompute_demosaicked_1_stencil_1_port_controller$op_hcompute_demosaicked_1_stencil_1_port_controller_Counter_1_garnet.flush","io1in_reset.out"],
           ["op_hcompute_demosaicked_1_stencil_1_port_controller$op_hcompute_demosaicked_1_stencil_1_port_controller_Counter_2_garnet.flush","io1in_reset.out"],
           ["op_hcompute_demosaicked_1_stencil_2_port_controller$op_hcompute_demosaicked_1_stencil_2_port_controller_Counter_1_garnet.flush","io1in_reset.out"],
