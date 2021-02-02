@@ -510,6 +510,18 @@ public:
     const LoopLevel &accelerate_store_level() const;
     // @}
 
+    bool is_compute_shared() const;
+    bool &is_compute_shared();
+  
+    bool is_compute_parent() const;
+    bool &is_compute_parent();
+
+    const std::vector<std::string> &shared_func_names() const;
+    std::vector<std::string> &shared_func_names();
+  
+    LoopLevel &shared_compute_level();
+    const LoopLevel &shared_compute_level() const;
+
     /** Pass an IRVisitor through to all Exprs referenced in the
      * Schedule. */
     void accept(IRVisitor *) const;

@@ -482,6 +482,7 @@ SOURCE_FILES = \
   MarkHWKernels.cpp \
   MatlabWrapper.cpp \
   Memoization.cpp \
+  MergeCompute.cpp \
   Module.cpp \
   ModulusRemainder.cpp \
   Monotonic.cpp \

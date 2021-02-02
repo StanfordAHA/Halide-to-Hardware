@@ -47,6 +47,7 @@
 #include "LowerWarpShuffles.h"
 #include "MarkHWKernels.h"
 #include "Memoization.h"
+#include "MergeCompute.h"
 #include "PartitionLoops.h"
 #include "PurifyIndexMath.h"
 #include "Prefetch.h"
@@ -230,6 +231,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     if (t.has_feature(Target::Clockwork)) {
       s = extract_hwaccelerators(s, env);
+      s = merge_compute(s, env);
       //std::cout << "IR after hwxcel extracted:\n" << s << std::endl;
     }
     
@@ -489,7 +491,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     } else {
         debug(1) << "Skipping Hexagon offload...\n";
     }
-    std::cout << "after passes: " << s << std::endl;
+    //std::cout << "after passes: " << s << std::endl;
 
     if (!custom_passes.empty()) {
         for (size_t i = 0; i < custom_passes.size(); i++) {

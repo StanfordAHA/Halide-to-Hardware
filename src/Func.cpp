@@ -2641,6 +2641,42 @@ Func &Func::fifo_depth(Func consumer, int depth) {
     return *this;
 }
 
+Func &Func::compute_share_root(Func f, Var loop) {
+  func.schedule().is_compute_parent() = true;
+  func.schedule().is_compute_shared() = true;
+  //func.schedule().shared_compute_level() = LoopLevel(*this, loop).lock();
+  func.schedule().shared_compute_level() = LoopLevel(f, loop).lock();
+
+  // add oneself to list of shared functions
+  func.schedule().shared_func_names().emplace_back(func.name());
+
+  return *this;
+}
+  
+Func &Func::compute_share(Func compute_root) {  
+  internal_assert(compute_root.function().schedule().is_compute_parent() == true)
+    << compute_root.name() << " must be declared as a compute parent first\n";;
+  compute_root.function().schedule().shared_func_names().emplace_back(func.name());
+
+  func.schedule().is_compute_shared() = true;
+  func.schedule().compute_level() = compute_root.function().schedule().shared_compute_level();
+  
+  return *this;
+}
+  
+//Func &Func::compute_share(std::vector<Func> computes, Var loop) {
+//  std::vector<std::string> func_names;
+//  for (auto compute : computes) {
+//    compute.function().schedule().is_compute_shared() = true;
+//    func_names.emplace_back(compute.name());
+//  }
+//
+//  func.schedule().shared_compute_level() = LoopLevel(*this, loop).lock();
+//  func.schedule().is_compute_parent() = true;
+//  func.schedule().shared_func_names() = func_names;
+//  return *this;
+//}
+
 Func &Func::compute_inline() {
     return compute_at(LoopLevel::inlined());
 }

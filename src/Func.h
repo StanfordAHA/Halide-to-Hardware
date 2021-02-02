@@ -2252,6 +2252,10 @@ public:
      */
     Func &fifo_depth(Func consumer, int depth);
 
+    Func &compute_share_root(Func f, Var loop);
+    Func &compute_share(Func root);
+    //Func &compute_share(std::vector<Func> computes, Var loop);
+
     /** Aggressively inline all uses of this function. This is the
      * default schedule, so you're unlikely to need to call this. For
      * a Func with an update definition, that means it gets computed

@@ -90,7 +90,7 @@ public:
           conv.update()
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);
-          
+
           hw_input.stream_to_accelerator();
             
         } else {  // schedule to CPU

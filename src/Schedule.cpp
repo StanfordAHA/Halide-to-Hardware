@@ -224,6 +224,10 @@ struct FuncScheduleContents {
     std::set<std::string> accelerate_inputs;
     std::string accelerate_exit;
     LoopLevel accelerate_compute_level, accelerate_store_level;
+    bool is_compute_shared;
+    bool is_compute_parent;
+    std::vector<std::string> shared_func_names;
+    LoopLevel shared_compute_level;
     std::map<std::string, int> fifo_depths;   // key is the name of the consumer
     std::map<std::string, Function> tap_funcs;
     std::map<std::string, Parameter> tap_params;
@@ -232,7 +236,7 @@ struct FuncScheduleContents {
       store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
         memory_type(MemoryType::Auto), memoized(false), async(false), is_hw_kernel(false),
         is_accelerated(false), is_accelerator_input(false), is_accelerator_output(false),
-        is_linebuffered(false) {};
+        is_linebuffered(false), is_compute_shared(false), is_compute_parent(false) {};
 
     // Pass an IRMutator through to all Exprs referenced in the FuncScheduleContents
     void mutate(IRMutator *mutator) {
@@ -361,6 +365,10 @@ FuncSchedule FuncSchedule::deep_copy(
     copy.contents->is_accelerator_output = contents->is_accelerator_output;
     copy.contents->tap_funcs = contents->tap_funcs;
     copy.contents->tap_params = contents->tap_params;
+    copy.contents->is_compute_shared = contents->is_compute_shared;
+    copy.contents->is_compute_parent = contents->is_compute_parent;
+    copy.contents->shared_func_names = contents->shared_func_names;
+    copy.contents->shared_compute_level = contents->shared_compute_level;
 
     // Deep-copy wrapper functions.
     for (const auto &iter : contents->wrappers) {
@@ -556,6 +564,35 @@ const LoopLevel &FuncSchedule::accelerate_store_level() const {
     internal_assert(is_accelerated());
     return contents->accelerate_store_level;
 }
+
+bool FuncSchedule::is_compute_shared() const {
+  return contents->is_compute_shared;
+}
+bool &FuncSchedule::is_compute_shared() {
+  return contents->is_compute_shared;
+}
+
+bool FuncSchedule::is_compute_parent() const {
+  return contents->is_compute_parent;
+}
+bool &FuncSchedule::is_compute_parent() {
+  return contents->is_compute_parent;
+}
+
+const std::vector<std::string> &FuncSchedule::shared_func_names() const {
+  return contents->shared_func_names;
+}
+std::vector<std::string> &FuncSchedule::shared_func_names() {
+  return contents->shared_func_names;
+}
+
+LoopLevel &FuncSchedule::shared_compute_level() {
+  return contents->shared_compute_level;
+}
+const LoopLevel &FuncSchedule::shared_compute_level() const {
+  return contents->shared_compute_level;
+}
+
 
 void FuncSchedule::accept(IRVisitor *visitor) const {
     for (const Bound &b : bounds()) {

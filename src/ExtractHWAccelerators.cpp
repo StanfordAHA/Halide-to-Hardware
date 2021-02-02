@@ -1,3 +1,4 @@
+#include "Closure.h"
 #include "ExtractHWAccelerators.h"
 #include "Func.h"
 #include "IRMutator.h"
@@ -62,14 +63,16 @@ vector<SimpleHWXcel> find_marked_hwxcels(Stmt s, const map<string, Function> &en
   for (const auto &p : env) {
 
     Function func = p.second;
+    auto sch = func.schedule();
+    
     // skip this function if it is not accelerated
-    if(!func.schedule().is_accelerated())
+    if(!sch.is_accelerated())
       continue;
 
     SimpleHWXcel xcel;
     xcel.name = func.name();
-    xcel.store_level = func.schedule().accelerate_store_level();
-    xcel.compute_level = func.schedule().accelerate_compute_level();
+    xcel.store_level = sch.accelerate_store_level();
+    xcel.compute_level = sch.accelerate_compute_level();
 
     LoopLevel store_locked = xcel.store_level.lock();
     string store_varname =

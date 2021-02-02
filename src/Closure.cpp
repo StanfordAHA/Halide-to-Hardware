@@ -60,6 +60,7 @@ void Closure::found_buffer_ref(const string &name, Type type,
 }
 
 void Closure::visit(const Call *op) {
+  //std::cout << "found call " << op->name << std::endl;
   if (op->call_type == Call::Intrinsic &&
       (ends_with(op->name, ".stencil") || ends_with(op->name, ".stencil_update"))) {
     // consider call to stencil and stencil_update
