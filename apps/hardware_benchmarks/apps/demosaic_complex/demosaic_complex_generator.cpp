@@ -139,9 +139,12 @@ int ksize = 3;
                             interleave_x(b_b, b_gb));
 
       Func demosaicked("demosaicked");
-      demosaicked(x, y, c) = select(c == 0, r(x, y),
-                                    c == 1, g(x, y),
-                                    b(x, y));
+      //demosaicked(x, y, c) = select(c == 0, r(x, y),
+      //                              c == 1, g(x, y),
+      //                              b(x, y));
+      demosaicked(x, y, c) = select(c == 0, g(x, y),
+                                    c == 1, b(x, y),
+                                    r(x, y));
       return demosaicked;
     }
 
@@ -158,6 +161,7 @@ int ksize = 3;
       //hw_output(c,x,y) = cast<uint8_t>(demosaicked(x,y,c));
 
       output(x, y, c) = cast<uint8_t>(hw_output(x, y, c));
+      //output(c, x, y) = cast<uint8_t>(hw_output(x, y, c));
       //output(x, y, c) = hw_output(c, x, y);
             
       /* THE SCHEDULE */

@@ -19,11 +19,11 @@ public:
         hw_input(x, y) = u16(input(x, y));
 
         Func countx, county;
-        countx(x,y) = x + hw_input(x,y);
-        county(x,y) = y + hw_input(x,y);
+        countx(x,y) = u16(x) + hw_input(x,y);
+        county(x,y) = u16(y) + hw_input(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(countx(x, y) + county(x, y));
+        hw_output(x, y) = countx(x, y) + county(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

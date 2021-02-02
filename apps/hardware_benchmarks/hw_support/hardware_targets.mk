@@ -422,10 +422,25 @@ check:
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
 	fi
+	@if [ -f "$(BIN)/$(TESTNAME)_memory.cpp" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " clk_codegen"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!clk_codegen"; \
+	fi
 	@if [ -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " clockwork"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!clockwork"; \
+	fi
+	@if [ -f "$(BIN)/output_cpu.$(EXT)" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " out_cpu"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!out_cpu"; \
+	fi
+	@if [ -f "$(BIN)/output_clockwork.$(EXT)" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " out_clk"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!out_clk"; \
 	fi
 	@if [ -f "$(BIN)/output.$(EXT)" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " output.png"; \

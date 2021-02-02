@@ -806,7 +806,7 @@ void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure
     stream << "\t// input and output memory objects\n";
     std::cout << "num_buffers=" << num_buffers << "  ending with " << closure_args[num_buffers-1].name << std::endl;
     for (size_t i = 0; i < num_buffers; i++) {
-        std::cout << printname(closure_args[i].name) << std::endl;
+        //std::cout << printname(closure_args[i].name) << std::endl;
         ostringstream oss;
         std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
                   << closure_args[i].stencil_type.elemType << std::endl;
@@ -998,7 +998,7 @@ void print_dynamic_args(const vector<Expr>& args,
       for (int argi=index_call->args.size()-1; argi>=0; --argi) {
         auto dynamic_index = index_call->args[argi];
         ostringstream index_print;
-        index_print << add_floor_to_divs(expand_expr(dynamic_index, scope));
+        index_print << add_floor_to_divs(simplify(expand_expr(dynamic_index, scope)));
         memory_stream << ", \"" << removedots(index_print.str()) << "\"";
         //std::cout << ", \"" << removedots(index_print.str()) << "\"";
       }
@@ -1564,7 +1564,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
       for (int argi=arg.args.size()-1; argi>=0; --argi) {
         auto index = arg.args[argi];
         ostringstream index_print;
-        index_print << add_floor_to_divs(expand_expr(index, scope));
+        index_print << add_floor_to_divs(simplify(expand_expr(index, scope)));
         memory_stream << ", \"" << removedots(index_print.str()) << "\"";
       }
     }

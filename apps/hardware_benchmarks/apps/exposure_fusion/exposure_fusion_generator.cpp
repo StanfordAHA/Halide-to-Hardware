@@ -1,277 +1,219 @@
-/*
- * An application that performs a basic camera pipeline.
- * Stages of the pipeline are hot pixel suppression, demosaicking,
- * color corrections, and applying a camera curve.
- */
-
 #include "Halide.h"
 
 namespace {
 
   using namespace Halide;
+  using namespace Halide::ConciseCasts;
+  using std::vector;
   Var x("x"), y("y"), c("c"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
-  int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
-                          {-38,  159, -21, -2541},
-                          {-8, -73,  228, -2008}};
 
+void fill_funcnames(vector<Func>& funcs, std::string name) {
+  for (size_t i=0; i<funcs.size(); ++i) {
+      funcs[i] = Func(name + "_" + std::to_string(i));
+    }
+  }
 
   class ExposureFusion : public Halide::Generator<ExposureFusion> {
     
   public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
+    Input<Buffer<uint8_t>>  input_bright{"input_bright", 3};
+    Input<Buffer<uint8_t>>  input_dark{"input_dark", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
-    GeneratorParam<float> gamma{"gamma", /*default=*/1.0};
-    GeneratorParam<float> contrast{"contrast", /*default=*/1.0};
+    int pyramid_levels = 3;
+    int bright_weighting = 3; // this would be used if a single frame is used
+    int ksize = 1;
 
-    Func interleave_x(Func a, Func b) {
-      Func out;
-      out(x, y) = select((x%2)==0, a(x, y), b(x-1, y));
-      return out;
-    }
-
-    Func interleave_y(Func a, Func b) {
-      Func out;
-      out(x, y) = select((y%2)==0, a(x, y), b(x, y-1));
-      return out;
-    }
-
-    Expr avg(Expr a, Expr b) {
-      return (a + b + 1) >> 1;
-    }
-    
-    // Performs hot pixel suppression by comparing to local pixels.
-    Func hot_pixel_suppression(Func input) {
-      Func denoised("denoised");
-      Expr max_value = max(max(input(x-2, y), input(x+2, y)),
-                           max(input(x, y-2), input(x, y+2)));
-      Expr min_value = min(min(input(x-2, y), input(x+2, y)),
-                           min(input(x, y-2), input(x, y+2)));
-      
-      denoised(x, y) = clamp(input(x,y), min_value, max_value);
-      return denoised;
-    }
-
-    // Demosaics a raw input image. Recall that the values appear as:
-    //   R G R G R G R G
-    //   G B G B G B G B
-    //   R G R G R G R G
-    //   G B G B G B G B
-    Func demosaic(Func raw) {
-      // The demosaic algorithm is optimized for HLS schedule
-      // such that the bound analysis can derive a constant window
-      // and shift step without needed to unroll 'demosaic' into
-      // a 2x2 grid.
-      //
-      // The changes made from the original is that there is no
-      // explict downsample and upsample in 'deinterleave' and
-      // 'interleave', respectively.
-      // All the intermediate functions are the same size as the
-      // raw image although only pixels at even coordinates are used.
-
-      // These are the values we already know from the input
-      // x_y = the value of channel x at a site in the input of channel y
-      // gb refers to green sites in the blue rows
-      // gr refers to green sites in the red rows
-
-      // Give more convenient names to the four channels we know
-      Func r_r, g_gr, g_gb, b_b;
-      g_gr(x, y) = raw(x, y);//deinterleaved(x, y, 0);
-      r_r(x, y)  = raw(x+1, y);//deinterleaved(x, y, 1);
-      b_b(x, y)  = raw(x, y+1);//deinterleaved(x, y, 2);
-      g_gb(x, y) = raw(x+1, y+1);//deinterleaved(x, y, 3);
-
-      // These are the ones we need to interpolate
-      Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
-
-      // First calculate green at the red and blue sites
-      // Try interpolating vertically and horizontally. Also compute
-      // differences vertically and horizontally. Use interpolation in
-      // whichever direction had the smallest difference.
-      Expr gv_r  = avg(g_gb(x, y-1), g_gb(x, y));
-      Expr gvd_r = absd(g_gb(x, y-1), g_gb(x, y));
-      Expr gh_r  = avg(g_gr(x+1, y), g_gr(x, y));
-      Expr ghd_r = absd(g_gr(x+1, y), g_gr(x, y));
-
-      g_r(x, y)  = select(ghd_r < gvd_r, gh_r, gv_r);
-
-      Expr gv_b  = avg(g_gr(x, y+1), g_gr(x, y));
-      Expr gvd_b = absd(g_gr(x, y+1), g_gr(x, y));
-      Expr gh_b  = avg(g_gb(x-1, y), g_gb(x, y));
-      Expr ghd_b = absd(g_gb(x-1, y), g_gb(x, y));
-
-      g_b(x, y)  = select(ghd_b < gvd_b, gh_b, gv_b);
-
-      // Next interpolate red at gr by first interpolating, then
-      // correcting using the error green would have had if we had
-      // interpolated it in the same way (i.e. add the second derivative
-      // of the green channel at the same place).
-      Expr correction;
-      correction = g_gr(x, y) - avg(g_r(x, y), g_r(x-1, y));
-      r_gr(x, y) = correction + avg(r_r(x-1, y), r_r(x, y));
-
-      // Do the same for other reds and blues at green sites
-      correction = g_gr(x, y) - avg(g_b(x, y), g_b(x, y-1));
-      b_gr(x, y) = correction + avg(b_b(x, y), b_b(x, y-1));
-
-      correction = g_gb(x, y) - avg(g_r(x, y), g_r(x, y+1));
-      r_gb(x, y) = correction + avg(r_r(x, y), r_r(x, y+1));
-
-      correction = g_gb(x, y) - avg(g_b(x, y), g_b(x+1, y));
-      b_gb(x, y) = correction + avg(b_b(x, y), b_b(x+1, y));
-
-      // Now interpolate diagonally to get red at blue and blue at
-      // red. Hold onto your hats; this gets really fancy. We do the
-      // same thing as for interpolating green where we try both
-      // directions (in this case the positive and negative diagonals),
-      // and use the one with the lowest absolute difference. But we
-      // also use the same trick as interpolating red and blue at green
-      // sites - we correct our interpolations using the second
-      // derivative of green at the same sites.
-      correction = g_b(x, y)  - avg(g_r(x, y), g_r(x-1, y+1));
-      Expr rp_b  = correction + avg(r_r(x, y), r_r(x-1, y+1));
-      Expr rpd_b = absd(r_r(x, y), r_r(x-1, y+1));
-
-      correction = g_b(x, y)  - avg(g_r(x-1, y), g_r(x, y+1));
-      Expr rn_b  = correction + avg(r_r(x-1, y), r_r(x, y+1));
-      Expr rnd_b = absd(r_r(x-1, y), r_r(x, y+1));
-
-      r_b(x, y)  = select(rpd_b < rnd_b, rp_b, rn_b);
-
-      // Same thing for blue at red
-      correction = g_r(x, y)  - avg(g_b(x, y), g_b(x+1, y-1));
-      Expr bp_r  = correction + avg(b_b(x, y), b_b(x+1, y-1));
-      Expr bpd_r = absd(b_b(x, y), b_b(x+1, y-1));
-
-      correction = g_r(x, y)  - avg(g_b(x+1, y), g_b(x, y-1));
-      Expr bn_r  = correction + avg(b_b(x+1, y), b_b(x, y-1));
-      Expr bnd_r = absd(b_b(x+1, y), b_b(x, y-1));
-
-      b_r(x, y)  =  select(bpd_r < bnd_r, bp_r, bn_r);
-
-      // Interleave the resulting channels
-      Func r = interleave_y(interleave_x(r_gr, r_r),
-                            interleave_x(r_b, r_gb));
-      Func g = interleave_y(interleave_x(g_gr, g_r),
-                            interleave_x(g_b, g_gb));
-      Func b = interleave_y(interleave_x(b_gr, b_r),
-                            interleave_x(b_b, b_gb));
-
-      Func demosaicked("demosaicked");
-      demosaicked(x, y, c) = select(c == 0, r(x, y),
-                                    c == 1, g(x, y),
-                                    b(x, y));
-      demosaicked.bound(c, 0, 3);
-      return demosaicked;
-    }
-
-    // Applies a color correction matrix to redefine rgb values.
-    Func color_correct(Func input, int32_t matrix[3][4]) {
-      Expr ir = cast<int32_t>(input(x, y, 0));
-      Expr ig = cast<int32_t>(input(x, y, 1));
-      Expr ib = cast<int32_t>(input(x, y, 2));
-
-      Expr r = matrix[0][3] + matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
-      Expr g = matrix[1][3] + matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
-      Expr b = matrix[2][3] + matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
-
-      r = cast<int16_t>(r/256);
-      g = cast<int16_t>(g/256);
-      b = cast<int16_t>(b/256);
-
-      Func corrected;
-      corrected(x, y, c) = select(c == 0, r,
-                                  c == 1, g,
-                                  b);
-
-      return corrected;
-    }
-
-
-    // Applies a non-linear camera curve.
-    Func apply_curve(Func input, Func curve) {
-      // copied from FCam
-
-      Func curved("curved");
-      Expr in_val = clamp(input(x, y, c), 0, 1023);
-      curved(x, y, c) = select(input(x, y, c) < 0, 0,
-                               input(x, y, c) >= 1024, 255,
-                               curve(in_val));
-
-      curved.reorder(x,y,c);
-      //curved.bound(c, 0, 3);
-      //curved.reorder(x,y,c).unroll(c);
-      return curved;
-    }
-
-    
     void generate() {
 
-      Func hw_input;
-      hw_input(x,y) = input(x+3,y+3);
+      Func hw_input_bright, hw_input_dark;
+      hw_input_bright(x,y,c) = u16(input_bright(x+3, y+3, c));
+      hw_input_dark(x,y,c) = u16(input_dark(x+3, y+3, c));
 
-      Func denoised;
-      denoised = hot_pixel_suppression(hw_input);
+      // Create exposure weight
+      Func weight_dark, weight_bright, weight_sum, weight_dark_norm, weight_bright_norm;
+      weight_dark(x, y, c)   = 2 * hw_input_dark(x, y, c);
+      weight_bright(x, y, c) = 2 * hw_input_bright(x, y, c);
+      weight_sum(x, y, c) = weight_dark(x,y,c) + weight_bright(x,y,c);
+      
+      weight_dark_norm(x,y,c)   = weight_dark(x,y,c)   / weight_sum(x,y,c);
+      weight_bright_norm(x,y,c) = weight_bright(x,y,c) / weight_sum(x,y,c);
 
-      Func demosaicked;
-      demosaicked = demosaic(denoised);
+      // Create gaussian pyramids of the weights
+      vector<Func> dark_weight_gpyramid(pyramid_levels);
+      vector<Func> bright_weight_gpyramid(pyramid_levels);
+      dark_weight_gpyramid =   gaussian_pyramid(weight_dark_norm, pyramid_levels, "dweight");
+      bright_weight_gpyramid = gaussian_pyramid(weight_bright_norm, pyramid_levels, "bweight");
 
-      Func color_corrected;
-      color_corrected = color_correct(demosaicked, matrix);
+      // Create laplacian pyramids of the input images
+      vector<Func> dark_input_lpyramid(pyramid_levels);
+      vector<Func> dark_input_gpyramid(pyramid_levels);
+      vector<Func> bright_input_lpyramid(pyramid_levels);
+      vector<Func> bright_input_gpyramid(pyramid_levels);
+      dark_input_lpyramid =   laplacian_pyramid(hw_input_dark, pyramid_levels,
+                                                dark_input_gpyramid, "dinput");
+      bright_input_lpyramid = laplacian_pyramid(hw_input_bright, pyramid_levels,
+                                                bright_input_gpyramid, "binput");
 
-      Func curve;
-      {
-        Expr xf = x/1024.0f;
-        Expr g = pow(xf, 1.0f/gamma);
-        Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
-        Expr a = 2.0f - 2.0f*b;
-        Expr val = select(g > 0.5f,
-                          1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
-                          a*g*g + b*g);
-        curve(x) = cast<uint8_t>(clamp(val*256.0f, 0.0f, 255.0f));
-      }
+      // Merge the input pyramids using the weight pyramids
+      vector<Func> merged_pyramid(pyramid_levels);
+      merged_pyramid = merge_pyramids(dark_weight_gpyramid,
+                                      bright_weight_gpyramid,
+                                      dark_input_lpyramid,
+                                      bright_input_lpyramid,
+                                      "merge_pyr");
 
+      // Collapse the merged pyramid to create a single image
+      Func blended_image;
+      blended_image = flatten_pyramid(merged_pyramid);
+      
       Func hw_output;
-      hw_output = apply_curve(color_corrected, curve);
+      hw_output(x, y, c) = blended_image(x, y, c);
 
-      output(x, y, c) = hw_output(x, y, c);
+      output(x, y, c) = u8(hw_output(x, y, c));
 
-      curve.bound(x, 0, 255);
       output.bound(c, 0, 3);
-      output.bound(x, 0, 58);
-      output.bound(y, 0, 58);
+      output.bound(x, 0, 64-ksize+1);
+      output.bound(y, 0, 64-ksize+1);
 
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
-        hw_input.store_at(hw_output, xo).compute_at(denoised, x);
+
+      } else if (get_target().has_feature(Target::Clockwork)) {
+
         hw_output.compute_root();
 
-        hw_output.accelerate({hw_input}, xi, xo, {});
-        hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
-          .reorder(c,xi,yi,xo,yo);;
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+          .reorder(xi,yi,c,xo,yo)
+          .hw_accelerate(xi, xo);
+        //hw_output.unroll(c);
 
-        //hw_output.unroll(c).unroll(xi, 2);
-        hw_output.unroll(c);
-        
-        demosaicked.linebuffer();
-        demosaicked.unroll(c);
-        //demosaicked.reorder(c, x, y);
+        blended_image.compute_at(hw_output, xo);
 
-        denoised.linebuffer();
-        //.unroll(x).unroll(y);
-
-        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-        
-        hw_input.stream_to_accelerator();
+        for (size_t i=0; i<merged_pyramid.size(); ++i) {
+          merged_pyramid[i].compute_at(hw_output, xo);
           
-      } else {    // schedule to CPU
-        output.tile(x, y, xo, yo, xi, yi, 58,58)
-          .compute_root();
+          dark_input_lpyramid[i].compute_at(hw_output, xo);
+          bright_input_lpyramid[i].compute_at(hw_output, xo);
+          dark_input_gpyramid[i].compute_at(hw_output, xo);
+          bright_input_gpyramid[i].compute_at(hw_output, xo);
+          
+          dark_weight_gpyramid[i].compute_at(hw_output, xo);
+          bright_weight_gpyramid[i].compute_at(hw_output, xo);
+        }
 
-        output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+        weight_sum.compute_at(hw_output, xo);
+        
+        hw_input_bright.stream_to_accelerator();
+        hw_input_dark.stream_to_accelerator();
+        
+      } else {    // schedule to CPU
+        output.compute_root();
+        for (size_t i=0; i<merged_pyramid.size(); ++i) {
+          merged_pyramid[i].compute_root();
+          dark_input_lpyramid[i].compute_root();
+          bright_input_lpyramid[i].compute_root();
+          dark_weight_gpyramid[i].compute_root();
+          bright_weight_gpyramid[i].compute_root();
+        }
       }
     }
+
+private:
+    Var x, y, c, k;
+
+    // Downsample with a 1 3 3 1 filter
+    Func downsample(Func f) {
+        using Halide::_;
+        Func downx, downy;
+        downx(x, y, _) = (f(2*x-1, y, _) + 3.0f * (f(2*x, y, _) + f(2*x+1, y, _)) + f(2*x+2, y, _)) / 8.0f;
+        downy(x, y, _) = (downx(x, 2*y-1, _) + 3.0f * (downx(x, 2*y, _) + downx(x, 2*y+1, _)) + downx(x, 2*y+2, _)) / 8.0f;
+        return downy;
+    }
+
+    // Upsample using bilinear interpolation (1 3 3 1)
+    Func upsample(Func f) {
+        using Halide::_;
+        Func upx, upy;
+        upx(x, y, _) = 0.25f * f((x/2) - 1 + 2*(x % 2), y, _) + 0.75f * f(x/2, y, _);
+        upy(x, y, _) = 0.25f * upx(x, (y/2) - 1 + 2*(y % 2), _) + 0.75f * upx(x, y/2, _);
+        return upy;
+    }
+
+    // Create a gaussian pyramid
+    vector<Func> gaussian_pyramid(Func f, int num_levels, std::string name) {
+      using Halide::_;
+      
+      vector<Func> gPyramid(num_levels);
+      fill_funcnames(gPyramid, name + "_gpyr");
+      
+      gPyramid[0](x, y, _) = f(x, y, _);
+      for (int j = 1; j < num_levels; j++) {
+        gPyramid[j](x, y, _) = downsample(gPyramid[j-1])(x, y, _);
+      }
+
+      return gPyramid;
+    }
+
+    // Create a laplacian pyramid
+    vector<Func> laplacian_pyramid(Func f, int num_levels, vector<Func> &gPyramid, std::string name) {
+      using Halide::_;
+      
+      gPyramid = gaussian_pyramid(f, num_levels, name + "_gpyr");
+
+      vector<Func> lPyramid(num_levels);
+      fill_funcnames(lPyramid, name + "_lpyr");
+      
+      // The last level is the same as the last level of the guassian pyramid.
+      lPyramid[num_levels-1](x, y, _) = gPyramid[num_levels-1](x, y, _);
+
+      // Create the laplacian pyramid from the last level up to the first.
+      for (int j = num_levels-2; j >= 0; j--) {
+        lPyramid[j](x, y, _) = gPyramid[j](x, y, _) - upsample(gPyramid[j+1])(x, y, _);
+      }
+
+      return lPyramid;
+    }
+
+    // Blend two pyramids together with weights
+    vector<Func> merge_pyramids(vector<Func> weights0, vector<Func> weights1,
+                                vector<Func> img0, vector<Func> img1, std::string name) {
+      using Halide::_;
+      
+      assert(weights0.size() == weights1.size());
+      assert(weights0.size() == img0.size());
+      assert(weights0.size() == img1.size());
+      int num_levels = weights0.size();
+      
+      vector<Func> blended_pyramid(num_levels);
+      fill_funcnames(blended_pyramid, name);
+      for (int i=0; i<num_levels; ++i) {
+        blended_pyramid[i](x, y, _) =
+          weights0[i](x,y,_) * img0[i](x,y,_) +
+          weights1[i](x,y,_) * img1[i](x,y,_);
+      }
+      
+      return blended_pyramid;
+    }
+
+    // Flatten a pyramid
+    Func flatten_pyramid(vector<Func> &pyramid) {
+      using Halide::_;
+
+      Func lImg;
+      Func gImg;
+      int num_levels = pyramid.size();
+      for (int level = num_levels-1; level > 0; --level) {
+        gImg = pyramid[level];
+        lImg = pyramid[level-1];
+        Func upsampled = upsample(gImg);
+        lImg(x,y,_) = lImg(x,y,_) * upsampled(x,y,_);
+      }
+      
+      return lImg;
+    }
+    
   };
 
 }  // namespace

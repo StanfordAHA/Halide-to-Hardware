@@ -59,9 +59,51 @@ int main( int argc, char **argv ) {
 
   processor.input   = Buffer<uint8_t>(64, 64);
   processor.output  = Buffer<uint8_t>(62, 62, 3);
-  //processor.input   = Buffer<uint16_t>(64, 64);
-  //processor.output  = Buffer<uint16_t>(62, 62);
+  //processor.output  = Buffer<uint8_t>(3, 62, 62);
   
-  return processor.process_command(argc, argv);
+
+  auto ret_value = processor.process_command(argc, argv);
+  //std::cout << "input:" << std::endl;
+  //for (int y=0; y<5; ++y) {
+  //  for (int x=0; x<8; ++x) {
+  //    std::cout << "y=" << y << ",x=" << x << " : " << std::hex << +processor.input(x, y) << std::endl;
+  //  }
+  //}
+  //
+  //std::cout << "output:" << std::endl;
+  //for (int y=0; y<3; ++y) {
+  //  for (int x=0; x<6; ++x) {
+  //    std::cout << "y=" << y << ",x=" << x << " : " << std::hex << +processor.output(x, y, 0) << std::endl;
+  //  }
+  //}
+
+  bool save_output = false;
+  bool save_separate_output = true;
+  if (save_output) {
+    Buffer<uint8_t> twod_output(3, 62*62);
+    for (int y=0; y<62; ++y) {
+      for (int x=0; x<62; ++x) {
+        for (int c=0; c<3; ++c) {
+          twod_output(c, x + y*62) = processor.output(c, x, y);
+        }
+      }
+    }
+    save_image(twod_output, "bin/linear_output.png");
+    
+  } else if (save_separate_output) {
+    for (int c=0; c<3; ++c) {
+      Buffer<uint8_t> channel_output(62, 62);
+      for (int y=0; y<62; ++y) {
+        for (int x=0; x<62; ++x) {
+          channel_output(x, y) = processor.output(x, y, c);
+        }
+      }
+      std::string filename = "bin/output" + std::to_string(c) + ".png";
+      save_image(channel_output, filename);
+    }
+  }
+
+  return ret_value;
+  //return processor.process_command(argc, argv);
   
 }
