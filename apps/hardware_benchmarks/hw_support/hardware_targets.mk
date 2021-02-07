@@ -22,6 +22,7 @@ LDFLAGS += -lcoreir-lakelib
 CLOCKWORK_PATH ?= $(HALIDE_SRC_PATH)/../clockwork
 ISL_PATH ?= $(CLOCKWORK_PATH)/barvinok-0.41/isl
 CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include -I$(ISL_PATH) -fPIC
+CLOCKWORK_CXX_FLAGS += -I$(CLOCKWORK_PATH)/barvinok-0.41/isl/
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
 CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread
 
