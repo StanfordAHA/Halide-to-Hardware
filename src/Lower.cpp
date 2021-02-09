@@ -231,8 +231,9 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     if (t.has_feature(Target::Clockwork)) {
       s = extract_hwaccelerators(s, env);
-      s = merge_compute(s, env);
       //std::cout << "IR after hwxcel extracted:\n" << s << std::endl;
+      s = merge_compute(s, env);
+      std::cout << "IR after merge_compute:\n" << s << std::endl;
     }
     
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {

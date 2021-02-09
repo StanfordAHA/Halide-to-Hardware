@@ -29,9 +29,9 @@ public:
         // Create a reduction domain of the correct bounds.
         RDom win(0, blockSize, 0, blockSize);
 
-        Func hw_input, input_copy;
+        Func hw_in, input_copy;
         input_copy(x, y) = cast<uint16_t>(input(x, y));
-        hw_input(x, y) = input_copy(x, y);
+        hw_in(x, y) = input_copy(x, y);
 
         // create the gaussian kernel
         Func kernel_f;
@@ -61,23 +61,26 @@ public:
         //for (int level=0; level<num_levels; ++level) {
         //  blur[level](x, y) = 0;
         //  if (level == 0) {
-        //    blur[level](x, y) += kernel(win.x, win.y) * hw_input(2*x+win.x, 2*y+win.y);
+        //    blur[level](x, y) += kernel(win.x, win.y) * hw_in(2*x+win.x, 2*y+win.y);
         //  } else {
         //    blur[level](x, y) += kernel(win.x, win.y) * blur[level-1](2*x+win.x, 2*y+win.y);
         //  }
         //  //blur[level](x, y) = blur[level](x, y) / 256;
         //}
 
+        Func ha_in;
+        ha_in(x, y) = hw_in(x, y);
+
         Func blur0, blur1, blur2, blur3;
-        blur0(x, y) = kernel(0,0) * hw_input(2*x,2*y) + kernel(1,0) * hw_input(2*x+1,2*y) + kernel(0,1) * hw_input(2*x,2*y+1) + kernel(1,1) * hw_input(2*x+1,2*y+1);
+        blur0(x, y) = kernel(0,0) * ha_in(2*x,2*y) + kernel(1,0) * hw_in(2*x+1,2*y) + kernel(0,1) * hw_in(2*x,2*y+1) + kernel(1,1) * hw_in(2*x+1,2*y+1);
         blur1(x, y) = kernel(0,0) * blur0(2*x,2*y) + kernel(1,0) * blur0(2*x+1,2*y) + kernel(0,1) * blur0(2*x,2*y+1) + kernel(1,1) * blur0(2*x+1,2*y+1);
         blur2(x, y) = kernel(0,0) * blur1(2*x,2*y) + kernel(1,0) * blur1(2*x+1,2*y) + kernel(0,1) * blur1(2*x,2*y+1) + kernel(1,1) * blur1(2*x+1,2*y+1);
         blur3(x, y) = kernel(0,0) * blur2(2*x,2*y) + kernel(1,0) * blur2(2*x+1,2*y) + kernel(0,1) * blur2(2*x,2*y+1) + kernel(1,1) * blur2(2*x+1,2*y+1);
 
         Func hw_output;
         //hw_output(x, y) = cast<uint8_t>( blur[num_levels-1](x, y) );
-        hw_output(x, y) = cast<uint8_t>( blur3(x, y) );
-        output(x, y) = hw_output(x, y);
+        hw_output(x, y) =  blur3(x, y);
+        output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -102,15 +105,17 @@ public:
           //}
           
           blur3.compute_at(hw_output, xo);
-          blur3.compute_share_root(blur3, x);
+          blur3.compute_share_root(blur3, x); // this shares all iteration loops
+          //blur3.compute_share_root(blur3, y); // distinct iteration loops
+          //blur3.compute_share_root(blur3, Var::outermost()); // distinct iteration loops
+
           blur2.compute_share(blur3);
           blur1.compute_share(blur3);
+          //blur0.compute_share(blur3);
           
           blur0.compute_at(hw_output, xo);
 
-          hw_input.compute_at(hw_output, xo);
-          hw_input.stream_to_accelerator();
-          input_copy.compute_root();
+          hw_in.stream_to_accelerator();
           
         } else {    // schedule to CPU
 

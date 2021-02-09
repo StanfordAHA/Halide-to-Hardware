@@ -24,6 +24,7 @@ struct SharedKernel {
   map<string, vector<string>> func_inputs;
   map<string, vector<Expr>> input_exprs; // vector of different inputs to use
   vector<Expr> provide_args; // vector of provide variables
+  vector<Stmt> iteration_loops;
 };
 
 std::ostream& operator<<(std::ostream& os, const SharedKernel& sk) {
@@ -127,6 +128,7 @@ vector<SharedKernel> find_shared_compute(const map<string, Function> &env) {
       map<string, vector<string>> compute_inputs; // shared_func -> input names
       for (const auto &input : sch.shared_func_names()) {
         Function shared_func = env.at(input);
+        //std::cout << "input: " << input << std::endl;
         auto shared_provide = Provide::make(shared_func.name(), shared_func.values(), vars);
         auto shared_closure = Function_Closure(Stmt(shared_provide), {});
         compute_inputs[input] = shared_closure.input_vars;
@@ -175,9 +177,9 @@ class GatherInputs : public IRVisitor {
 
   void visit(const Call *op) {
     if (op->name == call_target) {
-      auto new_call = Call::make(op->type, op->name, kernel.provide_args, op->call_type);
-      //kernel.input_exprs[func_name].emplace_back(Expr(op));
-      kernel.input_exprs[func_name].emplace_back(Expr(new_call));
+      //auto new_call = Call::make(op->type, op->name, kernel.provide_args, op->call_type);
+      //kernel.input_exprs[func_name].emplace_back(Expr(new_call));
+      kernel.input_exprs[func_name].emplace_back(Expr(op));
       std::cout << " input: " << Expr(op) << std::endl;
     } else {
       IRVisitor::visit(op);
@@ -230,6 +232,34 @@ void gather_inouts(Stmt s, SharedKernel& kernel) {
   GatherInputOutputs gio2(kernel, false);
   s.accept(&gio2);
 
+}
+
+
+class GatherForLoops : public IRVisitor {
+  SharedKernel& kernel;
+  
+  using IRVisitor::visit;
+
+  void visit(const For *op) {
+    auto forloop = For::make(op->name, op->min, op->extent, op->for_type, op->device_api, Stmt());
+    kernel.iteration_loops.emplace_back(forloop);
+    std::cout << "iteration: " << Stmt(forloop);
+
+    IRVisitor::visit(op);
+  }
+
+  void visit(const Realize* op) {
+    return; // stop at the first realize encountered
+  }
+
+public:
+  GatherForLoops(SharedKernel& kernel)
+    : kernel(kernel) {}
+};
+
+void gather_forloops(Stmt s, SharedKernel& kernel) {
+  GatherForLoops gfl(kernel);
+  s.accept(&gfl);
 }
 
 class GetRootFunction : public IRVisitor {
@@ -318,7 +348,7 @@ class InsertMergedFunction : public IRMutator {
         }
       }
       Stmt mux = Provide::make("share_input" + std::to_string(in_idx), {select}, {index});
-      std::cout << "mux: " << mux << std::endl;
+      std::cout << "mux: " << mux;
 
       muxes.emplace_back(mux);
     }
@@ -365,9 +395,17 @@ class InsertMergedFunction : public IRMutator {
     if (op->name == kernel.compute_parent && op->is_producer) {
       in_root_producer = true;
       std::cout << "found pc" << std::endl;
+            
       if (in_root_producer && in_compute_loop) {
         std::cout << "let's mutate" << std::endl;
       }
+    }
+
+    std::cout << kernel.compute_looplevel.to_string() << " vs " << Var::outermost().name() << std::endl;
+    if (in_root_producer &&
+        kernel.compute_looplevel.match(op->name + "." + Var::outermost().name())) {
+      std::cout << "do compute sharing here" << std::endl;
+      gather_forloops(op->body, kernel);
     }
 
     return IRMutator::visit(op);
@@ -382,6 +420,7 @@ class InsertMergedFunction : public IRMutator {
       if (in_root_producer && in_compute_loop) {
         std::cout << "let's mutate" << std::endl;
         std::cout << Stmt(op);
+        gather_forloops(op->body, kernel);
   
         // create select, compute, demux
         vector<Stmt> muxes = create_muxes();
@@ -422,13 +461,13 @@ public:
 // create merged function (realize inputs/outputs, loop, set inputs, compute, set output)
 Stmt merge_function(Stmt s, SharedKernel& kernel) {
   // example:
-  //   before: realize out4, for, for
-  //           realize out1, prod out1, provide out1
-  //           realize out2, prod out2, provide out2
-  //           realize out3, prod out3, provide out3
+  //   before: realize out4, for, for, for
+  //           realize out1, produce out1, provide out1
+  //           realize out2, produce out2, provide out2
+  //           realize out3, produce out3, provide out3
   //   after:  realize out4, for, for (compute share looplevel)
   //           realize out1,out2,out3
-  //           for i=0:3 { set gen_in, execute gen_out, store gen_out }
+  //           for i=0:3 { for, set gen_in, execute gen_out, store gen_out }
   return InsertMergedFunction(kernel).mutate(s);
 }
 

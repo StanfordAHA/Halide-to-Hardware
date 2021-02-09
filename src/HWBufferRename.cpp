@@ -82,8 +82,20 @@ class RenameStencilRealizes : public IRMutator {
       } else {
         funcname = op->name;
       }
-      //std::cout << "looking for realize " << op->name << " using name " << funcname << std::endl;
+
+      // do this for share_output, share_input. They aren't in env
+      if (starts_with(funcname, "share")) {
+        internal_assert(env.count(funcname) == 0);
+        string realize_name = op->name + ".stencil";
+        //std::cout << op->name << " getting new name " << realize_name << " with type=" << realization_type << std::endl;
+        Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
+        new_body = mutate(new_body);
+        return Realize::make(realize_name, op->types, op->memory_type,
+                             op->bounds, op->condition, new_body);
+      }
       
+      //std::cout << "looking for realize " << op->name << " using name " << funcname << std::endl;
+      internal_assert(env.count(funcname) > 0) << "looking for realize " + op->name + " using name " + funcname;
       auto func = env.at(funcname);
 
       // ROMs should be flattened, so don't append ".stencil"
@@ -102,6 +114,7 @@ class RenameStencilRealizes : public IRMutator {
         new_body = mutate(new_body);
         return Realize::make(realize_name, op->types, op->memory_type,
                              op->bounds, op->condition, new_body);
+        
       } else if (realization_type == CONSTS_REALIZATION &&
                  (in_xcel || func.schedule().is_accelerator_input())) {
         string realize_name = op->name + ".const.stencil";
@@ -116,7 +129,8 @@ class RenameStencilRealizes : public IRMutator {
         if (!func.schedule().is_accelerated()) {
           return IRMutator::visit(op);
         }
-      
+
+        // start of accelerated portion
         string realize_name = op->name + ".stencil";
         Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
 
