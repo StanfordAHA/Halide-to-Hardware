@@ -57,7 +57,8 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
 
   processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(128, 128);
+  //processor.output  = Buffer<uint8_t>(128, 128);
+  processor.output  = Buffer<uint8_t>(124, 124);
 
   auto return_value = processor.process_command(argc, argv);
   std::cout << "input is size " << processor.input.dim(1).extent() << " x "

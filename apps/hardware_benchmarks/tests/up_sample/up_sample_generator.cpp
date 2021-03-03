@@ -18,9 +18,12 @@ public:
         Func nearest_neighbor("nearest_neighbor");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        hw_input(x, y) = cast<uint16_t>(input(x+1, y+1));
 
-        nearest_neighbor(x, y) = hw_input(x / factor, y / factor);
+        //nearest_neighbor(x, y) = hw_input(x / factor, y / factor);
+        Func upx, upy;
+        upx(x, y, _) = hw_input((x/2) - 1 + 2*(x % 2), y, _) / 4 + 3*hw_input(x/2, y, _) / 4;
+        nearest_neighbor(x, y, _) = upx(x, (y/2) - 1 + 2*(y % 2), _) / 4 + 3*upx(x, y/2, _) / 4;
 
         Func hw_output("hw_output");
         hw_output(x, y) = nearest_neighbor(x, y);
@@ -32,28 +35,15 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
             Var xi, yi, xo, yo;
 
-            output.bound(x, 0, 128);
-            output.bound(y, 0, 128);
+            int osize = 124;
+
+            output.bound(x, 0, osize);
+            output.bound(y, 0, osize);
             
             hw_output.compute_root();
 
-            hw_output.tile(x, y, xo, yo, xi, yi, 128, 128)
+            hw_output.tile(x, y, xo, yo, xi, yi, osize, osize)
                 .hw_accelerate(xi, xo);
-
-            hw_input.stream_to_accelerator();
-        } else if (get_target().has_feature(Target::Clockwork)) {
-            Var xi, yi, xo, yo;
-
-            output.bound(x, 0, 128);
-            output.bound(y, 0, 128);
-            
-            hw_input.compute_root();
-            hw_output.compute_root();
-
-            hw_output.tile(x, y, xo, yo, xi, yi, 128, 128)
-                .hw_accelerate(xi, xo);
-
-            nearest_neighbor.compute_at(hw_output, xo);
 
             hw_input.stream_to_accelerator();
             
