@@ -1,3 +1,6 @@
+#ifndef HW_SUPPORT_HARDWARE_PROCESS_HELPER_H
+#define HW_SUPPORT_HARDWARE_PROCESS_HELPER_H
+
 #include <cstdio>
 #include <iostream>
 #include <functional>
@@ -81,21 +84,21 @@ class OneInOneOut_ProcessController : public ProcessController<TO> {
 
 };
 
-template <class T>
-class ManyInOneOut_ProcessController : public ProcessController<T> {
+template <class TI, class TO = TI>
+class ManyInOneOut_ProcessController : public ProcessController<TO> {
  public:
   ManyInOneOut_ProcessController(std::string app_name, std::vector<std::string> filenames,
                                 std::map<std::string, std::function<void()>> ops) :
-    ProcessController<T>(app_name), input_filenames(filenames), inputs_preset(false), design_name(app_name) {
+    ProcessController<TO>(app_name), input_filenames(filenames), inputs_preset(false), design_name(app_name) {
     for (auto filename : filenames) {
-      inputs[filename] = Halide::Runtime::Buffer<T>();
+      inputs[filename] = Halide::Runtime::Buffer<TI>();
     }
     run_calls = ops;
   }
   ManyInOneOut_ProcessController(std::string app_name, std::vector<std::string> filenames) :
-    ProcessController<T>(app_name), input_filenames(filenames), inputs_preset(false), design_name(app_name) {
+    ProcessController<TO>(app_name), input_filenames(filenames), inputs_preset(false), design_name(app_name) {
     for (auto filename : filenames) {
-      inputs[filename] = Halide::Runtime::Buffer<T>();
+      inputs[filename] = Halide::Runtime::Buffer<TI>();
     }
   }
 
@@ -108,8 +111,8 @@ class ManyInOneOut_ProcessController : public ProcessController<T> {
 
   // buffers
   std::vector<std::string> input_filenames;
-  std::map<std::string, Halide::Runtime::Buffer<T>> inputs;
-  Halide::Runtime::Buffer<T> output;
+  std::map<std::string, Halide::Runtime::Buffer<TI>> inputs;
+  Halide::Runtime::Buffer<TO> output;
   bool inputs_preset;
   std::map<std::string, std::function<void()>> run_calls;
 
@@ -117,3 +120,5 @@ class ManyInOneOut_ProcessController : public ProcessController<T> {
   std::string design_name;
 
 };
+
+#endif
