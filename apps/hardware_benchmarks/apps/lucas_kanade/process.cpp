@@ -23,7 +23,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint8_t> processor("lucas_kanade", {"input0.png", "input1.png"});
+  ManyInOneOut_ProcessController<uint8_t,float> processor("lucas_kanade", {"input0.png", "input1.png"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {

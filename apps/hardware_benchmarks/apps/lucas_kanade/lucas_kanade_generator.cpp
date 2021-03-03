@@ -227,12 +227,16 @@ public:
         if (auto_schedule) {
         } else if (get_target().has_feature(Target::CoreIR)) {
         } else if (get_target().has_feature(Target::Clockwork)) {
+          
             output.bound(x, 0, width-2*window);
             output.bound(y, 0, height-2*window);
+            output.bound(z, 0, 2);
 
             hw_output.compute_root();
-            hw_output.tile(x, y, xo, yo, xi, yi, width-2*window, height-2*window)
-                .hw_accelerate(xi, xo);
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, width-2*window, height-2*window)
+              .reorder(xi, yi, z, xo, yo)
+              .hw_accelerate(xi, xo);
 
             fx.update().unroll(conv.x, 2).unroll(conv.y, 2);
             fy.update().unroll(conv.x, 2).unroll(conv.y, 2);

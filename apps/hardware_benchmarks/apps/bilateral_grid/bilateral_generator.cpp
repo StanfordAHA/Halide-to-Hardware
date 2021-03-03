@@ -93,24 +93,49 @@ public:
         Expr val2 = input_copy(x, y);
         val2 = clamp(val2, 0, 255);
 
-        Expr xf = cast<int>(clamp(x % s_sigma, 0, s_sigma));
-        Expr yf = cast<int>(clamp(y % s_sigma, 0, s_sigma));
-        Expr zf = cast<int>(clamp(val2 % r_sigma, 0, r_sigma));
+        //Expr xf = cast<int>(clamp(x % s_sigma, 0, s_sigma));
+        //Expr yf = cast<int>(clamp(y % s_sigma, 0, s_sigma));
+        //Expr zf = cast<int>(clamp(val2 % r_sigma, 0, r_sigma));
+        //
+        //Expr xii = cast<int>(clamp(x/s_sigma, 0, (128/s_sigma)+1));
+        //Expr yii = cast<int>(clamp(y/s_sigma, 0, (128/s_sigma)+1));
+        //Expr zi2 = cast<int>(clamp(val2/r_sigma, 0, (255/r_sigma)+1));
 
-        Expr xii = cast<int>(clamp(x/s_sigma, 0, (128/s_sigma)+1));
-        Expr yii = cast<int>(clamp(y/s_sigma, 0, (128/s_sigma)+1));
-        Expr zi2 = cast<int>(clamp(val2/r_sigma, 0, (255/r_sigma)+1));
+        Func xf, yf, zf;
+        xf(x) = cast<int>(clamp(x % s_sigma, 0, s_sigma));
+        yf(y) = cast<int>(clamp(y % s_sigma, 0, s_sigma));
+        zf(x, y) = cast<int>(clamp(val2 % r_sigma, 0, r_sigma));
+
+        Func xii, yii, zi2, xii_p1, yii_p1, zi2_p1;
+        xii(x) = cast<int>(clamp(x/s_sigma, 0, (128/s_sigma)+1));
+        yii(y) = cast<int>(clamp(y/s_sigma, 0, (128/s_sigma)+1));
+        zi2(x, y) = cast<int>(clamp(val2/r_sigma, 0, (255/r_sigma)+1));        
+        xii_p1(x) = xii(x) + 1;
+        yii_p1(y) = yii(y) + 1;
+        zi2_p1(x, y) = zi2(x, y) + 1;
 
         Func interpolated("interpolated");
         Func interpolated_count("interpolated_count");
-        interpolated(x, y) = linterp(linterp(linterp(blury(xii, yii, zi2),   blury(xii+1, yii, zi2), xf, s_sigma),
-                                        linterp(blury(xii, yii+1, zi2), blury(xii+1, yii+1, zi2), xf, s_sigma), yf, s_sigma),
-                                        linterp(linterp(blury(xii, yii, zi2+1),   blury(xii+1, yii, zi2+1), xf, s_sigma),
-                                        linterp(blury(xii, yii+1, zi2+1), blury(xii+1, yii+1, zi2+1), xf, s_sigma), yf, s_sigma), zf, r_sigma);
-        interpolated_count(x, y) = linterp(linterp(linterp(blur_count_y(xii, yii, zi2),   blur_count_y(xii+1, yii, zi2), xf, s_sigma),
-                                        linterp(blur_count_y(xii, yii+1, zi2), blur_count_y(xii+1, yii+1, zi2), xf, s_sigma), yf, s_sigma),
-                                        linterp(linterp(blur_count_y(xii, yii, zi2+1),   blur_count_y(xii+1, yii, zi2+1), xf, s_sigma),
-                                        linterp(blur_count_y(xii, yii+1, zi2+1), blur_count_y(xii+1, yii+1, zi2+1), xf, s_sigma), yf, s_sigma), zf, r_sigma);
+        //interpolated(x, y) = linterp(linterp(linterp(blury(xii, yii, zi2),   blury(xii+1, yii, zi2), xf, s_sigma),
+        //                                linterp(blury(xii, yii+1, zi2), blury(xii+1, yii+1, zi2), xf, s_sigma), yf, s_sigma),
+        //                                linterp(linterp(blury(xii, yii, zi2+1),   blury(xii+1, yii, zi2+1), xf, s_sigma),
+        //                                linterp(blury(xii, yii+1, zi2+1), blury(xii+1, yii+1, zi2+1), xf, s_sigma), yf, s_sigma), zf, r_sigma);
+        //interpolated_count(x, y) = linterp(linterp(linterp(blur_count_y(xii, yii, zi2),   blur_count_y(xii+1, yii, zi2), xf, s_sigma),
+        //                                linterp(blur_count_y(xii, yii+1, zi2), blur_count_y(xii+1, yii+1, zi2), xf, s_sigma), yf, s_sigma),
+        //                                linterp(linterp(blur_count_y(xii, yii, zi2+1),   blur_count_y(xii+1, yii, zi2+1), xf, s_sigma),
+        //                                linterp(blur_count_y(xii, yii+1, zi2+1), blur_count_y(xii+1, yii+1, zi2+1), xf, s_sigma), yf, s_sigma), zf, r_sigma);
+        interpolated(x, y) = linterp(linterp(linterp(blury(xii(x), yii(y), zi2(x,y)),   blury(xii_p1(x), yii(y), zi2(x,y)), xf(x), s_sigma),
+                                        linterp(blury(xii(x), yii_p1(y), zi2(x,y)), blury(xii_p1(x), yii_p1(y), zi2(x,y)), xf(x), s_sigma), yf(y), s_sigma),
+                                        linterp(linterp(blury(xii(x), yii(y), zi2_p1(x,y)),   blury(xii_p1(x), yii(y), zi2_p1(x,y)), xf(x), s_sigma),
+                                        linterp(blury(xii(x), yii_p1(y), zi2_p1(x,y)), blury(xii_p1(x), yii_p1(y), zi2_p1(x,y)), xf(x), s_sigma), yf(y), s_sigma), zf(x,y), r_sigma);
+        interpolated_count(x, y) = linterp(linterp(linterp(blur_count_y(xii(x), yii(y), zi2(x,y)),   blur_count_y(xii_p1(x), yii(y), zi2(x,y)), xf(x), s_sigma),
+                                        linterp(blur_count_y(xii(x), yii_p1(y), zi2(x,y)), blur_count_y(xii_p1(x), yii_p1(y), zi2(x,y)), xf(x), s_sigma), yf(y), s_sigma),
+                                        linterp(linterp(blur_count_y(xii(x), yii(y), zi2_p1(x,y)),   blur_count_y(xii_p1(x), yii(y), zi2_p1(x,y)), xf(x), s_sigma),
+                                        linterp(blur_count_y(xii(x), yii_p1(y), zi2_p1(x,y)), blur_count_y(xii_p1(x), yii_p1(y), zi2_p1(x,y)), xf(x), s_sigma), yf(y), s_sigma), zf(x,y), r_sigma);
+
+
+
+        
                 // interpolated(x, y) = linterp(blury(xii, yii, zi2),   blury(xii+1, yii, zi2), xf, s_sigma);
                 // interpolated_count(x, y) = linterp(blur_count_y(xii, yii, zi2),   blur_count_y(xii+1, yii, zi2), xf, s_sigma);
         // interpolated(x, y) = blury(xii, yii, zi2)/(blur_count_y(xii, yii, zi2)); 
@@ -141,10 +166,24 @@ public:
 
 
             interpolated.compute_at(hw_output, xo).store_at(hw_output, xo);
+
+            xii_p1.compute_at(hw_output, xo);
+            yii_p1.compute_at(hw_output, xo);
+            zi2_p1.compute_at(hw_output, xo);
+            xii.compute_at(hw_output, xo);
+            yii.compute_at(hw_output, xo);
+            zi2.compute_at(hw_output, xo);
+            xf.compute_at(hw_output, xo);
+            yf.compute_at(hw_output, xo);
+            zf.compute_at(hw_output, xo);
+            
             blurx.compute_at(hw_output, xo).store_at(hw_output, xo);
             blury.compute_at(hw_output, xo).store_at(hw_output, xo);          
             blurz.compute_at(hw_output, xo).store_at(hw_output, xo);
 
+            blur_count_x.compute_at(hw_output, xo);
+            blur_count_y.compute_at(hw_output, xo);
+            blur_count_z.compute_at(hw_output, xo);
             
             input_copy.compute_at(hw_output, xo);
             hw_input.stream_to_accelerator();

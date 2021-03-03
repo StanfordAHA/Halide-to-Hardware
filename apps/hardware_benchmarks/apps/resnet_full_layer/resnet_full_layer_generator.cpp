@@ -169,8 +169,6 @@ public:
             //.reorder(z_cgra, w_cgra, x, y, z_gb, w_gb);
             .split(w, w_gb, w_cgra, k_oc)
             .reorder(zz, w_cgra, x, y, z, w_gb);
-
-
           
         } else {  // schedule to CPU
           output_cgra.compute_root();

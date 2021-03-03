@@ -49,10 +49,10 @@ public:
         Func hw_output("hw_output"), output_gb, output_host;
         output_gb(x, y) = conv(x, y);
         //output_host(x, y) = output_gb(x, y);
-        hw_output(x, y) = cast<uint8_t>(output_gb(x, y));
+        hw_output(x, y) = output_gb(x, y);
         //hw_output(x, y) = cast<uint8_t>(conv(x, y));
 
-        output(x, y) = hw_output(x,y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

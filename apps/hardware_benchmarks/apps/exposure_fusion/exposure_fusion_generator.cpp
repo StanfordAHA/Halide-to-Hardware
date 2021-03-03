@@ -22,13 +22,14 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
     int pyramid_levels = 3;
     int bright_weighting = 3; // this would be used if a single frame is used
-    int ksize = 1;
-
+    int ksize = 23;
+    int shift = 11;
+    
     void generate() {
 
       Func hw_input_bright, hw_input_dark;
-      hw_input_bright(x,y,c) = u16(input_bright(x+3, y+3, c));
-      hw_input_dark(x,y,c) = u16(input_dark(x+3, y+3, c));
+      hw_input_bright(x,y,c) = u16(input_bright(x+shift, y+shift, c));
+      hw_input_dark(x,y,c) = u16(input_dark(x+shift, y+shift, c));
 
       // Create exposure weight
       Func weight_dark, weight_bright, weight_sum, weight_dark_norm, weight_bright_norm;

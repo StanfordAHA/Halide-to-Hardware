@@ -56,7 +56,7 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  int ksize = 1;
+  int ksize = 23;
 
   processor.inputs["in_bright.png"] = Buffer<uint8_t>(64, 64, 3);
   processor.inputs["in_dark.png"]   = Buffer<uint8_t>(64, 64, 3);
