@@ -60,7 +60,8 @@ int main( int argc, char **argv ) {
 
   // Read wave file
   AudioFile<int16_t> audioFile;
-  std::string filename = "love";
+  //std::string filename = "love";
+  std::string filename = "distortion";
   readAudioData<int16_t>(filename + ".wav", &audioFile);
   std::cout << audioFile.header;
 

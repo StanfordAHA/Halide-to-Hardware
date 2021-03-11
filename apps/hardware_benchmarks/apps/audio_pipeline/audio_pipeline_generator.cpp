@@ -16,8 +16,8 @@ namespace {
 
   int ksize = 1;
   float sample_freq = 44100;
-//int num_samples = 31466; //distortion
-int32_t num_samples = 412255; //love
+int num_samples = 31466; //distortion
+//int32_t num_samples = 412255; //love
   int16_t max_value = 32767;
 
   Var t("t"), ti("ti"), to("to"), c("c");

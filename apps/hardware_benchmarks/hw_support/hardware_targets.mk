@@ -33,7 +33,7 @@ EXT ?= png
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?= 
-
+HALIDE_GEN_SIZE_ARGS ?= 
 
 # =========================== RDAI Configuration  ===================================
 
@@ -105,7 +105,7 @@ endif
 
 design cpu design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
-	$< -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT)
+	$< -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT)
 
 coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
@@ -135,19 +135,24 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
-	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp: $(BIN)/$(TESTNAME)_memory.cpp
 
 $(BIN)/clockwork_codegen.o: $(BIN)/clockwork_codegen.cpp
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) -c $< -o $@
 $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
-	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -o $@
-$(BIN)/unoptimized_$(TESTNAME).cpp clockwork_unopt: $(BIN)/clockwork_codegen
-	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib ./clockwork_codegen unopt >/dev/null && cd ..
-$(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(BIN)/unoptimized_$(TESTNAME).cpp
+	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -o $@
+$(BIN)/unoptimized_$(TESTNAME).cpp unopt-clockwork clockwork-unopt unopt: $(BIN)/clockwork_codegen
+	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib:../$(COREIR_DIR)/lib ./clockwork_codegen unopt >/dev/null; cd ..
+$(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwork_codegen
+	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib:../$(COREIR_DIR)/lib ./clockwork_codegen opt >/dev/null; cd ..
+compile_mem compile-mem mem-clockwork clockwork-mem mem: $(BIN)/clockwork_codegen
+	@-mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+	cd $(BIN) && CLKWRK_PATH=../$(CLOCKWORK_PATH) LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib:../$(COREIR_DIR)/lib ./clockwork_codegen compile_mem >mem_cout; cd ..
+$(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp unopt
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
-$(BIN)/unoptimized_$(TESTNAME).o: $(BIN)/unoptimized_$(TESTNAME).cpp
+$(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h
 	@echo -e "\n[COMPILE_INFO] building clockwork pipeline"
@@ -216,10 +221,11 @@ endif
 ifneq ("$(wildcard $(BIN)/unoptimized_$(TESTNAME).o)","")
   WITH_CLOCKWORK = 1
 endif
+
 ifeq ($(WITH_CLOCKWORK),1)
   PROCESS_DEPS += $(BIN)/clockwork_testscript.o \
-						  $(BIN)/unoptimized_$(TESTNAME).o \
 						  $(BIN)/$(TESTNAME)_clockwork.o \
+						  $(BIN)/unoptimized_$(TESTNAME).o \
 						  $(RDAI_HOST_OBJ_DEPS) \
 						  $(RDAI_PLATFORM_OBJ_DEPS) \
 						  $(BIN)/halide_runtime.o

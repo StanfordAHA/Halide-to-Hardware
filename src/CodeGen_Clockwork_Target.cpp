@@ -341,15 +341,15 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Tar
     //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
 
 
-void print_clockwork_codegen(string appname, ofstream& stream);
-void print_clockwork_execution_header(string appname, ofstream& stream);
-void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream);
+void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream);
+void print_clockwork_execution_header(string appname, vector<string> xcels, ofstream& stream);
+void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_args, ofstream& stream);
 
 CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     hdr_stream << "#endif\n";
-    clkc.memory_stream << endl
-                       << "  return prg;" << endl
-                       << "}";
+    //clkc.memory_stream << endl
+    //                   << "  return prg;" << endl
+    //                   << "}";
 
     std::cout << "outputting clockwork target named " << target_name << std::endl;
 
@@ -392,13 +392,17 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     ofstream clk_exec_h_file(clk_exec_h_name.c_str());
     ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
 
-    print_clockwork_codegen(target_name, clk_codegen_file);
+    print_clockwork_codegen(target_name, xcel_names, clk_codegen_file);
     std::cout << "printed codegen" << std::endl;
-    print_clockwork_execution_header(target_name, clk_exec_h_file);
+    
+    print_clockwork_execution_header(target_name, xcel_names, clk_exec_h_file);
     std::cout << "printed execution header" << std::endl;
 
-    for (auto& closure_arg : closure_args) {
-      std::cout << "  closure arg: " << closure_arg.name << std::endl;
+    for (auto& xcel_args_pair : closure_args) {
+      std::cout << "Accelerator " << xcel_args_pair.first << ":" << std::endl;
+      for (auto& closure_arg : xcel_args_pair.second) {
+        std::cout << "  closure arg: " << closure_arg.name << std::endl;
+      }
     }
 
     print_clockwork_execution_cpp(target_name, closure_args, clk_exec_cpp_file);
@@ -471,14 +475,21 @@ void CodeGen_Clockwork_Target::init_module() {
 }
 
 void CodeGen_Clockwork_Target::add_kernel(Stmt s,
-                                          const string &name,
+                                          const string &xcel_name,
                                           const vector<HW_Arg> &args) {
-    debug(1) << "CodeGen_Clockwork_Target::add_kernel " << name << "\n";
+    debug(1) << "CodeGen_Clockwork_Target::add_kernel " << xcel_name << "\n";
+    xcel_names.emplace_back(printname(xcel_name));
 
-    closure_args = args;
+    closure_args[printname(xcel_name)] = args;
+    clkc.buffers.clear(); // reset the buffers that have been declared between xcels
     //hdrc.add_kernel(s, name, args);
     //srcc.add_kernel(s, name, args);
-    clkc.add_kernel(s, target_name, args);
+    clkc.add_kernel(s, target_name, printname(xcel_name), args);
+
+    clkc.memory_stream << endl
+                       << "  return prg;" << endl
+                       << "}" << endl
+                       << endl;
 }
 
 void CodeGen_Clockwork_Target::dump() {
@@ -507,15 +518,16 @@ string CodeGen_Clockwork_Target::CodeGen_Clockwork_C::print_stencil_pragma(const
 
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
-                                                               const string &name,
+                                                               const string &appname,
+                                                               const string &xcel_name,
                                                                const vector<HW_Arg> &args) {
 
     if (is_clockwork) {
       //stream << "prog " << name << "() {" << std::endl;
-      memory_stream << "prog " << name << "() {" << endl
+      memory_stream << "prog " << xcel_name << "() {" << endl
                     << "  prog prg;" << std::endl
-                    << "  prg.compute_unit_file = \"" << name << "_compute.h\";" << std::endl
-                    << "  prg.name = \"" << name << "\";" << endl
+                    << "  prg.compute_unit_file = \"" << appname << "_compute.h\";" << std::endl
+                    << "  prg.name = \"" << xcel_name << "\";" << endl
                     << std::endl;
       loop_list.emplace_back("prg");
       //mem_bodyname = "prg";
@@ -613,7 +625,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
         // print body
         print(stmt);
 
-        close_scope("kernel hls_target" + printname(name));
+        close_scope("kernel hls_target" + printname(xcel_name));
     }
     //stream << "\n";
 
@@ -626,27 +638,48 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
     }
 }
 
-void print_clockwork_codegen(string appname, ofstream& stream) {
-  stream << "#include \"" << appname << "_compute.h\"" << endl
+void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream) {
+  stream << "#include \"cgra_flow.h\"" << endl
+         << "#include \"" << appname << "_compute.h\"" << endl
          << "#include \"" << appname << "_memory.cpp\"" << endl
          << endl
          << "int main(int argc, char **argv) {" << endl
-         << "  prog prg = " << appname << "();" << endl
+         << "  std::vector<prog> prgs = { ";
+  for (size_t i=0; i<xcels.size(); ++i) {
+    stream << xcels[i] << "()" << (i+1 == xcels.size() ? "" : ", ");
+  }
+  stream << " };" << endl
          << "  std::vector<std::string> args(argv + 1, argv + argc);" << endl
-         << "  size_t i=0;" << endl
-         << "  while (i < args.size()) {" << endl
-         << "    if (args[i] == \"opt\") {" << endl
-         << "      generate_optimized_code(prg);" << endl
-         << "    } else if (args[i] == \"unopt\") {" << endl
-         << "      generate_unoptimized_code(prg);" << endl
+         << "  for (auto& prg : prgs) {" << endl
+         << "    size_t i=0;" << endl
+         << "    while (i < args.size()) {" << endl
+         << "      if (args[i] == \"opt\") {" << endl
+         << "        generate_optimized_code(prg);" << endl
+         << "      } else if (args[i] == \"unopt\") {" << endl
+         << "        generate_unoptimized_code(prg);" << endl
+         << "      } else if (args[i] == \"compile_mem\") {" << endl
+         << "        preprocess_prog(prg);" << endl
+         << endl
+         << "        // Run Frontend Test, generate gold TB" << endl
+         << "        auto cpu = unoptimized_result(prg);" << endl
+         << endl
+         << "        // Run Memory Mapper and dump collateral into dir" << endl
+         << "        string dir = \"./map_result\";" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir);" << endl
+         << endl
+         << "        // Run interconnect agnostic tb" << endl
+         << "        //auto cgra = cgra_flow_result(prg, dir);" << endl
+         << endl
+         << "        //sanity_check(prg, cpu, cgra);" << endl
+         << "      }" << endl
+         << "      i += 1;" << endl
          << "    }" << endl
-         << "    i += 1;" << endl
          << "  }" << endl
          << "  return 0;" << endl
          << "}" << endl;
 }
 
-void print_clockwork_execution_header(string appname, ofstream& stream) {
+void print_clockwork_execution_header(string appname, vector<string> xcels, ofstream& stream) {
   stream << "#ifndef RDAI_CLOCKWORK_WRAPPER\n"
          << "#define RDAI_CLOCKWORK_WRAPPER\n"
          << "\n"
@@ -658,257 +691,158 @@ void print_clockwork_execution_header(string appname, ofstream& stream) {
          << " * @param mem_obj_list List of input and output buffers\n"
          << " * NOTE: last element in mem_obj_list points to output buffer\n"
          <<  " *       whereas the remaining elements point to input buffers.\n"
-         << " */\n"
-         << "void run_clockwork_program(RDAI_MemObject **mem_obj_list);\n"
-         << "\n"
+         << " */\n";
+  for (auto& xcel : xcels) {
+    if (appname == xcel) {
+      internal_assert(xcels.size() == 1);
+      stream << "void run_clockwork_program(RDAI_MemObject **mem_object_list);\n";
+    } else {
+      stream << "void run_clockwork_program_" << xcel << "(RDAI_MemObject **mem_object_list);\n";
+    }
+  }
+  stream << "\n"
          << "#endif // RDAI_CLOCKWORK_WRAPPER";
 }
 
-void print_clockwork_execution_cpp_16bit(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
-    stream << "#include \"clockwork_testscript.h\"\n"
-           << "#include \"unoptimized_" << appname << ".h\"\n"
-           << "#include \"hw_classes.h\"\n"
-           << "\n"
-           << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
+void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_map, ofstream& stream) {
+  stream << "#include \"clockwork_testscript.h\"\n";
+  for (auto& xcel_pair : closure_map) {
+    stream << "#include \"unoptimized_" << xcel_pair.first << ".h\"\n";
+  }
+  stream << "#include \"hw_classes.h\"\n"
+         << "\n";
 
-    size_t num_buffers = closure_args.size();
-
-    // get sizes of buffer elements
-    vector<int> elt_sizes(num_buffers);
-    for(size_t i = 0; i < num_buffers; i++) {
-        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
-    }
-
-    // emit buffer declarations
-    stream << "\t// input and output memory objects\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        ostringstream oss;
-        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
-        string type_name = oss.str();
-        stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
-        stream << " mem_object_list[" << i << "]->host_ptr;\n";
-    }
-    stream << "\n";
-
-    // emit input and output stream declarations;
-    stream << "\t// input and output stream declarations\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\tHWStream< hw_uint<16> > " << printname(closure_args[i].name) << "_stream;\n";
-    }
-    stream << "\n";
-
-    // copy inputs from buffers to streams
-    if(num_buffers > 1) {
-        for(size_t i = 0; i < num_buffers - 1; i++) {
-            string stream_name = printname(closure_args[i].name) + "_stream";
-            stream << "\t// provision input stream " << stream_name << "\n";
-            Region bounds = closure_args[i].stencil_type.bounds;
-            for(size_t j = 0; j < bounds.size(); j++) {
-                size_t k = bounds.size() - j - 1;
-                ostringstream oss;
-                oss << "l" << k;
-                string varname = oss.str();
-                stream << "\tfor(int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
-            }
-        
-            Expr temp_stride = 1;
-            Expr temp_arg = Variable::make(Int(32), "l0");
-            for(size_t j = 1; j < bounds.size(); j++) {
-                ostringstream oss;
-                oss << "l" << j;
-                string varname = oss.str();
-                temp_stride = temp_stride * bounds[j-1].extent;
-                temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-            } 
-            temp_arg = simplify(temp_arg);
-            stream << "\t\thw_uint<16> in_val;\n";
-            stream << "\t\tset_at<0, 16, 16>(in_val, ";
-            stream <<  "hw_uint<16>(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
-            stream << "\t\t" << stream_name << ".write(in_val);\n";
-
-            stream << "\t";
-            for(size_t j = 0; j < bounds.size(); j++) {
-                stream << "} ";
-            }
-            stream << "\n";
-        }
-    }
-    stream << "\n\n";
-
-    // emit kernel call
-    stream << "\t// invoke clockwork program\n";
-    stream << "\tunoptimized_" << appname << "(\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\t\t" << printname(closure_args[i].name) << "_stream";
-        if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
-    }
-    stream << "\t);\n\n";
-
-    // copy output from stream to buffer
-    {
-        HW_Arg stencil_arg = closure_args[num_buffers-1];
-        string stream_name = printname(stencil_arg.name) + "_stream";
-        stream << "\t// provision output buffer\n";
-        Region bounds = stencil_arg.stencil_type.bounds;
-        for(size_t i = 0; i < bounds.size(); i++) {
-            size_t j = bounds.size() - i - 1;
-            ostringstream oss;
-            oss << "l" << j;
-            string varname = oss.str();
-            stream << "\tfor(int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
-        }
-        Expr temp_stride = 1;
-        Expr temp_arg = Variable::make(Int(32), "l0");
-        for(size_t i = 1; i < bounds.size(); i++) {
-            ostringstream oss;
-            oss << "l" << i;
-            string varname = oss.str();
-            temp_stride = temp_stride * bounds[i-1].extent;
-            temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-        }
-        temp_arg = simplify(temp_arg);
-        int elt_size = elt_sizes[num_buffers-1];
-        stream << "\t\thw_uint<16> actual = " << stream_name << ".read();\n";
-        stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
-        stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
-        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
-        stream << "\t";
-        for(size_t i = 0; i < bounds.size(); i++) {
-            stream << "} ";
-        }
-        stream << "\n";
-    }
-    
-
-    stream << "}\n";
-}
-
-void print_clockwork_execution_cpp(string appname, const vector<HW_Arg>& closure_args, ofstream& stream) {
-    stream << "#include \"clockwork_testscript.h\"\n"
-           << "#include \"unoptimized_" << appname << ".h\"\n"
-           << "#include \"hw_classes.h\"\n"
-           << "\n"
-           << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
+  for (auto& xcel_closure_pair : closure_map) {
+    auto& xcel = xcel_closure_pair.first;
+    auto& closure_args = xcel_closure_pair.second;
 
     size_t num_buffers = closure_args.size();
     if (num_buffers == 0) {
-      return;
+      continue;
     }
 
+    if (appname == xcel) {
+      internal_assert(closure_map.size() == 1);
+      stream << "void run_clockwork_program(RDAI_MemObject **mem_object_list) {\n";
+    } else {
+      stream << "void run_clockwork_program_" << xcel << "(RDAI_MemObject **mem_object_list) {\n";
+    }
+    
     // get sizes of buffer elements
     vector<int> elt_sizes(num_buffers);
     for (size_t i = 0; i < num_buffers; i++) {
-        if (!closure_args[i].is_stencil) { continue; }
-        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
+      if (!closure_args[i].is_stencil) { continue; }
+      elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
     }
 
     // emit buffer declarations
     stream << "\t// input and output memory objects\n";
     std::cout << "num_buffers=" << num_buffers << "  ending with " << closure_args[num_buffers-1].name << std::endl;
     for (size_t i = 0; i < num_buffers; i++) {
-        //std::cout << printname(closure_args[i].name) << std::endl;
-        ostringstream oss;
-        std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
-                  << closure_args[i].stencil_type.elemType << std::endl;
-        if (!closure_args[i].is_stencil) { continue; }
-        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
-        string type_name = oss.str();
-        stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
-        stream << " mem_object_list[" << i << "]->host_ptr;\n";
+      //std::cout << printname(closure_args[i].name) << std::endl;
+      ostringstream oss;
+      std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
+                << closure_args[i].stencil_type.elemType << std::endl;
+      if (!closure_args[i].is_stencil) { continue; }
+      oss << type_to_c_type(closure_args[i].stencil_type.elemType);
+      string type_name = oss.str();
+      stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
+      stream << " mem_object_list[" << i << "]->host_ptr;\n";
     }
     stream << "\n";
 
     // emit input and output stream declarations;
     stream << "\t// input and output stream declarations\n";
-    for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
+    for (size_t i = 0; i < num_buffers; i++) {
+      stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
     }
     stream << "\n";
 
     // copy inputs from buffers to streams
-    if(num_buffers > 1) {
-        for(size_t i = 0; i < num_buffers - 1; i++) {
-            string stream_name = printname(closure_args[i].name) + "_stream";
-            stream << "\t// provision input stream " << stream_name << "\n";
-            Region bounds = closure_args[i].stencil_type.bounds;
-            for(size_t j = 0; j < bounds.size(); j++) {
-                size_t k = bounds.size() - j - 1;
-                ostringstream oss;
-                oss << "l" << k;
-                string varname = oss.str();
-                stream << "\tfor(int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
-            }
-        
-            Expr temp_stride = 1;
-            Expr temp_arg = Variable::make(Int(32), "l0");
-            for(size_t j = 1; j < bounds.size(); j++) {
-                ostringstream oss;
-                oss << "l" << j;
-                string varname = oss.str();
-                temp_stride = temp_stride * bounds[j-1].extent;
-                temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-            } 
-            temp_arg = simplify(temp_arg);
-            stream << "\t\thw_uint<"<<elt_sizes[i]<<"> in_val;\n";
-            stream << "\t\tset_at<0, " << elt_sizes[i] << ", " << elt_sizes[i] << ">(in_val, ";
-            stream <<  "hw_uint<" << elt_sizes[i] << ">(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
-            stream << "\t\t" << stream_name << ".write(in_val);\n";
-
-            stream << "\t";
-            for(size_t j = 0; j < bounds.size(); j++) {
-                stream << "} ";
-            }
-            stream << "\n";
+    if (num_buffers > 1) {
+      for (size_t i = 0; i < num_buffers - 1; i++) {
+        string stream_name = printname(closure_args[i].name) + "_stream";
+        stream << "\t// provision input stream " << stream_name << "\n";
+        Region bounds = closure_args[i].stencil_type.bounds;
+        for (size_t j = 0; j < bounds.size(); j++) {
+          size_t k = bounds.size() - j - 1;
+          ostringstream oss;
+          oss << "l" << k;
+          string varname = oss.str();
+          stream << "\tfor (int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
         }
+        
+        Expr temp_stride = 1;
+        Expr temp_arg = Variable::make(Int(32), "l0");
+        for (size_t j = 1; j < bounds.size(); j++) {
+          ostringstream oss;
+          oss << "l" << j;
+          string varname = oss.str();
+          temp_stride = temp_stride * bounds[j-1].extent;
+          temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
+        } 
+        temp_arg = simplify(temp_arg);
+        stream << "\t\thw_uint<"<<elt_sizes[i]<<"> in_val;\n";
+        stream << "\t\tset_at<0, " << elt_sizes[i] << ", " << elt_sizes[i] << ">(in_val, ";
+        stream <<  "hw_uint<" << elt_sizes[i] << ">(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
+        stream << "\t\t" << stream_name << ".write(in_val);\n";
+
+        stream << "\t";
+        for (size_t j = 0; j < bounds.size(); j++) {
+          stream << "} ";
+        }
+        stream << "\n";
+      }
     }
     stream << "\n\n";
 
     // emit kernel call
     stream << "\t// invoke clockwork program\n";
-    stream << "\tunoptimized_" << appname << "(\n";
+    stream << "\tunoptimized_" << xcel << "(\n";
     for(size_t i = 0; i < num_buffers; i++) {
-        stream << "\t\t" << printname(closure_args[i].name) << "_stream";
-        if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
+      stream << "\t\t" << printname(closure_args[i].name) << "_stream";
+      if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
     }
     stream << "\t);\n\n";
 
     // copy output from stream to buffer
     {
-        HW_Arg stencil_arg = closure_args[num_buffers-1];
-        string stream_name = printname(stencil_arg.name) + "_stream";
-        stream << "\t// provision output buffer\n";
-        Region bounds = stencil_arg.stencil_type.bounds;
-        for(size_t i = 0; i < bounds.size(); i++) {
-            size_t j = bounds.size() - i - 1;
-            ostringstream oss;
-            oss << "l" << j;
-            string varname = oss.str();
-            stream << "\tfor(int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
-        }
-        Expr temp_stride = 1;
-        Expr temp_arg = Variable::make(Int(32), "l0");
-        for(size_t i = 1; i < bounds.size(); i++) {
-            ostringstream oss;
-            oss << "l" << i;
-            string varname = oss.str();
-            temp_stride = temp_stride * bounds[i-1].extent;
-            temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-        }
-        temp_arg = simplify(temp_arg);
-        int elt_size = elt_sizes[num_buffers-1];
-        stream << "\t\thw_uint<" << elt_size << "> actual = " << stream_name << ".read();\n";
-        stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
-        stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
-        stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
-        stream << "\t";
-        for(size_t i = 0; i < bounds.size(); i++) {
-            stream << "} ";
-        }
-        stream << "\n";
+      HW_Arg stencil_arg = closure_args[num_buffers-1];
+      string stream_name = printname(stencil_arg.name) + "_stream";
+      stream << "\t// provision output buffer\n";
+      Region bounds = stencil_arg.stencil_type.bounds;
+      for(size_t i = 0; i < bounds.size(); i++) {
+        size_t j = bounds.size() - i - 1;
+        ostringstream oss;
+        oss << "l" << j;
+        string varname = oss.str();
+        stream << "\tfor (int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
+      }
+      Expr temp_stride = 1;
+      Expr temp_arg = Variable::make(Int(32), "l0");
+      for(size_t i = 1; i < bounds.size(); i++) {
+        ostringstream oss;
+        oss << "l" << i;
+        string varname = oss.str();
+        temp_stride = temp_stride * bounds[i-1].extent;
+        temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
+      }
+      temp_arg = simplify(temp_arg);
+      int elt_size = elt_sizes[num_buffers-1];
+      stream << "\t\thw_uint<" << elt_size << "> actual = " << stream_name << ".read();\n";
+      stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
+      stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
+      stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
+      stream << "\t";
+      for(size_t i = 0; i < bounds.size(); i++) {
+        stream << "} ";
+      }
+      stream << "\n";
     }
     
 
-    stream << "}\n";
+    stream << "}\n\n";
+  }
 }
 
 /** Substitute an Expr for another Expr in a graph. Unlike substitute,
@@ -1521,7 +1455,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   }
   
   // Debug output the provide we trying to do
-  memory_stream << endl << "//store is: " << expand_expr(Stmt(op), scope);
+  memory_stream << endl << "//store is: " << simplify(expand_expr(Stmt(op), scope));
   //std::cout << endl << "//store is: " << expand_expr(Stmt(op), scope);
 
   // Output the function in relation to the loop level
@@ -1592,7 +1526,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     for (int argi=op->args.size()-1; argi>=0; --argi) {
       auto arg = op->args[argi];
       ostringstream arg_print;
-      arg_print << expand_expr(arg, scope);
+      arg_print << simplify(expand_expr(arg, scope));
       memory_stream << ", \"" << removedots(arg_print.str()) << "\"";
     }
     memory_stream << ");\n";
@@ -1613,11 +1547,19 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   for (size_t i=0; i<arg_order.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
     auto argname = arg_order[i];
+
+    bool is_dynamic = false;
     
     uint total_bitwidth = 0;
     for (auto arg : merged_args[argname]) {
       total_bitwidth += arg.type.bits();
+      is_dynamic = is_dynamic || arg.is_dynamic;
     }
+
+    if (is_dynamic) {
+      compute_stream << "hw_uint<64>& ignore, ";
+    }
+    
     //uint total_bitwidth = merged_args[argname].size() * esize;
     compute_stream << "hw_uint<" << total_bitwidth << ">& " << printname(argname);
   }
@@ -1718,10 +1660,11 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     oss << simplify(op->extent + op->min);
     string id_max = oss.str();
     //memory_stream << "// for loop: min=" << expand_expr(op->min, scope) << " extent=" << op->extent << "  id_max=" << id_max << std::endl;
-    
+
+    // Replace for loops to start at a constant 0. Those with variables are hopefully multi-level.
     auto body = op->body;
     if (!is_const(op->min)) {
-      body = substitute(op->name, Add::make(op->min, Variable::make(Int(32), op->name)), op->body);
+      body = substitute(op->name, simplify(Add::make(op->min, Variable::make(Int(32), op->name))), op->body);
       id_min = print_expr(0);
       id_max = print_expr(op->extent);
     }
@@ -1791,6 +1734,56 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
   CodeGen_Clockwork_Base::visit(op);
 }
 
+class ShiftRealizeBounds : public IRMutator {
+  string name;
+  vector<Expr>& mins;
+  const Scope<Expr>& scope;
+
+  using IRMutator::visit;
+  
+  Expr visit(const Call *op) {
+    if (op->name == name) {
+      internal_assert(mins.size() == op->args.size());
+      vector<Expr> new_args(mins.size());
+      
+      for (size_t i=0; i<mins.size(); ++i) {
+        new_args[i]= simplify(expand_expr(op->args[i] - mins[i], scope));
+      }
+      return Call::make(op->type, op->name, new_args, op->call_type, op->func, op->value_index, op->image, op->param);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+  Stmt visit(const Provide *op) {
+    if (op->name == name) {
+      internal_assert(mins.size() == op->args.size());
+      vector<Expr> new_args(mins.size());
+      vector<Expr> new_values(op->values.size());
+      
+      for (size_t i=0; i<mins.size(); ++i) {
+        new_args[i] = simplify(expand_expr(op->args[i] - mins[i], scope));
+      }
+      for (size_t i = 0; i < op->values.size(); i++) {
+        new_values[i] = mutate(op->values[i]);
+      }
+
+      return Provide::make(op->name, new_values, new_args);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+  
+public:
+  ShiftRealizeBounds(string name, vector<Expr>& mins, const Scope<Expr>& scope) : name(name), mins(mins), scope(scope) {};
+};
+
+Stmt shift_realize_bounds(Stmt s, string bufname, vector<Expr>& mins, const Scope<Expr>& scope) {
+  ShiftRealizeBounds srb(bufname, mins, scope);
+  return srb.mutate(s);
+}
+
+
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   // realizes ending in .stencil cannot be a rom
   // auto memtype = identify_realization(Stmt(op), op->name);
@@ -1798,7 +1791,26 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   // if (memtype == ROM_REALIZATION) {
   //   roms[op->name] = ROM_data({op->name, Stmt(op), Stmt()});;
   // }
-  CodeGen_Clockwork_Base::visit(op);
+  vector<Expr> realize_mins;
+  for (size_t i = 0; i < op->bounds.size(); i++) {
+    realize_mins.emplace_back(op->bounds[i].min);
+  }
+  auto new_body = shift_realize_bounds(op->body, op->name, realize_mins, scope);
+
+  for (size_t i = 0; i < op->bounds.size(); i++) {
+    stream << "[";
+    //print(op->bounds[i].min);
+    print_expr(0); // always start with 0
+    stream << ", ";
+    print(op->bounds[i].extent);
+    stream << "]";
+    stream << ((i < op->bounds.size() - 1) ? ", " : "");
+
+  }
+
+  //auto new_realize = Realize::make(op->name, op->types, op->memory_type, op->bounds, op->condition, new_body);
+  
+  new_body.accept(this);
 }
 
 // most code is copied from CodeGen_C::visit(const Allocate *)

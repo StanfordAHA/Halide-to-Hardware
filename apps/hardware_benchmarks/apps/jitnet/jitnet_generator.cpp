@@ -11,6 +11,7 @@ struct Tensor {
   Halide::Func f;
   std::vector<int> shape;
   std::string name;
+  std::vector<Halide::Func> fs;
 };
 
 struct WeightShape {
@@ -54,7 +55,7 @@ public:
   GeneratorParam<int> k_oc{"k_oc", 3};    // default: 3
   
   Output<Buffer<float>> final_output{"final_output", 3};
-  
+
   /** list out shapes of each layers weights **/
   // In channels inferred by input tensor shape
   // weight shapes: out channels, kernel_w, kernel_h, pad, stride.
@@ -68,10 +69,25 @@ public:
   const WeightShape dec3_ws = {128, 3, 3, 1, 1};
   const WeightShape dec2_ws =  {64, 3, 3, 1, 1};
   const WeightShape dec1_ws =  {32, 3, 3, 1, 1};
-
+  
   const WeightShape conv3_ws = {32, 3, 3, 1, 1};
   const WeightShape conv4_ws = {32, 3, 3, 1, 1};
   const WeightShape conv5_ws = {32, 1, 1, 0, 1};
+
+  //const WeightShape conv1_ws =  {8, 3, 3, 0, 2};
+  //const WeightShape conv2_ws =  {8, 3, 3, 0, 2};
+  //
+  //const WeightShape enc1_ws =  {64, 3, 3, 0, 2};
+  //const WeightShape enc2_ws =  {64, 3, 3, 0, 2};
+  //const WeightShape enc3_ws = {128, 3, 3, 0, 2};
+  //
+  //const WeightShape dec3_ws = {128, 3, 3, 0, 1};
+  //const WeightShape dec2_ws =  {64, 3, 3, 0, 1};
+  //const WeightShape dec1_ws =  {32, 3, 3, 0, 1};
+  //
+  //const WeightShape conv3_ws = {32, 3, 3, 0, 1};
+  //const WeightShape conv4_ws = {32, 3, 3, 0, 1};
+  //const WeightShape conv5_ws = {32, 1, 1, 0, 1};  
 
   Var c, i, j;
 
@@ -84,7 +100,7 @@ public:
     Tensor enc1, enc2, enc3;
     Tensor dec3, dec3_up, dec3_cat;
     Tensor dec2, dec2_cat, dec1;
-    Tensor conv3, conv4, conv5;
+    Tensor conv3, conv4, conv4_up, conv5;
       
     Tensor input_t;
     input_t.shape = {3, 1280, 720};
@@ -115,6 +131,7 @@ public:
     // final convolutions with some upsampling
     conv3 = conv2D_block(dec1,  conv3_ws, conv3_weights, conv_mu[8], conv_sigma[8], "conv3");
     conv4 = conv2D_block(conv3, conv4_ws, conv4_weights, conv_mu[9], conv_sigma[9], "conv4", 2);
+    //conv4_up = upsample_layer(conv4, "conv4_up");
     conv5 = conv2D_block(conv4, conv5_ws, conv5_weights, conv_mu[10], conv_sigma[10], "conv5");
 
     Func hw_output;
@@ -136,52 +153,120 @@ public:
       Var z_cgra, z_gb;
       RVar rz_cgra, rz_gb;
 
-      int imgsize = 64;
-      auto gbsize = imgsize; // necessary until host can stream in tiles
-      hw_output.compute_root();
-      //hw_output.unroll(w, k_oc);
-      hw_output
-        .tile(i, j, x_host,y_host, xi,yi, gbsize,gbsize)
-        .reorder(xi,yi,c, x_host,y_host)
-        .hw_accelerate(xi, x_host);
+      int schedule = 1;
+      if (schedule == 1) {
+        // Schedule: Create two accelerator calls.
+        int imgsize = 64;
+        auto gbsize = imgsize; // necessary until host can stream in tiles
+        hw_output.compute_root();
+        //hw_output.unroll(w, k_oc);
+        hw_output
+          //.tile(i, j, x_host,y_host, xi,yi, gbsize,gbsize)
+          .tile(i, j, x_host,y_host, xi,yi, 1280,720) // all as one tile until host can stream tiles
+          .reorder(xi,yi,c, x_host,y_host)
+          .hw_accelerate(xi, x_host);
+
+        //conv5.f.compute_at(final_output, Var::outermost());
+        for (auto& f : conv4.fs) { f.compute_at(hw_output, x_host); }
+        conv4.f.compute_at(hw_output, x_host);
+        conv3.f.compute_at(hw_output, x_host);
+
+        //conv3.f.stream_to_accelerator();
+
+        auto hw_output2 = dec1.f;
+        hw_output2.compute_root();
+        hw_output2
+          .tile(i, j, x_host,y_host, xi,yi, 640,360) // all as one tile until host can stream tiles
+          .reorder(xi,yi,_0, x_host,y_host)
+          .hw_accelerate(xi, x_host);
+
+        for (auto& f : dec1.fs) { f.compute_at(hw_output2, x_host); }
+        dec2.f.compute_at(hw_output2, x_host);
+        for (auto& f : dec2.fs) { f.compute_at(hw_output2, x_host); }
+        dec3.f.compute_at(hw_output2, x_host);
+
+        enc3.f.compute_at(hw_output2, x_host);
+        enc2.f.compute_at(hw_output2, x_host);
+        enc1.f.compute_at(hw_output2, x_host);
+
+        conv2.f.compute_at(hw_output2, x_host);
+        conv1.f.compute_at(hw_output2, x_host);
+
+        // stream inputs into the accelerator
+        input.in().stream_to_accelerator();
       
-      conv4.f.compute_at(hw_output, x_host);
-      conv3.f.compute_at(hw_output, x_host);
+        conv1_weights.in().stream_to_accelerator();
+        conv2_weights.in().stream_to_accelerator();
+        conv3_weights.in().stream_to_accelerator();
+        conv4_weights.in().stream_to_accelerator();
+        conv5_weights.in().stream_to_accelerator();
 
-      dec1.f.compute_at(hw_output, x_host);
-      dec2.f.compute_at(hw_output, x_host);
-      dec3.f.compute_at(hw_output, x_host);
+        for (size_t i=0; i<4; ++i) {
+          enc1_weights[i].in().stream_to_accelerator();
+          enc2_weights[i].in().stream_to_accelerator();
+          enc3_weights[i].in().stream_to_accelerator();
+          dec3_weights[i].in().stream_to_accelerator();
+          dec2_weights[i].in().stream_to_accelerator();
+          dec1_weights[i].in().stream_to_accelerator();
+        }
 
-      enc3.f.compute_at(hw_output, x_host);
-      enc2.f.compute_at(hw_output, x_host);
-      enc1.f.compute_at(hw_output, x_host);
+        for (size_t i=0; i<11; ++i) {
+          conv_mu[i].in().stream_to_accelerator();
+          conv_sigma[i].in().stream_to_accelerator();
+        }
+        
+      } else {
+        int imgsize = 64;
+        auto gbsize = imgsize; // necessary until host can stream in tiles
+        hw_output.compute_root();
+        //hw_output.unroll(w, k_oc);
+        hw_output
+          //.tile(i, j, x_host,y_host, xi,yi, gbsize,gbsize)
+          .tile(i, j, x_host,y_host, xi,yi, 1280,720) // all as one tile until host can stream tiles
+          .reorder(xi,yi,c, x_host,y_host)
+          .hw_accelerate(xi, x_host);
 
-      conv2.f.compute_at(hw_output, x_host);
-      conv1.f.compute_at(hw_output, x_host);
+        //conv5.f.compute_at(final_output, Var::outermost());
+        for (auto& f : conv4.fs) { f.compute_at(hw_output, x_host); }
+        conv4.f.compute_at(hw_output, x_host);
+        conv3.f.compute_at(hw_output, x_host);
 
-      // stream inputs into the accelerator
-      input.in().stream_to_accelerator();
+        dec1.f.compute_at(hw_output, x_host);
+        for (auto& f : dec1.fs) { f.compute_at(hw_output, x_host); }
+        dec2.f.compute_at(hw_output, x_host);
+        for (auto& f : dec2.fs) { f.compute_at(hw_output, x_host); }
+        dec3.f.compute_at(hw_output, x_host);
+
+        enc3.f.compute_at(hw_output, x_host);
+        enc2.f.compute_at(hw_output, x_host);
+        enc1.f.compute_at(hw_output, x_host);
+
+        conv2.f.compute_at(hw_output, x_host);
+        conv1.f.compute_at(hw_output, x_host);
+
+        // stream inputs into the accelerator
+        input.in().stream_to_accelerator();
       
-      conv1_weights.in().stream_to_accelerator();
-      conv2_weights.in().stream_to_accelerator();
-      conv3_weights.in().stream_to_accelerator();
-      conv4_weights.in().stream_to_accelerator();
-      conv5_weights.in().stream_to_accelerator();
+        conv1_weights.in().stream_to_accelerator();
+        conv2_weights.in().stream_to_accelerator();
+        conv3_weights.in().stream_to_accelerator();
+        conv4_weights.in().stream_to_accelerator();
+        conv5_weights.in().stream_to_accelerator();
 
-      for (size_t i=0; i<4; ++i) {
-        enc1_weights[i].in().stream_to_accelerator();
-        enc2_weights[i].in().stream_to_accelerator();
-        enc3_weights[i].in().stream_to_accelerator();
-        dec3_weights[i].in().stream_to_accelerator();
-        dec2_weights[i].in().stream_to_accelerator();
-        dec1_weights[i].in().stream_to_accelerator();
+        for (size_t i=0; i<4; ++i) {
+          enc1_weights[i].in().stream_to_accelerator();
+          enc2_weights[i].in().stream_to_accelerator();
+          enc3_weights[i].in().stream_to_accelerator();
+          dec3_weights[i].in().stream_to_accelerator();
+          dec2_weights[i].in().stream_to_accelerator();
+          dec1_weights[i].in().stream_to_accelerator();
+        }
+
+        for (size_t i=0; i<11; ++i) {
+          conv_mu[i].in().stream_to_accelerator();
+          conv_sigma[i].in().stream_to_accelerator();
+        }
       }
-
-      for (size_t i=0; i<11; ++i) {
-        conv_mu[i].in().stream_to_accelerator();
-        conv_sigma[i].in().stream_to_accelerator();
-      }
-      
       
     } else {  // schedule to CPU
       conv1.f.compute_root();
@@ -336,12 +421,11 @@ private:
   // Upsample using bilinear interpolation (1 3 3 1)
   Tensor upsample_layer(const Tensor &input, const std::string &name,
                         const std::vector<int> &shape = {}) {
-    Var x, y;
     using Halide::_;
     Func upx, upy(name);
     Func f = input.f;
-    upx(x, y, _) = 0.25f * f((x/2) - 1 + 2*(x % 2), y, _) + 0.75f * f(x/2, y, _);
-    upy(x, y, _) = 0.25f * upx(x, (y/2) - 1 + 2*(y % 2), _) + 0.75f * upx(x, y/2, _);
+    upx(i, j, _) = 0.25f * f((i/2) - 1 + 2*(i % 2), j, _) + 0.75f * f(i/2, j, _);
+    upy(i, j, _) = 0.25f * upx(i, (j/2) - 1 + 2*(j % 2), _) + 0.75f * upx(i, j/2, _);
     
     Tensor output;
     output.f = upy;
@@ -361,14 +445,19 @@ private:
     Tensor conv = conv2D(input, weight_shape, weights, name);
     Tensor norm = norm_layer(conv, mu, sigma, name + "_norm");
     Tensor relu = relu_layer(norm, name + "_relu");
+    
     Tensor output;
+    output = relu;
+    std::vector<Func> fs;
+    assert(resize > 0 && ((resize & (resize-1)) == 0)); // resize must be a factor of 2, for now
 
-    if (resize > 1) {
-      assert(resize > 0 && ((resize & (resize-1)) == 0)); // resize must be a factor of 2, for now
+    int upsample = resize;
+    while (upsample > 1) {
+      fs.push_back(output.f);
       output = upsample_layer(relu, name + "_up");
-    } else {
-      output = relu;
+      upsample /= 2;
     }
+    output.fs = fs;
     return output;
   }
 
@@ -381,7 +470,7 @@ private:
     
     Tensor norm = norm_layer(input, conv_mu, conv_sigma, name + "_norm");
     Tensor relu = relu_layer(norm, name + "_relu");
-    std::cout << "input shape: " << input.shape << std::endl;
+    std::cout << name << " input shape: " << input.shape << std::endl;
     
     // conv3x3
     const WeightShape conv3x3_ws = {weight_shape.c, weight_shape.w, weight_shape.h,
@@ -412,11 +501,14 @@ private:
     // upsample
     Tensor output = sum;
     int upsample = resize;
+    std::vector<Func> fs;
     assert((upsample > 0) && ((upsample & (upsample-1)) == 0)); // check that it is a power of two
     while (upsample > 1) {
+      fs.push_back(output.f);
       output = upsample_layer(output, name + "_up");
       upsample /= 2;
     }
+    output.fs = fs;
     return output;
   }
 

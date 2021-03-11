@@ -62,8 +62,7 @@ protected:
 CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, string pipeline_name)
     : CodeGen_C(pipeline_stream, target, CPlusPlusImplementation, ""),
       target(target),
-      pipeline_name(pipeline_name)
-{
+      pipeline_name(pipeline_name) {
     stream << "#include \"rdai_api.h\"\n";
 }
 
@@ -177,7 +176,7 @@ void CodeGen_RDAI::visit(const Call *op) {
 
 void CodeGen_RDAI::visit(const ProducerConsumer *op) {
     string target_prefix = "_hls_target";
-    if(starts_with(op->name, target_prefix) && op->is_producer) {
+    if (starts_with(op->name, target_prefix) && op->is_producer) {
         
         Stmt hw_body = substitute_in_all_letstmts(op->body);
 
@@ -191,7 +190,10 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         string hw_ip_name = unique_name("clockwork_target_" + pipeline_name);
         RDAI_TargetGenLike *cg_target = get_target_codegen();
         std::cout << op->body << std::endl; // show the accelerated section
-        cg_target->add_kernel(hw_body, hw_ip_name, args);
+
+        std::cout << "xcel for " << output_name << " out of " << num_xcels
+                  << " in " << pipeline_name << std::endl;
+        cg_target->add_kernel(hw_body, num_xcels>1 ? output_name : pipeline_name, args);
 
         // Emit RDAI API
         internal_assert(args.size() > 0) << "no input/output argumnets found for the accelerator\n";
@@ -320,8 +322,32 @@ void CodeGen_RDAI::visit(const Realize *op) {
     }
 }
 
+class CountAccelerators : public IRVisitor {
+    using IRVisitor::visit;
+    void visit(const ProducerConsumer *op) {
+      string target_prefix = "_hls_target";
+      if (starts_with(op->name, target_prefix) && op->is_producer) {
+        xcels.insert(op->name);
+      } else {
+        IRVisitor::visit(op);
+      }
+    }
+
+public:
+  std::set<string> xcels;
+
+  CountAccelerators() {}
+};
+
+int accelerator_count(Stmt s) {
+    CountAccelerators ca;
+    s.accept(&ca);
+    return ca.xcels.size();
+}
+
 void CodeGen_RDAI::compile(const LoweredFunc &func) {
     func_args = func.args;
+    num_xcels = accelerator_count(func.body);
     CodeGen_C::compile(func);
 }
 

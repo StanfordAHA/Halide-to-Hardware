@@ -67,7 +67,7 @@ int main( int argc, char **argv ) {
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
-    auto NL = getenv("kernel.size");
+    //auto NL = getenv("kernel.size");
 
     auto in_img = OX ? atoi(OX) : 28;
     auto pad = P ? atoi(P) : 1;

@@ -119,7 +119,7 @@ typedef struct WAV_HEADER {
     uint16_t        blockAlign;     // 2=16-bit mono, 4=16-bit stereo (NumChannels * BytesPerChannel)
     uint16_t        bitsPerChannel; // Number of bits per channel
     /* "data" sub-chunk */
-  //uint16_t        junk; // for distortion file
+  uint16_t        junk; // for distortion file; love has none
     unsigned char   DataID[4];      // "data"  string
     uint32_t        DataSize;       // Sampled data length (in bytes)
 } WaveHeader;
@@ -249,7 +249,7 @@ inline int testWavRead(std::string filename) {
 inline uint32_t getDataSize(const WaveHeader& wave_header) {
   // 1: distortion
   // 2: love
-  int scheme = 2;
+  int scheme = 1;
   if (scheme == 1) { //distortion
     uint16_t HeaderSize = sizeof(wave_header);
     uint32_t DataSize = wave_header.FileSize - HeaderSize;

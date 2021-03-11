@@ -67,14 +67,14 @@ int main( int argc, char **argv ) {
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
-    auto NL = getenv("kernel.size");
+    auto NL = getenv("n_layers");
 
     auto in_img = OX ? atoi(OX) : 28;
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
-    auto n_ic = IC ? atoi(IC) : 64;
-    auto n_oc = OC ? atoi(OC) : 48;
+    auto n_ic = IC ? atoi(IC) : 128;
+    auto n_oc = OC ? atoi(OC) : 512;
 
     int X = in_img;
     int Y = X;

@@ -38,7 +38,7 @@ struct for_loop {
   }
 };
 
-/** This class emits Xilinx Vivado HLS compatible C++ code.
+/** This class emits Clockwork compatible C++ code.
  */
 class CodeGen_Clockwork_Target {
 public:
@@ -50,7 +50,7 @@ public:
     void init_module();
 
     void add_kernel(Stmt stmt,
-                    const std::string &name,
+                    const std::string &xcel_name,
                     const std::vector<HW_Arg> &args);
 
     void dump();
@@ -62,8 +62,6 @@ public:
     }
 
 protected:
-    std::vector<HW_Arg> closure_args;
-
     class CodeGen_Clockwork_C : public CodeGen_Clockwork_Base {
     public:
       bool is_clockwork;
@@ -97,6 +95,7 @@ protected:
   
       void add_kernel(Stmt stmt,
                       const std::string &name,
+                      const string &xcel_name,
                       const std::vector<HW_Arg> &args);
 
     protected:
@@ -120,6 +119,10 @@ protected:
     /** A name for the Clockwork target */
     std::string target_name;
     std::string output_base_path;
+
+    /* Arguments for each accelerator*/
+    std::vector<std::string> xcel_names;
+    std::map<std::string, std::vector<HW_Arg>> closure_args;
 
     /** String streams for building header and source files. */
     // @{

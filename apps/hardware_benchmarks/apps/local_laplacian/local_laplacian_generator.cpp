@@ -130,15 +130,18 @@ public:
             }
         } else if (get_target().has_feature(Target::Clockwork)) {
             // clockwork schedule
-            output.bound(x, 0, 128);
-            output.bound(y, 0, 128);
+            int tilesize = 64;
+          
+            output.bound(x, 0, tilesize);
+            output.bound(y, 0, tilesize);
             output.bound(c, 0, 3);
             output.compute_root();          
 
             Var xi, yi, xo, yo;
             hw_output
               .compute_root()
-              .tile(x, y, xo, yo, xi, yi, 64, 64)
+              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize)
+              .reorder(c, xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
             
             for (int j = 0; j < J; j++) {
@@ -178,66 +181,6 @@ public:
             }
         }
 
-        /* Optional tags to specify layout for HalideTraceViz */
-        {
-            Halide::Trace::FuncConfig cfg;
-            cfg.color_dim = 2;
-            cfg.max = 65535;
-            cfg.pos.x = 30;
-            cfg.pos.y = 100;
-            input.add_trace_tag(cfg.to_trace_tag());
-
-            cfg.pos.x = 1700;
-            output.add_trace_tag(cfg.to_trace_tag());
-        }
-
-        {
-            Halide::Trace::FuncConfig cfg;
-            cfg.store_cost = 5;
-            cfg.pos.x = 370;
-            cfg.pos.y = 100;
-            cfg.labels = { { "input pyramid", {-90, -68} } };
-            gray.add_trace_tag(cfg.to_trace_tag());
-        }
-
-        for (int i = 0; i < pyramid_levels; ++i) {
-            int y = 100;
-            for (int j = 0; j < i; ++j) {
-                y += 500 >> j;
-            }
-            {
-                int x = 370;
-                int store_cost = 1 << (i + 1);
-                Halide::Trace::FuncConfig cfg;
-                cfg.pos = {x, y};
-                cfg.store_cost = store_cost;
-                inGPyramid[i].add_trace_tag(cfg.to_trace_tag());
-            }
-            {
-                int x = 720;
-                int store_cost = 1 << i;
-                Halide::Trace::FuncConfig cfg;
-                cfg.strides = {{1, 0}, {0, 1}, {200, 0}};
-                cfg.pos = {x, y};
-                cfg.store_cost = store_cost;
-                if (i == 1) {
-                    cfg.labels = { { "differently curved intermediate pyramids" } };
-                }
-                gPyramid[i].add_trace_tag(cfg.to_trace_tag());
-            }
-            {
-                int x = 1500;
-                int store_cost = (1 << i) * 10;
-                Halide::Trace::FuncConfig cfg;
-                cfg.pos = {x, y};
-                cfg.store_cost = store_cost;
-                if (i == 0) {
-                    cfg.labels = { { "output pyramids" } };
-                    cfg.pos = {x, 100};
-                }
-                outGPyramid[i].add_trace_tag(cfg.to_trace_tag());
-            }
-        }
     }
 private:
     Var x, y, c, k;

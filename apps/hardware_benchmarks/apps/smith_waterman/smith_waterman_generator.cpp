@@ -19,8 +19,8 @@ public:
         RDom r(0, ref_len, 0, query_len);
 
         Func hw_ref, hw_query;
-        hw_ref(x) = input_ref(x);
-        hw_query(x) = input_query(x);
+        hw_ref(x) = input_ref(x+1);
+        hw_query(x) = input_query(x+1);
 
         Func sw("sw");
         sw(x, y) = 0;
@@ -40,6 +40,7 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
           
           hw_ref.compute_root();
@@ -49,9 +50,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 10, 10)
             .hw_accelerate(xi, xo);
 
-          sw.update()
-            .unroll(r.x);
-
+          sw.update().unroll(r.x);
           
           hw_ref.stream_to_accelerator();
           hw_query.stream_to_accelerator();

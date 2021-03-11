@@ -88,8 +88,14 @@ class RenameStencilRealizes : public IRMutator {
 
       // ROMs should be flattened, so don't append ".stencil"
       auto realization_type = identify_realization(unroll_loops(Stmt(op)), op->name);
+      if (realization_type != 5) {
+        std::cout << op->name << " is a realization type " << realization_type << std::endl;
+      }
+      if (op->name == "f0.0") {
+        //std::cout << Stmt(simplify(unroll_loops(op)));
+      }
 
-      // ROMs tagget as Stack should not be flattened
+      // ROMs tagged as Stack should not be flattened
       bool tagged_rom = func.schedule().memory_type() == MemoryType::Stack;
 
       if (tagged_rom ||

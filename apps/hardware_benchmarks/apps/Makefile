@@ -17,7 +17,7 @@ APP_SUITES := simple img video dnn soc other
 
 ### simple applications ###
 SIMPLE_APPS := pointwise brighten_and_blur cascade \
-							 demosaic demosaic_complex
+							 demosaic demosaic_complex demosaic_2x2
 simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
@@ -42,16 +42,16 @@ VIDEO_APPS := exposure_fusion \
 DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_sample \
             conv_layer_3D \
 						resnet resnet_stride resnet_layer_gen resnet_block \
-            conv_layer_mobile mobilenet_layer_gen
+            conv_layer_mobile mobilenet_layer_gen jitnet
 dnn := $(DNN_APPS)
 
 
 ### SOC applications ###
-SOC_APPS := resnet_full_layer resnet_multi_layer
+SOC_APPS := resnet_full_layer resnet_full_pond_layer resnet_multi_layer
 soc := $(SOC_APPS)
 
 ### other applications ###
-OTHER_APPS := smith_waterman
+OTHER_APPS := audio_pipeline fft smith_waterman
 other := $(OTHER_APPS)
 
 ALL_APPS_SORTED := $(SIMPLE_APPS) $(IMG_APPS) $(VIDEO_APPS) $(DNN_APPS) $(SOC_APPS) $(OTHER_APPS)

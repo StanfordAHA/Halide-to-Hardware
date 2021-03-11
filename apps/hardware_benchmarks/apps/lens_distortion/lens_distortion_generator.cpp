@@ -50,7 +50,7 @@ public:
         count(x,y) += Halide::select(abs(distortion_x(x,y)-(x)) < 0.5f,
                              Halide::select(abs(distortion_y(x,y)-(y)) < 0.5f, 1, 0), 0);
         
-        output_copy(x,y) = accum(x,y) / count(x,y);
+        output_copy(x,y) = select(count(x,y)==0, 0, accum(x,y) / (count(x,y) + 0.01f));
 
         hw_output(x,y) = output_copy(x,y);
         output(x,y) = cast<uint8_t>(hw_output(x,y));

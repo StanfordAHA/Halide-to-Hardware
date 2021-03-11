@@ -99,6 +99,7 @@ protected:
     string output_directory;
     vector<LoweredArgument> func_args;
     bool inserted_host_buf_calls = false;
+    int num_xcels;
 };
 
 }
