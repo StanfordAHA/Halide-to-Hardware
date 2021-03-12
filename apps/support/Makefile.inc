@@ -1,12 +1,15 @@
-HALIDE_BIN_PATH ?= ../..
-HALIDE_SRC_PATH ?= ../..
-COREIR_DIR ?= ../../../coreir
-CLOCKWORK_DIR ?= ../../../clockwork
+THIS_MAKEFILE = $(realpath $(filter %Makefile, $(MAKEFILE_LIST)))
+ROOT_DIR = $(strip $(shell dirname $(THIS_MAKEFILE)))
+
+HALIDE_BIN_PATH ?= $(abspath $(ROOT_DIR)/../..)
+HALIDE_SRC_PATH ?= $(HALIDE_BIN_PATH)
+COREIR_DIR ?= $(HALIDE_BIN_PATH)/../coreir
+CLOCKWORK_DIR ?= $(HALIDE_BIN_PATH)/../clockwork
 
 HALIDE_DISTRIB_PATH ?= $(HALIDE_SRC_PATH)/distrib
 LDFLAGS ?=
 BIN ?= ./bin
-IMAGES ?= ../images
+IMAGES ?= $(ROOT_DIR)/../images
 HL_TARGET ?= host
 UNAME ?= $(shell uname)
 
