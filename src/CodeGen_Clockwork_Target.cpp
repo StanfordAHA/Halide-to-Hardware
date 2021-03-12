@@ -66,7 +66,7 @@ class ContainsCall : public IRVisitor {
       }
       IRVisitor::visit(op);
     }
-  
+
 public:
   vector<string> found_calls;
   set<string> calls;
@@ -128,7 +128,7 @@ string printname(const string &name) {
 
 string type_to_c_type(Type type) {
   ostringstream oss;
-  
+
   if (type.is_float()) {
     if (type.bits() == 32) {
       oss << "float";
@@ -145,7 +145,7 @@ string type_to_c_type(Type type) {
     if (type.is_vector()) {
       oss << type.lanes();
     }
-    
+
   } else {
     switch (type.bits()) {
     case 1:
@@ -176,7 +176,7 @@ string type_to_c_type(Type type) {
 
 string removedots(const string &name) {
     ostringstream oss;
-    
+
     for (size_t i = 0; i < name.size(); i++) {
         if (name[i] == '.') {
           oss << "_";
@@ -335,7 +335,7 @@ public:
 
 CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Target& target)
   : target_name(name),
-    hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader), 
+    hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader),
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
     clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
     //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
@@ -374,7 +374,7 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     clk_memory_file << clkc.memory_oss.str() << endl;
     clk_memory_header_file << "prog " << target_name << "();" << std::endl;
     clk_compute_file << clkc.compute_oss.str() << endl;
-    
+
     //src_file.close();
     //hdr_file.close();
     clk_debug_file.close();
@@ -387,14 +387,14 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     string clk_codegen_name = output_base_path + "clockwork_codegen.cpp";
     string clk_exec_h_name = output_base_path + "clockwork_testscript.h";
     string clk_exec_cpp_name = output_base_path + "clockwork_testscript.cpp";
-    
+
     ofstream clk_codegen_file(clk_codegen_name.c_str());
     ofstream clk_exec_h_file(clk_exec_h_name.c_str());
     ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
 
     print_clockwork_codegen(target_name, xcel_names, clk_codegen_file);
     std::cout << "printed codegen" << std::endl;
-    
+
     print_clockwork_execution_header(target_name, xcel_names, clk_exec_h_file);
     std::cout << "printed execution header" << std::endl;
 
@@ -532,9 +532,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
       loop_list.emplace_back("prg");
       //mem_bodyname = "prg";
     }
-  
+
     //stream << "void " << name << "(\n";
-    
+
     for (size_t i = 0; i < args.size(); i++) {
         string arg_name = "arg_" + std::to_string(i);
         if (args[i].is_stencil) {
@@ -553,9 +553,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
         }
 
     }
-    
+
     //memory_stream << std::endl;
-    
+
     if (is_header()) {
       //stream << ");\n";
     } else {
@@ -668,9 +668,9 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << "        compile_app_for_garnet_single_port_mem(prg, dir);" << endl
          << endl
          << "        // Run interconnect agnostic tb" << endl
-         << "        //auto cgra = cgra_flow_result(prg, dir);" << endl
+         << "        auto cgra = cgra_flow_result(prg, dir);" << endl
          << endl
-         << "        //sanity_check(prg, cpu, cgra);" << endl
+         << "        sanity_check(prg, cpu, cgra);" << endl
          << "      }" << endl
          << "      i += 1;" << endl
          << "    }" << endl
@@ -727,7 +727,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
     } else {
       stream << "void run_clockwork_program_" << xcel << "(RDAI_MemObject **mem_object_list) {\n";
     }
-    
+
     // get sizes of buffer elements
     vector<int> elt_sizes(num_buffers);
     for (size_t i = 0; i < num_buffers; i++) {
@@ -771,7 +771,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
           string varname = oss.str();
           stream << "\tfor (int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
         }
-        
+
         Expr temp_stride = 1;
         Expr temp_arg = Variable::make(Int(32), "l0");
         for (size_t j = 1; j < bounds.size(); j++) {
@@ -780,7 +780,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
           string varname = oss.str();
           temp_stride = temp_stride * bounds[j-1].extent;
           temp_arg = temp_arg + (Variable::make(Int(32), varname) * temp_stride);
-        } 
+        }
         temp_arg = simplify(temp_arg);
         stream << "\t\thw_uint<"<<elt_sizes[i]<<"> in_val;\n";
         stream << "\t\tset_at<0, " << elt_sizes[i] << ", " << elt_sizes[i] << ">(in_val, ";
@@ -831,7 +831,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       int elt_size = elt_sizes[num_buffers-1];
       stream << "\t\thw_uint<" << elt_size << "> actual = " << stream_name << ".read();\n";
       stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
-      stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = "; 
+      stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = ";
       stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
       stream << "\t";
       for(size_t i = 0; i < bounds.size(); i++) {
@@ -839,7 +839,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       }
       stream << "\n";
     }
-    
+
 
     stream << "}\n\n";
   }
@@ -870,7 +870,7 @@ Expr var_graph_substitute(const Expr &name, const Expr &replacement, const Expr 
 
 class ContainedLoopNames : public IRVisitor {
   std::vector<std::string> loopnames;
-  
+
   using IRVisitor::visit;
   void visit(const Variable *op) override {
     for (auto loopname : loopnames) {
@@ -969,16 +969,16 @@ Expr substitute_compute_args(Expr expr, vector<Compute_Argument>& compute_args) 
     //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
     new_expr = var_graph_substitute(Expr(compute_args[i].call), var_replacement, new_expr);
   }
-  
+
   return new_expr;
 }
 
 Expr substitute_loop_vars(Expr expr, map<string, const Variable*>& loopname_map) {
   Expr new_expr = expr;
-  
+
   for (auto loopname_pair : loopname_map) {
     auto used_loopname = loopname_pair.first;
-    
+
     const Variable* old_loopvar = loopname_pair.second;
     auto var_replacement = Variable::make(old_loopvar->type, used_loopname);
     //compute_stream << "// replacing " << Expr(compute_args[i].call) << " with " << var_replacement << std::endl;
@@ -997,7 +997,7 @@ void add_stores_to_coreir_interface(CoreIR_Interface& iface,
     for (auto arg : merged_args[argname]) {
       total_bitwidth += arg.type.bits();
     }
-    
+
     vector<CoreIR_Port> iports;
     for (auto arg_component : merged_args[argname]) {
       uint esize = arg_component.type.bits();
@@ -1018,7 +1018,7 @@ void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
   set<string> finished_roms;
   for (auto found_rom : found_roms) {
     //std::cout << "rom found named " << found_rom << std::endl;
-    
+
     auto pc_str = rom_to_c(roms[found_rom]);
 
     vector<int> rom_size;
@@ -1038,7 +1038,7 @@ void output_roms(const vector<string>& found_roms, map<string, ROM_data>& roms,
     }
     auto coreir_inst = rom_to_coreir(found_rom, rom_size, roms[found_rom].produce, context);
     coreir_insts.push_back(coreir_inst);
-    
+
     finished_roms.insert(found_rom);
     compute_stream << pc_str << std::endl;
 
@@ -1088,13 +1088,13 @@ void Compute_Closure::visit(const Load *op) {
 
     ostringstream arg_print;
     arg_print << Expr(op);
-      
+
     //auto comp_arg = Compute_Argument({"", false, false, op->type, op->args, op->name, Expr(op)});
     //if (unique_args.count(comp_arg) == 0) {
     if (unique_argstrs.count(printname(arg_print.str())) == 0) {
       string argname = unique_name(op->name);
       if (argname == op->name) { argname = unique_name(op->name); }
-        
+
       unique_argstrs.insert(printname(arg_print.str()));
       vars[argname] = op->type;
       vector<bool> calls_found;
@@ -1113,7 +1113,7 @@ void Compute_Closure::visit(const Load *op) {
   }
 
   Closure::visit(op);
-  
+
 }
 
 void Compute_Closure::visit(const Call *op) {
@@ -1126,14 +1126,14 @@ void Compute_Closure::visit(const Call *op) {
 
       ostringstream arg_print;
       arg_print << Expr(op);
-      
+
       //auto comp_arg = Compute_Argument({"", false, false, op->type, op->args, op->name, Expr(op)});
       //if (unique_args.count(comp_arg) == 0) {
       if (unique_argstrs.count(printname(arg_print.str())) == 0) {
         string argname = unique_name(op->name);
         //std::cout << "adding arg " << argname << Expr(op);
         if (argname == op->name) { argname = unique_name(op->name); }
-        
+
         unique_argstrs.insert(printname(arg_print.str()));
         vars[argname] = op->type;
         vector<bool> calls_found;
@@ -1174,7 +1174,7 @@ vector<Compute_Argument> Compute_Closure::arguments() {
       if (i.first.find(".stencil") != string::npos ||
           ends_with(i.first, ".stream") ||
           ends_with(i.first, ".stencil_update")) {
-          
+
           bool is_output = (starts_with(i.first, output_name));
           if (var_comparg.count(i.first) > 0) {
             res.push_back(var_comparg[i.first]);
@@ -1214,7 +1214,7 @@ class CodeGen_C_Expr : public CodeGen_C {
   void visit(const Call *op) override;
   void visit(const Realize *op) override;
   void visit(const Allocate *op) override;
-  
+
 public:
   CodeGen_C_Expr(std::ostream& dest, Target target) : CodeGen_C(dest, target) {
     indent += 2;
@@ -1287,7 +1287,7 @@ void CodeGen_C_Expr::visit(const Call *op) {
   } else if (op->name == "sqrt_f32") {
     internal_assert(op->args.size() == 1);
     print_assignment(op->type, "sqrtf(" + print_expr(op->args[0]) + ")");
-    
+
   } else if (op->name == "sin_f32") {
     internal_assert(op->args.size() == 1);
     print_assignment(op->type, "sinf(" + print_expr(op->args[0]) + ")");
@@ -1314,7 +1314,7 @@ void CodeGen_C_Expr::visit(const Call *op) {
     string y = print_expr(op->args[0]);
     string x = print_expr(op->args[1]);
     print_assignment(op->type, "atan2f(" + y + ", " + x + ")");
-    
+
   } else if (ends_with(op->name, ".stencil")) {
     //internal_assert(op->args.size() == 1);
     //string id_index = print_expr(op->args[0]);
@@ -1379,7 +1379,7 @@ void CodeGen_C_Expr::visit(const Allocate *op) {
       internal_error << "Size for allocation " << op->name
                      << " is not a constant.\n";
     }
-          
+
     Allocation alloc;
     alloc.type = op->type;
     allocations.push(op->name, alloc);
@@ -1453,7 +1453,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     CodeGen_Clockwork_Base::visit(op);
     return;
   }
-  
+
   // Debug output the provide we trying to do
   memory_stream << endl << "//store is: " << simplify(expand_expr(Stmt(op), scope));
   //std::cout << endl << "//store is: " << expand_expr(Stmt(op), scope);
@@ -1490,7 +1490,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
                     << buffer_name << "\"\n";
 
       print_dynamic_args(arg.args, arg.args_is_dynamic, scope, memory_stream);
-      
+
     } else {
       memory_stream << "  " << func_name << "->add_load(\""
                     << buffer_name << "\"";
@@ -1502,7 +1502,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
         memory_stream << ", \"" << removedots(index_print.str()) << "\"";
       }
     }
-    
+
     memory_stream << ");" << std::endl;
   }
 
@@ -1518,7 +1518,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
               << op->name << "\"\n";
     print_dynamic_args(op->args, dynamic_stores_found, scope, memory_stream);
     memory_stream << ");\n";
-    
+
   } else {
     memory_stream << "  " << func_name << "->add_store(\""
                   << printname(op->name) << "\"";
@@ -1549,7 +1549,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto argname = arg_order[i];
 
     bool is_dynamic = false;
-    
+
     uint total_bitwidth = 0;
     for (auto arg : merged_args[argname]) {
       total_bitwidth += arg.type.bits();
@@ -1559,7 +1559,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     if (is_dynamic) {
       compute_stream << "hw_uint<64>& ignore, ";
     }
-    
+
     //uint total_bitwidth = merged_args[argname].size() * esize;
     compute_stream << "hw_uint<" << total_bitwidth << ">& " << printname(argname);
   }
@@ -1567,7 +1567,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   // Substitute each store variable in the compute statement
   Expr new_expr = expand_expr(substitute_in_all_lets(op->values[0]), scope);
   new_expr = substitute_compute_args(new_expr, compute_args);
-  
+
   // Add each used loop variable to memory, compute signature, coreir interface
   auto loopname_map = used_loops(new_expr, loop_list);
   bool first_var = arg_order.size() == 0;
@@ -1575,7 +1575,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     auto used_loopname = loopname_pair.first;
     memory_stream << "  " << func_name << "->compute_unit_needs_index_variable(\""
                   << used_loopname << "\");" << std::endl;
-    
+
     iface.indices.emplace_back(CoreIR_Port({used_loopname, 16})); // loops use 16 bit variables
     if (!first_var) { compute_stream << ", "; } else { first_var = false; }
     compute_stream << "const int _" << used_loopname;
@@ -1643,7 +1643,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const ProducerConsumer
   if (roms.count(op->name) > 0 && op->is_producer) {
     roms[op->name].produce = op->body;
   }
-    
+
   CodeGen_Clockwork_Base::visit(op);
 }
 
@@ -1699,7 +1699,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
 
     //string loopname = printname(op->name);
     //add_loop(op);
-    
+
     open_scope();
     // add a 'PIPELINE' pragma if it is an innermost loop
     if (!contain_for_loop(op->body)) {
@@ -1714,7 +1714,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const For *op) {
     internal_assert(loop_list.back() == loopname);
     loop_list.pop_back();
     //mem_bodyname = bodyname;
-    
+
     close_scope("for " + printname(op->name));
 }
 
@@ -1740,12 +1740,12 @@ class ShiftRealizeBounds : public IRMutator {
   const Scope<Expr>& scope;
 
   using IRMutator::visit;
-  
+
   Expr visit(const Call *op) {
     if (op->name == name) {
       internal_assert(mins.size() == op->args.size());
       vector<Expr> new_args(mins.size());
-      
+
       for (size_t i=0; i<mins.size(); ++i) {
         new_args[i]= simplify(expand_expr(op->args[i] - mins[i], scope));
       }
@@ -1760,7 +1760,7 @@ class ShiftRealizeBounds : public IRMutator {
       internal_assert(mins.size() == op->args.size());
       vector<Expr> new_args(mins.size());
       vector<Expr> new_values(op->values.size());
-      
+
       for (size_t i=0; i<mins.size(); ++i) {
         new_args[i] = simplify(expand_expr(op->args[i] - mins[i], scope));
       }
@@ -1773,7 +1773,7 @@ class ShiftRealizeBounds : public IRMutator {
       return IRMutator::visit(op);
     }
   }
-  
+
 public:
   ShiftRealizeBounds(string name, vector<Expr>& mins, const Scope<Expr>& scope) : name(name), mins(mins), scope(scope) {};
 };
@@ -1809,7 +1809,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   }
 
   //auto new_realize = Realize::make(op->name, op->types, op->memory_type, op->bounds, op->condition, new_body);
-  
+
   new_body.accept(this);
 }
 
