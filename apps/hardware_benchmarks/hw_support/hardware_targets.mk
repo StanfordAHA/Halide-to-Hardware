@@ -14,12 +14,11 @@ SHELL = bash
 BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
-FUNCUBUF_PATH ?= $(ROOT_DIR)/../../../..
-HALIDE_SRC_PATH ?= ../../../..
+FUNCUBUF_PATH ?= $(abspath $(ROOT_DIR)/../../../..)
 LDFLAGS += -lcoreir-lakelib
 
 #WITH_CLOCKWORK ?= 0
-CLOCKWORK_PATH ?= $(HALIDE_SRC_PATH)/../clockwork
+CLOCKWORK_PATH ?= $(CLOCKWORK_DIR)
 ISL_PATH ?= $(CLOCKWORK_PATH)/barvinok-0.41/isl
 CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include -I$(ISL_PATH) -fPIC
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
@@ -144,12 +143,12 @@ $(BIN)/clockwork_codegen.o: $(BIN)/clockwork_codegen.cpp
 $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -o $@
 $(BIN)/unoptimized_$(TESTNAME).cpp unopt-clockwork clockwork-unopt unopt: $(BIN)/clockwork_codegen
-	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib:../$(COREIR_DIR)/lib ./clockwork_codegen unopt >/dev/null; cd ..
+	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen unopt >/dev/null; cd ..
 $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwork_codegen
-	cd $(BIN) && LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib:../$(COREIR_DIR)/lib ./clockwork_codegen opt >/dev/null; cd ..
+	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen opt >/dev/null; cd ..
 compile_mem compile-mem mem-clockwork clockwork-mem mem: $(BIN)/clockwork_codegen
 	@-mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
-	cd $(BIN) && CLKWRK_PATH=../$(CLOCKWORK_PATH) LD_LIBRARY_PATH=../$(CLOCKWORK_PATH)/lib:../$(COREIR_DIR)/lib ./clockwork_codegen compile_mem >mem_cout; cd ..
+	cd $(BIN) && CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen compile_mem >mem_cout; cd ..
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp unopt
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
