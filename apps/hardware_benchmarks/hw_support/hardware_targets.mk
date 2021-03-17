@@ -148,7 +148,7 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen opt >/dev/null; cd ..
 compile_mem compile-mem mem-clockwork clockwork-mem mem: $(BIN)/clockwork_codegen
 	@-mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
-	cd $(BIN) && CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen compile_mem >mem_cout; cd ..
+	cd $(BIN) && CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen compile_mem true >mem_cout; cd ..
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp unopt
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
