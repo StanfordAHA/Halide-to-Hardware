@@ -4,6 +4,9 @@
 
 namespace {
 
+using namespace Halide;
+using namespace Halide::ConciseCasts;
+
 class LensDistortion : public Halide::Generator<LensDistortion> {
 public:
     Input<Buffer<uint8_t>> input{"input", 2};
@@ -35,22 +38,22 @@ public:
 
         // The algorithm
 
-        input_copy(x,y) = cast<uint16_t>(input(x,y));
+        input_copy(x,y) = cast<int16_t>(input(x,y));
         hw_input(x,y) = input_copy(x,y);
         
-        radius2(x,y) = ((x-width/2)*(x-width/2) + (y-height/2)*(y-height/2)) * pix*pix/(d*d);
+        radius2(x,y) = i16(((x-width/2)*(x-width/2) + (y-height/2)*(y-height/2)) * pix*pix/(d*d));
 
         distortion_x(x,y) = x*(1 + k1 * radius2(x,y) + k2 * radius2(x,y) * radius2(x,y));
         distortion_y(x,y) = y*(1 + k2 * radius2(x,y) + k2 * radius2(x,y) * radius2(x,y));
 
-        accum(x,y) = 0;
+        accum(x,y) = i16(0);
         accum(x,y) += Halide::select(abs(distortion_x(x,y)-(x)) < 0.5f,
-                             Halide::select(abs(distortion_y(x,y)-(y)) < 0.5f, hw_input(x,y), 0), 0);
-        count(x,y) = 0;
+                                     Halide::select(abs(distortion_y(x,y)-(y)) < 0.5f, hw_input(x,y), i16(0)), i16(0));
+        count(x,y) = i16(0);
         count(x,y) += Halide::select(abs(distortion_x(x,y)-(x)) < 0.5f,
-                             Halide::select(abs(distortion_y(x,y)-(y)) < 0.5f, 1, 0), 0);
+                                     Halide::select(abs(distortion_y(x,y)-(y)) < 0.5f, i16(1), i16(0)), i16(0));
         
-        output_copy(x,y) = select(count(x,y)==0, 0, accum(x,y) / (count(x,y) + 0.01f));
+        output_copy(x,y) = select(count(x,y)==0, i16(0), accum(x,y) / (count(x,y) + 0.01f));
 
         hw_output(x,y) = output_copy(x,y);
         output(x,y) = cast<uint8_t>(hw_output(x,y));

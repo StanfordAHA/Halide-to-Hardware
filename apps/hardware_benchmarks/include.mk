@@ -12,6 +12,9 @@ coreirall coreir_all: $(ALL_APPS:=-coreir)
 compileall compile_all clockworkall clockwork_all clockwork-all: $(ALL_APPS_SORTED:=-clockwork)
 compareall compare_all compare-all: $(ALL_APPS_SORTED:=-compare-clockwork)
 
+suites suite:
+	@-echo $(APP_SUITES)
+
 halide compiler:
 	$(MAKE) -C ../../.. quick_distrib
 
@@ -41,6 +44,8 @@ $(1)-run:               $($(2):=-run)
 $(1)-compare:           $($(2):=-compare)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
 $(1)-compare-coreir:    $($(2):=-compare-coreir)
+$(1)-mem:               $($(2):=-mem)
+$(1)-memtest:           $($(2):=-memtest)
 $(1)-rewrite:           $($(2):=-rewrite)
 $(1)-check:             $($(2):=-check)
 $(1)-golden:            $($(2):=-golden)
@@ -79,6 +84,17 @@ $(eval $(call SUITE_template,all,allapps))
 	@if [ -d $* ]; then \
 		$(call run_app,$*,compare); \
 	fi
+
+#    $(call run_app,$*,bin/map_result/$(TESTNAME)/$(TESTNAME).json); 
+%-mem:
+	@if [ -d $* ]; then \
+		$(call run_app,$*,mem); \
+  fi
+
+%-memtest:
+	@if [ -d $* ]; then \
+		$(call run_app,$*,memtest); \
+  fi
 
 %-rewrite:
 	@if [ -d $* ]; then \

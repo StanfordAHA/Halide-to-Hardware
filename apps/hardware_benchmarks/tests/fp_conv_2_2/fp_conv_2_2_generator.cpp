@@ -32,7 +32,7 @@ public:
         conv(x, y)  += fp_kernel(r.x + 2*r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
+        hw_output(x, y) = conv(x, y);
         output(x, y) = u8(ceil(hw_output(x,y)));
 
         /* THE SCHEDULE */
@@ -49,9 +49,9 @@ public:
             .tile(x,y, xo,yo, xi,yi, 64-1, 64-1)
             .hw_accelerate(xi, xo);
 
-          // conv.update()
-          //   .unroll(r.x, 2)
-          //   .unroll(r.y, 2);
+           conv.update()
+             .unroll(r.x, 2)
+             .unroll(r.y, 2);
 
           conv.compute_at(hw_output, xo);
           //fp_kernel.compute_at(hw_output, xo);

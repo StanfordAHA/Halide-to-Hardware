@@ -23,8 +23,8 @@ public:
         sclamp(x,y) = clamp( hw_input(x,y), 1, 150 );
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int8_t>(smin(x,y) + smax(x,y) - sclamp(x,y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = smin(x,y) + smax(x,y) - sclamp(x,y);
+        output(x, y) = cast<int8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

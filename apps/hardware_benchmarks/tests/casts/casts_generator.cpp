@@ -30,7 +30,7 @@ public:
         cast_u32(x, y) = cast<uint32_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<uint32_t>(input(x, y));
+        hw_input(x, y) = cast<int16_t>(input(x, y));
 
         cast_u32(x, y)  += cast<uint32_t>(kernel(r.x, r.y)) * cast<uint32_t>(hw_input(x + r.x, y + r.y));
         cast_i16(x, y)  = cast<int16_t>(cast_u32(x, y)) * cast<int16_t>(hw_input(x, y));
@@ -40,7 +40,7 @@ public:
         cast_u8(x, y)   = cast<uint8_t>(cast_u16(x, y)) - cast<uint8_t>(cast_i16(x, y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int32_t>(cast_u8(x, y));
+        hw_output(x, y) = cast<int16_t>(cast_u8(x, y));
         output(x, y) = cast<uint8_t>(hw_output(x,y));
 
 

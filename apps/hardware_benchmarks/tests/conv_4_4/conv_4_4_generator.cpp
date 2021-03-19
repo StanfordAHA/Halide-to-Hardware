@@ -33,7 +33,7 @@ public:
         conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
+        hw_output(x, y) = conv(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

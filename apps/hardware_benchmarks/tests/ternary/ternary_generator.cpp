@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class UnitTestTernary : public Halide::Generator<UnitTestTernary> {
 public:
@@ -19,11 +20,11 @@ public:
 
         Func sel, mad;
         mad(x,y) = hw_input(x,y) * 3 + 10;
-        sel(x,y) = select( mad(x,y) > 52, 39, 7);
+        sel(x,y) = select( mad(x,y) > 52, i16(39), i16(7));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int8_t>(sel(x, y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = sel(x, y);
+        output(x, y) = i8(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

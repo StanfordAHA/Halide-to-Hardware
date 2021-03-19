@@ -35,7 +35,7 @@ public:
         conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
+        hw_output(x, y) = conv(x, y);
         //output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
         output(x, y) = u8(ceil(hw_output(x,y)));
 

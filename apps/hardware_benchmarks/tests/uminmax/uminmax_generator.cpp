@@ -23,8 +23,8 @@ public:
         uclamp(x,y) = clamp( hw_input(x,y), 1, 150 );
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(umin(x,y) + umax(x,y) - uclamp(x,y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = umin(x,y) + umax(x,y) - uclamp(x,y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

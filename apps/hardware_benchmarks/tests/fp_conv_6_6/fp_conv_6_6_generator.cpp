@@ -37,7 +37,7 @@ public:
         conv(x, y)  += fp_kernel(r.x + 6* r.y) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
+        hw_output(x, y) = conv(x, y);
         output(x, y) = u8(ceil(hw_output(x,y)));
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -54,6 +54,9 @@ public:
               .hw_accelerate(xi, xo);
 
           conv.compute_at(hw_output, xo);
+          //conv.update()
+          //  .unroll(r.x, 6)
+          //  .unroll(r.y, 6);
 
           hw_input.stream_to_accelerator();
           

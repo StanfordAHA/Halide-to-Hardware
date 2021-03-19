@@ -29,7 +29,7 @@ public:
         bool_xor(x,y) = bool_or(x,y) ^ bool_not(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(select(bool_xor(x, y), 200, 0));
+        hw_output(x, y) = select(bool_xor(x, y), i16(200), i16(0));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

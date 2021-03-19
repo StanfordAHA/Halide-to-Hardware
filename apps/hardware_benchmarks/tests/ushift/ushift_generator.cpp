@@ -23,8 +23,8 @@ public:
         shiftl(x,y) = hw_input(x,y) << 14;
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<uint8_t>(shiftr(x,y) + shiftl(x,y));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = shiftr(x,y) + shiftl(x,y);
+        output(x, y) = cast<uint8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

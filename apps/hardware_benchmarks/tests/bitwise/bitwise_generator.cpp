@@ -25,7 +25,7 @@ public:
         bitwise_xor(x,y) = bitwise_inv(x,y) ^ bitwise_or(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(bitwise_xor(x, y));
+        hw_output(x, y) = bitwise_xor(x, y);
         output(x, y) = u8(hw_output(x,y));
         
         /* THE SCHEDULE */

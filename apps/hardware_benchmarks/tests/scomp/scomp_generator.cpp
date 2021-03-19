@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class UnitTestScomp : public Halide::Generator<UnitTestScomp> {
 public:
@@ -24,8 +25,8 @@ public:
         ge(x,y) = hw_input(x,y) >= -1;
 
         Func hw_output("hw_output");
-        hw_output(x, y) = cast<int8_t>(select(lt(x,y) && gt(x,y) && le(x,y) && ge(x,y), 255, 0));
-        output(x, y) = hw_output(x,y);
+        hw_output(x, y) = select(lt(x,y) && gt(x,y) && le(x,y) && ge(x,y), i16(255), i16(0));
+        output(x, y) = cast<int8_t>(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

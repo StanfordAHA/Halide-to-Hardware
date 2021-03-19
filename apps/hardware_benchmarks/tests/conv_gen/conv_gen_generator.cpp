@@ -69,7 +69,7 @@ public:
         }
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
+        hw_output(x, y) = conv(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         //output.bound(x, 0, imgsize);
