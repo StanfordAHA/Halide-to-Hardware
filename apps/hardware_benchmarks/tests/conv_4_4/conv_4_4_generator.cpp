@@ -25,7 +25,7 @@ public:
         kernel(1,0) = 14;      kernel(1,1) = 0;       kernel(1,2) = 16;      kernel(1,3) = 21;
         kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;      kernel(2,3) = 32;
         kernel(3,0) = 20;      kernel(3,1) = 29;      kernel(3,2) = 22;      kernel(3,3) = 24;
- 
+
         conv(x, y) = u16(0);
 
         Func hw_input("hw_input");
@@ -39,14 +39,14 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+
           hw_output.compute_root();
 
           output.bound(x, 0, 64-3);
           output.bound(y, 0, 64-3);
           conv.bound(x, 0, 64-3);
           conv.bound(y, 0, 64-3);
-          
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64-3, 64-3)
             .hw_accelerate(xi, xo);
 
@@ -63,13 +63,14 @@ public:
 
           output.bound(x, 0, 64-3);
           output.bound(y, 0, 64-3);
-          
+
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64-3, 64-3)
             .hw_accelerate(xi, xo);
-            
-          kernel.compute_at(conv, x);
+
+          kernel.compute_at(hw_output, xo);
+          conv.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.x, 4)
             .unroll(r.y, 4);
@@ -83,7 +84,7 @@ public:
             .unroll(r.x, 4)
             .unroll(r.y, 4);
         }
-        
+
     }
 };
 
