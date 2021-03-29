@@ -665,16 +665,22 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
-         << "        bool gen_config_only; " << endl
-         << "        istringstream(args[i+1]) >> std::boolalpha >> gen_config_only;" << endl
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, gen_config_only);" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, true);" << endl
          << endl
-         << "        if (!gen_config_only) {" << endl
-         << "         // Run interconnect agnostic tb" << endl
-         << "         auto cgra = cgra_flow_result(prg, dir);" << endl
+         << "      } else if (args[i] == \"compile_and_test_mem\") {" << endl
+         << "        preprocess_prog(prg);" << endl
          << endl
-         << "         sanity_check(prg, cpu, cgra);" << endl
-         << "        }" << endl
+         << "        // Run Frontend Test, generate gold TB" << endl
+         << "        auto cpu = unoptimized_result(prg);" << endl
+         << endl
+         << "        // Run Memory Mapper and dump collateral into dir" << endl
+         << "        string dir = \"./map_result\";" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false);" << endl
+         << endl
+         << "        // Run interconnect agnostic tb" << endl
+         << "        auto cgra = cgra_flow_result(prg, dir);" << endl
+         << endl
+         << "        sanity_check(prg, cpu, cgra);" << endl
          << "      }" << endl
          << "      i += 1;" << endl
          << "    }" << endl

@@ -8,6 +8,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 // Size of blur for gradients.
 const int fx = 3;
@@ -44,13 +45,13 @@ public:
         hw_weight(c, k, x, y) = weight_copy(c, k, x, y);
 
         Func conv;
-        conv(x, y, k) = 0;
+        conv(x, y, k) = i16(0);
         conv(x, y, k) += hw_weight(win.z, k, win.x, win.y) *
           hw_input(win.z, stride*x + win.x, stride*y + win.y);
 
         Func hw_output;
-        hw_output(x, y, k) = cast<int16_t>( conv(x, y, k) );
-        output(x, y, k) = hw_output(x, y, k);
+        hw_output(x, y, k) = conv(x, y, k);
+        output(x, y, k) = i16( hw_output(x, y, k) );
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

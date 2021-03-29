@@ -26,7 +26,7 @@ public:
         // with pi, round to even outputs 7 * pi = 22.0
         //    while trunction outputs     7 * pi = 21.875
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(product(x, y));  
+        hw_output(x, y) = product(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

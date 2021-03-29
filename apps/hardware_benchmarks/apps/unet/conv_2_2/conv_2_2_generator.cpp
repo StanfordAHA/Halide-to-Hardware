@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class Convolution2x2Kernel : public Halide::Generator<Convolution2x2Kernel> {
 public:
@@ -29,7 +30,7 @@ public:
                0, 2,
                0, k_z);
 
-        conv(x, y, w) = 0;
+        conv(x, y, w) = u16(0);
 
         Func hw_input("hw_input"), hw_kernel("hw_kernel");
         Func bounded_input("bounded_input");
@@ -40,8 +41,8 @@ public:
         conv(x, y, w)  += hw_kernel(r.z, w, r.x, r.y)  * hw_input(r.z, x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y, w) = cast<uint8_t>(conv(x, y, w));
-        output(x, y, w) = max(0, hw_output(x, y, w));
+        hw_output(x, y, w) = conv(x, y, w);
+        output(x, y, w) = cast<uint8_t>(max(0, hw_output(x, y, w)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

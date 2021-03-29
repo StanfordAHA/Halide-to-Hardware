@@ -25,8 +25,6 @@ alias clang='clang-6.0'
 alias clang++='clang++-6.0'
 alias llvm-config='llvm-config-6.0'</code></pre>
 
-### Build RDAI:
-<pre><code>git clone https://github.com/thenextged/rdai.git</code></pre>
 
 ### Build CoreIR:
 <pre><code>git clone -b master https://github.com/rdaly525/coreir.git

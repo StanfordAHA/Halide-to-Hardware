@@ -16,14 +16,14 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = u16(input(x, y));
+        hw_input(x, y) = i16(input(x, y));
 
         Func abso, absdo;
         abso(x,y) = abs(hw_input(x,y) - 100);
-        absdo(x,y) = absd( abso(x,y) , 30 );
+        absdo(x,y) = absd( abso(x,y) , i16(30) );
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(absdo(x, y));
+        hw_output(x, y) = absdo(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

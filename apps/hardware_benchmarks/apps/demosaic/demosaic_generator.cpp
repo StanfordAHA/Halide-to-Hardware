@@ -67,12 +67,12 @@ public:
 
         // output all channels
         Func demosaic, hw_output;
-        demosaic(x,y,c) = cast<uint8_t>(select(c == 0, red(x, y),
-                                               c == 1, green(x, y),
-                                               blue(x, y)));
+        demosaic(x,y,c) = select(c == 0, red(x, y),
+                                 c == 1, green(x, y),
+                                 blue(x, y));
 
         hw_output(c,x,y) = demosaic(x,y,c);
-        output(x,y,c) = hw_output(c,x,y);
+        output(x,y,c) = cast<uint8_t>(hw_output(c,x,y));
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

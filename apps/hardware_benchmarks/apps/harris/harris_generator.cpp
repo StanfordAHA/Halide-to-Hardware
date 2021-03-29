@@ -376,8 +376,8 @@ public:
               .hw_accelerate(xi, xo);
             //padded16.stream_to_accelerator();
 
-            grad_x.compute_at(hw_output, xo);
-            grad_y.compute_at(hw_output, xo);
+            grad_x_unclamp.compute_at(hw_output, xo);
+            grad_y_unclamp.compute_at(hw_output, xo);
             lxx.compute_at(hw_output, xo);
             lyy.compute_at(hw_output, xo);
             lxy.compute_at(hw_output, xo);

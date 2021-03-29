@@ -15,6 +15,7 @@ BIN ?= bin
 GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(abspath $(ROOT_DIR)/../../../..)
+LAKE_PATH ?= $(abspath $(CLOCKWORK_DIR)/../lake)
 LDFLAGS += -lcoreir-lakelib
 
 #WITH_CLOCKWORK ?= 0
@@ -132,11 +133,20 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
 	$^ -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-coreir-coreir_valid-use_extract_hw_kernel -e coreir,html $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
-clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
+$(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h \
+$(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp \
+clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
-$(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp: $(BIN)/$(TESTNAME)_memory.cpp
+
+#: $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h
+
+ALL_UNOPT_CPPS = $(wildcard $(BIN)/unoptimized_*.cpp)
+IGNORED_UNOPT_CPPS =  $(foreach file,$(ALL_UNOPT_CPPS),$(if $(findstring _host.cpp,$(file)),$(file),))
+IGNORED_UNOPT_CPPS += $(foreach file,$(ALL_UNOPT_CPPS),$(if $(findstring _sw_bmp_test_harness.cpp,$(file)),$(file),))
+UNOPTIMIZED_CPPS = $(filter-out $(IGNORED_UNOPT_CPPS), $(wildcard $(BIN)/unoptimized_*.cpp))
+UNOPTIMIZED_OBJS = $(patsub %.cpp,%.o,$(UNOPTIMIZED_CPPS))
 
 $(BIN)/clockwork_codegen.o: $(BIN)/clockwork_codegen.cpp
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) -c $< -o $@
@@ -146,13 +156,20 @@ $(BIN)/unoptimized_$(TESTNAME).cpp unopt-clockwork clockwork-unopt unopt: $(BIN)
 	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen unopt >/dev/null; cd ..
 $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwork_codegen
 	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen opt >/dev/null; cd ..
-test-mem: $(BIN)/clockwork_codegen
-	@-mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
-	cd $(BIN) && CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen compile_mem false >mem_cout; cd ..
-compile_mem compile-mem mem-clockwork clockwork-mem mem: $(BIN)/clockwork_codegen
-	@-mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
-	cd $(BIN) && CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen compile_mem true >mem_cout; cd ..
-$(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp unopt
+compile_mem compile-mem mem-clockwork clockwork-mem mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
+	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+	cd $(BIN) && \
+	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
+	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
+	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+	cd $(BIN) && \
+	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
+	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
+$(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS)
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
@@ -263,6 +280,8 @@ endif
 
 # Always run this, but only write the file if the variable changes
 $(BIN)/halide_gen_args: FORCE
+	@-mkdir -p $(BIN)
+	@-touch $(BIN)/halide_gen_args
 	@LAST_HALIDE_GEN_ARGS=`cat $(BIN)/halide_gen_args`; \
 	if [[ "$$LAST_HALIDE_GEN_ARGS" == 'empty' && "$$HALIDE_GEN_ARGS" == '' ]]; then \
 		echo "HALIDE_GEN_ARGS still empty"; \
@@ -409,7 +428,7 @@ update_golden updategolden golden: $(BIN)/output_cpu.$(EXT) $(BIN)/$(TESTNAME)_m
 	cp $(BIN)/$(TESTNAME)_compute.h $(GOLDEN)/$(TESTNAME)_compute.h
 
 check:
-	@printf "%-25s" $(TESTNAME);
+	@printf "%-23s" $(TESTNAME);
 	@if [ -f "$(BIN)/$(TESTNAME).generator" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " halide"; \
 	else \
@@ -431,14 +450,14 @@ check:
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
 	fi
 	@if [ -f "$(BIN)/$(TESTNAME)_memory.cpp" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " clk_codegen"; \
+	  printf "  \033[0;32m%s\033[0m" " clk_cg"; \
 	else \
-	  printf "  \033[0;31m%s\033[0m" "!clk_codegen"; \
+	  printf "  \033[0;31m%s\033[0m" "!clk_cg"; \
 	fi
 	@if [ -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " clockwork"; \
+	  printf "  \033[0;32m%s\033[0m" " clkwork"; \
 	else \
-	  printf "  \033[0;31m%s\033[0m" "!clockwork"; \
+	  printf "  \033[0;31m%s\033[0m" "!clkwork"; \
 	fi
 	@if [ -f "$(BIN)/output_cpu.$(EXT)" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " out_cpu"; \
@@ -451,9 +470,19 @@ check:
 	  printf "  \033[0;31m%s\033[0m" "!out_clk"; \
 	fi
 	@if [ -f "$(BIN)/output.$(EXT)" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " output.png"; \
+	  printf "  \033[0;32m%s\033[0m" " out.png"; \
 	else \
-	  printf "  \033[0;31m%s\033[0m" "!output.png"; \
+	  printf "  \033[0;31m%s\033[0m" "!out.png"; \
+	fi
+	@if [ -f "$(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " mapped"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!mapped"; \
+	fi
+	@if [ -f "$(BIN)/coreir_apps/single_port_buffer/$(TESTNAME)/$(TESTNAME).v" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " memtest"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!memtest"; \
 	fi
 #	@if [ -f "$(GOLDEN)/$(TESTNAME)_memory.cpp" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " golden"; \

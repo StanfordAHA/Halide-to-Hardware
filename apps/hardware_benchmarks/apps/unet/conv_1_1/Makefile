@@ -1,6 +1,6 @@
-HALIDE_BIN_PATH ?= ../../../../..
-HALIDE_SRC_PATH ?= ../../../../..
-HWSUPPORT ?= ../../../hw_support
+HALIDE_BIN_PATH ?= $(abspath ../../../../..)
+HALIDE_SRC_PATH ?= $(abspath ../../../../..)
+HWSUPPORT ?= $(abspath ../../../hw_support)
 
 # Usage:
 #  make all:                    compiles all code without running

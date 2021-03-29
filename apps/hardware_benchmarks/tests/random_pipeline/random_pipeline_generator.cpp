@@ -1308,10 +1308,11 @@ Expr rand_value(Type t) {
           tail = resample_to(tail, 2000, 2000, 3);
         }
         
-        Stage casted = cast_stage(output.type(), tail);
+        //Stage casted = cast_stage(output.type(), tail);
         
         Func hw_output;
-        hw_output = casted.func;
+        //hw_output = casted.func;
+        hw_output = tail.func;
         
         output(x,y,c) = u8(hw_output(x,y,c));
 
