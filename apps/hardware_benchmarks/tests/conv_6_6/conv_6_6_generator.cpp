@@ -27,7 +27,7 @@ public:
         kernel(3,0) = 20;      kernel(3,1) = 29;      kernel(3,2) = 22;      kernel(3,3) = 24;      kernel(3,4) = 34;      kernel(3,5) = 44;
         kernel(4,0) = 30;      kernel(4,1) = 39;      kernel(4,2) = 32;      kernel(4,3) = 34;      kernel(4,4) = 37;      kernel(4,5) = 47;
         kernel(5,0) = 40;      kernel(5,1) = 49;      kernel(5,2) = 42;      kernel(5,3) = 44;      kernel(5,4) = 47;      kernel(5,5) = 48;
- 
+
         conv(x, y) = u16(0);
 
         Func hw_input("hw_input");
@@ -41,14 +41,14 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
           Var xi,yi, xo,yo;
-          
+
           hw_output.compute_root();
 
           output.bound(x, 0, 64-5);
           output.bound(y, 0, 64-5);
           conv.bound(x, 0, 64-5);
           conv.bound(y, 0, 64-5);
-          
+
           hw_output.tile(x,y, xo,yo, xi,yi, 64-5, 64-5)
             .hw_accelerate(xi, xo);
 
@@ -59,20 +59,21 @@ public:
           conv.linebuffer();
 
           hw_input.stream_to_accelerator();
-          
+
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, 64-5);
           output.bound(y, 0, 64-5);
-          
+
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64-5, 64-5)
             .hw_accelerate(xi, xo);
 
-            
-          kernel.compute_at(conv, x);
+
+          kernel.compute_at(hw_output, xo);
+          conv.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.x, 6)
             .unroll(r.y, 6);
@@ -86,7 +87,7 @@ public:
             .unroll(r.x, 6)
             .unroll(r.y, 6);
         }
-        
+
     }
 };
 
