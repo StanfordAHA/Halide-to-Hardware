@@ -665,7 +665,7 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
-         << "        compile_app_for_garnet_single_port_mem(prg, dir);" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, true);" << endl
          << endl
          << "      } else if (args[i] == \"compile_and_test_mem\") {" << endl
          << "        preprocess_prog(prg);" << endl

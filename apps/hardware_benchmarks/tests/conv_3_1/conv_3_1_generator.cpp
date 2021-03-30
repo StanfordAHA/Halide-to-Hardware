@@ -63,13 +63,14 @@ public:
 
           output.bound(x, 0, 64);
           output.bound(y, 0, 64-2);
-          
+
           hw_output.compute_root();
 
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64-2)
             .hw_accelerate(xi, xo);
 
-          kernel.compute_at(conv, x);
+          kernel.compute_at(hw_output, xo);
+          conv.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.x, 1)
             .unroll(r.y, 3);
