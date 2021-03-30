@@ -153,9 +153,14 @@ $(BIN)/clockwork_codegen.o: $(BIN)/clockwork_codegen.cpp
 $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -o $@
 $(BIN)/unoptimized_$(TESTNAME).cpp unopt-clockwork clockwork-unopt unopt: $(BIN)/clockwork_codegen
-	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen unopt >/dev/null; cd ..
+	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib \
+	./clockwork_codegen unopt 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; cd ..; \exit $$EXIT_CODE
 $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwork_codegen
-	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib ./clockwork_codegen opt >/dev/null; cd ..
+	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib \
+	./clockwork_codegen opt 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
 compile_mem compile-mem mem-clockwork clockwork-mem mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
@@ -169,8 +174,15 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-$(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS)
+$(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
+#$(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
+#	@if [ ! -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
+#		$(MAKE) $(UNOPTIMIZED_OBJS); \
+#		ld -relocatable $(UNOPTIMIZED_OBJS) -o $@; \
+#	else \
+#		$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@; \
+#	fi
 $(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 $(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h
@@ -281,7 +293,9 @@ endif
 # Always run this, but only write the file if the variable changes
 $(BIN)/halide_gen_args: FORCE
 	@-mkdir -p $(BIN)
-	@-touch $(BIN)/halide_gen_args
+	@if [ ! -f "$(BIN)/halide_gen_args" ]; then \
+		touch $(BIN)/halide_gen_args; \
+	fi
 	@LAST_HALIDE_GEN_ARGS=`cat $(BIN)/halide_gen_args`; \
 	if [[ "$$LAST_HALIDE_GEN_ARGS" == 'empty' && "$$HALIDE_GEN_ARGS" == '' ]]; then \
 		echo "HALIDE_GEN_ARGS still empty"; \
