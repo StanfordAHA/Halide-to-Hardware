@@ -25,14 +25,15 @@ public:
         kernel(0,0) = bfloat16_t(1.1);      kernel(0,1) = bfloat16_t(1.2);     kernel(0,2) = bfloat16_t(1.3);
         kernel(1,0) = bfloat16_t(2.4);      kernel(1,1) = bfloat16_t(0);       kernel(1,2) = bfloat16_t(2.6);
         kernel(2,0) = bfloat16_t(3.7);      kernel(2,1) = bfloat16_t(3.8);     kernel(2,2) = bfloat16_t(3.9);
-        fp_kernel(x) = cast<bfloat16_t>(3*x);
+        //fp_kernel(x) = cast<bfloat16_t>(3*x);
+        fp_kernel(x,y) = cast<bfloat16_t>(3*x + y);
 
         conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
-        //conv(x, y)  += fp_kernel(r.x, r.y) * hw_input(x + r.x, y + r.y);
-        conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
+        conv(x, y)  += fp_kernel(r.x, r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
+        //conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -53,13 +54,15 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
-          //conv.update()
-          //  .unroll(r.x, 3)
-          //  .unroll(r.y, 3);
+          conv.update()
+            .unroll(r.x, 3)
+            .unroll(r.y, 3);
 
           conv.compute_at(hw_output, xo);
 
-          fp_kernel.compute_at(hw_output, xo);//.unroll(x).unroll(y);
+          //fp_kernel.compute_at(hw_output, xo);//.unroll(x).unroll(y);
+          //fp_kernel.compute_root();
+
           
           hw_input.stream_to_accelerator();
             

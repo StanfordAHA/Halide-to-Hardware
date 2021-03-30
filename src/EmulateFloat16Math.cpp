@@ -97,10 +97,10 @@ class ConvertToBFloat : public IRMutator {
     Expr visit(const Cast *op) override {
       if (op->type.is_bfloat() && op->value.type().is_bfloat()) {
         return op->value;
-      } else if (op->type.is_bfloat()) {
+      } else if (op->value.type().is_float() && op->type.is_bfloat()) {
         // (float to bfloat)
         return float_to_bfloat(cast(Float(32, op->type.lanes()), op->value));
-      } else if (op->value.type().is_bfloat()) {
+      } else if (op->value.type().is_bfloat() && op->type.is_float()) {
         // (bfloat to float)
         return bfloat_to_float(mutate(op->value));
       } else {
@@ -183,7 +183,8 @@ class WidenMath : public IRMutator {
     // Run the bfloat conversion only on the hardware, which is identified by _hls_target
     Stmt visit(const ProducerConsumer *op) override {
 
-      if (false) {//if (starts_with(op->name, "_hls_target")) {
+      //if (false) {
+      if (starts_with(op->name, "_hls_target")) {
         Stmt new_body = BFloatMath().mutate(op->body);
         new_body = ConvertToBFloat().mutate(new_body);
         return ProducerConsumer::make(op->name, op->is_producer, new_body);
@@ -267,7 +268,8 @@ class LowerBFloatConversions : public IRMutator {
 
   // ignore hardware accelerator block
   Stmt visit(const ProducerConsumer *op) override {
-    if (false) {//if (starts_with(op->name, "_hls_target")) {
+    //if (false) {
+    if (starts_with(op->name, "_hls_target")) {
       return ProducerConsumer::make(op->name, op->is_producer, op->body);
     } else {
       return IRMutator::visit(op);
@@ -427,7 +429,8 @@ class LowerFloat16Conversions : public IRMutator {
 
     // ignore hardware accelerator block
     Stmt visit(const ProducerConsumer *op) override {
-      if (false) { //if (starts_with(op->name, "_hls_target")) {
+      //if (false) {
+      if (starts_with(op->name, "_hls_target")) {
         return ProducerConsumer::make(op->name, op->is_producer, op->body);
       } else {
         return IRMutator::visit(op);
@@ -450,11 +453,12 @@ Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     */
     //std::cout << "original before bfloat" << std::endl << s;
     s = WidenMath().mutate(s);
-    //std::cout << "after widen" << std::endl << s;
+    //std::cout << "after widen:" << std::endl << s;
     s = LowerBFloatConversions().mutate(s);
     //std::cout << "after bfloat conversion" << std::endl << s;
     // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
     s = LowerFloat16Conversions().mutate(s);
+    //std::cout << "after float16 lowerings" << std::endl << s;
 
     return s;
 }

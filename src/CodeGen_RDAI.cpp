@@ -192,7 +192,7 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         std::cout << op->body << std::endl; // show the accelerated section
 
         std::cout << "xcel for " << output_name << " out of " << num_xcels
-                  << " in " << pipeline_name << std::endl;
+                  << " xcels in " << pipeline_name << std::endl;
         cg_target->add_kernel(hw_body, num_xcels>1 ? output_name : pipeline_name, args);
 
         // Emit RDAI API

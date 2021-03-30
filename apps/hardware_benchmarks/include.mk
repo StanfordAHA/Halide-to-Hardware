@@ -40,7 +40,7 @@ define SUITE_template =
 $(1)-cpu:               $($(2):=-cpu)
 $(1)-coreir:            $($(2):=-coreir)
 $(1)-clockwork:         $($(2):=-clockwork)
-$(1)-run:               $($(2):=-run)
+$(1)-run-cpu:           $($(2):=-run-cpu)
 $(1)-compare:           $($(2):=-compare)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
 $(1)-compare-coreir:    $($(2):=-compare-coreir)
@@ -70,9 +70,9 @@ $(eval $(call SUITE_template,all,allapps))
 			$(call run_app,$*,clockwork); \
 	fi
 
-%-run:
+%-run-cpu:
 	@if [ -d $* ]; then \
-			$(call run_app,$*,cpu); \
+			$(call run_app,$*,run-cpu); \
 	fi
 
 %-compare-clockwork %-cclockwork:
@@ -85,7 +85,6 @@ $(eval $(call SUITE_template,all,allapps))
 		$(call run_app,$*,compare); \
 	fi
 
-#    $(call run_app,$*,bin/map_result/$(TESTNAME)/$(TESTNAME).json); 
 %-mem:
 	@if [ -d $* ]; then \
 		$(call run_app,$*,mem); \

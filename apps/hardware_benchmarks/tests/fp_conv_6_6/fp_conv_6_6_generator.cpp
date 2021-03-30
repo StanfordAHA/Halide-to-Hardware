@@ -54,6 +54,9 @@ public:
               .hw_accelerate(xi, xo);
 
           conv.compute_at(hw_output, xo);
+          conv.update()
+            .unroll(r.x)
+            .unroll(r.y);
           //conv.update()
           //  .unroll(r.x, 6)
           //  .unroll(r.y, 6);

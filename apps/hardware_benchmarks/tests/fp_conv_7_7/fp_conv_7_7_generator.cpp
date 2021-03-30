@@ -56,10 +56,9 @@ public:
               .hw_accelerate(xi, xo);
 
           conv.compute_at(hw_output, xo);
-          //conv.update()
-          //  .unroll(r.x, 7)
-          //  .unroll(r.y, 7);
-
+          conv.update()
+            .unroll(r.x)
+            .unroll(r.y);
 
           hw_input.stream_to_accelerator();
           
