@@ -121,7 +121,7 @@ public:
           //conv2.linebuffer();
           
           //conv1.linebuffer();
-          conv1_shift.store_at(hw_output, xo).compute_at(hw_output, xo);
+          conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
           conv1.update()
             .reorder(r.y, r.x)
             .unroll(r.x)

@@ -54,9 +54,12 @@ bool contain_for_loop(Stmt s) {
 class ContainsCall : public IRVisitor {
     using IRVisitor::visit;
     void visit(const Call *op) {
-      if (match_any || calls.count(op->name) > 0) {
+      // Found a call. Ignore any intrsincs (like abs)
+      if ((match_any || calls.count(op->name) > 0) &&
+          (!op->is_intrinsic())) {
         found_calls.emplace_back(op->name);
       }
+      //std::cout << "call name is " << op->name << std::endl;
       IRVisitor::visit(op);
     }
 
@@ -64,6 +67,7 @@ class ContainsCall : public IRVisitor {
       if (match_any || calls.count(op->name) > 0) {
         found_calls.emplace_back(op->name);
       }
+      //std::cout << "load name is " << op->name << std::endl;
       IRVisitor::visit(op);
     }
 
@@ -344,6 +348,7 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Tar
 void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream);
 void print_clockwork_execution_header(string appname, vector<string> xcels, ofstream& stream);
 void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_args, ofstream& stream);
+void print_combined_unoptimized_file(vector<string> xcels, ofstream& stream);
 
 CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     hdr_stream << "#endif\n";
@@ -407,6 +412,13 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
 
     print_clockwork_execution_cpp(target_name, closure_args, clk_exec_cpp_file);
     std::cout << "printed execution cpp" << std::endl;
+
+    if (xcel_names.size() > 1) {
+      string combined_unoptimized_cpp_name = output_base_path + target_name + ".cpp";
+      ofstream combined_unoptimized_file(combined_unoptimized_cpp_name.c_str());
+      print_combined_unoptimized_file(xcel_names, clk_codegen_file);
+      combined_unoptimized_file.close();
+    }
 
     clk_codegen_file.close();
     clk_exec_h_file.close();
@@ -636,6 +648,12 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
             stencils.pop(args[i].name);
         }
     }
+}
+
+void print_combined_unoptimized_file(vector<string> xcels, ofstream& stream) {
+  for (size_t i=0; i<xcels.size(); ++i) {
+    stream << "#include \"unoptimized_" << xcels[i] << ".cpp\"" << std::endl;
+  }
 }
 
 void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream) {

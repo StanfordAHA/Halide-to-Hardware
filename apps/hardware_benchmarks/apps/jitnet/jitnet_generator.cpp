@@ -475,7 +475,7 @@ private:
     // conv3x3
     const WeightShape conv3x3_ws = {weight_shape.c, weight_shape.w, weight_shape.h,
                                     weight_shape.pad, weight_shape.stride};
-    Tensor conv3x3 = conv2D(input, conv3x3_ws, convwh_weights, name + "_conv3x3");
+    Tensor conv3x3 = conv2D(relu, conv3x3_ws, convwh_weights, name + "_conv3x3");
     //std::cout << "conv33 shape: " << conv3x3.shape << std::endl;
     
     // conv1x3
@@ -509,6 +509,7 @@ private:
       upsample /= 2;
     }
     output.fs = fs;
+    output.shape = compute_shape(input, weight_shape);
     return output;
   }
 

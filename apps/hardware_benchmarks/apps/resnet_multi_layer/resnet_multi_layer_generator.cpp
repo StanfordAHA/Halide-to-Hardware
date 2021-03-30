@@ -132,7 +132,7 @@ public:
           Var z_cgra, z_gb;
           RVar rz_cgra, rz_gb;
 
-          int schedule = 0;
+          int schedule = 1;
           if (schedule == 1) {
             // Schedule 1: each layer is done with a different accelerator call
             output.bound(x, 0, imgsize);

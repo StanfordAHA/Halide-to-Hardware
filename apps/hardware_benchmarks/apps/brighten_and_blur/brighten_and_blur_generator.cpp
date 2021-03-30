@@ -70,9 +70,11 @@ public:
             .hw_accelerate(xi, xo);
           
           kernel.compute_at(blur, x);
+          blur.compute_at(hw_output, xo);
           blur.update()
             .unroll(r.x, 2)
             .unroll(r.y, 2);
+          
           brighten.compute_at(hw_output, xo);
 
           hw_input.stream_to_accelerator();
