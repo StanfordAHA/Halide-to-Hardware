@@ -9,7 +9,7 @@ ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 
 ### app suites include: ###
-APP_SUITES := ops fpops conv fpconv inout mem
+APP_SUITES := ops fpops conv fpconv inout mem bc
 
 ### operator tests ###
 OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
@@ -55,13 +55,18 @@ MEM_TESTS := rom fifo_test \
 mem := $(MEM_TESTS)
 mem_tests mem-tests mems mem: $(MEM_TESTS)
 
+### boundary condition tests ###
+BC_TESTS := bc_const bc_repeat bc_mirror
+bc := $(BC_TESTS)
+bc boundary: $(BC_TESTS)
+
 ### generator tests ###
 GEN_TESTS := conv_gen random_pipeline
 
 
 ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
                    $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS) \
-                   $(GEN_TESTS)
+                   $(BC_TESTS) $(GEN_TESTS)
 
 NOT_CLASSIFIED_APPS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 
