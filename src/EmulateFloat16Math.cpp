@@ -184,7 +184,7 @@ class WidenMath : public IRMutator {
     Stmt visit(const ProducerConsumer *op) override {
 
       //if (false) {
-      if (starts_with(op->name, "_hls_target")) {
+      if (starts_with(op->name, "_hls_target") && has_bfloat_hardware) {
         Stmt new_body = BFloatMath().mutate(op->body);
         new_body = ConvertToBFloat().mutate(new_body);
         return ProducerConsumer::make(op->name, op->is_producer, new_body);
@@ -199,6 +199,11 @@ class WidenMath : public IRMutator {
         // support (b)float16 math, so we always enter the body.
         return IRMutator::visit(op);
     }
+
+public:  
+    WidenMath(bool has_bfloat_hardware) : has_bfloat_hardware(has_bfloat_hardware) {};
+
+    bool has_bfloat_hardware;
 };
 
 
@@ -269,12 +274,17 @@ class LowerBFloatConversions : public IRMutator {
   // ignore hardware accelerator block
   Stmt visit(const ProducerConsumer *op) override {
     //if (false) {
-    if (starts_with(op->name, "_hls_target")) {
+    if (starts_with(op->name, "_hls_target") && has_bfloat_hardware) {
       return ProducerConsumer::make(op->name, op->is_producer, op->body);
     } else {
       return IRMutator::visit(op);
     }
   }
+
+public:  
+  LowerBFloatConversions(bool has_bfloat_hardware) : has_bfloat_hardware(has_bfloat_hardware) {};
+
+  bool has_bfloat_hardware;
 
 };
     
@@ -430,13 +440,17 @@ class LowerFloat16Conversions : public IRMutator {
     // ignore hardware accelerator block
     Stmt visit(const ProducerConsumer *op) override {
       //if (false) {
-      if (starts_with(op->name, "_hls_target")) {
+      if (starts_with(op->name, "_hls_target") && has_bfloat_hardware) {
         return ProducerConsumer::make(op->name, op->is_producer, op->body);
       } else {
         return IRMutator::visit(op);
       }
     }
 
+public:  
+  LowerFloat16Conversions(bool has_bfloat_hardware) : has_bfloat_hardware(has_bfloat_hardware) {};
+
+  bool has_bfloat_hardware;
 };
 
 }  // anonymous namespace
@@ -452,12 +466,13 @@ Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     } else {
     */
     //std::cout << "original before bfloat" << std::endl << s;
-    s = WidenMath().mutate(s);
+    bool has_bfloat_hardware = t.has_feature(Target::BFloatHardware);
+    s = WidenMath(has_bfloat_hardware).mutate(s);
     //std::cout << "after widen:" << std::endl << s;
-    s = LowerBFloatConversions().mutate(s);
+    s = LowerBFloatConversions(has_bfloat_hardware).mutate(s);
     //std::cout << "after bfloat conversion" << std::endl << s;
     // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512
-    s = LowerFloat16Conversions().mutate(s);
+    s = LowerFloat16Conversions(has_bfloat_hardware).mutate(s);
     //std::cout << "after float16 lowerings" << std::endl << s;
 
     return s;

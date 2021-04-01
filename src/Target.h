@@ -109,6 +109,7 @@ struct Target {
         CoreIRHLS = halide_target_feature_coreir_hls,
         Clockwork = halide_target_feature_clockwork,
         UseExtractHWKernel = halide_target_feature_use_extract_hw_kernel,
+        BFloatHardware = halide_target_feature_bfloat_hardware,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}

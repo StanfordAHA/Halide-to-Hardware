@@ -86,8 +86,7 @@ public:
         return min_eig;
     }
 
-    Func inverse2x2(Func A) {
-        Func inv("inv");
+    Func inverse2x2(Func A, Func& inv) {
         Var m("m"), n("n"), x("x"), y("y");
 
         inv(m,n,x,y) = 0.0f;
@@ -204,7 +203,8 @@ public:
         At(x,y,z,w) = select(w == 0, Ix(x,y,z), Iy(x,y,z));
         AtA(x,y,z,w) = 0.0f;
         AtA(x,y,z,w) += At(x,y,rwin.x,w)*At(x,y,rwin.x,z);
-        AtAinv = inverse2x2(AtA);
+        Func inv("inv");
+        AtAinv = inverse2x2(AtA, inv);
 
         Apinv(x,y,z,w) = 0.0f;
         Apinv(x,y,z,w) += AtAinv(x,y,r.x,w)*At(x,y,z,r.x);
@@ -238,20 +238,30 @@ public:
               .reorder(xi, yi, z, xo, yo)
               .hw_accelerate(xi, xo);
 
-            fx.update().unroll(conv.x, 2).unroll(conv.y, 2);
-            fy.update().unroll(conv.x, 2).unroll(conv.y, 2);
-            ft.update().unroll(conv.x, 2).unroll(conv.y, 2);
-
             kernel_x.compute_at(fx, x);
             kernel_y.compute_at(fy, x);
             kernel_t.compute_at(ft, x);
 
+            inv.compute_at(hw_output, xo);
+            nu.compute_at(hw_output, xo);
+            Apinv.compute_at(hw_output, xo);
+            AtA.compute_at(hw_output, xo);
             nu.update().unroll(rwin.x, 8);
             Apinv.update().unroll(r.x, 2);
             AtA.update().unroll(rwin.x, 8);
-            AtA.compute_root();
-            AtA.compute_at(hw_output, Var::outermost());
+            //AtA.compute_root();
+            //AtA.compute_at(hw_output, Var::outermost());
 
+            fx.compute_at(hw_output, xo);
+            fy.compute_at(hw_output, xo);
+            ft.compute_at(hw_output, xo);
+            fx.update().unroll(conv.x, 2).unroll(conv.y, 2);
+            fy.update().unroll(conv.x, 2).unroll(conv.y, 2);
+            ft.update().unroll(conv.x, 2).unroll(conv.y, 2);
+
+            i0_norm.compute_at(hw_output, xo);
+            i1_norm.compute_at(hw_output, xo);
+            
             input0_copy.accelerator_input();
             input1_copy.accelerator_input();
 
