@@ -27,7 +27,7 @@ fp_op_tests fp-op-tests fpops: $(FP_OP_TESTS)
 ### convolutions ###
 CONV_TESTS := conv_1_1 conv_1_2 conv_2_1  conv_2_2 conv_3_1 \
               conv_3_3 conv_4_4 conv_5_5 conv_6_6 conv_7_7  \
-              conv_multi
+              conv_chain conv_multi
 conv := $(CONV_TESTS)
 conv_tests conv-tests convs conv: $(CONV_TESTS)
 

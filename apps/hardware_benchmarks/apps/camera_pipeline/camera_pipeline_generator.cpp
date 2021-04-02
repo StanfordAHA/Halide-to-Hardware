@@ -81,7 +81,7 @@ Func interleave_y(Func a, Func b) {
     //   G B G B G B G B
     //   R G R G R G R G
     //   G B G B G B G B
-    Func demosaic(Func raw) {
+    Func demosaic(Func g_gr, Func r_r, Func b_b, Func g_gb) {
       // The demosaic algorithm is optimized for HLS schedule
       // such that the bound analysis can derive a constant window
       // and shift step without needed to unroll 'demosaic' into
@@ -97,17 +97,6 @@ Func interleave_y(Func a, Func b) {
       // x_y = the value of channel x at a site in the input of channel y
       // gb refers to green sites in the blue rows
       // gr refers to green sites in the red rows
-
-      // Give more convenient names to the four channels we know
-      Func r_r, g_gr, g_gb, b_b;
-      //g_gr(x, y) = raw(x, y);//deinterleaved(x, y, 0);
-      //r_r(x, y)  = raw(x+1, y);//deinterleaved(x, y, 1);
-      //b_b(x, y)  = raw(x, y+1);//deinterleaved(x, y, 2);
-      //g_gb(x, y) = raw(x+1, y+1);//deinterleaved(x, y, 3);
-      g_gr(x, y) = raw(2*x, 2*y);//deinterleaved(x, y, 0);
-      r_r(x, y)  = raw(2*x+1, 2*y);//deinterleaved(x, y, 1);
-      b_b(x, y)  = raw(2*x, 2*y+1);//deinterleaved(x, y, 2);
-      g_gb(x, y) = raw(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
 
       // These are the ones we need to interpolate
       Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
@@ -249,8 +238,19 @@ Func interleave_y(Func a, Func b) {
       Func denoised;
       denoised = hot_pixel_suppression(hw_input);
 
+      // Give more convenient names to the four channels we know
+      Func r_r, g_gr, g_gb, b_b;
+      //g_gr(x, y) = raw(x, y);//deinterleaved(x, y, 0);
+      //r_r(x, y)  = raw(x+1, y);//deinterleaved(x, y, 1);
+      //b_b(x, y)  = raw(x, y+1);//deinterleaved(x, y, 2);
+      //g_gb(x, y) = raw(x+1, y+1);//deinterleaved(x, y, 3);
+      g_gr(x, y) = denoised(2*x, 2*y);//deinterleaved(x, y, 0);
+      r_r(x, y)  = denoised(2*x+1, 2*y);//deinterleaved(x, y, 1);
+      b_b(x, y)  = denoised(2*x, 2*y+1);//deinterleaved(x, y, 2);
+      g_gb(x, y) = denoised(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
+
       Func demosaicked;
-      demosaicked = demosaic(denoised);
+      demosaicked = demosaic(g_gr, r_r, b_b, g_gb);
 
       Func color_corrected;
       color_corrected = color_correct(demosaicked, matrix);
@@ -326,6 +326,11 @@ Func interleave_y(Func a, Func b) {
         denoised.compute_at(hw_output, xo);
         //.unroll(x).unroll(y);
 
+        g_gr.compute_at(hw_output, xo);
+        r_r.compute_at(hw_output, xo);
+        b_b.compute_at(hw_output, xo);
+        g_gb.compute_at(hw_output, xo);
+        
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         
         //hw_input_copy.compute_at(hw_output, xo);
