@@ -9,7 +9,7 @@ ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 
 ### app suites include: ###
-APP_SUITES := ops fpops conv fpconv inout mem bc
+APP_SUITES := ops fpops conv fpconv inout mem bc matmul
 
 ### operator tests ###
 OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
@@ -45,8 +45,9 @@ inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 ### memory tile tests ###
 MEM_TESTS := rom fifo_test \
              conv_rolled conv_2x \
+						 mem_unbuffered \
              strided_conv \
-             down_sample up_sample\
+             down_sample up_sample \
              db_3_3 \
              accumulation histogram multi_channel_conv \
              two_level_memory three_level_memory \
@@ -60,13 +61,18 @@ BC_TESTS := bc_const bc_repeat bc_mirror
 bc := $(BC_TESTS)
 bc boundary: $(BC_TESTS)
 
+### matrix multiplication tests ###
+MATMUL_TESTS := matmul rnn_layer lstm_layer attention
+matmul := $(MATMUL_TESTS)
+matmul mat: $(MATMUL_TESTS)
+
 ### generator tests ###
 GEN_TESTS := conv_gen random_pipeline
 
 
 ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
                    $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS) \
-                   $(BC_TESTS) $(GEN_TESTS)
+                   $(BC_TESTS) $(MATMUL_TESTS) $(GEN_TESTS)
 
 NOT_CLASSIFIED_APPS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 
