@@ -81,7 +81,8 @@ Func interleave_y(Func a, Func b) {
     //   G B G B G B G B
     //   R G R G R G R G
     //   G B G B G B G B
-    Func demosaic(Func g_gr, Func r_r, Func b_b, Func g_gb) {
+    Func demosaic(Func g_gr, Func r_r, Func b_b, Func g_gb,
+      Func b_r, Func g_r, Func b_gr, Func r_gr, Func b_gb, Func r_gb, Func r_b, Func g_b) {
       // The demosaic algorithm is optimized for HLS schedule
       // such that the bound analysis can derive a constant window
       // and shift step without needed to unroll 'demosaic' into
@@ -99,7 +100,7 @@ Func interleave_y(Func a, Func b) {
       // gr refers to green sites in the red rows
 
       // These are the ones we need to interpolate
-      Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
+      //Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
 
       // First calculate green at the red and blue sites
       // Try interpolating vertically and horizontally. Also compute
@@ -250,7 +251,9 @@ Func interleave_y(Func a, Func b) {
       g_gb(x, y) = denoised(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
 
       Func demosaicked;
-      demosaicked = demosaic(g_gr, r_r, b_b, g_gb);
+      Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
+      demosaicked = demosaic(g_gr, r_r, b_b, g_gb,
+                             b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b);
 
       Func color_corrected;
       color_corrected = color_correct(demosaicked, matrix);
@@ -326,10 +329,19 @@ Func interleave_y(Func a, Func b) {
         denoised.compute_at(hw_output, xo);
         //.unroll(x).unroll(y);
 
-        g_gr.compute_at(hw_output, xo);
-        r_r.compute_at(hw_output, xo);
-        b_b.compute_at(hw_output, xo);
-        g_gb.compute_at(hw_output, xo);
+        //g_gr.compute_at(hw_output, xo);
+        //r_r.compute_at(hw_output, xo);
+        //b_b.compute_at(hw_output, xo);
+        //g_gb.compute_at(hw_output, xo);
+
+        b_r.compute_at(hw_output, xo);
+        g_r.compute_at(hw_output, xo);
+        b_gr.compute_at(hw_output, xo);
+        r_gr.compute_at(hw_output, xo);
+        b_gb.compute_at(hw_output, xo);
+        r_gb.compute_at(hw_output, xo);
+        r_b.compute_at(hw_output, xo);
+        g_b.compute_at(hw_output, xo);
         
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         

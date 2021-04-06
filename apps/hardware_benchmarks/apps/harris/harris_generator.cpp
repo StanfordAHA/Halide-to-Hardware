@@ -392,8 +392,8 @@ public:
 
             //grad_x.compute_at(hw_output, xo);
             //grad_y.compute_at(hw_output, xo);
-            //grad_x_unclamp.compute_at(hw_output, xo);
-            //grad_y_unclamp.compute_at(hw_output, xo);
+            grad_x_unclamp.compute_at(hw_output, xo);
+            grad_y_unclamp.compute_at(hw_output, xo);
             grad_x_unclamp.update().unroll(r.x).unroll(r.y);
             grad_y_unclamp.update().unroll(r.x).unroll(r.y);
             
