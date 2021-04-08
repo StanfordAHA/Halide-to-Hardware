@@ -23,11 +23,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<int16_t> processor("resnet_layer_gen", {"input.png", "kernel.png"});
+  ManyInOneOut_ProcessController<int16_t> processor("resnet_layer_gen", {"input.mat", "kernel.mat"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        resnet_layer_gen(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
+        resnet_layer_gen(proc.inputs["input.mat"], proc.inputs["kernel.mat"], proc.output);
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -35,7 +35,7 @@ int main( int argc, char **argv ) {
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
-                                       proc.inputs["input.png"], proc.output,
+                                       proc.inputs["input.mat"], proc.output,
                                        "self.in_arg_0_0_0", "self.out_0_0" );
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
@@ -46,7 +46,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          resnet_layer_gen_clockwork(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
+          resnet_layer_gen_clockwork(proc.inputs["input.mat"], proc.inputs["kernel.mat"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -88,9 +88,17 @@ int main( int argc, char **argv ) {
     int Z = k_ic; // input channel 
     int W = k_oc; // output channel
 
+    if (OX || P || K || S || IC || OC) {
+      std::cout << "using inputs set within process.cpp" << std::endl;
+      processor.inputs_preset = true;
+    } else {
+      std::cout << "reading input.mat and kernel.mat" << std::endl;
+      processor.inputs_preset = false;
+    }
+    
     ///// INPUT IMAGE /////
-    processor.inputs["input.png"] = Buffer<int16_t>(Z, X, Y);
-    auto input_copy_stencil = processor.inputs["input.png"];
+    processor.inputs["input.mat"] = Buffer<int16_t>(Z, X, Y);
+    auto input_copy_stencil = processor.inputs["input.mat"];
     //int i=1;
     int max_rand = pow(2,8) - 1;
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
@@ -106,9 +114,9 @@ int main( int argc, char **argv ) {
           }
     } } }
 
-    std::cout << "input has dims: " << processor.inputs["input.png"].dim(0).extent() << "x"
-              << processor.inputs["input.png"].dim(1).extent() << "x"
-              << processor.inputs["input.png"].dim(2).extent() << "\n";
+    std::cout << "input has dims: " << processor.inputs["input.mat"].dim(0).extent() << "x"
+              << processor.inputs["input.mat"].dim(1).extent() << "x"
+              << processor.inputs["input.mat"].dim(2).extent() << "\n";
 
     bool write_images = false;
 
@@ -133,19 +141,19 @@ int main( int argc, char **argv ) {
           inputs[z](x, y) = input_copy_stencil(z, x_coord, y_coord);
           //std::cout << z << "," << x << "," << y << " = " << +full_input(z,x,y) << std::endl;
         } } }
-    std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
-    //save_image(full_input, "bin/input.png");
+    //std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
+    //save_image(full_input, "bin/input.mat");
     if (write_images) {
-      save_image(oned_input, "bin/input.png");
+      save_image(oned_input, "bin/input.mat");
       save_image(interleaved_input, "bin/input_interleaved.png");
       for (size_t i=0; i<inputs.size(); ++i) {
-        save_image(inputs[i], "bin/input_" + std::to_string(i) + ".png");
+        save_image(inputs[i], "bin/input_" + std::to_string(i) + ".mat");
       }
     }
 
     ///// KERNEL WEIGHTS /////  
-    processor.inputs["kernel.png"] = Buffer<int16_t>(Z, W, K_X, K_Y);
-    auto kernel_copy_stencil = processor.inputs["kernel.png"];
+    processor.inputs["kernel.mat"] = Buffer<int16_t>(Z, W, K_X, K_Y);
+    auto kernel_copy_stencil = processor.inputs["kernel.mat"];
     //int j=1;
     //bool first = true;
     for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {
@@ -165,15 +173,23 @@ int main( int argc, char **argv ) {
               kernel_copy_stencil(z, w, x, y) = (rand() % (2*max_rand)) - max_rand;
             }
             
-            std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
+            //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
     } } } }
+
+    bool write_mat = true;
+    if (write_mat) {
+      std::cout << "Writing input.mat and kernel.mat to bin folder" << std::endl;
+      save_image(processor.inputs["input.mat"], "bin/input.mat");
+      save_image(processor.inputs["kernel.mat"], "bin/kernel.mat");
+    }
+    
     //std::cout << "kernel 2,1 = 6 ?= " << +kernel_copy_stencil(0,0,2,1) << std::endl;
   
-    std::cout << "kernel has dims: " << processor.inputs["kernel.png"].dim(0).extent() << "x"
-              << processor.inputs["kernel.png"].dim(1).extent() << "x"
-              << processor.inputs["kernel.png"].dim(2).extent() << "x"
-              << processor.inputs["kernel.png"].dim(3).extent() << "\n";
-    processor.inputs_preset = true;
+    std::cout << "kernel has dims: " << processor.inputs["kernel.mat"].dim(0).extent() << "x"
+              << processor.inputs["kernel.mat"].dim(1).extent() << "x"
+              << processor.inputs["kernel.mat"].dim(2).extent() << "x"
+              << processor.inputs["kernel.mat"].dim(3).extent() << "\n";
+
     
     int imgsize_x = std::floor( (X + 2*P_X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y + 2*P_Y - K_Y) / stride ) + 1;
@@ -201,10 +217,10 @@ int main( int argc, char **argv ) {
           //std::cout << x << "," << y << "," << w << " = " << +processor.output(x,y,w) << " = " << std::hex << +processor.output(x,y,w) << std::dec << std::endl;
         } } }
     if (write_images) {//if (processor.output(0,0,0,0) == 198) {
-      save_image(oned_output, "bin/output_gold.png");
-      //save_image(processor.output, "bin/output_gold.png");
+      save_image(oned_output, "bin/output_gold.mat");
+      //save_image(processor.output, "bin/output_gold.mat");
       for (size_t i=0; i<outputs.size(); ++i) {
-        save_image(outputs[i], "bin/output_" + std::to_string(i) + ".png");
+        save_image(outputs[i], "bin/output_" + std::to_string(i) + ".mat");
       }
     }
 

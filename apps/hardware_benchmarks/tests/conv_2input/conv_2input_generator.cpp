@@ -34,7 +34,7 @@ public:
         Func hw_input("hw_input"), hw_weight("hw_weight"); 
         hw_input(x, y) = u16(input(x, y));
         hw_weight(x, y) = u16(weight(x, y));
-        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
+        conv(x, y)  += u16(hw_weight(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -84,6 +84,7 @@ public:
             .hw_accelerate(xi, xo);
 
           kernel.compute_at(conv, x);
+          conv.compute_at(hw_output, xo);
           conv.update()
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);

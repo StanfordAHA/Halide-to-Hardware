@@ -12,7 +12,7 @@ ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 APP_SUITES := ops fpops conv fpconv inout mem bc matmul
 
 ### operator tests ###
-OP_TESTS := absolute arith bitwise boolean_ops equal ternary \
+OP_TESTS := absolute arith bitwise boolean_ops divide equal ternary \
             scomp sminmax sshift ucomp uminmax ushift \
             counter
 ops := $(OP_TESTS)
@@ -38,7 +38,8 @@ fpconv := $(FP_CONV_TESTS)
 fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 
 ### accelerator interface tests ###
-INOUT_TESTS := casts conv_2input inout_onebit inout_fp tap_param
+INOUT_TESTS := inout_16bit inout_onebit inout_fp \
+							 conv_2input tap_param casts
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
 
