@@ -21,7 +21,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<int8_t> processor("arith");
+  OneInOneOut_ProcessController<uint8_t> processor("arith");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -57,23 +57,26 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
   processor.inputs_preset = true;
 
-  processor.input   = Buffer<int8_t>(64, 64);
-  processor.output  = Buffer<int8_t>(64, 64);
+  processor.input   = Buffer<uint8_t>(64, 64);
+  processor.output  = Buffer<uint8_t>(64, 64);
 
-  processor.input(0, 0) = -2;
-  processor.input(0, 1) = -1;
-  processor.input(0, 2) = 0;
-  processor.input(0, 3) = 1;
-  processor.input(0, 4) = 2;
+  //processor.input(0, 0) = 129;
+  //processor.input(0, 1) = 128; // 0x80
+  //processor.input(0, 2) = 127;
+  //processor.input(0, 1) = -1;
+  //processor.input(0, 2) = 0;
+  //processor.input(0, 3) = 1;
+  //processor.input(0, 4) = 2;
   
   
   auto return_value = processor.process_command(argc, argv);
 
-  std::cout << "out(0,0) = " << +processor.output(0, 0) << std::endl;
-  std::cout << "out(0,1) = " << +processor.output(0, 1) << std::endl;
-  std::cout << "out(0,2) = " << +processor.output(0, 2) << std::endl;
-  std::cout << "out(0,3) = " << +processor.output(0, 3) << std::endl;
-  std::cout << "out(0,4) = " << +processor.output(0, 4) << std::endl;
+  //std::cout << "in(56,8) = " << +processor.input(56, 8) << std::endl;
+  //std::cout << "out(0,0) = " << +processor.output(0, 0) << std::endl;
+  //std::cout << "out(0,1) = " << +processor.output(0, 1) << std::endl;
+  //std::cout << "out(0,2) = " << +processor.output(0, 2) << std::endl;
+  //std::cout << "out(0,3) = " << +processor.output(0, 3) << std::endl;
+  //std::cout << "out(0,4) = " << +processor.output(0, 4) << std::endl;
 
   return return_value;
   

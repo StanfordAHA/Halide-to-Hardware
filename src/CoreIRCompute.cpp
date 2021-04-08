@@ -838,10 +838,19 @@ void CreateCoreIRModule::visit_unaryop(Type t, Expr a, const char*  op_sym, stri
   stream << "o: " << out_var << " with bitwidth:" << t.bits() << endl;
 }
 
+string sanatize_name(string name) {
+  string out = name;
+  for (size_t i=0; i<name.length(); ++i) {
+    if (name[i] == '-') {
+      out[i] = 'n';
+    }
+  }
+  return out;
+}
 
 void CreateCoreIRModule::visit_binop(Type t, Expr a, Expr b, const char*  op_sym, string op_name) {
-  string a_name = print_expr(a);
-  string b_name = print_expr(b);
+  string a_name = sanatize_name(print_expr(a));
+  string b_name = sanatize_name(print_expr(b));
   string out_var = print_assignment(t, a_name + " " + op_sym + " " + b_name);
 
   // return if this variable is cached
