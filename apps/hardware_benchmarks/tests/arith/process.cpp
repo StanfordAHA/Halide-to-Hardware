@@ -21,7 +21,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<int8_t> processor("arith");
+  OneInOneOut_ProcessController<uint8_t> processor("arith");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -55,16 +55,16 @@ int main( int argc, char **argv ) {
 
   // Add all defined functions
   processor.run_calls = functions;
-  processor.inputs_preset = true;
+  processor.inputs_preset = false;
 
-  processor.input   = Buffer<int8_t>(64, 64);
-  processor.output  = Buffer<int8_t>(64, 64);
+  processor.input   = Buffer<uint8_t>(64, 64);
+  processor.output  = Buffer<uint8_t>(64, 64);
 
-  processor.input(0, 0) = -2;
-  processor.input(0, 1) = -1;
-  processor.input(0, 2) = 0;
-  processor.input(0, 3) = 1;
-  processor.input(0, 4) = 2;
+  //processor.input(0, 0) = -2;
+  //processor.input(0, 1) = -1;
+  //processor.input(0, 2) = 0;
+  //processor.input(0, 3) = 1;
+  //processor.input(0, 4) = 2;
   
   
   auto return_value = processor.process_command(argc, argv);

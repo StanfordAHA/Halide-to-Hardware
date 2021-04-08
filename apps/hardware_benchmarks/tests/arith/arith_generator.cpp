@@ -7,8 +7,8 @@ using namespace Halide::ConciseCasts;
 
 class UnitTestArith : public Halide::Generator<UnitTestArith> {
 public:
-    Input<Buffer<int8_t>>  input{"input", 2};
-    Output<Buffer<int8_t>> output{"output", 2};
+    Input<Buffer<uint8_t>>  input{"input", 2};
+    Output<Buffer<uint8_t>> output{"output", 2};
 
     void generate() {
         /* THE ALGORITHM */
@@ -16,18 +16,18 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = i16(input(x, y));
+        hw_input(x, y) = u16(input(x, y));
 
         Func mult, div, add, sub, mod;
         mult(x,y) = hw_input(x,y) * 13;
         div(x,y) = hw_input(x,y) / 4;
-        mod(x,y) = hw_input(x,y) % -3;
+        mod(x,y) = hw_input(x,y) % 16;
         add(x,y) = div(x,y) + mod(x,y);
         sub(x,y) = mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = mod(x, y);
-        output(x, y) = i8(hw_output(x,y));
+        hw_output(x, y) = sub(x, y);
+        output(x, y) = u8(hw_output(x,y));
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
