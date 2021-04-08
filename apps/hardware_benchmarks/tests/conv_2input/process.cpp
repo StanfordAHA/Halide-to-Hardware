@@ -61,6 +61,7 @@ int main( int argc, char **argv ) {
     int Y = 64;
     int K_X = 64;
     int K_Y = 64;
+    processor.inputs_preset = true;
   
     processor.inputs["input.png"] = Buffer<uint8_t>(X, Y);
     auto input_copy_stencil = processor.inputs["input.png"];
@@ -84,7 +85,7 @@ int main( int argc, char **argv ) {
   
     std::cout << "kernel has dims: " << processor.inputs["kernel.png"].dim(0).extent() << "x"
               << processor.inputs["kernel.png"].dim(1).extent() << "\n";
-    processor.inputs_preset = true;
+
     processor.output = Buffer<uint8_t>(62,62);
 
     return processor.process_command(argc, argv);
