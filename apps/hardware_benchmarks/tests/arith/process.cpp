@@ -29,7 +29,7 @@ int main( int argc, char **argv ) {
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
-  
+
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
@@ -38,7 +38,7 @@ int main( int argc, char **argv ) {
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
   #endif
-  
+
   #if defined(WITH_CLOCKWORK)
       auto clockwork_process = [&]( auto &proc ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
@@ -65,16 +65,17 @@ int main( int argc, char **argv ) {
   //processor.input(0, 2) = 0;
   //processor.input(0, 3) = 1;
   //processor.input(0, 4) = 2;
-  
-  
+
+
   auto return_value = processor.process_command(argc, argv);
 
-  std::cout << "out(0,0) = " << +processor.output(0, 0) << std::endl;
-  std::cout << "out(0,1) = " << +processor.output(0, 1) << std::endl;
-  std::cout << "out(0,2) = " << +processor.output(0, 2) << std::endl;
-  std::cout << "out(0,3) = " << +processor.output(0, 3) << std::endl;
-  std::cout << "out(0,4) = " << +processor.output(0, 4) << std::endl;
+  //std::cout << "in(56,8) = " << +processor.input(56, 8) << std::endl;
+  //std::cout << "out(0,0) = " << +processor.output(0, 0) << std::endl;
+  //std::cout << "out(0,1) = " << +processor.output(0, 1) << std::endl;
+  //std::cout << "out(0,2) = " << +processor.output(0, 2) << std::endl;
+  //std::cout << "out(0,3) = " << +processor.output(0, 3) << std::endl;
+  //std::cout << "out(0,4) = " << +processor.output(0, 4) << std::endl;
 
   return return_value;
-  
+
 }
