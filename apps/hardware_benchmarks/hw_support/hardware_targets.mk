@@ -344,6 +344,15 @@ $(BIN)/input.pgm: input.png
 $(BIN)/%.raw: $(BIN)/%.png
 	$(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw
 
+$(BIN)/%.raw: $(BIN)/%.$(EXT)
+	if [ "$(EXT)" == "png" ]; then \
+	  $(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw; \
+	elif [ "$(EXT)" == "mat" ]; then \
+	  python $(HWSUPPORT)/mat2raw.py $(BIN)/$*.$(EXT) $(BIN)/$*.raw; \
+	else \
+	  echo "Unsupported file format: $(EXT)"; \
+  fi
+
 $(BIN)/%.pgm: $(BIN)/%.png
 	$(eval BITWIDTH := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit" | grep -oP "\d+"))
 	$(eval CHANNELS := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit.*? " | grep -oP "/.* "))
