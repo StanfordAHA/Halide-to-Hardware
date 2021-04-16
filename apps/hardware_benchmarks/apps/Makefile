@@ -42,7 +42,8 @@ VIDEO_APPS := exposure_fusion \
 DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_sample \
             conv_layer_3D \
 						resnet resnet_stride resnet_layer_gen resnet_block \
-            conv_layer_mobile mobilenet_layer_gen jitnet
+            conv_layer_mobile mobilenet_layer_gen \
+						jitnet resnet50 mobilenetv2
 dnn := $(DNN_APPS)
 
 

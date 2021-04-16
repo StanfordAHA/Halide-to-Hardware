@@ -511,6 +511,9 @@ check:
 	fi
 	@printf "\n"
 
+list:
+	@printf "%-23s\n" $(TESTNAME);
+
 $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
 graph.png graph:

@@ -183,21 +183,30 @@ Func interleave_y(Func a, Func b) {
       return demosaicked;
     }
 
+    Expr mul1(Expr a, Expr b) {
+      return i16((i32(a) * i32(b)) >> 8);
+    }
+    
     // Applies a color correction matrix to redefine rgb values.
     // Matrix is defined in 8.8 fixed point
     //Func color_correct(Func input, int32_t matrix[3][4]) {
     Func color_correct(Func input, int16_t matrix[3][4]) {
-      Expr ir = i32(input(x, y, 0));
-      Expr ig = i32(input(x, y, 1));
-      Expr ib = i32(input(x, y, 2));
-
-      Expr r = matrix[0][3] + matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
-      Expr g = matrix[1][3] + matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
-      Expr b = matrix[2][3] + matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
-
-      r = i16(r/256);
-      g = i16(g/256);
-      b = i16(b/256);
+      //Expr ir = i32(input(x, y, 0));
+      //Expr ig = i32(input(x, y, 1));
+      //Expr ib = i32(input(x, y, 2));
+      //Expr r = matrix[0][3] + matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
+      //Expr g = matrix[1][3] + matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
+      //Expr b = matrix[2][3] + matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
+      //r = i16(r/256);
+      //g = i16(g/256);
+      //b = i16(b/256);
+      
+      Expr ir = clamp(input(x, y, 0), 0, 10000);
+      Expr ig = clamp(input(x, y, 1), 0, 10000);
+      Expr ib = clamp(input(x, y, 2), 0, 10000);
+      Expr r = (matrix[0][3]>>8) + mul1(matrix[0][0], ir) + mul1(matrix[0][1], ig) + mul1(matrix[0][2], ib);
+      Expr g = (matrix[1][3]>>8) + mul1(matrix[1][0], ir) + mul1(matrix[1][1], ig) + mul1(matrix[1][2], ib);
+      Expr b = (matrix[2][3]>>8) + mul1(matrix[2][0], ir) + mul1(matrix[2][1], ig) + mul1(matrix[2][2], ib);
 
       Func corrected("corrected");
       corrected(x, y, c) = select(c == 0, r,
@@ -329,19 +338,19 @@ Func interleave_y(Func a, Func b) {
         denoised.compute_at(hw_output, xo);
         //.unroll(x).unroll(y);
 
-        //g_gr.compute_at(hw_output, xo);
-        //r_r.compute_at(hw_output, xo);
-        //b_b.compute_at(hw_output, xo);
-        //g_gb.compute_at(hw_output, xo);
+        g_gr.compute_at(hw_output, xo);
+        r_r.compute_at(hw_output, xo);
+        b_b.compute_at(hw_output, xo);
+        g_gb.compute_at(hw_output, xo);
 
-        b_r.compute_at(hw_output, xo);
-        g_r.compute_at(hw_output, xo);
-        b_gr.compute_at(hw_output, xo);
-        r_gr.compute_at(hw_output, xo);
-        b_gb.compute_at(hw_output, xo);
-        r_gb.compute_at(hw_output, xo);
-        r_b.compute_at(hw_output, xo);
-        g_b.compute_at(hw_output, xo);
+        //b_r.compute_at(hw_output, xo);
+        //g_r.compute_at(hw_output, xo);
+        //b_gr.compute_at(hw_output, xo);
+        //r_gr.compute_at(hw_output, xo);
+        //b_gb.compute_at(hw_output, xo);
+        //r_gb.compute_at(hw_output, xo);
+        //r_b.compute_at(hw_output, xo);
+        //g_b.compute_at(hw_output, xo);
         
         curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         

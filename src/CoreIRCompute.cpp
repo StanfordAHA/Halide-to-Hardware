@@ -6,6 +6,7 @@
 #include "CoreIRCompute.h"
 #include "HWBufferUtils.h"
 #include "Substitute.h"
+#include "IREquality.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "Simplify.h"
@@ -162,6 +163,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
+                                             "mult_middle", "mult_high",
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd",
                                              "reg_array", "reshape", "transpose_reshape"
@@ -994,6 +996,22 @@ void CreateCoreIRModule::visit(const Div *op) {
   if (is_const_power_of_two_integer(op->b, &shift_amt)) {
     uint param_bitwidth = op->a.type().bits();
     Expr shift_expr = UIntImm::make(UInt(param_bitwidth), shift_amt);
+
+    //if (const Mul* mul = op->a.as<Mul>()) {
+    //  std::cout << "div is: " << Expr(op) << std::endl;
+    //  if (shift_amt == 8) {
+    //    // Use middle output of product (x * y) >> 8
+    //    visit_binop(op->type, mul->a, mul->b, "*m", "mulm");
+    //    //visit_binop(op->type, mul->a, mul->b, "*m", "mul1");
+    //    return;
+    //  } else if (shift_amt == 16) {
+    //    // Use high bits output of product (x * y) >> 16
+    //    visit_binop(op->type, mul->a, mul->b, "*h", "mulh");
+    //    //visit_binop(op->type, mul->a, mul->b, "*h", "mul2");
+    //    return;
+    //  }
+    //}
+
     if (op->a.type().is_uint()) {
       internal_assert(op->b.type().is_uint());
       visit_binop(op->type, op->a, shift_expr, ">>", "lshr");
@@ -1001,7 +1019,9 @@ void CreateCoreIRModule::visit(const Div *op) {
       internal_assert(!op->b.type().is_uint());
       visit_binop(op->type, op->a, shift_expr, ">>", "ashr");
     }
+    
   } else {
+    // Not a constant shift by power of two, so can't use shifter
     if (op->a.type().is_float()) {
       visit_binop(op->type, op->a, op->b, "f/", "fdiv");
 
@@ -1283,6 +1303,40 @@ void CreateCoreIRModule::visit(const Cast *op) {
   stream << "[cast]";
   string in_var = print_expr(op->value);
   string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
+
+  // Looking for i16((i32(a) * i32(b)) / 256);
+  if (op->type.bits() == 16 && op->value.type().bits() == 32) {
+    //std::cout << "cast is: " << Expr(op) << std::endl;
+    int shift_amt;
+    Expr e;
+    if (const Div* div = op->value.as<Div>()) {
+      if (is_const_power_of_two_integer(div->b, &shift_amt)) {
+        e = div->a;
+      }
+    } else if (const Call* call = op->value.as<Call>()) {
+      if (call->is_intrinsic(Call::shift_right)) {
+        internal_assert(call->args.size() == 2);
+        Expr b = call->args[1];
+        shift_amt = id_const_value(b);
+        e = call->args[0];
+      }
+    }
+
+    if (const Mul* mul = e.as<Mul>()) {
+      //std::cout << "div is: " << Expr(op) << std::endl;
+      if (shift_amt == 8) {
+        // Use middle output of product (x * y) >> 8
+        //visit_binop(op->type, mul->a, mul->b, "*m", "mulm");
+        visit_binop(op->type, mul->a, mul->b, "*m", "mult_middle");
+        return;
+      } else if (shift_amt == 16) {
+        // Use high bits output of product (x * y) >> 16
+        //visit_binop(op->type, mul->a, mul->b, "*h", "mulh");
+        visit_binop(op->type, mul->a, mul->b, "*h", "mult_high");
+        return;
+      }
+    }
+  }
 
   // casting from 1 to 16 bits
   if (op->type.bits() > 1 && op->value.type().bits() == 1) {
