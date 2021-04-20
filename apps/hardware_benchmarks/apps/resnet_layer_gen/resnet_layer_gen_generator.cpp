@@ -76,7 +76,8 @@ public:
         Func hw_output("hw_output");
         hw_output(x, y, w) = conv(x, y, w);
         //output(x, y, w) = max(0, u8(hw_output(x, y, w)));
-        output(x, y, w) = max(0, i16(hw_output(x, y, w)));
+        //output(x, y, w) = max(0, i16(hw_output(x, y, w)));
+        output(x, y, w) = hw_output(x, y, w);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -250,7 +251,8 @@ public:
 
           conv.compute_at(hw_output, xo);
 
-          hw_input.in().unroll(z);
+          //hw_input.in().unroll(z);
+          hw_input.in();
           
           hw_input.stream_to_accelerator();
           hw_kernel.stream_to_accelerator();

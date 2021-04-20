@@ -341,8 +341,9 @@ $(BIN)/input.pgm: input.png
 	  convert input.png -depth $(BITWIDTH) ppm:$(BIN)/input.pgm;\
   fi
 
-$(BIN)/%.raw: $(BIN)/%.png
-	$(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw
+$(BIN)/input_nn.pgm: input_padded.mat kernel.mat
+	@-mkdir -p $(BIN)
+	python $(HWSUPPORT)/interleave_input.py $(BIN)/input_nn.pgm; 
 
 $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	if [ "$(EXT)" == "png" ]; then \
@@ -352,6 +353,10 @@ $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	else \
 	  echo "Unsupported file format: $(EXT)"; \
   fi
+
+$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
+	@-mkdir -p $(BIN)
+	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
 
 $(BIN)/%.pgm: $(BIN)/%.png
 	$(eval BITWIDTH := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit" | grep -oP "\d+"))
