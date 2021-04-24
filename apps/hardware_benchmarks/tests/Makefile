@@ -12,7 +12,7 @@ ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 APP_SUITES := ops fpops conv fpconv inout mem bc matmul
 
 ### operator tests ###
-OP_TESTS := absolute arith bitwise boolean_ops divide equal ternary \
+OP_TESTS := absolute arith bitwise boolean_ops divide multiply equal ternary \
             scomp sminmax sshift ucomp uminmax ushift \
             counter
 ops := $(OP_TESTS)

@@ -1300,10 +1300,6 @@ void CreateCoreIRModule::visit(const Load *op) {
 }
 
 void CreateCoreIRModule::visit(const Cast *op) {
-  stream << "[cast]";
-  string in_var = print_expr(op->value);
-  string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
-
   // Looking for i16((i32(a) * i32(b)) / 256);
   if (op->type.bits() == 16 && op->value.type().bits() == 32) {
     //std::cout << "cast is: " << Expr(op) << std::endl;
@@ -1338,6 +1334,10 @@ void CreateCoreIRModule::visit(const Cast *op) {
     }
   }
 
+  stream << "[cast]";
+  string in_var = print_expr(op->value);
+  string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
+  
   // casting from 1 to 16 bits
   if (op->type.bits() > 1 && op->value.type().bits() == 1) {
     stream << "// casting from 1 to 16 bits" << endl;
