@@ -48,6 +48,7 @@ $(1)-mem:               $($(2):=-mem)
 $(1)-memtest:           $($(2):=-memtest)
 $(1)-rewrite:           $($(2):=-rewrite)
 $(1)-check:             $($(2):=-check)
+$(1)-list:              $($(2):=-list)
 $(1)-golden:            $($(2):=-golden)
 $(1)-clean:             $($(2):=-clean)
 endef
@@ -108,6 +109,11 @@ $(eval $(call SUITE_template,all,allapps))
 %-check:
 	@if [ -d $* ]; then \
 		$(MAKE) -sC $* check; \
+	fi
+
+%-list:
+	@if [ -d $* ]; then \
+		$(MAKE) -sC $* list; \
 	fi
 
 %-clean:

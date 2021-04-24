@@ -738,6 +738,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
     stream << "#include \"unoptimized_" << xcel_pair.first << ".h\"\n";
   }
   stream << "#include \"hw_classes.h\"\n"
+         << "#include <fstream>\n"
          << "\n";
 
   for (auto& xcel_closure_pair : closure_map) {
@@ -820,6 +821,19 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
           stream << "} ";
         }
         stream << "\n";
+
+        // save input to file
+        string inputname = printname(closure_args[i].name);
+        internal_assert((elt_sizes[i]==8) || (elt_sizes[i]==16));
+        string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
+        stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";
+        stream << "\t" << inputname << "_file.write(reinterpret_cast<const char *>(" << inputname << "),\n"
+               << "\t\tsizeof(" << inputname << "[0])";
+        for (size_t j = 0; j < bounds.size(); j++) {
+          stream << " * " << bounds[j].extent;
+        }
+        stream << ");" << std::endl
+               << "\t" << inputname << "_file.close();" << std::endl;
       }
     }
     stream << "\n\n";
@@ -866,6 +880,31 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         stream << "} ";
       }
       stream << "\n";
+
+      // save output to file
+      string outputname = printname(stencil_arg.name);
+      internal_assert((elt_size==8) || (elt_size==16));
+      string extension = elt_size == 8 ? ".raw" : ".leraw";
+      stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
+      stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << outputname << "),\n"
+             << "\t\tsizeof(" << outputname << "[0])";
+      for (size_t j = 0; j < bounds.size(); j++) {
+        stream << " * " << bounds[j].extent;
+      }
+      stream << ");" << std::endl
+             << "\t" << "hw_output_file.close();" << std::endl;
+
+      // save output pgm header
+      int max_value = elt_size==8 ? 255 : 65535;
+      stream << "\tofstream " << "hw_output_header_file(\"bin/" << "hw_output_header.txt\", ios::binary);\n";
+      stream << "\t" << "hw_output_header_file << \"P5\" << std::endl;" << std::endl;
+      stream << "\t" << "hw_output_header_file << \"";
+      for (size_t j = 0; j < bounds.size(); j++) {
+        stream << bounds[j].extent << (j==bounds.size()-1 ? "" : " ");
+      }
+      stream << "\" << std::endl;" << std::endl;
+      stream << "\t" << "hw_output_header_file << \"" << max_value << "\" << std::endl;" << std::endl;
+      stream << "\t" << "hw_output_header_file.close();" << std::endl;
     }
 
 

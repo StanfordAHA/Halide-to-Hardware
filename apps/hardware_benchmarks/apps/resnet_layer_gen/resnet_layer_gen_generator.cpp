@@ -74,7 +74,7 @@ public:
         //conv(x, y, w) += hw_input(r.z, stride*x, stride*y);
 
         Func hw_output("hw_output");
-        hw_output(x, y, w) = conv(x, y, w);
+        hw_output(x, y, w) = i16(max(0, conv(x, y, w)));
         //output(x, y, w) = max(0, u8(hw_output(x, y, w)));
         //output(x, y, w) = max(0, i16(hw_output(x, y, w)));
         output(x, y, w) = hw_output(x, y, w);

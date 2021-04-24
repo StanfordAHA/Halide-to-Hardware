@@ -100,5 +100,18 @@ int main( int argc, char **argv ) {
   //}
   //convert_and_save_image(output8, "bin/output64.png");
 
+  int max = 0;
+  for (int y=0; y<64; ++y) {
+    for (int x=0; x<64; ++x) {
+      max = max < processor.input(x, y) ? processor.input(x, y) : max;
+    }
+  }
+  //std::cout << "max is " << max << std::endl;
+  //std::cout << "output(0,0) is " << std::hex
+  //          << +processor.output(0, 0, 0) << ","
+  //          << +processor.output(0, 0, 1) << ","
+  //          << +processor.output(0, 0, 2) << std::dec << std::endl;
+
+
   return cmd_output;
 }

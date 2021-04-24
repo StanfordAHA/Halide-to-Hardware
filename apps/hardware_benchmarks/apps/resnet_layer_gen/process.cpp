@@ -139,12 +139,16 @@ int main( int argc, char **argv ) {
           interleaved_input(2*(z + Z*x) + 1, y) = input_copy_stencil(z, x_coord, y_coord);
           
           inputs[z](x, y) = input_copy_stencil(z, x_coord, y_coord);
-          //std::cout << z << "," << x << "," << y << " = " << +full_input(z,x,y) << std::endl;
+          //std::cout << "input " << z << "," << x << "," << y << " = " << std::hex << +full_input(z,x,y) << std::dec << std::endl;
         } } }
     //std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
     //save_image(full_input, "bin/input.mat");
+    std::cout << "num_dims=" << oned_input.dimensions() << std::endl
+              << oned_input.dim(0).extent() << "x" << oned_input.dim(1).extent()
+              << std::endl;
     if (write_images) {
-      save_image(oned_input, "bin/input.mat");
+      save_image(oned_input, "bin/input.pgm");
+      std::cout << "wrote an image\n";
       save_image(interleaved_input, "bin/input_interleaved.png");
       for (size_t i=0; i<inputs.size(); ++i) {
         save_image(inputs[i], "bin/input_" + std::to_string(i) + ".mat");
@@ -181,6 +185,19 @@ int main( int argc, char **argv ) {
       std::cout << "Writing input.mat and kernel.mat to bin folder" << std::endl;
       save_image(processor.inputs["input.mat"], "bin/input.mat");
       save_image(processor.inputs["kernel.mat"], "bin/kernel.mat");
+      save_image(full_input, "bin/input_padded.mat");
+
+      //Buffer<int16_t> inin = load_and_convert_image("input.mat");
+      //std::cout << "loaded input has dims: " << inin.dim(0).extent() << "x"
+      //          << inin.dim(1).extent() << "x"
+      //          << inin.dim(2).extent() << "\n";
+      //
+      //Buffer<int16_t> kerker = load_and_convert_image("kernel.mat");
+      //std::cout << "loaded kernel has dims: " << kerker.dim(0).extent() << "x"
+      //          << kerker.dim(1).extent() << "x"
+      //          << kerker.dim(2).extent() << "x"
+      //          << kerker.dim(3).extent() << "\n";
+
     }
     
     //std::cout << "kernel 2,1 = 6 ?= " << +kernel_copy_stencil(0,0,2,1) << std::endl;
