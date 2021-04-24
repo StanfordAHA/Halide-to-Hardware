@@ -897,9 +897,9 @@ void CreateCoreIRModule::visit_binop(Type t, Expr a, Expr b, const char*  op_sym
 }
 
 void CreateCoreIRModule::visit_ternop(Type t, Expr a, Expr b, Expr c, const char*  op_sym1, const char* op_sym2, string op_name) {
-  string a_name = print_expr(a);
-  string b_name = print_expr(b);
-  string c_name = print_expr(c);
+  string a_name = sanatize_name(print_expr(a));
+  string b_name = sanatize_name(print_expr(b));
+  string c_name = sanatize_name(print_expr(c));
 
   string out_var = print_assignment(t, a_name + " " + op_sym1 + " " + b_name + " " + op_sym2 + " " + c_name);
   // return if this variable is cached
