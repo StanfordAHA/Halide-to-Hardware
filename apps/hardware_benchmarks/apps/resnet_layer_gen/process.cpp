@@ -139,7 +139,7 @@ int main( int argc, char **argv ) {
           interleaved_input(2*(z + Z*x) + 1, y) = input_copy_stencil(z, x_coord, y_coord);
           
           inputs[z](x, y) = input_copy_stencil(z, x_coord, y_coord);
-          //std::cout << z << "," << x << "," << y << " = " << +full_input(z,x,y) << std::endl;
+          //std::cout << "input " << z << "," << x << "," << y << " = " << std::hex << +full_input(z,x,y) << std::dec << std::endl;
         } } }
     //std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
     //save_image(full_input, "bin/input.mat");

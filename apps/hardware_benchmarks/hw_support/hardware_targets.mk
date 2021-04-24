@@ -344,6 +344,34 @@ $(BIN)/input.pgm: input.png
 $(BIN)/%.raw: $(BIN)/%.png
 	$(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw
 
+$(BIN)/%.raw: $(BIN)/%.leraw
+	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
+
+$(BIN)/cgra_config.json:
+	@-mkdir -p $(BIN)
+	if [ -f cgra_config.json ]; then \
+		cp cgra_config.json $@; \
+	else \
+		cp $(HWSUPPORT)/default_config.json $@; \
+	fi
+
+$(BIN)/input_cgra.pgm: $(BIN)/cgra_config.json $(BIN)/output_clockwork.$(EXT)
+	$(MAKE) $(BIN)/hw_input_stencil.raw
+	python3 $(HWSUPPORT)/interleave_cgrainput.py $(BIN)/cgra_config.json $@
+
+$(BIN)/output_cgra_comparison.pgm: $(BIN)/output_clockwork.$(EXT) $(BIN)/hw_output_header.txt
+	$(MAKE) $(BIN)/hw_output.raw
+	cat $(BIN)/hw_output_header.txt > $@
+	cat $(BIN)/hw_output.raw >> $@
+
+# create the output file, but convert it to 8bits by dropping every other byte
+$(BIN)/output_cgra_comparison8.pgm: $(BIN)/output_clockwork.$(EXT) $(BIN)/hw_output_header.txt
+	$(MAKE) $(BIN)/hw_output.raw
+	xxd -p bin/hw_output.raw | sed -E 's/..(..)/\1/g' | xxd -r -p > bin/hw_output8.raw
+	cat $(BIN)/hw_output_header.txt | sed 's/65535/255/g' | cat > $@
+	cat $(BIN)/hw_output8.raw >> $@
+
+
 $(BIN)/%.pgm: $(BIN)/%.png
 	$(eval BITWIDTH := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit" | grep -oP "\d+"))
 	$(eval CHANNELS := $(shell file $(BIN)/$*.png | grep -oP "\d+-bit.*? " | grep -oP "/.* "))
