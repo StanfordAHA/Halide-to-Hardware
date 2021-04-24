@@ -12,3 +12,15 @@ export COREIR_DIR=${TRAVIS_BUILD_DIR}/coreir
 export COREIR_PATH=${TRAVIS_BUILD_DIR}/coreir
 export FUNCBUF_DIR=${TRAVIS_BUILD_DIR}/BufferMapping/cfunc
 export OUTPUT_REDIRECTION=""
+
+# Needed for clockwork
+export BARVINOK_PATH=${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
+export ISL_PATH=${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
+export OPT_PATH=${TRAVIS_BUILD_DIR}/clockwork/include
+export OPT_LIB_PATH=${TRAVIS_BUILD_DIR}/clockwork/lib
+export CLKWRK_PATH=${TRAVIS_BUILD_DIR}/clockwork
+
+#export CXX=clang++
+export COREIR=1
+export CGRAFLOW=1
+
