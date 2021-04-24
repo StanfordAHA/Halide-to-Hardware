@@ -248,11 +248,10 @@ public:
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
             //.unroll(x, ksize).unroll(y, ksize);      // output stationary
 
-
           conv.compute_at(hw_output, xo);
 
-          //hw_input.in().unroll(z);
-          hw_input.in();
+          hw_input.in().unroll(z);
+          //hw_input.in();
           
           hw_input.stream_to_accelerator();
           hw_kernel.stream_to_accelerator();

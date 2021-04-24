@@ -23,7 +23,7 @@ env:
   #
   # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
-  - LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7 CXX=g++-7 CC=gcc-7
+  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7 CXX=g++-7 CC=gcc-7
   #CXX_=g++-4.9 CC_=gcc-4.9
 
 cache: apt
@@ -47,12 +47,19 @@ install:
   - git clone -b new_config https://github.com/joyliu37/BufferMapping
   - cd BufferMapping/cfunc && make lib -j2 && cd ../..
 
+  # compile clockwork
+  - git clone https://github.com/dillonhuff/clockwork.git
+  - cd clockwork && ./misc/install_deps_linux.sh && source user_settings/linux_settings_template.sh
+  - make libcoreir-cgralib.so && make libclkwrk.so && ..
+
+  # clone RDAI
+  - git clone https://github.com/thenextged/rdai.git
 
 before_deploy:
   - git config --local user.name "jeffsetter"
   - git config --local user.email "setter@stanford.edu"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-  - make distrib
+  - make -j2 distrib
   - rm distrib/halide.tgz
   - rm distrib/bin/libHalide.so
   - tar -czvf halide_distrib.tgz distrib

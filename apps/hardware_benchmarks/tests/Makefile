@@ -38,7 +38,7 @@ fpconv := $(FP_CONV_TESTS)
 fp_conv_tests fp-conv-tests fpconvs: $(FP_CONV_TESTS)
 
 ### accelerator interface tests ###
-INOUT_TESTS := inout_16bit inout_onebit inout_fp \
+INOUT_TESTS := inout_16bit inout_onebit inout_fp inout_cgraconfig \
 							 conv_2input tap_param casts
 inout := $(INOUT_TESTS)
 inout_tests inout-tests inouts inout: $(INOUT_TESTS)
