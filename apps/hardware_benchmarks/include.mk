@@ -13,10 +13,8 @@ compileall compile_all clockworkall clockwork_all clockwork-all: $(ALL_APPS_SORT
 compareall compare_all compare-all: $(ALL_APPS_SORTED:=-compare-clockwork)
 
 testtravis:
-	echo TRAVIS TESTS: $(TRAVIS_TESTS)
-	$(MAKE) travis-list
-	$(MAKE) travis
-	$(MAKE) clearresults && $(MAKE) travis-compare && $(MAKE) checkresults
+	@echo TRAVIS TESTS: $(travis)
+	$(MAKE) clearresults && $(MAKE) travis && $(MAKE) checkresults
 
 suites suite:
 	@-echo $(APP_SUITES)
