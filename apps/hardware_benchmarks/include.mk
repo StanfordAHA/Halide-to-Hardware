@@ -12,6 +12,9 @@ coreirall coreir_all: $(ALL_APPS:=-coreir)
 compileall compile_all clockworkall clockwork_all clockwork-all: $(ALL_APPS_SORTED:=-clockwork)
 compareall compare_all compare-all: $(ALL_APPS_SORTED:=-compare-clockwork)
 
+testtravis:
+	$(MAKE) clearresults && $(MAKE) travis-compare && $(MAKE) checkresults
+
 suites suite:
 	@-echo $(APP_SUITES)
 
