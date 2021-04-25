@@ -44,7 +44,7 @@ install:
   - cd coreir/build && cmake .. && make -j2 && cd ../..
 
   # compile clockwork
-  - git clone https://github.com/dillonhuff/clockwork.git
+  - git clone https://github.com/dillonhuff/clockwork.git -b aha
   - cd clockwork && ./misc/install_deps_linux.sh
   - make -j2 libcoreir-cgralib.so && make -j2 libclkwrk.so && cd ..
 
