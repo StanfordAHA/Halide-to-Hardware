@@ -81,7 +81,9 @@ before_script:
 script:
   # run test cases for hardware codegens
   - export HALIDE_DEBUG_REDIRECT=""
-  - bash test/scripts/build_travis.sh
+  - make -C apps/hardware_benchmarks/tests testtravis || exit;
+  - make -C apps/hardware_benchmarks/apps  testtravis || exit;
+  - echo "Finished running tests and apps"
 
 after_script: |
   # See https://github.com/mernst/plume-lib/blob/master/bin/trigger-travis.sh for documentation
