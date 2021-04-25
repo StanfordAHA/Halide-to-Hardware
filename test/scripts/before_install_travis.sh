@@ -19,6 +19,8 @@ export ISL_PATH=${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
 export OPT_PATH=${TRAVIS_BUILD_DIR}/clockwork/include
 export OPT_LIB_PATH=${TRAVIS_BUILD_DIR}/clockwork/lib
 export CLKWRK_PATH=${TRAVIS_BUILD_DIR}/clockwork
+export CLOCKWORK_DIR=${TRAVIS_BUILD_DIR}/clockwork
+export LAKE_PATH=${TRAVIS_BUILD_DIR}/lake
 
 export COREIR=1
 export CGRAFLOW=1
