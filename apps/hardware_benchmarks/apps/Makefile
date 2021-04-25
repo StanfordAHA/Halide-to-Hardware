@@ -3,10 +3,10 @@ HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 
 default: all
 
-TRAVIS_TESTS := pointwise gaussian cascade harris \
+TRAVIS_APPS := pointwise gaussian cascade harris \
 								unsharp camera_pipeline resnet_layer_gen
-travis := $(TRAVIS_TESTS)
-travis: $(TRAVIS_TESTS)
+travis := $(TRAVIS_APPS)
+travis: $(TRAVIS_APPS)
 
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))

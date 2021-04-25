@@ -1846,7 +1846,8 @@ test_coreir_prebuilt:
 fulltest_coreir:
 	$(MAKE) test_coreir test_correctness test_generator
 
-test_clockwork travis: distrib $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
+test_clockwork: distrib $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
+	$(MAKE) -C apps/hardware_benchmarks/apps/gaussian compare;
 	$(MAKE) -C apps/hardware_benchmarks/tests testtravis || exit;
 	$(MAKE) -C apps/hardware_benchmarks/apps  testtravis || exit;
 
