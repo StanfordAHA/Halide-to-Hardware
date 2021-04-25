@@ -1846,6 +1846,10 @@ test_coreir_prebuilt:
 fulltest_coreir:
 	$(MAKE) test_coreir test_correctness test_generator
 
+test_clockwork travis: distrib $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
+	$(MAKE) -C apps/hardware_benchmarks/tests clear_results travis-compare check_results || exit;
+	$(MAKE) -C apps/hardware_benchmarks/apps clear_results travis-compare check_results || exit;
+
 
 # Bazel depends on the distrib archive being built
 .PHONY: test_bazel

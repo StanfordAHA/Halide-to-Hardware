@@ -2,14 +2,18 @@ SHELL = /bin/bash
 HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 
 default: all
-travis testtravis: arith conv_3_3 
+
+TRAVIS_TESTS := arith sshift fp_arith conv_4_4 \
+							inout_cgraconfig up_sample rom
+travis := $(TRAVIS_TESTS)
+travis: $(TRAVIS_TESTS)
 
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 
 ### app suites include: ###
-APP_SUITES := ops fpops conv fpconv inout mem bc matmul
+APP_SUITES := ops fpops conv fpconv inout mem bc matmul travis
 
 ### operator tests ###
 OP_TESTS := absolute arith bitwise boolean_ops divide multiply equal ternary \

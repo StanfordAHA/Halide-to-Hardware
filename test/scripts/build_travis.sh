@@ -73,9 +73,9 @@ elif [ ${BUILD_SYSTEM} = 'MAKE' ]; then
   # make
 
   # Run the tests
-  make test_coreir
+  make test_clockwork
 
-  if [ ${TEST_HALIDE_CORRECTNES} ]; then
+  if [ ${TEST_HALIDE_CORRECTNESS} ]; then
       make test_correctness
   fi
 

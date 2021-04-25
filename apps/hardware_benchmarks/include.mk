@@ -18,6 +18,15 @@ suites suite:
 halide compiler:
 	$(MAKE) -C ../../.. quick_distrib
 
+checkresults check_results:
+	cat results
+	if grep -q FAILED "results"; then \
+		exit 1; \
+	fi
+
+clearresults clear_results:
+	rm -f results
+
 # Runs one of the functions on an app. Prints out nothing but pass/fail.
 # Default exit 0 on failure so it doesn't stop a make script
 EARLY_EXIT ?= 0
@@ -26,9 +35,11 @@ define run_app
 	EXIT_CODE=$$?; \
 	if [[ $$EXIT_CODE = 0 ]]; then \
 	  printf "%-25s \033[0;32m%s\033[0m\n" $(1) "PASSED"; \
+	  printf "%-25s %s\n" $(1) "PASSED" | cat >> results; \
     (exit $$EXIT_CODE); \
 	else \
 	  printf "%-25s \033[0;31m%s\033[0m\n" $(1) "FAILED"; \
+	  printf "%-25s %s\n" $(1) "FAILED" | cat >> results; \
     (exit $$EARLY_EXIT);  \
 	fi
 endef

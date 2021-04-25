@@ -2,7 +2,11 @@ SHELL = /bin/bash
 HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 
 default: all
-travis testtravis: pointwise harris
+
+TRAVIS_TESTS := pointwise gaussian cascade harris \
+								unsharp camera_pipeline resnet_layer_gen
+travis := $(TRAVIS_TESTS)
+travis: $(TRAVIS_TESTS)
 
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
@@ -13,7 +17,7 @@ ALL_APPS := $(filter-out $(IGNORED_DIRS), $(ALL_APPS))
 #ALL_APPS += $(dir $(wildcard unet/*/.))
 
 ### app suites include: ###
-APP_SUITES := simple img video dnn soc other
+APP_SUITES := simple img video dnn soc other travis
 
 ### simple applications ###
 SIMPLE_APPS := pointwise brighten_and_blur cascade \
