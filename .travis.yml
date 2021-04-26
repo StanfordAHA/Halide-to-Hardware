@@ -1,6 +1,6 @@
 notifications:
   email: false
-dist: xenial
+dist: trusty
 sudo: false
 language: c
 compiler:
@@ -23,7 +23,7 @@ env:
   #
   # Test a mix of llvm versions, a mix of build systems, and a mix of shared vs static library
   # Don't build as a static library with cmake. It risks exceeding the travis memory limit.
-  - LLVM_VERSION=7.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7 CXX=g++-7 CC=gcc-7
+  - LLVM_VERSION=6.0.0 BUILD_SYSTEM=MAKE CXX_=g++-7 CC_=gcc-7 CXX=g++-7 CC=gcc-7
   #CXX_=g++-4.9 CC_=gcc-4.9
 
 cache: apt
