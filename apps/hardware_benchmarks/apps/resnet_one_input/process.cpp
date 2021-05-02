@@ -115,7 +115,7 @@ int main( int argc, char **argv ) {
               << processor.input.dim(1).extent() << "x"
               << processor.input.dim(2).extent() << "\n";
 
-    bool write_images = true;
+    bool write_images = false;
 
     Buffer<uint16_t> full_input(Z, X + pad*2, Y + pad*2);
     Buffer<uint16_t> oned_input(Z *(X + pad*2), Y + pad*2);
