@@ -72,9 +72,7 @@ public:
         for (int w = 0; w < k_oc; w++) {
           for (int z = 0; z < k_ic; z++) {
           
-            if (rand() % 100 < 60) { // 60% zero, else rand
-              kernel(z, w, x, y) = 0;
-            } else {
+            if (rand() % 100 < 40) { // 60% zero, else rand
               kernel(z, w, x, y) = rand() % 100;
             }
             

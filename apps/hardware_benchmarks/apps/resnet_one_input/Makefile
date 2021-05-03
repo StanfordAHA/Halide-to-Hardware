@@ -37,7 +37,7 @@ TESTNAME                        = resnet_layer_gen
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
-EXT                             = pgm
+EXT                             = mat
 
 # Set enviroment variable to set these:
 #  HALIDE_GEN_ARGS="ksize=3 stride=2 k_ic=10 k_oc=3 in_img=64"
