@@ -99,6 +99,7 @@ public:
           input_cgra.bound(zz, 0, k_ic);
           kernel_cgra.bound(z, 0, ic_outer);
           kernel_cgra.bound(zz, 0, k_ic);
+          //kernel_gb.bound(w, 0, n_oc);
 
           int gbsize = imgsize;
           int tilesize = std::min(imgsize, 28);
@@ -124,7 +125,6 @@ public:
             // reorder from inner to outermost
             .reorder(w_cgra, x_cgra, y_cgra,
                      x_gb, y_gb, w_gb);
-
 
           output_cgra.compute_at(output_gb, x_gb); // memtile
           output_cgra

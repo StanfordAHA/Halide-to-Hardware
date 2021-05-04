@@ -136,6 +136,7 @@ public:
             .reorder(w,r.z,x,y,r.x,r.y);
             //.reorder(r.y,y,w,r.z,r.x,r.z,y);
             //.reorder(x,y,w,r.z,r.x,r.y);
+            //.reorder(w,r.z,r.x,r.y,x,y);
           
           conv.update()
             //.unroll(r.z, k_ic/2);                     // unroll input channel
@@ -157,6 +158,7 @@ public:
             .unroll(w, k_oc).unroll(r.z, k_ic);          // channel weight stationary
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
             //.unroll(x, ksize).unroll(y, ksize);      // output stationary
+            //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(w, k_oc); // all
 
 
           conv.linebuffer();
@@ -250,8 +252,7 @@ public:
 
           conv.compute_at(hw_output, xo);
 
-          hw_input.in().unroll(z);
-          //hw_input.in();
+          //hw_input.in().unroll(z);
           
           hw_input.stream_to_accelerator();
           hw_kernel.stream_to_accelerator();
