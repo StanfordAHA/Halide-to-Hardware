@@ -69,9 +69,9 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       blended_image = flatten_pyramid(merged_pyramid);
       
       Func hw_output;
-      hw_output(x, y, c) = blended_image(x, y, c);
+      hw_output(x, y, c) = u8(blended_image(x, y, c));
 
-      output(x, y, c) = u8(hw_output(x, y, c));
+      output(x, y, c) = hw_output(x, y, c);
 
       output.bound(c, 0, 3);
       output.bound(x, 0, 64-ksize+1);
@@ -199,7 +199,7 @@ private:
     }
 
     // Flatten a pyramid
-    Func flatten_pyramid(vector<Func> &pyramid) {
+    Func flatten_pyramid(vector<Func> &pyramid, vector<Func> &upsampled) {
       using Halide::_;
 
       Func lImg;

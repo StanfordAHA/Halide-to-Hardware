@@ -5,3 +5,4 @@
 apps/results
 tests/results
 handcrafted/results
+!*cgra_config.json

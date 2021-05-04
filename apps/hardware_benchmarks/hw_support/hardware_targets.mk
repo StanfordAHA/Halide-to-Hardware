@@ -369,11 +369,10 @@ $(BIN)/cgra_config.json:
 		cp $(HWSUPPORT)/default_config.json $@; \
 	fi
 
-$(BIN)/input_cgra.pgm: $(BIN)/cgra_config.json $(BIN)/output_clockwork.$(EXT)
-	$(MAKE) $(BIN)/hw_input_stencil.raw
+$(BIN)/cgra_input.pgm $(BIN)/input_cgra.pgm: $(BIN)/cgra_config.json $(BIN)/output_clockwork.$(EXT)
 	python3 $(HWSUPPORT)/interleave_cgrainput.py $(BIN)/cgra_config.json $@
 
-$(BIN)/output_cgra_comparison.pgm: $(BIN)/output_clockwork.$(EXT) $(BIN)/hw_output_header.txt
+$(BIN)/cgra_output.pgm $(BIN)/output_cgra.pgm $(BIN)/output_cgra_comparison.pgm: $(BIN)/output_clockwork.$(EXT) $(BIN)/hw_output_header.txt
 	$(MAKE) $(BIN)/hw_output.raw
 	cat $(BIN)/hw_output_header.txt > $@
 	cat $(BIN)/hw_output.raw >> $@
