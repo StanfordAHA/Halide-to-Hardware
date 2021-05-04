@@ -63,20 +63,20 @@ public:
         //clamp_input(z, x, y) = input(z, x, y);
 
         Func kernel;
-        kernel(z, w, x, y) = 1;
+        kernel(z, w, x, y) = 0;
 
 //// BEGIN KERNEL
 
-    // for (int y = 0; y < ksize; y++) {
-    //   for (int x = 0; x < ksize; x++) {
-    //     for (int w = 0; w < k_oc; w++) {
-    //       for (int z = 0; z < k_ic; z++) {
+    for (int y = 0; y < ksize; y++) {
+      for (int x = 0; x < ksize; x++) {
+        for (int w = 0; w < k_oc; w++) {
+          for (int z = 0; z < k_ic; z++) {
           
-    //         if (rand() % 100 < 40) { // 60% zero, else rand
-    //           kernel(z, w, x, y) = 1;
-    //         }
+            if (rand() % 100 < 40) { // 60% zero, else rand
+              kernel(z, w, x, y) = rand() % 100;
+            }
             
-    // } } } }
+    } } } }
 
 
 
@@ -168,12 +168,12 @@ public:
             //.unroll(w, ksize).unroll(r.z, ksize);    // unroll channels
             //.unroll(x, ksize).unroll(y, ksize);    // unroll output values
             //.unroll(w, k_oc).unroll();                // unroll for multiple memories?
-            .unroll(r.x).unroll(r.y).unroll(r.z).unroll(w);    // unroll all rdoms
+            // .unroll(r.x).unroll(r.y).unroll(r.z).unroll(w);    // unroll all rdoms
             // .unroll(r.x).unroll(r.y).unroll(r.z, k_ic/2);       // unroll all rdoms, partial for r.z
             //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 4); // unroll all rdoms, x4
 
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // weight stationary
-            // .unroll(w, k_oc).unroll(r.z, k_ic);          // channel weight stationary
+            .unroll(w, k_oc).unroll(r.z, k_ic);          // channel weight stationary
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
             //.unroll(x, ksize).unroll(y, ksize);      // output stationary
 
