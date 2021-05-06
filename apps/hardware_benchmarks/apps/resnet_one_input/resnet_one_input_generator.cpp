@@ -37,7 +37,7 @@ public:
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
-        int imgsize = floor( (in_img + 2*pad - ksize) / stride ) + 1;
+        int imgsize = in_img;
       
         /* THE ALGORITHM */
 
@@ -50,33 +50,34 @@ public:
         Expr width = imgsize;
 
         Func conv("conv");
-        RDom r(0, ksize,
-               0, ksize,
-               0, k_ic);
+        RDom r(0, k_ic);
 
         conv(x, y, w) = i16(0);
 
         Func hw_input("hw_input");
         Func clamp_input("clamp_input");
         //clamp_input(x, y, z) = input(clamp(x, 0, width - 1), clamp(y, 0, height - 1), z);
-        clamp_input(z, x, y) = input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1));
-        //clamp_input(z, x, y) = input(z, x, y);
+        // clamp_input(z, x, y) = input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1));
+        clamp_input(z, x, y) = input(z, x, y);
 
         Func kernel;
-        kernel(z, w, x, y) = 0;
+        kernel(z, w) = 0;
 
 //// BEGIN KERNEL
 
-    for (int y = 0; y < ksize; y++) {
-      for (int x = 0; x < ksize; x++) {
+    // for (int y = 0; y < ksize; y++) {
+    //   for (int x = 0; x < ksize; x++) {
         for (int w = 0; w < k_oc; w++) {
           for (int z = 0; z < k_ic; z++) {
-          
-            if (rand() % 100 < 40) { // 60% zero, else rand
-              kernel(z, w, x, y) = rand() % 100;
-            }
+            int rand_i = rand() % 100;
+            kernel(z, w) = rand_i;
+            // if (rand_i  < 40) { // 60% zero, else rand
+            // } else {
+            //   kernel(z, w) = 0;
+            // }
+            // kernel(z, w) = 3;
             
-    } } } }
+    } } 
 
 
 
@@ -87,7 +88,7 @@ public:
         //hw_input(z, x, y) = input_copy(z, x, y);
         hw_input(z, x, y) = i16(clamp_input(z, x, y));
 
-        conv(x, y, w) += i16(kernel(r.z, w, r.x, r.y) * hw_input(r.z, stride*x + r.x, stride*y + r.y));
+        conv(x, y, w) += i16(kernel(r.x, w) * hw_input(r.x, x, y));
         //conv(x, y, w) += hw_input(r.z, stride*x, stride*y);
 
         Func hw_output("hw_output");
@@ -103,14 +104,7 @@ public:
           output.bound(y, 0, imgsize);
           output.bound(w, 0, k_oc);
           hw_output.bound(w, 0, k_oc);
-          //clamp_input.bound(z, 0, k_ic);
-          // kernel.bound(w, 0, k_oc);
-          // kernel.bound(z, 0, k_ic);
-          // kernel.bound(x, 0, ksize);
-          // kernel.bound(y, 0, ksize);
-          // hw_kernel.bound(z, 0, k_ic);
           hw_input.bound(z, 0, k_ic);
-          // kernel.bound(w, 0, k_oc);
           
           Var xi,yi, xo,yo;
           
@@ -133,29 +127,29 @@ public:
           //   .reorder_storage(z,w,x,y)
           //   .reorder(z,w,x,y);
           
-          hw_input
-            .reorder_storage(z,x,y)
-            .reorder(z,x,y);
-          //.unroll(z, k_ic);
+          // hw_input
+          //   .reorder_storage(z,x,y)
+          //   .reorder(z,x,y);
+          // //.unroll(z, k_ic);
           kernel.compute_at(hw_output, xo);
           
-          conv.reorder(w,x,y)
-            .reorder_storage(w,x,y);
-          conv.update()
-            //.reorder(r.z,r.x,r.y,w,x,y);
-            //.reorder(r.x,r.y,r.z,w,x,y);
-            //.reorder(w,r.x,r.y,r.z,x,y);
-            //.reorder(r.z,w,r.x,r.y,x,y);
-            //.reorder(r.z,r.x,r.y,w,x,y);
-            //.reorder(r.z,r.x,r.y,x,y,w);
-            //.reorder(x,y,r.z,r.x,r.y,w);
+          // conv.reorder(w,x,y)
+          //   .reorder_storage(w,x,y);
+          // conv.update()
+          //   //.reorder(r.z,r.x,r.y,w,x,y);
+          //   //.reorder(r.x,r.y,r.z,w,x,y);
+          //   //.reorder(w,r.x,r.y,r.z,x,y);
+          //   //.reorder(r.z,w,r.x,r.y,x,y);
+          //   //.reorder(r.z,r.x,r.y,w,x,y);
+          //   //.reorder(r.z,r.x,r.y,x,y,w);
+          //   //.reorder(x,y,r.z,r.x,r.y,w);
 
-            //.reorder(r.x,r.y,r.z,w,x,y);
-            .reorder(w,r.z,x,y,r.x,r.y);
-            //.reorder(r.y,y,w,r.z,r.x,r.z,y);
+          //   //.reorder(r.x,r.y,r.z,w,x,y);
+          //   .reorder(w,r.x,x,y);
+          //   //.reorder(r.y,y,w,r.z,r.x,r.z,y);
             //.reorder(x,y,w,r.z,r.x,r.y);
 
-          // conv.unroll(w, k_oc);
+          // conv.update().unroll(w, k_oc);
           conv.update()
             //.unroll(r.z, k_ic/2);                     // unroll input channel
             //.unroll(r.z);                            // unroll input channel
@@ -171,9 +165,9 @@ public:
             // .unroll(r.x).unroll(r.y).unroll(r.z).unroll(w);    // unroll all rdoms
             // .unroll(r.x).unroll(r.y).unroll(r.z, k_ic/2);       // unroll all rdoms, partial for r.z
             //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 4); // unroll all rdoms, x4
-
+            // .unroll(r.x).unroll(r.y).unroll(r.z);
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // weight stationary
-            .unroll(w, k_oc).unroll(r.z, k_ic);          // channel weight stationary
+            .unroll(w, k_oc).unroll(r.x, k_ic);          // channel weight stationary
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
             //.unroll(x, ksize).unroll(y, ksize);      // output stationary
 
@@ -185,16 +179,11 @@ public:
           hw_input.stream_to_accelerator();
           // hw_kernel.stream_to_accelerator();
           
-        } else {  // schedule to CPU
-          conv.compute_root();
-          conv.update()
-            .unroll(r.x, 3)
-            .unroll(r.y, 3);
-        }
+        } 
         
     }
 };
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(ResnetKernel, resnet_layer_gen)
+HALIDE_REGISTER_GENERATOR(ResnetKernel, resnet_one_input)

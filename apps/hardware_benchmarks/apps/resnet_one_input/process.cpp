@@ -5,7 +5,7 @@
 #include "halide_image_io.h"
 
 #if defined(WITH_CPU)
-   #include "resnet_layer_gen.h"
+   #include "resnet_one_input.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -15,7 +15,7 @@
 #if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-    #include "resnet_layer_gen_clockwork.h"
+    #include "resnet_one_input_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -23,11 +23,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint16_t> processor("resnet_layer_gen", {"input.mat"});
+  ManyInOneOut_ProcessController<uint16_t> processor("resnet_one_input", {"input.mat"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        resnet_layer_gen(proc.inputs["input.mat"], proc.output);
+        resnet_one_input(proc.inputs["input.mat"], proc.output);
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -46,7 +46,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          resnet_layer_gen_clockwork(proc.inputs["input.mat"], proc.output);
+          resnet_one_input_clockwork(proc.inputs["input.mat"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -105,20 +105,20 @@ int main( int argc, char **argv ) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
           //input_copy_stencil(z, x, y) = z + x + y;      // diagonal
-          input_copy_stencil(z, x, y) = 1;              // all ones
+          // input_copy_stencil(z, x, y) = 1;              // all ones
           //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
-          // if (rand() % 100 < 60) { // 60% zero, else rand
-          //   input_copy_stencil(z, x, y) = 0;
-          // } else {
-          //   input_copy_stencil(z, x, y) = (rand() % (max_rand));
-          // }
+          if (rand() % 100 < 60) { // 60% zero, else rand
+            input_copy_stencil(z, x, y) = 0;
+          } else {
+            input_copy_stencil(z, x, y) = (rand() % (max_rand));
+          }
     } } }
 
     std::cout << "input has dims: " << processor.inputs["input.mat"].dim(0).extent() << "x"
               << processor.inputs["input.mat"].dim(1).extent() << "x"
               << processor.inputs["input.mat"].dim(2).extent() << "\n";
 
-    bool write_images = false;
+    bool write_images = true;
 
     Buffer<uint16_t> full_input(Z, X + pad*2, Y + pad*2);
     Buffer<uint16_t> oned_input(Z *(X + pad*2), Y + pad*2);
@@ -149,15 +149,15 @@ int main( int argc, char **argv ) {
     if (write_images) {
       save_image(oned_input, "bin/input.pgm");
       std::cout << "wrote an image\n";
-      save_image(interleaved_input, "bin/input_interleaved.png");
-      for (size_t i=0; i<inputs.size(); ++i) {
-        save_image(inputs[i], "bin/input_" + std::to_string(i) + ".mat");
-      }
+      // save_image(interleaved_input, "bin/input_interleaved.png");
+      // for (size_t i=0; i<inputs.size(); ++i) {
+      //   save_image(inputs[i], "bin/input_" + std::to_string(i) + ".mat");
+      // }
     }
 
     
-    int imgsize_x = std::floor( (X + 2*P_X - K_X) / stride ) + 1;
-    int imgsize_y = std::floor( (Y + 2*P_Y - K_Y) / stride ) + 1;
+    int imgsize_x = X;
+    int imgsize_y = Y;
     processor.output = Buffer<uint16_t>(imgsize_x, imgsize_y, W);
 
     std::cout << "output has dims: " << processor.output.dim(0).extent() << "x"
