@@ -775,7 +775,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       if (!closure_args[i].is_stencil) { continue; }
       oss << type_to_c_type(closure_args[i].stencil_type.elemType);
       string type_name = oss.str();
-      stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "* )";
+      stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "*)";
       stream << " mem_object_list[" << i << "]->host_ptr;\n";
     }
     stream << "\n";
@@ -1676,6 +1676,9 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   auto found_roms = contains_call(new_expr, rom_set);
   vector<CoreIR_Inst_Args> coreir_insts;
   output_roms(found_roms, roms, compute_stream, coreir_insts, context);
+  if (found_roms.size() > 0) {
+    memory_stream << "  " << func_name << "->index_variable_prefetch_cycle(1);" << std::endl;
+  }
 
   // Output the c expr to the compute
   auto output = return_c_expr(new_expr);
