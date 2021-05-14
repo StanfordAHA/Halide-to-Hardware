@@ -2571,6 +2571,7 @@ Func &Func::hw_accelerate(Var compute_var, Var store_var) {
     // schedule the compute and store levels of the hw_out,
     // which later becomes the constraints of the accelerator pipeline.
     func.schedule().is_accelerated() = true;
+    func.schedule().is_accelerate_call_output() = true;
     func.schedule().accelerate_compute_level() = LoopLevel(*this, compute_var).lock();
     func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
     //std::cout << "compute level is: defined=" << func.schedule().accelerate_compute_level().defined()
@@ -2603,6 +2604,25 @@ Func &Func::hw_accelerate(Var compute_var, Var store_var) {
 
     return *this;
 }
+
+// Set this as an accelerator output. This will be tag this function
+// as the output to a hardware accelerator at the specified variable.
+Func &Func::accelerator_output(Var store_var) {
+  func.schedule().is_accelerator_output() = true;
+  func.schedule().is_accelerated() = true;
+  func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+  return *this;
+}
+
+// Set this as an accelerate call output. An accelerator consists of one or
+// more accelerate calls. Accelerate call inputs/outputs can be from the host
+// or from within the existing accelerator (such as the global buffer).
+Func &Func::accelerate_call_output(Var store_var) {
+  func.schedule().is_accelerate_call_output() = true;
+  func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+  return *this;
+}
+
 
 // Set this as an accelerator input. This will be converted into a stencil
 // to count as a valid input into a hardware accelerator.

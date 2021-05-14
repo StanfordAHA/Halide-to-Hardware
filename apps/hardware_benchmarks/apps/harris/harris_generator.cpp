@@ -190,8 +190,8 @@ public:
 
             //kernel_x.compute_at(hw_output, xo);
             //kernel_y.compute_at(hw_output, xo);
-            kernel_x.compute_at(hw_output, xo).store_in(MemoryType::Stack);
-            kernel_y.compute_at(hw_output, xo).store_in(MemoryType::Stack);
+            kernel_x.compute_at(hw_output, xo).store_in(MemoryType::ROM);
+            kernel_y.compute_at(hw_output, xo).store_in(MemoryType::ROM);
             kernel_x.unroll(x, 3).unroll(y, 3);
             kernel_y.unroll(x, 3).unroll(y, 3);
 
@@ -217,8 +217,8 @@ public:
             cim.compute_at(hw_output, xo);
             cim_output.compute_at(hw_output, xo);
 
-            kernel_x.compute_at(hw_output, xo).store_in(MemoryType::Stack);
-            kernel_y.compute_at(hw_output, xo).store_in(MemoryType::Stack);
+            kernel_x.compute_at(hw_output, xo).store_in(MemoryType::ROM);
+            kernel_y.compute_at(hw_output, xo).store_in(MemoryType::ROM);
             kernel_x.unroll(x).unroll(y);
             kernel_y.unroll(x).unroll(y);
 

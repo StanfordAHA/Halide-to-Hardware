@@ -474,6 +474,8 @@ public:
     bool &is_accelerator_input();
     bool is_accelerator_output() const;
     bool &is_accelerator_output();
+    bool is_accelerate_call_output() const;
+    bool &is_accelerate_call_output();
 
     /** The input functions of the hardware accelerator pipeline. */
     // @{

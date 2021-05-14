@@ -220,6 +220,7 @@ struct FuncScheduleContents {
     bool is_accelerated;  // TODO equivalent to !accelerate_input.empty()
     bool is_accelerator_input;
     bool is_accelerator_output;
+    bool is_accelerate_call_output;
     bool is_linebuffered;
     std::set<std::string> accelerate_inputs;
     std::string accelerate_exit;
@@ -232,7 +233,7 @@ struct FuncScheduleContents {
       store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
         memory_type(MemoryType::Auto), memoized(false), async(false), is_hw_kernel(false),
         is_accelerated(false), is_accelerator_input(false), is_accelerator_output(false),
-        is_linebuffered(false) {};
+        is_accelerate_call_output(false), is_linebuffered(false) {};
 
     // Pass an IRMutator through to all Exprs referenced in the FuncScheduleContents
     void mutate(IRMutator *mutator) {
@@ -359,6 +360,7 @@ FuncSchedule FuncSchedule::deep_copy(
     //copy.contents->is_kernel_buffer_slice = contents->is_kernel_buffer_slice;
     copy.contents->is_accelerator_input = contents->is_accelerator_input;
     copy.contents->is_accelerator_output = contents->is_accelerator_output;
+    copy.contents->is_accelerate_call_output = contents->is_accelerate_call_output;
     copy.contents->tap_funcs = contents->tap_funcs;
     copy.contents->tap_params = contents->tap_params;
 
@@ -497,6 +499,14 @@ bool &FuncSchedule::is_accelerator_output() {
     return contents->is_accelerator_output;
 }
 
+bool FuncSchedule::is_accelerate_call_output() const{
+    return contents->is_accelerate_call_output;
+}
+
+bool &FuncSchedule::is_accelerate_call_output() {
+    return contents->is_accelerate_call_output;
+}
+
 const std::set<std::string> &FuncSchedule::accelerate_inputs() const{
   return contents->accelerate_inputs;
 }
@@ -538,22 +548,22 @@ std::string &FuncSchedule::accelerate_exit() {
 }
 
 LoopLevel &FuncSchedule::accelerate_compute_level() {
-    internal_assert(is_accelerated());
+    internal_assert(is_accelerated() || is_accelerate_call_output());
     return contents->accelerate_compute_level;
 }
 
 const LoopLevel &FuncSchedule::accelerate_compute_level() const {
-    internal_assert(is_accelerated());
+    internal_assert(is_accelerated() || is_accelerate_call_output());
     return contents->accelerate_compute_level;
 }
 
 LoopLevel &FuncSchedule::accelerate_store_level() {
-    internal_assert(is_accelerated());
+    internal_assert(is_accelerated() || is_accelerate_call_output());
     return contents->accelerate_store_level;
 }
 
 const LoopLevel &FuncSchedule::accelerate_store_level() const {
-    internal_assert(is_accelerated());
+    internal_assert(is_accelerated() || is_accelerate_call_output());
     return contents->accelerate_store_level;
 }
 

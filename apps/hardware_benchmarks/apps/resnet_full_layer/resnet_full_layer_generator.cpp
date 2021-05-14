@@ -140,7 +140,7 @@ public:
             .unroll(w_cgra, k_oc)
             .unroll(r.w, k_ic); // this is the z reduction
 
-          output_cgra.unroll(w_cgra, k_oc);
+          //output_cgra.unroll(w_cgra, k_oc);
 
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
