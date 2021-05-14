@@ -2241,6 +2241,9 @@ public:
     
     Func &hw_accelerate(Var compute_var, Var store_var);
 
+    Func &accelerator_output(Var store_var);
+    Func &accelerate_call_output(Var store_var);
+  
     Func &accelerator_input();
     Func stream_to_accelerator();
 

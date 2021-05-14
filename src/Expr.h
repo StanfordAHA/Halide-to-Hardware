@@ -403,6 +403,12 @@ enum class MemoryType {
      * intermediate buffers. Necessary for vgather-vscatter instructions
      * on Hexagon */
     VTCM,
+
+    /** ROM for cgra */
+    ROM,
+
+    /** Global Buffer for cgra */
+    GLB,
 };
 
 namespace Internal {

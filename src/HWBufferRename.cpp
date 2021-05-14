@@ -96,7 +96,7 @@ class RenameStencilRealizes : public IRMutator {
       }
 
       // ROMs tagged as Stack should not be flattened
-      bool tagged_rom = func.schedule().memory_type() == MemoryType::Stack;
+      bool tagged_rom = func.schedule().memory_type() == MemoryType::ROM;
 
       if (tagged_rom ||
           (realization_type != ROM_REALIZATION &&

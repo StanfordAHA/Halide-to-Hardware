@@ -133,6 +133,12 @@ std::ostream &operator<<(std::ostream &out, const MemoryType &t) {
     case MemoryType::VTCM:
         out << "VTCM";
         break;
+    case MemoryType::ROM:
+        out << "ROM";
+        break;
+    case MemoryType::GLB:
+        out << "GLB";
+        break;
     }
     return out;
 }
