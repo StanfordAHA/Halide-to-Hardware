@@ -34,7 +34,7 @@ public:
         conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(conv(x, y));
+        hw_output(x, y) = conv(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         output.bound(x, 0, imgsize);
@@ -75,29 +75,17 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
             .hw_accelerate(xi, xo);
 
+          kernel.compute_at(hw_output, xo);
           conv.compute_at(hw_output, xo);
-          //hw_input.linebuffer();
+          conv.update()
+            .reorder(r.x, x, r.y, y);
 
           hw_input.stream_to_accelerator();
           //kernel.store_at(hw_output, xo).compute_at(hw_output, xi);
           //kernel.compute_at(conv, x);
-          kernel.unroll(x).unroll(y);
+          //kernel.unroll(r.x).unroll(r.y);
           //kernel.compute_root();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
-          Var xi,yi, xo,yo;
-
-          hw_output.compute_root();
-
-          hw_output
-              .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
-              .hw_accelerate(xi, xo);
-
-          conv.compute_at(hw_output, xo);
-          kernel.compute_at(conv, x);
-
-          hw_input.stream_to_accelerator();
-            
         } else {  // schedule to CPU
             output.compute_root();
         }
