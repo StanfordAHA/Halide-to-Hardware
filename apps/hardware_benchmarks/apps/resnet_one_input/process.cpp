@@ -69,7 +69,7 @@ int main( int argc, char **argv ) {
     auto OC = getenv("k_oc");
 
     auto in_img = OX ? atoi(OX) : 28;
-    auto pad = P ? atoi(P) : 1;
+    auto pad = 0;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
     auto k_ic = IC ? atoi(IC) : 8;
@@ -88,30 +88,27 @@ int main( int argc, char **argv ) {
     int Z = k_ic; // input channel 
     int W = k_oc; // output channel
 
-    if (OX || P || K || S || IC || OC) {
-      std::cout << "using inputs set within process.cpp" << std::endl;
-      processor.inputs_preset = true;
-    } else {
-      std::cout << "reading input.mat and kernel.mat" << std::endl;
-      processor.inputs_preset = false;
-    }
+    std::cout << "using inputs set within process.cpp" << std::endl;
+    processor.inputs_preset = true;
+
     
     ///// INPUT IMAGE /////
     processor.inputs["input.mat"] = Buffer<uint16_t>(Z, X, Y);
     auto input_copy_stencil = processor.inputs["input.mat"];
-    //int i=1;
+    int i=1;
     int max_rand = pow(2,8) - 1;
+    // srand(1);
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
           //input_copy_stencil(z, x, y) = z + x + y;      // diagonal
-          // input_copy_stencil(z, x, y) = 1;              // all ones
-          //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
-          if (rand() % 100 < 60) { // 60% zero, else rand
-            input_copy_stencil(z, x, y) = 0;
-          } else {
-            input_copy_stencil(z, x, y) = (rand() % (max_rand));
-          }
+          input_copy_stencil(z, x, y) = 1;              // all ones
+          // input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
+          // if (rand() % 100 < 60) { // 60% zero, else rand
+          //   input_copy_stencil(z, x, y) = 0;
+          // } else {
+          //   input_copy_stencil(z, x, y) = (rand() % (max_rand));
+          // }
     } } }
 
     std::cout << "input has dims: " << processor.inputs["input.mat"].dim(0).extent() << "x"
@@ -135,6 +132,7 @@ int main( int argc, char **argv ) {
           auto y_coord = y-pad<0 ? 0 : y-pad >= Y ? Y-1 : y-pad;
           full_input(z, x, y) = input_copy_stencil(z, x_coord, y_coord);
           oned_input(z + Z*x, y) = input_copy_stencil(z, x_coord, y_coord);
+          std::cout << z+Z*x <<" "<< y << " " << input_copy_stencil(z, x_coord, y_coord) << std::endl;
           interleaved_input(2*(z + Z*x) + 0, y) = input_copy_stencil(z, x_coord, y_coord);
           interleaved_input(2*(z + Z*x) + 1, y) = input_copy_stencil(z, x_coord, y_coord);
           

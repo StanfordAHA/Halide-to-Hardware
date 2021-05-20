@@ -69,13 +69,13 @@ public:
     //   for (int x = 0; x < ksize; x++) {
         for (int w = 0; w < k_oc; w++) {
           for (int z = 0; z < k_ic; z++) {
-            int rand_i = rand() % 100;
-            kernel(z, w) = rand_i;
+            // int rand_i = rand() % 100;
+            // kernel(z, w) = rand_i;
             // if (rand_i  < 40) { // 60% zero, else rand
             // } else {
             //   kernel(z, w) = 0;
             // }
-            // kernel(z, w) = 3;
+            kernel(z, w) = 3;
             
     } } 
 
