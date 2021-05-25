@@ -107,7 +107,7 @@ design cpu design-cpu $(BIN)/$(TESTNAME).a: $(BIN)/$(TESTNAME).generator $(BIN)/
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -o $(BIN) -f $(TESTNAME) target=$(HL_TARGET) $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT)
 
-coreir design-coreir $(BIN)/design_top.json: $(BIN)/$(TESTNAME).generator
+coreir design-coreir: $(BIN)/$(TESTNAME).generator
 	@if [ $(USE_COREIR_VALID) -ne "0" ]; then \
 	 make design-coreir-valid; \
 	else \
@@ -161,7 +161,7 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 	./clockwork_codegen opt 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-compile_mem compile-mem mem-clockwork clockwork-mem mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
+compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
@@ -173,6 +173,9 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
+mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
@@ -278,14 +281,37 @@ endif
 #				$(HWSUPPORT)/$(BIN)/coreir_interpret.o \
 #				$(HWSUPPORT)/coreir_sim_plugins.o
 
+
+PROCESS_TARGETS_DEFINED="coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)"
+
+# Always run this, but only write the file if the variable changes
+$(BIN)/process_targets: FORCE
+	@-mkdir -p $(BIN)
+	@if [ ! -f "$(BIN)/process_targets" ]; then \
+		touch $(BIN)/process_targets; \
+	fi
+	@LAST_PROCESS_TARGETS_DEFINED=`cat $(BIN)/process_targets`; \
+	if [[ "$$LAST_PROCESS_TARGETS_DEFINED" == 'empty' && $(PROCESS_TARGETS_DEFINED) == '' ]]; then \
+		echo "PROCESS_TARGETS_DEFINED still empty"; \
+	elif [[ $(PROCESS_TARGETS_DEFINED) == '' ]]; then \
+		echo "PROCESS_TARGETS_DEFINED is empty. Writing to file"; \
+		echo "empty" > $@; \
+	elif [[ "$$LAST_PROCESS_TARGETS_DEFINED" != $(PROCESS_TARGETS_DEFINED) ]]; then \
+		echo "PROCESS_TARGETS_DEFINED changed to $(PROCESS_TARGETS_DEFINED)"; \
+		echo $(PROCESS_TARGETS_DEFINED) > $@; \
+	else \
+		echo "PROCESS_TARGETS_DEFINED has not changed from '$(PROCESS_TARGETS_DEFINED)'"; \
+	fi
+
 # we should remake process in case there are extra dependencies
-.PHONY: $(BIN)/process
-$(BIN)/process: $(PROCESS_DEPS)
-	@echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
+#.PHONY: $(BIN)/process
+$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets
+	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
+	@echo $(PROCESS_TARGETS_DEFINED)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $^  $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
+	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $(PROCESS_DEPS) $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
