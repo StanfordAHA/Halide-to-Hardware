@@ -8,7 +8,7 @@
 
 namespace {
 int ksize = 9;
-//int ksize = 1;
+//int ksize = 5;
 
   using namespace Halide;
   using namespace Halide::ConciseCasts;
@@ -184,8 +184,35 @@ Func interleave_y(Func a, Func b) {
     }
 
     Expr mul1(Expr a, Expr b) {
-      return i16((i32(a) * i32(b)) >> 8);
+      return i16(( (i32(a)) * (i32(b)) ) >> 8);
     }
+
+    // below are ways to do smul1 with only umul1
+    Expr mul1_ma(Expr a, Expr b) {
+      return i16(( (i32(a) & 0xffff) * (i32(b)) ) >> 8);
+    }
+    
+    Expr umul1(Expr a, Expr b) {
+      return i16(( (i32(a)&0xffff) * (i32(b)&0xffff) ) >> 8);
+    }
+    Expr smul1_verbose(Expr a, Expr b) {
+      return umul1(a, b) +
+        i16( (i16(0xFF00) * select((a>>15) == (b>>15), i16(0),
+                                   select(a>>15 == 1, i16(b), i16(a)) ) ));
+    }
+    Expr mul1n_verbose(Expr a, Expr b) {
+      return mul1_ma(a, b) +
+        i16( select((a>>15) == 0, i16(0), i16(b) * i16(0xFF00)));
+    }
+    Expr mul1n(Expr a, Expr b) {
+      return mul1_ma(a, b) +
+        i16(b) * i16(0xFF00);
+    }
+    Expr mul1p(Expr a, Expr b) {
+      return mul1(a, b);
+    }
+
+
     
     // Applies a color correction matrix to redefine rgb values.
     // Matrix is defined in 8.8 fixed point
@@ -284,6 +311,7 @@ Func interleave_y(Func a, Func b) {
       curve_out = apply_curve(color_corrected, curve);
       
       hw_output(x, y, c) = curve_out(x, y, c);
+      //hw_output(x, y, c) = denoised(x, y);
       output(x, y, c) = u8(hw_output(x, y, c));
       //output(x, y, c) = u16(hw_output(x, y, c));
 

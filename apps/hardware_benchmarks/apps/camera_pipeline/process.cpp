@@ -54,6 +54,7 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
 
   int ksize = 9;
+  //int ksize = 5;
   //processor.input   = Buffer<uint8_t>(64, 64);
   //processor.input   = Buffer<uint16_t>(90, 90);
   //processor.output  = Buffer<uint8_t>(64, 64, 3);
@@ -96,6 +97,37 @@ int main( int argc, char **argv ) {
   //  }
   //}
   //convert_and_save_image(output8, "bin/output64.png");
+  
+  //for (int c=0; c<3; ++c) {
+  //  Buffer<uint8_t> output2d(64-ksize+1, 64-ksize+1);
+  //  for (int y=0; y<64-ksize+1; ++y) {
+  //    for (int x=0; x<64-ksize+1; ++x) {
+  //      output2d(x, y) = processor.output(x, y, c);
+  //    }
+  //  }
+  //  std::string filename = "bin/output2d_" + std::to_string(c) + ".png";
+  //  convert_and_save_image(output2d, filename);
+  //}
+  //
+  //std::cout << std::hex;
+  //for (int y=0; y<3; ++y) {
+  //  for (int x=0; x<10; ++x) {
+  //    std::cout << "input(" << y << "," << x << ") is 0x" << +processor.input(x, y) << std::endl;
+  //  }
+  //}
+  //std::cout << std::dec << std::endl;
+
+  std::cout << std::hex;
+  for (int y=0; y<3; ++y) {
+    for (int x=0; x<10; ++x) {
+      std::cout << "denoised(" << y << "," << x << ") is ";
+      for (int c=0; c<1; ++c) {
+        std::cout << (c!=0 ? "," : "") << +processor.output(x, y, c);
+      }
+      std::cout << std::endl;
+    }
+  }
+  std::cout << std::dec << std::endl;
 
   int max = 0;
   for (int y=0; y<64; ++y) {

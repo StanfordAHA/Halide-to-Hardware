@@ -19,7 +19,7 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<int16_t>(input(x, y));
+        hw_input(x, y) = cast<int16_t>(input(x, y)) * 7;
 
 
         Func curve, lookup;
