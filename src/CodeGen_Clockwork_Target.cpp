@@ -1677,7 +1677,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   vector<CoreIR_Inst_Args> coreir_insts;
   output_roms(found_roms, roms, compute_stream, coreir_insts, context);
   if (found_roms.size() > 0) {
-    memory_stream << "  " << func_name << "->index_variable_prefetch_cycle(1);" << std::endl;
+    memory_stream << "  //" << func_name << "->index_variable_prefetch_cycle(1);" << std::endl;
   }
 
   // Output the c expr to the compute

@@ -91,16 +91,20 @@ public:
         //sharpen(x, y) = u16( clamp(i16(2 * i16(gray(x, y)) - blur(x, y)), i16(0), i16(255)) );
         sharpen(x, y) = u16(clamp(2 * i16(gray(x, y)) - i16(blur(x, y)), 0, 255));
 
-        // find the ratio of sharpened and original image
+        // find the ratio of sharpened and original image. Leave it in 8.8 format
         Func ratio;
+        Func div_lookup;
+        div_lookup(x) = u16( u32(1 << 8) / u32(x));
+        
         //ratio(x, y) = cast<uint16_t>(clamp(cast<uint16_t>(sharpen(x, y)) * 32 / max(gray(x, y), 1), 0, 255));
-        ratio(x, y) = u16(clamp(u16(sharpen(x, y)) * 32 / max(gray(x, y), 1), 0, 255));
+        Expr divisor = max(gray(x, y), u16(1)); // take max so no div by 0
+        Expr divide = div_using_lookup(sharpen(x, y), divisor, div_lookup);
+        ratio(x, y) = divide;//clamp(divide, u16(0), u16(255));
 
         // Use the ratio to sharpen the input image.
         Func hw_output;
-        hw_output(c, x, y) = u16(clamp(u16(ratio(x, y)) * hw_input(c, x, y) / 32, 0, 255));
+        hw_output(c, x, y) = mul1(ratio(x, y), hw_input(c, x, y));
         //hw_output(x, y) = clamp(cast<uint16_t>(ratio(x, y)) * gray(x, y) / 32, 0, 255);
-        //hw_output(c, x, y) = u16(blur(x, y));
 
         //output(x, y) = cast<uint8_t>(hw_output(x, y));
         
@@ -149,6 +153,8 @@ public:
             hw_output
               .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
+
+            div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
             
             kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
@@ -179,6 +185,8 @@ public:
             //gray.linebuffer().fifo_depth(ratio, 20);
             //blur_y.linebuffer();
             ratio.compute_at(hw_output, xo);
+            div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+            
             hw_output.unroll(c);  // hw output bound
             hw_input.in().unroll(c);  // hw input bound
             //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
@@ -198,6 +206,20 @@ public:
           output.compute_root();
         }
     }
+
+  Expr mul1(Expr a, Expr b) {
+    return i16(( (i32(a)) * (i32(b)) ) >> 8);
+  }
+  Expr mul2(Expr a, Expr b) {
+    return u16(( (u32(a)) * (u32(b)) ) >> 16);
+  }
+
+  // We convert a/b into a*(1/b) where 1/b is found in a lookup table.
+  // b is assumed to be in range [0, 255]
+  // return value is in 8.8 format
+  Expr div_using_lookup(Expr a, Expr b, Func lookup) {    
+    return a * lookup(b);
+  }
 };
 
 
