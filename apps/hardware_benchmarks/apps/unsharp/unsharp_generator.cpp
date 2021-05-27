@@ -153,11 +153,8 @@ public:
               .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
 
-<<<<<<< HEAD
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
-=======
-            div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
->>>>>>> Update camera and unsharp with middle multiply.
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
             
             kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
@@ -186,7 +183,6 @@ public:
             //gray.linebuffer().fifo_depth(ratio, 20);
             //blur_y.linebuffer();
             ratio.compute_at(hw_output, xo);
-<<<<<<< HEAD
 
             reciprocal.compute_at(hw_output, xo);
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
@@ -196,14 +192,12 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y);
-            
-=======
-            div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
             
             hw_output.unroll(c);  // hw output bound
             hw_input.in().unroll(c);  // hw input bound
             //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
->>>>>>> Update camera and unsharp with middle multiply.
+            
             gray.fifo_depth(hw_output, 60*9); // hw input bounds
 
             kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
