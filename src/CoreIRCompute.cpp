@@ -1662,9 +1662,17 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
     // set initial values for rom
     nlohmann::json jdata = rom_init(body, stride, alloc_name);
     nlohmann::json empty_json;
-    for (int i=0; i<total_size; ++i) {
+
+    int n = 4;
+    int aligned_total_size = ((total_size + n-1) / n) * n;
+    
+    for (int i=total_size; i<aligned_total_size; ++i) {
+      jdata[i] = 0x99;
+    }
+    for (int i=0; i<aligned_total_size; ++i) {
       internal_assert(jdata[i] != empty_json[0]) << "init value for " + rom_args.name + " at index " + std::to_string(i) + " is null\n";
     }
+
     //jdata["mode"] = "sram";
 
     //rom_args.gen = gens["lake"];
@@ -1679,7 +1687,7 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
     rom_args.gen = gens["rom2"];
     //jdata["init"][0] = 0;
     rom_args.args = {{"width",CoreIR::Const::make(context,16)},
-                     {"depth",CoreIR::Const::make(context,total_size)}};
+                     {"depth",CoreIR::Const::make(context,aligned_total_size)}};
     CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
     rom_args.selname = "rdata";
     rom_args.genargs = modparams;
