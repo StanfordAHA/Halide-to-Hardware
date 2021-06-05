@@ -163,7 +163,6 @@ vector<SimpleHWXcel> find_marked_hwxcels(Stmt s, const map<string, Function> &en
 Stmt extract_hwaccelerators(Stmt s, const map<string, Function> &env) {
   auto xcels = find_marked_hwxcels(s, env);
   Stmt stmt = s;
-  std::cout << stmt;
   for (auto xcel : xcels) {
     std::cout << "processing " << xcel.name << std::endl;
     stmt = insert_hwxcel(stmt, xcel);
