@@ -960,7 +960,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       string design_meta_filename = "bin/design_meta_halide.json";
       ofstream design_meta_file(design_meta_filename.c_str());
-      design_meta_file << std::setw(2) << design_meta << std::endl;
+      //design_meta_file << std::setw(2) << design_meta << std::endl;
       design_meta_file.close();
 
       //std::cout << "design_meta" << std::endl << std::setw(2) << design_meta << std::endl;
