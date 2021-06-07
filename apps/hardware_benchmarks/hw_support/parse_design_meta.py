@@ -75,7 +75,7 @@ def parseDesignTop(meta, filename: str):
 def parseDesignPlace(meta, filename: str):
     print("parsing design place", filename)
     meta["testing"]["placement"] = filename
-    meta["testing"]["placement"] = filename.replace("place", "bs")
+    meta["testing"]["bitstream"] = filename.replace("place", "bs")
     
     with open(filename, "r") as readFile:
         lines = readFile.readlines()
