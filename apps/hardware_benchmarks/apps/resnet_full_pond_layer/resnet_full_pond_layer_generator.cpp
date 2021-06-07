@@ -112,7 +112,7 @@ public:
           Var z_cgra, z_gb;
           RVar rz_cgra, rz_gb, rx_pond, rx_cgra;
 
-          int schedule = 2;
+          int schedule = 1;
           if (schedule == 1) {
             // Produce loop levels: host, global buffer, cgra
             hw_output.compute_root();
@@ -125,7 +125,7 @@ public:
             output_gb.compute_at(hw_output, x_host); // global buffer
             output_gb
               .tile(x, y, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize)
-              .split(w, w_gb, w_cgra, k_oc)
+              .split(w, w_gb, w_cgra, k_oc*2)
               // reorder from inner to outermost
               .reorder(w_cgra, x_cgra, y_cgra,
                        x_gb, y_gb, w_gb);
@@ -137,7 +137,7 @@ public:
 
             output_pond.compute_at(output_cgra, w_gb); // pond
             output_pond
-              .split(w, w_iter, w_unroll, k_oc)
+              .split(w, w_iter, w_unroll, k_oc*2)
               .reorder(w_unroll, w_iter, x, y);
             
             output_pond.update()
