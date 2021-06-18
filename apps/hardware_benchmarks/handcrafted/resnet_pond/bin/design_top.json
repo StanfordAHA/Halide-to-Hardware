@@ -25,6 +25,11 @@
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           },
+          "mux_w0$mux":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","combined"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","sel"], "bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"], "flag_sel":["String","pe"], "lut_value":[["BitVector",8],"8'h00"], "signed":["Bool",false]}
+          },
           "io16_out_0_0":{
             "genref":"cgralib.IO",
             "genargs":{"width":["Int",16]},
@@ -113,7 +118,7 @@
             ["add_w0_accum$binop.data.out","lakemem_conv.data_in_1"],
             ["lakemem_conv.data_out_1","io16_out_0_0.in"],
             ["lakemem_input.flush","io1in_reset.out"],
-            ["pond_weight.flush","io1in_reset.out"],
+            ["pond_weight.flush","lakemem_conv.stencil_valid"],
             ["lakemem_conv.flush","io1in_reset.out"],
             ["lakemem_conv.stencil_valid","io1_valid.in"]
         ]
