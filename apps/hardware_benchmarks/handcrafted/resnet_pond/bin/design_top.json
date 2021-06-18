@@ -73,9 +73,9 @@
                          "mode": ["lake"],
                          "config":["Json", {
                              "mode":"pond",
-                             "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [9,100], "cycle_stride": [1,7560],
+                             "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [9,100], "cycle_stride": [1,10000],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,9]},
-                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[905], "extent": [840,72], "cycle_stride": [1,840],
+                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[905], "extent": [900,72], "cycle_stride": [1,900],
                                             "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,1]}
                          }]}},
           "lakemem_conv":{
@@ -118,7 +118,7 @@
             ["add_w0_accum$binop.data.out","lakemem_conv.data_in_1"],
             ["lakemem_conv.data_out_1","io16_out_0_0.in"],
             ["lakemem_input.flush","io1in_reset.out"],
-            ["pond_weight.flush","lakemem_conv.stencil_valid"],
+            ["pond_weight.flush","io1in_reset.out"],
             ["lakemem_conv.flush","io1in_reset.out"],
             ["lakemem_conv.stencil_valid","io1_valid.in"]
         ]
