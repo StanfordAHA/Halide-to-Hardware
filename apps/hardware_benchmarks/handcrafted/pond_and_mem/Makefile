@@ -1,6 +1,6 @@
 include ../../hw_support/Makefile.inc
 
-TESTNAME = pond_to_mem
+TESTNAME = pond_and_mem
 USE_COREIR_VALID = 1
 HWSUPPORT = ../../hw_support
 
