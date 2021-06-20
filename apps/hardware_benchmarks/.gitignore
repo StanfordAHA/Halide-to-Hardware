@@ -6,3 +6,8 @@ apps/results
 tests/results
 handcrafted/results
 !*cgra_config.json
+**/bin/*
+!/handcrafted/*/bin
+!/handcrafted/*/bin/design_top.json
+!/handcrafted/*/bin/testing.json
+!/handcrafted/*/bin/output_cpu.png

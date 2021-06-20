@@ -732,6 +732,23 @@ void print_clockwork_execution_header(string appname, vector<string> xcels, ofst
          << "#endif // RDAI_CLOCKWORK_WRAPPER";
 }
 
+struct io_info {
+  string name;
+  int bitwidth;
+  vector<int> shape;
+  string datafile;
+};
+
+void to_json(json& j, const io_info& i) {
+  j = json {
+    { "name", i.name },
+    { "bitwidth", i.bitwidth },
+    { "shape", i.shape },
+    { "datafile", i.datafile}
+  };
+}
+
+
 void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_map, ofstream& stream) {
   stream << "#include \"clockwork_testscript.h\"\n";
   for (auto& xcel_pair : closure_map) {
@@ -906,9 +923,49 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       stream << "\t" << "hw_output_header_file << \"" << max_value << "\" << std::endl;" << std::endl;
       stream << "\t" << "hw_output_header_file.close();" << std::endl;
     }
-
-
     stream << "}\n\n";
+
+    {
+      nlohmann::json design_meta;
+      vector<io_info> inputs;
+      if (num_buffers > 1) {
+        for (size_t i = 0; i < num_buffers - 1; i++) {
+          string input_name = printname(closure_args[i].name);
+          int bitwidth = 16;
+          Region bounds = closure_args[i].stencil_type.bounds;
+          vector<int> shape;
+          for (size_t j = 0; j < bounds.size(); j++) {
+            shape.emplace_back(to_int(bounds[j].extent));
+          }
+          string datafile = input_name + ".raw";
+          inputs.emplace_back(io_info({input_name, bitwidth, shape, datafile}));
+        }
+      }
+      design_meta["IOs"]["inputs"] = inputs;
+
+      HW_Arg output_stencil_arg = closure_args[num_buffers-1];
+      string output_name = printname(output_stencil_arg.name);
+      int bitwidth = 16;
+      Region bounds = output_stencil_arg.stencil_type.bounds;
+      vector<int> shape;
+      for (size_t j = 0; j < bounds.size(); j++) {
+        shape.emplace_back(to_int(bounds[j].extent));
+      }
+      string datafile = output_name + ".raw";
+      design_meta["IOs"]["outputs"] = { io_info({output_name, bitwidth, shape, datafile}) };
+
+      design_meta["testing"]["interleaved_input"] = "bin/input.pgm";
+      design_meta["testing"]["interleaved_output"] = "bin/gold.pgm";
+
+      string design_meta_filename = "bin/design_meta_halide.json";
+      ofstream design_meta_file(design_meta_filename.c_str());
+      //design_meta_file << std::setw(2) << design_meta << std::endl;
+      design_meta_file.close();
+
+      //std::cout << "design_meta" << std::endl << std::setw(2) << design_meta << std::endl;
+
+    }
+
   }
 }
 
@@ -1678,6 +1735,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   output_roms(found_roms, roms, compute_stream, coreir_insts, context);
   if (found_roms.size() > 0) {
     memory_stream << "  //" << func_name << "->index_variable_prefetch_cycle(1);" << std::endl;
+    memory_stream << "  " << func_name << "->add_latency(1);" << std::endl;
   }
 
   // Output the c expr to the compute

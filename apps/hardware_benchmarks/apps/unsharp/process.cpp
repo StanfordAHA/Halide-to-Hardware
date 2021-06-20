@@ -60,6 +60,20 @@ int main( int argc, char **argv ) {
   int os = 64 - blockSize + 1;
   processor.input   = Buffer<uint8_t>(64, 64, 3);
   processor.output  = Buffer<uint8_t>(os, os, 3);
+
+  auto cmd_output = processor.process_command(argc, argv);
+
+  //std::cout << std::hex;
+  //for (int y=0; y<3; ++y) {
+  //  for (int x=0; x<10; ++x) {
+  //    std::cout << "divisor(" << y << "," << x << ") is ";
+  //    for (int c=0; c<1; ++c) {
+  //      std::cout << (c!=0 ? "," : "") << +processor.output(x, y, c);
+  //    }
+  //    std::cout << std::endl;
+  //  }
+  //}
+  //std::cout << std::dec << std::endl;
   
-  return processor.process_command(argc, argv);
+  return cmd_output;
 }
