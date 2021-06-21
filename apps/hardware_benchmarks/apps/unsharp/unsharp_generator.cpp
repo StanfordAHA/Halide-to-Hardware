@@ -154,7 +154,6 @@ public:
               .hw_accelerate(xi, xo);
 
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
-            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
             
             kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
