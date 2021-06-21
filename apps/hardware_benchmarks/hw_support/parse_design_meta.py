@@ -116,9 +116,9 @@ def main():
 
         # Search for *.bs file in the bin directory
         bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
-        for file in os.listdir(f"{bin_directory}"):
+        for file in os.listdir(bin_directory):
             if file.endswith(".bs"):
-                meta["testing"]["bitstream"] = f"bin/{file}"
+                meta["testing"]["bitstream"] = file
                 break
 
         if args.top != None:

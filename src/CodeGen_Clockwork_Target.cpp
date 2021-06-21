@@ -956,8 +956,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       design_meta["IOs"]["outputs"] = { io_info({output_name, bitwidth, shape, datafile}) };
 
       vector<string> input_names, output_names;
-      input_names.emplace_back("bin/input.pgm");
-      output_names.emplace_back("bin/gold.pgm");
+      input_names.emplace_back("input.pgm");
+      output_names.emplace_back("gold.pgm");
       design_meta["testing"]["interleaved_input"] = input_names;
       design_meta["testing"]["interleaved_output"] = output_names;
 
