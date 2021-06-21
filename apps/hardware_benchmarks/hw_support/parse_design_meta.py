@@ -41,7 +41,7 @@ def setOrCheck(json, key, value):
         json[key] = value
 
 def parseDesignTop(meta, filename: str):
-    meta["testing"]["coreir"] = filename
+    meta["testing"]["coreir"] = os.path.basename(filename)
 
     with open(filename, "r") as readFile:
         designTop = json.load(readFile)
