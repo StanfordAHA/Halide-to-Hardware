@@ -1,0 +1,19 @@
+SHELL = /bin/bash
+TRAVIS_APPS := pond_accum resnet_pond pond_and_mem
+
+define check_for_file	
+  if [ ! -f $(1)/bin/$(2) ]; then \
+      echo "$(1) has no file: $(2)"; \
+			exit 1; \
+  fi
+endef
+
+.PHONY: $(TRAVIS_APPS)
+$(TRAVIS_APPS):
+	@if [ -d $@ ]; then \
+			$(call check_for_file,$@,design_top.json); \
+	fi
+	make -sC $@ bin/input.raw $(HALIDE_DEBUG_REDIRECT)
+	make -sC $@ bin/output_cpu.raw $(HALIDE_DEBUG_REDIRECT)
+
+travis testtravis test_travis: $(TRAVIS_APPS)
