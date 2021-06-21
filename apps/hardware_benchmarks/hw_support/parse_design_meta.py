@@ -21,6 +21,7 @@ def parseArguments():
     return args
 
 def findBetween(s:str, start:str, end:str):
+    end = end if "clkwrk" in s else "_op_hcompute"
     assert (start in s) and (end in s)
     starti = s.find(start) + len(start)
     endi = s.find(end, starti)
@@ -40,8 +41,8 @@ def setOrCheck(json, key, value):
         json[key] = value
 
 def parseDesignTop(meta, filename: str):
-    meta["testing"]["coreir"] = filename
-    
+    meta["testing"]["coreir"] = os.path.basename(filename)
+
     with open(filename, "r") as readFile:
         designTop = json.load(readFile)
         topName = designTop["top"]
@@ -75,8 +76,7 @@ def parseDesignTop(meta, filename: str):
 def parseDesignPlace(meta, filename: str):
     print("parsing design place", filename)
     meta["testing"]["placement"] = filename
-    meta["testing"]["bitstream"] = filename.replace("place", "bs")
-    
+
     with open(filename, "r") as readFile:
         lines = readFile.readlines()
         for line in lines:
@@ -89,7 +89,7 @@ def parseDesignPlace(meta, filename: str):
                 tileOut = findIO(metaOut["io_tiles"], name)
                 setOrCheck(tileOut, "x_pos", int(words[1]))
                 setOrCheck(tileOut, "y_pos", int(words[2]))
-                
+
             elif ("\t#I" in line) and name.startswith("io16in_"):
                 assert len(words) == 4
                 ioName = findBetween(name, "io16in_", "_clkwrk")
@@ -113,17 +113,25 @@ def main():
 
     with open(args.DesignMeta, "r") as designMeta:
         meta = json.load(designMeta)
+
+        # Search for *.bs file in the bin directory
+        bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
+        for file in os.listdir(bin_directory):
+            if file.endswith(".bs"):
+                meta["testing"]["bitstream"] = file
+                break
+
         if args.top != None:
             parseDesignTop(meta, args.top)
-                    
+
         if args.place != None:
             parseDesignPlace(meta, args.place)
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
-        pprint.pprint(meta, fileout, indent=2, compact=True)
+        # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
-        #json.dump(meta, fileout, indent=2)
+        json.dump(meta, fileout, indent=2)
 
 if __name__ == "__main__":
     main()
