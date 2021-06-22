@@ -19,7 +19,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set environment variables
-      run: source test/scripts/before_install_travis.sh
+      run: |
+           export TRAVIS_BUILD_DIR=${PWD}
+           source test/scripts/before_install_travis.sh
     - name: Install packages
       run: |
           sudo apt install -y g++-7
