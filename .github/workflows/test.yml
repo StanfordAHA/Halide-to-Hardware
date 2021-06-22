@@ -15,7 +15,6 @@ jobs:
        CC_: gcc-7
        CXX: g++-7
        CC: gcc-7
-       
        COREIR: 1
        CGRAFLOW: 1
 
@@ -30,6 +29,7 @@ jobs:
       run: |
           echo "TRAVIS_BUILD_DIR=${{ github.workspace }}" >> $GITHUB_ENV
           echo "LLVM_CONFIG=${{ github.workspace }}/llvm/bin/llvm-config" >> $GITHUB_ENV
+          echo "LLVM_DIR=${{ github.workspace }}/llvm/lib/llvm/cmake" >> $GITHUB_ENV
           echo "CLANG=${{ github.workspace }}/llvm/bin/clang" >> $GITHUB_ENV
           echo "COREIRCONFIG=${CXX_}" >> $GITHUB_ENV
           echo "COREIR_DIR=${{ github.workspace }}/coreir" >> $GITHUB_ENV
@@ -50,6 +50,10 @@ jobs:
       run: |
           alias g++="g++-7"
           alias gcc="gcc-7"
+          alias clang='clang-6.0'
+          alias clang++='clang++-6.0'
+          alias llvm-config='llvm-config-6.0'
+
           test/scripts/install_travis.sh
       
           # compile coreir
@@ -57,7 +61,6 @@ jobs:
           cd coreir/build && cmake .. && make -j2 && cd ../..
           
           # compile clockwork
-
           git clone https://github.com/dillonhuff/clockwork.git -b aha
           cd clockwork && ./misc/install_deps_linux.sh
           make -j2 libcoreir-cgralib.so && make -j2 libclkwrk.so && cd ..
@@ -70,7 +73,13 @@ jobs:
           git clone https://github.com/thenextged/rdai.git
 
     - name: Install Halide
-      run: make -j4 distrib
+      run: |
+          alias g++="g++-7"
+          alias gcc="gcc-7"
+          alias clang='clang-6.0'
+          alias clang++='clang++-6.0'
+          alias llvm-config='llvm-config-6.0'
+          make -j4 distrib
 
     - name: Run tests ⚙️
       shell: bash
