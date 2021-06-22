@@ -952,7 +952,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       for (size_t j = 0; j < bounds.size(); j++) {
         shape.emplace_back(to_int(bounds[j].extent));
       }
-      string datafile = output_name + ".raw";
+      //string datafile = output_name + ".raw";
+      string datafile = "hw_output.raw";
       design_meta["IOs"]["outputs"] = { io_info({output_name, bitwidth, shape, datafile}) };
 
       vector<string> input_names, output_names;
