@@ -15,22 +15,7 @@ jobs:
        CC_: gcc-7
        CXX: g++-7
        CC: gcc-7
-       TRAVIS_BUILD_DIR: ${{ github.workspace }}
-       LLVM_CONFIG: ${{TRAVIS_BUILD_DIR}}/llvm/bin/llvm-config
-       CLANG: ${{TRAVIS_BUILD_DIR}}/llvm/bin/clang
-       COREIRCONFIG: ${CXX_}
-       COREIR_DIR: ${{TRAVIS_BUILD_DIR}}/coreir
-       COREIR_PATH: ${{TRAVIS_BUILD_DIR}}/coreir
-       FUNCBUF_DIR: ${{TRAVIS_BUILD_DIR}}/BufferMapping/cfunc
-       RDAI_DIR: ${{TRAVIS_BUILD_DIR}}/rdai
-       OUTPUT_REDIRECTION: ""
-       BARVINOK_PATH: ${{TRAVIS_BUILD_DIR}}/clockwork/barvinok-0.41/isl
-       ISL_PATH: ${{TRAVIS_BUILD_DIR}}/clockwork/barvinok-0.41/isl
-       OPT_PATH: ${{TRAVIS_BUILD_DIR}}/clockwork/include
-       OPT_LIB_PATH: ${{TRAVIS_BUILD_DIR}}/clockwork/lib
-       CLKWRK_PATH: ${{TRAVIS_BUILD_DIR}}/clockwork
-       CLOCKWORK_DIR: ${{TRAVIS_BUILD_DIR}}/clockwork
-       LAKE_PATH: ${{TRAVIS_BUILD_DIR}}/lake
+       
        COREIR: 1
        CGRAFLOW: 1
 
@@ -42,8 +27,26 @@ jobs:
           sudo apt install -y libedit-dev
           sudo apt install -y libpng-dev
     - name: Set environment variables
+      env:
+        TRAVIS_BUILD_DIR: ${{ github.workspace }}
       run: |
           echo "TRAVIS_BUILD_DIR=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "LLVM_CONFIG=${{TRAVIS_BUILD_DIR}}/llvm/bin/llvm-config" >> $GITHUB_ENV
+          echo "CLANG=${{TRAVIS_BUILD_DIR}}/llvm/bin/clang" >> $GITHUB_ENV
+          echo "COREIRCONFIG=${CXX_}" >> $GITHUB_ENV
+          echo "COREIR_DIR=${{TRAVIS_BUILD_DIR}}/coreir" >> $GITHUB_ENV
+          echo "COREIR_PATH=${{TRAVIS_BUILD_DIR}}/coreir" >> $GITHUB_ENV
+          echo "FUNCBUF_DIR=${{TRAVIS_BUILD_DIR}}/BufferMapping/cfunc" >> $GITHUB_ENV
+          echo "RDAI_DIR=${{TRAVIS_BUILD_DIR}}/rdai" >> $GITHUB_ENV
+          echo "OUTPUT_REDIRECTION=\"\"" >> $GITHUB_ENV
+          echo "BARVINOK_PATH=${{TRAVIS_BUILD_DIR}}/clockwork/barvinok-0.41/isl" >> $GITHUB_ENV
+          echo "ISL_PATH=${{TRAVIS_BUILD_DIR}}/clockwork/barvinok-0.41/isl" >> $GITHUB_ENV
+          echo "OPT_PATH=${{TRAVIS_BUILD_DIR}}/clockwork/include" >> $GITHUB_ENV
+          echo "OPT_LIB_PATH=${{TRAVIS_BUILD_DIR}}/clockwork/lib" >> $GITHUB_ENV
+          echo "CLKWRK_PATH=${{TRAVIS_BUILD_DIR}}/clockwork" >> $GITHUB_ENV
+          echo "CLOCKWORK_DIR=${{TRAVIS_BUILD_DIR}}/clockwork" >> $GITHUB_ENV
+          echo "LAKE_PATH=${{TRAVIS_BUILD_DIR}}/lake" >> $GITHUB_ENV
+
     - name: Install dependencies 🖥️
       shell: bash
       run: |
