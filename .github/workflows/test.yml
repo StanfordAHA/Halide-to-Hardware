@@ -9,7 +9,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'skip ci')"
 
     env:
-       LLVM_VERSION: 6.0.0
+       LLVM_VERSION: 7.0.0
        BUILD_SYSTEM: MAKE
        CXX_: g++-7
        CC_: gcc-7
@@ -50,9 +50,9 @@ jobs:
       run: |
           alias g++="g++-7"
           alias gcc="gcc-7"
-          alias clang='clang-6.0'
-          alias clang++='clang++-6.0'
-          alias llvm-config='llvm-config-6.0'
+          #alias clang='clang-6.0'
+          #alias clang++='clang++-6.0'
+          #alias llvm-config='llvm-config-6.0'
 
           test/scripts/install_travis.sh
       
@@ -76,9 +76,9 @@ jobs:
       run: |
           alias g++="g++-7"
           alias gcc="gcc-7"
-          alias clang='clang-6.0'
-          alias clang++='clang++-6.0'
-          alias llvm-config='llvm-config-6.0'
+          #alias clang='clang-6.0'
+          #alias clang++='clang++-6.0'
+          #alias llvm-config='llvm-config-6.0'
           make -j4 distrib
 
     - name: Run tests ⚙️
