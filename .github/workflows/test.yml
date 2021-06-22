@@ -29,8 +29,8 @@ jobs:
     - name: Set environment variables
       run: |
           echo "TRAVIS_BUILD_DIR=${{ github.workspace }}" >> $GITHUB_ENV
-          echo "LLVM_CONFIG=${{ github.workspace }}/llvm/bin/llvm-config" >> $GITHUB_ENV
-          echo "CLANG=${{ github.workspace }}/llvm/bin/clang" >> $GITHUB_ENV
+          #echo "LLVM_CONFIG=${{ github.workspace }}/llvm/bin/llvm-config" >> $GITHUB_ENV
+          #echo "CLANG=${{ github.workspace }}/llvm/bin/clang" >> $GITHUB_ENV
           echo "COREIRCONFIG=${CXX_}" >> $GITHUB_ENV
           echo "COREIR_DIR=${{ github.workspace }}/coreir" >> $GITHUB_ENV
           echo "COREIR_PATH=${{ github.workspace }}/coreir" >> $GITHUB_ENV
@@ -48,7 +48,7 @@ jobs:
     - name: Install dependencies 🖥️
       shell: bash
       run: |
-          test/scripts/install_travis.sh
+          #test/scripts/install_travis.sh
       
           # compile coreir
           git clone -b master https://github.com/rdaly525/coreir.git
