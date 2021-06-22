@@ -1,5 +1,6 @@
 SHELL = /bin/bash
 TRAVIS_APPS := pond_accum resnet_pond pond_and_mem
+HWSUPPORT ?= $(abspath ../hw_support)
 
 define check_for_file	
   if [ ! -f $(1)/bin/$(2) ]; then \

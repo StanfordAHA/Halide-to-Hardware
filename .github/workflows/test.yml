@@ -44,6 +44,7 @@ jobs:
           echo "CLKWRK_PATH=${{ github.workspace }}/clockwork" >> $GITHUB_ENV
           echo "CLOCKWORK_DIR=${{ github.workspace }}/clockwork" >> $GITHUB_ENV
           echo "LAKE_PATH=${{ github.workspace }}/lake" >> $GITHUB_ENV
+          echo "HALIDE_DEBUG_REDIRECT=\"\"" >> $GITHUB_ENV
 
     - name: Install LLVM
       shell: bash
@@ -88,8 +89,15 @@ jobs:
     - name: Run tests ⚙️
       shell: bash
       run: |
-          export HALIDE_DEBUG_REDIRECT=""
           make -C apps/hardware_benchmarks/tests        testtravis || exit;
-          make -C apps/hardware_benchmarks/apps         testtravis || exit;
+          
+    - name: Run handcrafted ⚙️
+      shell: bash
+      run: |
           make -C apps/hardware_benchmarks/handcrafted  testtravis || exit;
+          
+    - name: Run apps ⚙️
+      shell: bash
+      run: |
+          make -C apps/hardware_benchmarks/apps         testtravis || exit;
           echo "Finished running tests and apps"
