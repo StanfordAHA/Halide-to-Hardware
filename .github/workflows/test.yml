@@ -15,13 +15,27 @@ jobs:
        CC_: gcc-7
        CXX: g++-7
        CC: gcc-7
+       TRAVIS_BUILD_DIR: ${PWD}
+       LLVM_CONFIG: ${TRAVIS_BUILD_DIR}/llvm/bin/llvm-config
+       CLANG: ${TRAVIS_BUILD_DIR}/llvm/bin/clang
+       COREIRCONFIG: ${CXX_}
+       COREIR_DIR: ${TRAVIS_BUILD_DIR}/coreir
+       COREIR_PATH: ${TRAVIS_BUILD_DIR}/coreir
+       FUNCBUF_DIR: ${TRAVIS_BUILD_DIR}/BufferMapping/cfunc
+       RDAI_DIR: ${TRAVIS_BUILD_DIR}/rdai
+       OUTPUT_REDIRECTION: ""
+			 BARVINOK_PATH: ${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
+			 ISL_PATH: ${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
+			 OPT_PATH: ${TRAVIS_BUILD_DIR}/clockwork/include
+			 OPT_LIB_PATH: ${TRAVIS_BUILD_DIR}/clockwork/lib
+			 CLKWRK_PATH: ${TRAVIS_BUILD_DIR}/clockwork
+			 CLOCKWORK_DIR: ${TRAVIS_BUILD_DIR}/clockwork
+			 LAKE_PATH: ${TRAVIS_BUILD_DIR}/lake
+			 COREIR: 1
+			 CGRAFLOW: 1
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set environment variables
-      run: |
-           export TRAVIS_BUILD_DIR=${PWD}
-           source test/scripts/before_install_travis.sh
     - name: Install packages
       run: |
           sudo apt install -y g++-7
