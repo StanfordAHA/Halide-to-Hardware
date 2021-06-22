@@ -2,7 +2,6 @@ name: CI Test
 
 on: [push, pull_request]
 
-
 jobs:
   build:
 
@@ -24,13 +23,16 @@ jobs:
        COREIR_PATH: ${TRAVIS_BUILD_DIR}/coreir
        FUNCBUF_DIR: ${TRAVIS_BUILD_DIR}/BufferMapping/cfunc
        RDAI_DIR: ${TRAVIS_BUILD_DIR}/rdai
-			 OPT_PATH: ${TRAVIS_BUILD_DIR}/clockwork/include
-			 OPT_LIB_PATH: ${TRAVIS_BUILD_DIR}/clockwork/lib
-			 CLKWRK_PATH: ${TRAVIS_BUILD_DIR}/clockwork
-			 CLOCKWORK_DIR: ${TRAVIS_BUILD_DIR}/clockwork
-			 LAKE_PATH: ${TRAVIS_BUILD_DIR}/lake
-			 COREIR: 1
-			 CGRAFLOW: 1
+       OUTPUT_REDIRECTION: ""
+       BARVINOK_PATH: ${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
+       ISL_PATH: ${TRAVIS_BUILD_DIR}/clockwork/barvinok-0.41/isl
+       OPT_PATH: ${TRAVIS_BUILD_DIR}/clockwork/include
+       OPT_LIB_PATH: ${TRAVIS_BUILD_DIR}/clockwork/lib
+       CLKWRK_PATH: ${TRAVIS_BUILD_DIR}/clockwork
+       CLOCKWORK_DIR: ${TRAVIS_BUILD_DIR}/clockwork
+       LAKE_PATH: ${TRAVIS_BUILD_DIR}/lake
+       COREIR: 1
+       CGRAFLOW: 1
 
     steps:
     - uses: actions/checkout@v2
