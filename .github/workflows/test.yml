@@ -15,7 +15,7 @@ jobs:
        CC_: gcc-7
        CXX: g++-7
        CC: gcc-7
-       TRAVIS_BUILD_DIR: ${{GITHUB_WORKSPACE}}
+       TRAVIS_BUILD_DIR: ${{PWD}}
        LLVM_CONFIG: ${{TRAVIS_BUILD_DIR}}/llvm/bin/llvm-config
        CLANG: ${{TRAVIS_BUILD_DIR}}/llvm/bin/clang
        COREIRCONFIG: ${CXX_}
