@@ -10,8 +10,20 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - env:
+        LLVM_VERSION: 6.0.0
+        BUILD_SYSTEM: MAKE
+        CXX_: g++-7
+        CC_: gcc-7
+        CXX: g++-7
+        CC: gcc-7
     - name: Set environment variables
       run: source test/scripts/before_install_travis.sh
+    - name: Install packages
+      run: |
+          sudo apt install -y g++-7
+          sudo apt install -y libedit-dev
+          sudo apt install -y libpng-dev
     - name: Install dependencies 🖥️
       shell: bash
       run: |
