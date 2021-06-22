@@ -8,15 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'skip ci')"
 
+    env:
+       LLVM_VERSION: 6.0.0
+       BUILD_SYSTEM: MAKE
+       CXX_: g++-7
+       CC_: gcc-7
+       CXX: g++-7
+       CC: gcc-7
+
     steps:
     - uses: actions/checkout@v2
-    - env:
-        LLVM_VERSION: 6.0.0
-        BUILD_SYSTEM: MAKE
-        CXX_: g++-7
-        CC_: gcc-7
-        CXX: g++-7
-        CC: gcc-7
     - name: Set environment variables
       run: source test/scripts/before_install_travis.sh
     - name: Install packages
