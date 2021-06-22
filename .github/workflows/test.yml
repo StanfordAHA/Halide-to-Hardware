@@ -41,6 +41,9 @@ jobs:
           sudo apt install -y g++-7
           sudo apt install -y libedit-dev
           sudo apt install -y libpng-dev
+    - name: Set environment variables
+      run: |
+          echo "TRAVIS_BUILD_DIR=${{ github.workspace }}" >> $GITHUB_ENV
     - name: Install dependencies 🖥️
       shell: bash
       run: |
