@@ -36,7 +36,7 @@ jobs:
           echo "COREIR_PATH=${{ github.workspace }}/coreir" >> $GITHUB_ENV
           echo "FUNCBUF_DIR=${{ github.workspace }}/BufferMapping/cfunc" >> $GITHUB_ENV
           echo "RDAI_DIR=${{ github.workspace }}/rdai" >> $GITHUB_ENV
-          echo "OUTPUT_REDIRECTION=\"\"" >> $GITHUB_ENV
+          echo "OUTPUT_REDIRECTION= " >> $GITHUB_ENV
           echo "BARVINOK_PATH=${{ github.workspace }}/clockwork/barvinok-0.41/isl" >> $GITHUB_ENV
           echo "ISL_PATH=${{ github.workspace }}/clockwork/barvinok-0.41/isl" >> $GITHUB_ENV
           echo "OPT_PATH=${{ github.workspace }}/clockwork/include" >> $GITHUB_ENV
@@ -44,7 +44,7 @@ jobs:
           echo "CLKWRK_PATH=${{ github.workspace }}/clockwork" >> $GITHUB_ENV
           echo "CLOCKWORK_DIR=${{ github.workspace }}/clockwork" >> $GITHUB_ENV
           echo "LAKE_PATH=${{ github.workspace }}/lake" >> $GITHUB_ENV
-          echo "HALIDE_DEBUG_REDIRECT=\"\"" >> $GITHUB_ENV
+          echo "HALIDE_DEBUG_REDIRECT= " >> $GITHUB_ENV
 
     - name: Install LLVM
       shell: bash
