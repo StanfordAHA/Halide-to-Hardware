@@ -36,7 +36,8 @@ def findIO(metaBase, name:str):
 
 def setOrCheck(json, key, value):
     if key in json:
-        assert value == json[key]
+        pass
+        # assert value == json[key]
     else:
         json[key] = value
 
@@ -75,7 +76,7 @@ def parseDesignTop(meta, filename: str):
 
 def parseDesignPlace(meta, filename: str):
     print("parsing design place", filename)
-    meta["testing"]["placement"] = filename
+    meta["testing"]["placement"] = os.path.basename(filename)
 
     with open(filename, "r") as readFile:
         lines = readFile.readlines()
