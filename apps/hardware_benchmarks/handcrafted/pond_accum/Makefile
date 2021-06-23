@@ -51,8 +51,8 @@ mem test-mem:
 	@echo "Manual mapped application, no need to run clockwork."
 
 bin/output_cpu.raw:
-	$(HWSUPPORT)/steveconvert.csh bin/output_cpu.png bin/output_cpu.raw
+	tcsh $(HWSUPPORT)/steveconvert.csh bin/output_cpu.png bin/output_cpu.raw
 
 bin/input.raw:
-	$(HWSUPPORT)/steveconvert.csh input.png bin/input.raw
+	tcsh $(HWSUPPORT)/steveconvert.csh input.png bin/input.raw
 

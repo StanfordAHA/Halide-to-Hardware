@@ -1,11 +1,12 @@
 SHELL = /bin/bash
 TRAVIS_APPS := pond_accum resnet_pond pond_and_mem
-HWSUPPORT ?= $(abspath ../hw_support )
 
 define check_for_file	
   if [ ! -f $(1)/bin/$(2) ]; then \
       echo "$(1) has no file: $(2)"; \
 			exit 1; \
+  else \
+      echo "$(1) has design_top.json"; \
   fi
 endef
 
