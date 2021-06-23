@@ -37,7 +37,7 @@ TESTNAME                        = pond_accum
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
-HWSUPPORT ?= $(abspath ../../hw_support)
+HWSUPPORT ?=  ../../hw_support
 
 
 ###############################################################################

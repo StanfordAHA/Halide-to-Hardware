@@ -2,7 +2,7 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = pond_and_mem
 USE_COREIR_VALID = 1
-HWSUPPORT ?= $(abspath ../../hw_support)
+HWSUPPORT ?= ../../hw_support
 
 
 test-mem mem:
