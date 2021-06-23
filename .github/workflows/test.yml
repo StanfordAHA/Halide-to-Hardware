@@ -46,6 +46,12 @@ jobs:
           echo "LAKE_PATH=${{ github.workspace }}/lake" >> $GITHUB_ENV
           echo "HALIDE_DEBUG_REDIRECT= " >> $GITHUB_ENV
 
+    - name: Run handcrafted ⚙️
+      shell: bash
+      run: |
+          ls apps/hardware_benchmarks/hw_support
+          make -C apps/hardware_benchmarks/handcrafted  testtravis || exit;
+
     - name: Install LLVM
       shell: bash
       run: |
@@ -91,10 +97,6 @@ jobs:
       run: |
           make -C apps/hardware_benchmarks/tests        testtravis || exit;
           
-    - name: Run handcrafted ⚙️
-      shell: bash
-      run: |
-          make -C apps/hardware_benchmarks/handcrafted  testtravis || exit;
           
     - name: Run apps ⚙️
       shell: bash
