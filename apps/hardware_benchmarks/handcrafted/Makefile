@@ -1,6 +1,6 @@
 SHELL = /bin/bash
 TRAVIS_APPS := pond_accum resnet_pond pond_and_mem
-HWSUPPORT ?= ../hw_support
+HWSUPPORT ?= $(abspath ../hw_support )
 
 define check_for_file	
   if [ ! -f $(1)/bin/$(2) ]; then \
@@ -14,7 +14,7 @@ $(TRAVIS_APPS):
 	@if [ -d $@ ]; then \
 			$(call check_for_file,$@,design_top.json); \
 	fi
-	make -sC $@ bin/input.raw $(HALIDE_DEBUG_REDIRECT)
-	make -sC $@ bin/output_cpu.raw $(HALIDE_DEBUG_REDIRECT)
+	make -C $@ bin/input.raw $(HALIDE_DEBUG_REDIRECT)
+	make -C $@ bin/output_cpu.raw $(HALIDE_DEBUG_REDIRECT)
 
 travis testtravis test_travis: $(TRAVIS_APPS)
