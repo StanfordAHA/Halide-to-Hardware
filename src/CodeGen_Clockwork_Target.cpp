@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <limits>
 
 #include "CodeGen_Clockwork_Target.h"
@@ -951,15 +952,19 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       for (size_t j = 0; j < bounds.size(); j++) {
         shape.emplace_back(to_int(bounds[j].extent));
       }
-      string datafile = output_name + ".raw";
+      //string datafile = output_name + ".raw";
+      string datafile = "hw_output.raw";
       design_meta["IOs"]["outputs"] = { io_info({output_name, bitwidth, shape, datafile}) };
 
-      design_meta["testing"]["interleaved_input"] = "bin/input.pgm";
-      design_meta["testing"]["interleaved_output"] = "bin/gold.pgm";
+      vector<string> input_names, output_names;
+      input_names.emplace_back("input.pgm");
+      output_names.emplace_back("gold.pgm");
+      design_meta["testing"]["interleaved_input"] = input_names;
+      design_meta["testing"]["interleaved_output"] = output_names;
 
       string design_meta_filename = "bin/design_meta_halide.json";
       ofstream design_meta_file(design_meta_filename.c_str());
-      //design_meta_file << std::setw(2) << design_meta << std::endl;
+      design_meta_file << std::setw(2) << design_meta << std::endl;
       design_meta_file.close();
 
       //std::cout << "design_meta" << std::endl << std::setw(2) << design_meta << std::endl;

@@ -117,17 +117,18 @@ int main( int argc, char **argv ) {
   //}
   //std::cout << std::dec << std::endl;
 
-  std::cout << std::hex;
-  for (int y=0; y<3; ++y) {
-    for (int x=0; x<10; ++x) {
-      std::cout << "denoised(" << y << "," << x << ") is ";
-      for (int c=0; c<1; ++c) {
-        std::cout << (c!=0 ? "," : "") << +processor.output(x, y, c);
-      }
-      std::cout << std::endl;
-    }
-  }
-  std::cout << std::dec << std::endl;
+  //// Print the output bytes to cout
+  //std::cout << std::hex;
+  //for (int y=0; y<3; ++y) {
+  //  for (int x=0; x<10; ++x) {
+  //    std::cout << "denoised(" << y << "," << x << ") is ";
+  //    for (int c=0; c<1; ++c) {
+  //      std::cout << (c!=0 ? "," : "") << +processor.output(x, y, c);
+  //    }
+  //    std::cout << std::endl;
+  //  }
+  //}
+  //std::cout << std::dec << std::endl;
 
   int max = 0;
   for (int y=0; y<64; ++y) {

@@ -13,7 +13,7 @@ ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS := $(filter-out hls_support merged_unit_tests tools, $(ALL_APPS))
 
 ### app suites include: ###
-APP_SUITES := ops fpops conv fpconv inout mem bc matmul travis
+APP_SUITES := ops fpops conv fpconv inout mem bc matrix travis
 
 ### operator tests ###
 OP_TESTS := absolute arith bitwise boolean_ops divide multiply equal ternary \
@@ -67,9 +67,9 @@ bc := $(BC_TESTS)
 bc boundary: $(BC_TESTS)
 
 ### matrix multiplication tests ###
-MATMUL_TESTS := matmul rnn_layer lstm_layer attention
-matmul := $(MATMUL_TESTS)
-matmul mat: $(MATMUL_TESTS)
+MATRIX_TESTS := matmul rnn_layer lstm_layer attention
+matrix := $(MATRIX_TESTS)
+matrix mat: $(MATRIX_TESTS)
 
 ### generator tests ###
 GEN_TESTS := conv_gen random_pipeline

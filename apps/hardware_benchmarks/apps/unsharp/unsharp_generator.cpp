@@ -191,6 +191,11 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y);
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+            
+            hw_output.unroll(c);  // hw output bound
+            hw_input.in().unroll(c);  // hw input bound
+            //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
             
             gray.fifo_depth(hw_output, 60*9); // hw input bounds
 

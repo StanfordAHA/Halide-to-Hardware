@@ -22,7 +22,6 @@ public:
         hw_input(x, y) = cast<int16_t>(input(x, y)) * 7; // large rom (1024)
         //hw_input(x, y) = cast<int16_t>(input(x, y)); // small rom (512)
 
-
         Func curve, lookup;
         {
           Expr xf = x/1024.0f;

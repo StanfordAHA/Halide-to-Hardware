@@ -2,17 +2,16 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = resnet_pond
 USE_COREIR_VALID = 1
-HWSUPPORT = ../../hw_support
-
+HWSUPPORT ?=  ../../hw_support
 
 test-mem mem:
 	@echo "Manual mapped application"
 
 bin/output_cpu.raw:
-	$(HWSUPPORT)/steveconvert.csh bin/output_cpu.png bin/output_cpu.raw
+	$(HWSUPPORT)/steveconvert.sh bin/output_cpu.png bin/output_cpu.raw
 
 bin/input.raw:
-	$(HWSUPPORT)/steveconvert.csh input.png bin/input.raw
+	$(HWSUPPORT)/steveconvert.sh input.png bin/input.raw
 
 # Usage:
 #  make all:       compiles all code without running

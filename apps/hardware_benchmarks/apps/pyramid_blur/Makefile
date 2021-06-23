@@ -1,18 +1,10 @@
 include ../../hw_support/Makefile.inc
 
-TESTNAME = pond_and_mem
+TESTNAME = pyramid_blur
 USE_COREIR_VALID = 1
-HWSUPPORT ?= ../../hw_support
+WITH_CLOCKWORK = 1
 
-
-test-mem mem:
-	@echo "Manual mapped application"
-
-bin/output_cpu.raw:
-	$(HWSUPPORT)/steveconvert.sh bin/output_cpu.png bin/output_cpu.raw
-
-bin/input.raw:
-	$(HWSUPPORT)/steveconvert.sh input.png bin/input.raw
+include ../../hw_support/hardware_targets.mk
 
 # Usage:
 #  make all:       compiles all code without running
