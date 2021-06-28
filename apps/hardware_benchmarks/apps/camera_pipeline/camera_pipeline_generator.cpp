@@ -310,9 +310,10 @@ Func interleave_y(Func a, Func b) {
       Func hw_output, curve_out;
       curve_out = apply_curve(color_corrected, curve);
       
-      hw_output(x, y, c) = curve_out(x, y, c);
+      hw_output(c, x, y) = curve_out(x, y, c);
+      output(x, y, c) = u8(hw_output(c, x, y));
       //hw_output(x, y, c) = denoised(x, y);
-      output(x, y, c) = u8(hw_output(x, y, c));
+      //output(x, y, c) = u8(hw_output(x, y, c));
       //output(x, y, c) = u16(hw_output(x, y, c));
 
       //curve.bound(x, 0, 256);
@@ -348,11 +349,13 @@ Func interleave_y(Func a, Func b) {
         hw_output.compute_root();
 
         hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-          .reorder(xi,yi,c,xo,yo)
+          .reorder(c,xi,yi,xo,yo)
+          .reorder_storage(c, x, y)
           .hw_accelerate(xi, xo);
         hw_output.unroll(c);
-
         //hw_output.unroll(c).unroll(xi, 2);
+        
+        //curve_out.reorder(c, x, y).reorder_storage(c, x, y);
         curve_out.compute_at(hw_output, xo);
         curve_out.unroll(c);
         
