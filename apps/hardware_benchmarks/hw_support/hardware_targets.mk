@@ -123,7 +123,8 @@ coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp 
 
 #$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 $(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot
-	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top.json $(BIN)/design_top.txt
+	cat $(BIN)/design_top.json | sed "s/\([0-9]*\)\],\"Arg\",\"init\"/\1],\"\1\'h0\"/g" > $(BIN)/design_top_fixed.json
+	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_fixed.json $(BIN)/design_top.txt
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
 	@-mkdir -p $(BIN)
@@ -307,7 +308,6 @@ $(BIN)/process_targets: FORCE
 #.PHONY: $(BIN)/process
 $(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets
 	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
-	@echo $(PROCESS_TARGETS_DEFINED)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)

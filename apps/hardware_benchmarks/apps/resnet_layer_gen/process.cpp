@@ -177,7 +177,7 @@ int main( int argc, char **argv ) {
               kernel_copy_stencil(z, w, x, y) = (rand() % (2*max_rand)) - max_rand;
             }
             
-            //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
+            std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
     } } } }
 
     bool write_mat = true;
