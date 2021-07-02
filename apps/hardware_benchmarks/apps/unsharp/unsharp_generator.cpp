@@ -183,7 +183,7 @@ public:
             //blur_y.linebuffer();
             ratio.compute_at(hw_output, xo);
 
-            reciprocal.compute_at(hw_output, xo);
+            reciprocal.compute_at(hw_output, xo); // we don't want this memory
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
 
             sharpen.compute_at(hw_output, xo);

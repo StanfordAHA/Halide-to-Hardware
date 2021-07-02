@@ -18,14 +18,17 @@ void coreir_to_dot(std::string coreir_design_filename,
   CoreIRLoadLibrary_lakelib(context);
   CoreIRLoadLibrary_float(context);
   CoreIRLoadLibrary_cgralib(context);
-  
-  if (!loadFromFile(context, coreir_design_filename)) {
+
+  Module* top;
+  if (!loadFromFile(context, coreir_design_filename, &top)) {
     cout << "Could not load " << coreir_design_filename
          << " from json!!" << endl;
     context->die();
   }
 
-  Module* design = g->getModule("DesignTop");
+  //cout << "design top exists=" << context->hasTop() << endl;
+  //Module* design = g->getModule("DesignTop");
+  Module* design = top;
   assert(design != nullptr);
 
   if (!saveToDot(design, output_dot_filename)) {

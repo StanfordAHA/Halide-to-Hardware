@@ -61,6 +61,9 @@ public:
 
           max_pool.compute_at(hw_output, xo);
 
+          // there is no handle to perform below unroll
+          //max_pool.unroll(r.x).unroll(r.y);
+
           hw_input.stream_to_accelerator();
 
         } else { // schedule to CPU
