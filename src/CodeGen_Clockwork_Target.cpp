@@ -340,13 +340,14 @@ public:
 
 CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Target& target)
   : target_name(name),
+    enable_ponds(target.has_feature(Target::EnablePonds)),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader),
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
     clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
     //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
 
 
-void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream);
+void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream, bool enable_ponds);
 void print_clockwork_execution_header(string appname, vector<string> xcels, ofstream& stream);
 void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_args, ofstream& stream);
 void print_combined_unoptimized_file(vector<string> xcels, ofstream& stream);
@@ -398,7 +399,7 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     ofstream clk_exec_h_file(clk_exec_h_name.c_str());
     ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
 
-    print_clockwork_codegen(target_name, xcel_names, clk_codegen_file);
+    print_clockwork_codegen(target_name, xcel_names, clk_codegen_file, enable_ponds);
     std::cout << "printed codegen" << std::endl;
 
     print_clockwork_execution_header(target_name, xcel_names, clk_exec_h_file);
@@ -657,7 +658,8 @@ void print_combined_unoptimized_file(vector<string> xcels, ofstream& stream) {
   }
 }
 
-void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream) {
+void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream,
+                             bool enable_ponds) {
   stream << "#include \"cgra_flow.h\"" << endl
          << "#include \"" << appname << "_compute.h\"" << endl
          << "#include \"" << appname << "_memory.cpp\"" << endl
@@ -684,7 +686,8 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, true);" << endl
+         << std::boolalpha
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ");" << endl
          << endl
          << "      } else if (args[i] == \"compile_and_test_mem\") {" << endl
          << "        preprocess_prog(prg);" << endl
@@ -694,7 +697,7 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false);" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ");" << endl
          << endl
          << "        // Run interconnect agnostic tb" << endl
          << "        auto cgra = cgra_flow_result(prg, dir);" << endl

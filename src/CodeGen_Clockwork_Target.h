@@ -119,6 +119,7 @@ protected:
     /** A name for the Clockwork target */
     std::string target_name;
     std::string output_base_path;
+    bool enable_ponds;
 
     /* Arguments for each accelerator*/
     std::vector<std::string> xcel_names;
