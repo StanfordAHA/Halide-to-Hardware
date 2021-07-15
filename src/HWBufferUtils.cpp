@@ -12,6 +12,7 @@ namespace Internal {
 using std::map;
 using std::vector;
 using std::string;
+using std::ostringstream;
 
 std::ostream& operator<<(std::ostream& os, const std::vector<Expr>& vec) {
   os << "[";
@@ -100,11 +101,123 @@ std::vector<std::string> get_tokens(const std::string &line, const std::string &
     return result;
 }
 
+string type_to_c_type(Type type) {
+  ostringstream oss;
+
+  if (type.is_float()) {
+    if (type.bits() == 32) {
+      oss << "float";
+    } else if (type.bits() == 64) {
+      oss << "double";
+    } else if (type.bits() == 16 && !type.is_bfloat()) {
+      oss << "float16_t";
+    } else if (type.bits() == 16 && type.is_bfloat()) {
+      //oss << "bfloat16_t";
+      oss << "uint16_t";
+    } else {
+      user_error << "Can't represent a float with this many bits in C: " << type << "\n";
+    }
+    if (type.is_vector()) {
+      oss << type.lanes();
+    }
+
+  } else {
+    switch (type.bits()) {
+    case 1:
+      // bool vectors are always emitted as uint8 in the C++ backend
+      if (type.is_vector()) {
+        oss << "uint8x" << type.lanes() << "_t";
+      } else {
+        oss << "bool";
+      }
+      break;
+    case 8: case 16: case 32: case 64:
+      if (type.is_uint()) {
+        oss << 'u';
+      }
+      oss << "int" << type.bits();
+      if (type.is_vector()) {
+        oss << "x" << type.lanes();
+      }
+      oss << "_t";
+      break;
+    default:
+      user_error << "Can't represent an integer with this many bits in C: " << type << "\n";
+    }
+  }
+
+  return oss.str();
+}
+
 // return true if the for loop is not serialized
 bool is_parallelized(const For *op) {
   return op->for_type == ForType::Parallel ||
     op->for_type == ForType::Unrolled ||
     op->for_type == ForType::Vectorized;
+}
+
+vector<Expr> extract_mins(Box& box) {
+  vector<Expr> mins(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    mins[i] = simplify(box[i].min);
+  }
+  return mins;
+}
+
+vector<Expr> extract_extents(Box& box) {
+  vector<Expr> extents(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    extents[i] = simplify(box[i].max - box[i].min + 1);
+  }
+  return extents;
+}
+
+vector<Expr> extract_maxes(Box& box) {
+  vector<Expr> maxes(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    maxes[i] = simplify(box[i].max);
+  }
+  return maxes;
+}
+
+vector<Expr> extract_maxplusone(Box& box) {
+  vector<Expr> maxes(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    maxes[i] = simplify(box[i].max + 1);
+  }
+  return maxes;
+}
+
+vector<Expr> extract_mins(const Box& box) {
+  vector<Expr> mins(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    mins[i] = simplify(box[i].min);
+  }
+  return mins;
+}
+
+vector<Expr> extract_extents(const Box& box) {
+  vector<Expr> extents(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    extents[i] = simplify(box[i].max - box[i].min + 1);
+  }
+  return extents;
+}
+
+vector<Expr> extract_maxes(const Box& box) {
+  vector<Expr> maxes(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    maxes[i] = simplify(box[i].max);
+  }
+  return maxes;
+}
+
+vector<Expr> extract_maxplusone(const Box& box) {
+  vector<Expr> maxes(box.size());
+  for (size_t i=0; i<box.size(); ++i) {
+    maxes[i] = simplify(box[i].max + 1);
+  }
+  return maxes;
 }
 
 class FirstForName : public IRVisitor {
@@ -146,6 +259,40 @@ bool contains_call(Stmt s, string var) {
   s.accept(&cc);
   return cc.found;
 }
+bool contains_call(Expr e, string var) {
+  ContainsCall cc(var);
+  e.accept(&cc);
+  return cc.found;
+}
+
+class ContainsVar : public IRVisitor {
+  string var;
+
+  using IRVisitor::visit;
+
+  void visit(const Variable *op) {
+    if (op->name == var) {
+      found = true;
+    } else {
+      IRVisitor::visit(op);
+    }
+  }
+public:
+  bool found;
+  ContainsVar(string var) : var(var), found(false) {}
+};
+
+bool contains_var(Stmt s, string var) {
+  ContainsVar cv(var);
+  s.accept(&cv);
+  return cv.found;
+}
+bool contains_var(Expr e, string var) {
+  ContainsVar cv(var);
+  e.accept(&cv);
+  return cv.found;
+}
+
 
 class ExamineLoopLevel : public IRVisitor {
   using IRVisitor::visit;
@@ -354,6 +501,55 @@ Stmt substitute_in_constants(Stmt s) {
   SubstituteInConstants sic;
   Stmt subbed = sic.mutate(s);
   return subbed;
+}
+
+class ShiftRealizeBounds : public IRMutator {
+  string name;
+  vector<Expr>& mins;
+  const Scope<Expr>& scope;
+
+  using IRMutator::visit;
+
+  Expr visit(const Call *op) {
+    if (op->name == name) {
+      internal_assert(mins.size() == op->args.size());
+      vector<Expr> new_args(mins.size());
+
+      for (size_t i=0; i<mins.size(); ++i) {
+        new_args[i]= simplify(expand_expr(op->args[i] - mins[i], scope));
+      }
+      return Call::make(op->type, op->name, new_args, op->call_type, op->func, op->value_index, op->image, op->param);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+  Stmt visit(const Provide *op) {
+    if (op->name == name) {
+      internal_assert(mins.size() == op->args.size());
+      vector<Expr> new_args(mins.size());
+      vector<Expr> new_values(op->values.size());
+
+      for (size_t i=0; i<mins.size(); ++i) {
+        new_args[i] = simplify(expand_expr(op->args[i] - mins[i], scope));
+      }
+      for (size_t i = 0; i < op->values.size(); i++) {
+        new_values[i] = mutate(op->values[i]);
+      }
+
+      return Provide::make(op->name, new_values, new_args);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+public:
+  ShiftRealizeBounds(string name, vector<Expr>& mins, const Scope<Expr>& scope) : name(name), mins(mins), scope(scope) {};
+};
+
+Stmt shift_realize_bounds(Stmt s, string bufname, vector<Expr>& mins, const Scope<Expr>& scope) {
+  ShiftRealizeBounds srb(bufname, mins, scope);
+  return srb.mutate(s);
 }
 
 bool operator==(const VarSpec& a, const VarSpec& b) {

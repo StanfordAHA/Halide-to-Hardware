@@ -118,6 +118,9 @@ string printname(const string &name) {
     while (start<name.size() && !isalnum(name[start])) {
       start++;
     }
+    if (isdigit(name[start])) { // variable cannot start with a number
+      oss << "_";
+    }
 
     internal_assert(start < name.size()) << "what to do about " << name << "\n";
 
@@ -129,54 +132,6 @@ string printname(const string &name) {
         else oss << name[i];
     }
     return oss.str();
-}
-
-string type_to_c_type(Type type) {
-  ostringstream oss;
-
-  if (type.is_float()) {
-    if (type.bits() == 32) {
-      oss << "float";
-    } else if (type.bits() == 64) {
-      oss << "double";
-    } else if (type.bits() == 16 && !type.is_bfloat()) {
-      oss << "float16_t";
-    } else if (type.bits() == 16 && type.is_bfloat()) {
-      //oss << "bfloat16_t";
-      oss << "uint16_t";
-    } else {
-      user_error << "Can't represent a float with this many bits in C: " << type << "\n";
-    }
-    if (type.is_vector()) {
-      oss << type.lanes();
-    }
-
-  } else {
-    switch (type.bits()) {
-    case 1:
-      // bool vectors are always emitted as uint8 in the C++ backend
-      if (type.is_vector()) {
-        oss << "uint8x" << type.lanes() << "_t";
-      } else {
-        oss << "bool";
-      }
-      break;
-    case 8: case 16: case 32: case 64:
-      if (type.is_uint()) {
-        oss << 'u';
-      }
-      oss << "int" << type.bits();
-      if (type.is_vector()) {
-        oss << "x" << type.lanes();
-      }
-      oss << "_t";
-      break;
-    default:
-      user_error << "Can't represent an integer with this many bits in C: " << type << "\n";
-    }
-  }
-
-  return oss.str();
 }
 
 string removedots(const string &name) {
@@ -335,6 +290,26 @@ public:
     RenameRealize(const string &o, const string &n)
         : orig_name(o), new_name(n) {}
 };
+
+class RenameVariable : public IRMutator {
+    const string &orig_name;
+    const string &new_name;
+
+    using IRMutator::visit;
+
+    Expr visit(const Variable *op) {
+        if (op->name == orig_name ) {
+          return Variable::make(op->type, new_name, op->image, op->param, op->reduction_domain);
+        } else {
+          return IRMutator::visit(op);
+        }
+    }
+
+public:
+    RenameVariable(const string &o, const string &n)
+        : orig_name(o), new_name(n) {}
+};
+
 
 }
 
@@ -626,10 +601,13 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_kernel(Stmt stmt,
                 stream << print_stencil_type(args[i].stencil_type) << " &"
                        << printname(args[i].name) << " = " << arg_name << ";\n";
             } else {
+              // These shouldn't be used?
+              if (false) { //contains_var(stmt, args[i].name)) {
                 memory_stream << print_type(args[i].scalar_type) << " &"
                               << printname(args[i].name) << " = " << arg_name << ";\n";
                 stream << print_type(args[i].scalar_type) << " &"
                        << printname(args[i].name) << " = " << arg_name << ";\n";
+              }
             }
         }
         memory_stream << endl;
@@ -778,8 +756,11 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
     // get sizes of buffer elements
     vector<int> elt_sizes(num_buffers);
     for (size_t i = 0; i < num_buffers; i++) {
-      if (!closure_args[i].is_stencil) { continue; }
-      elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
+      if (!closure_args[i].is_stencil) {
+        elt_sizes[i] = closure_args[i].scalar_type.bits();
+      } else {
+        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
+      }
     }
 
     // emit buffer declarations
@@ -790,33 +771,73 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       ostringstream oss;
       std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
                 << closure_args[i].stencil_type.elemType << std::endl;
-      if (!closure_args[i].is_stencil) { continue; }
-      oss << type_to_c_type(closure_args[i].stencil_type.elemType);
-      string type_name = oss.str();
-      stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "*)";
-      stream << " mem_object_list[" << i << "]->host_ptr;\n";
+      if (!closure_args[i].is_stencil) {
+        oss << type_to_c_type(closure_args[i].scalar_type);
+        string type_name = oss.str(); //"uint16_t";//oss.str();
+        stream << "\t" << type_name << " " << printname(closure_args[i].name) << " = ((" << type_name << "*)";
+        stream << " mem_object_list[" << i << "]->host_ptr)[0];\n";
+      } else {
+        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
+        string type_name = oss.str();
+        stream << "\t" << type_name << " *" << printname(closure_args[i].name) << " = (" << type_name << "*)";
+        stream << " mem_object_list[" << i << "]->host_ptr;\n";
+      }
+
+      
     }
     stream << "\n";
 
     // emit input and output stream declarations;
     stream << "\t// input and output stream declarations\n";
     for (size_t i = 0; i < num_buffers; i++) {
-      stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
+      if (!closure_args[i].is_stencil) {
+        //stream << "\thw_uint<" << elt_sizes[i] << "> " << printname(closure_args[i].name) << ";\n";
+      } else {
+        stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
+      }
     }
     stream << "\n";
+
 
     // copy inputs from buffers to streams
     if (num_buffers > 1) {
       for (size_t i = 0; i < num_buffers - 1; i++) {
+        
+        // skip args that are not stencils (these are likely scalar tile offsets)
+        if (!closure_args[i].is_stencil) {
+          continue;
+        }
+        
         string stream_name = printname(closure_args[i].name) + "_stream";
         stream << "\t// provision input stream " << stream_name << "\n";
         Region bounds = closure_args[i].stencil_type.bounds;
+        const Box& box = closure_args[i].box;
+        auto mins = extract_mins(box);
+        auto maxes = extract_maxplusone(box);
+
+        // subtract the minimum value, so it starts at 0
+        std::cout << closure_args[i].name  <<" = " << bounds[0].min << "; " <<" < "<< bounds[0].extent<<"; " <<"++) {\n";
+        for (size_t j=0; j<mins.size(); ++j) {
+          mins[j] = simplify(mins[j] - bounds[j].min);
+          maxes[j] = simplify(maxes[j] - bounds[j].min);
+        }
+        
+        // rename inputs with printnames
+        for (size_t mdim=0; mdim<mins.size(); ++mdim) {
+          for (size_t buf = 0; buf < num_buffers - 1; buf++) {
+            //std::cout << "renaming " << closure_args[buf].name << " to " << printname(closure_args[buf].name) << std::endl;
+            mins[mdim] = RenameVariable(closure_args[buf].name, printname(closure_args[buf].name)).mutate(mins[mdim]);
+            maxes[mdim] = RenameVariable(closure_args[buf].name, printname(closure_args[buf].name)).mutate(maxes[mdim]);
+          }
+        }
+        
         for (size_t j = 0; j < bounds.size(); j++) {
           size_t k = bounds.size() - j - 1;
           ostringstream oss;
           oss << "l" << k;
           string varname = oss.str();
-          stream << "\tfor (int "<< varname <<" = 0; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
+          //stream << "\tfor (int "<< varname <<" = " << bounds[k].min << "; "<< varname <<" < "<< bounds[k].extent<<"; "<< varname <<"++) {\n";
+          stream << "\tfor (int "<< varname <<" = " << mins[k] << "; "<< varname <<" < "<< maxes[k]<<"; "<< varname <<"++) {\n";
         }
 
         Expr temp_stride = 1;
@@ -851,17 +872,19 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
           stream << " * " << bounds[j].extent;
         }
         stream << ");" << std::endl
-               << "\t" << inputname << "_file.close();" << std::endl;
+               << "\t" << inputname << "_file.close();" << std::endl
+               << std::endl;
       }
     }
-    stream << "\n\n";
+    stream << "\n";
 
     // emit kernel call
     stream << "\t// invoke clockwork program\n";
     stream << "\tunoptimized_" << xcel << "(\n";
-    for(size_t i = 0; i < num_buffers; i++) {
+    for (size_t i = 0; i < num_buffers; i++) {
+      if (!closure_args[i].is_stencil) { continue; }
       stream << "\t\t" << printname(closure_args[i].name) << "_stream";
-      if(i == num_buffers - 1) stream << "\n"; else stream << ",\n";
+      if (i == num_buffers - 1) stream << "\n"; else stream << ",\n";
     }
     stream << "\t);\n\n";
 
@@ -871,16 +894,29 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       string stream_name = printname(stencil_arg.name) + "_stream";
       stream << "\t// provision output buffer\n";
       Region bounds = stencil_arg.stencil_type.bounds;
-      for(size_t i = 0; i < bounds.size(); i++) {
+      auto mins = extract_mins(closure_args[num_buffers-1].box);
+      auto maxes = extract_maxplusone(closure_args[num_buffers-1].box);
+
+      // rename inputs with printnames
+      for (size_t mdim=0; mdim<mins.size(); ++mdim) {
+        for (size_t buf = 0; buf < num_buffers - 1; buf++) {
+          //std::cout << "renaming " << closure_args[buf].name << " to " << printname(closure_args[buf].name) << std::endl;
+          mins[mdim] = RenameVariable(closure_args[buf].name, printname(closure_args[buf].name)).mutate(mins[mdim]);
+          maxes[mdim] = RenameVariable(closure_args[buf].name, printname(closure_args[buf].name)).mutate(maxes[mdim]);
+        }
+      }
+      
+      for (size_t i = 0; i < bounds.size(); i++) {
         size_t j = bounds.size() - i - 1;
         ostringstream oss;
         oss << "l" << j;
         string varname = oss.str();
-        stream << "\tfor (int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
+        //stream << "\tfor (int "<< varname << " = 0; " << varname << " < " << bounds[j].extent << "; " << varname << "++) {\n";
+        stream << "\tfor (int "<< varname <<" = " << mins[j] << "; "<< varname <<" < "<< maxes[j]<<"; "<< varname <<"++) {\n";
       }
       Expr temp_stride = 1;
       Expr temp_arg = Variable::make(Int(32), "l0");
-      for(size_t i = 1; i < bounds.size(); i++) {
+      for (size_t i = 1; i < bounds.size(); i++) {
         ostringstream oss;
         oss << "l" << i;
         string varname = oss.str();
@@ -894,7 +930,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = ";
       stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
       stream << "\t";
-      for(size_t i = 0; i < bounds.size(); i++) {
+      for (size_t i = 0; i < bounds.size(); i++) {
         stream << "} ";
       }
       stream << "\n";
@@ -1865,55 +1901,6 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
     memory_stream << "// Call - write: " << Expr(op) << endl;
   }
   CodeGen_Clockwork_Base::visit(op);
-}
-
-class ShiftRealizeBounds : public IRMutator {
-  string name;
-  vector<Expr>& mins;
-  const Scope<Expr>& scope;
-
-  using IRMutator::visit;
-
-  Expr visit(const Call *op) {
-    if (op->name == name) {
-      internal_assert(mins.size() == op->args.size());
-      vector<Expr> new_args(mins.size());
-
-      for (size_t i=0; i<mins.size(); ++i) {
-        new_args[i]= simplify(expand_expr(op->args[i] - mins[i], scope));
-      }
-      return Call::make(op->type, op->name, new_args, op->call_type, op->func, op->value_index, op->image, op->param);
-    } else {
-      return IRMutator::visit(op);
-    }
-  }
-
-  Stmt visit(const Provide *op) {
-    if (op->name == name) {
-      internal_assert(mins.size() == op->args.size());
-      vector<Expr> new_args(mins.size());
-      vector<Expr> new_values(op->values.size());
-
-      for (size_t i=0; i<mins.size(); ++i) {
-        new_args[i] = simplify(expand_expr(op->args[i] - mins[i], scope));
-      }
-      for (size_t i = 0; i < op->values.size(); i++) {
-        new_values[i] = mutate(op->values[i]);
-      }
-
-      return Provide::make(op->name, new_values, new_args);
-    } else {
-      return IRMutator::visit(op);
-    }
-  }
-
-public:
-  ShiftRealizeBounds(string name, vector<Expr>& mins, const Scope<Expr>& scope) : name(name), mins(mins), scope(scope) {};
-};
-
-Stmt shift_realize_bounds(Stmt s, string bufname, vector<Expr>& mins, const Scope<Expr>& scope) {
-  ShiftRealizeBounds srb(bufname, mins, scope);
-  return srb.mutate(s);
 }
 
 

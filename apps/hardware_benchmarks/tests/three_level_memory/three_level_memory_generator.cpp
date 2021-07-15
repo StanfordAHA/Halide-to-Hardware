@@ -107,7 +107,7 @@ public:
           Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
           Var xi,yi;
 
-          int tilesize = 64;
+          int tilesize = 62;
           int gbsize = tilesize * 4;
 
           hw_output.compute_root();
