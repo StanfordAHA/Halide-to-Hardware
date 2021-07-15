@@ -56,7 +56,7 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  int blockSize = 5;
+  int blockSize = 7;
   int os = 64 - blockSize + 1;
   processor.input   = Buffer<uint8_t>(64, 64, 3);
   processor.output  = Buffer<uint8_t>(os, os, 3);

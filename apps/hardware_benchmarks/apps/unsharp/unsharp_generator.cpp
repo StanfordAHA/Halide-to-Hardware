@@ -11,7 +11,8 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 // Size of blur for gradients.
-const int blockSize = 5;
+const int blockSize = 7;
+const int tilesize = 64-blockSize+1;
   
 class UnsharpFilter : public Halide::Generator<UnsharpFilter> {
 public:
@@ -127,7 +128,7 @@ public:
           
           //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
 
-          hw_output.tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo);
+          hw_output.tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo);
           blur_unnormalized.linebuffer();
           blur_unnormalized.update()
             .unroll(win.x).unroll(win.y);
@@ -139,7 +140,7 @@ public:
           //hw_output.unroll(c);  // hw output bound
           //hw_input.unroll(c);  // hw input bound
           //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
-          gray.fifo_depth(hw_output, 60*9); // hw input bounds
+          gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
           gray.stream_to_accelerator();
 
           kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
@@ -147,10 +148,11 @@ public:
 
 
         } else if (get_target().has_feature(Target::Clockwork)) {
+          
           if (schedule == 1) { // single buffer
             hw_output.compute_root();
             hw_output
-              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
+              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
 
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
@@ -161,7 +163,7 @@ public:
           } else if (schedule == 2) { // all buffers
             hw_output.compute_root();
             hw_output
-              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
+              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
             
             blur_unnormalized.compute_at(hw_output, xo);
@@ -174,7 +176,7 @@ public:
             hw_output.compute_root();
           
             hw_output
-              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
+              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
 
             hw_output.unroll(c);  // hw output bound
@@ -197,7 +199,7 @@ public:
             hw_input.in().unroll(c);  // hw input bound
             //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
             
-            gray.fifo_depth(hw_output, 60*9); // hw input bounds
+            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
 
             kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
             //kernel.compute_at(blur_unnormalized, x).unroll(x).unroll(y);
