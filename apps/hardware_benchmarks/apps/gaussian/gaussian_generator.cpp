@@ -11,7 +11,9 @@ using namespace Halide;
 
 // Size of blur for gradients.
 const int blockSize = 3;
-int imgSize = 64-blockSize+1;
+//const int inputSize = 1242;
+const int inputSize = 64;
+const int imgSize = inputSize-blockSize+1;
 
 class GaussianBlur : public Halide::Generator<GaussianBlur> {
 public:
@@ -20,7 +22,7 @@ public:
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
   //int tilesize = imgSize / 2;
-  int tilesize = imgSize;
+  int tilesize = 62;
 
     void generate() {
         /* THE ALGORITHM */

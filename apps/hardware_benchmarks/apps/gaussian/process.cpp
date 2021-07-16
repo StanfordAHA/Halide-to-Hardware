@@ -57,8 +57,20 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(62, 62);
+  //int input_width  = 1242;
+  int input_width  = 64;
+  int input_height = input_width;
+  processor.input  = Buffer<uint8_t>(input_width, input_height);
+  processor.output = Buffer<uint8_t>(input_width-2, input_height-2);
+  
+  //processor.inputs_preset = true;
+  //for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+  //    for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+  //      processor.input(x, y) = x + y;
+  //    }
+  //}
+        
+  
   //processor.input   = Buffer<uint16_t>(64, 64);
   //processor.output  = Buffer<uint16_t>(62, 62);
   
