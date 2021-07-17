@@ -17,7 +17,7 @@ ALL_APPS := $(filter-out $(IGNORED_DIRS), $(ALL_APPS))
 #ALL_APPS += $(dir $(wildcard unet/*/.))
 
 ### app suites include: ###
-APP_SUITES := simple img video dnn soc other travis
+APP_SUITES := simple img video dnn soc other travis paper
 
 ### simple applications ###
 SIMPLE_APPS := pointwise brighten_and_blur cascade \
@@ -50,6 +50,11 @@ DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_s
 						jitnet resnet50 mobilenetv2
 dnn := $(DNN_APPS)
 
+PAPER_APPS := gaussian harris \
+							unet/up_sample \
+							unsharp camera_pipeline \
+							resnet_layer_gen conv_layer_mobile
+paper := $(PAPER_APPS)
 
 ### SOC applications ###
 SOC_APPS := resnet_full_layer resnet_full_pond_layer resnet_multi_layer
