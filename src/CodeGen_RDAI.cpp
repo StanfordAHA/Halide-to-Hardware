@@ -259,7 +259,8 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
             auto box = box_provided(op->body, arg.name);
             arg.box = box;
             auto mins = extract_mins(box);
-            hw_body = shift_realize_bounds(hw_body, arg.name, mins, scope);
+            //hw_body = shift_realize_bounds(hw_body, arg.name, mins, scope);
+
             //std::cout << arg.name << " output has bounds: " << box << std::endl << " min: " << mins << " extent: " << extract_extents(box) << std::endl;
             
           } else if (!arg.is_output && arg.is_stencil) {
@@ -268,10 +269,13 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
             auto box = box_provided(op->body, provide_name);
             arg.box = box;
             auto mins = extract_mins(box);
-            hw_body = shift_realize_bounds(hw_body, arg.name, mins, scope);
+            //hw_body = shift_realize_bounds(hw_body, arg.name, mins, scope);
 
-            //std::cout << arg.name << " input stencil has bounds: " << box << std::endl << " min: " << mins << " extent: " << extract_extents(box) << std::endl;
+            std::cout << arg.name << " input stencil has bounds: " << box << std::endl << " min: " << mins << " extent: " << extract_extents(box) << std::endl;
 
+          } else if (!arg.is_output && !arg.is_stencil) {
+            // replace scalar values with 0
+            hw_body = substitute(arg.name, 0, hw_body);
           }
         }
 

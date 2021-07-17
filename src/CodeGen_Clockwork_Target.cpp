@@ -769,8 +769,9 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
     for (size_t i = 0; i < num_buffers; i++) {
       //std::cout << printname(closure_args[i].name) << std::endl;
       ostringstream oss;
+      auto type = closure_args[i].is_stencil ? closure_args[i].stencil_type.elemType : closure_args[i].scalar_type;
       std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
-                << closure_args[i].stencil_type.elemType << std::endl;
+                << type << std::endl;
       if (!closure_args[i].is_stencil) {
         oss << type_to_c_type(closure_args[i].scalar_type);
         string type_name = oss.str(); //"uint16_t";//oss.str();
@@ -1915,7 +1916,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   for (size_t i = 0; i < op->bounds.size(); i++) {
     realize_mins.emplace_back(op->bounds[i].min);
   }
-  auto new_body = shift_realize_bounds(op->body, op->name, realize_mins, scope);
+  auto new_body = op->body; //shift_realize_bounds(op->body, op->name, realize_mins, scope);
+  std::cout << "shifting " << op->name << " by " << realize_mins << std::endl;
 
   for (size_t i = 0; i < op->bounds.size(); i++) {
     stream << "[";
