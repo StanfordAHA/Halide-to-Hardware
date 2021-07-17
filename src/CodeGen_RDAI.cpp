@@ -53,6 +53,13 @@ public:
         //std::cout << "output name is " << output_name << std::endl;        
         string out_scope_name = output_name.substr(1); // removes the preceding .
         string out_halide_name = out_scope_name + ".stencil";
+
+        if (streams_scope.contains(out_scope_name + ".glb.stencil")) {
+          out_halide_name = out_scope_name + ".glb.stencil";
+        } else {
+          internal_assert(streams_scope.contains(out_halide_name));
+        }
+        
         //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get(out_scope_name + ".stencil")});
         result.push_back({out_halide_name, true, true, Type(), streams_scope.get(out_halide_name)});
         return result;

@@ -820,7 +820,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         auto maxes = extract_maxplusone(box);
 
         // subtract the minimum value, so it starts at 0
-        std::cout << closure_args[i].name  <<" = " << bounds[0].min << "; " <<" < "<< bounds[0].extent<<"; " <<"++) {\n";
+        //std::cout << closure_args[i].name  <<" = " << bounds[0].min << "; " <<" < "<< bounds[0].extent<<"; " <<"++) {\n";
         for (size_t j=0; j<mins.size(); ++j) {
           mins[j] = simplify(mins[j] - bounds[j].min);
           maxes[j] = simplify(maxes[j] - bounds[j].min);
@@ -1919,7 +1919,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   for (size_t i = 0; i < op->bounds.size(); i++) {
     realize_mins.emplace_back(op->bounds[i].min);
   }
-  auto new_body = op->body; //shift_realize_bounds(op->body, op->name, realize_mins, scope);
+  //auto new_body = op->body;
+  auto new_body = shift_realize_bounds(op->body, op->name, realize_mins, scope);
   std::cout << "shifting " << op->name << " by " << realize_mins << std::endl;
 
   for (size_t i = 0; i < op->bounds.size(); i++) {

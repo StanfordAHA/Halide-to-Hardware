@@ -66,7 +66,7 @@ int main( int argc, char **argv ) {
   switch (schedule) {
   case 1:
     host_tiling = 5;
-    glb_tiling = 4;
+    glb_tiling = 2;
     break;
   case 2:
     host_tiling = 1;

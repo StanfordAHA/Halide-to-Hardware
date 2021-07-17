@@ -80,7 +80,7 @@ public:
           if (schedule == 1) {
             // use global buffer and large input image
             const int tileSize = 62;
-            const int numTiles = 4;
+            const int numTiles = 2;
             const int glbSize = tileSize * numTiles;
             const int numHostTiles = 5;
             const int outputSize = numHostTiles * glbSize;
@@ -90,6 +90,7 @@ public:
             output.bound(y, 0, outputSize);
 
             hw_output.in().compute_root();
+            hw_output.in().store_in(MemoryType::GLB);
 
             hw_output.in()
               .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
@@ -108,7 +109,10 @@ public:
             blur.compute_at(hw_output, xo);
 
             hw_input.in().in().compute_at(hw_output, xo);
+            
             hw_input.in().compute_at(hw_output.in(), xo);
+            hw_input.in().store_in(MemoryType::GLB);
+            
             hw_input.compute_root()
               .accelerator_input();
 
