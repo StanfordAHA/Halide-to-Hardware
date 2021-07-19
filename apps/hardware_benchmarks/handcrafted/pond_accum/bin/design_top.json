@@ -71,6 +71,7 @@
             ["lakemem_accum.data_out_pond","add_accum$binop.data.in.1"],
             ["add_accum$binop.data.out","lakemem_accum.data_in_pond"],
             ["add_accum$binop.data.out","io16_out_0_0.in"],
+            ["in.reset","rf_flush.flush"],
             ["rf_flush.stencil_valid","io_or_rf_flush_lut.in0"],
             ["in.reset","io_or_rf_flush_lut.in1"],
             ["io_or_rf_flush_lut.out","lakemem_accum.flush"],
