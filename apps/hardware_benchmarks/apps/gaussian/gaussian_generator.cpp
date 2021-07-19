@@ -90,7 +90,6 @@ public:
             output.bound(y, 0, outputSize);
 
             hw_output.in().compute_root();
-            hw_output.in().store_in(MemoryType::GLB);
 
             hw_output.in()
               .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
@@ -100,6 +99,7 @@ public:
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileSize, tileSize);
             hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
 
             blur_unnormalized.update()
               .unroll(win.x, blockSize)
