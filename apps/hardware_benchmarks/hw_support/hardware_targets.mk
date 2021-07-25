@@ -30,6 +30,7 @@ TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
 EXT ?= png
+PIPELINED ?= 0
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?= 
@@ -136,7 +137,7 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h \
 $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp \
-clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
+clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h $(BIN)/$(TESTNAME)_compute.json: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
@@ -163,20 +164,24 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
 compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
-	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json && cp /aha/clockwork/memtile_header.json $(BIN)/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
 memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
-	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json 
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
-	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
+
+map $(BIN)/$(TESTNAME)_compute_mapped.json: $(BIN)/$(TESTNAME)_compute.json
+	python /aha/MetaMapper/scripts/map_app.py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
 
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
