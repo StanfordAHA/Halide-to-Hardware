@@ -773,7 +773,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       //std::cout << printname(closure_args[i].name) << std::endl;
       ostringstream oss;
       auto type = closure_args[i].is_stencil ? closure_args[i].stencil_type.elemType : closure_args[i].scalar_type;
-      std::cout << "buffer " << i << " named " << printname(closure_args[i].name) << " has type "
+      auto type_name = closure_args[i].is_stencil ? "buffer " : "scalar ";
+      std::cout << type_name << i << " named " << printname(closure_args[i].name) << " has type "
                 << type << std::endl;
       if (!closure_args[i].is_stencil) {
         oss << type_to_c_type(closure_args[i].scalar_type);
