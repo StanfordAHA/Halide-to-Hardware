@@ -29,7 +29,7 @@ public:
     // Change this using NLAYERS
     GeneratorParam<int> n_layers{"n_layers", 2};    // default: 2
 
-    GeneratorParam<int> schedule{"schedule", 2};
+    GeneratorParam<int> schedule{"schedule", 1};
   
     void generate() {
         //vector<int> pads =    { 1, 1, 1, 1 };
