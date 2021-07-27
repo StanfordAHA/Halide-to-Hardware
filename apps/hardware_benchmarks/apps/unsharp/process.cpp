@@ -56,10 +56,47 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
+  auto env_sch = getenv("schedule");
+  auto schedule = env_sch ? atoi(env_sch) : 0;
+  std::cout << "using scheudle = " << schedule << std::endl;
+
+  //int input_width  = 1242;
+  int host_tiling, glb_tiling;
+  switch (schedule) {
+  case 1:
+    host_tiling = 5;
+    glb_tiling = 4;
+    break;
+  default:
+    host_tiling = 1;
+    glb_tiling = 1;
+    break;
+  }
+
+  int num_tiles          = host_tiling * glb_tiling;
+  int output_tile_width  = 58;
+  int output_tile_height = output_tile_width;
+  int output_width       = num_tiles * output_tile_width;
+  int output_height      = num_tiles * output_tile_height;
   int blockSize = 7;
-  int os = 64 - blockSize + 1;
-  processor.input   = Buffer<uint8_t>(64, 64, 3);
-  processor.output  = Buffer<uint8_t>(os, os, 3);
+
+  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
+  processor.input  = Buffer<uint8_t>(output_width+blockSize-1, output_height+blockSize-1, 3);
+  processor.output = Buffer<uint8_t>(output_width, output_height, 3);
+  
+  processor.inputs_preset = true;
+  for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+        for (int c = 0; c < processor.input.dim(2).extent(); c++) {
+          processor.input(x, y, c) = x + y + 30*c;
+        }
+      }
+  }
+
+
+  //int os = 64 - blockSize + 1;
+  //processor.input   = Buffer<uint8_t>(64, 64, 3);
+  //processor.output  = Buffer<uint8_t>(os, os, 3);
 
   auto cmd_output = processor.process_command(argc, argv);
 
