@@ -66,7 +66,8 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
       // Collapse the merged pyramid to create a single image
       Func blended_image;
-      blended_image = flatten_pyramid(merged_pyramid);
+      vector<Func> upsampled(pyramid_levels);
+      blended_image = flatten_pyramid(merged_pyramid, upsampled);
       
       Func hw_output;
       hw_output(x, y, c) = u8(blended_image(x, y, c));
