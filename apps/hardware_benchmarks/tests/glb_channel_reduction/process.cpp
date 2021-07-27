@@ -58,8 +58,8 @@ int main( int argc, char **argv ) {
 
   int numtiles = 2;
   int numchannels = 8;
-  processor.input   = Buffer<uint8_t>(numchannels, 62*numtiles, 62*numtiles);
-  processor.output  = Buffer<uint8_t>(62*numtiles,   62*numtiles);
+  processor.input   = Buffer<uint8_t>(numchannels, 64*numtiles, 64*numtiles);
+  processor.output  = Buffer<uint8_t>(64*numtiles,   64*numtiles);
   //processor.input   = Buffer<uint8_t>(514, 514);
   //processor.output  = Buffer<uint8_t>(512, 512);
 
