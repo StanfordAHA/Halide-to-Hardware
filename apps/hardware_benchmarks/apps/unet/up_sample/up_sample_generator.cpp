@@ -9,6 +9,8 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+
     void generate() {
         /* THE ALGORITHM */
         int factor = 2;
@@ -52,11 +54,47 @@ public:
             hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
+          Var xi, yi, xo, yo;
+          
+          if (schedule == 1) { // host and glb tiling
+            const int blockSize = 1;
+            const int tileSize = 128;
+            const int numTiles = 4;
+            const int glbSize = tileSize * numTiles;
+            const int numHostTiles = 5;
+            const int outputSize = numHostTiles * glbSize;
+            const int inputSize = outputSize + blockSize-1;
+
+            output.bound(x, 0, outputSize);
+            output.bound(y, 0, outputSize);
+            output.bound(z, 0, 1);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
+              .reorder(xi, yi, z, xo, yo)
+              .hw_accelerate(xi, xo);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .reorder(xi, yi, z, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+
+            nearest_neighbor.compute_at(hw_output, xo);
+
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+          } else {
             output.bound(x, 0, 128);
             output.bound(y, 0, 128);
             output.bound(z, 0, 1);
-            
-            Var xi, yi, xo, yo;
 
             hw_output.compute_root();
 
@@ -68,7 +106,9 @@ public:
 
             hw_input.compute_at(hw_output, xo);
             hw_input.stream_to_accelerator();
+            
             input_copy.compute_root();
+          }
             
         } else { // schedule to CPU
             nearest_neighbor.compute_root();

@@ -17,8 +17,7 @@ const int tilesize = 64-blockSize+1;
 class UnsharpFilter : public Halide::Generator<UnsharpFilter> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 3};
-  Output<Buffer<uint8_t>> output{"output", 3};
-  //Output<Buffer<uint8_t>> output{"output", 2};
+    Output<Buffer<uint8_t>> output{"output", 3};
 
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
 
