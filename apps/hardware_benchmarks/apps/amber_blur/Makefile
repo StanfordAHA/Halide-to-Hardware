@@ -50,3 +50,7 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 include ../../hw_support/hardware_targets.mk
 
 
+run-full: $(BIN)/$(TESTNAME).a
+	@-mkdir -p $(BIN)
+	$(MAKE) $(BIN)/process WITH_CPU=1
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) SIZE=1 $(BIN)/process run cpu input-full.png $(HALIDE_DEBUG_REDIRECT)

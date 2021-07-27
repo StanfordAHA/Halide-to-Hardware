@@ -83,6 +83,26 @@ int main( int argc, char **argv ) {
   int num_tiles          = host_tiling * glb_tiling;
   int output_tile_width  = 62;
   int output_tile_height = output_tile_width;
+  // Override output size by argument
+  auto env_size = getenv("SIZE");
+  auto size = env_size ? atoi(env_size) : 0;
+  switch (size) {
+  case 1:
+    std::cout << "Full size (SIZE=1), using 6400x4800 output size." << std::endl;
+    output_tile_width = 6400 - 2;
+    output_tile_height = 4800 - 2;
+    break;
+  case 0:
+    std::cout << "Small size (SIZE=0), using 62x62 output size." << std::endl;
+    output_tile_width = 64 - 2;
+    output_tile_height = 64 - 2;
+    break;
+  default:
+    std::cout << "Invalid size, using default 62x62 output size." << std::endl;
+    output_tile_width = 64 - 2;
+    output_tile_height = 64 - 2;
+    break;
+  }
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
