@@ -66,7 +66,7 @@ int main( int argc, char **argv ) {
   switch (schedule) {
   case 1:
     host_tiling = 5;
-    glb_tiling = 2;
+    glb_tiling = 10;
     break;
   case 2:
     host_tiling = 1;
@@ -88,7 +88,7 @@ int main( int argc, char **argv ) {
   processor.input  = Buffer<uint8_t>(output_width+2, output_height+2);
   processor.output = Buffer<uint8_t>(output_width, output_height);
   
-  processor.inputs_preset = true;
+  //processor.inputs_preset = true;
   for (int y = 0; y < processor.input.dim(1).extent(); y++) {
       for (int x = 0; x < processor.input.dim(0).extent(); x++) {
         processor.input(x, y) = x + y;

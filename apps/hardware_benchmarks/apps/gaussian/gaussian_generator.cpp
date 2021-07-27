@@ -67,8 +67,13 @@ public:
         blur_unnormalized(x, y) += kernel(win.x, win.y) * hw_input(x+win.x, y+win.y);
         blur(x, y) = blur_unnormalized(x, y) / 256;
 
+        Func blur_x, blur_y;
+        blur_x(x, y) = (input(x, y) + input(x+1, y) + input(x+2, y))/3;
+        blur_y(x, y) = (blur_x(x, y) + blur_x(x, y+1) + blur_x(x, y+2))/3;
+
         Func hw_output;
-        hw_output(x, y) = blur(x, y);
+        //hw_output(x, y) = blur(x, y);
+        hw_output(x, y) = blur_y(x, y);
         output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
@@ -80,7 +85,7 @@ public:
           if (schedule == 1) {
             // use global buffer and large input image
             const int tileSize = 62;
-            const int numTiles = 2;
+            const int numTiles = 10;
             const int glbSize = tileSize * numTiles;
             const int numHostTiles = 5;
             const int outputSize = numHostTiles * glbSize;
@@ -175,7 +180,24 @@ public:
           }
           
         } else {    // schedule to CPU
+          if (schedule == 4) {
+            
+          } else {
+            output.bound(x,0,62);
+            output.bound(y,0,62);
 
+            blur_y
+              .split(y, y, yi, 8)
+              //.parallel(y)
+              //.vectorize(x, 8)
+              .compute_root();
+            blur_x
+              .store_at(blur_y, y)
+              .compute_at(blur_y, yi);
+              //.compute_at(blur_y, y)
+              //.vectorize(x, 8);
+          }
+                     
           /*output.tile(x, y, xo, yo, xi, yi, outputSize, outputSize)
             .vectorize(xi, 8)
             .fuse(xo, yo, xo)
