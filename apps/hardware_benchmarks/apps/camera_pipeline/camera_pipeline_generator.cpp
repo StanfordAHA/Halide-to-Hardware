@@ -345,12 +345,11 @@ Func interleave_y(Func a, Func b) {
       } else if (get_target().has_feature(Target::Clockwork)) {
 
           if (schedule == 1) { // host and glb tiling
+            const int numHostTiles = 2;
+            const int numTiles = 3;
             const int tileSize = 58;
-            const int numTiles = 4;
             const int glbSize = tileSize * numTiles;
-            const int numHostTiles = 5;
             const int outputSize = numHostTiles * glbSize;
-            const int inputSize = outputSize + blockSize-1;
 
             output.bound(x, 0, outputSize);
             output.bound(y, 0, outputSize);

@@ -283,7 +283,7 @@ void dir_rmdir(const std::string &name) {
     internal_assert(r != 0) << "Unable to remove dir: " << name << ":" << GetLastError() << "\n";
     #else
     int r = ::rmdir(name.c_str());
-    internal_assert(r == 0) << "Unable to remove dir: " << name << "\n";
+    //internal_assert(r == 0) << "Unable to remove dir: " << name << "\n";
     #endif
 }
 

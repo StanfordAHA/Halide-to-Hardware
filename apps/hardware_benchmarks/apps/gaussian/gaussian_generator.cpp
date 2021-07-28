@@ -72,8 +72,8 @@ public:
         blur_y(x, y) = (blur_x(x, y) + blur_x(x, y+1) + blur_x(x, y+2))/3;
 
         Func hw_output;
-        //hw_output(x, y) = blur(x, y);
-        hw_output(x, y) = blur_y(x, y);
+        hw_output(x, y) = blur(x, y);
+        //hw_output(x, y) = blur_y(x, y);
         output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
@@ -85,7 +85,7 @@ public:
           if (schedule == 1) {
             // use global buffer and large input image
             const int tileSize = 62;
-            const int numTiles = 10;
+            const int numTiles = 2;
             const int glbSize = tileSize * numTiles;
             const int numHostTiles = 5;
             const int outputSize = numHostTiles * glbSize;
@@ -113,8 +113,6 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             blur.compute_at(hw_output, xo);
 
-            hw_input.in().in().compute_at(hw_output, xo);
-            
             hw_input.in().compute_at(hw_output.in(), xo);
             hw_input.in().store_in(MemoryType::GLB);
             
@@ -183,8 +181,8 @@ public:
           if (schedule == 4) {
             
           } else {
-            output.bound(x,0,62);
-            output.bound(y,0,62);
+            //output.bound(x,0,62);
+            //output.bound(y,0,62);
 
             blur_y
               .split(y, y, yi, 8)

@@ -62,8 +62,8 @@ int main( int argc, char **argv ) {
   switch (schedule) {
   case 1:
     processor.inputs_preset = true;
-    host_tiling = 5;
-    glb_tiling = 4;
+    host_tiling = 2;
+    glb_tiling = 3;
     break;
   default:
     processor.inputs_preset = false;
@@ -79,11 +79,20 @@ int main( int argc, char **argv ) {
   int output_height      = num_tiles * output_tile_height;
   int blockSize = 9;
 
-  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
+  // FIXME: why is this additional padding needed?
+  int ow = output_width + 2*num_tiles;
+  int oh = output_height + 2*num_tiles;
+  int iw = output_width + blockSize + 5*num_tiles;
+  int ih = output_height + blockSize + 5*num_tiles;
+
+  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl
+            << "  effective output size is " << ow << "x" << oh << std::endl;
   //processor.input  = Buffer<uint16_t>(output_width+blockSize-1, output_height+blockSize-1);
-  processor.input  = Buffer<uint16_t>(output_width+100+blockSize, output_height+100+blockSize);
+  //processor.input  = Buffer<uint16_t>(output_width+100+blockSize, output_height+100+blockSize);
+  processor.input  = Buffer<uint16_t>(iw, ih);
   //processor.output = Buffer<uint8_t>(output_width, output_height, 3);
-  processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
+  //processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
+  processor.output = Buffer<uint8_t>(ow, oh, 3);
   
   for (int y = 0; y < processor.input.dim(1).extent(); y++) {
       for (int x = 0; x < processor.input.dim(0).extent(); x++) {
