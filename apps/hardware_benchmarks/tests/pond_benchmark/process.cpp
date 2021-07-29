@@ -74,7 +74,7 @@ int main( int argc, char **argv ) {
   const int os = 64 - ksize+1;
 
   processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(64, os);
+  processor.output  = Buffer<uint8_t>(16, os);
   
   return processor.process_command(argc, argv);
   
