@@ -194,7 +194,57 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 
-          } else if (schedule == 2) { // single buffer
+          } else if (schedule == 2) { // do the big parrot
+            const int tileWidth = 58;
+            const int tileHeight = 94;
+            const int numHostTiles = 5;
+            const int numTiles = 5;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c);
+
+            ratio.compute_at(hw_output, xo);
+            reciprocal.compute_at(hw_output, xo); // we don't want this memory
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+
+            sharpen.compute_at(hw_output, xo);
+
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur_unnormalized.update()
+              .unroll(win.x).unroll(win.y);
+            kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            
+            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
+            gray.compute_at(hw_output, xo);
+
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(c);  // hw input bound
+            
+            hw_input.compute_root()
+              .accelerator_input();
+            
+          } else if (schedule == 3) { // single buffer
             output.bound(x, 0, 64-blockSize+1);
             output.bound(y, 0, 64-blockSize+1);
 
@@ -209,7 +259,7 @@ public:
             kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
 
-          } else if (schedule == 3) { // all buffers
+          } else if (schedule == 4) { // all buffers
             output.bound(x, 0, 64-blockSize+1);
             output.bound(y, 0, 64-blockSize+1);
             

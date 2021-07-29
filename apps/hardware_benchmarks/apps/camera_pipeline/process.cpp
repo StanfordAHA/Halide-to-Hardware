@@ -55,15 +55,26 @@ int main( int argc, char **argv ) {
 
   auto env_sch = getenv("schedule");
   auto schedule = env_sch ? atoi(env_sch) : 0;
-  std::cout << "using scheudle = " << schedule << std::endl;
+  std::cout << "using schedule = " << schedule << std::endl;
 
+  int output_tile_width  = 56;
+  int output_tile_height = output_tile_width;
+  
   //int input_width  = 1242;
   int host_tiling, glb_tiling;
+  int ow, oh, iw, ih;
   switch (schedule) {
   case 1:
     processor.inputs_preset = true;
     host_tiling = 2;
     glb_tiling = 3;
+    break;
+  case 2:
+    processor.inputs_preset = true;
+    host_tiling = 11;
+    glb_tiling = 3;
+    output_tile_width = 68;
+    output_tile_height = 56;
     break;
   default:
     processor.inputs_preset = false;
@@ -73,17 +84,15 @@ int main( int argc, char **argv ) {
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 56;
-  int output_tile_height = output_tile_width;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
   int blockSize = 9;
 
   // FIXME: why is this additional padding needed?
-  int ow = output_width + 2*num_tiles;
-  int oh = output_height + 2*num_tiles;
-  int iw = output_width + blockSize + 5*num_tiles;
-  int ih = output_height + blockSize + 5*num_tiles;
+  ow = output_width;// + 2*num_tiles;
+  oh = output_height;// + 2*num_tiles;
+  iw = output_width + blockSize + 5*num_tiles;
+  ih = output_height + blockSize + 5*num_tiles;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl
             << "  effective output size is " << ow << "x" << oh << std::endl;
@@ -93,11 +102,18 @@ int main( int argc, char **argv ) {
   //processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   //processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
   processor.output = Buffer<uint8_t>(ow, oh, 3);
-  
-  for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+
+  if (schedule == 2) {
+    // load this 2592x1968 image
+    std::cout << "Using a big dog image" << std::endl;
+    processor.input = load_and_convert_image("../../../images/bayer_raw.png");
+    
+  } else {
+    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
       for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-          processor.input(x, y) = x + y;
+        processor.input(x, y) = x + y;
       }
+    }
   }
 
   

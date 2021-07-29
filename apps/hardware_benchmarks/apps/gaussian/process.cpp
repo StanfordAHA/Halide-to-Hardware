@@ -59,8 +59,11 @@ int main( int argc, char **argv ) {
 
   auto env_sch = getenv("schedule");
   auto schedule = env_sch ? atoi(env_sch) : 0;
-  std::cout << "using scheudle = " << schedule << std::endl;
+  std::cout << "using schedule = " << schedule << std::endl;
 
+  int output_tile_width  = 62;
+  int output_tile_height = output_tile_width;
+  
   //int input_width  = 1242;
   int host_tiling, glb_tiling;
   switch (schedule) {
@@ -70,6 +73,13 @@ int main( int argc, char **argv ) {
     glb_tiling = 2;
     break;
   case 2:
+    processor.inputs_preset = true;
+    host_tiling = 9;
+    glb_tiling = 7;
+    output_tile_width = 94;
+    output_tile_height = 62;
+    break;
+  case 3:
     processor.inputs_preset = false;
     host_tiling = 1;
     glb_tiling = 1;
@@ -82,19 +92,24 @@ int main( int argc, char **argv ) {
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 62;
-  int output_tile_height = output_tile_width;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
   processor.input  = Buffer<uint8_t>(output_width+2, output_height+2);
   processor.output = Buffer<uint8_t>(output_width, output_height);
-  
-  for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+
+  if (schedule == 2) {
+    // load this 6000x4000 image
+    std::cout << "Using a big tern image" << std::endl;
+    processor.input = load_and_convert_image("../../images/tern_biggray.png");
+    
+  } else {
+    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
       for (int x = 0; x < processor.input.dim(0).extent(); x++) {
         processor.input(x, y) = x + y;
       }
+    }
   }
         
   

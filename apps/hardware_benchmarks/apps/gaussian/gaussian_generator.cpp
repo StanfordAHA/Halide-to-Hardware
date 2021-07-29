@@ -120,6 +120,45 @@ public:
               .accelerator_input();
 
           } else if (schedule == 2) {
+            // do the big tern
+            const int tileWidth = 94;
+            const int tileHeight = 62;
+            const int numHostTiles = 9;
+            const int numTiles = 7;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+            
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .hw_accelerate(xi, xo);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
+
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur.compute_at(hw_output, xo);
+
+            hw_input.in().compute_at(hw_output.in(), xo);
+            hw_input.in().store_in(MemoryType::GLB);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+            
+          } else if (schedule == 3) {
             // Perform host tiliing
             const int inputSize = 64;
             const int outputSize = inputSize-blockSize+1;
