@@ -1942,7 +1942,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   vector<Expr> realize_mins;
   for (size_t i = 0; i < op->bounds.size(); i++) {
     realize_mins.emplace_back(op->bounds[i].min);
-    if (!is_const(op->bounds[i].min)) {
+    if (!is_const(simplify(op->bounds[i].min))) {
       has_variable_min = true;
     }
   }
