@@ -72,6 +72,7 @@ int main( int argc, char **argv ) {
     glb_tiling = 4;
     break;
   case 2:
+  case 3:
     processor.inputs_preset = true;
     host_tiling = 5;
     glb_tiling = 5;
@@ -94,7 +95,7 @@ int main( int argc, char **argv ) {
   processor.input  = Buffer<uint8_t>(output_width+blockSize-1, output_height+blockSize-1, 3);
   processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   
-  if (schedule == 2) {
+  if (schedule == 2 || schedule == 3) {
     // load this 1536x2560 image
     std::cout << "Using a big parrot image" << std::endl;
     processor.input = load_and_convert_image("../../../images/rgb.png");

@@ -73,13 +73,14 @@ int main( int argc, char **argv ) {
     glb_tiling = 2;
     break;
   case 2:
+  case 3:
     processor.inputs_preset = true;
     host_tiling = 9;
     glb_tiling = 7;
     output_tile_width = 94;
     output_tile_height = 62;
     break;
-  case 3:
+  case 4:
     processor.inputs_preset = false;
     host_tiling = 1;
     glb_tiling = 1;
@@ -99,7 +100,7 @@ int main( int argc, char **argv ) {
   processor.input  = Buffer<uint8_t>(output_width+2, output_height+2);
   processor.output = Buffer<uint8_t>(output_width, output_height);
 
-  if (schedule == 2) {
+  if (schedule == 2 || schedule == 3) {
     // load this 6000x4000 image
     std::cout << "Using a big tern image" << std::endl;
     processor.input = load_and_convert_image("../../images/tern_biggray.png");

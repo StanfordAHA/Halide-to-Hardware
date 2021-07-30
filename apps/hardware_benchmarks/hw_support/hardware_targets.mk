@@ -121,9 +121,13 @@ coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp 
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
+
+$(BIN)/design_top_graph.json: $(BIN)/design_top.json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
+
 #$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
-$(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot
-	cat $(BIN)/design_top.json | sed "s/\([0-9]*\)\],\"Arg\",\"init\"/\1],\"\1\'h0\"/g" > $(BIN)/design_top_fixed.json
+$(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_graph.json
+	cat $(BIN)/design_top_graph.json | sed "s/\([0-9]*\)\],\"Arg\",\"init\"/\1],\"\1\'h0\"/g" > $(BIN)/design_top_fixed.json
 	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_fixed.json $(BIN)/design_top.txt
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator

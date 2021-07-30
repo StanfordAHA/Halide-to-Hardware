@@ -133,6 +133,53 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 
+          } else if (schedule == 3) { // big color parrot with unroll
+            const int unroll = 2;
+            const int tileWidth = 128;
+            const int tileHeight = 208;
+            const int numHostTiles = 24;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+            output.bound(z, 0, 3);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(z, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(z)
+              .unroll(xi, unroll);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(z, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(z)
+              .unroll(xi, unroll);
+
+            nearest_neighbor.compute_at(hw_output, xo);
+            nearest_neighbor
+              .unroll(z)
+              .unroll(x, unroll);
+
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in()
+              .unroll(z)
+              .unroll(x, unroll); 
+            
+            hw_input.compute_root()
+              .accelerator_input();
+            
           } else {
             output.bound(x, 0, 128);
             output.bound(y, 0, 128);
