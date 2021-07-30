@@ -70,6 +70,7 @@ int main( int argc, char **argv ) {
     glb_tiling = 3;
     break;
   case 2:
+  case 3:
     processor.inputs_preset = true;
     host_tiling = 11;
     glb_tiling = 3;
@@ -103,7 +104,7 @@ int main( int argc, char **argv ) {
   //processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
   processor.output = Buffer<uint8_t>(ow, oh, 3);
 
-  if (schedule == 2) {
+  if (schedule == 2 || schedule == 3) {
     // load this 2592x1968 image
     std::cout << "Using a big dog image" << std::endl;
     processor.input = load_and_convert_image("../../../images/bayer_raw.png");

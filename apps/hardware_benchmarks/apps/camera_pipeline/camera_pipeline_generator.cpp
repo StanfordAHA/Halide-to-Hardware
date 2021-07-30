@@ -454,6 +454,73 @@ Func interleave_y(Func a, Func b) {
             
             hw_input.compute_root()
               .accelerator_input();
+
+          } else if (schedule == 3) { // big parrot with unroll
+            const int unroll = 2;
+            const int tileWidth = 68;
+            const int tileHeight = 56;
+            const int numHostTiles = 11;
+            const int numTiles = 3;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c)
+              .unroll(xi, unroll);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c)
+              .unroll(xi, unroll);
+
+            curve_out.compute_at(hw_output, xo);
+            curve_out.unroll(c)
+              .unroll(x, unroll);
+        
+            color_corrected.compute_at(hw_output, xo);
+            color_corrected.unroll(c)
+              .unroll(x, unroll);
+        
+            demosaicked.compute_at(hw_output, xo);
+            demosaicked
+              .reorder(c, x, y)
+              .unroll(c)
+              .unroll(x, unroll);
+
+            denoised.compute_at(hw_output, xo)
+              .unroll(x, unroll);
+            //.unroll(x).unroll(y);
+
+            g_gr.compute_at(hw_output, xo).unroll(x, unroll);
+            r_r.compute_at(hw_output, xo).unroll(x, unroll);
+            b_b.compute_at(hw_output, xo).unroll(x, unroll);
+            g_gb.compute_at(hw_output, xo).unroll(x, unroll);
+        
+            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+            curve.store_in(MemoryType::ROM);
+            // unroll by x?
+
+            
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(x, unroll);
+            
+            hw_input.compute_root()
+              .accelerator_input();
             
         } else {
           output.bound(x, 0, 64-blockSize+1);

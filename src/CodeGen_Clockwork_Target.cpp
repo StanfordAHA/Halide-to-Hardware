@@ -1999,7 +1999,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Allocate *op) {
     allocations.push(alloc_name, alloc);
 
     auto new_alloc = Allocate::make(alloc_name, op->type, op->memory_type, op->extents, op->condition, new_body);
-    //std::cout << "adding rom named " << alloc_name << std::endl;
+    std::cout << "adding rom from allocate named " << alloc_name << std::endl;
     roms[alloc_name] = ROM_data({alloc_name, Stmt(new_alloc), Stmt()});;
 
     do_indent();
