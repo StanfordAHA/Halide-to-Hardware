@@ -106,9 +106,12 @@ int main( int argc, char **argv ) {
   //  oh = output_height + 8*num_tiles;
   //  iw = output_width + blockSize + 8*num_tiles;
   //  ih = output_height + blockSize + 8*num_tiles;
-  } else {
+  } else if (schedule == 1) {
     ow = output_width + 2*num_tiles;
     oh = output_height + 2*num_tiles;
+  } else {
+    ow = output_width;
+    oh = output_height;
   }
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl
