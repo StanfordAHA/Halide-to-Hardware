@@ -378,7 +378,22 @@ public:
           }
 
         } else {    // schedule to CPU
-          output.compute_root();
+          if (schedule == 1 || schedule == 2 || schedule == 3) {
+            const int vec = 16;
+            output.split(y, yo, yi, 32)
+              .vectorize(x, vec)
+              .parallel(yo)
+              .reorder(x, c, yi, yo);
+            gray.compute_at(output, yi)
+              .store_at(output, yo)
+              .vectorize(x, vec);
+            blur.compute_at(output, yi)
+              .store_at(output, yo)
+              .vectorize(x, vec);
+            ratio.compute_at(output, yi)
+              .store_at(output, yo)
+              .vectorize(x, vec);
+          }
         }
     }
 

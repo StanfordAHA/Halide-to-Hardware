@@ -70,7 +70,7 @@ int main( int argc, char **argv ) {
   case 1:
     processor.inputs_preset = true;
     host_tiling = 5;
-    glb_tiling = 4;
+    glb_tiling = 2;
     break;
   case 2:
   case 3:

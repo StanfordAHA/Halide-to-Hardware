@@ -347,23 +347,22 @@ public:
         } else if (get_target().has_feature(Target::CoreIR) || get_target().has_feature(Target::HLS)) {
 
         } else {    // schedule to CPU
-          output.tile(x, y, xo, yo, xi, yi, 58, 58);
-
-          grad_x.compute_at(output, xo).vectorize(x, 8);
-          grad_y.compute_at(output, xo).vectorize(x, 8);
-          grad_xx.compute_at(output, xo).vectorize(x, 4);
-          grad_yy.compute_at(output, xo).vectorize(x, 4);
-          grad_xy.compute_at(output, xo).vectorize(x, 4);
-
-          //grad_xx.compute_with(grad_yy, x);
-          //grad_xy.compute_with(grad_yy, x);
-
-          lgxx.compute_at(output, xo).vectorize(x, 4);
-          lgyy.compute_at(output, xo).vectorize(x, 4);
-          lgxy.compute_at(output, xo).vectorize(x, 4);
-          cim.compute_at(output, xo).vectorize(x, 4);
-
-          output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+          if (schedule == 1 || schedule == 2 || schedule == 3) {
+            const int vec = 16;
+            output.split(y, y, yi, 32)
+              .parallel(y)
+              .vectorize(x, vec);
+            gray.store_at(output, y)
+              .compute_at(output, yi)
+              .vectorize(x, vec);
+            grad_x.store_at(output, y)
+              .compute_at(output, yi)
+              .vectorize(x, vec);
+            grad_y.store_at(output, y)
+              .compute_at(output, yi)
+              .vectorize(x, vec);
+            grad_x.compute_with(grad_y, x);
+          }
         }
     }
 };

@@ -268,29 +268,16 @@ public:
           }
           
         } else {    // schedule to CPU
-          if (schedule == 4) {
-            
-          } else {
-            //output.bound(x,0,62);
-            //output.bound(y,0,62);
-
-            blur_y
-              .split(y, y, yi, 8)
-              //.parallel(y)
-              //.vectorize(x, 8)
-              .compute_root();
-            blur_x
-              .store_at(blur_y, y)
-              .compute_at(blur_y, yi);
-              //.compute_at(blur_y, y)
-              //.vectorize(x, 8);
+          if (schedule == 1 || schedule == 2 || schedule == 3) {
+            output
+              .split(y, y, yi, 32)
+              .parallel(y)
+              .vectorize(x, 16);
+            blur
+              .compute_at(output, y)
+              .split(y, y, yi, 32)
+              .vectorize(x, 16);
           }
-                     
-          /*output.tile(x, y, xo, yo, xi, yi, outputSize, outputSize)
-            .vectorize(xi, 8)
-            .fuse(xo, yo, xo)
-            .parallel(xo);*/
-
         }
     }
 };

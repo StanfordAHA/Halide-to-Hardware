@@ -345,7 +345,7 @@ Func interleave_y(Func a, Func b) {
       } else if (get_target().has_feature(Target::Clockwork)) {
 
           if (schedule == 1) { // host and glb tiling
-            const int numHostTiles = 2;
+            const int numHostTiles = 4;
             const int numTiles = 3;
             const int tileSize = 58;
             const int glbSize = tileSize * numTiles;
@@ -399,7 +399,7 @@ Func interleave_y(Func a, Func b) {
               .accelerator_input();
 
           } else if (schedule == 2) { // big parrot
-            const int tileWidth = 68;
+            const int tileWidth = 64;
             const int tileHeight = 56;
             const int numHostTiles = 11;
             const int numTiles = 3;
@@ -571,9 +571,62 @@ Func interleave_y(Func a, Func b) {
         }
         
       } else {    // schedule to CPU
-        //output.tile(x, y, xo, yo, xi, yi, 64-blockSize+1,64-blockSize+1)
-        //  .compute_root();
-        //output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+        if (schedule == 1 || schedule == 2 || schedule == 3) {
+          Var yii;
+          const int strip_size = 2;
+          const int vec = 4;
+
+          output
+            .compute_root()
+            .reorder(c, x, y)
+            .split(y, yi, yii, 2, TailStrategy::RoundUp)
+            .split(yi, yo, yi, strip_size / 2)
+            .vectorize(x, 2 * vec, TailStrategy::RoundUp)
+            .unroll(c)
+            .parallel(yo);
+
+          denoised
+            .compute_at(output, yi)
+            .store_at(output, yo)
+            .prefetch(input, y, 2)
+            //.fold_storage(y, 4)
+            .tile(x, y, x, y, xi, yi, 2 * vec, 2)
+            .vectorize(xi)
+            .unroll(yi);
+
+          demosaicked
+            .compute_at(output, yi)
+            .store_at(output, yo)
+            .fold_storage(y, 4)
+            .reorder(c, x, y)
+            .vectorize(x, 2 * vec, TailStrategy::RoundUp)
+            .unroll(c);
+
+          curve_out
+            .compute_at(output, yi)
+            .store_at(output, yo)
+            .reorder(c, x, y)
+            .tile(x, y, x, y, xi, yi, 2 * vec, 2, TailStrategy::RoundUp)
+            .vectorize(xi)
+            .unroll(yi)
+            .unroll(c);
+
+          color_corrected
+            .compute_at(curve_out, x)
+            .reorder(c, x, y)
+            .vectorize(x)
+            .unroll(c);
+
+          //demosaicked->intermed_compute_at.set({processed, yi});
+          //demosaicked->intermed_store_at.set({processed, yo});
+          //demosaicked->output_compute_at.set({curved, x});
+
+          // We can generate slightly better code if we know the splits divide the extent.
+          //processed
+          //.bound(c, 0, 3);
+            //.bound(x, 0, ((out_width) / (2 * vec)) * (2 * vec))
+            //.bound(y, 0, (out_height / strip_size) * strip_size);
+        }
       }
     }
   };

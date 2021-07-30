@@ -18,6 +18,8 @@
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
+using std::string;
+using std::vector;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
@@ -66,7 +68,7 @@ int main( int argc, char **argv ) {
   switch (schedule) {
   case 1:
     processor.inputs_preset = true;
-    host_tiling = 2;
+    host_tiling = 4;
     glb_tiling = 3;
     break;
   case 2:
@@ -74,7 +76,7 @@ int main( int argc, char **argv ) {
     processor.inputs_preset = true;
     host_tiling = 11;
     glb_tiling = 3;
-    output_tile_width = 68;
+    output_tile_width = 64;
     output_tile_height = 56;
     break;
   default:
@@ -90,10 +92,24 @@ int main( int argc, char **argv ) {
   int blockSize = 9;
 
   // FIXME: why is this additional padding needed?
-  ow = output_width;// + 2*num_tiles;
-  oh = output_height;// + 2*num_tiles;
+  vector<string> full_args(argv, argv + argc);
+  string arch = full_args[2];
+
   iw = output_width + blockSize + 5*num_tiles;
   ih = output_height + blockSize + 5*num_tiles;
+
+  if (schedule == 2 || schedule == 3) {
+    ow = output_width;
+    oh = output_height;
+  //} else if (schedule == 1 && arch == "cpu") {
+  //  ow = output_width + 8*num_tiles;
+  //  oh = output_height + 8*num_tiles;
+  //  iw = output_width + blockSize + 8*num_tiles;
+  //  ih = output_height + blockSize + 8*num_tiles;
+  } else {
+    ow = output_width + 2*num_tiles;
+    oh = output_height + 2*num_tiles;
+  }
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl
             << "  effective output size is " << ow << "x" << oh << std::endl;

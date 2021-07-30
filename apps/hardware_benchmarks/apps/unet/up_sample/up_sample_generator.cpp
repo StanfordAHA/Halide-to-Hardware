@@ -59,9 +59,9 @@ public:
           if (schedule == 1) { // host and glb tiling
             const int blockSize = 1;
             const int tileSize = 128;
-            const int numTiles = 4;
-            const int glbSize = tileSize * numTiles;
             const int numHostTiles = 5;
+            const int numTiles = 2;
+            const int glbSize = tileSize * numTiles;
             const int outputSize = numHostTiles * glbSize;
             const int inputSize = outputSize + blockSize-1;
 
@@ -200,7 +200,17 @@ public:
           }
             
         } else { // schedule to CPU
-            nearest_neighbor.compute_root();
+          if (schedule == 1 || schedule == 2 || schedule == 3) {
+            Var yi;
+            output
+              .split(y, y, yi, 32)
+              .parallel(y)
+              .vectorize(x, 16);
+            nearest_neighbor
+              .compute_at(output, y)
+              .split(y, y, yi, 32)
+              .vectorize(x, 16);
+          }
         }
     }
 };
