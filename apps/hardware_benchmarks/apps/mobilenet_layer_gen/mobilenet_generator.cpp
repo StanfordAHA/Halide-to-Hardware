@@ -26,10 +26,10 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+    GeneratorParam<int> k_ic{"k_ic", 4};    // default: 8
 
     // k_oc determines the number of channel sizes
-    GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
+    GeneratorParam<int> k_oc{"k_oc", 3};    // default: 8
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
