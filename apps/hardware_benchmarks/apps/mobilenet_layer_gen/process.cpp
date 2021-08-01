@@ -72,8 +72,8 @@ int main( int argc, char **argv ) {
     auto pad = P ? atoi(P) : 1;
     auto ksize = KX ? atoi(KX) : 3;
     auto stride = S ? atoi(S) : 1;
-    auto k_ic = IC ? atoi(IC) : 4;
-    auto k_oc = OC ? atoi(OC) : 3;
+    auto k_ic = IC ? atoi(IC) : 8;
+    auto k_oc = OC ? atoi(OC) : 8;
 
     int X = in_img;
     int Y = X;
@@ -103,7 +103,8 @@ int main( int argc, char **argv ) {
     for (int y = 0; y < filter_dw_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < filter_dw_copy_stencil.dim(1).extent(); x++) {
         for (int c = 0; c < filter_dw_copy_stencil.dim(0).extent(); c++) {
-          filter_dw_copy_stencil(x, y, c) = x + y + c;
+          //filter_dw_copy_stencil(x, y, c) = x + y + c;
+          filter_dw_copy_stencil(c, x, y) = x + y + c;
           //filter_dw_copy_stencil(x, y, c) = 1;
         } } }
 
@@ -113,9 +114,8 @@ int main( int argc, char **argv ) {
     
     processor.inputs["filter_pw.png"] = Buffer<uint8_t>(K, C);
     auto filter_pw_copy_stencil = processor.inputs["filter_pw.png"];
-
-      for (int k = 0; k < filter_pw_copy_stencil.dim(1).extent(); k++) {
-        for (int c = 0; c < filter_pw_copy_stencil.dim(0).extent(); c++) {
+      for (int k = 0; k < filter_pw_copy_stencil.dim(0).extent(); k++) {
+        for (int c = 0; c < filter_pw_copy_stencil.dim(1).extent(); c++) {
         filter_pw_copy_stencil(k, c) = k + c;
         std::cout << "k=" <<k << ", c=" << c << " := " << +filter_pw_copy_stencil(k, c) << std::endl;
         //filter_pw_copy_stencil(k, c) = 1;

@@ -300,6 +300,7 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         std::cout << "xcel for " << output_name << " out of " << num_xcels
                   << " xcels in " << pipeline_name << std::endl;
         cg_target->add_kernel(hw_body, num_xcels>1 ? output_name : pipeline_name, args);
+        string ext = num_xcels>1 ? "_" + std::to_string(xcel_idx) : "";
 
         // Convert scalar args to RDAI
         for (size_t i = 0; i < args.size(); i++) {
@@ -317,14 +318,14 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         internal_assert(args.size() > 0) << "no input/output argumnets found for the accelerator\n";
 
         stream << "\n";
-        do_indent(); stream << "RDAI_PlatformType platform_type = RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM;\n";
-        do_indent(); stream << "RDAI_Platform **platforms = RDAI_get_platforms_with_type(&platform_type);\n";
-        do_indent(); stream << "assert(platforms && platforms[0]);\n";
-        do_indent(); stream << "RDAI_VLNV device_vlnv = {{\"aha\"}, {\"halide_hardware\"}, {\"" << pipeline_name << "\"}, 1};\n";
-        do_indent(); stream << "RDAI_Device **devices = RDAI_get_devices_with_vlnv(platforms[0], &device_vlnv);\n";
-        do_indent(); stream << "assert(devices && devices[0]);\n";
+        do_indent(); stream << "RDAI_PlatformType platform_type" << ext << " = RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM;\n";
+        do_indent(); stream << "RDAI_Platform **platforms" << ext << " = RDAI_get_platforms_with_type(&platform_type" << ext << ");\n";
+        do_indent(); stream << "assert(platforms" << ext << " && platforms" << ext << "[0]);\n";
+        do_indent(); stream << "RDAI_VLNV device_vlnv" << ext << " = {{\"aha\"}, {\"halide_hardware\"}, {\"" << pipeline_name << "\"}, 1};\n";
+        do_indent(); stream << "RDAI_Device **devices" << ext << " = RDAI_get_devices_with_vlnv(platforms" << ext << "[0], &device_vlnv" << ext << ");\n";
+        do_indent(); stream << "assert(devices" << ext << " && devices" << ext << "[0]);\n";
         do_indent();
-        stream << "RDAI_MemObject *mem_obj_list["<< args.size() + 1 <<"] = {\n";
+        stream << "RDAI_MemObject *mem_obj_list" << ext << "["<< args.size() + 1 <<"] = {\n";
         for (size_t i = 0; i < args.size(); i++) {
             do_indent(); do_indent();
             stream << (args[i].is_stencil ? print_name(args[i].name) : print_name(args[i].name) + "_obj") << ",\n";
@@ -332,9 +333,9 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         do_indent();
         do_indent(); stream << "NULL\n";
         do_indent(); stream << "};\n";
-        do_indent(); stream << "RDAI_Status status = RDAI_device_run(devices[0], mem_obj_list);\n";
-        do_indent(); stream << "RDAI_free_device_list(devices);\n";
-        do_indent(); stream << "RDAI_free_platform_list(platforms);\n";
+        do_indent(); stream << "RDAI_Status status" << ext << " = RDAI_device_run(devices" << ext << "[0], mem_obj_list" << ext << ");\n";
+        do_indent(); stream << "RDAI_free_device_list(devices" << ext << ");\n";
+        do_indent(); stream << "RDAI_free_platform_list(platforms" << ext << ");\n";
         stream << "\n";
 
         // Emit RDAI Info
@@ -343,7 +344,8 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         rdai_info.devices.push_back({"aha", "halide_hardware", pipeline_name, 1, args.size() - 1});
 
         render_rdai_data(output_directory, rdai_info, pipeline_name);
-
+        
+        xcel_idx += 1;
     } else {
         CodeGen_C::visit(op);
     }
@@ -457,6 +459,7 @@ int accelerator_count(Stmt s) {
 void CodeGen_RDAI::compile(const LoweredFunc &func) {
     func_args = func.args;
     num_xcels = accelerator_count(func.body);
+    xcel_idx = 0;
     CodeGen_C::compile(func);
 }
 

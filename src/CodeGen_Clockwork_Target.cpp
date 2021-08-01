@@ -393,7 +393,7 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     if (xcel_names.size() > 1) {
       string combined_unoptimized_cpp_name = output_base_path + target_name + ".cpp";
       ofstream combined_unoptimized_file(combined_unoptimized_cpp_name.c_str());
-      print_combined_unoptimized_file(xcel_names, clk_codegen_file);
+      print_combined_unoptimized_file(xcel_names, combined_unoptimized_file);
       combined_unoptimized_file.close();
     }
 

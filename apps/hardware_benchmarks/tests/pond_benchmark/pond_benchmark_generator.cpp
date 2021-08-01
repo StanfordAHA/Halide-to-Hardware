@@ -10,7 +10,7 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    const int ksize = 3;
+    const int ksize = 2;
     const int numchannels = 8;
   
     void generate() {
@@ -25,7 +25,7 @@ public:
 
         Func hw_input("hw_input"), input_broadcast("input_broadcast");
         hw_input(x, y) = u16(input(x, y));
-        input_broadcast(x, y, c) = hw_input(x, y);
+        input_broadcast(x, y, c) = hw_input(x, y) * c;
 
         conv(x, y)  += u16(input_broadcast(x + r.x, y + r.y, r.z));
 
@@ -57,6 +57,11 @@ public:
             .unroll(r.x)
             .unroll(r.y, ksize)
             .unroll(r.z, numchannels);
+
+          input_broadcast
+            .compute_at(hw_output, xo)
+            .reorder(c, x, y)
+            .unroll(c);
           
           hw_input.stream_to_accelerator();
             

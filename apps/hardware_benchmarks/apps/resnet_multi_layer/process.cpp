@@ -46,7 +46,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          resnet_multi_layer_clockwork(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.output);
+          resnet_multi_layer_clockwork(proc.inputs["input.png"], proc.inputs["kernel.png"], proc.inputs["kernel.png"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");

@@ -266,6 +266,15 @@ Func interleave_y(Func a, Func b) {
 
       Func hw_input;
       hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
+
+      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & 0xFCFF;
+      //uint16_t bits = (1 << 9) | (1 << 8); // tie these 0-indexed bits to 0
+      //uint16_t bits = (1 << 13); // tie these 0-indexed bits to 0
+      //uint16_t mask = ~(bits);
+      //std::cout << std::hex << "bits=" << bits << " mask=" << mask << std::dec << std::endl;
+      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & mask;
+
+      
       //hw_input(x,y) = i16(input(x+16, y+12));
 
       Func hw_input_copy;

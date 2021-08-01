@@ -140,6 +140,8 @@ public:
           //interm_output_cgra.compute_at(output_glb, x_glb);
 
           Func output_rf;
+          output_cgra
+            .unroll(w, k_oc);
           output_cgra.update()
             //.unroll(w_cgra, k_oc)
             .unroll(w, k_oc)

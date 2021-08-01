@@ -102,6 +102,7 @@ protected:
     vector<LoweredArgument> func_args;
     bool inserted_host_buf_calls = false;
     int num_xcels;
+    int xcel_idx;
 };
 
 }
