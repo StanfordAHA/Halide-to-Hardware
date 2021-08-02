@@ -392,6 +392,7 @@ $(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
 $(BIN)/%.raw: $(BIN)/%.leraw
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
 
+.PHONY: $(BIN)/cgra_config.json
 $(BIN)/cgra_config.json:
 	@-mkdir -p $(BIN)
 	if [ -f cgra_config.json ]; then \

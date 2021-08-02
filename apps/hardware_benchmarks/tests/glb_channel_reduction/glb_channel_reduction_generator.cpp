@@ -83,7 +83,7 @@ public:
           
           output_gb.compute_at(hw_output, x_host); // global buffer
           //output_gb.tile(x, y, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize);
-          output_gb.tile(x, y, x_gb,y_gb, x_cgra,y_cgra, gbsize,tilesize);
+          output_gb.tile(x, y, x_gb,y_gb, x_cgra,y_cgra, gbsize,8);
 
           // Unroll the computation loops to duplicate hardware
           conv.update()
