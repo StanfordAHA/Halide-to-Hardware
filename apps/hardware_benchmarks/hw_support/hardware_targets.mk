@@ -499,7 +499,9 @@ compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(E
 	fi
 
 ahahalide:
-	$(MAKE) compare && $(MAKE) bin/input_cgra.pgm && $(MAKE) bin/output_cgra.pgm
+	$(MAKE) compare && \
+	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+	$(MAKE) bin/output_cgra.pgm --no-print-directory
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)

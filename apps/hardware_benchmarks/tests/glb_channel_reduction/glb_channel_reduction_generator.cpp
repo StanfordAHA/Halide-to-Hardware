@@ -5,7 +5,7 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-const int numchannels = 4;
+const int numchannels = 8;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:

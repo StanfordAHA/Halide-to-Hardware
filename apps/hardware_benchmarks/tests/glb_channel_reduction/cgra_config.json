@@ -3,7 +3,7 @@
 		"inputs": [{
 				"name": "input_host",
 				"bitwidth": 16,
-  			"shape": [4, 128, 128],
+  			"shape": [8, 128, 128],
 				"pixels_per_cycle": 1,
 				"datafile": "bin/input_host_stencil.raw"
 			}
