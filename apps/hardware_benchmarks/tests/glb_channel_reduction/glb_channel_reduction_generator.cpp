@@ -5,7 +5,7 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-const int numchannels = 8;
+const int numchannels = 4;
 
 class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
@@ -82,7 +82,8 @@ public:
           //output_host.store_at(hw_output, x_host).compute_at(hw_output, x_host);
           
           output_gb.compute_at(hw_output, x_host); // global buffer
-          output_gb.tile(x, y, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize);
+          //output_gb.tile(x, y, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize);
+          output_gb.tile(x, y, x_gb,y_gb, x_cgra,y_cgra, gbsize,tilesize);
 
           // Unroll the computation loops to duplicate hardware
           conv.update()

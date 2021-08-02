@@ -498,6 +498,9 @@ compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(E
     (exit $$EXIT_CODE);  \
 	fi
 
+ahahalide:
+	$(MAKE) compare && $(MAKE) bin/input_cgra.pgm && $(MAKE) bin/output_cgra.pgm
+
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)

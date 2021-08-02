@@ -1665,15 +1665,15 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
       memory_stream << "  " << func_name << "->add_load(\""
                     << buffer_name << "\"";
       // Add glb indices if they exist
-      if (realize_glb_indices.count(arg.bufname) > 0) {
-        auto& glb_indices = realize_glb_indices.at(arg.bufname);
-        for (int glbi=glb_indices.size()-1; glbi>=0; --glbi) {
-          auto index = glb_indices[glbi];
-          ostringstream index_print;
-          index_print << add_floor_to_divs(simplify(expand_expr(index, scope)));
-          memory_stream << ", \"" << removedots(index_print.str()) << "\"";
-        }
-      }
+      //if (realize_glb_indices.count(arg.bufname) > 0) {
+      //  auto& glb_indices = realize_glb_indices.at(arg.bufname);
+      //  for (int glbi=glb_indices.size()-1; glbi>=0; --glbi) {
+      //    auto index = glb_indices[glbi];
+      //    ostringstream index_print;
+      //    index_print << add_floor_to_divs(simplify(expand_expr(index, scope)));
+      //    memory_stream << ", \"" << removedots(index_print.str()) << "\"";
+      //  }
+      //}
       // Add load arguments
       //for (auto index : arg.args) {
       for (int argi=arg.args.size()-1; argi>=0; --argi) {
@@ -1704,15 +1704,15 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     memory_stream << "  " << func_name << "->add_store(\""
                   << printname(op->name) << "\"";
     // Add glb indices if they exist
-    if (realize_glb_indices.count(op->name) > 0) {
-      auto& glb_indices = realize_glb_indices.at(op->name);
-      for (int glbi=glb_indices.size()-1; glbi>=0; --glbi) {
-        auto index = glb_indices[glbi];
-        ostringstream index_print;
-        index_print << add_floor_to_divs(simplify(expand_expr(index, scope)));
-        memory_stream << ", \"" << removedots(index_print.str()) << "\"";
-      }
-    }
+    //if (realize_glb_indices.count(op->name) > 0) {
+    //  auto& glb_indices = realize_glb_indices.at(op->name);
+    //  for (int glbi=glb_indices.size()-1; glbi>=0; --glbi) {
+    //    auto index = glb_indices[glbi];
+    //    ostringstream index_print;
+    //    index_print << add_floor_to_divs(simplify(expand_expr(index, scope)));
+    //    memory_stream << ", \"" << removedots(index_print.str()) << "\"";
+    //  }
+    //}
     // Add store indices
     //for (auto arg : op->args) {
     for (int argi=op->args.size()-1; argi>=0; --argi) {

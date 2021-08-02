@@ -68,7 +68,7 @@ int main( int argc, char **argv ) {
     auto IC = getenv("k_ic");
     auto OC = getenv("k_oc");
 
-    auto in_img = OX ? atoi(OX) : 28;
+    auto in_img = OX ? atoi(OX) : 56;
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
@@ -76,7 +76,7 @@ int main( int argc, char **argv ) {
     //auto k_ic = IC ? atoi(IC) : 4;
     //auto k_ic = IC ? atoi(IC) : 1;
     //auto k_oc = OC ? atoi(OC) : 6;
-    auto k_oc = OC ? atoi(OC) : 3;
+    auto k_oc = OC ? atoi(OC) : 64;
     //auto k_oc = OC ? atoi(OC) : 1;
 
     int X = in_img;
@@ -88,7 +88,7 @@ int main( int argc, char **argv ) {
     int Z = k_ic; // input channel 
     int W = k_oc; // output channel
 
-    if (OX || P || K || S || IC || OC) {
+    if (true) {//OX || P || K || S || IC || OC) {
       std::cout << "using inputs set within process.cpp" << std::endl;
       processor.inputs_preset = true;
     } else {
@@ -177,7 +177,7 @@ int main( int argc, char **argv ) {
               kernel_copy_stencil(z, w, x, y) = (rand() % (2*max_rand)) - max_rand;
             }
             
-            std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
+            //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
     } } } }
 
     bool write_mat = true;
@@ -210,7 +210,7 @@ int main( int argc, char **argv ) {
     
     int imgsize_x = std::floor( (X + 2*P_X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y + 2*P_Y - K_Y) / stride ) + 1;
-    processor.output = Buffer<int16_t>(imgsize_x, imgsize_y, W);
+    processor.output = Buffer<int16_t>(W, imgsize_x, imgsize_y);
 
     std::cout << "output has dims: " << processor.output.dim(0).extent() << "x"
               << processor.output.dim(1).extent() << "x"
@@ -226,11 +226,11 @@ int main( int argc, char **argv ) {
       outputs.emplace_back(Buffer<int16_t>(imgsize_x, imgsize_y));
     }
 
-    for (int w = 0; w < processor.output.dim(2).extent(); w++) {
-      for (int y = 0; y < processor.output.dim(1).extent(); y++) {
-        for (int x = 0; x < processor.output.dim(0).extent(); x++) {
-          oned_output(x + y*imgsize_x, w) = processor.output(x,y,w);
-          outputs[w](x,y) = processor.output(x,y,w);
+    for (int w = 0; w < processor.output.dim(0).extent(); w++) {
+      for (int y = 0; y < processor.output.dim(2).extent(); y++) {
+        for (int x = 0; x < processor.output.dim(1).extent(); x++) {
+          oned_output(x + y*imgsize_x, w) = processor.output(w,x,y);
+          outputs[w](x,y) = processor.output(w,x,y);
           //std::cout << x << "," << y << "," << w << " = " << +processor.output(x,y,w) << " = " << std::hex << +processor.output(x,y,w) << std::dec << std::endl;
         } } }
     if (write_images) {//if (processor.output(0,0,0,0) == 198) {

@@ -7,9 +7,9 @@ using namespace Halide::ConciseCasts;
 
 class ResnetLayer : public Halide::Generator<ResnetLayer> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 3};
-    Input<Buffer<uint8_t>>  kernel{"kernel", 4};
-    Output<Buffer<uint8_t>> output{"output", 3};
+    Input<Buffer<int16_t>>  input{"input", 3};
+    Input<Buffer<int16_t>>  kernel{"kernel", 4};
+    Output<Buffer<int16_t>> output{"output", 3};
 
     // in_img determines the input image size
     GeneratorParam<int> in_img{"in_img", 56};    // default: 56
@@ -30,7 +30,7 @@ public:
     GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
 
     // n_ic determines the total number of input channels
-    GeneratorParam<int> n_ic{"n_ic", 64};    // default: 64
+    GeneratorParam<int> n_ic{"n_ic", 8};    // default: 64
   
     // n_oc determines the total number of output channels
     GeneratorParam<int> n_oc{"n_oc", 64};    // default: 64
@@ -56,8 +56,8 @@ public:
         conv(w, x, y) = cast<uint16_t>(0);
 
         Func hw_input("clamp_input"), hw_kernel("hw_kernel");
-        hw_input(z, x, y) = u16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
-        hw_kernel(z, w, x, y) = u16(kernel(z, w, x, y));
+        hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
+        hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
         
         Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
         input_host(z, x, y) = hw_input(z, x, y);
@@ -76,7 +76,7 @@ public:
 
         output_glb(w, x, y) = output_cgra(w, x, y);
         hw_output(w, x, y) = output_glb(w, x, y);
-        output(w, x, y) = max(0, u8(hw_output(w, x, y)));
+        output(w, x, y) = max(0, i16(hw_output(w, x, y)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -159,9 +159,10 @@ public:
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
           //                another copy stage as the memory tiles
-          hw_input.compute_root();
+          //hw_input.compute_root();
           input_host.compute_root(); // host buffer
           input_host.accelerator_input();
+          //input_host.stream_to_accelerator();
           input_glb.compute_at(hw_output, x_host); // global buffer
           input_cgra.compute_at(output_cgra, rz_glb);   // mem tile
           //input_cgra.compute_at(interm_output_cgra, w_glb);   // mem tile
