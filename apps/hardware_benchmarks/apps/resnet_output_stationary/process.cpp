@@ -72,11 +72,11 @@ int main( int argc, char **argv ) {
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
-    auto k_ic = IC ? atoi(IC) : 8;
+    auto k_ic = IC ? atoi(IC) : 16;
     //auto k_ic = IC ? atoi(IC) : 4;
     //auto k_ic = IC ? atoi(IC) : 1;
     //auto k_oc = OC ? atoi(OC) : 6;
-    auto k_oc = OC ? atoi(OC) : 64;
+    auto k_oc = OC ? atoi(OC) : 16;
     //auto k_oc = OC ? atoi(OC) : 1;
 
     int X = in_img;
