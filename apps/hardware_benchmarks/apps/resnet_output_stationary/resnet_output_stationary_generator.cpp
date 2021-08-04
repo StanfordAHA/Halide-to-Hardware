@@ -55,7 +55,7 @@ public:
 
         conv(w, x, y) = cast<uint16_t>(0);
 
-        Func hw_input("clamp_input"), hw_kernel("hw_kernel");
+        Func hw_input("hw_input"), hw_kernel("hw_kernel");
         hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
         hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
         
@@ -91,14 +91,16 @@ public:
 
           hw_kernel.bound(z, 0, n_ic);
           kernel_glb.bound(z, 0, n_ic);
-          hw_input.bound(z, 0, n_ic);
+          input_host.bound(z, 0, n_ic);
           //input_cgra.bound(z, 0, ic_outer);
           //input_cgra.bound(zz, 0, k_ic);
           //kernel_cgra.bound(z, 0, ic_outer);
           //kernel_cgra.bound(zz, 0, k_ic);
 
           int gbsize = imgsize;
-          int tilesize = 28;
+          int tilesize = ((int)stride == 2) ?
+            std::min(14, imgsize) : // we want the input to be 30 max
+            std::min(28, imgsize);  // min of 28 and output image size
 
           Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
           Var xi,yi;

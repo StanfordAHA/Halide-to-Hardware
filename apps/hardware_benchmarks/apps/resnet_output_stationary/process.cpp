@@ -59,25 +59,25 @@ int main( int argc, char **argv ) {
     processor.run_calls = functions;
 
     // Set enviroment variable to set these:
-    //  HALIDE_GEN_ARGS="in_img=28 pad=1 ksize=3 stride=1 k_ic=8 k_oc=6"
+    //  HALIDE_GEN_ARGS="in_img=28 pad=1 ksize=3 stride=1 n_ic=8 n_oc=6"
 
     auto OX = getenv("in_img");
     auto P = getenv("pad");
     auto K = getenv("ksize");
     auto S = getenv("stride");
-    auto IC = getenv("k_ic");
-    auto OC = getenv("k_oc");
+    auto IC = getenv("n_ic");
+    auto OC = getenv("n_oc");
 
     auto in_img = OX ? atoi(OX) : 56;
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
-    auto k_ic = IC ? atoi(IC) : 16;
-    //auto k_ic = IC ? atoi(IC) : 4;
-    //auto k_ic = IC ? atoi(IC) : 1;
-    //auto k_oc = OC ? atoi(OC) : 6;
-    auto k_oc = OC ? atoi(OC) : 16;
-    //auto k_oc = OC ? atoi(OC) : 1;
+    auto n_ic = IC ? atoi(IC) : 16;
+    //auto n_ic = IC ? atoi(IC) : 4;
+    //auto n_ic = IC ? atoi(IC) : 1;
+    //auto n_oc = OC ? atoi(OC) : 6;
+    auto n_oc = OC ? atoi(OC) : 16;
+    //auto n_oc = OC ? atoi(OC) : 1;
 
     int X = in_img;
     int Y = X;
@@ -85,8 +85,8 @@ int main( int argc, char **argv ) {
     int K_Y = K_X;
     int P_X = pad;
     int P_Y = P_X;
-    int Z = k_ic; // input channel 
-    int W = k_oc; // output channel
+    int Z = n_ic; // input channel 
+    int W = n_oc; // output channel
 
     if (true) {//OX || P || K || S || IC || OC) {
       std::cout << "using inputs set within process.cpp" << std::endl;
