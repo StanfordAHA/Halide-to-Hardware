@@ -74,10 +74,10 @@ int main( int argc, char **argv ) {
   case 2:
   case 3:
     processor.inputs_preset = true;
-    host_tiling = 11;
-    glb_tiling = 3;
-    output_tile_width = 64;
-    output_tile_height = 56;
+    host_tiling = 10;
+    glb_tiling = 1;
+    output_tile_width = 256-8;
+    output_tile_height = 152-8;
     break;
   default:
     processor.inputs_preset = false;

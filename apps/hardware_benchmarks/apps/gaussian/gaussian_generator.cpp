@@ -166,15 +166,16 @@ public:
 
           } else if (schedule == 3) {
             // do the big tern and unroll
-            const int unroll = 2;
-            const int tileWidth = 94;
-            const int tileHeight = 62;
-            const int numHostTiles = 9;
-            const int numTiles = 7;
+            const int unroll = 4;
+            const int tileWidth = 256;
+            const int tileHeight = 200;
+            const int numHostTilesX = 23-0;
+            const int numHostTilesY = 20-1;
+            const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTiles * glbWidth;
-            const int outputHeight = numHostTiles * glbHeight;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
             
             output.bound(x, 0, outputWidth);
             output.bound(y, 0, outputHeight);

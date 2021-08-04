@@ -465,11 +465,11 @@ Func interleave_y(Func a, Func b) {
               .accelerator_input();
 
           } else if (schedule == 3) { // big parrot with unroll
-            const int unroll = 2;
-            const int tileWidth = 68;
-            const int tileHeight = 56;
-            const int numHostTiles = 11;
-            const int numTiles = 3;
+            const int unroll = 1;
+            const int tileWidth = 256-8;
+            const int tileHeight = 152-8;
+            const int numHostTiles = 10;
+            const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
             const int outputWidth = numHostTiles * glbWidth;

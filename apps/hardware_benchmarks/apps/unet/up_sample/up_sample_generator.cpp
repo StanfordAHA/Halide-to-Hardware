@@ -134,15 +134,16 @@ public:
               .accelerator_input();
 
           } else if (schedule == 3) { // big color parrot with unroll
-            const int unroll = 2;
+            const int unroll = 8;
             const int tileWidth = 128;
-            const int tileHeight = 208;
-            const int numHostTiles = 24;
+            const int tileHeight = 256;
+            const int numHostTilesX = 24;
+            const int numHostTilesY = 20;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTiles * glbWidth;
-            const int outputHeight = numHostTiles * glbHeight;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
 
             output.bound(x, 0, outputWidth);
             output.bound(y, 0, outputHeight);
