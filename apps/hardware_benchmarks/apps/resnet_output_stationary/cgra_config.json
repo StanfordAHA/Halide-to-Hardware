@@ -3,22 +3,22 @@
 		"inputs": [{
 				"name": "hw_input",
 				"bitwidth": 16,
-				"shape": [8, 30, 30],
+  			"shape": [16, 58, 58],
 				"pixels_per_cycle": 1,
-				"datafile": "bin/hw_input_stencil.raw"
+				"datafile": "bin/input_host_stencil.raw"
 			},
 			{
 				"name": "hw_kernel",
 				"bitwidth": 16,
-				"shape": [8, 3, 3, 3],
+				"shape": [16, 16, 3, 3],
 				"pixels_per_cycle": 1,
-				"datafile": "bin/hw_kernel_stencil.raw"
+				"datafile": "bin/kernel_host_stencil.raw"
 			}
     ],
 		"output": {
 			"name": "hw_output",
 			"bitwidth": 16,
-	    "shape": [28, 28, 3],
+	    "shape": [16, 28, 28],
 			"pixels_per_cycle": 1,
       "datafile": "bin/hw_output_stencil.raw"
 		}

@@ -72,8 +72,8 @@ public:
         blur_y(x, y) = (blur_x(x, y) + blur_x(x, y+1) + blur_x(x, y+2))/3;
 
         Func hw_output;
-        //hw_output(x, y) = blur(x, y);
-        hw_output(x, y) = blur_y(x, y);
+        hw_output(x, y) = blur(x, y);
+        //hw_output(x, y) = blur_y(x, y);
         output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
@@ -85,7 +85,7 @@ public:
           if (schedule == 1) {
             // use global buffer and large input image
             const int tileSize = 62;
-            const int numTiles = 10;
+            const int numTiles = 2;
             const int glbSize = tileSize * numTiles;
             const int numHostTiles = 5;
             const int outputSize = numHostTiles * glbSize;
@@ -99,10 +99,55 @@ public:
             hw_output.in()
               .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
               .hw_accelerate(xi, xo);
+            hw_output.in().unroll(xi, 2);
 
             Var xii, yii, xio, yio;
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileSize, tileSize);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(xi, 2);
+
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
+            blur_unnormalized.update().unroll(x, 2);
+
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur.compute_at(hw_output, xo);
+            blur.unroll(x, 2);
+
+            hw_input.in().compute_at(hw_output.in(), xo);
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(x, 2);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+            //hw_input.unroll(x, 2);
+
+          } else if (schedule == 2) {
+            // do the big tern
+            const int tileWidth = 94;
+            const int tileHeight = 62;
+            const int numHostTiles = 9;
+            const int numTiles = 7;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+            
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .hw_accelerate(xi, xo);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
             hw_output.compute_at(hw_output.in(), xo);
             hw_output.store_in(MemoryType::GLB);
 
@@ -113,15 +158,58 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             blur.compute_at(hw_output, xo);
 
-            hw_input.in().in().compute_at(hw_output, xo);
-            
             hw_input.in().compute_at(hw_output.in(), xo);
             hw_input.in().store_in(MemoryType::GLB);
             
             hw_input.compute_root()
               .accelerator_input();
 
-          } else if (schedule == 2) {
+          } else if (schedule == 3) {
+            // do the big tern and unroll
+            const int unroll = 2;
+            const int tileWidth = 94;
+            const int tileHeight = 62;
+            const int numHostTiles = 9;
+            const int numTiles = 7;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+            
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(xi, unroll);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(xi, unroll);
+
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
+            blur_unnormalized.update().unroll(x, unroll);
+
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur.compute_at(hw_output, xo);
+            blur.unroll(x, unroll);
+
+            hw_input.in().compute_at(hw_output.in(), xo);
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(x, unroll);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+          } else if (schedule == 4) {
             // Perform host tiliing
             const int inputSize = 64;
             const int outputSize = inputSize-blockSize+1;
@@ -180,29 +268,16 @@ public:
           }
           
         } else {    // schedule to CPU
-          if (schedule == 4) {
-            
-          } else {
-            output.bound(x,0,62);
-            output.bound(y,0,62);
-
-            blur_y
-              .split(y, y, yi, 8)
-              //.parallel(y)
-              //.vectorize(x, 8)
-              .compute_root();
-            blur_x
-              .store_at(blur_y, y)
-              .compute_at(blur_y, yi);
-              //.compute_at(blur_y, y)
-              //.vectorize(x, 8);
+          if (schedule == 1 || schedule == 2 || schedule == 3) {
+            output
+              .split(y, y, yi, 32)
+              .parallel(y)
+              .vectorize(x, 16);
+            blur
+              .compute_at(output, y)
+              .split(y, y, yi, 32)
+              .vectorize(x, 16);
           }
-                     
-          /*output.tile(x, y, xo, yo, xi, yi, outputSize, outputSize)
-            .vectorize(xi, 8)
-            .fuse(xo, yo, xo)
-            .parallel(xo);*/
-
         }
     }
 };

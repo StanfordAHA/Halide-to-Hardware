@@ -121,9 +121,13 @@ coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp 
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
+
+$(BIN)/design_top_graph.json: $(BIN)/design_top.json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
+
 #$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
-$(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot
-	cat $(BIN)/design_top.json | sed "s/\([0-9]*\)\],\"Arg\",\"init\"/\1],\"\1\'h0\"/g" > $(BIN)/design_top_fixed.json
+$(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_graph.json
+	cat $(BIN)/design_top_graph.json | sed "s/\([0-9]*\)\],\"Arg\",\"init\"/\1],\"\1\'h0\"/g" > $(BIN)/design_top_fixed.json
 	$(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_fixed.json $(BIN)/design_top.txt
 
 design-coreir-no_valid: $(BIN)/$(TESTNAME).generator
@@ -178,6 +182,7 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
+#FIXME: $(BIN)/unoptimized_$(TESTNAME).o
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 #$(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
@@ -387,6 +392,7 @@ $(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
 $(BIN)/%.raw: $(BIN)/%.leraw
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
 
+.PHONY: $(BIN)/cgra_config.json
 $(BIN)/cgra_config.json:
 	@-mkdir -p $(BIN)
 	if [ -f cgra_config.json ]; then \
@@ -492,6 +498,11 @@ compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(E
 	else \
     (exit $$EXIT_CODE);  \
 	fi
+
+ahahalide:
+	$(MAKE) compare && \
+	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+	$(MAKE) bin/output_cgra.pgm --no-print-directory
 
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)

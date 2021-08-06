@@ -106,10 +106,11 @@ class RenameStencilRealizes : public IRMutator {
         op_name = op->name;
       }
 
-      if (tagged_rom ||
+      if (!tagged_rom &&
           (realization_type != ROM_REALIZATION &&
            realization_type != CONSTS_REALIZATION &&
            (in_xcel || func.schedule().is_accelerator_input()))) {
+        // roms should be allocates, not stencil realizes
         string new_name = op_name + ".stencil";
         //std::cout << op->name << " getting new name " << new_name << " with type=" << realization_type << std::endl;
         Stmt new_body = RenameRealize(op->name, new_name).mutate(op->body);

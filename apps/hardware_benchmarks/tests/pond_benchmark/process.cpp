@@ -70,11 +70,11 @@ int main( int argc, char **argv ) {
 //  
 //  convert_and_save_image(output, image_name);
 
-  const int ksize = 3;
+  const int ksize = 2;
   const int os = 64 - ksize+1;
 
   processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(64, os);
+  processor.output  = Buffer<uint8_t>(16, os);
   
   return processor.process_command(argc, argv);
   

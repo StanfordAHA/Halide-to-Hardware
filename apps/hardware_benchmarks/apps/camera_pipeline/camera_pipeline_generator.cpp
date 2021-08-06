@@ -266,6 +266,15 @@ Func interleave_y(Func a, Func b) {
 
       Func hw_input;
       hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
+
+      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & 0xFCFF;
+      //uint16_t bits = (1 << 9) | (1 << 8); // tie these 0-indexed bits to 0
+      //uint16_t bits = (1 << 13); // tie these 0-indexed bits to 0
+      //uint16_t mask = ~(bits);
+      //std::cout << std::hex << "bits=" << bits << " mask=" << mask << std::dec << std::endl;
+      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & mask;
+
+      
       //hw_input(x,y) = i16(input(x+16, y+12));
 
       Func hw_input_copy;
@@ -345,12 +354,11 @@ Func interleave_y(Func a, Func b) {
       } else if (get_target().has_feature(Target::Clockwork)) {
 
           if (schedule == 1) { // host and glb tiling
+            const int numHostTiles = 4;
+            const int numTiles = 3;
             const int tileSize = 58;
-            const int numTiles = 4;
             const int glbSize = tileSize * numTiles;
-            const int numHostTiles = 5;
             const int outputSize = numHostTiles * glbSize;
-            const int inputSize = outputSize + blockSize-1;
 
             output.bound(x, 0, outputSize);
             output.bound(y, 0, outputSize);
@@ -399,6 +407,130 @@ Func interleave_y(Func a, Func b) {
             hw_input.compute_root()
               .accelerator_input();
 
+          } else if (schedule == 2) { // big parrot
+            const int tileWidth = 64;
+            const int tileHeight = 56;
+            const int numHostTiles = 11;
+            const int numTiles = 3;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c);
+
+            curve_out.compute_at(hw_output, xo);
+            curve_out.unroll(c);
+        
+            color_corrected.compute_at(hw_output, xo);
+            color_corrected.unroll(c);
+        
+            demosaicked.compute_at(hw_output, xo);
+            demosaicked
+              .reorder(c, x, y)
+              .unroll(c);
+
+            denoised.compute_at(hw_output, xo);
+            //.unroll(x).unroll(y);
+
+            g_gr.compute_at(hw_output, xo);
+            r_r.compute_at(hw_output, xo);
+            b_b.compute_at(hw_output, xo);
+            g_gb.compute_at(hw_output, xo);
+        
+            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+            
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            //hw_input.in().unroll(c);  // hw input bound
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+          } else if (schedule == 3) { // big parrot with unroll
+            const int unroll = 2;
+            const int tileWidth = 68;
+            const int tileHeight = 56;
+            const int numHostTiles = 11;
+            const int numTiles = 3;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c)
+              .unroll(xi, unroll);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c)
+              .unroll(xi, unroll);
+
+            curve_out.compute_at(hw_output, xo);
+            curve_out.unroll(c)
+              .unroll(x, unroll);
+        
+            color_corrected.compute_at(hw_output, xo);
+            color_corrected.unroll(c)
+              .unroll(x, unroll);
+        
+            demosaicked.compute_at(hw_output, xo);
+            demosaicked
+              .reorder(c, x, y)
+              .unroll(c)
+              .unroll(x, unroll);
+
+            denoised.compute_at(hw_output, xo)
+              .unroll(x, unroll);
+            //.unroll(x).unroll(y);
+
+            g_gr.compute_at(hw_output, xo).unroll(x, unroll);
+            r_r.compute_at(hw_output, xo).unroll(x, unroll);
+            b_b.compute_at(hw_output, xo).unroll(x, unroll);
+            g_gb.compute_at(hw_output, xo).unroll(x, unroll);
+        
+            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+            curve.store_in(MemoryType::ROM);
+            // unroll by x?
+
+            
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(x, unroll);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+            
         } else {
           output.bound(x, 0, 64-blockSize+1);
           output.bound(y, 0, 64-blockSize+1);
@@ -448,9 +580,62 @@ Func interleave_y(Func a, Func b) {
         }
         
       } else {    // schedule to CPU
-        //output.tile(x, y, xo, yo, xi, yi, 64-blockSize+1,64-blockSize+1)
-        //  .compute_root();
-        //output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
+        if (schedule == 1 || schedule == 2 || schedule == 3) {
+          Var yii;
+          const int strip_size = 2;
+          const int vec = 4;
+
+          output
+            .compute_root()
+            .reorder(c, x, y)
+            .split(y, yi, yii, 2, TailStrategy::RoundUp)
+            .split(yi, yo, yi, strip_size / 2)
+            .vectorize(x, 2 * vec, TailStrategy::RoundUp)
+            .unroll(c)
+            .parallel(yo);
+
+          denoised
+            .compute_at(output, yi)
+            .store_at(output, yo)
+            .prefetch(input, y, 2)
+            //.fold_storage(y, 4)
+            .tile(x, y, x, y, xi, yi, 2 * vec, 2)
+            .vectorize(xi)
+            .unroll(yi);
+
+          demosaicked
+            .compute_at(output, yi)
+            .store_at(output, yo)
+            .fold_storage(y, 4)
+            .reorder(c, x, y)
+            .vectorize(x, 2 * vec, TailStrategy::RoundUp)
+            .unroll(c);
+
+          curve_out
+            .compute_at(output, yi)
+            .store_at(output, yo)
+            .reorder(c, x, y)
+            .tile(x, y, x, y, xi, yi, 2 * vec, 2, TailStrategy::RoundUp)
+            .vectorize(xi)
+            .unroll(yi)
+            .unroll(c);
+
+          color_corrected
+            .compute_at(curve_out, x)
+            .reorder(c, x, y)
+            .vectorize(x)
+            .unroll(c);
+
+          //demosaicked->intermed_compute_at.set({processed, yi});
+          //demosaicked->intermed_store_at.set({processed, yo});
+          //demosaicked->output_compute_at.set({curved, x});
+
+          // We can generate slightly better code if we know the splits divide the extent.
+          //processed
+          //.bound(c, 0, 3);
+            //.bound(x, 0, ((out_width) / (2 * vec)) * (2 * vec))
+            //.bound(y, 0, (out_height / strip_size) * strip_size);
+        }
       }
     }
   };

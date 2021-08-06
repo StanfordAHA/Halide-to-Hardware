@@ -58,15 +58,28 @@ int main( int argc, char **argv ) {
 
   auto env_sch = getenv("schedule");
   auto schedule = env_sch ? atoi(env_sch) : 0;
-  std::cout << "using scheudle = " << schedule << std::endl;
+  std::cout << "using schedule = " << schedule << std::endl;
 
+  int output_tile_width  = 128;
+  int output_tile_height = output_tile_width;
+  int num_channels = 1;
+  
   //int input_width  = 1242;
   int host_tiling, glb_tiling;
   switch (schedule) {
   case 1:
     processor.inputs_preset = true;
     host_tiling = 5;
-    glb_tiling = 4;
+    glb_tiling = 2;
+    break;
+  case 2:
+  case 3:
+    processor.inputs_preset = true;
+    host_tiling = 24;
+    glb_tiling = 1;
+    output_tile_width = 128;
+    output_tile_height = 208;
+    num_channels = 3;
     break;
   default:
     processor.inputs_preset = false;
@@ -76,18 +89,47 @@ int main( int argc, char **argv ) {
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 128;
-  int output_tile_height = output_tile_width;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
-  processor.input  = Buffer<uint8_t>(output_width/2, output_height/2, 1);
-  processor.output = Buffer<uint8_t>(output_width, output_height, 1);
+  processor.input  = Buffer<uint8_t>(output_width/2, output_height/2, num_channels);
+  processor.output = Buffer<uint8_t>(output_width, output_height, num_channels);
 
-  for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-    for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-      processor.input(x, y, 0) = x + y;
+  if (schedule == 2 || schedule == 3) {
+    // load this 1536x2560 image
+    std::cout << "Using a big parrot image" << std::endl;
+    processor.input = load_and_convert_image("../../../../images/rgb.png");
+    //Buffer<uint8_t> input = Buffer<uint8_t>(num_channels, output_width/2, output_height/2);
+    //input = load_and_convert_image("../../../../images/rgb.png");
+
+    //std::cout << "Image is ";
+    //for (auto d=0; d<processor.input.dimensions(); ++d) {
+    //  std::cout << input.dim(d).extent() << (d!=2 ? "x":"");
+    //}
+    //std::cout << std::endl;
+    
+    //for (int z = 0; z < processor.input.dim(0).extent(); z++) {
+    //  for (int y = 0; y < processor.input.dim(2).extent(); y++) {
+    //    for (int x = 0; x < processor.input.dim(1).extent(); x++) {
+    //      processor.input(z, x, y) = input(x, y, z);
+    //    }
+    //  }
+    //}
+    std::cout << "Input is ";
+    auto ndims = processor.input.dimensions();
+    for (auto d=0; d<ndims; ++d) {
+      std::cout << processor.input.dim(d).extent() << (d<ndims-1 ? "x":"");
+    }
+    std::cout << std::endl;
+    
+  } else {
+    for (int z = 0; z < processor.input.dim(2).extent(); z++) {
+      for (int y = 0; y < processor.input.dim(2).extent(); y++) {
+        for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+          processor.input(x, y, z) = x + y + 30*z;
+        }
+      }
     }
   }
 

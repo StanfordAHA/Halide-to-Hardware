@@ -282,8 +282,8 @@ void dir_rmdir(const std::string &name) {
     BOOL r = RemoveDirectoryA(name.c_str());
     internal_assert(r != 0) << "Unable to remove dir: " << name << ":" << GetLastError() << "\n";
     #else
-    int r = ::rmdir(name.c_str());
-    internal_assert(r == 0) << "Unable to remove dir: " << name << "\n";
+    //int r = ::rmdir(name.c_str());
+    //internal_assert(r == 0) << "Unable to remove dir: " << name << "\n";
     #endif
 }
 

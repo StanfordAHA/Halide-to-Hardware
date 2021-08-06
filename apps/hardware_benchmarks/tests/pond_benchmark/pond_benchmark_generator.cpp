@@ -10,7 +10,7 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    const int ksize = 3;
+    const int ksize = 2;
     const int numchannels = 8;
   
     void generate() {
@@ -23,10 +23,11 @@ public:
 
         conv(x, y) = u16(0);
 
-        Func hw_input("hw_input");
-        hw_input(x, y, c) = u16(input(x, y));
+        Func hw_input("hw_input"), input_broadcast("input_broadcast");
+        hw_input(x, y) = u16(input(x, y));
+        input_broadcast(x, y, c) = hw_input(x, y) * c;
 
-        conv(x, y)  += u16(hw_input(x + r.x, y + r.y, r.z));
+        conv(x, y)  += u16(input_broadcast(x + r.x, y + r.y, r.z));
 
         Func hw_output("hw_output");
 
@@ -40,7 +41,7 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          int tilesize_x = 64;
+          int tilesize_x = 16;
           int tilesize_y = 64 - ksize+1;
           output.bound(x, 0, tilesize_x);
           output.bound(y, 0, tilesize_y);
@@ -56,6 +57,11 @@ public:
             .unroll(r.x)
             .unroll(r.y, ksize)
             .unroll(r.z, numchannels);
+
+          input_broadcast
+            .compute_at(hw_output, xo)
+            .reorder(c, x, y)
+            .unroll(c);
           
           hw_input.stream_to_accelerator();
             
