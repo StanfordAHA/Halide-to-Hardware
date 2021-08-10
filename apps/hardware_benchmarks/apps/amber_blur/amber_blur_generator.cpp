@@ -29,15 +29,27 @@ public:
     GeneratorParam<int> tile_y{"tile_y", 8};   // Y tile.
 
     Input<Buffer<uint16_t>> input{"input", 2};
-    Output<Buffer<uint16_t>> blur_y{"blur_y", 2};
+    Output<Buffer<uint16_t>> output{"output", 2};
+
+    GeneratorParam<uint8_t> schedule_j{"schedule_j", 2};    // default: 0
 
     void generate() {
         Func blur_x("blur_x");
-        Var x("x"), y("y"), xi("xi"), yi("yi");
+        Func blur_y("blur_y");
+        Var x("x"), y("y"), xo("xo"), yo("yo"), xi("xi"), yi("yi");
+
+        // (original algorithm) // The algorithm
+        // (original algorithm) blur_x(x, y) = (input(x, y) + input(x + 1, y) + input(x + 2, y)) / 3;
+        // (original algorithm) blur_y(x, y) = (blur_x(x, y) + blur_x(x, y + 1) + blur_x(x, y + 2)) / 3;
 
         // The algorithm
-        blur_x(x, y) = (input(x, y) + input(x + 1, y) + input(x + 2, y)) / 3;
-        blur_y(x, y) = (blur_x(x, y) + blur_x(x, y + 1) + blur_x(x, y + 2)) / 3;
+        Func hw_input("hw_input");
+        Func hw_output("hw_output");
+        hw_input(x, y) = cast<uint16_t>(input(x, y));
+        blur_x(x, y) = ((hw_input(x, y) + hw_input(x + 1, y) + hw_input(x + 2, y)) * 85) >> 8;
+        blur_y(x, y) = ((blur_x(x, y) + blur_x(x, y + 1) + blur_x(x, y + 2)) * 85) >> 8;
+        hw_output(x, y) = blur_y(x, y);
+        output(x, y) = cast<uint16_t>(hw_output(x, y));
 
         // How to schedule it
         if (get_target().has_gpu_feature()) {
@@ -80,26 +92,73 @@ public:
             default:
                 break;
             }
-        // (new feature, we don't have HVX) } else if (get_target().has_feature(Target::HVX)) {
-        // (new feature, we don't have HVX)     // Hexagon schedule.
-        // (new feature, we don't have HVX)     // TODO: Try using a schedule like the CPU one below.
-        // (new feature, we don't have HVX)     const int vector_size = 128;
-        // (new feature, we don't have HVX)     blur_y.compute_root()
-        // (new feature, we don't have HVX)         .hexagon()
-        // (new feature, we don't have HVX)         .prefetch(input, y, 2)
-        // (new feature, we don't have HVX)         .split(y, y, yi, 128)
-        // (new feature, we don't have HVX)         .parallel(y)
-        // (new feature, we don't have HVX)         .vectorize(x, vector_size * 2);
-        // (new feature, we don't have HVX)     blur_x
-        // (new feature, we don't have HVX)         .store_at(blur_y, y)
-        // (new feature, we don't have HVX)         .compute_at(blur_y, yi)
-        // (new feature, we don't have HVX)         .vectorize(x, vector_size);
+        } else if (get_target().has_feature(Target::Clockwork)) {
+          // Clockwork Schedule
+          if (schedule_j == 4) { // small resolution
+            const int inputSize = 64;
+            const int blockSize = 3;
+            const int outputSize = inputSize-blockSize+1;
+            const int tileSize = outputSize; // single tile
+            
+            output.bound(x, 0, outputSize);
+            output.bound(y, 0, outputSize);
+
+            hw_output.compute_root();
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .hw_accelerate(xi, xo);
+
+            hw_input.stream_to_accelerator();
+
+          }
+          //if (schedule_j == 2) {
+          //  // do the big tern
+          //  const int tileWidth = 94;
+          //  const int tileHeight = 62;
+          //  const int numHostTiles = 9;
+          //  const int numTiles = 7;
+          //  const int glbWidth = tileWidth * numTiles;
+          //  const int glbHeight = tileHeight * numTiles;
+          //  const int outputWidth = numHostTiles * glbWidth;
+          //  const int outputHeight = numHostTiles * glbHeight;
+          //  
+          //  output.bound(x, 0, outputWidth);
+          //  output.bound(y, 0, outputHeight);
+
+          //  hw_output.in().compute_root();
+
+          //  hw_output.in()
+          //    .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+          //    .hw_accelerate(xi, xo);
+
+          //  Var xii, yii, xio, yio;
+          //  hw_output
+          //    .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
+          //  hw_output.compute_at(hw_output.in(), xo);
+          //  hw_output.store_in(MemoryType::GLB);
+
+          //  blur_unnormalized.update()
+          //    .unroll(win.x, blockSize)
+          //    .unroll(win.y, blockSize);
+
+          //  blur_unnormalized.compute_at(hw_output, xo);
+          //  blur.compute_at(hw_output, xo);
+
+          //  hw_input.in().compute_at(hw_output.in(), xo);
+          //  hw_input.in().store_in(MemoryType::GLB);
+          //  
+          //  hw_input.compute_root()
+          //    .accelerator_input();
+          //}
+
         } else {
             // CPU schedule.
             // Compute blur_x as needed at each vector of the output.
             // Halide will store blur_x in a circular buffer so its
             // results can be re-used.
             blur_y
+		.compute_root()
                 .split(y, y, yi, 32)
                 .parallel(y)
                 .vectorize(x, 16);

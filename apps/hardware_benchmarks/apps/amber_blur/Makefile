@@ -54,3 +54,13 @@ run-full: $(BIN)/$(TESTNAME).a
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) SIZE=1 $(BIN)/process run cpu input-full.png $(HALIDE_DEBUG_REDIRECT)
+
+run-cpu-small:
+	HALIDE_GEN_ARGS="schedule_j=4" $(MAKE) run-cpu
+
+run-clockwork-small:
+	HALIDE_GEN_ARGS="schedule_j=4" $(MAKE) run-clockwork
+
+compare-cpu-clockwork-small:
+	HALIDE_GEN_ARGS="schedule_j=4" $(MAKE) compare-cpu-clockwork
+

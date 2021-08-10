@@ -59,64 +59,62 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  auto env_sch = getenv("schedule");
-  auto schedule = env_sch ? atoi(env_sch) : 0;
-  std::cout << "using scheudle = " << schedule << std::endl;
+  auto env_sch = getenv("schedule_j");
+  auto schedule_j = env_sch ? atoi(env_sch) : 4;
+  std::cout << "using schedule = " << schedule_j << std::endl;
 
+  int output_tile_width  = 62;
+  int output_tile_height = output_tile_width;
+  
   //int input_width  = 1242;
   int host_tiling, glb_tiling;
-  switch (schedule) {
+  switch (schedule_j) {
   case 1:
+    processor.inputs_preset = true;
     host_tiling = 5;
-    glb_tiling = 10;
+    glb_tiling = 2;
     break;
   case 2:
+  case 3:
+    processor.inputs_preset = true;
+    host_tiling = 9;
+    glb_tiling = 7;
+    output_tile_width = 94;
+    output_tile_height = 62;
+    break;
+  case 4:
+    processor.inputs_preset = false;
     host_tiling = 1;
     glb_tiling = 1;
     break;
   default:
+    processor.inputs_preset = false;
     host_tiling = 1;
     glb_tiling = 1;
     break;
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 62;
-  int output_tile_height = output_tile_width;
-  // Override output size by argument
-  auto env_size = getenv("SIZE");
-  auto size = env_size ? atoi(env_size) : 0;
-  switch (size) {
-  case 1:
-    std::cout << "Full size (SIZE=1), using 6400x4800 output size." << std::endl;
-    output_tile_width = 6400 - 2;
-    output_tile_height = 4800 - 2;
-    break;
-  case 0:
-    std::cout << "Small size (SIZE=0), using 62x62 output size." << std::endl;
-    output_tile_width = 64 - 2;
-    output_tile_height = 64 - 2;
-    break;
-  default:
-    std::cout << "Invalid size, using default 62x62 output size." << std::endl;
-    output_tile_width = 64 - 2;
-    output_tile_height = 64 - 2;
-    break;
-  }
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
   processor.input  = Buffer<DTYPE>(output_width+2, output_height+2);
   processor.output = Buffer<DTYPE>(output_width, output_height);
-  
-  //processor.inputs_preset = true;
-  //for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-  //    for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-  //      processor.input(x, y) = x + y;
-  //    }
-  //}
-  
+
+  if (schedule_j == 2 || schedule_j == 3) {
+    // load this 6000x4000 image
+    std::cout << "Using a big tern image" << std::endl;
+    //processor.input = load_and_convert_image("../../images/tern_biggray.png"); // 8bit
+    processor.input = load_and_convert_image("../../images/tern_biggray.16b.png"); // 16bit
+    
+  } else {
+    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+        processor.input(x, y) = x + y;
+      }
+    }
+  } 
   //processor.input   = Buffer<DTYPE>(64, 64);
   //processor.output  = Buffer<DTYPE>(62, 62);
   
