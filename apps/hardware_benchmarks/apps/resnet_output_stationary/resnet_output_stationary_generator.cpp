@@ -101,6 +101,9 @@ public:
           int tilesize = ((int)stride == 2) ?
             std::min(14, imgsize) : // we want the input to be 30 max
             std::min(28, imgsize);  // min of 28 and output image size
+          int tilesize_y = (pad == 3) ?
+            16 : // this occurs only for conv1. We need it smaller to fit
+            tilesize;
 
           Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
           Var xi,yi;
@@ -118,7 +121,7 @@ public:
 
           output_glb.compute_at(hw_output, x_host); // global buffer
           output_glb
-            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize)
+            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y)
             .split(w, w_glb, w_cgra, k_oc)
             // reorder from inner to outermost
             .reorder(w_cgra, x_cgra, y_cgra,
