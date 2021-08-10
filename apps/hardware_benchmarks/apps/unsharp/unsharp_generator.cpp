@@ -182,7 +182,7 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y);
-            kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
             
             gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
             gray.compute_at(hw_output, xo);
@@ -232,7 +232,7 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y);
-            kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
             
             gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
             gray.compute_at(hw_output, xo);
@@ -245,7 +245,7 @@ public:
               .accelerator_input();
 
           } else if (schedule == 3) { // do the big parrot with unroll
-            const int unroll = 4;
+            const int unroll = 2;
             const int tileWidth = 128-0;
             const int tileHeight = 256-0;
             const int numHostTilesX = 12-1;
@@ -277,29 +277,34 @@ public:
               .unroll(xi, unroll);
 
             ratio.compute_at(hw_output, xo)
-              .unroll(x, 2);
+              .unroll(x, unroll);
             reciprocal.compute_at(hw_output, xo) // we don't want this memory
-              .unroll(x, 2);
+              .unroll(x, unroll);
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
 
             sharpen.compute_at(hw_output, xo)
-              .unroll(x, 2);
+              .unroll(x, unroll);
 
             blur_unnormalized.compute_at(hw_output, xo)
-              .unroll(x, 2);
+              .unroll(x, unroll);
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y)
-              .unroll(x, 2);
-            kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(x, 2);
+              .unroll(x, unroll);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(x, unroll);
             
             gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
             gray.compute_at(hw_output, xo)
-              .unroll(x, 2);
+              .unroll(x, unroll);
 
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(c)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            
             hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
             hw_input.in().store_in(MemoryType::GLB);
             hw_input.in().unroll(c)  // hw input bound
-              .unroll(x, 2);
+              .unroll(x, unroll);
             
             hw_input.compute_root()
               .accelerator_input();
@@ -316,7 +321,7 @@ public:
 
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
             
-            kernel.compute_at(blur_unnormalized, x).unroll(x);
+            //kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
 
           } else if (schedule == 5) { // all buffers
@@ -331,7 +336,7 @@ public:
             blur_unnormalized.compute_at(hw_output, xo);
             ratio.compute_at(hw_output, xo);
             gray.compute_at(hw_output, xo);
-            kernel.compute_at(blur_unnormalized, x).unroll(x);
+            //kernel.compute_at(blur_unnormalized, x).unroll(x);
             
             hw_input.stream_to_accelerator();
             
@@ -367,7 +372,7 @@ public:
             
             gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
 
-            kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
             //kernel.compute_at(blur_unnormalized, x).unroll(x).unroll(y);
 
             gray.compute_at(hw_output, xo);

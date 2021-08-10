@@ -271,29 +271,40 @@ public:
             hw_output.store_in(MemoryType::GLB);
             hw_output.unroll(xi, unroll, TailStrategy::RoundUp);
 
+            cim.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
+
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            lgxx.update().unroll(box.x).unroll(box.y).unroll(x, unroll, TailStrategy::RoundUp);
+            lgyy.update().unroll(box.x).unroll(box.y).unroll(x, unroll, TailStrategy::RoundUp);
+            lgxy.update().unroll(box.x).unroll(box.y).unroll(x, unroll, TailStrategy::RoundUp);
+            lgxx.unroll(x, unroll, TailStrategy::RoundUp);
+            lgyy.unroll(x, unroll, TailStrategy::RoundUp);
+            lgxy.unroll(x, unroll, TailStrategy::RoundUp);
+
             lxx.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
             lyy.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
             lxy.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            lgxx.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            lgyy.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            lgxy.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            cim.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
 
             kernel_x.compute_at(hw_output, xo);
             kernel_y.compute_at(hw_output, xo);
             kernel_x.unroll(x).unroll(y).unroll(x, unroll, TailStrategy::RoundUp);
             kernel_y.unroll(x).unroll(y).unroll(x, unroll, TailStrategy::RoundUp);
 
-            grad_x_unclamp.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            grad_y_unclamp.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
+            grad_x_unclamp.compute_at(hw_output, xo);
+            grad_y_unclamp.compute_at(hw_output, xo);
             grad_x_unclamp.update().unroll(r.x).unroll(r.y).unroll(x, unroll, TailStrategy::RoundUp);
             grad_y_unclamp.update().unroll(r.x).unroll(r.y).unroll(x, unroll, TailStrategy::RoundUp);
-
-            lgxx.update().unroll(box.x).unroll(box.y).unroll(x, unroll, TailStrategy::RoundUp);
-            lgyy.update().unroll(box.x).unroll(box.y).unroll(x, unroll, TailStrategy::RoundUp);
-            lgxy.update().unroll(box.x).unroll(box.y).unroll(x, unroll, TailStrategy::RoundUp);
+            grad_x_unclamp.unroll(x, unroll, TailStrategy::RoundUp);
+            grad_y_unclamp.unroll(x, unroll, TailStrategy::RoundUp);
 
             gray.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
+
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(c)
+              .unroll(x, unroll, TailStrategy::RoundUp);
 
             hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
             hw_input.in().store_in(MemoryType::GLB);

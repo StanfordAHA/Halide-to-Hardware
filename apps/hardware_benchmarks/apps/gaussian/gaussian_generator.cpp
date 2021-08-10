@@ -166,7 +166,7 @@ public:
 
           } else if (schedule == 3) {
             // do the big tern and unroll
-            const int unroll = 4;
+            const int unroll = 8;
             const int tileWidth = 256;
             const int tileHeight = 196;
             const int numHostTilesX = 23-0;
@@ -190,22 +190,26 @@ public:
               .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
               .hw_accelerate(xi, xo);
             hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
+            hw_output.in().store_in(MemoryType::GLB);
 
             Var xii, yii, xio, yio;
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
             hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
             hw_output.unroll(xi, unroll, TailStrategy::RoundUp);
 
             blur_unnormalized.update()
               .unroll(win.x, blockSize)
               .unroll(win.y, blockSize);
             blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
-
+            blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
             blur_unnormalized.compute_at(hw_output, xo);
+
             blur.compute_at(hw_output, xo);
             blur.unroll(x, unroll, TailStrategy::RoundUp);
+
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
 
             hw_input.in().compute_at(hw_output.in(), xo);
             hw_input.in().store_in(MemoryType::GLB);

@@ -134,7 +134,7 @@ public:
               .accelerator_input();
 
           } else if (schedule == 3) { // big color parrot with unroll
-            const int unroll = 8;
+            const int unroll = 2;
             const int tileWidth = 128;
             const int tileHeight = 256;
             const int numHostTilesX = 24;
@@ -172,11 +172,16 @@ public:
               .unroll(z)
               .unroll(x, unroll);
 
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(z);
+            //.unroll(x, unroll, TailStrategy::RoundUp);
+            
             hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
             hw_input.in().store_in(MemoryType::GLB);
             hw_input.in()
-              .unroll(z)
-              .unroll(x, unroll); 
+              .unroll(z);
+            //.unroll(x, unroll); 
             
             hw_input.compute_root()
               .accelerator_input();
