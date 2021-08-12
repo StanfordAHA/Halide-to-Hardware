@@ -148,6 +148,14 @@ int main( int argc, char **argv ) {
               << processor.output.dim(2).extent() << "\n";
 
     int return_value =  processor.process_command(argc, argv);
+    for (int y=0; y<5; ++y) {
+      for (int x=0; x<5; ++x) {
+        for (int k=0; k<3; ++k) {
+          std::cout << "hw_out(" << k << "," << x << "," << y << ") = "
+                    << std::hex << +processor.output(k, x, y) << std::dec << std::endl;
+        }
+      }
+    }
 
     bool write_output = true;
     if (write_output) {

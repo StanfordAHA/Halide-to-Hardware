@@ -65,32 +65,40 @@ int main( int argc, char **argv ) {
   int num_channels = 1;
   
   //int input_width  = 1242;
-  int host_tiling, glb_tiling;
+  int host_tiling_x, host_tiling_y, glb_tiling;
   switch (schedule) {
   case 1:
     processor.inputs_preset = true;
-    host_tiling = 5;
+    host_tiling_x = 5;  host_tiling_y = 5;
     glb_tiling = 2;
     break;
   case 2:
-  case 3:
     processor.inputs_preset = true;
-    host_tiling = 24;
+    host_tiling_x = 24;  host_tiling_y = 24;
     glb_tiling = 1;
     output_tile_width = 128;
     output_tile_height = 208;
     num_channels = 3;
     break;
+  case 3:
+    processor.inputs_preset = true;
+    host_tiling_x = 24;  host_tiling_y = 20;
+    glb_tiling = 1;
+    output_tile_width = 128;
+    output_tile_height = 256;
+    num_channels = 3;
+    break;
   default:
     processor.inputs_preset = false;
-    host_tiling = 1;
+    host_tiling_x = 1;  host_tiling_y = 1;
     glb_tiling = 1;
     break;
   }
 
-  int num_tiles          = host_tiling * glb_tiling;
-  int output_width       = num_tiles * output_tile_width;
-  int output_height      = num_tiles * output_tile_height;
+  int num_tiles_x        = host_tiling_x * glb_tiling;
+  int num_tiles_y        = host_tiling_y * glb_tiling;
+  int output_width       = num_tiles_x * output_tile_width;
+  int output_height      = num_tiles_y * output_tile_height;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
   processor.input  = Buffer<uint8_t>(output_width/2, output_height/2, num_channels);

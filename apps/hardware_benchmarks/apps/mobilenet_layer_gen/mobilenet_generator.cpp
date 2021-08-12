@@ -76,6 +76,7 @@ public:
 
         Func hw_output("hw_output");
         hw_output(k, x, y) = pw_conv_reduction(k, x, y);
+        //hw_output(k, x, y) = pw_conv(k, 3, x, y);
 
         //hw_output(k, x, y) = max(0, pw_conv_reduction(k, x, y));
         //hw_output(x, y, k) = u8(hw_input(x, y, 0));

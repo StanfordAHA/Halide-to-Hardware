@@ -166,45 +166,50 @@ public:
 
           } else if (schedule == 3) {
             // do the big tern and unroll
-            const int unroll = 2;
-            const int tileWidth = 94;
-            const int tileHeight = 62;
-            const int numHostTiles = 9;
-            const int numTiles = 7;
+            const int unroll = 4;
+            const int tileWidth = 256;
+            const int tileHeight = 196;
+            const int numHostTilesX = 23-0;
+            const int numHostTilesY = 20-0;
+            const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTiles * glbWidth;
-            const int outputHeight = numHostTiles * glbHeight;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
             
             output.bound(x, 0, outputWidth);
             output.bound(y, 0, outputHeight);
+            //hw_input.in().bound(x, 0, glbWidth+2);
+            //hw_input.in().bound(y, 0, glbHeight+2);
+            //hw_input.bound(x, 0, outputWidth+2);
+            //hw_input.bound(y, 0, outputHeight+2);
 
             hw_output.in().compute_root();
 
             hw_output.in()
               .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
               .hw_accelerate(xi, xo);
-            hw_output.in().unroll(xi, unroll);
+            hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
 
             Var xii, yii, xio, yio;
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
             hw_output.compute_at(hw_output.in(), xo);
             hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(xi, unroll);
+            hw_output.unroll(xi, unroll, TailStrategy::RoundUp);
 
             blur_unnormalized.update()
               .unroll(win.x, blockSize)
               .unroll(win.y, blockSize);
-            blur_unnormalized.update().unroll(x, unroll);
+            blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
 
             blur_unnormalized.compute_at(hw_output, xo);
             blur.compute_at(hw_output, xo);
-            blur.unroll(x, unroll);
+            blur.unroll(x, unroll, TailStrategy::RoundUp);
 
             hw_input.in().compute_at(hw_output.in(), xo);
             hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(x, unroll);
+            hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
             
             hw_input.compute_root()
               .accelerator_input();

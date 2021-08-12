@@ -43,24 +43,24 @@ EXT                             = mat
 # HALIDE_GEN_ARGS ?= ksize=3 stride=2 k_ic=10 k_oc=3 in_img=64
 
 # resnet layers include:
-#  conv1:   HALIDE_GEN_ARGS="in_img=224 pad=3 ksize=7 stride=2 k_ic=3   k_oc=64"
-#  conv2_x: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 k_ic=64  k_oc=64"
-#  conv3_1: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 k_ic=64  k_oc=128"
-#  conv3_x: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 k_ic=128 k_oc=128"
-#  conv4_1: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 k_ic=128 k_oc=256"
-#  conv4_x: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=1 k_ic=256 k_oc=256"
-#  conv5_1: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 k_ic=256 k_oc=512"
-#  conv5_x: HALIDE_GEN_ARGS="in_img=7   pad=1 ksize=3 stride=1 k_ic=512 k_oc=512"
+#  conv1:   HALIDE_GEN_ARGS="in_img=224 pad=3 ksize=7 stride=2 n_ic=3   n_oc=64  k_ic=3"
+#  conv2_x: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 n_ic=64  n_oc=64"
+#  conv3_1: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 n_ic=64  n_oc=128"
+#  conv3_x: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 n_ic=128 n_oc=128"
+#  conv4_1: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 n_ic=128 n_oc=256"
+#  conv4_x: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=1 n_ic=256 n_oc=256"
+#  conv5_1: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 n_ic=256 n_oc=512"
+#  conv5_x: HALIDE_GEN_ARGS="in_img=7   pad=1 ksize=3 stride=1 n_ic=512 n_oc=512"
 
 
-#  conv1:   HALIDE_GEN_ARGS="in_img=224 pad=3 ksize=7 stride=2 k_ic=3 k_oc=8"
-#  conv2_x: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 k_ic=8 k_oc=8"
-#  conv3_1: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 k_ic=8 k_oc=8"
-#  conv3_x: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 k_ic=8 k_oc=8"
-#  conv4_1: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 k_ic=8 k_oc=8"
-#  conv4_x: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=1 k_ic=8 k_oc=8"
-#  conv5_1: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 k_ic=8 k_oc=8"
-#  conv5_x: HALIDE_GEN_ARGS="in_img=7   pad=1 ksize=3 stride=1 k_ic=8 k_oc=8"
+#  conv1:   HALIDE_GEN_ARGS="in_img=224 pad=3 ksize=7 stride=2 n_ic=3 n_oc=8"
+#  conv2_x: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 n_ic=8 n_oc=8"
+#  conv3_1: HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 n_ic=8 n_oc=8"
+#  conv3_x: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 n_ic=8 n_oc=8"
+#  conv4_1: HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 n_ic=8 n_oc=8"
+#  conv4_x: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=1 n_ic=8 n_oc=8"
+#  conv5_1: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 n_ic=8 n_oc=8"
+#  conv5_x: HALIDE_GEN_ARGS="in_img=7   pad=1 ksize=3 stride=1 n_ic=8 n_oc=8"
 
 
 

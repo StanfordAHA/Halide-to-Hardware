@@ -63,31 +63,38 @@ int main( int argc, char **argv ) {
   int output_tile_width  = 58;
   int output_tile_height = output_tile_width;
   
-  int host_tiling, glb_tiling;
+  int host_tiling_x, host_tiling_y, glb_tiling;
   switch (schedule) {
   case 1:
     processor.inputs_preset = true;
-    host_tiling = 3;
+    host_tiling_x = 3;  host_tiling_y = 3;
     glb_tiling = 2;
     break;
   case 2:
-  case 3:
     processor.inputs_preset = true;
-    host_tiling = 5;
+    host_tiling_x = 5;  host_tiling_y = 5;
     glb_tiling = 5;
     output_tile_width = 58;
     output_tile_height = 94;
     break;
+  case 3:
+    processor.inputs_preset = true;
+    host_tiling_x = 12;  host_tiling_y = 10;
+    glb_tiling = 1;
+    output_tile_width = 126-6;
+    output_tile_height = 256-6;
+    break;
   default:
     processor.inputs_preset = false;
-    host_tiling = 1;
+    host_tiling_x = 1;  host_tiling_y = 1;
     glb_tiling = 1;
     break;
   }
 
-  int num_tiles          = host_tiling * glb_tiling;
-  int output_width       = num_tiles * output_tile_width;
-  int output_height      = num_tiles * output_tile_height;
+  int num_tiles_x        = host_tiling_x * glb_tiling;
+  int num_tiles_y        = host_tiling_y * glb_tiling;
+  int output_width       = num_tiles_x * output_tile_width;
+  int output_height      = num_tiles_y * output_tile_height;
   int blockSize = 7;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
