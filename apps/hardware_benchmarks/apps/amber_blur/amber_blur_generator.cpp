@@ -112,45 +112,40 @@ public:
             hw_input.stream_to_accelerator();
 
           }
-          //if (schedule_j == 2) {
-          //  // do the big tern
-          //  const int tileWidth = 94;
-          //  const int tileHeight = 62;
-          //  const int numHostTiles = 9;
-          //  const int numTiles = 7;
-          //  const int glbWidth = tileWidth * numTiles;
-          //  const int glbHeight = tileHeight * numTiles;
-          //  const int outputWidth = numHostTiles * glbWidth;
-          //  const int outputHeight = numHostTiles * glbHeight;
-          //  
-          //  output.bound(x, 0, outputWidth);
-          //  output.bound(y, 0, outputHeight);
+          else if (schedule_j == 2) { // big resolution
+            const int tileWidth = 94;
+            const int tileHeight = 62;
+            const int numHostTiles = 9;
+            const int numTiles = 7;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+            
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
 
-          //  hw_output.in().compute_root();
+            hw_output.in().compute_root();
 
-          //  hw_output.in()
-          //    .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-          //    .hw_accelerate(xi, xo);
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .hw_accelerate(xi, xo);
 
-          //  Var xii, yii, xio, yio;
-          //  hw_output
-          //    .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
-          //  hw_output.compute_at(hw_output.in(), xo);
-          //  hw_output.store_in(MemoryType::GLB);
+            //Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(Halide::MemoryType::GLB);
+            
+            // Is this necessary?
+            // blur_y.compute_at(hw_output, xo);
 
-          //  blur_unnormalized.update()
-          //    .unroll(win.x, blockSize)
-          //    .unroll(win.y, blockSize);
-
-          //  blur_unnormalized.compute_at(hw_output, xo);
-          //  blur.compute_at(hw_output, xo);
-
-          //  hw_input.in().compute_at(hw_output.in(), xo);
-          //  hw_input.in().store_in(MemoryType::GLB);
-          //  
-          //  hw_input.compute_root()
-          //    .accelerator_input();
-          //}
+            hw_input.in().compute_at(hw_output.in(), xo);
+            hw_input.in().store_in(Halide::MemoryType::GLB);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+          }
 
         } else {
             // CPU schedule.
@@ -158,7 +153,7 @@ public:
             // Halide will store blur_x in a circular buffer so its
             // results can be re-used.
             blur_y
-		.compute_root()
+                .compute_root()
                 .split(y, y, yi, 32)
                 .parallel(y)
                 .vectorize(x, 16);
