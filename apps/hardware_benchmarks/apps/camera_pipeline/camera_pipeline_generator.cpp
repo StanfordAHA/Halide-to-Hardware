@@ -523,6 +523,9 @@ Func interleave_y(Func a, Func b) {
             curve.store_in(MemoryType::ROM);
             // unroll by x?
 
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(x, unroll, TailStrategy::RoundUp);
             
             hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
             hw_input.in().store_in(MemoryType::GLB);
