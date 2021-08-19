@@ -127,6 +127,10 @@ public:
             .reorder(w_cgra, x_cgra, y_cgra,
                      w_glb, x_glb, y_glb);
 
+          if (imgsize == 7) {
+            //output_glb.unroll(w, 2); // unroll cgra->glb channels for small images
+          }
+
           output_cgra.compute_at(output_glb, w_glb); // memtile
           output_cgra
             //.split(w, w_glb, w_cgra, k_oc)
@@ -170,6 +174,7 @@ public:
           //input_host.stream_to_accelerator();
           input_glb.compute_at(hw_output, x_host); // global buffer
           input_cgra.compute_at(output_cgra, rz_glb);   // mem tile
+          //input_cgra.compute_at(output_cgra, Var::outermost());   // mem tile
           //input_cgra.compute_at(interm_output_cgra, w_glb);   // mem tile
           //input_cgra.compute_at(output_cgra, w_glb);   // mem tile
           //input_cgra.compute_at(output_cgra, r.z);   // mem tile
@@ -180,8 +185,17 @@ public:
           kernel_host.accelerator_input();
           kernel_glb.compute_at(hw_output, x_host); // global buffer
           kernel_cgra.compute_at(output_cgra, rz_glb);   // mem tile
+          //kernel_cgra.compute_at(output_cgra, Var::outermost());   // mem tile
           //kernel_cgra.compute_at(output_cgra, w_glb);   // mem tile
           //kernel_cgra.compute_at(output_cgra, r.z);   // mem tile
+
+          if (imgsize == 7) {
+            //input_cgra.compute_at(output_cgra, Var::outermost());   // mem tile
+            //kernel_cgra.compute_at(output_cgra, Var::outermost());   // mem tile
+            kernel_cgra.unroll(z, 2); // unroll glb->cgra channels for small images
+            input_cgra.unroll(z, 2); // unroll glb->cgra channels for small images
+          }
+
 
           //input_glb.unroll(z, k_ic);
           //input_cgra.unroll(z, k_ic);

@@ -972,6 +972,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       vector<io_info> inputs;
       if (num_buffers > 1) {
         for (size_t i = 0; i < num_buffers - 1; i++) {
+          if (!closure_args[i].is_stencil) { continue; } // skip non-stencil inputs
           string input_name = printname(closure_args[i].name);
           int bitwidth = 16;
           Region bounds = closure_args[i].stencil_type.bounds;
