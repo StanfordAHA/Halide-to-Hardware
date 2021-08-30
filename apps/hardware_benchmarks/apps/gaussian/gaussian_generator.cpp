@@ -169,8 +169,10 @@ public:
             const int unroll = 8;
             const int tileWidth = 256;
             const int tileHeight = 196;
-            const int numHostTilesX = 23-0;
-            const int numHostTilesY = 20-0;
+            //const int numHostTilesX = 23-0;
+            //const int numHostTilesY = 20-0;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
