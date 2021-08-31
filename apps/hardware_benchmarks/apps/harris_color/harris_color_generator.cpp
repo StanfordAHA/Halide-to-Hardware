@@ -242,7 +242,7 @@ public:
 
           } else if (schedule == 3) { // do big parrot with unroll
             const int unroll = 2;
-            const int tileWidth = 126-6;
+            const int tileWidth = 128-6;
             const int tileHeight = 256-6;
             const int numHostTilesX = 12;
             const int numHostTilesY = 10;

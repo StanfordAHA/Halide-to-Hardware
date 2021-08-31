@@ -90,10 +90,10 @@ def parseDesignTop(meta, filename: str):
                 new_shape[1] //= num_tiles
                 input_struct["shape"] = new_shape
             # change the read data stride
-            for io_tile in input_struct["io_tiles"]:
-                data_stride = io_tile["addr"]["read_data_stride"]
-                io_tile["addr"]["read_data_stride"] = [stride // num_tiles for stride in data_stride]
-                    #assert(stride % num_tiles == 0), f"input stride is {stride}"
+            #for io_tile in input_struct["io_tiles"]:
+            #    data_stride = io_tile["addr"]["read_data_stride"]
+            #    io_tile["addr"]["read_data_stride"] = [stride // num_tiles for stride in data_stride]
+            #        #assert(stride % num_tiles == 0), f"input stride is {stride}"
                     
         for output_struct in meta["IOs"]["outputs"]:
             num_tiles = len(output_struct["io_tiles"])
@@ -105,10 +105,10 @@ def parseDesignTop(meta, filename: str):
                 new_shape[1] /= num_tiles
                 output_struct["shape"] = new_shape
             # change the write data stride
-            for io_tile in output_struct["io_tiles"]:
-                data_stride = io_tile["addr"]["write_data_stride"]
-                io_tile["addr"]["write_data_stride"] = [stride // num_tiles for stride in data_stride]
-                    #assert(stride % num_tiles == 0), f"output stride is {stride}"
+            #for io_tile in output_struct["io_tiles"]:
+            #    data_stride = io_tile["addr"]["write_data_stride"]
+            #    io_tile["addr"]["write_data_stride"] = [stride // num_tiles for stride in data_stride]
+            #        #assert(stride % num_tiles == 0), f"output stride is {stride}"
 
 
 def parseDesignPlace(meta, filename: str):
