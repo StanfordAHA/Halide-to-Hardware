@@ -127,6 +127,13 @@ int main( int argc, char **argv ) {
     // load this 2592x1968 image
     std::cout << "Using a big dog image" << std::endl;
     processor.input = load_and_convert_image("../../../images/bayer_raw.png");
+    auto boosted = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
+    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+        boosted(x, y) = processor.input(x, y) * 64;
+      }
+    }
+    save_image(boosted, "boosted_input.png");
     
   } else {
     for (int y = 0; y < processor.input.dim(1).extent(); y++) {

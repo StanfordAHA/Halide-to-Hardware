@@ -142,7 +142,10 @@ int main( int argc, char **argv ) {
           //std::cout << "input " << z << "," << x << "," << y << " = " << std::hex << +full_input(z,x,y) << std::dec << std::endl;
         } } }
     //std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
-    //save_image(full_input, "bin/input.mat");
+    std::cout << "full input has dims: " << full_input.dim(0).extent() << "x"
+              << full_input.dim(1).extent() << "x"
+              << full_input.dim(2).extent() << "\n";
+
     std::cout << "num_dims=" << oned_input.dimensions() << std::endl
               << oned_input.dim(0).extent() << "x" << oned_input.dim(1).extent()
               << std::endl;
@@ -234,8 +237,8 @@ int main( int argc, char **argv ) {
           //std::cout << x << "," << y << "," << w << " = " << +processor.output(x,y,w) << " = " << std::hex << +processor.output(x,y,w) << std::dec << std::endl;
         } } }
     if (write_images) {//if (processor.output(0,0,0,0) == 198) {
-      save_image(oned_output, "bin/output_gold.mat");
-      //save_image(processor.output, "bin/output_gold.mat");
+      //save_image(oned_output, "bin/output_gold.mat");
+      save_image(processor.output, "bin/output_gold.mat");
       for (size_t i=0; i<outputs.size(); ++i) {
         save_image(outputs[i], "bin/output_" + std::to_string(i) + ".mat");
       }

@@ -4,6 +4,7 @@ import os
 import pprint
 import sys
 
+# python ../../hw_support/parse_design_meta.py bin/design_meta_halide.json --top bin/design_top.json --place bin/design.place
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -32,6 +33,7 @@ def findIO(metaBase, name:str):
     for metaIO in metaBase:
         if name in metaIO["name"]:
             return metaIO
+    print(f"Could not find {name} in list of IOs")
     assert False
 
 def setOrCheck(json, key, value):
@@ -63,6 +65,10 @@ def parseDesignTop(meta, filename: str):
                 else:
                     metaIn["io_tiles"] = [{"name":inst, "addr":addr}]
 
+                # change read_data_stride based on the number of input tiles
+                metaIn["io_tiles"]
+
+
             elif inst.startswith("io16_"):
                 # this is a data output
                 ioName = findBetween(inst, "io16_", "_clkwrk")
@@ -72,6 +78,37 @@ def parseDesignTop(meta, filename: str):
                     metaOut["io_tiles"].append({"name":inst, "addr":addr})
                 else:
                     metaOut["io_tiles"] = [{"name":inst, "addr":addr}]
+
+        # alter the shape and data stride 
+        for input_struct in meta["IOs"]["inputs"]:
+            num_tiles = len(input_struct["io_tiles"])
+            # change the shape
+            if num_tiles > 1 and input_struct["shape"][0] is not num_tiles:
+                new_shape = input_struct["shape"]
+                assert(new_shape[0] % num_tiles == 0), f"input shape has inner dim {new_shape[0]}"
+                new_shape.insert(0,num_tiles)
+                new_shape[1] //= num_tiles
+                input_struct["shape"] = new_shape
+            # change the read data stride
+            #for io_tile in input_struct["io_tiles"]:
+            #    data_stride = io_tile["addr"]["read_data_stride"]
+            #    io_tile["addr"]["read_data_stride"] = [stride // num_tiles for stride in data_stride]
+            #        #assert(stride % num_tiles == 0), f"input stride is {stride}"
+                    
+        for output_struct in meta["IOs"]["outputs"]:
+            num_tiles = len(output_struct["io_tiles"])
+            # change the shape
+            if num_tiles > 1 and output_struct["shape"][0] is not num_tiles:
+                new_shape = output_struct["shape"]
+                assert(new_shape[0] % num_tiles == 0), f"output shape has inner dim {new_shape[0]}"
+                new_shape.insert(0,num_tiles)
+                new_shape[1] /= num_tiles
+                output_struct["shape"] = new_shape
+            # change the write data stride
+            #for io_tile in output_struct["io_tiles"]:
+            #    data_stride = io_tile["addr"]["write_data_stride"]
+            #    io_tile["addr"]["write_data_stride"] = [stride // num_tiles for stride in data_stride]
+            #        #assert(stride % num_tiles == 0), f"output stride is {stride}"
 
 
 def parseDesignPlace(meta, filename: str):
@@ -116,7 +153,9 @@ def main():
         meta = json.load(designMeta)
 
         # Search for *.bs file in the bin directory
-        bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
+        #bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
+        slash_index = args.DesignMeta.rfind("/")
+        bin_directory = args.DesignMeta[0:slash_index]
         for file in os.listdir(bin_directory):
             if file.endswith(".bs"):
                 meta["testing"]["bitstream"] = file

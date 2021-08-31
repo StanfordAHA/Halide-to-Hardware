@@ -738,6 +738,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
   }
   stream << "#include \"hw_classes.h\"\n"
          << "#include <fstream>\n"
+         << "#include <vector>\n"
          << "\n";
 
   for (auto& xcel_closure_pair : closure_map) {
@@ -801,8 +802,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         stream << "\tHWStream< hw_uint<" << elt_sizes[i] << "> > " << printname(closure_args[i].name) << "_stream;\n";
       }
     }
-    stream << "\n";
-
+    stream  << "\tint idx = 0;" << std::endl
+            << std::endl;
 
     // copy inputs from buffers to streams
     if (num_buffers > 1) {
@@ -815,10 +816,22 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         
         string stream_name = printname(closure_args[i].name) + "_stream";
         stream << "\t// provision input stream " << stream_name << "\n";
+        string tile_name = stream_name + "_tile";
         Region bounds = closure_args[i].stencil_type.bounds;
         const Box& box = closure_args[i].box;
         auto mins = extract_mins(box);
         auto maxes = extract_maxplusone(box);
+        auto extents = extract_extents(box);
+
+        // create vector for input tile
+        ostringstream oss;
+        oss << type_to_c_type(closure_args[i].stencil_type.elemType);
+        string type_name = oss.str();
+        stream << "\tstd::vector<" << type_name << "> "<< tile_name << "(";
+        for (size_t edim=0; edim<extents.size(); ++edim) {
+          stream << (edim==0 ? "":"*") << extents[edim];
+        }
+        stream << ");   idx=0;\n";
 
         // subtract the minimum value, so it starts at 0
         //std::cout << closure_args[i].name  <<" = " << bounds[0].min << "; " <<" < "<< bounds[0].extent<<"; " <<"++) {\n";
@@ -859,6 +872,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         stream << "\t\tset_at<0, " << elt_sizes[i] << ", " << elt_sizes[i] << ">(in_val, ";
         stream <<  "hw_uint<" << elt_sizes[i] << ">(" << printname(closure_args[i].name) << "[" << temp_arg <<"]));\n";
         stream << "\t\t" << stream_name << ".write(in_val);\n";
+        stream << "\t\t" << tile_name << "[idx] = " << printname(closure_args[i].name)
+               << "[" << temp_arg << "];  idx += 1;" << std::endl;
 
         stream << "\t";
         for (size_t j = 0; j < bounds.size(); j++) {
@@ -871,10 +886,10 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         internal_assert((elt_sizes[i]==8) || (elt_sizes[i]==16));
         string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
         stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";
-        stream << "\t" << inputname << "_file.write(reinterpret_cast<const char *>(" << inputname << "),\n"
-               << "\t\tsizeof(" << inputname << "[0])";
-        for (size_t j = 0; j < bounds.size(); j++) {
-          stream << " * " << bounds[j].extent;
+        stream << "\t" << inputname << "_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
+               << "\t\tsizeof(" << tile_name << "[0])";
+        for (size_t j = 0; j < extents.size(); j++) {
+          stream << " * " << extents[j];
         }
         stream << ");" << std::endl
                << "\t" << inputname << "_file.close();" << std::endl
@@ -898,9 +913,21 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       HW_Arg stencil_arg = closure_args[num_buffers-1];
       string stream_name = printname(stencil_arg.name) + "_stream";
       stream << "\t// provision output buffer\n";
+      string tile_name = stream_name + "_tile";
       Region bounds = stencil_arg.stencil_type.bounds;
       auto mins = extract_mins(closure_args[num_buffers-1].box);
       auto maxes = extract_maxplusone(closure_args[num_buffers-1].box);
+      auto extents = extract_extents(closure_args[num_buffers-1].box);
+
+      // create vector for output tile
+      ostringstream oss;
+      oss << type_to_c_type(closure_args[num_buffers-1].stencil_type.elemType);
+      string type_name = oss.str();
+      stream << "\tstd::vector<" << type_name << "> "<< tile_name << "(";
+      for (size_t edim=0; edim<extents.size(); ++edim) {
+        stream << (edim==0 ? "":"*") << extents[edim];
+      }
+      stream << ");   idx=0;\n";
 
       // rename inputs with printnames
       for (size_t mdim=0; mdim<mins.size(); ++mdim) {
@@ -934,6 +961,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       stream << "\t\tint actual_lane = actual.extract<0, "<< elt_size-1 << ">();\n";
       stream << "\t\t" << printname(stencil_arg.name) << "[" << temp_arg << "] = ";
       stream << "(" << type_to_c_type(stencil_arg.stencil_type.elemType) << ") actual_lane;\n";
+      stream << "\t\t" << tile_name << "[idx] = " << printname(stencil_arg.name)
+             << "[" << temp_arg << "];  idx += 1;" << std::endl;
       stream << "\t";
       for (size_t i = 0; i < bounds.size(); i++) {
         stream << "} ";
@@ -945,10 +974,11 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       internal_assert((elt_size==8) || (elt_size==16));
       string extension = elt_size == 8 ? ".raw" : ".leraw";
       stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
-      stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << outputname << "),\n"
-             << "\t\tsizeof(" << outputname << "[0])";
-      for (size_t j = 0; j < bounds.size(); j++) {
-        stream << " * " << bounds[j].extent;
+      stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
+             << "\t\tsizeof(" << tile_name << "[0])";
+
+      for (size_t j = 0; j < extents.size(); j++) {
+        stream << " * " << extents[j];
       }
       stream << ");" << std::endl
              << "\t" << "hw_output_file.close();" << std::endl;
@@ -958,8 +988,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       stream << "\tofstream " << "hw_output_header_file(\"bin/" << "hw_output_header.txt\", ios::binary);\n";
       stream << "\t" << "hw_output_header_file << \"P5\" << std::endl;" << std::endl;
       stream << "\t" << "hw_output_header_file << \"";
-      for (size_t j = 0; j < bounds.size(); j++) {
-        stream << bounds[j].extent << (j==bounds.size()-1 ? "" : " ");
+      for (size_t j = 0; j < extents.size(); j++) {
+        stream << extents[j] << (j==extents.size()-1 ? "" : " ");
       }
       stream << "\" << std::endl;" << std::endl;
       stream << "\t" << "hw_output_header_file << \"" << max_value << "\" << std::endl;" << std::endl;
