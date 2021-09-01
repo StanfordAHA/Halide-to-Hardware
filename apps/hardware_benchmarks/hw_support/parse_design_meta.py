@@ -5,6 +5,12 @@ import pprint
 import sys
 import re
 
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+
 # python ../../hw_support/parse_design_meta.py bin/design_meta_halide.json --top bin/design_top.json --place bin/design.place
 def parseArguments():
     # Create argument parser
@@ -23,12 +29,6 @@ def parseArguments():
     args = parser.parse_args()
 
     return args
-
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
 def findBetween(s:str, start:str, end:str):
     end = end if "clkwrk" in s else "_op_hcompute"
@@ -125,9 +125,6 @@ def parseDesignTop(meta, filename: str):
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll
                 output_struct["shape"] = new_shape
-                
-            metaOut["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
-            
             # change the write data stride
             #for io_tile in output_struct["io_tiles"]:
             #    data_stride = io_tile["addr"]["write_data_stride"]
@@ -173,7 +170,6 @@ def parseDesignPlace(meta, filename: str):
                 setOrCheck(tileOut, "y_pos", int(words[2]))
                 tileOut["valid_name"] = validName
 
-
 def main():
     args = parseArguments()
 
@@ -212,23 +208,6 @@ def main():
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
-
-    if args.shuffle:
-        with open(outputName, 'r', encoding='utf-8') as fileout:
-            data = json.load(fileout)
-        inputs = data['IOs']['inputs']
-        for _input in inputs:
-            if _input['datafile'][0:5] == 'input':
-                _input['datafile'] = 'input_padded_shuffle.raw'
-            elif _input['datafile'][0:6] == 'kernel':
-                _input['datafile'] = 'kernel_shuffle.raw'
-        outputs = data['IOs']['outputs']
-        for _output in outputs:
-            if _output['datafile'][0:9] == 'hw_output':
-                _output['datafile'] = 'output_cpu_shuffle.raw'
-        with open(outputName, 'w', encoding='utf-8') as fileout:
-            print("replacing ", outputName)
-            json.dump(data, fileout, indent=2)
 
 if __name__ == "__main__":
     main()

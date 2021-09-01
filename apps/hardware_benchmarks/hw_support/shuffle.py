@@ -89,7 +89,7 @@ with open(input_file) as f:
                   #data_org = scipy.io.loadmat("kernel.mat")["kernel"]
                   #data_org = np.random.randint(-128, 128, 16*64*9)
               elif "output" in ins_name:
-                  return "output_cpu"
+                  return "hw_output"
                   #assert(path.exists("output_cpu.mat"))
                   #data_org = scipy.io.loadmat("output_cpu.mat")["output_cpu"]
                   #data_org = np.random.randint(-128, 128, 28*28*64)
@@ -97,14 +97,18 @@ with open(input_file) as f:
                   assert(False)
 
             img_file_name = get_img_name(ins_name)
-            assert(path.exists(img_file_name+".mat") )
-            data_org = scipy.io.loadmat(img_file_name + ".mat")[img_file_name]
+            if path.exists(img_file_name+".mat"):
+                data_org = scipy.io.loadmat(img_file_name + ".mat")[img_file_name]
+            elif path.exists(img_file_name+".raw"):
+                data_org = np.fromfile(img_file_name + ".raw", dtype=">u2")
+            else:
+                raise Exception(f"{image_file_name}.raw or {image_file_name}.mat does not exist")
             print ("load halide generated image, with size =", data_org.shape)
             data_org = data_org.flatten('F')
             print ("After Flatten Fortran style size =", data_org.shape)
 
             #Create the reordered array
-            data_shuffle = np.zeros(img_size, dtype=np.int8)
+            data_shuffle = np.zeros(img_size, dtype='>i2')
 
             #sanity check set
             access_addr_set = set({})
