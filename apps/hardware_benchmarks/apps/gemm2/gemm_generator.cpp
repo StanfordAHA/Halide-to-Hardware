@@ -9,6 +9,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 // Size of blur for gradients.
 const int blockSize = 3;
@@ -27,16 +28,16 @@ public:
         Var x("x"), y("y");
 
         Func hw_inputA("hw_inputA"), hw_inputB("hw_inputB");
-        hw_inputA(x,y) = cast<uint16_t>(inputA(x,y));
-        hw_inputB(x,y) = cast<uint16_t>(0);
+        hw_inputA(x,y) = u16(inputA(x,y));
+        hw_inputB(x,y) = u16(0);
         //hw_inputB(x,y) = cast<uint16_t>(std::experimental::randint(0,65535));
 	for (int i = 0; i < size; i++) {
-            hw_inputB(i,0) = cast<uint16_t>(std::experimental::randint(0,65535));
+            hw_inputB(i,0) = u16(32768+i*(32768/size));//u16(std::experimental::randint(0,65535));
         }
 
         Func prod("prod");
         RDom r(0, size);
-        prod(x,y) = 0;
+        prod(x,y) = u16(0);
         prod(x,y) += hw_inputA(x, r) * hw_inputB(r, y);
 
         Func hw_output("hw_output");
