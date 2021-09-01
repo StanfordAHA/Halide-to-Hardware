@@ -8,20 +8,23 @@ using namespace Halide::ConciseCasts;
 class MatrixKernel : public Halide::Generator<MatrixKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
+    Input<Buffer<uint8_t>>  kernel{"kernel", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
     int imgsize = 64;
+    int unroll = 8;
 
     void generate() {
         /* THE ALGORITHM */
 
         Var x("x"), y("y"), z("z");
 
-        Func kernel("kernel");
+
         Func mul("mul");
         RDom r(0, imgsize);
 
-        kernel(x,y) = 2*x + y;
+        //Func kernel("kernel");
+        //kernel(x,y) = u16(2*x + y);
         //kernel(0,0) = 17;     kernel(0,1) = 4;       kernel(0,2) = 6;
         //kernel(1,0) = 7;      kernel(1,1) = 19;      kernel(1,2) = 4;
         //kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
@@ -33,7 +36,11 @@ public:
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
-        mul(x, y)  += hw_input(r.x, y) * u16(kernel(x, r.x));
+
+        Func hw_kernel("hw_kernel");
+        hw_kernel(x, y) = u16(kernel(x, y));
+        
+        mul(x, y)  += hw_input(r.x, y) * u16(hw_kernel(x, r.x));
 
         Func hw_output("hw_output");
         hw_output(x, y) = mul(x, y);
@@ -56,10 +63,16 @@ public:
               .reorder(xi,yi, xo,yo)
               .hw_accelerate(xi, xo);
 
-          kernel.compute_at(hw_output, xo);
-          //mul.update().unroll(r.x);
+          //kernel.compute_at(hw_output, xo);
+ 
+          mul.compute_at(hw_output, xo);
+          mul.unroll(x, unroll);
+          mul.update()
+            .reorder(x, r.x, y)
+            .unroll(r.x, unroll).unroll(x, unroll);
 
           hw_input.stream_to_accelerator();
+          hw_kernel.stream_to_accelerator();
 
         } else {  // schedule to CPU
           hw_output.compute_root();

@@ -76,7 +76,7 @@ int main( int argc, char **argv ) {
     //auto n_ic = IC ? atoi(IC) : 4;
     //auto n_ic = IC ? atoi(IC) : 1;
     //auto n_oc = OC ? atoi(OC) : 6;
-    auto n_oc = OC ? atoi(OC) : 16;
+    auto n_oc = OC ? atoi(OC) : 8;
     //auto n_oc = OC ? atoi(OC) : 1;
 
     int X = in_img;
@@ -214,6 +214,10 @@ int main( int argc, char **argv ) {
     int imgsize_x = std::floor( (X + 2*P_X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y + 2*P_Y - K_Y) / stride ) + 1;
     processor.output = Buffer<int16_t>(W, imgsize_x, imgsize_y);
+
+    std::cout << "1st value is " << std::hex << processor.output(0, 0, 0) << std::dec << std::endl;
+    std::cout << "2nd value is " << std::hex << processor.output(1, 0, 0) << std::dec << std::endl;
+    std::cout << "3rd value is " << std::hex << processor.output(2, 0, 0) << std::dec << std::endl;
 
     std::cout << "output has dims: " << processor.output.dim(0).extent() << "x"
               << processor.output.dim(1).extent() << "x"
