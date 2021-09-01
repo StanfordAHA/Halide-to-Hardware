@@ -18,6 +18,7 @@ def parseArguments():
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
     parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
 
+    parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
     # Parse arguments
     args = parser.parse_args()
 
@@ -87,7 +88,7 @@ def parseDesignTop(meta, filename: str):
                 else:
                     metaOut["io_tiles"] = [{"name":inst, "addr":addr}]
 
-        # alter the shape and data stride 
+        # alter the shape and data stride
         for input_struct in meta["IOs"]["inputs"]:
             num_tiles = len(input_struct["io_tiles"])
             # change the shape
@@ -108,7 +109,7 @@ def parseDesignTop(meta, filename: str):
             #    data_stride = io_tile["addr"]["read_data_stride"]
             #    io_tile["addr"]["read_data_stride"] = [stride // num_tiles for stride in data_stride]
             #        #assert(stride % num_tiles == 0), f"input stride is {stride}"
-                    
+
         for output_struct in meta["IOs"]["outputs"]:
             num_tiles = len(output_struct["io_tiles"])
             # change the shape
@@ -211,6 +212,23 @@ def main():
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
+
+    if args.shuffle:
+        with open(outputName, 'r', encoding='utf-8') as fileout:
+            data = json.load(fileout)
+        inputs = data['IOs']['inputs']
+        for _input in inputs:
+            if _input['datafile'][0:5] == 'input':
+                _input['datafile'] = 'input_padded_shuffle.raw'
+            elif _input['datafile'][0:6] == 'kernel':
+                _input['datafile'] = 'kernel_shuffle.raw'
+        outputs = data['IOs']['outputs']
+        for _output in outputs:
+            if _output['datafile'][0:9] == 'hw_output':
+                _output['datafile'] = 'output_cpu_shuffle.raw'
+        with open(outputName, 'w', encoding='utf-8') as fileout:
+            print("replacing ", outputName)
+            json.dump(data, fileout, indent=2)
 
 if __name__ == "__main__":
     main()
