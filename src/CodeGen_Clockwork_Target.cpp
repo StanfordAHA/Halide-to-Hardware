@@ -1005,10 +1005,14 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
           if (!closure_args[i].is_stencil) { continue; } // skip non-stencil inputs
           string input_name = printname(closure_args[i].name);
           int bitwidth = 16;
-          Region bounds = closure_args[i].stencil_type.bounds;
+          //Region bounds = closure_args[i].stencil_type.bounds;
+          //for (size_t j = 0; j < bounds.size(); j++) {
+          //  shape.emplace_back(to_int(bounds[j].extent));
+          //}
+          auto extents = extract_extents(closure_args[i].box);
           vector<int> shape;
-          for (size_t j = 0; j < bounds.size(); j++) {
-            shape.emplace_back(to_int(bounds[j].extent));
+          for (size_t j = 0; j < extents.size(); j++) {
+            shape.emplace_back(to_int(extents[j]));
           }
           string datafile = input_name + ".raw";
           inputs.emplace_back(io_info({input_name, bitwidth, shape, datafile}));
@@ -1019,10 +1023,14 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       HW_Arg output_stencil_arg = closure_args[num_buffers-1];
       string output_name = printname(output_stencil_arg.name);
       int bitwidth = 16;
-      Region bounds = output_stencil_arg.stencil_type.bounds;
+      //Region bounds = output_stencil_arg.stencil_type.bounds;
+      //for (size_t j = 0; j < bounds.size(); j++) {
+      //  shape.emplace_back(to_int(bounds[j].extent));
+      //}
       vector<int> shape;
-      for (size_t j = 0; j < bounds.size(); j++) {
-        shape.emplace_back(to_int(bounds[j].extent));
+      auto extents = extract_extents(output_stencil_arg.box);
+      for (size_t j = 0; j < extents.size(); j++) {
+        shape.emplace_back(to_int(extents[j]));
       }
       //string datafile = output_name + ".raw";
       string datafile = "hw_output.raw";

@@ -504,6 +504,12 @@ ahahalide:
 	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
 	$(MAKE) bin/output_cgra.pgm --no-print-directory
 
+ahahalidemem:
+	$(MAKE) compare && \
+	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+	$(MAKE) bin/output_cgra.pgm --no-print-directory && \
+	$(MAKE) mem
+
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)
