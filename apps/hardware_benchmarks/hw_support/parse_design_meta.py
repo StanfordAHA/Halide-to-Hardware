@@ -203,6 +203,13 @@ def main():
             if _output['datafile'][0:9] == 'hw_output':
                 _output['datafile'] = 'hw_output_shuffle.raw'
 
+        # inputs = meta['IOs']['inputs']
+        # for _input in inputs:
+        #     _input['datafile'] = _input['datafile'][:-4] + '_shuffle' + _input['datafile'][-4:]
+        # outputs = meta['IOs']['outputs']
+        # for _output in outputs:
+        #     _output['datafile'] = _output['datafile'][:-4] + '_shuffle' + _output['datafile'][-4:]
+
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
         # pprint.pprint(meta, fileout, indent=2, compact=True)

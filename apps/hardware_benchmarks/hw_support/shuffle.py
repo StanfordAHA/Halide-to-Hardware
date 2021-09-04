@@ -100,7 +100,7 @@ with open(input_file) as f:
             if path.exists(img_file_name+".mat"):
                 data_org = scipy.io.loadmat(img_file_name + ".mat")[img_file_name]
             elif path.exists(img_file_name+".raw"):
-                data_org = np.fromfile(img_file_name + ".raw", dtype=">u2")
+                data_org = np.fromfile(img_file_name + ".raw", dtype=">i2")
             else:
                 raise Exception(f"{image_file_name}.raw or {image_file_name}.mat does not exist")
             print ("load halide generated image, with size =", data_org.shape)
@@ -114,6 +114,7 @@ with open(input_file) as f:
             access_addr_set = set({})
             save_addr_set = set({})
 
+
             #copy the old data into new data
             for idx in range(img_size):
                 nd_idx = np.asarray(index2vector(idx, compressed_ext))
@@ -125,6 +126,7 @@ with open(input_file) as f:
                 #print("org addr:", origin_addr, "\tnew addr:", new_addr)
                 data_shuffle[new_addr] = data_org[origin_addr]
 
+
             def sanity_check_all_addr_visit(img_size, addr_set):
                 for addr in range(img_size):
                     assert(addr in addr_set)
@@ -135,7 +137,7 @@ with open(input_file) as f:
             #save new file
             scipy.io.savemat(img_file_name + "_shuffle.mat", {img_file_name: data_shuffle})
             print ("SAVE reordered image into ",img_file_name + "_shuffle.mat!\n")
-            data_shuffle.astype('int16').tofile(img_file_name + '_shuffle.raw')
+            data_shuffle.astype('>i2').tofile(img_file_name + '_shuffle.raw')
             print ("SAVE reordered image into ",img_file_name + "_shuffle.raw!\n")
 
             #optimize the level of iteration ?
