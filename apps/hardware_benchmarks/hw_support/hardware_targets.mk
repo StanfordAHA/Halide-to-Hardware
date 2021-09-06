@@ -121,9 +121,18 @@ coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp 
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
+coreir_tree_reduction $(HWSUPPORT)/$(BIN)/coreir_tree_reduction: $(HWSUPPORT)/coreir_tree_reduction.cpp
+	@-mkdir -p $(HWSUPPORT)/$(BIN)
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 
-$(BIN)/design_top_graph.json: $(BIN)/design_top.json
-	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
+
+$(BIN)/design_top_graph.json:
+	cp $(BIN)/design_top.json $(BIN)/design_top_graph.json
+#$(BIN)/design_top_graph.json: $(BIN)/design_top.json
+#	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
 
 #$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 $(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_graph.json
@@ -178,6 +187,12 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
+pipeline: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
+	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
+	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
+	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
+	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json

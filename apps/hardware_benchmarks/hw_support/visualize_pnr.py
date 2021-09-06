@@ -379,6 +379,8 @@ for blk_id in blk_id_list:
 
 
 num_switchboxes = 0
+num_long_routes = 0
+num_short_routes = 0
 for route in unordered_routes:
     # if not (route["edge_id"] == 'e8'):
     #     continue
@@ -388,6 +390,13 @@ for route in unordered_routes:
     # print(route)
     color = lambda : (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 255)
     route_color = color()
+    total_route_length = 0
+    route_length = 0
+    start_loc = route["segments"][0]
+    start_x = start_loc['x']
+    start_y = start_loc['y']
+    begins_at_start = start_x is route["start_point"][0] and start_y is route["start_point"][1]
+    #print(f"Route starting at ({start_x},{start_y})")
     for idx, seg1 in enumerate(route["segments"]):
         if len(route["segments"]) > idx + 1:
             seg2 = route["segments"][idx + 1]
@@ -400,10 +409,26 @@ for route in unordered_routes:
         track = seg2['track']
         track4 = seg1['track']
 
+        if total_route_length > 0 and x1 == route["start_point"][0] and y1 == route["start_point"][1]:
+            end_x = route["segments"][idx-1]['x']
+            end_y = route["segments"][idx-1]['y']
+            if begins_at_start:
+                print(f"  Resetting route after length {total_route_length} from ({start_x}, {start_y}) to ({end_x}, {end_y})")
+                total_route_length = 0
+            else:
+                print(f"  Not resetting route length {route_length} that starts at ({start_x}, {start_y}) and ending at ({end_x}, {end_y})")
+            start_x = route["segments"][idx]['x']
+            start_y = route["segments"][idx]['y']
+            route_length = 0
+
+        
         if x1 != x2 and y1 != y2:
             continue
 
         num_switchboxes += 1
+        route_length += 1
+        total_route_length += 1
+        
         end_offset = 0.5
         start_offset = 0.5
 
@@ -439,9 +464,26 @@ for route in unordered_routes:
             im = arrowedLine(im,((x1 + start_offset) * scale, (y1 + 0.2 + track_offset) * scale), ((x2 + end_offset) * scale, (y2 + 0.2 + track_offset) * scale), color=route_color, width=1)
 
 
+    end_idx = len(route["segments"])-1
+    if len(route["end_list"]) > 1:
+        end_x = route["segments"][end_idx]['x']
+        end_y = route["segments"][end_idx]['y']
+        print(f"  Final route length {route_length} that starts at ({start_x}, {start_y}) and ending at ({end_x}, {end_y})")
+        
+    start_name = route["start_point"]
+    end_list = route["end_list"]
+    if total_route_length > 2:
+        print(f"LONG route length is {total_route_length} from {start_name} to {end_list}")
+        num_long_routes += 1
+    else:
+        #print(f"shrt route length is {total_route_length} from {start_name} to {end_list}")
+        num_short_routes += 1
+        
     used_tiles.add(route["start_point"])
     for end_pts in route["end_list"]:
         used_tiles.add(end_pts)
+        
+print(f"This design has {num_short_routes} routes 1-2 and {num_long_routes} routes 3+")
 print(f"This design uses {num_switchboxes} switchboxes")
     
 pos_set = set()
