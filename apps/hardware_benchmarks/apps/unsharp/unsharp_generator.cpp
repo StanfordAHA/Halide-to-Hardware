@@ -245,11 +245,16 @@ public:
               .accelerator_input();
 
           } else if (schedule == 3) { // do the big parrot with unroll
-            const int unroll = 2;
-            const int tileWidth = 128-0;
-            const int tileHeight = 256-0;
-            const int numHostTilesX = 12-1;
-            const int numHostTilesY = 10-1;
+            const int unroll = 3;
+            //const int tileWidth = 122-0;
+            //const int tileWidth = 141; //unroll=3  ; also try 63
+            const int tileWidth = 66;
+            //const int tileHeight = 256-0;
+            const int tileHeight = 66;
+            //const int numHostTilesX = 12-1;
+            //const int numHostTilesY = 10-1;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;

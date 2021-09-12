@@ -7,9 +7,9 @@ using namespace Halide::ConciseCasts;
 
 class MatrixKernel : public Halide::Generator<MatrixKernel> {
 public:
-    Input<Buffer<uint8_t>>  input{"input", 2};
-    Input<Buffer<uint8_t>>  kernel{"kernel", 2};
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Input<Buffer<int16_t>>  input{"input", 2};
+    Input<Buffer<int16_t>>  kernel{"kernel", 2};
+    Output<Buffer<int16_t>> output{"output", 2};
 
     int imgsize = 64;
     int unroll = 8;
@@ -24,7 +24,7 @@ public:
         RDom r(0, imgsize);
 
         //Func kernel("kernel");
-        //kernel(x,y) = u16(2*x + y);
+        //kernel(x,y) = i16(2*x + y);
         //kernel(0,0) = 17;     kernel(0,1) = 4;       kernel(0,2) = 6;
         //kernel(1,0) = 7;      kernel(1,1) = 19;      kernel(1,2) = 4;
         //kernel(2,0) = 5;      kernel(2,1) = 21;      kernel(2,2) = 15;
@@ -32,19 +32,19 @@ public:
         //kernel(4,0) = 7;      kernel(4,1) = 19;      kernel(4,2) = 4;
         //kernel(5,0) = 5;      kernel(5,1) = 21;      kernel(5,2) = 15;
 
-        mul(x, y) = u16(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = u16(input(x, y));
+        hw_input(x, y) = i16(input(x, y));
 
         Func hw_kernel("hw_kernel");
-        hw_kernel(x, y) = u16(kernel(x, y));
-        
-        mul(x, y)  += hw_input(r.x, y) * u16(hw_kernel(x, r.x));
+        hw_kernel(x, y) = i16(kernel(x, y));
+
+        mul(x, y) = i16(0);
+        mul(x, y)  += hw_input(r.x, y) * i16(hw_kernel(x, r.x));
 
         Func hw_output("hw_output");
         hw_output(x, y) = mul(x, y);
-        output(x, y) = u8(hw_output(x,y));
+        output(x, y) = i16(hw_output(x,y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
@@ -64,12 +64,18 @@ public:
               .hw_accelerate(xi, xo);
 
           //kernel.compute_at(hw_output, xo);
- 
+
+          RVar rxi, rxo;
           mul.compute_at(hw_output, xo);
           mul.unroll(x, unroll);
           mul.update()
-            .reorder(x, r.x, y)
-            .unroll(r.x, unroll).unroll(x, unroll);
+            .split(r.x, rxo, rxi, unroll)
+            .split(x, xo, xi, unroll)
+            .reorder(xi, rxi, xo, rxo, y)
+            .unroll(xi, unroll).unroll(rxi, unroll);
+            //.reorder(x, r.x, y)
+            //.unroll(x, unroll).unroll(r.x, unroll);
+            //.unroll(r.x, unroll).unroll(x, unroll);
 
           hw_input.stream_to_accelerator();
           hw_kernel.stream_to_accelerator();

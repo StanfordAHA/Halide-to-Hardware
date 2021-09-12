@@ -18,9 +18,12 @@ public:
     Output<Buffer<uint8_t>> output{"output", 2};
   
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> width{"width", 62};         // default: 62
+    GeneratorParam<uint8_t> myunroll{"myunroll", 2};        // default: 62
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
   //int tilesize = imgSize / 2;
+  
 
     void generate() {
         /* THE ALGORITHM */
@@ -166,9 +169,14 @@ public:
 
           } else if (schedule == 3) {
             // do the big tern and unroll
-            const int unroll = 8;
-            const int tileWidth = 248;
-            const int tileHeight = 196;
+            //const int unroll = 14;
+            const int unroll = myunroll;
+            //const int tileWidth = 248; // for unroll=8
+            //const int tileWidth = 266; // for unroll=14
+            //const int tileWidth = 42; // for unroll=14
+            const int tileWidth = width;
+            //const int tileHeight = 196;
+            const int tileHeight = 62;
             //const int numHostTilesX = 23-0;
             //const int numHostTilesY = 20-0;
             const int numHostTilesX = 1;
@@ -245,8 +253,9 @@ public:
             hw_input.stream_to_accelerator();
             
           } else {
-            const int inputSize = 64;
-            const int outputSize = inputSize-blockSize+1;
+            //const int inputSize = 64;
+            //const int outputSize = inputSize-blockSize+1;
+            const int outputSize = width;
             const int tileSize = outputSize; // single tile
             
             output.bound(x, 0, outputSize);
