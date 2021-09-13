@@ -121,9 +121,18 @@ coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp 
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
+coreir_tree_reduction $(HWSUPPORT)/$(BIN)/coreir_tree_reduction: $(HWSUPPORT)/coreir_tree_reduction.cpp
+	@-mkdir -p $(HWSUPPORT)/$(BIN)
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 
-$(BIN)/design_top_graph.json: $(BIN)/design_top.json
-	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
+
+$(BIN)/design_top_graph.json:
+	cp $(BIN)/design_top.json $(BIN)/design_top_graph.json
+#$(BIN)/design_top_graph.json: $(BIN)/design_top.json
+#	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
 
 #$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 $(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_graph.json
@@ -171,13 +180,19 @@ compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
-	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+	EXIT_CODE=$$?; rm unoptimized_*; cd ..; exit $$EXIT_CODE
 memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
+pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
+	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
+	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
+	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
+	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
@@ -504,6 +519,12 @@ ahahalide:
 	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
 	$(MAKE) bin/output_cgra.pgm --no-print-directory
 
+ahahalidemem:
+	$(MAKE) compare && \
+	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+	$(MAKE) bin/output_cgra.pgm --no-print-directory && \
+	$(MAKE) mem
+
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)
@@ -520,7 +541,7 @@ update_golden updategolden golden: $(BIN)/output_cpu.$(EXT) $(BIN)/$(TESTNAME)_m
 	cp $(BIN)/$(TESTNAME)_compute.h $(GOLDEN)/$(TESTNAME)_compute.h
 
 check:
-	@printf "%-23s" $(TESTNAME);
+	@printf "%-24s" $(TESTNAME);
 	@if [ -f "$(BIN)/$(TESTNAME).generator" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " halide"; \
 	else \
@@ -590,7 +611,7 @@ check:
 	@printf "\n"
 
 list:
-	@printf "%-23s\n" $(TESTNAME);
+	@printf "%-24s\n" $(TESTNAME);
 
 $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
@@ -598,6 +619,6 @@ graph.png graph:
 	$(MAKE) $(BIN)/graph.png
 
 clean:
-	rm -rf $(BIN) *_debug.csv
+	rm -rf $(BIN) *_debug.csv test_results
 
 test: run

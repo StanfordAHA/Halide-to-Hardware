@@ -24,7 +24,7 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 8};    // default: 8
+    GeneratorParam<int> k_ic{"k_ic", 16};    // default: 8
   
     // k_oc determines the number of output channels
     GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
@@ -33,7 +33,7 @@ public:
     GeneratorParam<int> n_ic{"n_ic", 16};    // default: 64
   
     // n_oc determines the total number of output channels
-    GeneratorParam<int> n_oc{"n_oc", 16};    // default: 64
+    GeneratorParam<int> n_oc{"n_oc", 8};    // default: 64
   
 
     void generate() {

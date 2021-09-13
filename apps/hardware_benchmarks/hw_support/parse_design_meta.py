@@ -3,6 +3,7 @@ import json
 import os
 import pprint
 import sys
+import re
 
 # python ../../hw_support/parse_design_meta.py bin/design_meta_halide.json --top bin/design_top.json --place bin/design.place
 def parseArguments():
@@ -20,6 +21,12 @@ def parseArguments():
     args = parser.parse_args()
 
     return args
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
 def findBetween(s:str, start:str, end:str):
     end = end if "clkwrk" in s else "_op_hcompute"
@@ -85,9 +92,15 @@ def parseDesignTop(meta, filename: str):
             # change the shape
             if num_tiles > 1 and input_struct["shape"][0] is not num_tiles:
                 new_shape = input_struct["shape"]
-                assert(new_shape[0] % num_tiles == 0), f"input shape has inner dim {new_shape[0]}"
+                partial_unroll = num_tiles
+                # remove dimensions that are fully unrolled
+                while partial_unroll >= new_shape[0]:
+                    assert(partial_unroll % new_shape[0] == 0), f"input shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
+                    partial_unroll //= new_shape[0]
+                    new_shape.pop(0)
+                assert(new_shape[0] % partial_unroll == 0), f"input shape has inner dim {new_shape[0]} and trying to unroll {num_tiles}"
                 new_shape.insert(0,num_tiles)
-                new_shape[1] //= num_tiles
+                new_shape[1] //= partial_unroll
                 input_struct["shape"] = new_shape
             # change the read data stride
             #for io_tile in input_struct["io_tiles"]:
@@ -100,15 +113,25 @@ def parseDesignTop(meta, filename: str):
             # change the shape
             if num_tiles > 1 and output_struct["shape"][0] is not num_tiles:
                 new_shape = output_struct["shape"]
-                assert(new_shape[0] % num_tiles == 0), f"output shape has inner dim {new_shape[0]}"
+                partial_unroll = num_tiles
+                # remove dimensions that are fully unrolled
+                while partial_unroll >= new_shape[0]:
+                    assert(partial_unroll % new_shape[0] == 0), f"output shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
+                    partial_unroll //= new_shape[0]
+                    new_shape.pop(0)
+                assert(new_shape[0] % partial_unroll == 0), f"output shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
                 new_shape.insert(0,num_tiles)
-                new_shape[1] /= num_tiles
+                new_shape[1] //= partial_unroll
                 output_struct["shape"] = new_shape
             # change the write data stride
             #for io_tile in output_struct["io_tiles"]:
             #    data_stride = io_tile["addr"]["write_data_stride"]
             #    io_tile["addr"]["write_data_stride"] = [stride // num_tiles for stride in data_stride]
             #        #assert(stride % num_tiles == 0), f"output stride is {stride}"
+
+        # sort the inputs and outputs based on human sorting
+        metaIn["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
+        metaOut["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
 
 
 def parseDesignPlace(meta, filename: str):

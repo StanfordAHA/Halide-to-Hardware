@@ -388,7 +388,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = reduce_prefetch_dimension(s, t);
     debug(2) << "Lowering after reduce prefetch dimension:\n" << s << "\n";
 
-    //std::cout << "Before unrolling:\n" << s << "\n\n";
+    //std::cout << "Before unrolling:\n" << s << "\n\n";    
     debug(1) << "Unrolling...\n";
     if (t.has_feature(Target::Clockwork)) {
       s = unroll_loops_and_merge(s);

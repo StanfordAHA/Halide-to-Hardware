@@ -29,7 +29,7 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
     //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
@@ -242,10 +242,14 @@ public:
 
           } else if (schedule == 3) { // do big parrot with unroll
             const int unroll = 2;
-            const int tileWidth = 128-6;
-            const int tileHeight = 256-6;
-            const int numHostTilesX = 12;
-            const int numHostTilesY = 10;
+            //const int tileWidth = 128-6; // for unroll=2
+            const int tileWidth = 66;
+            //const int tileHeight = 256-0;
+            const int tileHeight = 66;
+            //const int numHostTilesX = 12;
+            //const int numHostTilesY = 10;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -349,6 +353,8 @@ public:
             lgyy.update().unroll(box.x).unroll(box.y);
             lgxy.update().unroll(box.x).unroll(box.y);
 
+            gray.compute_at(hw_output, xo);
+            
             //padded16.compute_at(hw_output, xo);
             hw_input.in().unroll(c);
             hw_input.stream_to_accelerator();
