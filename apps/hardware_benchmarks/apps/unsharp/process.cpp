@@ -57,7 +57,7 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
 
   auto env_sch = getenv("schedule");
-  auto schedule = env_sch ? atoi(env_sch) : 3;
+  auto schedule = env_sch ? atoi(env_sch) : 0;
   std::cout << "using schedule = " << schedule << std::endl;
 
   int output_tile_width  = 58;

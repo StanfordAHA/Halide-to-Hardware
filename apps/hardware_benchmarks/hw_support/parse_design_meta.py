@@ -16,6 +16,7 @@ def parseArguments():
     # Optional arguments
     parser.add_argument("--top", help="design_top.json: parse out address sequence", type=str, default=None)
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
+    parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
 
     # Parse arguments
     args = parser.parse_args()
@@ -123,6 +124,9 @@ def parseDesignTop(meta, filename: str):
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll
                 output_struct["shape"] = new_shape
+                
+            metaOut["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
+            
             # change the write data stride
             #for io_tile in output_struct["io_tiles"]:
             #    data_stride = io_tile["addr"]["write_data_stride"]
@@ -189,6 +193,18 @@ def main():
 
         if args.place != None:
             parseDesignPlace(meta, args.place)
+
+    if args.shuffle:
+	inputs = meta['IOs']['inputs']
+        for _input in inputs:
+            if _input['datafile'][0:5] == 'input':
+                _input['datafile'] = 'input_padded_shuffle.raw'
+            elif _input['datafile'][0:6] == 'kernel':
+                _input['datafile'] = 'kernel_shuffle.raw'
+	outputs = meta['IOs']['outputs']
+        for _output in outputs:
+            if _output['datafile'][0:9] == 'hw_output':
+                _output['datafile'] = 'hw_output_shuffle.raw'
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:

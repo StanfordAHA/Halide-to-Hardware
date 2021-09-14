@@ -33,7 +33,7 @@ int main( int argc, char **argv ) {
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
-                                       proc.input, proc.output,
+                                       proc.inputs["input.mat"], proc.output,
                                        "self.in_arg_0_0_0", "self.out_0_0" );
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
