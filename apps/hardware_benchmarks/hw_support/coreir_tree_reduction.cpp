@@ -33,9 +33,9 @@ class TreeReduction : public ModulePass {
     //Print function will output when in verbose mode.
     void print() override;
 
-    //These are our class's custom APIs. We will be able to use this in 
-    //other passes
+    //These are our class's custom APIs. We will be able to use this in other passes
     vector<Wireable*> collectInputs(Instance* head);
+    vector<pair<Wireable*,Wireable*>> collectInputConnections(Instance* head);
     vector<Instance*> collectInsts(Instance* head);
     bool isAssocSubgraph(Instance* i);
     Instance* getSelectedInst(Instance* i, string sel);
@@ -57,13 +57,15 @@ Wireable* getConnectedWireable(Wireable* headInst, string out_sel) {
   for (auto wire_pair : local_conx) {
     //std::cout << "  " << wire_pair.first->toString() << " connected to " << wire_pair.second->toString() << endl;
     if (out_name == wire_pair.first->toString()) {
-      std::cout << "  " << wire_pair.first->toString() << " connected to " << wire_pair.second->toString() << endl;
+      //std::cout << "  " << wire_pair.first->toString() << " connected to " << wire_pair.second->toString() << endl;
       return wire_pair.second;
     } else if (out_name == wire_pair.second->toString()) {
-      std::cout << "  " << wire_pair.first->toString() << " connected to " << wire_pair.second->toString() << endl;
+      //std::cout << "  " << wire_pair.first->toString() << " connected to " << wire_pair.second->toString() << endl;
       return wire_pair.first;
     }
   }
+  std::cout << "didn't find it" << endl;
+  return NULL;
 }
 
 // return a vector of the input wireables for a reduction tree ending at given instance 
@@ -71,17 +73,17 @@ vector<Wireable*> MapperPasses::TreeReduction::collectInputs(Instance* head) {
   vector<Wireable*> inputs;
   string opName = getOpName(head);
 
-  std::cout << "collecting inputs for " << opName << endl;
+  //std::cout << "collecting inputs for " << opName << " named " << head->toString() << endl;
   // check in0 branch
   Wireable* in0_wire = getConnectedWireable(head, head->getInstname() + ".in0");
-  std::cout << "wire=" << in0_wire->toString() << " parent=" << in0_wire->getTopParent()->toString() << std::endl;
+  //std::cout << "wire=" << in0_wire->toString() << " parent=" << in0_wire->getTopParent()->toString() << std::endl;
   
   if (in0_wire->getTopParent()->toString() == "self"){
     inputs.push_back(in0_wire);
     
   } else {
     Instance* in0_inst = getSelectedInst(head, "in0");
-    std::cout << "selected inst for " << head->getInstname() << " named " << in0_inst->getInstname() << endl;
+    //std::cout << "selected inst for " << head->getInstname() << " named " << in0_inst->getInstname() << endl;
     if (opName == getOpName(in0_inst)) {
       vector<Wireable*> in0_inputs = collectInputs(in0_inst);
       inputs.insert(inputs.end(), in0_inputs.begin(), in0_inputs.end());
@@ -89,14 +91,15 @@ vector<Wireable*> MapperPasses::TreeReduction::collectInputs(Instance* head) {
       inputs.push_back(head->sel("in0"));
     }
   }
-  std::cout << "done with in0 " << opName << endl;
+  //std::cout << "done with in0 " << opName << endl;
 
   // check in1 branch
   Wireable* in1_wire = getConnectedWireable(head, head->getInstname() + ".in1");
-  std::cout << "wire=" << in1_wire->toString() << " parent=" << in1_wire->getTopParent()->toString() << std::endl;
+  //std::cout << "wire=" << in1_wire->toString() << " parent=" << in1_wire->getTopParent()->toString() << std::endl;
   
   if (in1_wire->getTopParent()->toString() == "self"){
     inputs.push_back(in1_wire);
+    
   } else {
     Instance* in1_inst = getSelectedInst(head, "in1");
     if (opName == getOpName(in1_inst)) {
@@ -110,6 +113,54 @@ vector<Wireable*> MapperPasses::TreeReduction::collectInputs(Instance* head) {
   return inputs;
 }
 
+// return a map of the input wireable connections for a reduction tree ending at given instance
+//  First in the pair is the input to use. Second is the connection endpoint that should be removed.
+vector<pair<Wireable*, Wireable*>> MapperPasses::TreeReduction::collectInputConnections(Instance* head) {
+  vector<pair<Wireable*, Wireable*>> inputs;
+  string opName = getOpName(head);
+
+  //std::cout << "collecting inputs for " << opName << " named " << head->toString() << endl;
+  // check in0 branch
+  Wireable* in0_wire = getConnectedWireable(head, head->getInstname() + ".in0");
+  //std::cout << "wire=" << in0_wire->toString() << " parent=" << in0_wire->getTopParent()->toString() << std::endl;
+  
+  if (in0_wire->getTopParent()->toString() == "self"){
+    inputs.push_back(make_pair(head->sel("in0"), in0_wire));
+    
+  } else {
+    Instance* in0_inst = getSelectedInst(head, "in0");
+    //std::cout << "selected inst for " << head->getInstname() << " named " << in0_inst->getInstname() << endl;
+    if (opName == getOpName(in0_inst)) {
+      vector<pair<Wireable*, Wireable*>> in0_inputs = collectInputConnections(in0_inst);
+      inputs.insert(inputs.end(), in0_inputs.begin(), in0_inputs.end());
+    } else {
+      inputs.push_back(make_pair(head->sel("in0"), in0_wire));
+    }
+  }
+  //std::cout << "done with in0 " << opName << endl;
+
+  // check in1 branch
+  Wireable* in1_wire = getConnectedWireable(head, head->getInstname() + ".in1");
+  //std::cout << "wire=" << in1_wire->toString() << " parent=" << in1_wire->getTopParent()->toString() << std::endl;
+  
+  if (in1_wire->getTopParent()->toString() == "self"){
+    inputs.push_back(make_pair(head->sel("in1"), in1_wire));
+    
+  } else {
+    Instance* in1_inst = getSelectedInst(head, "in1");
+    //std::cout << "selected inst for " << head->getInstname() << " named " << in1_inst->getInstname() << endl;
+    if (opName == getOpName(in1_inst)) {
+      vector<pair<Wireable*, Wireable*>> in1_inputs = collectInputConnections(in1_inst);
+      inputs.insert(inputs.end(), in1_inputs.begin(), in1_inputs.end());
+    } else {
+      inputs.push_back(make_pair(head->sel("in1"), in1_wire));
+    }
+  }
+  //std::cout << "done with in1 " << opName << endl;
+
+  return inputs;
+}
+
 // return a vector of the instances in a reduction tree ending at given instance
 vector<Instance*> MapperPasses::TreeReduction::collectInsts(Instance* head) {
   vector<Instance*> insts;
@@ -118,12 +169,11 @@ vector<Instance*> MapperPasses::TreeReduction::collectInsts(Instance* head) {
 
   // check in0 branch
   Wireable* in0_wire = getConnectedWireable(head, head->getInstname() + ".in0");
-  std::cout << "wire=" << in0_wire->toString() << " parent=" << in0_wire->getTopParent()->toString() << std::endl;
+  //std::cout << "wire=" << in0_wire->toString() << " parent=" << in0_wire->getTopParent()->toString() << std::endl;
   
   if (in0_wire->getTopParent()->toString() == "self"){
-    cout << "***** inst includes self" << endl;
+    //std::cout << "***** inst includes self" << endl;
     //insts.insert(insts.end(), in0_insts.begin(), in0_wire);
-    
     
   } else {
     Instance* in0_inst = getSelectedInst(head, "in0");
@@ -135,10 +185,10 @@ vector<Instance*> MapperPasses::TreeReduction::collectInsts(Instance* head) {
 
   // check in1 branch
   Wireable* in1_wire = getConnectedWireable(head, head->getInstname() + ".in1");
-  std::cout << "wire=" << in1_wire->toString() << " parent=" << in1_wire->getTopParent()->toString() << std::endl;
+  //std::cout << "wire=" << in1_wire->toString() << " parent=" << in1_wire->getTopParent()->toString() << std::endl;
   
   if (in1_wire->getTopParent()->toString() == "self"){
-    cout << "***** inst includes self" << endl;
+    //std::cout << "***** inst includes self" << endl;
     //insts.insert(insts.end(), in1_insts.begin(), in1_wire);
   } else {
     Instance* in1_inst = getSelectedInst(head, "in1");
@@ -162,7 +212,8 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
   
   //Define our vector of instances to replace
   vector<Instance*> treeHeads;
-  unordered_set<std::string> operators = {"coreir.add", "coreir.mul", "commonlib.smin", "commonlib.smax", "corebit.and"};
+  unordered_set<std::string> operators = {"coreir.add", "coreir.mul", "corebit.and", "corebit.or", 
+                                          "commonlib.smin", "commonlib.smax", "commonlib.umin", "commonlib.umax"};
   //std::cout << "Running tree reduction!" << endl;
 
   //Loop through all the instances 
@@ -176,7 +227,7 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
       Instance* in1Inst = getSelectedInst(inst, "in1");
       if ((in0Inst != NULL && getOpName(in0Inst) == opName) ||
           (in1Inst != NULL && getOpName(in1Inst) == opName)) {
-        cout << "found inst to replace" << endl;
+        //cout << "found inst to replace" << endl;
         treeHeads.push_back(inst);
       }
     }
@@ -191,14 +242,14 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
 
     //std::cout << "starting at head" << endl;
     // find boundary interface for reduction tree
-    vector<Wireable*> inputs = collectInputs(headInst);
+    vector<pair<Wireable*, Wireable*>> inputConxs = collectInputConnections(headInst);
     //std::cout << "inputs collected" << endl;
     auto insts = collectInsts(headInst);
     //std::cout << "insts collected" << endl;
     
-    std::cout << headInst->toString() << " has " << inputs.size() << " inputs:" << endl;
-    for (auto inst : inputs) {
-      std::cout << " " << inst->toString();
+    std::cout << headInst->toString() << " has " << inputConxs.size() << " inputs:" << endl;
+    for (auto inst_pair : inputConxs) {
+      std::cout << " " << inst_pair.first->toString();
     }
     std::cout << endl;
 
@@ -206,7 +257,7 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
     string opName = getOpName(headInst);
     auto arg_op = Const::make(c, opName);
 
-    auto arg_N = Const::make(c,inputs.size());
+    auto arg_N = Const::make(c,inputConxs.size());
 
     Type* out_type = headInst->sel("out")->getType();
     Instance* tree;
@@ -230,54 +281,23 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
     
     targetSubgraphs.push_back(tree);
 
-    // create passthroughs along interface of reduction tree
-    //Instance* pt_out = addPassthrough(headInst->sel("out"), headInst->getInstname() + "_pt");
-    //headInst->disconnect();
-    //Wireable* pt_out_wire = pt_out->sel("in");
-    //
-    //vector<Wireable*> pt_inputs;
-    //for (auto input : inputs) {
-    //  string pt_name = sanatize_name(input->toString() + "_pt");
-    //  Instance* pt = addPassthrough(input, pt_name);
-    //  input->disconnect();
-    //  pt_inputs.push_back(pt->sel("in"));
-    //}
-    
-    // create passthroughs along interface of reduction tree
-    //Instance* pt_out = addPassthrough(headInst->sel("out"), headInst->getInstname() + "_pt");
     Wireable* pt_out_wire = getConnectedWireable(headInst, headInst->getInstname() + ".out");
     headInst->disconnect();
     //Wireable* pt_out_wire = pt_out->sel("in");
     
     vector<Wireable*> pt_inputs;
-    for (auto input : inputs) {
-      //string pt_name = sanatize_name(input->toString() + "_pt");
-      //Instance* pt = addPassthrough(input, pt_name);
-      //pt_inputs.push_back(input->getTopParent());
-      if (input->getTopParent()->toString() == "self") {
-        pt_inputs.push_back(input);
-      } else {
-        Wireable* pt_in_wire = getConnectedWireable(input, input->toString());
-        pt_inputs.push_back(pt_in_wire);
-        //std::cout << "  pt input includes " << pt_in_wire->toString() << endl;
-      }
-      input->disconnect();
-      //auto local_conx = input->getLocalConnections();
-      //string in_name = input->toString();
-      //std::cout << "looking for " << in_name << endl;
-      //for (auto wire_pair : local_conx) {
-      //  std::cout << "  " << wire_pair.first->toString() << " connected to " << wire_pair.second->toString() << endl;
-      //  if (in_name == wire_pair.first->toString()) {
-      //    pt_inputs.push_back(wire_pair.second);
-      //  } else if (in_name == wire_pair.second->toString()) {
-      //    pt_inputs.push_back(wire_pair.first);
-      //  }
-      //}
-
+    for (auto input_pair : inputConxs) {
+      auto input = input_pair.first;
+      // add port that is connected to the input
+      Wireable* pt_in_wire = getConnectedWireable(input, input->toString());
+      pt_inputs.push_back(pt_in_wire);
+      // disconnect the exisiting wire
+      input->getContainer()->disconnect(input, input_pair.second);
+      //std::cout << "disconnected " << input->toString() << " from " << input_pair.second << endl;
     }
 
     // remove old instances
-    cout << headInst->toString() << " had the insts:" << endl;
+    cout << " " << headInst->toString() << " had the insts:" << endl;
     for (auto inst : insts) {
       cout << " " << inst->toString();
       def->removeInstance(inst);
@@ -285,16 +305,9 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
     cout << endl;
 
     // wire up new tree version
-    //def->connect(pt_out_wire, tree->sel("out"));
-    //for (uint j=0; j<pt_inputs.size(); ++j) {
-    //  Wireable* pt_in = pt_inputs[j];
-    //  def->connect(pt_in, tree->sel("in")->sel(j));
-    //}
-    
-    // wire up new tree version
-    std::cout << "connecting output" << endl;
+    //std::cout << "connecting output" << endl;
     def->connect(pt_out_wire, tree->sel("out"));
-    std::cout << "connecting " << pt_inputs.size() << " inputs" << endl;
+    //std::cout << "connecting " << pt_inputs.size() << " inputs" << endl;
     for (uint j=0; j<pt_inputs.size(); ++j) {
       Wireable* pt_in = pt_inputs[j];
       //std::cout << "connecting " << pt_in->toString() << " to tree " << std::to_string(j) << std::endl;
@@ -365,7 +378,6 @@ bool MapperPasses::TreeReduction::isAssocSubgraph(Instance* i) {
   if (parentOpName == opName) {
     return false;
   } else {
-    //std::cout << "returning true!" <<endl;
     return true;
   }
 }

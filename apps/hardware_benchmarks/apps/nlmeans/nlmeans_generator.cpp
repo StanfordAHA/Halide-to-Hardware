@@ -7,9 +7,9 @@ using namespace Halide;
 class NonLocalMeans : public Halide::Generator<NonLocalMeans> {
 public:
     Input<Buffer<uint8_t>> input{"input", 3};
-    Input<int> patch_size{"patch_size"};
-    Input<int> search_area{"search_area"};
-    Input<float> sigma{"sigma"};
+    Input<int> patch_size{"patch_size"}; // default is 7
+    Input<int> search_area{"search_area"}; // default is 7
+    Input<float> sigma{"sigma"}; // default is 0.12
 
     Output<Buffer<uint8_t>> output{"output", 3};
 
