@@ -85,22 +85,24 @@ jobs:
           #alias llvm-config='llvm-config-6.0'
           make -j4 distrib
 
-    - name: Run tests ⚙️
-      shell: bash
-      run: |
-          make -C apps/hardware_benchmarks/tests        all-compare || exit;
-          make -C apps/hardware_benchmarks/tests        all-mem || exit;
-          make -C apps/hardware_benchmarks/tests        check;
-          
     - name: Run handcrafted ⚙️
       shell: bash
       run: |
           make -C apps/hardware_benchmarks/handcrafted  testtravis || exit;
-          
-    - name: Run apps ⚙️
+
+   - name: Run all tests ⚙️
       shell: bash
       run: |
+          make -C apps/hardware_benchmarks/tests        all-run-cpu || exit;
+          make -C apps/hardware_benchmarks/tests        all-compare || exit;
+          make -C apps/hardware_benchmarks/tests        all-mem || exit;
+          make -C apps/hardware_benchmarks/tests        check;
+          
+    - name: Run all apps ⚙️
+      shell: bash
+      run: |
+          make -C apps/hardware_benchmarks/apps         all-run-cpu || exit;
           make -C apps/hardware_benchmarks/apps         all-compare || exit;
           make -C apps/hardware_benchmarks/apps         all-mem || exit;
-          make -C apps/hardware_benchmarks/apps         check;
-          echo "Finished running tests and apps"
+          make -C apps/hardware_benchmarks              check;
+          echo "Finished running all tests and apps"
