@@ -25,15 +25,11 @@ SIMPLE_APPS := pointwise brighten_and_blur cascade \
 simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
-# IMG_APPS := pointwise gaussian cascade harris \
-#             example fast_corner unsharp \
-#             demosaic demosaic_complex camera_pipeline \
-#             exposure_fusion local_laplacian stereo hdr_plus
 IMG_APPS := blur gaussian harris harris_color \
 						unsharp camera_pipeline fast_corner lens_distortion \
 						pyramid_blur local_laplacian laplacian_pyramid bilateral_grid \
 						max_filter nlmeans \
-            lucas_kanade stereo 
+            lucas_kanade stereo lens_blur
 img := $(IMG_APPS)
 
 ### VIDEO APPS ###
@@ -42,14 +38,13 @@ VIDEO_APPS := exposure_fusion \
 							hologram_wgs
 
 ### DNN applications ###
-# DNN_APPS := gemm \
-#             conv_layer_2D conv_layer_3D conv_layer_mobile
 DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_sample \
             conv_layer_3D \
 						resnet resnet_stride resnet_layer_gen resnet_block  resnet_output_stationary \
 						resnet_pond_layer resnet_pond_stationary \
             conv_layer_mobile mobilenet_layer_gen \
-						jitnet resnet50 mobilenetv2
+						jitnet resnet50 mobilenetv2 \
+            bert
 dnn := $(DNN_APPS)
 
 PAPER_APPS := gaussian harris \

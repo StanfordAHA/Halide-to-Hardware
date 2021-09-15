@@ -43,19 +43,19 @@ namespace {
       SAD(x, y, c) += cast<uint16_t>(absd(hw_right_input_copy(x+win.x, y+win.y),
                                           hw_left_input_copy(x+win.x+5+c, y+win.y)));
 
-      offset0(x, y) = cast<int8_t>(0);
+      offset0(x, y) = cast<int16_t>(0);
       offset1(x, y) = cast<uint16_t>(65535);
 
       offset1(x,y) = min(SAD(x, y, search.x), offset1(x, y));
-      offset0(x, y) = select(SAD(x, y, search.x) == offset1(x, y), cast<int8_t>(search.x), offset0(x, y));
+      offset0(x, y) = select(SAD(x, y, search.x) == offset1(x, y), cast<int16_t>(search.x), offset0(x, y));
 
       Func offset_out("offset_out");
       offset_out(x, y) = offset0(x, y);
       // offset_out(x, y) = SAD(x, y, 0)/256;
 
-      hw_output(x, y) = cast<uint8_t>(cast<uint16_t>(offset_out(x, y)) * 255 / searchR);
-      // hw_output(x, y) = cast<uint8_t>(SAD(x, y, 0)/256);
-      output(x, y) = hw_output(x, y);
+      hw_output(x, y) = cast<uint16_t>(offset_out(x, y)) * 255 / searchR;
+      // hw_output(x, y) = cast<uint16_t>(SAD(x, y, 0)/256);
+      output(x, y) = cast<uint8_t>(hw_output(x, y));
 
       output.bound(x, 0, 128);
       output.bound(y, 0, 128);
