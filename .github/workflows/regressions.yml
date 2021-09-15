@@ -89,8 +89,8 @@ jobs:
       shell: bash
       run: |
           make -C apps/hardware_benchmarks/handcrafted  testtravis || exit;
-
-   - name: Run all tests ⚙️
+          
+    - name: Run all tests ⚙️
       shell: bash
       run: |
           make -C apps/hardware_benchmarks/tests        all-run-cpu || exit;
