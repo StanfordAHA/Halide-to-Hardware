@@ -32,7 +32,7 @@ IMG_APPS := blur gaussian harris harris_color \
             lucas_kanade stereo lens_blur
 img := $(IMG_APPS)
 
-### VIDEO APPS ###
+### VIDEO applications ###
 VIDEO_APPS := exposure_fusion \
 							hdr_plus \
 							hologram_wgs
@@ -42,10 +42,14 @@ DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_s
             conv_layer_3D \
 						resnet resnet_stride resnet_layer_gen resnet_block  resnet_output_stationary \
 						resnet_pond_layer resnet_pond_stationary \
-            conv_layer_mobile mobilenet_layer_gen \
+            conv_layer_mobile mobilenet_layer_gen
+dnn := $(DNN_APPS)
+
+### LARGE DNN applications ###
+LARGE_DNN_APPS :=
 						jitnet resnet50 mobilenetv2 \
             bert
-dnn := $(DNN_APPS)
+
 
 PAPER_APPS := gaussian harris \
 							unet/up_sample \
