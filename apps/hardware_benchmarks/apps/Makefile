@@ -45,11 +45,10 @@ DNN_APPS := unet/conv_1_1 unet/conv_2_2 unet/conv_3_3 unet/down_sample unet/up_s
             conv_layer_mobile mobilenet_layer_gen
 dnn := $(DNN_APPS)
 
-### LARGE DNN applications ###
-LARGE_DNN_APPS :=
-						jitnet resnet50 mobilenetv2 \
-            bert
-
+### FULL DNN applications ###
+FULL_DNN_APPS := jitnet resnet50 mobilenetv2 \
+                 bert
+full-dnn := $(DNN_APPS) $(FULL_DNN_APPS)
 
 PAPER_APPS := gaussian harris \
 							unet/up_sample \
