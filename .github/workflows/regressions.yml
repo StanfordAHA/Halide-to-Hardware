@@ -1,6 +1,9 @@
-name: Run regressions daily
+name: Run regressions weekly
 on: [push, pull_request]
-    
+#on:
+#  schedule:
+#  - cron: "0 0 * * 0"
+  
 jobs:
   build:
 
@@ -96,13 +99,21 @@ jobs:
           make -C apps/hardware_benchmarks/tests        all-run-cpu || exit;
           make -C apps/hardware_benchmarks/tests        all-mem || exit;
           make -C apps/hardware_benchmarks/tests        all-compare || exit;          
-          make -C apps/hardware_benchmarks/tests        check --no-print-directory;
           
+    - name: Check the test results
+      shell: bash
+      run: |
+          make -C apps/hardware_benchmarks/tests        check --no-print-directory;
+
     - name: Run all apps ⚙️
       shell: bash
       run: |
           make -C apps/hardware_benchmarks/apps         all-run-cpu || exit;
           make -C apps/hardware_benchmarks/apps         all-mem || exit;
           make -C apps/hardware_benchmarks/apps         all-compare || exit;
+
+    - name: Check the application results
+      shell: bash
+      run: |
           make -C apps/hardware_benchmarks              check --no-print-directory;
           echo "Finished running all tests and apps"
