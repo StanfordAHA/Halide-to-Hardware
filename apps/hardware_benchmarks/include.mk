@@ -187,7 +187,7 @@ updategoldens update_goldens goldens:
 
 checkall check_all check:
 	@for app in $(ALL_APPS_SORTED); do \
-	  $(MAKE) -sC $$app check; \
+	  $(MAKE) -sC $$app check 2>/dev/null; \
 	done
 
 MISSING_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))

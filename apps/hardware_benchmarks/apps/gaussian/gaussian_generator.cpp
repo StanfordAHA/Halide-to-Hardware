@@ -227,7 +227,16 @@ public:
             
             hw_input.compute_root()
               .accelerator_input();
+/*
+// we want
+            accelerator(hw_input -> hw_output)
+              .output_rate(14)
+              //.fill_entire_CGRA(16x32)
+              .create_memories({})
+              .hierarchy({MEM:{100x100},GLB:{1000x1000}})
+*/
 
+            
           } else if (schedule == 4) {
             // Perform host tiliing
             const int inputSize = 64;

@@ -180,7 +180,7 @@ compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
-	EXIT_CODE=$$?; rm unoptimized_*; cd ..; exit $$EXIT_CODE
+	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)_*; cd ..; exit $$EXIT_CODE
 memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
