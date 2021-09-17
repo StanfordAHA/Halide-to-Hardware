@@ -239,7 +239,21 @@ public:
 
 // image bounds (use the same as Halide)
 
-split and reorder?
+//split and reorder?
+////  ---- GLB (DRAM) Level---
+////  for oc in range(32):
+////  ------ Memory Tile (SRAM) Level----
+////  for ic in range(4):
+////  for oy in range(56):
+////  for ox in range(56):
+////  ----- Regfile Level----
+////  for ic in range(1):
+////  for oc in range(1):
+////  for fy in range(5):
+////  for fx in range(5):
+////  parallel ic 16 times
+////  parallel oc 8 times
+
 */
 
             
