@@ -1,4 +1,5 @@
 name: Run regressions weekly
+
 on: [push, pull_request]
 #on:
 #  schedule:

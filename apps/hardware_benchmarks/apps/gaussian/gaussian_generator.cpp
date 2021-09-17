@@ -204,21 +204,21 @@ public:
 
             Var xii, yii, xio, yio;
             hw_output
-              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight);
+              .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
             hw_output.compute_at(hw_output.in(), xo);
-            hw_output.unroll(xi, unroll, TailStrategy::RoundUp);
+            hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
 
+            blur.compute_at(hw_output, xio);
+            blur.unroll(x, unroll, TailStrategy::RoundUp);
+            
             blur_unnormalized.update()
               .unroll(win.x, blockSize)
               .unroll(win.y, blockSize);
             blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
             blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
-            blur_unnormalized.compute_at(hw_output, xo);
+            blur_unnormalized.compute_at(hw_output, xio);
 
-            blur.compute_at(hw_output, xo);
-            blur.unroll(x, unroll, TailStrategy::RoundUp);
-
-            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
             hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
 
             hw_input.in().compute_at(hw_output.in(), xo);
@@ -228,12 +228,18 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 /*
-// we want
+// declarative schedule version:
             accelerator(hw_input -> hw_output)
-              .output_rate(14)
+              .output_rate(14, matched, roundup)
               //.fill_entire_CGRA(16x32)
-              .create_memories({})
-              .hierarchy({MEM:{100x100},GLB:{1000x1000}})
+              .create_memories({blur, blur_unnormalized})
+              //.buffer_all()
+              .mem_hierarchy({MEM:{64x64}, GLB:{64x512}})
+              //.fill_memories({MEM:2048, GLB:128kB})
+
+// image bounds (use the same as Halide)
+
+split and reorder?
 */
 
             
