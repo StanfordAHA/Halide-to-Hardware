@@ -30,10 +30,10 @@ public:
     GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
 
     // n_ic determines the total number of input channels
-    GeneratorParam<int> n_ic{"n_ic", 16};    // default: 64
+    GeneratorParam<int> n_ic{"n_ic", 32};    // default: 64
   
     // n_oc determines the total number of output channels
-    GeneratorParam<int> n_oc{"n_oc", 8};    // default: 64
+    GeneratorParam<int> n_oc{"n_oc", 32};    // default: 64
   
 
     void generate() {

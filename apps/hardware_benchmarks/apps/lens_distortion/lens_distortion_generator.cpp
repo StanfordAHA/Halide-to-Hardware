@@ -55,8 +55,8 @@ public:
         
         output_copy(x,y) = select(count(x,y)==0, i16(0), accum(x,y) / (count(x,y) + 0.01f));
 
-        hw_output(x,y) = u8(output_copy(x,y));
-        output(x,y) = hw_output(x,y);
+        hw_output(x,y) = output_copy(x,y);
+        output(x,y) = u8(hw_output(x,y));
 
         if (auto_schedule) {
         } else if (get_target().has_feature(Target::CoreIR)) {
