@@ -195,13 +195,13 @@ def main():
             parseDesignPlace(meta, args.place)
 
     if args.shuffle:
-	inputs = meta['IOs']['inputs']
+        inputs = meta['IOs']['inputs']
         for _input in inputs:
             if _input['datafile'][0:5] == 'input':
                 _input['datafile'] = 'input_padded_shuffle.raw'
             elif _input['datafile'][0:6] == 'kernel':
                 _input['datafile'] = 'kernel_shuffle.raw'
-	outputs = meta['IOs']['outputs']
+        outputs = meta['IOs']['outputs']
         for _output in outputs:
             if _output['datafile'][0:9] == 'hw_output':
                 _output['datafile'] = 'hw_output_shuffle.raw'
