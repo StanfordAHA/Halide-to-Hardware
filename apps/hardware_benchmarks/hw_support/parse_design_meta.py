@@ -5,6 +5,12 @@ import pprint
 import sys
 import re
 
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+
 # python ../../hw_support/parse_design_meta.py bin/design_meta_halide.json --top bin/design_top.json --place bin/design.place
 def parseArguments():
     # Create argument parser
@@ -17,17 +23,10 @@ def parseArguments():
     parser.add_argument("--top", help="design_top.json: parse out address sequence", type=str, default=None)
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
     parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
-
     # Parse arguments
     args = parser.parse_args()
 
     return args
-
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
 def findBetween(s:str, start:str, end:str):
     end = end if "clkwrk" in s else "_op_hcompute"
@@ -87,7 +86,7 @@ def parseDesignTop(meta, filename: str):
                 else:
                     metaOut["io_tiles"] = [{"name":inst, "addr":addr}]
 
-        # alter the shape and data stride 
+        # alter the shape and data stride
         for input_struct in meta["IOs"]["inputs"]:
             num_tiles = len(input_struct["io_tiles"])
             # change the shape
@@ -103,12 +102,7 @@ def parseDesignTop(meta, filename: str):
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll
                 input_struct["shape"] = new_shape
-            # change the read data stride
-            #for io_tile in input_struct["io_tiles"]:
-            #    data_stride = io_tile["addr"]["read_data_stride"]
-            #    io_tile["addr"]["read_data_stride"] = [stride // num_tiles for stride in data_stride]
-            #        #assert(stride % num_tiles == 0), f"input stride is {stride}"
-                    
+
         for output_struct in meta["IOs"]["outputs"]:
             num_tiles = len(output_struct["io_tiles"])
             # change the shape
@@ -124,14 +118,6 @@ def parseDesignTop(meta, filename: str):
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll
                 output_struct["shape"] = new_shape
-                
-            metaOut["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
-            
-            # change the write data stride
-            #for io_tile in output_struct["io_tiles"]:
-            #    data_stride = io_tile["addr"]["write_data_stride"]
-            #    io_tile["addr"]["write_data_stride"] = [stride // num_tiles for stride in data_stride]
-            #        #assert(stride % num_tiles == 0), f"output stride is {stride}"
 
         # sort the inputs and outputs based on human sorting
         metaIn["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
@@ -172,7 +158,6 @@ def parseDesignPlace(meta, filename: str):
                 setOrCheck(tileOut, "y_pos", int(words[2]))
                 tileOut["valid_name"] = validName
 
-
 def main():
     args = parseArguments()
 
@@ -205,6 +190,7 @@ def main():
         for _output in outputs:
             if _output['datafile'][0:9] == 'hw_output':
                 _output['datafile'] = 'hw_output_shuffle.raw'
+
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:

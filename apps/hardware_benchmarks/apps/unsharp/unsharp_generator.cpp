@@ -19,7 +19,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
+    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 0
+    GeneratorParam<uint8_t> width{"width", 66};    // default: 0
 
     void generate() {
         /* THE ALGORITHM */
@@ -245,10 +247,10 @@ public:
               .accelerator_input();
 
           } else if (schedule == 3) { // do the big parrot with unroll
-            const int unroll = 3;
+            const int unroll = myunroll;
             //const int tileWidth = 122-0;
             //const int tileWidth = 141; //unroll=3  ; also try 63
-            const int tileWidth = 66;
+            const int tileWidth = width;
             //const int tileHeight = 256-0;
             const int tileHeight = 66;
             //const int numHostTilesX = 12-1;
