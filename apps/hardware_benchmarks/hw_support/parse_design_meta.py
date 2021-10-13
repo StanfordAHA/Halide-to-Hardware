@@ -23,8 +23,6 @@ def parseArguments():
     parser.add_argument("--top", help="design_top.json: parse out address sequence", type=str, default=None)
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
     parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
-
-    parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
     # Parse arguments
     args = parser.parse_args()
 
