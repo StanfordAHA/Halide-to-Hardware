@@ -104,11 +104,6 @@ def parseDesignTop(meta, filename: str):
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll
                 input_struct["shape"] = new_shape
-            # change the read data stride
-            #for io_tile in input_struct["io_tiles"]:
-            #    data_stride = io_tile["addr"]["read_data_stride"]
-            #    io_tile["addr"]["read_data_stride"] = [stride // num_tiles for stride in data_stride]
-            #        #assert(stride % num_tiles == 0), f"input stride is {stride}"
 
         for output_struct in meta["IOs"]["outputs"]:
             num_tiles = len(output_struct["io_tiles"])
@@ -125,11 +120,6 @@ def parseDesignTop(meta, filename: str):
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll
                 output_struct["shape"] = new_shape
-            # change the write data stride
-            #for io_tile in output_struct["io_tiles"]:
-            #    data_stride = io_tile["addr"]["write_data_stride"]
-            #    io_tile["addr"]["write_data_stride"] = [stride // num_tiles for stride in data_stride]
-            #        #assert(stride % num_tiles == 0), f"output stride is {stride}"
 
         # sort the inputs and outputs based on human sorting
         metaIn["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
@@ -203,12 +193,6 @@ def main():
             if _output['datafile'][0:9] == 'hw_output':
                 _output['datafile'] = 'hw_output_shuffle.raw'
 
-        # inputs = meta['IOs']['inputs']
-        # for _input in inputs:
-        #     _input['datafile'] = _input['datafile'][:-4] + '_shuffle' + _input['datafile'][-4:]
-        # outputs = meta['IOs']['outputs']
-        # for _output in outputs:
-        #     _output['datafile'] = _output['datafile'][:-4] + '_shuffle' + _output['datafile'][-4:]
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
