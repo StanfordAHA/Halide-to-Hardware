@@ -60,7 +60,7 @@ int main( int argc, char **argv ) {
   auto env_sch = getenv("schedule");
   auto env_width = getenv("width");
   auto schedule = env_sch ? atoi(env_sch) : 0;
-  auto width = env_sch ? atoi(env_width) : 62;
+  auto width = env_width ? atoi(env_width) : 62;
   std::cout << "using schedule = " << schedule << std::endl;
 
   int output_tile_width  = 62;

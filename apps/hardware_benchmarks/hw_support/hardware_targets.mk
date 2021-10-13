@@ -28,6 +28,7 @@ CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthre
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
+TESTORAPP = $(shell basename $(abspath $(ROOT_DIR)/..))
 USE_COREIR_VALID ?= 0
 EXT ?= png
 
@@ -193,6 +194,10 @@ pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
 	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
 	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
+
+delay_mem:
+	rm -rf bin/map_result/ && make compile-mem
+	make mem
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
@@ -617,6 +622,12 @@ $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
 graph.png graph:
 	$(MAKE) $(BIN)/graph.png
+
+copy_design:
+	docker cp setter-tender_lovelace:/aha/Halide-to-Hardware/apps/hardware_benchmarks/$(TESTORAPP)/$(TESTNAME)/bin/design.place bin/
+	docker cp setter-tender_lovelace:/aha/Halide-to-Hardware/apps/hardware_benchmarks/$(TESTORAPP)/$(TESTNAME)/bin/design.route bin/
+pnr_result: 
+	python $(HWSUPPORT)/visualize_pnr.py bin 32 16
 
 clean:
 	rm -rf $(BIN) *_debug.csv test_results
