@@ -19,9 +19,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 0
-    GeneratorParam<uint8_t> width{"width", 66};    // default: 0
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
+    GeneratorParam<uint8_t> width{"width", 58};         // default: 58
 
     void generate() {
         /* THE ALGORITHM */

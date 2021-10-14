@@ -248,7 +248,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
 
 int inst_bitwidth(int input_bitwidth) {
   // FIXME: properly create bitwidths 1, 8, 16, 32
-  return input_bitwidth;
+  //return input_bitwidth;
   if (input_bitwidth == 1) {
     return 1;
   } else {
@@ -1240,7 +1240,14 @@ void CreateCoreIRModule::visit(const Load *op) {
     !allocations.contains(op->name) ||
     allocations.get(op->name).type != t;
 
-  string id_index = print_expr(op->index);
+  // skip the cast of the index
+  string id_index;
+  if (auto index = op->index.as<Cast>()) {
+    id_index = print_expr(index->value);
+  } else {
+    id_index = print_expr(op->index);
+  }
+  
   string name = print_name(op->name);
   ostringstream rhs;
   if (type_cast_needed) {
@@ -1340,7 +1347,8 @@ void CreateCoreIRModule::visit(const Cast *op) {
   stream << "[cast]";
   string in_var = print_expr(op->value);
   string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
-  if (is_wire(out_var)) { return; }
+  
+  //if (is_wire(out_var)) { return; }
   
   // casting from 1 to 16 bits
   int lhs_bits = op->type.bits();
@@ -1358,6 +1366,7 @@ void CreateCoreIRModule::visit(const Cast *op) {
     Expr zero_uint16 = UIntImm::make(UInt(rhs_bits), 0);
     visit_binop(op->type, op->value, zero_uint16, "!=", "neq");
 
+    /*
   // casting from 8 to 16 bits
   } else if (lhs_bits > rhs_bits) {
     stream << "// casting from " << rhs_bits << " up to " << lhs_bits << "bits" << endl;
@@ -1421,7 +1430,7 @@ void CreateCoreIRModule::visit(const Cast *op) {
       def->connect(a_wire, coreir_inst->sel("in"));
       add_wire(out_var, coreir_inst->sel("out"));
     }
-    
+    */    
   } else if (!is_iconst(in_var)) {
     // only add to list, don't duplicate constants
     stream << "// renaming " << in_var << " to " << out_var << std::endl;

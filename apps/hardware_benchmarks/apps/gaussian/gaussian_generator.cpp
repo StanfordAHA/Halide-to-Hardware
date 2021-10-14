@@ -10,16 +10,16 @@ namespace {
 using namespace Halide;
 
 // Size of blur for gradients.
-const int blockSize = 2;
+const int blockSize = 3;
 
 class GaussianBlur : public Halide::Generator<GaussianBlur> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
   
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
-    GeneratorParam<uint8_t> width{"width", 56};         // default: 62
-    GeneratorParam<uint8_t> myunroll{"myunroll", 1};        // default: 62
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> width{"width", 62};         // default: 62
+    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
   //int tilesize = imgSize / 2;

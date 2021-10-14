@@ -3,8 +3,8 @@
 		"inputs": [{
 			"name": "hw_input",
 			"bitwidth": 16,
-			"shape": [264, 198],
-			"pixels_per_cycle": 8,
+			"shape": [64, 64],
+			"pixels_per_cycle": 1,
 			"datafile": "bin/hw_input_stencil.raw"
     }],
 		"output": {
