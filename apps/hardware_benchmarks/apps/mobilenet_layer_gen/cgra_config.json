@@ -1,0 +1,32 @@
+{
+	"IOs": {
+		"inputs": [{
+			"name": "hw_filter_dw",
+			"bitwidth": 16,
+			"shape": [4, 3, 3],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_filter_dw_stencil.raw"
+    },{
+			"name": "hw_filter_pw",
+			"bitwidth": 16,
+			"shape": [3, 4],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_filter_pw_stencil.raw"
+    },{
+			"name": "hw_input",
+			"bitwidth": 16,
+			"shape": [4, 30, 30],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_input_stencil.raw"
+    }],
+		"output": {
+			"name": "hw_output",
+			"bitwidth": 16,
+			"pixels_per_cycle": 1,
+      "datafile": "bin/hw_output.raw"
+		}
+	},
+	"testing": {
+		"total_cycles": -1
+	}
+}

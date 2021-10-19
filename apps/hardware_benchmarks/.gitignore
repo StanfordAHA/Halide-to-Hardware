@@ -4,9 +4,15 @@
 *.backup
 apps/results
 tests/results
+apps/*/test_results
+tests/*/test_results
 handcrafted/results
 !*cgra_config.json
 **/bin/*
+route_*.png
+pnr_result.png
+after.png
+before.png
 !/handcrafted/*/bin
 !/handcrafted/*/bin/design_top.json
 !/handcrafted/*/bin/testing.json

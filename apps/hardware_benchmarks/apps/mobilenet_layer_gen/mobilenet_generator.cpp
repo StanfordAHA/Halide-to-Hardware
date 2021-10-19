@@ -13,8 +13,8 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     // in_img determines the input image size
-    //GeneratorParam<int> in_img{"in_img", 28};    // default: 28
-    GeneratorParam<int> in_img{"in_img", 30};    // default: 30
+    GeneratorParam<int> in_img{"in_img", 28};    // default: 28
+  //GeneratorParam<int> in_img{"in_img", 30};    // default: 30
 
     // pad determines the padding to the input image size
     GeneratorParam<int> pad{"pad", 1};    // default: 1
@@ -26,10 +26,10 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 4};    // default: 4
+    GeneratorParam<int> k_ic{"k_ic", 4};    // default: 8
 
     // k_oc determines the number of channel sizes
-    GeneratorParam<int> k_oc{"k_oc", 3};    // default: 3
+    GeneratorParam<int> k_oc{"k_oc", 3};    // default: 8
 
     void generate() {
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
@@ -76,6 +76,7 @@ public:
 
         Func hw_output("hw_output");
         hw_output(k, x, y) = pw_conv_reduction(k, x, y);
+        //hw_output(k, x, y) = pw_conv(k, 3, x, y);
 
         //hw_output(k, x, y) = max(0, pw_conv_reduction(k, x, y));
         //hw_output(x, y, k) = u8(hw_input(x, y, 0));

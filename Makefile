@@ -1836,12 +1836,12 @@ test_apps: distrib
 
 test_coreir:  distrib $(LIB_DIR)/libHalide.a $(INCLUDE_DIR)/Halide.h $(INCLUDE_DIR)/HalideRuntime.h
 	$(MAKE) correctness_hwbuffer
-	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit;
-	$(MAKE) -C apps/hardware_benchmarks/apps  cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
+	$(MAKE) -C apps/hardware_benchmarks/tests cleanall testtravis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit;
+	$(MAKE) -C apps/hardware_benchmarks/apps  cleanall testtravis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
 
 # Test that does not build libHalide from scratch
 test_coreir_prebuilt:
-	$(MAKE) -C apps/hardware_benchmarks/tests cleanall test_travis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
+	$(MAKE) -C apps/hardware_benchmarks/tests cleanall testtravis HALIDE_BIN_PATH=$(CURDIR) HALIDE_SRC_PATH=$(ROOT_DIR) || exit; 
 
 fulltest_coreir:
 	$(MAKE) test_coreir test_correctness test_generator

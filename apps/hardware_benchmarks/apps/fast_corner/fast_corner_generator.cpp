@@ -147,9 +147,9 @@ public:
             .tile(x, y, xo, yo, xi, yi, 64-6,64-6)
             .hw_accelerate(xi, xo);
           
-          lighter.compute_at(hw_output,xo).unroll(l);
-          darker.compute_at(hw_output,xo).unroll(l);
-
+          //lighter.compute_at(hw_output,xo).unroll(l);
+          //darker.compute_at(hw_output,xo).unroll(l);
+          
           contiguous_lighter16.compute_at(hw_output,xo).unroll(l);
           contiguous_darker16.compute_at(hw_output,xo).unroll(l);
 

@@ -266,9 +266,6 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
 
       string tree_name = headInst->getInstname() + "_tree";
 
-      //tree = def->addInstance(tree_name, opName,
-      //                                  {{"width",arg_width}}
-      //  );
       tree = def->addInstance(tree_name, opN,
                                         {{"width",arg_width},{"N",arg_N},{"operator",arg_op}}
         );

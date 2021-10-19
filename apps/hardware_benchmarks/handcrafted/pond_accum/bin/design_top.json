@@ -33,15 +33,25 @@
             "modref":"cgralib.BitIO",
             "modargs":{"mode":["String","in"]}
           },
+          "lutcnst":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","bit"], "width":["Int",16]},
+            "modargs":{"bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "flag_sel":["String","lut"], "lut_value":[["BitVector",8],"8'h00"]}
+          },
+          "io_or_rf_flush_lut":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","bit"], "width":["Int",16]},
+            "modargs":{"bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "flag_sel":["String","lut"], "lut_value":[["BitVector",8],"8'hee"]}
+          },
           "lakemem_accum":{
               "genref":"cgralib.Pond",
               "genargs":{"num_inputs":["Int",1], "num_outputs":["Int",1], "width":["Int",16]},
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [64,100], "cycle_stride": [1,64],
+                             "in2regfile_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [64,100], "cycle_stride": [1,64],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [0,0]},
-                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [8,2], "cycle_stride": [1,8],
+                             "regfile2out_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [8,2], "cycle_stride": [1,8],
                                             "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,0]}
                          }]}},
           "rf_flush":{
@@ -50,7 +60,7 @@
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[8], "extent": [512,100], "cycle_stride": [8,4096]}
+                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[7], "extent": [512,100], "cycle_stride": [8,4096]}
                          }]}},
           "output_valid":{
               "genref":"cgralib.Mem",
@@ -58,15 +68,20 @@
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[8], "extent": [512,100], "cycle_stride": [8,4096]}
+                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[7], "extent": [512,100], "cycle_stride": [8,4096]}
                          }]}}
         },
         "connections":[
             ["io16in_in0_arg_input.out","add_accum$binop.data.in.0"],
-            ["lakemem_accum.data_out_pond","add_accum$binop.data.in.1"],
-            ["add_accum$binop.data.out","lakemem_accum.data_in_pond"],
+            ["lakemem_accum.data_out_pond_0","add_accum$binop.data.in.1"],
+            ["add_accum$binop.data.out","lakemem_accum.data_in_pond_0"],
             ["add_accum$binop.data.out","io16_out_0_0.in"],
-            ["rf_flush.stencil_valid","lakemem_accum.flush"],
+            ["io1in_reset.out","rf_flush.flush"],
+            ["io1in_reset.out","output_valid.flush"],
+            ["lutcnst.bit.out","io_or_rf_flush_lut.bit.in.2"],
+            ["rf_flush.stencil_valid","io_or_rf_flush_lut.bit.in.0"],
+            ["io1in_reset.out","io_or_rf_flush_lut.bit.in.1"],
+            ["io_or_rf_flush_lut.bit.out","lakemem_accum.flush"],
             ["output_valid.stencil_valid","io1_valid.in"]
         ]
       }

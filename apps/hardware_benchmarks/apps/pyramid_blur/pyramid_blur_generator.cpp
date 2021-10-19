@@ -119,32 +119,11 @@ public:
             .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
             .hw_accelerate(xi, xo);
 
-          int last = num_levels-1;
-          for (int level=last; level>=0; --level) {
-            blur[level].update(0)
-              .unroll(win.x, blockSize)
-              .unroll(win.y, blockSize);
-
-            if (level == last) {
-              blur[level].compute_at(hw_output, xo);
-              blur[level].compute_share_root(blur[level], y);
-            } else {
-              blur[level].compute_share(blur[last]);
-            }
-          }
-          
           blur3.compute_at(hw_output, xo);
-          //blur3.compute_share_root(blur3, x); // this shares all iteration loops
-          blur3.compute_share_root(blur3, y); // distinct iteration loops
-          //blur3.compute_share_root(blur3, Var::outermost()); // distinct iteration loops
+          blur2.compute_at(hw_output, xo);
+          blur1.compute_at(hw_output, xo);
+          blur0.compute_at(hw_output, xo);
 
-          blur2.compute_share(blur3);
-          blur1.compute_share(blur3);
-          blur0.compute_share(blur3);
-          
-          blur2.memory_share(blur3);
-          blur1.memory_share(blur3);
-          blur0.memory_share(blur3);
 
           hw_in.stream_to_accelerator();
           

@@ -23,6 +23,7 @@ namespace Internal {
 using std::ostream;
 using std::endl;
 using std::string;
+using std::to_string;
 using std::vector;
 using std::map;
 using std::ostringstream;
@@ -152,6 +153,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
                                            "ult", "ugt", "ule", "uge",
                                            "slt", "sgt", "sle", "sge",
                                            "shl", "ashr", "lshr",
+                                           "sext", "zext", "slice", "concat",
                                            "mux", "const", "wire"};
 
   for (auto gen_name : corelib_gen_names) {
@@ -246,6 +248,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
 
 int inst_bitwidth(int input_bitwidth) {
   // FIXME: properly create bitwidths 1, 8, 16, 32
+  //return input_bitwidth;
   if (input_bitwidth == 1) {
     return 1;
   } else {
@@ -1237,7 +1240,14 @@ void CreateCoreIRModule::visit(const Load *op) {
     !allocations.contains(op->name) ||
     allocations.get(op->name).type != t;
 
-  string id_index = print_expr(op->index);
+  // skip the cast of the index
+  string id_index;
+  if (auto index = op->index.as<Cast>()) {
+    id_index = print_expr(index->value);
+  } else {
+    id_index = print_expr(op->index);
+  }
+  
   string name = print_name(op->name);
   ostringstream rhs;
   if (type_cast_needed) {
@@ -1338,19 +1348,89 @@ void CreateCoreIRModule::visit(const Cast *op) {
   string in_var = print_expr(op->value);
   string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
   
+  //if (is_wire(out_var)) { return; }
+  
   // casting from 1 to 16 bits
-  if (op->type.bits() > 1 && op->value.type().bits() == 1) {
-    stream << "// casting from 1 to 16 bits" << endl;
-    Expr one_uint16 = UIntImm::make(UInt(16), 1);
-    Expr zero_uint16 = UIntImm::make(UInt(16), 0);
+  int lhs_bits = op->type.bits();
+  int rhs_bits = op->value.type().bits();
+  string convert_str = "_" + to_string(rhs_bits) + "to" + to_string(lhs_bits) + "_";
+  if (lhs_bits > 1 && rhs_bits == 1) {
+    stream << "// casting from 1 to " << lhs_bits << " bits" << endl;
+    Expr one_uint16 = UIntImm::make(UInt(lhs_bits), 1);
+    Expr zero_uint16 = UIntImm::make(UInt(lhs_bits), 0);
     visit_ternop(op->type, op->value, one_uint16, zero_uint16, "?", ":", "mux");
 
   // casting from 16 to 1 bit
-  } else if (op->type.bits() == 1 && op->value.type().bits() > 1) {
-    stream << "// casting from 16 to 1 bit" << endl;
-    Expr zero_uint16 = UIntImm::make(UInt(op->value.type().bits()), 0);
+  } else if (lhs_bits == 1 && rhs_bits > 1) {
+    stream << "// casting from " << rhs_bits << " to 1 bit" << endl;
+    Expr zero_uint16 = UIntImm::make(UInt(rhs_bits), 0);
     visit_binop(op->type, op->value, zero_uint16, "!=", "neq");
 
+    /*
+  // casting from 8 to 16 bits
+  } else if (lhs_bits > rhs_bits) {
+    stream << "// casting from " << rhs_bits << " up to " << lhs_bits << "bits" << endl;
+
+    CoreIR::Wireable* a_wire = get_wire(in_var, op->value);
+    CoreIR::Wireable* coreir_inst;
+    if (!op->value.type().is_uint()) {
+      // copy the sign bit to the top
+      string unaryop_name = "sext" + convert_str + in_var;
+      coreir_inst = def->addInstance(unaryop_name, gens["sext"],
+                                     {{"width_in", CoreIR::Const::make(context,rhs_bits)},
+                                      {"width_out", CoreIR::Const::make(context,lhs_bits)}});
+    } else {
+      // add some zeros to the top
+      string unaryop_name = "zext" + convert_str + in_var;
+      coreir_inst = def->addInstance(unaryop_name, gens["zext"],
+                                     {{"width_in", CoreIR::Const::make(context,rhs_bits)},
+                                      {"width_out", CoreIR::Const::make(context,lhs_bits)}});
+    }
+    def->connect(a_wire, coreir_inst->sel("in"));
+    add_wire(out_var, coreir_inst->sel("out"));
+
+  // casting from 16 to 8 bits
+  } else if (lhs_bits < rhs_bits) {
+    stream << "// casting from " << rhs_bits << " down to " << lhs_bits << "bits" << endl;
+
+    CoreIR::Wireable* a_wire = get_wire(in_var, op->value);
+    CoreIR::Wireable* coreir_inst;
+    if (!op->value.type().is_uint()) {
+      Expr signed_bits;
+      // select the sign bit, and the bottom bits
+      string slice_name = "signslice" + convert_str + in_var;
+      auto signslice = def->addInstance(slice_name, gens["slice"],
+                                        {{"width", CoreIR::Const::make(context,rhs_bits)},
+                                         {"lo", CoreIR::Const::make(context,rhs_bits-1)},
+                                         {"hi", CoreIR::Const::make(context,rhs_bits)}});
+      
+      string dataslice_name = "dataslice" + convert_str + in_var;
+      auto dataslice = def->addInstance(dataslice_name, gens["slice"],
+                                        {{"width", CoreIR::Const::make(context,rhs_bits)},
+                                         {"lo", CoreIR::Const::make(context,0)},
+                                         {"hi", CoreIR::Const::make(context,lhs_bits-1)}});
+
+      string concat_name = "concat" + convert_str + in_var;
+      coreir_inst = def->addInstance(concat_name, gens["concat"],
+                                     {{"width0", CoreIR::Const::make(context,1)},
+                                      {"width1", CoreIR::Const::make(context,lhs_bits-1)}});
+      def->connect(a_wire, signslice->sel("in"));
+      def->connect(a_wire, dataslice->sel("in"));
+      def->connect(signslice->sel("out"), coreir_inst->sel("in0"));
+      def->connect(dataslice->sel("out"), coreir_inst->sel("in1"));
+      add_wire(out_var, coreir_inst->sel("out"));
+      
+    } else {
+      // select just the bottom bits
+      string unaryop_name = "slice" + convert_str + in_var;
+      coreir_inst = def->addInstance(unaryop_name, gens["slice"],
+                                     {{"width", CoreIR::Const::make(context,rhs_bits)},
+                                      {"lo", CoreIR::Const::make(context,0)},
+                                      {"hi", CoreIR::Const::make(context,lhs_bits)}});
+      def->connect(a_wire, coreir_inst->sel("in"));
+      add_wire(out_var, coreir_inst->sel("out"));
+    }
+    */    
   } else if (!is_iconst(in_var)) {
     // only add to list, don't duplicate constants
     stream << "// renaming " << in_var << " to " << out_var << std::endl;

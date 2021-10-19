@@ -33,7 +33,7 @@ public:
 //        kernel(0,1) = 1;      kernel(1,1) = 1;       kernel(2,1) = 1;
 //        kernel(0,2) = 1;      kernel(1,2) = 1;       kernel(2,2) = 1;
         kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
-        kernel(1,0) = 14;      kernel(1,1) = 255;       kernel(1,2) = 16;
+        kernel(1,0) = 0;       kernel(1,1) = 0;       kernel(1,2) = 16;
         kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
         
         conv(x, y) = u16(0);

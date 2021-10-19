@@ -44,7 +44,7 @@ public:
         conv(x, y, z)  += u16(kernel(r.x, r.y, z) * hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
-        hw_output(x, y, z) = u8(conv(x, y, z));
+        hw_output(x, y, z) = conv(x, y, z);
         output(x, y, z) = u8(hw_output(x,y,z));
 
         /* THE SCHEDULE */

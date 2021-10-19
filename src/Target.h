@@ -110,6 +110,7 @@ struct Target {
         Clockwork = halide_target_feature_clockwork,
         UseExtractHWKernel = halide_target_feature_use_extract_hw_kernel,
         BFloatHardware = halide_target_feature_bfloat_hardware,
+        EnablePonds = halide_target_feature_enable_ponds,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}

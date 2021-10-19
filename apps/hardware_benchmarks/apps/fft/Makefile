@@ -48,12 +48,8 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 #
 ###############################################################################
 
-mem test-mem:
-	@echo "Manual mapped application, no need to run clockwork."
+include ../../hw_support/hardware_targets.mk
 
-bin/output_cpu.raw:
-	$(HWSUPPORT)/steveconvert.csh bin/output_cpu.png bin/output_cpu.raw
-
-bin/input.raw:
-	$(HWSUPPORT)/steveconvert.csh input.png bin/input.raw
-
+test-mem mem bin/design_top.json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json:
+	@echo "Doesn't map through clockwork. Takes too long."
+	exit 1
