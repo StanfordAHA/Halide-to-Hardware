@@ -39,9 +39,9 @@
               "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
                          "config":["Json", {
                              "mode":"lake",
-                             "in2regfile_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [64,100], "cycle_stride": [1,64],
+                             "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [64,100], "cycle_stride": [1,64],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [0,0]},
-                             "regfile2out_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [8,2], "cycle_stride": [1,8],
+                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [8,2], "cycle_stride": [1,8],
                                             "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,0]}
                          }]}},
           "rf_flush":{
@@ -63,8 +63,8 @@
         },
         "connections":[
             ["io16in_in0_arg_input.out","add_accum$binop.data.in.0"],
-            ["lakemem_accum.data_out_pond_0","add_accum$binop.data.in.1"],
-            ["add_accum$binop.data.out","lakemem_accum.data_in_pond_0"],
+            ["lakemem_accum.data_out_pond","add_accum$binop.data.in.1"],
+            ["add_accum$binop.data.out","lakemem_accum.data_in_pond"],
             ["add_accum$binop.data.out","io16_out_0_0.in"],
             ["rf_flush.stencil_valid","lakemem_accum.flush"],
             ["output_valid.stencil_valid","io1_valid.in"]
