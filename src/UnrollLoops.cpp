@@ -246,6 +246,7 @@ class UnrollLoopsAndMerge : public IRMutator {
                 user_warning << "Warning: Unrolling a for loop of extent 1: " << for_loop->name << "\n";
             }
 
+            //std::cout << "looking at :\n" << for_loop->body << std::endl;
             vector<Stmt> iters;
             // Make n copies of the body, each wrapped in a let that defines the loop var for that body
             for (int i = 0; i < e->value; i++) {

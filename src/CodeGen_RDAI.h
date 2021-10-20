@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "Bounds.h"
 #include "CodeGen_C.h"
 #include "Module.h"
 #include "Scope.h"
@@ -56,6 +57,7 @@ struct HW_Arg
     Type scalar_type;
     HW_Stencil_Type stencil_type;
     vector<Expr> args;
+    Box box;
 };
 
 struct RDAI_TargetGenLike
@@ -100,6 +102,7 @@ protected:
     vector<LoweredArgument> func_args;
     bool inserted_host_buf_calls = false;
     int num_xcels;
+    int xcel_idx;
 };
 
 }

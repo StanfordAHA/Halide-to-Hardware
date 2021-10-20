@@ -3,6 +3,7 @@
 
 #include "Closure.h"
 #include "CodeGen_RDAI.h"
+#include "HWBufferUtils.h"
 #include "Simplify.h"
 #include "Substitute.h"
 #include "Module.h"
@@ -35,14 +36,14 @@ public:
         for (const pair<string, Type> &v : vars) {
             if (ends_with(v.first, ".stencil")) {
                 HW_Stencil_Type stencil_type = streams_scope.get(v.first);
-                if(starts_with(v.first, output_name)) {
+                if (starts_with(v.first, output_name)) {
                     result.push_back({v.first, true, true, Type(), stencil_type});
                 } else {
                     result.push_back({v.first, true, false, Type(), stencil_type});
                 }
             } else {
                 // it is a scalar variable
-                result.push_back({v.first, false, true, v.second, HW_Stencil_Type()});
+                result.push_back({v.first, false, false, v.second, HW_Stencil_Type()});
             }
         }
 
@@ -51,7 +52,16 @@ public:
         
         //std::cout << "output name is " << output_name << std::endl;        
         string out_scope_name = output_name.substr(1); // removes the preceding .
-        result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get(out_scope_name + ".stencil")});
+        string out_halide_name = out_scope_name + ".stencil";
+
+        if (streams_scope.contains(out_scope_name + ".glb.stencil")) {
+          out_halide_name = out_scope_name + ".glb.stencil";
+        } else {
+          internal_assert(streams_scope.contains(out_halide_name));
+        }
+        
+        //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get(out_scope_name + ".stencil")});
+        result.push_back({out_halide_name, true, true, Type(), streams_scope.get(out_halide_name)});
         return result;
     }
 
@@ -69,9 +79,42 @@ CodeGen_RDAI::CodeGen_RDAI(ostream& pipeline_stream, const Target& target, strin
 CodeGen_RDAI::~CodeGen_RDAI() {}
 
 namespace {
+class AssociatedProvideName : public IRVisitor {
+    using IRVisitor::visit;
+    void visit(const Provide *op) {
+      //std::cout << "this provide is " << Stmt(op);
+      for (auto value : op->values) {
+        if (contains_call(value, call_name)) {
+          internal_assert(!found || (op->name == provide_name)) << call_name << " is called by multiple provides! ("
+                                                                << provide_name << " and " << op->name << ")";
+          provide_name = op->name;
+          found = true;
+        }
+      }
+      IRVisitor::visit(op);
+    }
+
+public:
+  bool found;
+  string call_name;
+  string provide_name;
+
+  AssociatedProvideName(string call_name) : found(false), call_name(call_name) {}
+};
+
+string associated_provide_name(Stmt s, string call_name) {
+    AssociatedProvideName apn(call_name);
+    s.accept(&apn);
+    internal_assert(apn.found);
+    return apn.provide_name;
+}
+
+
+
+
     void render_rdai_data(const string& output_folder, const RDAI_Info& info, const string& pipeline_name) {
 
-        if(info.devices.empty()) return;
+        if (info.devices.empty()) return;
 
         string out_path = output_folder.empty() ? "rdai_clockwork_platform.h" :
             output_folder + "/" + "rdai_clockwork_platform.h";
@@ -134,11 +177,11 @@ string CodeGen_RDAI::print_name(const string& name) {
     std::ostringstream oss;
 
     // prefix an underscore to avoid reserved words
-    if(isalpha(name[0])) {
+    if (isalpha(name[0])) {
         oss << '_';
     }
-    for(size_t i = 0; i < name.size(); i++) {
-        if(!isalnum(name[i])) {
+    for (size_t i = 0; i < name.size(); i++) {
+        if (!isalnum(name[i])) {
             oss << "_";
         } else {
             oss << name[i];
@@ -148,8 +191,37 @@ string CodeGen_RDAI::print_name(const string& name) {
     return oss.str();
 }
 
+string printname(const string &name) {
+    ostringstream oss;
+
+    // Prefix an underscore to avoid reserved words (e.g. a variable named "while")
+    size_t start;
+    //for (start=0; start<name.size(); ++start) {
+    //  if (isalnum(name[start])) {
+    //    break;
+    //  }
+    //}
+    while (start<name.size() && !isalnum(name[start])) {
+      start++;
+    }
+    if (isdigit(name[start])) { // variable cannot start with a number
+      oss << "_";
+    }
+
+    internal_assert(start < name.size()) << "what to do about " << name << "\n";
+
+    for (size_t i = start; i < name.size(); i++) {
+      // vivado HLS compiler doesn't like '__'
+        if (!isalnum(name[i])) {
+            oss << "_";
+        }
+        else oss << name[i];
+    }
+    return oss.str();
+}
+
 void CodeGen_RDAI::visit(const Call *op) {
-    if(op->is_intrinsic() && ends_with(op->name, ".stencil")) {
+    if (op->is_intrinsic() && ends_with(op->name, ".stencil")) {
         HW_Stencil_Type stencil = stencils.get(op->name);
         Region dim_bounds = stencil.bounds;
         internal_assert(dim_bounds.size() == op->args.size());
@@ -186,47 +258,84 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         RDAI_Closure closure(hw_body, output_name);
         vector<HW_Arg> args = closure.arguments(stencils);
 
+        // Find the box that each input and output touches.
+        // Shift inner body each minimum.
+        Scope<Expr> scope;
+        for (auto& arg : args) {
+          if (arg.is_output && arg.is_stencil) {
+            auto box = box_provided(op->body, arg.name);
+            arg.box = box;
+            auto mins = extract_mins(box);
+            //hw_body = shift_realize_bounds(hw_body, arg.name, mins, scope);
+
+            //std::cout << arg.name << " output has bounds: " << box << std::endl << " min: " << mins << " extent: " << extract_extents(box) << std::endl;
+            
+          } else if (!arg.is_output && arg.is_stencil) {
+            string provide_name = associated_provide_name(op->body, arg.name);
+            //std::cout << "provide for " << arg.name << " is " << provide_name << std::endl;
+            auto box = box_provided(op->body, provide_name);
+            arg.box = box;
+            auto mins = extract_mins(box);
+            //hw_body = shift_realize_bounds(hw_body, arg.name, mins, scope);
+
+            std::cout << arg.name << " input stencil has bounds: " << box << std::endl << " min: " << mins << " extent: " << extract_extents(box) << std::endl;
+
+          } else if (!arg.is_output && !arg.is_stencil) {
+            // replace scalar values with 0
+            hw_body = substitute(arg.name, 0, hw_body);
+          }
+        }
+
+
+        //auto boxes = boxes_touched(op->body);
+        //for (auto lb_pair : boxes) {
+        //  std::cout << "func " << lb_pair.first << " has bounds " << lb_pair.second << std::endl;
+        //}
+
         // Launch target codegen
         string hw_ip_name = unique_name("clockwork_target_" + pipeline_name);
         RDAI_TargetGenLike *cg_target = get_target_codegen();
-        std::cout << op->body << std::endl; // show the accelerated section
+        std::cout << hw_body << std::endl; // show the accelerated section
 
         std::cout << "xcel for " << output_name << " out of " << num_xcels
                   << " xcels in " << pipeline_name << std::endl;
         cg_target->add_kernel(hw_body, num_xcels>1 ? output_name : pipeline_name, args);
+        string ext = num_xcels>1 ? "_" + std::to_string(xcel_idx) : "";
 
+        // Convert scalar args to RDAI
+        for (size_t i = 0; i < args.size(); i++) {
+          if (!args[i].is_stencil) {
+            string arg_name = print_name(args[i].name) + "_obj";
+            string arg_hostname = arg_name + "_host";
+            string ctype = type_to_c_type(args[i].scalar_type); //"uint16_t";
+            do_indent(); stream << "RDAI_MemObject* " << arg_name << " = RDAI_mem_shared_allocate(1);\n";
+            do_indent(); stream << ctype << " *" << arg_hostname << " = ( " << ctype << "*) " << arg_name << "->host_ptr;\n";
+            do_indent(); stream << arg_hostname << "[0] = (" << ctype << ") " << print_name(args[i].name) << ";\n";
+          }
+        }
+        
         // Emit RDAI API
         internal_assert(args.size() > 0) << "no input/output argumnets found for the accelerator\n";
 
         stream << "\n";
+        do_indent(); stream << "RDAI_PlatformType platform_type" << ext << " = RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM;\n";
+        do_indent(); stream << "RDAI_Platform **platforms" << ext << " = RDAI_get_platforms_with_type(&platform_type" << ext << ");\n";
+        do_indent(); stream << "assert(platforms" << ext << " && platforms" << ext << "[0]);\n";
+        do_indent(); stream << "RDAI_VLNV device_vlnv" << ext << " = {{\"aha\"}, {\"halide_hardware\"}, {\"" << pipeline_name << "\"}, 1};\n";
+        do_indent(); stream << "RDAI_Device **devices" << ext << " = RDAI_get_devices_with_vlnv(platforms" << ext << "[0], &device_vlnv" << ext << ");\n";
+        do_indent(); stream << "assert(devices" << ext << " && devices" << ext << "[0]);\n";
         do_indent();
-        stream << "RDAI_PlatformType platform_type = RDAI_PlatformType::RDAI_CLOCKWORK_PLATFORM;\n";
-        do_indent();
-        stream << "RDAI_Platform **platforms = RDAI_get_platforms_with_type(&platform_type);\n";
-        do_indent();
-        stream << "assert(platforms && platforms[0]);\n";
-        do_indent();
-        stream << "RDAI_VLNV device_vlnv = {{\"aha\"}, {\"halide_hardware\"}, {\"" << pipeline_name << "\"}, 1};\n";
-        do_indent();
-        stream << "RDAI_Device **devices = RDAI_get_devices_with_vlnv(platforms[0], &device_vlnv);\n";
-        do_indent();
-        stream << "assert(devices && devices[0]);\n";
-        do_indent();
-        stream << "RDAI_MemObject *mem_obj_list["<< args.size() + 1 <<"] = {\n";
-        for(size_t i = 0; i < args.size(); i++) {
+        stream << "RDAI_MemObject *mem_obj_list" << ext << "["<< args.size() + 1 <<"] = {\n";
+        for (size_t i = 0; i < args.size(); i++) {
             do_indent(); do_indent();
-            stream << print_name(args[i].name) << ",\n";
+            stream << (args[i].is_stencil ? print_name(args[i].name) : print_name(args[i].name) + "_obj") << ",\n";
         }
-        do_indent(); do_indent();
-        stream << "NULL\n";
         do_indent();
-        stream << "};\n";
-        do_indent();
-        stream << "RDAI_Status status = RDAI_device_run(devices[0], mem_obj_list);\n";
-        do_indent();
-        stream << "RDAI_free_device_list(devices);\n";
-        do_indent();
-        stream << "RDAI_free_platform_list(platforms);\n";
+        do_indent(); stream << "NULL\n";
+        do_indent(); stream << "};\n";
+        do_indent(); stream << "RDAI_Status status" << ext << " = RDAI_device_run(devices" << ext << "[0], mem_obj_list" << ext << ");\n";
+        do_indent(); stream << "RDAI_free_device_list(devices" << ext << ");\n";
+        do_indent(); stream << "RDAI_free_platform_list(platforms" << ext << ");\n";
         stream << "\n";
 
         // Emit RDAI Info
@@ -235,7 +344,8 @@ void CodeGen_RDAI::visit(const ProducerConsumer *op) {
         rdai_info.devices.push_back({"aha", "halide_hardware", pipeline_name, 1, args.size() - 1});
 
         render_rdai_data(output_directory, rdai_info, pipeline_name);
-
+        
+        xcel_idx += 1;
     } else {
         CodeGen_C::visit(op);
     }
@@ -274,12 +384,13 @@ void CodeGen_RDAI::visit(const Provide *op) {
 }
 
 void CodeGen_RDAI::visit(const Realize *op) {
-    if(ends_with(op->name, ".stencil")) {
+    if (ends_with(op->name, ".stencil")) {
+      
         // possibly insert _halide_buffer_get_host calls
-        if(!inserted_host_buf_calls && (func_args.size() > 0)) {
+        if (!inserted_host_buf_calls && (func_args.size() > 0)) {
             do_indent();
             stream << "// get host pointers for input/output halide buffers\n";
-            for(const LoweredArgument& arg : func_args) {
+            for (const LoweredArgument& arg : func_args) {
                 Expr var_expr = Variable::make(type_of<struct halide_buffer_t *>(), arg.name + ".buffer");
                 vector<Expr> call_args = {var_expr};
                 Expr call_expr = Call::make(Handle(), "_halide_buffer_get_host", call_args, Call::CallType::Extern);
@@ -299,7 +410,7 @@ void CodeGen_RDAI::visit(const Realize *op) {
         stencils.push(op->name, stype);
         
         Expr buf_size = op->types[0].bytes();
-        for(size_t i = 0; i < op->bounds.size(); i++) {
+        for (size_t i = 0; i < op->bounds.size(); i++) {
             Range r = op->bounds[i];
             buf_size = buf_size * r.extent;
         }
@@ -348,6 +459,7 @@ int accelerator_count(Stmt s) {
 void CodeGen_RDAI::compile(const LoweredFunc &func) {
     func_args = func.args;
     num_xcels = accelerator_count(func.body);
+    xcel_idx = 0;
     CodeGen_C::compile(func);
 }
 

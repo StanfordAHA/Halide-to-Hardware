@@ -3,7 +3,7 @@ clean_all cleanall:
 	$(MAKE) -C apps cleanall
 	$(MAKE) -C hw_support clean
 
-check:
+check checkall:
 	@echo "*****TESTS*****"
 	@$(MAKE) -sC tests check
 	@echo ""

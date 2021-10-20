@@ -56,8 +56,9 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(258, 258);
-  processor.output  = Buffer<uint8_t>(256, 256);
+  int numtiles = 4;
+  processor.input   = Buffer<uint8_t>(62*numtiles+2, 62*numtiles+2);
+  processor.output  = Buffer<uint8_t>(62*numtiles,   62*numtiles);
   //processor.input   = Buffer<uint8_t>(514, 514);
   //processor.output  = Buffer<uint8_t>(512, 512);
 
