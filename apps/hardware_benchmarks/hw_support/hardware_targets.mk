@@ -32,6 +32,7 @@ TESTORAPP = $(shell basename $(abspath $(ROOT_DIR)/..))
 USE_COREIR_VALID ?= 0
 EXT ?= png
 PIPELINED ?= 0
+META_TARGET ?= app
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?=
@@ -206,7 +207,7 @@ mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTN
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
 
 map $(BIN)/$(TESTNAME)_compute_mapped.json: $(BIN)/$(TESTNAME)_compute.json
-	python /aha/MetaMapper/scripts/map_app.py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
+	python /aha/MetaMapper/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 
 #FIXME: $(BIN)/unoptimized_$(TESTNAME).o
