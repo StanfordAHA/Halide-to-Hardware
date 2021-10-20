@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-TRAVIS_APPS := pond_accum resnet_pond resnet_lake pond_and_mem
+TRAVIS_APPS := pond_accum resnet_pond pond_and_mem
 
 define check_for_file	
   if [ ! -f $(1)/bin/$(2) ]; then \

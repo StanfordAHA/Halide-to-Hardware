@@ -3,15 +3,7 @@ import json
 import os
 import pprint
 import sys
-import re
 
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
-
-# python ../../hw_support/parse_design_meta.py bin/design_meta_halide.json --top bin/design_top.json --place bin/design.place
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -22,7 +14,7 @@ def parseArguments():
     # Optional arguments
     parser.add_argument("--top", help="design_top.json: parse out address sequence", type=str, default=None)
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
-    parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -40,7 +32,6 @@ def findIO(metaBase, name:str):
     for metaIO in metaBase:
         if name in metaIO["name"]:
             return metaIO
-    print(f"Could not find {name} in list of IOs")
     assert False
 
 def setOrCheck(json, key, value):
@@ -72,10 +63,6 @@ def parseDesignTop(meta, filename: str):
                 else:
                     metaIn["io_tiles"] = [{"name":inst, "addr":addr}]
 
-                # change read_data_stride based on the number of input tiles
-                metaIn["io_tiles"]
-
-
             elif inst.startswith("io16_"):
                 # this is a data output
                 ioName = findBetween(inst, "io16_", "_clkwrk")
@@ -85,43 +72,6 @@ def parseDesignTop(meta, filename: str):
                     metaOut["io_tiles"].append({"name":inst, "addr":addr})
                 else:
                     metaOut["io_tiles"] = [{"name":inst, "addr":addr}]
-
-        # alter the shape and data stride
-        for input_struct in meta["IOs"]["inputs"]:
-            num_tiles = len(input_struct["io_tiles"])
-            # change the shape
-            if num_tiles > 1 and input_struct["shape"][0] is not num_tiles:
-                new_shape = input_struct["shape"]
-                partial_unroll = num_tiles
-                # remove dimensions that are fully unrolled
-                while partial_unroll >= new_shape[0]:
-                    assert(partial_unroll % new_shape[0] == 0), f"input shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
-                    partial_unroll //= new_shape[0]
-                    new_shape.pop(0)
-                assert(new_shape[0] % partial_unroll == 0), f"input shape has inner dim {new_shape[0]} and trying to unroll {num_tiles}"
-                new_shape.insert(0,num_tiles)
-                new_shape[1] //= partial_unroll
-                input_struct["shape"] = new_shape
-
-        for output_struct in meta["IOs"]["outputs"]:
-            num_tiles = len(output_struct["io_tiles"])
-            # change the shape
-            if num_tiles > 1 and output_struct["shape"][0] is not num_tiles:
-                new_shape = output_struct["shape"]
-                partial_unroll = num_tiles
-                # remove dimensions that are fully unrolled
-                while partial_unroll >= new_shape[0]:
-                    assert(partial_unroll % new_shape[0] == 0), f"output shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
-                    partial_unroll //= new_shape[0]
-                    new_shape.pop(0)
-                assert(new_shape[0] % partial_unroll == 0), f"output shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
-                new_shape.insert(0,num_tiles)
-                new_shape[1] //= partial_unroll
-                output_struct["shape"] = new_shape
-
-        # sort the inputs and outputs based on human sorting
-        metaIn["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
-        metaOut["io_tiles"].sort(key=lambda x: natural_keys(x["name"]))
 
 
 def parseDesignPlace(meta, filename: str):
@@ -158,6 +108,7 @@ def parseDesignPlace(meta, filename: str):
                 setOrCheck(tileOut, "y_pos", int(words[2]))
                 tileOut["valid_name"] = validName
 
+
 def main():
     args = parseArguments()
 
@@ -165,9 +116,7 @@ def main():
         meta = json.load(designMeta)
 
         # Search for *.bs file in the bin directory
-        #bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
-        slash_index = args.DesignMeta.rfind("/")
-        bin_directory = args.DesignMeta[0:slash_index]
+        bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
         for file in os.listdir(bin_directory):
             if file.endswith(".bs"):
                 meta["testing"]["bitstream"] = file
@@ -178,19 +127,6 @@ def main():
 
         if args.place != None:
             parseDesignPlace(meta, args.place)
-
-    if args.shuffle:
-        inputs = meta['IOs']['inputs']
-        for _input in inputs:
-            if _input['datafile'][0:5] == 'input':
-                _input['datafile'] = 'input_padded_shuffle.raw'
-            elif _input['datafile'][0:6] == 'kernel':
-                _input['datafile'] = 'kernel_shuffle.raw'
-        outputs = meta['IOs']['outputs']
-        for _output in outputs:
-            if _output['datafile'][0:9] == 'hw_output':
-                _output['datafile'] = 'hw_output_shuffle.raw'
-
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:

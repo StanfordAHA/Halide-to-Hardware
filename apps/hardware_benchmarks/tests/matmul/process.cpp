@@ -21,11 +21,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<int16_t> processor("matmul", {"input.mat","kernel.met"});
+  OneInOneOut_ProcessController<uint8_t> processor("matmul");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        matmul(proc.inputs["input.mat"], proc.inputs["kernel.mat"], proc.output);
+        matmul( proc.input, proc.output );
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -33,7 +33,7 @@ int main( int argc, char **argv ) {
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
-                                       proc.inputs["input.mat"], proc.output,
+                                       proc.input, proc.output,
                                        "self.in_arg_0_0_0", "self.out_0_0" );
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
@@ -44,7 +44,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          matmul_clockwork(proc.inputs["input.mat"], proc.inputs["kernel.mat"], proc.output);
+          matmul_clockwork( proc.input, proc.output );
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -56,23 +56,8 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.inputs["input.mat"] = Buffer<int16_t>(64, 64);
-  processor.inputs["kernel.mat"] = Buffer<int16_t>(64, 64);
-  processor.output  = Buffer<int16_t>(64, 64);
-  processor.inputs_preset = true;
-
-
-  for (int y = 0; y < processor.output.dim(1).extent(); y++) {
-    for (int x = 0; x < processor.output.dim(0).extent(); x++) {
-      processor.inputs["input.mat"](x, y) = x*-3 + y*2;
-    }
-  }
-  for (int y = 0; y < processor.output.dim(1).extent(); y++) {
-    for (int x = 0; x < processor.output.dim(0).extent(); x++) {
-      processor.inputs["kernel.mat"](x, y) = x*5 - y;
-    }
-  }
-
+  processor.input   = Buffer<uint8_t>(64, 64);
+  processor.output  = Buffer<uint8_t>(64, 64);
   
  return processor.process_command(argc, argv);
   

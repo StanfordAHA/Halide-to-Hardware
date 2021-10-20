@@ -18,8 +18,6 @@
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
-using std::string;
-using std::vector;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
@@ -55,97 +53,14 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  auto env_sch = getenv("schedule");
-  auto schedule = env_sch ? atoi(env_sch) : 0;
-  std::cout << "using schedule = " << schedule << std::endl;
+  int ksize = 9;
+  //int ksize = 5;
+  //processor.input   = Buffer<uint8_t>(64, 64);
+  //processor.input   = Buffer<uint16_t>(90, 90);
+  //processor.output  = Buffer<uint8_t>(64, 64, 3);
+  processor.input   = Buffer<uint16_t>(64, 64);
+  processor.output  = Buffer<uint8_t>(64-ksize+1, 64-ksize+1, 3);
 
-  int output_tile_width  = 56;
-  int output_tile_height = output_tile_width;
-  
-  //int input_width  = 1242;
-  int host_tiling, glb_tiling;
-  int ow, oh, iw, ih;
-  switch (schedule) {
-  case 1:
-    processor.inputs_preset = true;
-    host_tiling = 4;
-    glb_tiling = 3;
-    break;
-  case 2:
-  case 3:
-    processor.inputs_preset = true;
-    host_tiling = 10;
-    glb_tiling = 1;
-    output_tile_width = 64-8;
-    //output_tile_width = 256-8;
-    output_tile_height = 64-8;
-    //output_tile_height = 152-8;
-    break;
-  default:
-    processor.inputs_preset = false;
-    host_tiling = 1;
-    glb_tiling = 1;
-    break;
-  }
-
-  int num_tiles          = host_tiling * glb_tiling;
-  int output_width       = num_tiles * output_tile_width;
-  int output_height      = num_tiles * output_tile_height;
-  int blockSize = 9;
-
-  // FIXME: why is this additional padding needed?
-  vector<string> full_args(argv, argv + argc);
-  string arch = full_args[2];
-
-  iw = output_width + blockSize + 5*num_tiles;
-  ih = output_height + blockSize + 5*num_tiles;
-
-  if (schedule == 2 || schedule == 3) {
-    ow = output_width;
-    oh = output_height;
-  //} else if (schedule == 1 && arch == "cpu") {
-  //  ow = output_width + 8*num_tiles;
-  //  oh = output_height + 8*num_tiles;
-  //  iw = output_width + blockSize + 8*num_tiles;
-  //  ih = output_height + blockSize + 8*num_tiles;
-  } else if (schedule == 1) {
-    ow = output_width + 2*num_tiles;
-    oh = output_height + 2*num_tiles;
-  } else {
-    ow = output_width;
-    oh = output_height;
-  }
-
-  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl
-            << "  effective output size is " << ow << "x" << oh << std::endl;
-  //processor.input  = Buffer<uint16_t>(output_width+blockSize-1, output_height+blockSize-1);
-  //processor.input  = Buffer<uint16_t>(output_width+100+blockSize, output_height+100+blockSize);
-  processor.input  = Buffer<uint16_t>(iw, ih);
-  //processor.output = Buffer<uint8_t>(output_width, output_height, 3);
-  //processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
-  processor.output = Buffer<uint8_t>(ow, oh, 3);
-
-  if (schedule == 2 || schedule == 3) {
-    // load this 2592x1968 image
-    std::cout << "Using a big dog image" << std::endl;
-    processor.input = load_and_convert_image("../../../images/bayer_raw.png");
-    auto boosted = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
-    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-        boosted(x, y) = processor.input(x, y) * 64;
-      }
-    }
-    save_image(boosted, "boosted_input.png");
-    
-  } else {
-    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-        processor.input(x, y) = x + y;
-      }
-    }
-  }
-
-  
   //Halide::Runtime::Buffer<uint16_t> output(64, 64, 3);
   //Halide::Runtime::Buffer<uint8_t> image(64, 64, 3);
   //image = load_and_convert_image("bison_bayer.png");

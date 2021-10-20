@@ -56,8 +56,7 @@ MEM_TESTS := rom fifo_test \
              db_3_3 \
              accumulation histogram multi_channel_conv \
              two_level_memory three_level_memory \
-             pond three_level_pond pond_benchmark complex_mem_pond \
-						 glb_channel_reduction
+             pond three_level_pond
 
 mem := $(MEM_TESTS)
 mem_tests mem-tests mems mem: $(MEM_TESTS)
@@ -78,7 +77,7 @@ GEN_TESTS := conv_gen random_pipeline
 
 ALL_APPS_SORTED := $(OP_TESTS) $(FP_OP_TESTS) $(CONV_TESTS) \
                    $(FP_CONV_TESTS) $(INOUT_TESTS) $(MEM_TESTS) \
-                   $(BC_TESTS) $(MATMUL_TESTS) $(GEN_TESTS) $(MATRIX_TESTS)
+                   $(BC_TESTS) $(MATMUL_TESTS) $(GEN_TESTS)
 
 NOT_CLASSIFIED_APPS := $(filter-out $(ALL_TESTS_SORTED), $(ALL_TESTS))
 

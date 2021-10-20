@@ -14,7 +14,7 @@ compareall compare_all compare-all: $(ALL_APPS_SORTED:=-compare-clockwork)
 
 testtravis:
 	@echo TRAVIS TESTS: $(travis)
-	$(MAKE) --no-print-directory clearresults && $(MAKE) -s travis && $(MAKE) --no-print-directory checkresults
+	$(MAKE) clearresults && $(MAKE) travis && $(MAKE) checkresults
 
 suites suite:
 	@-echo $(APP_SUITES)
@@ -59,7 +59,6 @@ $(1)-run-cpu:           $($(2):=-run-cpu)
 $(1)-compare:           $($(2):=-compare)
 $(1)-compare-clockwork: $($(2):=-compare-clockwork)
 $(1)-compare-coreir:    $($(2):=-compare-coreir)
-$(1)-ahahalide:         $($(2):=-ahahalide)
 $(1)-mem:               $($(2):=-mem)
 $(1)-memtest:           $($(2):=-memtest)
 $(1)-rewrite:           $($(2):=-rewrite)
@@ -100,11 +99,6 @@ $(eval $(call SUITE_template,all,allapps))
 %-compare:
 	@if [ -d $* ]; then \
 		$(call run_app,$*,compare); \
-	fi
-
-%-ahahalide:
-	@if [ -d $* ]; then \
-		$(call run_app,$*,ahahalide); \
 	fi
 
 %-mem:
@@ -157,7 +151,7 @@ $(ALL_APPS):
 # 	@if [ -f "$@/$(BIN)/output_clockwork.png" ]; then \
 # 		exit 1; \
 # 	fi
-	@$(call run_app,$@,ahahalide)
+	@$(call run_app,$@,compare-clockwork)
 	@if [ -f "$@/$(BIN)/output.png" ]; then \
 		exit 1; \
 	else \
@@ -187,7 +181,7 @@ updategoldens update_goldens goldens:
 
 checkall check_all check:
 	@for app in $(ALL_APPS_SORTED); do \
-	  $(MAKE) -sC $$app check 2>/dev/null; \
+	  $(MAKE) -sC $$app check; \
 	done
 
 MISSING_APPS := $(filter-out $(ALL_APPS_SORTED), $(ALL_APPS))

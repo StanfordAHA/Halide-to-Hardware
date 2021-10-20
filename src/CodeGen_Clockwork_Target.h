@@ -72,7 +72,6 @@ protected:
       std::set<std::string> buffers; // buffers added to module so far
       std::map<std::string, ROM_data> roms; // roms that have been identified
       std::vector<std::string> inputs; // inputs to the function
-      std::map<std::string, std::vector<Expr> > realize_glb_indices; // offsets for glb
       std::string output;
 
       /** The stream we're outputting the memory on */

@@ -13,7 +13,6 @@
 #include <vector>
 #include <iostream>
 
-#include "Bounds.h"
 #include "IR.h"
 #include "Scope.h"
 #include "IRVisitor.h"
@@ -34,30 +33,11 @@ float id_fconst_value(const Expr e);
 // consider just using split_string in Util.cpp
 std::vector<std::string> get_tokens(const std::string &line, const std::string &delimiter);
 
-// convert type to c type string
-std::string type_to_c_type(Type type);
-
 // return true if the for loop is not serialized
 bool is_parallelized(const For *op);
 
-// converts a box to associated min/extent vector
-std::vector<Expr> extract_mins(Box& box);
-std::vector<Expr> extract_extents(Box& box);
-std::vector<Expr> extract_maxes(Box& box);
-std::vector<Expr> extract_maxplusone(Box& box);
-std::vector<Expr> extract_mins(const Box& box);
-std::vector<Expr> extract_extents(const Box& box);
-std::vector<Expr> extract_maxes(const Box& box);
-std::vector<Expr> extract_maxplusone(const Box& box);
-
-// returns the name of the first for loop in the enclosed stmt argument
 std::string first_for_name(Stmt s);
-
-// determines if the enclosed body has argument
 bool contains_call(Stmt s, std::string var);
-bool contains_call(Expr s, std::string var);
-bool contains_var(Stmt s, std::string var);
-bool contains_var(Expr s, std::string var);
 
 // return if provide creates the var at this level (not recursing into serial loops)
 bool provide_at_level(Stmt s, std::string var = "");
@@ -77,9 +57,6 @@ std::vector<std::string> get_loop_levels_between(Stmt s, Function func,
                                                  bool start_inside = false);
 
 Stmt substitute_in_constants(Stmt s);
-
-// Shift a realization by some amount. Modifies realize, calls, provides
-Stmt shift_realize_bounds(Stmt s, std::string bufname, std::vector<Expr>& mins, const Scope<Expr>& scope);
 
 template<typename D, typename R>
 std::set<D> domain(const std::map<D, R>& m) {

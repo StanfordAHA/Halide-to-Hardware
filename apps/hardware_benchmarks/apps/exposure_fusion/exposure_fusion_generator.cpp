@@ -27,22 +27,18 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
     
     void generate() {
 
-      Func hw_input_bright, hw_input_bright8, hw_input_dark, hw_input_dark8;
-      //hw_input_bright(x,y,c) = u16(input_bright(x+shift, y+shift, c));
-      hw_input_bright8 = Halide::BoundaryConditions::repeat_edge(input_bright);
-      hw_input_bright(x,y,c) = u16(hw_input_bright8(x,y,c));
-      //hw_input_dark(x,y,c) = u16(input_dark(x+shift, y+shift, c));
-      hw_input_dark8 = Halide::BoundaryConditions::repeat_edge(input_dark);
-      hw_input_dark(x,y,c) = u16(hw_input_dark8(x,y,c));
+      Func hw_input_bright, hw_input_dark;
+      hw_input_bright(x,y,c) = u16(input_bright(x+shift, y+shift, c));
+      hw_input_dark(x,y,c) = u16(input_dark(x+shift, y+shift, c));
 
       // Create exposure weight
       Func weight_dark, weight_bright, weight_sum, weight_dark_norm, weight_bright_norm;
-      weight_dark(x,y,c)   = 2 * hw_input_dark(x,y,c);
-      weight_bright(x,y,c) = 2 * hw_input_bright(x,y,c);
-      weight_sum(x,y,c) = weight_dark(x,y,c) + weight_bright(x,y,c) + 1;
+      weight_dark(x, y, c)   = 2 * hw_input_dark(x, y, c);
+      weight_bright(x, y, c) = 2 * hw_input_bright(x, y, c);
+      weight_sum(x, y, c) = weight_dark(x,y,c) + weight_bright(x,y,c);
       
-      weight_dark_norm(x,y,c)   = weight_dark(x,y,c)   * 128 / weight_sum(x,y,c);
-      weight_bright_norm(x,y,c) = weight_bright(x,y,c) * 128 / weight_sum(x,y,c);
+      weight_dark_norm(x,y,c)   = weight_dark(x,y,c)   / weight_sum(x,y,c);
+      weight_bright_norm(x,y,c) = weight_bright(x,y,c) / weight_sum(x,y,c);
 
       // Create gaussian pyramids of the weights
       vector<Func> dark_weight_gpyramid(pyramid_levels);
@@ -70,15 +66,12 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
       // Collapse the merged pyramid to create a single image
       Func blended_image;
-      vector<Func> upsampled(pyramid_levels);
-      blended_image = flatten_pyramid(merged_pyramid, upsampled);
+      blended_image = flatten_pyramid(merged_pyramid);
       
       Func hw_output;
-      hw_output(x,y,c) = blended_image(x,y,c);
-      //hw_output(x,y,c) = dark_input_lpyramid[pyramid_levels-1](x,y,c);
-      //hw_output(x,y,c) = dark_input_gpyramid[pyramid_levels-1](x,y,c);
+      hw_output(x, y, c) = u8(blended_image(x, y, c));
 
-      output(x,y,c) = u8(hw_output(x,y,c));
+      output(x, y, c) = hw_output(x, y, c);
 
       output.bound(c, 0, 3);
       output.bound(x, 0, 64-ksize+1);
@@ -132,33 +125,21 @@ private:
     Var x, y, c, k;
 
     // Downsample with a 1 3 3 1 filter
-    //Func downsample(Func f) {
-    //    using Halide::_;
-    //    Func downx, downy;
-    //    downx(x,y,_) = (f(2*x-1, y, _) + 3.0f * (f(2*x,y,_) + f(2*x+1, y, _)) + f(2*x+2, y, _)) / 8.0f;
-    //    downy(x,y,_) = (downx(x, 2*y-1, _) + 3.0f * (downx(x, 2*y, _) + downx(x, 2*y+1, _)) + downx(x, 2*y+2, _)) / 8.0f;
-    //    return downy;
-    //}
     Func downsample(Func f) {
-      using Halide::_;
-      Func down;
-      down(x,y,_) = f(x*2, y*2, _);
-      return down;
+        using Halide::_;
+        Func downx, downy;
+        downx(x, y, _) = (f(2*x-1, y, _) + 3.0f * (f(2*x, y, _) + f(2*x+1, y, _)) + f(2*x+2, y, _)) / 8.0f;
+        downy(x, y, _) = (downx(x, 2*y-1, _) + 3.0f * (downx(x, 2*y, _) + downx(x, 2*y+1, _)) + downx(x, 2*y+2, _)) / 8.0f;
+        return downy;
     }
-    
+
     // Upsample using bilinear interpolation (1 3 3 1)
-    //Func upsample(Func f) {
-    //    using Halide::_;
-    //    Func upx, upy;
-    //    upx(x,y,_) = 0.25f * f((x/2) - 1 + 2*(x % 2), y, _) + 0.75f * f(x/2,y,_);
-    //    upy(x,y,_) = 0.25f * upx(x, (y/2) - 1 + 2*(y % 2), _) + 0.75f * upx(x,y/2,_);
-    //    return upy;
-    //}
     Func upsample(Func f) {
-      using Halide::_;
-      Func up;
-      up(x,y,_) = f(x/2, y/2, _);
-      return up;
+        using Halide::_;
+        Func upx, upy;
+        upx(x, y, _) = 0.25f * f((x/2) - 1 + 2*(x % 2), y, _) + 0.75f * f(x/2, y, _);
+        upy(x, y, _) = 0.25f * upx(x, (y/2) - 1 + 2*(y % 2), _) + 0.75f * upx(x, y/2, _);
+        return upy;
     }
 
     // Create a gaussian pyramid
@@ -167,16 +148,11 @@ private:
       
       vector<Func> gPyramid(num_levels);
       fill_funcnames(gPyramid, name + "_gpyr");
-      std::cout << "pyramid has " << num_levels << " levels" << std::endl;
       
-      gPyramid[0](x,y,_) = f(x,y,_);
-
+      gPyramid[0](x, y, _) = f(x, y, _);
       for (int j = 1; j < num_levels; j++) {
-        std::cout << "connecting " << j << " to " << j-1<< std::endl;
-        gPyramid[j](x,y,_) = downsample(gPyramid[j-1])(x,y,_);
+        gPyramid[j](x, y, _) = downsample(gPyramid[j-1])(x, y, _);
       }
-
-      std::cout << "next" << std::endl;
 
       return gPyramid;
     }
@@ -190,12 +166,12 @@ private:
       vector<Func> lPyramid(num_levels);
       fill_funcnames(lPyramid, name + "_lpyr");
       
-      // The last level is the same as the last level of the gaussian pyramid.
-      lPyramid[num_levels-1](x,y,_) = gPyramid[num_levels-1](x,y,_);
+      // The last level is the same as the last level of the guassian pyramid.
+      lPyramid[num_levels-1](x, y, _) = gPyramid[num_levels-1](x, y, _);
 
       // Create the laplacian pyramid from the last level up to the first.
       for (int j = num_levels-2; j >= 0; j--) {
-        lPyramid[j](x,y,_) = gPyramid[j](x,y,_) - upsample(gPyramid[j+1])(x,y,_);
+        lPyramid[j](x, y, _) = gPyramid[j](x, y, _) - upsample(gPyramid[j+1])(x, y, _);
       }
 
       return lPyramid;
@@ -214,9 +190,9 @@ private:
       vector<Func> blended_pyramid(num_levels);
       fill_funcnames(blended_pyramid, name);
       for (int i=0; i<num_levels; ++i) {
-        blended_pyramid[i](x,y,_) =
-          (weights0[i](x,y,_) * img0[i](x,y,_) +
-           weights1[i](x,y,_) * img1[i](x,y,_)) / 128;
+        blended_pyramid[i](x, y, _) =
+          weights0[i](x,y,_) * img0[i](x,y,_) +
+          weights1[i](x,y,_) * img1[i](x,y,_);
       }
       
       return blended_pyramid;
@@ -233,7 +209,7 @@ private:
         gImg = pyramid[level];
         lImg = pyramid[level-1];
         Func upsampled = upsample(gImg);
-        lImg(x,y,_) = lImg(x,y,_) + upsampled(x,y,_);
+        lImg(x,y,_) = lImg(x,y,_) * upsampled(x,y,_);
       }
       
       return lImg;
