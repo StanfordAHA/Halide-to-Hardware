@@ -7,8 +7,8 @@
 #include "Halide.h"
 
 namespace {
-int blockSize = 9;
-//int blockSize = 5;
+int ksize = 9;
+//int ksize = 5;
 
   using namespace Halide;
   using namespace Halide::ConciseCasts;
@@ -27,14 +27,13 @@ int blockSize = 9;
   class CameraPipeline : public Halide::Generator<CameraPipeline> {
     
   public:
+    //Input<Buffer<uint8_t>>  input{"input", 2};
     Input<Buffer<uint16_t>>  input{"input", 2};
+    //Output<Buffer<uint16_t>> output{"output", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 1
-    GeneratorParam<uint8_t> width{"width", 0};    // default: 1
-    GeneratorParam<uint8_t> myunroll{"myunroll", 0};    // default: 1
 
     //Func interleave_x(Func a, Func b) {
     //  Func out;
@@ -267,16 +266,7 @@ Func interleave_y(Func a, Func b) {
     void generate() {
 
       Func hw_input;
-      hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
-
-      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & 0xFCFF;
-      //uint16_t bits = (1 << 9) | (1 << 8); // tie these 0-indexed bits to 0
-      //uint16_t bits = (1 << 13); // tie these 0-indexed bits to 0
-      //uint16_t mask = ~(bits);
-      //std::cout << std::hex << "bits=" << bits << " mask=" << mask << std::dec << std::endl;
-      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & mask;
-
-      
+      hw_input(x,y) = u16(input(x+(ksize-1)/2, y+(ksize-1)/2));
       //hw_input(x,y) = i16(input(x+16, y+12));
 
       Func hw_input_copy;
@@ -328,6 +318,8 @@ Func interleave_y(Func a, Func b) {
 
       //curve.bound(x, 0, 256);
       output.bound(c, 0, 3);
+      output.bound(x, 0, 64-ksize+1);
+      output.bound(y, 0, 64-ksize+1);
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
@@ -354,295 +346,53 @@ Func interleave_y(Func a, Func b) {
         hw_input.stream_to_accelerator();
 
       } else if (get_target().has_feature(Target::Clockwork)) {
+        hw_output.compute_root();
 
-          if (schedule == 1) { // host and glb tiling
-            const int numHostTiles = 4;
-            const int numTiles = 3;
-            const int tileSize = 58;
-            const int glbSize = tileSize * numTiles;
-            const int outputSize = numHostTiles * glbSize;
-
-            output.bound(x, 0, outputSize);
-            output.bound(y, 0, outputSize);
-
-            hw_output.in().compute_root();
-
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
-              .reorder(c, xi, yi, xo, yo)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(c);
-
-            Var xii, yii, xio, yio;
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .reorder(c, xi, yi, xo, yo);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(c);
-
-            curve_out.compute_at(hw_output, xo);
-            curve_out.unroll(c);
+        hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+          .reorder(c,xi,yi,xo,yo)
+          .reorder_storage(c, x, y)
+          .hw_accelerate(xi, xo);
+        hw_output.unroll(c);
+        //hw_output.unroll(c).unroll(xi, 2);
         
-            color_corrected.compute_at(hw_output, xo);
-            color_corrected.unroll(c);
+        //curve_out.reorder(c, x, y).reorder_storage(c, x, y);
+        curve_out.compute_at(hw_output, xo);
+        curve_out.unroll(c);
         
-            demosaicked.compute_at(hw_output, xo);
-            demosaicked
-              .reorder(c, x, y)
-              .unroll(c);
-
-            denoised.compute_at(hw_output, xo);
-            //.unroll(x).unroll(y);
-
-            g_gr.compute_at(hw_output, xo);
-            r_r.compute_at(hw_output, xo);
-            b_b.compute_at(hw_output, xo);
-            g_gb.compute_at(hw_output, xo);
+        color_corrected.compute_at(hw_output, xo);
+        color_corrected.unroll(c);
         
-            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-            
-            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
-            hw_input.in().store_in(MemoryType::GLB);
-            //hw_input.in().unroll(c);  // hw input bound
-            
-            hw_input.compute_root()
-              .accelerator_input();
+        demosaicked.compute_at(hw_output, xo);
+        demosaicked.unroll(c);
+        //demosaicked.reorder(c, x, y);
 
-          } else if (schedule == 2) { // big parrot
-            const int tileWidth = 64;
-            const int tileHeight = 56;
-            const int numHostTiles = 11;
-            const int numTiles = 3;
-            const int glbWidth = tileWidth * numTiles;
-            const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTiles * glbWidth;
-            const int outputHeight = numHostTiles * glbHeight;
+        denoised.compute_at(hw_output, xo);
+        //.unroll(x).unroll(y);
 
-            output.bound(x, 0, outputWidth);
-            output.bound(y, 0, outputHeight);
+        g_gr.compute_at(hw_output, xo);
+        r_r.compute_at(hw_output, xo);
+        b_b.compute_at(hw_output, xo);
+        g_gb.compute_at(hw_output, xo);
 
-            hw_output.in().compute_root();
-
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-              .reorder(c, xi, yi, xo, yo)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(c);
-
-            Var xii, yii, xio, yio;
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-              .reorder(c, xi, yi, xo, yo);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(c);
-
-            curve_out.compute_at(hw_output, xo);
-            curve_out.unroll(c);
+        //b_r.compute_at(hw_output, xo);
+        //g_r.compute_at(hw_output, xo);
+        //b_gr.compute_at(hw_output, xo);
+        //r_gr.compute_at(hw_output, xo);
+        //b_gb.compute_at(hw_output, xo);
+        //r_gb.compute_at(hw_output, xo);
+        //r_b.compute_at(hw_output, xo);
+        //g_b.compute_at(hw_output, xo);
         
-            color_corrected.compute_at(hw_output, xo);
-            color_corrected.unroll(c);
+        curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
         
-            demosaicked.compute_at(hw_output, xo);
-            demosaicked
-              .reorder(c, x, y)
-              .unroll(c);
-
-            denoised.compute_at(hw_output, xo);
-            //.unroll(x).unroll(y);
-
-            g_gr.compute_at(hw_output, xo);
-            r_r.compute_at(hw_output, xo);
-            b_b.compute_at(hw_output, xo);
-            g_gb.compute_at(hw_output, xo);
-        
-            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-            
-            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
-            hw_input.in().store_in(MemoryType::GLB);
-            //hw_input.in().unroll(c);  // hw input bound
-            
-            hw_input.compute_root()
-              .accelerator_input();
-
-          } else if (schedule == 3) { // big parrot with unroll
-            const int unroll = 1;
-            const int tileWidth = 64-8;
-            //const int tileWidth = 256-8;
-            const int tileHeight = 64-8;
-            //const int tileHeight = 152-8;
-            const int numHostTiles = 1;
-            const int numTiles = 1;
-            const int glbWidth = tileWidth * numTiles;
-            const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTiles * glbWidth;
-            const int outputHeight = numHostTiles * glbHeight;
-
-            output.bound(x, 0, outputWidth);
-            output.bound(y, 0, outputHeight);
-
-            hw_output.in().compute_root();
-
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-              .reorder(c, xi, yi, xo, yo)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(c)
-              .unroll(xi, unroll);
-
-            Var xii, yii, xio, yio;
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-              .reorder(c, xi, yi, xo, yo);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(c)
-              .unroll(xi, unroll);
-
-            curve_out.compute_at(hw_output, xo);
-            curve_out.unroll(c)
-              .unroll(x, unroll);
-        
-            color_corrected.compute_at(hw_output, xo);
-            color_corrected.unroll(c)
-              .unroll(x, unroll);
-        
-            demosaicked.compute_at(hw_output, xo);
-            demosaicked
-              .reorder(c, x, y)
-              .unroll(c)
-              .unroll(x, unroll);
-
-            denoised.compute_at(hw_output, xo)
-              .unroll(x, unroll);
-            //.unroll(x).unroll(y);
-
-            g_gr.compute_at(hw_output, xo).unroll(x, unroll);
-            r_r.compute_at(hw_output, xo).unroll(x, unroll);
-            b_b.compute_at(hw_output, xo).unroll(x, unroll);
-            g_gb.compute_at(hw_output, xo).unroll(x, unroll);
-        
-            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-            curve.store_in(MemoryType::ROM);
-            // unroll by x?
-
-            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
-            hw_input.in().in()
-              .unroll(x, unroll, TailStrategy::RoundUp);
-            
-            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
-            hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(x, unroll);
-            
-            hw_input.compute_root()
-              .accelerator_input();
-            
-        } else {
-          output.bound(x, 0, 64-blockSize+1);
-          output.bound(y, 0, 64-blockSize+1);
-            
-          hw_output.compute_root();
-
-          hw_output.tile(x, y, xo, yo, xi, yi, 64-blockSize+1,64-blockSize+1)
-            .reorder(c,xi,yi,xo,yo)
-            .reorder_storage(c, x, y)
-            .hw_accelerate(xi, xo);
-          hw_output.unroll(c);
-          //hw_output.unroll(c).unroll(xi, 2);
-        
-          //curve_out.reorder(c, x, y).reorder_storage(c, x, y);
-          curve_out.compute_at(hw_output, xo);
-          curve_out.unroll(c);
-        
-          color_corrected.compute_at(hw_output, xo);
-          color_corrected.unroll(c);
-        
-          demosaicked.compute_at(hw_output, xo);
-          demosaicked.unroll(c);
-          //demosaicked.reorder(c, x, y);
-
-          denoised.compute_at(hw_output, xo);
-          //.unroll(x).unroll(y);
-
-          g_gr.compute_at(hw_output, xo);
-          r_r.compute_at(hw_output, xo);
-          b_b.compute_at(hw_output, xo);
-          g_gb.compute_at(hw_output, xo);
-
-          //b_r.compute_at(hw_output, xo);
-          //g_r.compute_at(hw_output, xo);
-          //b_gr.compute_at(hw_output, xo);
-          //r_gr.compute_at(hw_output, xo);
-          //b_gb.compute_at(hw_output, xo);
-          //r_gb.compute_at(hw_output, xo);
-          //r_b.compute_at(hw_output, xo);
-          //g_b.compute_at(hw_output, xo);
-        
-          curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
-        
-          //hw_input_copy.compute_at(hw_output, xo);
-          hw_input.stream_to_accelerator();
-          //hw_input.compute_root();
-        }
+        //hw_input_copy.compute_at(hw_output, xo);
+        hw_input.stream_to_accelerator();
+        //hw_input.compute_root();
         
       } else {    // schedule to CPU
-        if (schedule == 1 || schedule == 2 || schedule == 3) {
-          Var yii;
-          const int strip_size = 2;
-          const int vec = 4;
-
-          output
-            .compute_root()
-            .reorder(c, x, y)
-            .split(y, yi, yii, 2, TailStrategy::RoundUp)
-            .split(yi, yo, yi, strip_size / 2)
-            .vectorize(x, 2 * vec, TailStrategy::RoundUp)
-            .unroll(c)
-            .parallel(yo);
-
-          denoised
-            .compute_at(output, yi)
-            .store_at(output, yo)
-            .prefetch(input, y, 2)
-            //.fold_storage(y, 4)
-            .tile(x, y, x, y, xi, yi, 2 * vec, 2)
-            .vectorize(xi)
-            .unroll(yi);
-
-          demosaicked
-            .compute_at(output, yi)
-            .store_at(output, yo)
-            .fold_storage(y, 4)
-            .reorder(c, x, y)
-            .vectorize(x, 2 * vec, TailStrategy::RoundUp)
-            .unroll(c);
-
-          curve_out
-            .compute_at(output, yi)
-            .store_at(output, yo)
-            .reorder(c, x, y)
-            .tile(x, y, x, y, xi, yi, 2 * vec, 2, TailStrategy::RoundUp)
-            .vectorize(xi)
-            .unroll(yi)
-            .unroll(c);
-
-          color_corrected
-            .compute_at(curve_out, x)
-            .reorder(c, x, y)
-            .vectorize(x)
-            .unroll(c);
-
-          //demosaicked->intermed_compute_at.set({processed, yi});
-          //demosaicked->intermed_store_at.set({processed, yo});
-          //demosaicked->output_compute_at.set({curved, x});
-
-          // We can generate slightly better code if we know the splits divide the extent.
-          //processed
-          //.bound(c, 0, 3);
-            //.bound(x, 0, ((out_width) / (2 * vec)) * (2 * vec))
-            //.bound(y, 0, (out_height / strip_size) * strip_size);
-        }
+        //output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+        //  .compute_root();
+        //output.fuse(xo, yo, xo).parallel(xo).vectorize(xi, 4);
       }
     }
   };

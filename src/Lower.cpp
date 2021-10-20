@@ -190,9 +190,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after removing extern loops:\n" << s << '\n';
 
     debug(1) << "Performing sliding window optimization...\n";
-    if (!t.has_feature(Target::CoreIRHLS) &&
-        !t.has_feature(Target::CoreIR) &&
-        !t.has_feature(Target::HLS)) {
+    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS)) {
       s = sliding_window(s, env);
     }
     debug(2) << "Lowering after sliding window:\n" << s << '\n';
@@ -305,10 +303,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(2) << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
     //std::cout << "Lowering after dynamically skipping stages:\n" << s << "\n\n";
 
-    if (!t.has_feature(Target::CoreIRHLS) &&
-        !t.has_feature(Target::CoreIR) &&
-        !t.has_feature(Target::HLS) &&
-        !t.has_feature(Target::Clockwork)) { // FIXME: don't omit this pass globally with CoreIR
+    if (!t.has_feature(Target::CoreIRHLS) && !t.has_feature(Target::CoreIR) && !t.has_feature(Target::HLS) && !t.has_feature(Target::Clockwork)) { // FIXME: don't omit this pass globally with CoreIR
       debug(1) << "Forking asynchronous producers...\n";
       s = fork_async_producers(s, env);
       debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
@@ -388,7 +383,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = reduce_prefetch_dimension(s, t);
     debug(2) << "Lowering after reduce prefetch dimension:\n" << s << "\n";
 
-    //std::cout << "Before unrolling:\n" << s << "\n\n";    
+    //std::cout << "Before unrolling:\n" << s << "\n\n";
     debug(1) << "Unrolling...\n";
     if (t.has_feature(Target::Clockwork)) {
       s = unroll_loops_and_merge(s);

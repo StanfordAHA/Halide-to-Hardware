@@ -39,10 +39,10 @@ HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
 EXT                             = mat
 #HALIDE_GEN_ARGS                 := kernel.size=1 $(HALIDE_GEN_ARGS)
-# NLAYERS                         ?= 2
-# NLAYERS_PLUS_ONE                = $(shell expr $(NLAYERS) + 1)
-# HALIDE_GEN_ARGS                 = n_layers=$(NLAYERS)
-# HALIDE_GEN_SIZE_ARGS            = kernel.size=$(NLAYERS)
+NLAYERS                         ?= 2
+NLAYERS_PLUS_ONE                = $(shell expr $(NLAYERS) + 1)
+HALIDE_GEN_ARGS                 = n_layers=$(NLAYERS)
+HALIDE_GEN_SIZE_ARGS            = kernel.size=$(NLAYERS)
 #HALIDE_GEN_ARGS                 = kernel.size=$(NLAYERS) pad.size=$(NLAYERS) ksize.size=$(NLAYERS) stride.size=$(NLAYERS)
 #HALIDE_GEN_ARGS                 += n_c.size=$(NLAYERS_PLUS_ONE) n_layers=$(NLAYERS)
 

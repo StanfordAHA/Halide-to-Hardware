@@ -139,9 +139,6 @@ int main( int argc, char **argv ) {
           interleaved_input(2*(z + Z*x) + 1, y) = input_copy_stencil(z, x_coord, y_coord);
           
           inputs[z](x, y) = input_copy_stencil(z, x_coord, y_coord);
-          if ((y >= full_input.dim(2).extent()-3) && (x >= full_input.dim(1).extent()-3)) {
-            std::cout << "input z=" << z << ",x=" << x << ",y=" << y << " = " << std::hex << +full_input(z,x,y) << std::dec << std::endl;
-          }
           //std::cout << "input " << z << "," << x << "," << y << " = " << std::hex << +full_input(z,x,y) << std::dec << std::endl;
         } } }
     //std::cout << "input 3,2 = 31 ?= " << +full_input(3,2) << std::endl;
@@ -180,27 +177,8 @@ int main( int argc, char **argv ) {
               kernel_copy_stencil(z, w, x, y) = (rand() % (2*max_rand)) - max_rand;
             }
             
-            std::cout << "kernel z=" << z << ",w=" << w << ",x=" << x << ",y=" << y << " = " <<std::hex<< +kernel_copy_stencil(z,w,x,y) <<std::dec<< std::endl;
+            std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
     } } } }
-
-
-    int i=0;
-    int outx = 25; // try outx = {24, 25, 26, 27}
-    std::vector<int16_t> psum(kernel_copy_stencil.dim(1).extent());;
-    for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {
-      for (int x = 0; x < kernel_copy_stencil.dim(2).extent(); x++) {
-        for (int w = 0; w < kernel_copy_stencil.dim(1).extent(); w++) {
-          for (int z = 0; z < kernel_copy_stencil.dim(0).extent(); z++) {
-            auto product = full_input(z, outx+x, 27+y) * kernel_copy_stencil(z, w, x, y);
-            std::cout << "product is " << std::hex << +product << std::dec << " for input " << z << std::endl;
-            psum[w] += product;
-          }
-          std::cout << "After " << i << " iters, for w=" << w << " psum=" << std::hex << +psum[w] << std::dec << std::endl;
-        }
-        i += 1;
-      }
-    }
-
 
     bool write_mat = true;
     if (write_mat) {

@@ -97,33 +97,24 @@ class RenameStencilRealizes : public IRMutator {
 
       // ROMs tagged as Stack should not be flattened
       bool tagged_rom = func.schedule().memory_type() == MemoryType::ROM;
-      bool tagged_glb = func.schedule().memory_type() == MemoryType::GLB;
 
-      string op_name;
-      if (tagged_glb) {
-        op_name = op->name + ".glb";
-      } else {
-        op_name = op->name;
-      }
-
-      if (!tagged_rom &&
+      if (tagged_rom ||
           (realization_type != ROM_REALIZATION &&
            realization_type != CONSTS_REALIZATION &&
            (in_xcel || func.schedule().is_accelerator_input()))) {
-        // roms should be allocates, not stencil realizes
-        string new_name = op_name + ".stencil";
-        //std::cout << op->name << " getting new name " << new_name << " with type=" << realization_type << std::endl;
-        Stmt new_body = RenameRealize(op->name, new_name).mutate(op->body);
+        string realize_name = op->name + ".stencil";
+        //std::cout << op->name << " getting new name " << realize_name << " with type=" << realization_type << std::endl;
+        Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
         new_body = mutate(new_body);
-        return Realize::make(new_name, op->types, op->memory_type,
+        return Realize::make(realize_name, op->types, op->memory_type,
                              op->bounds, op->condition, new_body);
       } else if (realization_type == CONSTS_REALIZATION &&
                  (in_xcel || func.schedule().is_accelerator_input())) {
-        string new_name = op_name + ".const.stencil";
-        //std::cout << op->name << " getting new name " << new_name << " with type=" << realization_type << std::endl;
-        Stmt new_body = RenameRealize(op->name, new_name).mutate(op->body);
+        string realize_name = op->name + ".const.stencil";
+        //std::cout << op->name << " getting new name " << realize_name << " with type=" << realization_type << std::endl;
+        Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
         new_body = mutate(new_body);
-        return Realize::make(new_name, op->types, op->memory_type,
+        return Realize::make(realize_name, op->types, op->memory_type,
                              op->bounds, op->condition, new_body);
         
       } else {
@@ -132,14 +123,14 @@ class RenameStencilRealizes : public IRMutator {
           return IRMutator::visit(op);
         }
       
-        string new_name = op_name + ".stencil";
-        Stmt new_body = RenameRealize(op->name, new_name).mutate(op->body);
+        string realize_name = op->name + ".stencil";
+        Stmt new_body = RenameRealize(op->name, realize_name).mutate(op->body);
 
         in_xcel = true;
         new_body = mutate(new_body);
         in_xcel = false;
         
-        return Realize::make(new_name, op->types, op->memory_type,
+        return Realize::make(realize_name, op->types, op->memory_type,
                              op->bounds, op->condition, new_body);
       }
     }

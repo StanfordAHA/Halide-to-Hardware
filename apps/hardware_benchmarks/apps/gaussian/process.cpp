@@ -57,75 +57,8 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  auto env_sch = getenv("schedule");
-  auto env_width = getenv("width");
-  auto schedule = env_sch ? atoi(env_sch) : 0;
-  auto width = env_width ? atoi(env_width) : 62;
-  std::cout << "using schedule = " << schedule << std::endl;
-
-  int output_tile_width  = 62;
-  int output_tile_height = output_tile_width;
-  
-  //int input_width  = 1242;
-  int host_tiling_x, host_tiling_y, glb_tiling;
-  switch (schedule) {
-  case 1:
-    processor.inputs_preset = true;
-    host_tiling_x = 5;  host_tiling_y = 5;
-    glb_tiling = 2;
-    break;
-  case 2:
-    processor.inputs_preset = true;
-    host_tiling_x = 9;  host_tiling_y = 9;
-    glb_tiling = 7;
-    output_tile_width = 94;
-    output_tile_height = 62;
-    break;
-  case 3:
-    processor.inputs_preset = true;
-    //host_tiling_x = 23-0;  host_tiling_y = 20-0;
-    host_tiling_x = 1;  host_tiling_y = 1;
-    glb_tiling = 1;
-    //output_tile_width = 266;
-    output_tile_width = width;
-    //output_tile_height = 196;
-    output_tile_height = 62;
-    break;
-  case 4:
-    processor.inputs_preset = false;
-    host_tiling_x = 1;  host_tiling_y = 1;
-    glb_tiling = 1;
-    break;
-  default:
-    processor.inputs_preset = false;
-    host_tiling_x = 1;  host_tiling_y = 1;
-    glb_tiling = 1;
-    break;
-  }
-
-  int num_tiles_x        = host_tiling_x * glb_tiling;
-  int num_tiles_y        = host_tiling_y * glb_tiling;
-  int output_width       = num_tiles_x * output_tile_width;
-  int output_height      = num_tiles_y * output_tile_height;
-
-  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
-  processor.input  = Buffer<uint8_t>(output_width+2, output_height+2);
-  processor.output = Buffer<uint8_t>(output_width, output_height);
-
-  if (schedule == 2 || schedule == 3) {
-    // load this 6000x4000 image
-    std::cout << "Using a big tern image" << std::endl;
-    processor.input = load_and_convert_image("../../images/tern_biggray.png");
-    
-  } else {
-    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-        processor.input(x, y) = x + y;
-      }
-    }
-  }
-        
-  
+  processor.input   = Buffer<uint8_t>(64, 64);
+  processor.output  = Buffer<uint8_t>(62, 62);
   //processor.input   = Buffer<uint16_t>(64, 64);
   //processor.output  = Buffer<uint16_t>(62, 62);
   

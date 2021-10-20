@@ -34,7 +34,8 @@ public:
 
         Func hw_input("hw_input"), hw_input_copy;
         hw_input(x, y) = u16(input(x, y));
-        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
+        hw_input_copy(x, y) = hw_input(x, y);
+        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input_copy(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
@@ -42,6 +43,26 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
+          Var xi,yi, xo,yo;
+
+          output.bound(x, 0, 64);
+          output.bound(y, 0, 64);
+
+          hw_output.compute_root();
+          
+          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
+            .hw_accelerate(xi, xo);
+          hw_output.unroll(x, 2);
+
+          conv.update()
+            .unroll(x, 2)
+            .unroll(r.x, ksize)
+            .unroll(r.y, ksize);
+
+          conv.linebuffer();
+
+          hw_input.unroll(x, 2);
+          hw_input.stream_to_accelerator();
           
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
@@ -49,37 +70,26 @@ public:
           output.bound(x, 0, 62);
           output.bound(y, 0, 62);
           
-          hw_output.in().compute_root();
+          hw_output.compute_root();
 
-          hw_output.in()
-            .tile(x, y, xo, yo, xi, yi, 62, 62)
+          hw_output.tile(x,y, xo,yo, xi,yi, 62, 62)
             .hw_accelerate(xi, xo);
-          hw_output.in().store_in(MemoryType::GLB);
-          hw_output.in().unroll(xi, 2, TailStrategy::RoundUp);;
-          
-          hw_output.tile(x,y, xo,yo, xi,yi, 62, 62);
-          hw_output.compute_at(hw_output.in(), xo);
-          hw_output.unroll(xi, 2, TailStrategy::RoundUp);
 
-          conv.unroll(x, 2, TailStrategy::RoundUp);
+
+          hw_output.unroll(xi, 2);
+            
+          kernel.compute_at(hw_output, xo);
+
           conv.update()
-            .unroll(x, 2, TailStrategy::RoundUp)
+            .unroll(x, 2)
             .unroll(r.x, ksize)
             .unroll(r.y, ksize);
 
-          kernel.compute_at(hw_output, xo);
-          conv.compute_at(hw_output, xo);
+          hw_input_copy.unroll(x,2);
+          hw_input_copy.compute_at(hw_output, xo);
+          hw_input.accelerator_input();
+          hw_input.compute_root();
 
-          hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
-          hw_input.in().in().unroll(x, 2, TailStrategy::RoundUp);
-          
-          hw_input.in().compute_at(hw_output.in(), xo);
-          hw_input.in().store_in(MemoryType::GLB);
-          hw_input.in().unroll(x, 2, TailStrategy::RoundUp);
-            
-          hw_input.compute_root()
-            .accelerator_input();
-          
         } else {  // schedule to CPU
           output.compute_root();
         }

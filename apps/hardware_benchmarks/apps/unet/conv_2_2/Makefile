@@ -22,7 +22,6 @@ HWSUPPORT ?= $(abspath ../../../hw_support)
 #
 ###############################################################################
 
-
 include $(HWSUPPORT)/Makefile.inc
 
 
@@ -54,6 +53,3 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 
 include $(HWSUPPORT)/hardware_targets.mk
 
-test-mem mem bin/design_top.json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json:
-	@echo "Doesn't map through clockwork. Takes too long."
-	exit 1

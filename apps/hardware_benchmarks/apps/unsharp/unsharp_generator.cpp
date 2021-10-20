@@ -11,17 +11,15 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 // Size of blur for gradients.
-const int blockSize = 7;
-const int tilesize = 64-blockSize+1;
+const int blockSize = 5;
   
 class UnsharpFilter : public Halide::Generator<UnsharpFilter> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 3};
-    Output<Buffer<uint8_t>> output{"output", 3};
+  Output<Buffer<uint8_t>> output{"output", 3};
+  //Output<Buffer<uint8_t>> output{"output", 2};
 
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
-    GeneratorParam<uint8_t> width{"width", 58};         // default: 58
 
     void generate() {
         /* THE ALGORITHM */
@@ -118,6 +116,8 @@ public:
         output(x, y, c) = u8(hw_output(c, x, y));
 
         output.bound(c, 0, 3);
+        output.bound(x, 0, 64-blockSize+1);
+        output.bound(y, 0, 64-blockSize+1);
         
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
@@ -127,7 +127,7 @@ public:
           
           //output.tile(x, y, xo, yo, xi, yi, 64, 64).reorder(c, xi, yi, xo, yo);
 
-          hw_output.tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo);
+          hw_output.tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo);
           blur_unnormalized.linebuffer();
           blur_unnormalized.update()
             .unroll(win.x).unroll(win.y);
@@ -139,7 +139,7 @@ public:
           //hw_output.unroll(c);  // hw output bound
           //hw_input.unroll(c);  // hw input bound
           //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
-          gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
+          gray.fifo_depth(hw_output, 60*9); // hw input bounds
           gray.stream_to_accelerator();
 
           kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
@@ -147,214 +147,34 @@ public:
 
 
         } else if (get_target().has_feature(Target::Clockwork)) {
-          
-          if (schedule == 1) { // host and glb tiling
-            const int tileSize = 58;
-            const int numTiles = 4;
-            const int glbSize = tileSize * numTiles;
-            const int numHostTiles = 5;
-            const int outputSize = numHostTiles * glbSize;
-            const int inputSize = outputSize + blockSize-1;
-
-            output.bound(x, 0, outputSize);
-            output.bound(y, 0, outputSize);
-
-            hw_output.in().compute_root();
-
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
-              .reorder(c, xi, yi, xo, yo)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(c);
-
-            Var xii, yii, xio, yio;
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-              .reorder(c, xi, yi, xo, yo);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(c);
-
-            ratio.compute_at(hw_output, xo);
-            reciprocal.compute_at(hw_output, xo); // we don't want this memory
-            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
-
-            sharpen.compute_at(hw_output, xo);
-
-            blur_unnormalized.compute_at(hw_output, xo);
-            blur_unnormalized.update()
-              .unroll(win.x).unroll(win.y);
-            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
-            
-            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
-            gray.compute_at(hw_output, xo);
-
-            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
-            hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(c);  // hw input bound
-            
-            hw_input.compute_root()
-              .accelerator_input();
-
-          } else if (schedule == 2) { // do the big parrot
-            const int tileWidth = 58;
-            const int tileHeight = 94;
-            const int numHostTiles = 5;
-            const int numTiles = 5;
-            const int glbWidth = tileWidth * numTiles;
-            const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTiles * glbWidth;
-            const int outputHeight = numHostTiles * glbHeight;
-
-            output.bound(x, 0, outputWidth);
-            output.bound(y, 0, outputHeight);
-
-            hw_output.in().compute_root();
-
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-              .reorder(c, xi, yi, xo, yo)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(c);
-
-            Var xii, yii, xio, yio;
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-              .reorder(c, xi, yi, xo, yo);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(c);
-
-            ratio.compute_at(hw_output, xo);
-            reciprocal.compute_at(hw_output, xo); // we don't want this memory
-            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
-
-            sharpen.compute_at(hw_output, xo);
-
-            blur_unnormalized.compute_at(hw_output, xo);
-            blur_unnormalized.update()
-              .unroll(win.x).unroll(win.y);
-            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
-            
-            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
-            gray.compute_at(hw_output, xo);
-
-            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
-            hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(c);  // hw input bound
-            
-            hw_input.compute_root()
-              .accelerator_input();
-
-          } else if (schedule == 3) { // do the big parrot with unroll
-            const int unroll = myunroll;
-            //const int tileWidth = 122-0;
-            //const int tileWidth = 141; //unroll=3  ; also try 63
-            const int tileWidth = width;
-            //const int tileHeight = 256-0;
-            const int tileHeight = 66;
-            //const int numHostTilesX = 12-1;
-            //const int numHostTilesY = 10-1;
-            const int numHostTilesX = 1;
-            const int numHostTilesY = 1;
-            const int numTiles = 1;
-            const int glbWidth = tileWidth * numTiles;
-            const int glbHeight = tileHeight * numTiles;
-            const int outputWidth = numHostTilesX * glbWidth;
-            const int outputHeight = numHostTilesY * glbHeight;
-
-            output.bound(x, 0, outputWidth);
-            output.bound(y, 0, outputHeight);
-
-            hw_output.in().compute_root();
-
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-              .reorder(c, xi, yi, xo, yo)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(c)
-              .unroll(xi, unroll);
-
-            hw_output
-              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-              .reorder(c, xi, yi, xo, yo);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.store_in(MemoryType::GLB);
-            hw_output.unroll(c)
-              .unroll(xi, unroll);
-
-            ratio.compute_at(hw_output, xo)
-              .unroll(x, unroll);
-            reciprocal.compute_at(hw_output, xo) // we don't want this memory
-              .unroll(x, unroll);
-            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
-
-            sharpen.compute_at(hw_output, xo)
-              .unroll(x, unroll);
-
-            blur_unnormalized.compute_at(hw_output, xo)
-              .unroll(x, unroll);
-            blur_unnormalized.update()
-              .unroll(win.x).unroll(win.y)
-              .unroll(x, unroll);
-            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(x, unroll);
-            
-            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
-            gray.compute_at(hw_output, xo)
-              .unroll(x, unroll);
-
-            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
-            hw_input.in().in()
-              .unroll(c)
-              .unroll(x, unroll, TailStrategy::RoundUp);
-            
-            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
-            hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(c)  // hw input bound
-              .unroll(x, unroll);
-            
-            hw_input.compute_root()
-              .accelerator_input();
-            
-          } else if (schedule == 4) { // single buffer
-            output.bound(x, 0, 64-blockSize+1);
-            output.bound(y, 0, 64-blockSize+1);
-
-            
+          if (schedule == 1) { // single buffer
             hw_output.compute_root();
             hw_output
-              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo)
+              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
 
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
             
-            //kernel.compute_at(blur_unnormalized, x).unroll(x);
+            kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
 
-          } else if (schedule == 5) { // all buffers
-            output.bound(x, 0, 64-blockSize+1);
-            output.bound(y, 0, 64-blockSize+1);
-            
+          } else if (schedule == 2) { // all buffers
             hw_output.compute_root();
             hw_output
-              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo)
+              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
             
             blur_unnormalized.compute_at(hw_output, xo);
             ratio.compute_at(hw_output, xo);
             gray.compute_at(hw_output, xo);
-            //kernel.compute_at(blur_unnormalized, x).unroll(x);
-            
+            kernel.compute_at(blur_unnormalized, x).unroll(x);
             hw_input.stream_to_accelerator();
             
           } else {
-            output.bound(x, 0, 64-blockSize+1);
-            output.bound(y, 0, 64-blockSize+1);
-
             hw_output.compute_root();
           
             hw_output
-              .tile(x, y, xo, yo, xi, yi, tilesize, tilesize).reorder(xi, yi, xo, yo)
+              .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
 
             hw_output.unroll(c);  // hw output bound
@@ -377,9 +197,9 @@ public:
             hw_input.in().unroll(c);  // hw input bound
             //hw_input.fifo_depth(hw_output, 480*9); // hw input bounds
             
-            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
+            gray.fifo_depth(hw_output, 60*9); // hw input bounds
 
-            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
             //kernel.compute_at(blur_unnormalized, x).unroll(x).unroll(y);
 
             gray.compute_at(hw_output, xo);
@@ -391,22 +211,7 @@ public:
           }
 
         } else {    // schedule to CPU
-          if (schedule == 1 || schedule == 2 || schedule == 3) {
-            const int vec = 16;
-            output.split(y, yo, yi, 32)
-              .vectorize(x, vec)
-              .parallel(yo)
-              .reorder(x, c, yi, yo);
-            gray.compute_at(output, yi)
-              .store_at(output, yo)
-              .vectorize(x, vec);
-            blur.compute_at(output, yi)
-              .store_at(output, yo)
-              .vectorize(x, vec);
-            ratio.compute_at(output, yi)
-              .store_at(output, yo)
-              .vectorize(x, vec);
-          }
+          output.compute_root();
         }
     }
 

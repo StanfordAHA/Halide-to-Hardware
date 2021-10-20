@@ -35,54 +35,48 @@ public:
 
         Func hw_output("hw_output"), output_host("output_host");
         //output_host(x, y) = output_gb(x, y);
-        hw_output(x, y) = conv(x, y);
-        output(x, y) = u8(hw_output(x, y));
+        hw_output(x, y) = cast<uint8_t>(conv(x, y));
+        output(x, y) = hw_output(x, y);
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
 
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var x_host,y_host, x_cgra,y_cgra;
-          Var xo,yo,xi,yi;
+          Var xi,yi;
 
-          int tilesize = 62;
+          int tilesize = 64;
           int fullsize = tilesize * 4;
 
+          hw_output.compute_root();
           //output.bound(x, 0, fullsize*2); // 4 glb tiles
           //output.bound(y, 0, fullsize*2);
           output.bound(x, 0, fullsize);     // 1 glb tile
           output.bound(y, 0, fullsize);
-
-          hw_output.in().compute_root();
           
           // Produce loop levels: host, cgra
-          hw_output.in()
+          hw_output
             //.tile(x, y, x_host,y_host, xi,yi, fullsize,fullsize)
             .tile(x, y, x_host,y_host, x_cgra,y_cgra, tilesize,tilesize)
             //.reorder(x_cgra, y_cgra, x_gb, y_gb, x_host, y_host)
             .hw_accelerate(xi, x_host);
-          
-          hw_output.compute_at(hw_output.in(), x_host)
-            .tile(x, y, xo,yo, xi,yi, tilesize,tilesize);
+
           //output_host.store_at(hw_output, x_host).compute_at(hw_output, x_host);
           
           // Unroll the computation loops to duplicate hardware
           conv.update()
             .unroll(r.x)
             .unroll(r.y);
-          //conv.compute_at(hw_output, x_host); // memtile
-          conv.compute_at(hw_output, xo); // memtile
+          conv.compute_at(hw_output, x_host); // memtile
 
           // compute the kernel values only once (they'll be converted to constants anyway)
-          //kernel.compute_at(hw_output, x_host);
-          kernel.compute_at(hw_output, xo);
+          kernel.compute_at(hw_output, x_host);
 
           // Two buffers: one at host,
           //              a copy stage as the memory tiles
-          //input_host.compute_at(hw_output.in(), x_host); // host buffer
-          input_host.compute_root();
+          input_host.compute_root(); // host buffer
           input_host.accelerator_input();
-          hw_input.compute_at(hw_output, xo);   // mem tile
+          hw_input.compute_at(hw_output, x_host);   // mem tile
 
           //hw_input.compute_root();
           //hw_input.accelerator_input();
