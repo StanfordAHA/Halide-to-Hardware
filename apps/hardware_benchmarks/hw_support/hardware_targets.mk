@@ -189,10 +189,12 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
+tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
 	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
 	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
+
+treegraph tree_graph: tree
 	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
 
 delay_mem:
@@ -412,6 +414,9 @@ $(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
 $(BIN)/%.raw: $(BIN)/%.leraw
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
 
+io inout inputs inputfiles rawio rawios ioraw ioraws : $(BIN)/design_meta_halide.json
+	python $(HWSUPPORT)/generate_raw_files.py $^
+
 .PHONY: $(BIN)/cgra_config.json
 $(BIN)/cgra_config.json:
 	@-mkdir -p $(BIN)
@@ -461,7 +466,7 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/design_top.json
 	$(MAKE) $(BIN)/process WITH_COREIR=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.$(EXT): $(BIN)/process $(BIN)/clockwork_testscript.o
+run-clockwork $(BIN)/output_clockwork.$(EXT) $(BIN)/design_meta_halide.json: $(BIN)/process $(BIN)/clockwork_testscript.o
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
@@ -519,12 +524,15 @@ compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(E
     (exit $$EXIT_CODE);  \
 	fi
 
-ahahalide:
+#ahahalide aha_halide aha-halide:
+#	$(MAKE) compare && \
+#	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+#	$(MAKE) bin/output_cgra.pgm --no-print-directory
+ahahalide aha_halide aha-halide:
 	$(MAKE) compare && \
-	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
-	$(MAKE) bin/output_cgra.pgm --no-print-directory
+	$(MAKE) rawio
 
-ahahalidemem:
+ahahalidemem aha_halide_mem aha-halide-mem:
 	$(MAKE) compare && \
 	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
 	$(MAKE) bin/output_cgra.pgm --no-print-directory && \
@@ -622,6 +630,9 @@ $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
 graph.png graph:
 	$(MAKE) $(BIN)/graph.png
+newgraph new_graph:
+	cp $(BIN)/design_top.json $(BIN)/design_top_graph.json
+	$(MAKE) graph
 
 copy_design:
 	docker cp setter-tender_lovelace:/aha/Halide-to-Hardware/apps/hardware_benchmarks/$(TESTORAPP)/$(TESTNAME)/bin/design.place bin/

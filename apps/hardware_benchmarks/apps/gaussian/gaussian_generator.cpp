@@ -295,6 +295,46 @@ accelerator({hw_input, hw_kernel} -> hw_output)
             blur.compute_at(hw_output, xo);
             
             hw_input.stream_to_accelerator();
+
+          } else if (schedule == 5) { // just an xcel definition
+            const int inputSize = 64;
+            const int outputSize = inputSize-blockSize+1;
+            output.bound(x, 0, outputSize);
+            output.bound(y, 0, outputSize);
+
+            hw_output
+              .compute_root()
+              .hw_accelerate(x, Var::outermost());
+            hw_input.stream_to_accelerator();
+
+          } else if (schedule == 6) { // 62x62 tile
+            const int inputSize = 64;
+            const int outputSize = inputSize-blockSize+1;
+            output.bound(x, 0, outputSize);
+            output.bound(y, 0, outputSize);
+
+            hw_output
+              .compute_root()
+              .tile(x, y, xi, xo, yi, yo, outputSize, outputSize)
+              .reorder(xi, yi, xo, yo)
+              .hw_accelerate(x, Var::outermost());
+            hw_input.stream_to_accelerator();
+
+          } else if (schedule == 7) { // unrolled compute
+            const int inputSize = 64;
+            const int outputSize = inputSize-blockSize+1;
+            output.bound(x, 0, outputSize);
+            output.bound(y, 0, outputSize);
+
+            hw_output
+              .compute_root()
+              .tile(x, y, xi, xo, yi, yo, outputSize, outputSize)
+              .hw_accelerate(x, Var::outermost());
+
+            blur_unnormalized.update()
+              .unroll(win.x).unroll(win.y);
+            
+            hw_input.stream_to_accelerator();
             
           } else {
             //const int inputSize = 64;

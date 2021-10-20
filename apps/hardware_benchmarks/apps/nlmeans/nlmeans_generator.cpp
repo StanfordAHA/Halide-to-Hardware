@@ -7,9 +7,9 @@ using namespace Halide;
 class NonLocalMeans : public Halide::Generator<NonLocalMeans> {
 public:
     Input<Buffer<uint8_t>> input{"input", 3};
-    Input<int> patch_size{"patch_size"}; // default is 7
-    Input<int> search_area{"search_area"}; // default is 7
-    Input<float> sigma{"sigma"}; // default is 0.12
+  //Input<int> patch_size{"patch_size"}; // default is 7
+  //Input<int> search_area{"search_area"}; // default is 7
+    //Input<float> sigma{"sigma"}; // default is 0.12
 
     Output<Buffer<uint8_t>> output{"output", 3};
 
@@ -21,12 +21,14 @@ public:
 
         Var x("x"), y("y"), c("c");
 
-        Expr inv_sigma_sq = -1.0f / (sigma * sigma * patch_size * patch_size);
+        //Expr inv_sigma_sq = -1.0f / (sigma * sigma * patch_size * patch_size);
+        //Expr inv_sigma_sq = -69 / (patch_size * patch_size);
 
         // Add a boundary condition
         Func hw_input;
         Func repeated = BoundaryConditions::repeat_edge(input);
-        hw_input(x, y, c) = cast<float>(repeated(x, y, c));
+        //hw_input(x, y, c) = cast<float>(repeated(x, y, c));
+        hw_input(x, y, c) = cast<int16_t>(repeated(x, y, c));
 
         // Define the difference images
         Var dx("dx"), dy("dy");
@@ -39,7 +41,7 @@ public:
         d(x, y, dx, dy) = sum(dc(x, y, dx, dy, channels));
 
         // Find the patch differences by blurring the difference images
-        RDom patch_dom(-(patch_size / 2), patch_size);
+        RDom patch_dom(-(7 / 2), 7);
         Func blur_d_y("blur_d_y");
         blur_d_y(x, y, dx, dy) = sum(d(x, y + patch_dom, dx, dy));
 
@@ -48,7 +50,8 @@ public:
 
         // Compute the weights from the patch differences
         Func w("w");
-        w(x, y, dx, dy) = fast_exp(cast<float>(blur_d(x, y, dx, dy)) * inv_sigma_sq);
+        //w(x, y, dx, dy) = fast_exp(cast<float>(blur_d(x, y, dx, dy)) * inv_sigma_sq);
+        w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
 
         // Add an alpha channel
         Func clamped_with_alpha("clamped_with_alpha");
@@ -58,7 +61,8 @@ public:
                                              /*c==3*/ 1);
 
         // Define a reduction domain for the search area
-        RDom s_dom(-(search_area / 2), search_area, -(search_area / 2), search_area);
+        //RDom s_dom(-(search_area / 2), search_area, -(search_area / 2), search_area);
+        RDom s_dom(-(7 / 2), 7, -(7 / 2), 7);
 
         // Compute the sum of the pixels in the search area
         Func non_local_means_sum("non_local_means_sum"), non_local_means, hw_output;
