@@ -14,7 +14,7 @@ class ConvolutionKernel : public Halide::Generator<ConvolutionKernel> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 1
+    GeneratorParam<uint8_t> schedule{"schedule", 1};    // default: 1
 
   //Input<int32_t> outImgSizeX{"outImgSizeX", 64, 8, 128};    // default: 64. bounded between 8 and 128
   //Input<int32_t> outImgSizeY{"outImgSizeY", 64, 8, 128};    // default: 64. bounded between 8 and 128
@@ -84,7 +84,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
 
-        } else if (get_target().has_feature(Target::Clockwork) || schedule && 2) {
+        } else if (get_target().has_feature(Target::Clockwork) && (schedule == 2)) {
           Var xii, xio, yii, yio, xi, xo, yi, yo;
           output.bound(x,0,outImgSizeX).bound(y,0,outImgSizeY);
           
