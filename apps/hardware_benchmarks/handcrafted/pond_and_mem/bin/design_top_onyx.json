@@ -87,9 +87,9 @@
                          "mode": ["lake"],
                          "config":["Json", {
                              "mode":"pond",
-                             "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[505], "extent": [9,100], "cycle_stride": [1,10000],
+                             "in2regfile_0":{"dimensionality": 2, "cycle_starting_addr":[505], "extent": [9,100], "cycle_stride": [1,10000],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,9]},
-                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[905], "extent": [900,72], "cycle_stride": [1,900],
+                             "regfile2out_0":{"dimensionality": 2, "cycle_starting_addr":[905], "extent": [900,72], "cycle_stride": [1,900],
                                             "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,1]}
                          }]}},
           "lakemem_conv":{
@@ -125,8 +125,8 @@
             ["io16in_in0_arg_input.out","lakemem_input.data_in_0"],
             ["io16in_in0_arg_input.out","lakemem_weight.data_in_0"],
             ["lakemem_input.data_out_0","mul_z0_w0$binop.data.in.0"],
-            ["lakemem_weight.data_out_0","pondmem_weight.data_in_pond"],
-            ["pondmem_weight.data_out_pond","mul_z0_w0$binop.data.in.1"],
+            ["lakemem_weight.data_out_0","pondmem_weight.data_in_pond_0"],
+            ["pondmem_weight.data_out_pond_0","mul_z0_w0$binop.data.in.1"],
             ["mul_z0_w0$binop.data.out","add_w0_accum$binop.data.in.0"],
             ["accum_init.out","lakemem_conv.data_in_0"],
             ["lakemem_conv.data_out_0","add_w0_accum$binop.data.in.1"],
