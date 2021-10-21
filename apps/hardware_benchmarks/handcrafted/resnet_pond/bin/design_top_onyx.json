@@ -61,35 +61,16 @@
                              "tb2out_0":{"dimensionality": 5, "cycle_starting_addr":[905], "extent": [28,28,3,3,100], "cycle_stride": [1,30,900,2730,8190],
                                          "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,6,1,6,0]}
                          }]}},
-          "lakemem_weight":{
-              "genref":"cgralib.Mem",
-              "genargs":{"num_inputs":["Int",1], "num_outputs":["Int",1], "width":["Int",16]},
-              "modargs":{"mode": ["lake"], "stencil_delay": ["Int", 0],
-                         "config":["Json", {
-                             "mode":"lake",
-                             "stencil_valid":{"dimensionality": 2, "cycle_starting_addr":[505], "extent": [9,100], "cycle_stride": [1,8100]},
-                             "in2agg_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [9,100], "cycle_stride": [1,30000],
-                                         "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,0]},
-                             "agg2sram_0":{"dimensionality": 2, "cycle_starting_addr":[4], "extent": [3,100], "cycle_stride": [4,30000],
-                                           "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "read_data_starting_addr": [0], "read_data_stride": [1,0],
-                                           "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "write_data_starting_addr": [0], "write_data_stride": [1,256]},
-                             "sram2tb_0":{"dimensionality": 2, "cycle_starting_addr":[500], "extent": [3,100], "cycle_stride": [4,30000],
-                                          "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_sram", "read_data_starting_addr": [0], "read_data_stride": [1,256],
-                                          "mux_write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "mux_write_data_starting_addr": [0], "mux_write_data_stride": [0,0],
-                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "write_data_starting_addr": [0], "write_data_stride": [1,0]},
-                             "tb2out_0":{"dimensionality": 2, "cycle_starting_addr":[505], "extent": [9,100], "cycle_stride": [1,30000],
-                                         "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [1,0]}
-                         }]}},
-          "pondmem_weight":{
+          "pond_weight":{
               "genref":"cgralib.Pond",
               "genargs":{"num_inputs":["Int",1], "num_outputs":["Int",1], "width":["Int",16]},
               "modargs":{"stencil_delay": ["Int", 0],
                          "mode": ["lake"],
                          "config":["Json", {
                              "mode":"pond",
-                             "in2regfile":{"dimensionality": 2, "cycle_starting_addr":[505], "extent": [9,100], "cycle_stride": [1,10000],
+                             "in2regfile_0":{"dimensionality": 2, "cycle_starting_addr":[0], "extent": [9,100], "cycle_stride": [1,10000],
                                          "write":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_agg", "write_data_starting_addr": [0], "write_data_stride": [1,9]},
-                             "regfile2out":{"dimensionality": 2, "cycle_starting_addr":[905], "extent": [900,72], "cycle_stride": [1,900],
+                             "regfile2out_0":{"dimensionality": 2, "cycle_starting_addr":[905], "extent": [900,72], "cycle_stride": [1,900],
                                             "read":"buf_inst_input_10_to_buf_inst_output_3_ubuf_0_tb", "read_data_starting_addr": [0], "read_data_stride": [0,1]}
                          }]}},
           "lakemem_conv":{
@@ -123,18 +104,16 @@
         },
         "connections":[
             ["io16in_in0_arg_input.out","lakemem_input.data_in_0"],
-            ["io16in_in0_arg_input.out","lakemem_weight.data_in_0"],
+            ["io16in_in0_arg_input.out","pond_weight.data_in_pond_0"],
             ["lakemem_input.data_out_0","mul_z0_w0$binop.data.in.0"],
-            ["lakemem_weight.data_out_0","pondmem_weight.data_in_pond"],
-            ["pondmem_weight.data_out_pond","mul_z0_w0$binop.data.in.1"],
+            ["pond_weight.data_out_pond_0","mul_z0_w0$binop.data.in.1"],
             ["mul_z0_w0$binop.data.out","add_w0_accum$binop.data.in.0"],
             ["accum_init.out","lakemem_conv.data_in_0"],
             ["lakemem_conv.data_out_0","add_w0_accum$binop.data.in.1"],
             ["add_w0_accum$binop.data.out","lakemem_conv.data_in_1"],
             ["lakemem_conv.data_out_1","io16_out_0_0.in"],
             ["lakemem_input.flush","io1in_reset.out"],
-            ["lakemem_weight.flush","io1in_reset.out"],
-            ["pondmem_weight.flush","io1in_reset.out"],
+            ["pond_weight.flush","io1in_reset.out"],
             ["lakemem_conv.flush","io1in_reset.out"],
             ["lakemem_conv.stencil_valid","io1_valid.in"]
         ]
