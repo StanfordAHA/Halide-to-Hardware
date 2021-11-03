@@ -32,9 +32,7 @@ int blockSize = 9;
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 1
-    GeneratorParam<uint8_t> width{"width", 0};    // default: 1
-    GeneratorParam<uint8_t> myunroll{"myunroll", 0};    // default: 1
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 1
 
     //Func interleave_x(Func a, Func b) {
     //  Func out;
@@ -468,11 +466,9 @@ Func interleave_y(Func a, Func b) {
 
           } else if (schedule == 3) { // big parrot with unroll
             const int unroll = 1;
-            const int tileWidth = 64-8;
-            //const int tileWidth = 256-8;
-            const int tileHeight = 64-8;
-            //const int tileHeight = 152-8;
-            const int numHostTiles = 1;
+            const int tileWidth = 256-8;
+            const int tileHeight = 152-8;
+            const int numHostTiles = 10;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
