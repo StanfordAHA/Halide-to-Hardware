@@ -182,7 +182,6 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
 	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
-	coreir -i $(BIN)/$(TESTNAME)_compute_tree.json -l commonlib -p "rungenerators; flatten" -o $(BIN)/$(TESTNAME)_compute_tree.json && \
 	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
 
 compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen $(BIN)/$(TESTNAME)_compute_mapped.json
