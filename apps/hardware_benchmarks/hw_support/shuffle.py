@@ -20,9 +20,9 @@ with open(input_file) as f:
     val_list = (data["top"]).split(".")
     print(val_list)
     for ins_name, val in (data["namespaces"][val_list[0]]["modules"][val_list[1]]["instances"]).items():
-        if "genref" not in val.keys():
+        if "modref" not in val.keys():
             continue
-        if val["genref"] == "cgralib.IO":
+        if val["modref"] == "global.IO":
             #print (val["metadata"])
             io_config = (next(iter(val["metadata"])))
             glb_config = val["metadata"][io_config]
