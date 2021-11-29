@@ -2643,7 +2643,44 @@ Func Func::stream_to_accelerator() {
   auto new_func = get_wrapper(func, name() + "_global_wrapper", {}, false);
   return new_func;
 }
-  
+
+// Specify a sequence of splits and reorders. If all extents are specified,
+// also applies a bound to those variables.
+Stage &Stage::iteration_order(std::vector<VarExtent> varextents) {
+  Var xxx_out, xxx_in;
+  //Stage func;
+  //return split(varextent.var, xxx_out, xxx_in, varextent.extent);
+  for (const auto& varextent : varextents) {
+    split(varextent.var, xxx_out, xxx_in, varextent.extent);
+  }
+  return *this;
+}
+
+Func &Func::iteration_order(std::vector<VarExtent> varextents) {
+  for (const auto& varextent : varextents) {
+    Var outer(varextent.name() + "_o");
+    Var inner(varextent.name() + "_i");
+    split(varextent.var, outer, inner, varextent.extent);
+  }
+  return *this;
+}
+
+Func &Func::iteration_order(std::vector<IterLevel> levels) {
+  for (const auto& level : levels) {
+    //std::cout << "doing level " << level.name << " of length " << level.varextents.size() << std::endl;
+    auto& varextents = level.varextents;
+    
+    for (const auto& varextent : varextents) {
+      //std::cout << "doing var " << varextent.name() << std::endl;
+      Var outer(varextent.name() + "_o");
+      Var inner(varextent.name() + "_i");
+      split(varextent.var, outer, inner, varextent.extent);
+    }
+  }
+  return *this;
+}
+
+
 Func &Func::linebuffer() {
     invalidate_cache();
     func.schedule().is_linebuffered() = true;

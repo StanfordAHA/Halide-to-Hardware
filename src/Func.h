@@ -44,6 +44,27 @@ struct VarOrRVar {
     bool is_rvar;
 };
 
+struct VarExtent {
+  VarExtent(const VarOrRVar &v, Expr e, bool p = false) :
+    var(v), extent(e), is_parallelized(p) {}
+
+  const std::string &name() const {
+    return var.name();
+  }
+            
+  VarOrRVar var;
+  Expr extent;
+  bool is_parallelized;
+};
+
+struct IterLevel {
+  IterLevel(const std::string n, std::vector<VarExtent> list) :
+    name(n), varextents(list) {}
+
+  std::string name;
+  std::vector<VarExtent> varextents;
+};
+
 class ImageParam;
 
 namespace Internal {
@@ -352,6 +373,8 @@ public:
                 Expr xfactor, Expr yfactor,
                 TailStrategy tail = TailStrategy::Auto);
     Stage &reorder(const std::vector<VarOrRVar> &vars);
+  Stage &iteration_order(std::vector<VarExtent> varextents);
+  Stage &iteration_order(std::vector<IterLevel> levels);
 
     template <typename... Args>
     HALIDE_NO_USER_CODE_INLINE typename std::enable_if<Internal::all_are_convertible<VarOrRVar, Args...>::value, Stage &>::type
@@ -2246,6 +2269,9 @@ public:
   
     Func &accelerator_input();
     Func stream_to_accelerator();
+
+    Func &iteration_order(std::vector<VarExtent> varextents);
+    Func &iteration_order(std::vector<IterLevel> levels);
 
     /** Schedule a function to be linebuffered.
      */
