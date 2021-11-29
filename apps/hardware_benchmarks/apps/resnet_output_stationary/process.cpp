@@ -99,7 +99,7 @@ int main( int argc, char **argv ) {
     ///// INPUT IMAGE /////
     processor.inputs["input.mat"] = Buffer<int16_t>(Z, X, Y);
     auto input_copy_stencil = processor.inputs["input.mat"];
-    //int i=1;
+    int i=1; (void) i;
     int max_rand = pow(2,8) - 1;
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
@@ -107,6 +107,7 @@ int main( int argc, char **argv ) {
           //input_copy_stencil(z, x, y) = z + x + y;      // diagonal
           //input_copy_stencil(z, x, y) = 1;              // all ones
           //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
+          //continue;
           if (rand() % 100 < 60) { // 60% zero, else rand
             input_copy_stencil(z, x, y) = 0;
           } else {
@@ -168,6 +169,7 @@ int main( int argc, char **argv ) {
         for (int w = 0; w < kernel_copy_stencil.dim(1).extent(); w++) {
           for (int z = 0; z < kernel_copy_stencil.dim(0).extent(); z++) {
             //kernel_copy_stencil(z, w, x, y) = z + w + x + y;
+            //continue;
             //kernel_copy_stencil(z, w, x, y) = 1;
             
             //kernel_copy_stencil(z, w, x, y) = j;

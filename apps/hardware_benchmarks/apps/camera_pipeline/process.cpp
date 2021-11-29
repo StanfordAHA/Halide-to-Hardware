@@ -76,10 +76,10 @@ int main( int argc, char **argv ) {
     processor.inputs_preset = true;
     host_tiling = 10;
     glb_tiling = 1;
-    output_tile_width = 64-8;
-    //output_tile_width = 256-8;
-    output_tile_height = 64-8;
-    //output_tile_height = 152-8;
+    //output_tile_width = 64-8;
+    //output_tile_height = 64-8;
+    output_tile_width = 256-8;
+    output_tile_height = 192-8;
     break;
   default:
     processor.inputs_preset = false;

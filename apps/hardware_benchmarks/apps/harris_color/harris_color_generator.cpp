@@ -29,9 +29,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 0
-    GeneratorParam<uint8_t> width{"width", 66};    // default: 0
+    GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint16_t> myunroll{"myunroll", 2};    // default: 2
+    GeneratorParam<uint16_t> width{"width", 300-6};      // default: 120
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
     //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
@@ -119,7 +119,7 @@ public:
           cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
           cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
         Func cim_output;
-        cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), i16(255), i16(0)));
         hw_output(x, y) = cim_output(x,y);
         //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
@@ -246,12 +246,13 @@ public:
             const int unroll = myunroll;
             //const int tileWidth = 128-6; // for unroll=2
             const int tileWidth = width;
-            //const int tileHeight = 256-0;
-            const int tileHeight = 66;
-            //const int numHostTilesX = 12;
-            //const int numHostTilesY = 10;
-            const int numHostTilesX = 1;
-            const int numHostTilesY = 1;
+            //const int tileHeight = 255;
+            const int tileHeight = 255;
+            //const int tileHeight = 66;
+            const int numHostTilesX = 5; //12;
+            const int numHostTilesY = 10; //10;
+            //const int numHostTilesX = 1;
+            //const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;

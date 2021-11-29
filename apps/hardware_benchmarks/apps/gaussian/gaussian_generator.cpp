@@ -17,9 +17,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
   
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
-    GeneratorParam<uint8_t> width{"width", 62};         // default: 62
-    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
+    GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint16_t> mywidth{"mywidth", 368};    // default: 368
+    GeneratorParam<uint16_t> myunroll{"myunroll", 16};   // default: 16
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
   //int tilesize = imgSize / 2;
@@ -75,6 +75,7 @@ public:
         blur_y(x, y) = (blur_x(x, y) + blur_x(x, y+1) + blur_x(x, y+2))/3;
 
         Func hw_output;
+        //hw_output(x, y) = blur(x, y) * 256;
         hw_output(x, y) = blur(x, y);
         //hw_output(x, y) = blur_y(x, y);
         output(x, y) = cast<uint8_t>( hw_output(x, y) );
@@ -174,13 +175,14 @@ public:
             //const int tileWidth = 248; // for unroll=8
             //const int tileWidth = 266; // for unroll=14
             //const int tileWidth = 42; // for unroll=14
-            const int tileWidth = width;
-            //const int tileHeight = 196;
-            const int tileHeight = 62;
-            //const int numHostTilesX = 23-0;
-            //const int numHostTilesY = 20-0;
-            const int numHostTilesX = 1;
-            const int numHostTilesY = 1;
+            //const int tileWidth = 256;
+            const int tileWidth = mywidth;
+            const int tileHeight = 196;
+            //const int tileHeight = 62;
+            const int numHostTilesX = 16-0;
+            const int numHostTilesY = 20-0;
+            //const int numHostTilesX = 1;
+            //const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -317,7 +319,7 @@ accelerator({hw_input, hw_kernel} -> hw_output)
               .compute_root()
               .tile(x, y, xi, xo, yi, yo, outputSize, outputSize)
               .reorder(xi, yi, xo, yo)
-              .hw_accelerate(x, Var::outermost());
+              .hw_accelerate(xi, xo);
             hw_input.stream_to_accelerator();
 
           } else if (schedule == 7) { // unrolled compute
@@ -329,17 +331,82 @@ accelerator({hw_input, hw_kernel} -> hw_output)
             hw_output
               .compute_root()
               .tile(x, y, xi, xo, yi, yo, outputSize, outputSize)
-              .hw_accelerate(x, Var::outermost());
+              .hw_accelerate(xi, xo);
 
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y);
             
             hw_input.stream_to_accelerator();
+
+          } else if (schedule == 8) {
+            // do the big tern and unroll
+            //const int unroll = 14;
+            const int unroll = myunroll;
+            //const int tileWidth = 248; // for unroll=8
+            //const int tileWidth = 266; // for unroll=14
+            //const int tileWidth = 42; // for unroll=14
+            //const int tileWidth = 256;
+            const int tileWidth = mywidth;
+            const int tileHeight = 196;
+            //const int tileHeight = 62;
+            const int numHostTilesX = 23-0;
+            const int numHostTilesY = 20-0;
+            //const int numHostTilesX = 1;
+            //const int numHostTilesY = 1;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+            
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+            //hw_input.in().bound(x, 0, glbWidth+2);
+            //hw_input.in().bound(y, 0, glbHeight+2);
+            //hw_input.bound(x, 0, outputWidth+2);
+            //hw_input.bound(y, 0, outputHeight+2);
+
+            //hw_output.in().compute_root();
+            //hw_output.in()
+            //  .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+            //  .hw_accelerate(xi, xo);
+            //hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
+            //hw_output.in().store_in(MemoryType::GLB);
+
+            hw_output.compute_root();
+            
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight)
+              .hw_accelerate(xii, xio);
+            //hw_output.compute_at(hw_output.in(), xo);
+            hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
+
+            blur.compute_at(hw_output, xio);
+            blur.unroll(x, unroll, TailStrategy::RoundUp);
+            
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
+            blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
+            blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
+            blur_unnormalized.compute_at(hw_output, xio);
+
+            hw_input.in().compute_at(hw_output, xio); // represents the mem tile
+            hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
+            hw_input.compute_root().accelerator_input();
+
+            //hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
+            //hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
+            //hw_input.in().compute_at(hw_output.in(), xo);
+            //hw_input.in().store_in(MemoryType::GLB);
+            //hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
+            //hw_input.compute_root().accelerator_input();
             
           } else {
             //const int inputSize = 64;
             //const int outputSize = inputSize-blockSize+1;
-            const int outputSize = width;
+            const int outputSize = 62;
             const int tileSize = outputSize; // single tile
             
             output.bound(x, 0, outputSize);

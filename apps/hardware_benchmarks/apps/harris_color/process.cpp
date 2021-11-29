@@ -60,6 +60,7 @@ int main( int argc, char **argv ) {
   auto env_width = getenv("width");
   auto schedule = env_sch ? atoi(env_sch) : 3;
   auto width = env_width ? atoi(env_width) : 66;
+  (void) width;
   std::cout << "using schedule = " << schedule << std::endl;
 
   int output_tile_width  = 58;
@@ -81,13 +82,16 @@ int main( int argc, char **argv ) {
     break;
   case 3:
     processor.inputs_preset = true;
-    //host_tiling_x = 12;  host_tiling_y = 10;
-    host_tiling_x = 1;  host_tiling_y = 1;
     glb_tiling = 1;
-    //output_tile_width = 128-6;
-    output_tile_width = width;
-    //output_tile_height = 256-0;
-    output_tile_height = 66;
+    host_tiling_x = 5;//12;
+    host_tiling_y = 10;
+    //output_tile_width = 126-6;
+    output_tile_width = 300-6;
+    output_tile_height = 255;
+    //output_tile_height = 255;
+    //host_tiling_x = 1;  host_tiling_y = 1;
+    //output_tile_width = width;
+    //output_tile_height = 66;
     break;
   default:
     processor.inputs_preset = false;
