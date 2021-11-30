@@ -2270,6 +2270,10 @@ public:
     Func &accelerator_input();
     Func stream_to_accelerator();
 
+    Func &apply_splits_and_bound(std::map<std::string, std::vector<Expr>> running_size,
+                                 std::map<std::string, std::vector<VarOrRVar>>& split_vars);
+    Func &reorder_variables(std::vector<VarExtent> varextents,
+                            std::map<std::string, std::vector<VarOrRVar>>& split_vars);
     Func &iteration_order(std::vector<VarExtent> varextents);
     Func &iteration_order(std::vector<IterLevel> levels);
 

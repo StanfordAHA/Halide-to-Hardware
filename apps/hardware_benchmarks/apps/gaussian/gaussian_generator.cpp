@@ -229,50 +229,6 @@ public:
             
             hw_input.compute_root()
               .accelerator_input();
-/*
-// declarative schedule version:
-            accelerator(hw_input -> hw_output)
-              .output_rate(14, matched, roundup)
-              //.fill_entire_CGRA(16x32)
-              .create_memories({blur, blur_unnormalized})
-              //.buffer_all()
-              .mem_hierarchy({MEM:{64x64}, GLB:{64x512}})
-              //.fill_memories({MEM:2048, GLB:128kB})
-
-// image bounds (use the same as Halide)
-
-//split and reorder?
-////  ---- GLB (DRAM) Level---
-////  for oc in range(32):
-////  ------ Memory Tile (SRAM) Level----
-////  for ic in range(4):
-////  for oy in range(56):
-////  for ox in range(56):
-////  ----- Regfile Level----
-////  for ic in range(1):
-////  for oc in range(1):
-////  for fy in range(5):
-////  for fx in range(5):
-////  parallel ic 16 times
-////  parallel oc 8 times
-
-accelerator({hw_input, hw_kernel} -> hw_output)
-  .unroll(oc, k_oc)
-  .unroll(ic, k_ic)
-  .loopnest(MEM:[(fx 5), (fy 5), (oc 1), (ic 1)],
-            GLB:[(x 56), (y 56), (ic 4)],
-            host:[(oc 32)]);
-
-accelerator({hw_input, hw_kernel} -> hw_output)
-  .loopnest(MEM:[u(r.ic 16) u(oc 8) (x 28) (y 28) (r.x 3) (r.y 3) (r.ic 2))],
-            GLB:[(oc 4) (x 2) (y 2)],
-            host:[]);
-// from this loopnest for the output_cgra, the other loop orders should be determined
-
-            
-
-*/
-
             
           } else if (schedule == 4) {
             // Perform host tiliing
@@ -424,58 +380,53 @@ accelerator({hw_input, hw_kernel} -> hw_output)
             const int outputWidth = numHostTilesX * glbWidth;
             const int outputHeight = numHostTilesY * glbHeight;
             
-            output.bound(x, 0, outputWidth);
-            output.bound(y, 0, outputHeight);
-            //hw_input.in().bound(x, 0, glbWidth+2);
-            //hw_input.in().bound(y, 0, glbHeight+2);
-            //hw_input.bound(x, 0, outputWidth+2);
-            //hw_input.bound(y, 0, outputHeight+2);
+            //output.bound(x, 0, outputWidth);
+            //output.bound(y, 0, outputHeight);
 
-            hw_output.in().compute_root();
+            //hw_output.in().compute_root();
 
-            hw_output.in()
-              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-              .hw_accelerate(xi, xo);
-            hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
-            hw_output.in().store_in(MemoryType::GLB);
+            //auto level1 = IterLevel("MEM",  {{x, tileWidth}, {y, tileHeight}});
+            //auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            //auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
 
-            Var xii, yii, xio, yio;
-            Var yyi, yyo, xxi, xxo;
-            hw_output
-              .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
-            hw_output.compute_at(hw_output.in(), xo);
-            hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
+            hw_output.compute_root();
+            //hw_output.iteration_order({level1, level2, level3});
+            bool p = true;
+            hw_output.iteration_order({{x, 2, p}, {x, tileWidth}, {y, tileHeight},
+                                       {x, 1}, {y, 1},
+                                       {x, 16}, {y, 20}});
 
-            //VarExtent yive(yii, unroll, false);
-            //hw_output.iteration_order({{yii, unroll}, {xii, 2}});
-            
-            //std::vector<VarExtent> extents = {{yii, unroll}, {xii, 2}};
-            //std::cout << "extents of length " << extents.size() << std::endl;
-            //auto level = IterLevel("base", extents);
-            //hw_output.iteration_order({level});
-
-            auto level = IterLevel("base", {{yii, unroll}, {xii, 2}});
-            hw_output.iteration_order({level});
-
-            blur.compute_at(hw_output, xio);
-            blur.unroll(x, unroll, TailStrategy::RoundUp);
-            
-            blur_unnormalized.update()
-              .unroll(win.x, blockSize)
-              .unroll(win.y, blockSize);
-            blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
-            blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
-            blur_unnormalized.compute_at(hw_output, xio);
-
-            hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
-            hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
-
-            hw_input.in().compute_at(hw_output.in(), xo);
-            hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
-            
-            hw_input.compute_root()
-              .accelerator_input();
+            //hw_output.in()
+            //  .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+            //  .hw_accelerate(xi, xo);
+            //hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
+            //hw_output.in().store_in(MemoryType::GLB);
+            //
+            //Var xii, yii, xio, yio;
+            //hw_output
+            //  .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
+            //hw_output.compute_at(hw_output.in(), xo);
+            //hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
+            //
+            //blur.compute_at(hw_output, xio);
+            //blur.unroll(x, unroll, TailStrategy::RoundUp);
+            //
+            //blur_unnormalized.update()
+            //  .unroll(win.x, blockSize)
+            //  .unroll(win.y, blockSize);
+            //blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
+            //blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
+            //blur_unnormalized.compute_at(hw_output, xio);
+            //
+            //hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
+            //hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
+            //
+            //hw_input.in().compute_at(hw_output.in(), xo);
+            //hw_input.in().store_in(MemoryType::GLB);
+            //hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
+            //
+            //hw_input.compute_root()
+            //  .accelerator_input();
 /*
 // declarative schedule version:
             accelerator(hw_input -> hw_output)

@@ -2656,27 +2656,105 @@ Stage &Stage::iteration_order(std::vector<VarExtent> varextents) {
   return *this;
 }
 
-Func &Func::iteration_order(std::vector<VarExtent> varextents) {
-  for (const auto& varextent : varextents) {
-    Var outer(varextent.name() + "_o");
-    Var inner(varextent.name() + "_i");
-    split(varextent.var, outer, inner, varextent.extent);
+void extract_sizes(std::vector<VarExtent> varextents, std::map<std::string, std::vector<Expr>>& running_size) {
+  for (auto& varextent : varextents) {
+    auto var = varextent.var.name();
+    if (running_size.count(var) == 0) {
+      std::cout << "new list for " << var << " starting with " << varextent.extent << std::endl;
+      running_size[var].push_back(varextent.extent);
+    } else {
+      std::cout << "appending list for " << var << " with " << varextent.extent << std::endl;
+      Expr last_size = running_size[var].back();
+      //internal_assert(is_one(last_size > 0)) << "all must be positive (except very last)";
+      running_size[var].push_back(last_size * varextent.extent);
+    }
   }
+}
+
+Func &Func::apply_splits_and_bound(std::map<std::string, std::vector<Expr>> running_size,
+                                   std::map<std::string, std::vector<VarOrRVar>>& split_vars) {
+  std::cout << "running size map is size " << running_size.size() << std::endl;
+  for (auto var_and_list : running_size) {
+    auto var = var_and_list.first;
+    auto var_index = 0;
+    auto size_list = var_and_list.second;
+    for (auto it = size_list.rbegin(); it != size_list.rend(); ++it) {
+      auto size = *it;
+      //if (it == size_list.rbegin() && (size > 0)) {
+      if (it == size_list.rbegin()) {
+        std::cout << "bounding var " << var << " to size " << simplify(size) << std::endl;
+        bound(Var(var), 0, simplify(size));
+        std::cout << " bound" << std::endl;
+        if (it == size_list.rend()) {
+          split_vars[var].push_back(Var(var));
+        }
+        
+      } else {
+        auto outer_name = var + "_" + std::to_string(var_index);
+        auto inner_name = var + "_" + std::to_string(var_index+1);
+        auto split_var = var_index==0 ? var : outer_name;
+        std::cout << "splitting " << split_var << " into " << outer_name << " and "
+                  << inner_name << " with factor " << size << std::endl;
+        
+        split(Var(split_var), Var(outer_name), Var(inner_name), size);
+        var_index += 1;
+        split_vars[var].push_back(Var(outer_name));        
+        if (it+1 == size_list.rend()) {
+          split_vars[var].push_back(Var(inner_name));
+        }
+      }
+    }
+  }
+  std::cout << "done of the split and bounds" << std::endl;
+  return *this;
+}
+
+Func &Func::reorder_variables(std::vector<VarExtent> varextents,
+                              std::map<std::string, std::vector<VarOrRVar>>& split_vars) {
+  std::vector<VarOrRVar> var_order;
+  for (auto varextent : varextents) {
+    std::cout << "retrieving var " << varextent.name()
+              << " Found=" << split_vars.count(varextent.name())
+              << " length=" << split_vars[varextent.name()].size() << std::endl;
+    VarOrRVar next_var = split_vars[varextent.name()].back();
+    split_vars[varextent.name()].pop_back();
+    var_order.push_back(next_var);
+
+    if (varextent.is_parallelized) {
+      unroll(next_var);
+    }
+  }
+  reorder(var_order);
+  return *this;
+}
+
+Func &Func::iteration_order(std::vector<VarExtent> varextents) {
+  std::map<std::string, std::vector<Expr>> running_size;
+  extract_sizes(varextents, running_size); // determine the split sizes
+
+  std::map<std::string, std::vector<VarOrRVar>> split_vars;
+  apply_splits_and_bound(running_size, split_vars); // apply variable splits and bound
+  reorder_variables(varextents, split_vars); // reorder all variables
+  
+  //for (const auto& varextent : varextents) {
+  //  Var outer(varextent.name() + "_o");
+  //  Var inner(varextent.name() + "_i");
+  //  split(varextent.var, outer, inner, varextent.extent);
+  //}
   return *this;
 }
 
 Func &Func::iteration_order(std::vector<IterLevel> levels) {
+  std::map<std::string, std::vector<Expr>> running_size;
   for (const auto& level : levels) {
     //std::cout << "doing level " << level.name << " of length " << level.varextents.size() << std::endl;
     auto& varextents = level.varextents;
-    
-    for (const auto& varextent : varextents) {
-      //std::cout << "doing var " << varextent.name() << std::endl;
-      Var outer(varextent.name() + "_o");
-      Var inner(varextent.name() + "_i");
-      split(varextent.var, outer, inner, varextent.extent);
-    }
+    extract_sizes(varextents, running_size);
   }
+
+  std::map<std::string, std::vector<VarOrRVar>> split_vars;
+  apply_splits_and_bound(running_size, split_vars);
+
   return *this;
 }
 
