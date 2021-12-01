@@ -198,11 +198,6 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
-	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
-	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
-	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
-
 treegraph tree_graph: tree
 	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
 
@@ -221,6 +216,7 @@ mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTN
 map $(BIN)/$(TESTNAME)_compute_mapped.json: $(BIN)/$(TESTNAME)_compute.json
 	python /aha/MetaMapper/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
+	cp /aha/MetaMapper/libs/* $(BIN)/
 
 #FIXME: $(BIN)/unoptimized_$(TESTNAME).o
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
