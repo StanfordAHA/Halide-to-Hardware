@@ -1393,6 +1393,8 @@ public:
      * which no custom wrapper has been specified.
      */
     Func in();
+    Func in(std::string name);
+    Func in_named(std::string name);
 
     /** Similar to \ref Func::in; however, instead of replacing the call to
      * this Func with an identity Func that refers to it, this replaces the
@@ -2268,7 +2270,16 @@ public:
     Func &accelerate_call_output(Var store_var);
   
     Func &accelerator_input();
-    Func stream_to_accelerator();
+    Func &stream_to_accelerator();
+    Func &stream_to_accelerator(std::vector<std::string> levels);
+    Func &stream_to_accelerator(std::vector<std::string> levels,
+                                std::vector<LoopLevel> computeats);
+
+    Func get_memory_level(std::string level);
+    VarOrRVar get_var(VarOrRVar v, int index);
+    LoopLevel get_looplevel(VarOrRVar v, int index);
+    LoopLevel get_looplevel(std::string, VarOrRVar v);
+    LoopLevel get_looplevel(std::string level, VarOrRVar v, int index);
 
     Func &apply_splits_and_bound(std::map<std::string, std::vector<Expr>> running_size,
                                  std::map<std::string, std::vector<VarOrRVar>>& split_vars);

@@ -385,38 +385,50 @@ public:
 
             //hw_output.in().compute_root();
 
-            //auto level1 = IterLevel("MEM",  {{x, tileWidth}, {y, tileHeight}});
-            //auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
-            //auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
 
             hw_output.compute_root();
-            //hw_output.iteration_order({level1, level2, level3});
             bool p = true;
-            hw_output.iteration_order({{x, 2, p}, {x, tileWidth}, {y, tileHeight},
-                                       {x, 1}, {y, 1},
-                                       {x, 16}, {y, 20}});
 
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
+            hw_output.iteration_order({level1, level2, level3});
+            
+            //hw_output.iteration_order({{x, 2}, {x, tileWidth}, {y, tileHeight},
+            //                           {x, 1}, {y, 1},
+            //                           {x, 16}, {y, 20}});
+
+            hw_output.get_memory_level("GLB").hw_accelerate(Var("x0"), Var("x0"));
+
+            //auto compute_at1 = LoopLevel(hw_output.get_memory_level("CGRA"), Var("x0"));
+            //auto compute_at2 = LoopLevel(hw_output.get_memory_level("GLB"), Var("x0"));
+            //auto compute_at3 = LoopLevel::root();
+            Var x0;
+            auto compute_cgra = hw_output.get_looplevel("CGRA", Var("x0"));
+            auto compute_glb = hw_output.get_looplevel("GLB", Var("x0"));
+            auto compute_host = LoopLevel::root();
+            
+            hw_input.stream_to_accelerator({"CGRA", "GLB", "host"},
+                                           {compute_cgra, compute_glb, compute_host});
             //hw_output.in()
             //  .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
             //  .hw_accelerate(xi, xo);
-            //hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
             //hw_output.in().store_in(MemoryType::GLB);
             //
             //Var xii, yii, xio, yio;
             //hw_output
             //  .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
             //hw_output.compute_at(hw_output.in(), xo);
-            //hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
             //
-            //blur.compute_at(hw_output, xio);
+            blur.compute_at(compute_cgra);
             //blur.unroll(x, unroll, TailStrategy::RoundUp);
-            //
-            //blur_unnormalized.update()
-            //  .unroll(win.x, blockSize)
-            //  .unroll(win.y, blockSize);
+            
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
             //blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
             //blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
-            //blur_unnormalized.compute_at(hw_output, xio);
+            blur_unnormalized.compute_at(compute_cgra);
             //
             //hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
             //hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
