@@ -359,21 +359,156 @@ public:
             //hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
             //hw_input.compute_root().accelerator_input();
 
+
+
+
+            
           } else if (schedule == 9) {
-            // do the big tern and unroll
-            //const int unroll = 14;
+            // Use new scheduling with iteration_order
             const int unroll = myunroll;
-            //const int tileWidth = 248; // for unroll=8
-            //const int tileWidth = 266; // for unroll=14
-            //const int tileWidth = 42; // for unroll=14
-            //const int tileWidth = 256;
             const int tileWidth = mywidth;
             const int tileHeight = 196;
-            //const int tileHeight = 62;
             const int numHostTilesX = 16-0;
             const int numHostTilesY = 20-0;
-            //const int numHostTilesX = 1;
-            //const int numHostTilesY = 1;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            // Create three level memory hierarchy with iteration_order
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
+            hw_output
+              .iteration_order({level1, level2, level3});
+
+            // Specify compute variables for memory hierarchy
+            auto x0 = Var("x0");
+            auto compute_cgra = hw_output.get_looplevel("CGRA", x0);
+            auto compute_glb = hw_output.get_looplevel("GLB", x0);
+            auto compute_host = LoopLevel::root();
+
+            // Create hardware accelerator
+            hw_output.get_memory_level("GLB")
+              .hw_accelerate(Var("x1"), x0);
+
+            // Create memories (the old way)
+            blur.compute_at(compute_cgra);
+            blur_unnormalized.compute_at(compute_cgra);
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
+
+            // Stream input to accelerator
+            hw_input
+              .stream_to_accelerator({"CGRA", "GLB", "host"},
+                                     {compute_cgra, compute_glb, compute_host});
+
+
+
+
+
+            
+            
+          } else if (schedule == 10) {
+            // Use new scheduling with iteration_order and create_memories
+            const int unroll = myunroll;
+            const int tileWidth = mywidth;
+            const int tileHeight = 196;
+            const int numHostTilesX = 16-0;
+            const int numHostTilesY = 20-0;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            // Create three level memory hierarchy with iteration_order
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
+            hw_output
+              .iteration_order({level1, level2, level3});
+
+            // Specify compute variables for memory hierarchy
+            auto x0 = Var("x0");
+            auto compute_cgra = hw_output.get_looplevel("CGRA", x0);
+            auto compute_glb = hw_output.get_looplevel("GLB", x0);
+            auto compute_host = LoopLevel::root();
+
+            // Create hardware accelerator
+            hw_output.get_memory_level("GLB")
+              .hw_accelerate(Var("x1"), x0);
+
+            // Create memories
+            hw_output.get_memory_level("GLB")
+              .create_memories({blur, blur_unnormalized}, compute_cgra, x, 1);
+
+            // Stream input to accelerator
+            hw_input
+              .stream_to_accelerator({"CGRA", "GLB", "host"},
+                                     {compute_cgra, compute_glb, compute_host});
+
+
+
+            
+
+            
+
+          } else if (schedule == 11) {
+            // Use new scheduling with iteration_order, create_memories, and output_rate
+            const int unroll = myunroll;
+            const int tileWidth = mywidth;
+            const int tileHeight = 196;
+            const int numHostTilesX = 16-0;
+            const int numHostTilesY = 20-0;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            // Create three level memory hierarchy with iteration_order (and set rate)
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
+            hw_output.output_rate(myunroll)
+              .iteration_order({level1, level2, level3});
+
+            // Specify compute variables for memory hierarchy
+            auto x0 = Var("x0");
+            auto compute_cgra = hw_output.get_looplevel("CGRA", x0);
+            auto compute_glb = hw_output.get_looplevel("GLB", x0);
+            auto compute_host = LoopLevel::root();
+
+            // Create hardware accelerator
+            hw_output.get_memory_level("GLB")
+              .hw_accelerate(Var("x1"), x0);
+
+            // Create memories (and set rate)
+            hw_output.get_memory_level("GLB").output_rate(myunroll)
+              .create_memories({blur, blur_unnormalized}, compute_cgra);
+
+            // Stream input to accelerator (and set rate)
+            hw_input.output_rate(myunroll)
+              .stream_to_accelerator({"CGRA", "GLB", "host"},
+                                     {compute_cgra, compute_glb, compute_host});
+
+
+
+
+
+
+
+            
+          } else if (schedule == 12) {
+            // do the big tern and unroll
+            const int unroll = myunroll;
+            const int tileWidth = mywidth;
+            const int tileHeight = 196;
+            const int numHostTilesX = 16-0;
+            const int numHostTilesY = 20-0;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -384,32 +519,34 @@ public:
             //output.bound(y, 0, outputHeight);
 
             //hw_output.in().compute_root();
-
-
-            hw_output.compute_root();
-            bool p = true;
-
-            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
-            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
-            auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
-            hw_output.iteration_order({level1, level2, level3});
-            
+                        
             //hw_output.iteration_order({{x, 2}, {x, tileWidth}, {y, tileHeight},
             //                           {x, 1}, {y, 1},
             //                           {x, 16}, {y, 20}});
 
-            hw_output.get_memory_level("GLB").hw_accelerate(Var("x0"), Var("x0"));
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 16}, {y, 20}});
+            hw_output.output_rate(myunroll)
+              .iteration_order({level1, level2, level3});
 
-            //auto compute_at1 = LoopLevel(hw_output.get_memory_level("CGRA"), Var("x0"));
-            //auto compute_at2 = LoopLevel(hw_output.get_memory_level("GLB"), Var("x0"));
-            //auto compute_at3 = LoopLevel::root();
-            Var x0;
-            auto compute_cgra = hw_output.get_looplevel("CGRA", Var("x0"));
-            auto compute_glb = hw_output.get_looplevel("GLB", Var("x0"));
+            //hw_output.get_memory_level("GLB").hw_accelerate(Var("x1"), x0);
+            auto x0 = Var("x0");
+            auto compute_cgra = hw_output.get_looplevel("CGRA", x0);
+            auto compute_glb = hw_output.get_looplevel("GLB", x0);
             auto compute_host = LoopLevel::root();
             
-            hw_input.stream_to_accelerator({"CGRA", "GLB", "host"},
-                                           {compute_cgra, compute_glb, compute_host});
+            hw_output.get_memory_level("GLB")
+              .output_rate(myunroll)
+              .hw_accelerate(Var("x1"), x0)
+              .create_memories({blur, blur_unnormalized}, compute_cgra);
+            
+            
+            hw_input.output_rate(myunroll)
+              .stream_to_accelerator({"CGRA", "GLB", "host"},
+                                     {compute_cgra, compute_glb, compute_host});
+
+            
             //hw_output.in()
             //  .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
             //  .hw_accelerate(xi, xo);
@@ -420,15 +557,15 @@ public:
             //  .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
             //hw_output.compute_at(hw_output.in(), xo);
             //
-            blur.compute_at(compute_cgra);
+            ////blur.compute_at(compute_cgra);
             //blur.unroll(x, unroll, TailStrategy::RoundUp);
             
-            blur_unnormalized.update()
-              .unroll(win.x, blockSize)
-              .unroll(win.y, blockSize);
+            //blur_unnormalized.update()
+            //  .unroll(win.x, blockSize)
+            //  .unroll(win.y, blockSize);
             //blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
             //blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
-            blur_unnormalized.compute_at(compute_cgra);
+            /////blur_unnormalized.compute_at(compute_cgra);
             //
             //hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
             //hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);

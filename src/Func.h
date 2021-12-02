@@ -2288,6 +2288,13 @@ public:
     Func &iteration_order(std::vector<VarExtent> varextents);
     Func &iteration_order(std::vector<IterLevel> levels);
 
+    Func &create_memories(std::vector<Func> funcs, LoopLevel level);
+    Func &create_memories(std::vector<Func> funcs, LoopLevel level, VarOrRVar v, int rate);
+    Func &create_memories(std::vector<Func> funcs);
+
+    Func &output_rate(int rate);
+
+  
     /** Schedule a function to be linebuffered.
      */
     Func &linebuffer();

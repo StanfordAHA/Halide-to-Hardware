@@ -2681,12 +2681,28 @@ Func &Func::stream_to_accelerator(std::vector<std::string> levels, std::vector<L
   //func.schedule().compute_level() = LoopLevel::root();
   compute_at(compute_ats.at(levels.size()-1));
   auto rootname = func.name();
+  auto rate = func.schedule().output_rate();
+  std::cout << "rate is " << rate << std::endl;
 
   Func prev_func = *this;
   for (int i=levels.size()-2; i>=0; --i) {
+    std::cout << "on level " << i << std::endl;
+    
     auto level = levels.at(i);
     prev_func = prev_func.in_named(rootname + "_" + level);
+
+    // unroll based on the rate
+    if (rate > 0) {
+      auto var = Var("x");
+      std::cout << "unrolling " << var.name() << " for " << prev_func.name()
+                << " from " << compute_ats.at(i).lock() << std::endl;
+      prev_func.unroll(var, rate, TailStrategy::RoundUp);
+    }
+    std::cout << "unroll " << i << std::endl;
+    
+    //std::cout << "in'ed " << i << std::endl;
     prev_func.compute_at(compute_ats.at(i));
+    //std::cout << "compute_at " << i << std::endl;
     
     if (level == "GLB" || level == "glb") {
       prev_func.store_in(MemoryType::GLB);
@@ -2726,7 +2742,7 @@ LoopLevel Func::get_looplevel(VarOrRVar v, int index) {
 
 LoopLevel Func::get_looplevel(std::string level, VarOrRVar v) {
   auto func = get_memory_level(level);
-  return LoopLevel(*this, v);
+  return LoopLevel(func, v);
 }
 
 LoopLevel Func::get_looplevel(std::string level, VarOrRVar v, int index) {
@@ -2736,15 +2752,6 @@ LoopLevel Func::get_looplevel(std::string level, VarOrRVar v, int index) {
 
 // Specify a sequence of splits and reorders. If all extents are specified,
 // also applies a bound to those variables.
-Stage &Stage::iteration_order(std::vector<VarExtent> varextents) {
-  Var xxx_out, xxx_in;
-  //Stage func;
-  //return split(varextent.var, xxx_out, xxx_in, varextent.extent);
-  for (const auto& varextent : varextents) {
-    split(varextent.var, xxx_out, xxx_in, varextent.extent);
-  }
-  return *this;
-}
 
 void extract_sizes(std::vector<VarExtent> varextents, std::map<std::string, std::vector<Expr>>& running_size) {
   for (auto& varextent : varextents) {
@@ -2837,6 +2844,7 @@ Func &Func::iteration_order(std::vector<VarExtent> varextents) {
 }
 
 Func &Func::iteration_order(std::vector<IterLevel> levels) {
+  auto rate = func.schedule().output_rate();
 
   std::map<std::string, std::vector<Expr>> running_size;
   std::vector<Func> output_copies;
@@ -2930,11 +2938,15 @@ Func &Func::iteration_order(std::vector<IterLevel> levels) {
         var_order.insert(var_order.begin(), Var(varname));
       }
     }
+    auto innermost_var = var_order.at(0);
+    if (rate > 0) {
+      output_copy.unroll(innermost_var, rate, TailStrategy::RoundUp);
+    }
 
     std::cout << "setting order of " << level.name << " to {";
     for (auto var : var_order) { std::cout << var.name() << ","; }
     std::cout << "}" << std::endl;
-    output_copy.reorder(var_order);    
+    output_copy.reorder(var_order);
     
     //std::map<std::string, std::vector<VarOrRVar>> split_vars;
     //output_copy.apply_splits_and_bound(running_size, split_vars);
@@ -2944,6 +2956,60 @@ Func &Func::iteration_order(std::vector<IterLevel> levels) {
   return *this;
 }
 
+Func &Func::create_memories(std::vector<Func> funcs, LoopLevel compute_level) {
+  auto rate = func.schedule().output_rate();
+  
+  for (auto func : funcs) {
+    func.compute_at(compute_level);
+  }
+
+  if (rate > 0) {
+    for (auto func : funcs) {
+      func.unroll(Var("x"), rate);
+      
+      if (func.has_update_definition()) {
+        for (auto rvar : func.rvars()) {
+          func.update().unroll(rvar);
+        }
+        func.update().unroll(Var("x"), rate);
+      }
+    }
+  }
+  
+  return *this;
+}
+
+Func &Func::create_memories(std::vector<Func> funcs, LoopLevel compute_level, VarOrRVar v, int rate) {
+  internal_assert(rate > 0) << "Rate must be a positive integer\n";
+  auto r = func.schedule().output_rate();
+  internal_assert(r == 0 || rate == r) << "Rate has already been set\n";
+  
+  for (auto func : funcs) {
+    func.compute_at(compute_level);
+  }
+
+  for (auto func : funcs) {
+    if (func.has_update_definition()) {
+      for (auto rvar : func.rvars()) {
+        func.update().unroll(rvar);
+      }
+      func.update().unroll(v, rate, TailStrategy::RoundUp);
+    }
+  }
+  
+  return *this;
+}
+
+Func &Func::create_memories(std::vector<Func> funcs) {
+  auto& compute_level = func.schedule().accelerate_compute_level();
+  return create_memories(funcs, compute_level);
+}
+
+Func &Func::output_rate(int r) {
+  func.schedule().output_rate() = r;
+  std::cout << "setting the output rate to " << r << std::endl;
+  return *this;
+}
 
 Func &Func::linebuffer() {
     invalidate_cache();
