@@ -750,7 +750,7 @@ const std::string &Function::origin_name() const {
 }
 
 Definition &Function::definition() {
-    internal_assert(contents->init_def.defined());
+    internal_assert(contents->init_def.defined()) << "not defined for " << name();
     return contents->init_def;
 }
 

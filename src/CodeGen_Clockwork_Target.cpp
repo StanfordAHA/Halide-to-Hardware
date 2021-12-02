@@ -971,7 +971,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       // save output to file
       string outputname = printname(stencil_arg.name);
-      internal_assert((elt_size==8) || (elt_size==16));
+      internal_assert((elt_size==8) || (elt_size==16)) << "size is " << std::to_string(elt_size) << " for output\n";
       string extension = elt_size == 8 ? ".raw" : ".leraw";
       stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
       stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"

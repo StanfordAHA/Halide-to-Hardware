@@ -321,6 +321,58 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 
+
+
+            
+          } else if (schedule == 11) { // do big parrot with new scheduling primitives
+            const int unroll = myunroll;
+            const int tileWidth = width;
+            const int tileHeight = 255;
+            const int numHostTilesX = 5; //12;
+            const int numHostTilesY = 10; //10;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            // Create three level memory hierarchy with iteration_order (and set rate)
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 5}, {y, 10}});
+            hw_output.output_rate(myunroll)
+              .iteration_order({level1, level2, level3});
+
+            // Specify compute variables for memory hierarchy
+            auto x0 = Var("x0");
+            auto compute_cgra = hw_output.get_looplevel("CGRA", x0);
+            auto compute_glb = hw_output.get_looplevel("GLB", x0);
+            auto compute_host = LoopLevel::root();
+
+            // Create hardware accelerator
+            hw_output.get_memory_level("GLB")
+              .hw_accelerate(Var("x1"), x0);
+
+            // Create memories (and set rate)
+            hw_output.get_memory_level("GLB").output_rate(myunroll)
+              .create_memories({cim, lgxx, lgyy, lgxy, lxx, lyy, lxy,
+                    grad_x_unclamp, grad_y_unclamp, gray}, compute_cgra);
+            
+            kernel_x.compute_at(compute_cgra).unroll(x).unroll(y).unroll(x, unroll, TailStrategy::RoundUp);
+            kernel_y.compute_at(compute_cgra).unroll(x).unroll(y).unroll(x, unroll, TailStrategy::RoundUp);
+
+            // Stream input to accelerator (and set rate)
+            hw_input.output_rate(myunroll)
+              .stream_to_accelerator({"CGRA", "GLB", "host"},
+                                     {compute_cgra, compute_glb, compute_host});
+            hw_input.in().get_memory_level("CGRA").unroll(c);
+            hw_input.get_memory_level("GLB").unroll(c);
+
+
+
+            
+
+            
           } else { // default, basically sch5 with all buffers, 1 pixel/cycle
             output.bound(x, 0, tileSize_x);
             output.bound(y, 0, tileSize_y);

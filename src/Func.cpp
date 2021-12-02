@@ -2712,7 +2712,8 @@ Func &Func::stream_to_accelerator(std::vector<std::string> levels, std::vector<L
 }
 
 Func Func::get_memory_level(std::string level) {
-  return in_named(level);
+  auto rootname = func.name();
+  return in_named(rootname + "_" + level);
 }
 
 VarOrRVar Func::get_var(VarOrRVar v, int index) {
@@ -2906,21 +2907,40 @@ Func &Func::iteration_order(std::vector<IterLevel> levels) {
       
       // Do bound for first encounter.
       if (have_bound.count(varname) == 0) {
-        output_copy.bound(Var(var.name()), 0, simplify(size));
+        if (func.is_pure_arg(var.name())) {
+          output_copy.bound(Var(var.name()), 0, simplify(size));
+        }
         
         have_bound.insert(varname);
-        var_order.insert(var_order.begin(), var);
+        if (varname != "r$z") {
+          var_order.insert(var_order.begin(), var);
+        }
         last_looplevel = LoopLevel(output_copy, Var(var.name()));
         std::cout << func.name() << " bound var " << varname << " at " << size << std::endl;
         
       } else { // split
+        if (varextent.is_parallelized) {
+          output_copy.update().unroll(Var(varname));
+          //var_indices[varname] += 1;
+          var_order.insert(var_order.begin(), Var(varname));
+          last_looplevel = LoopLevel(output_copy, Var(varname));
+          continue;
+        }
+
+
+        
         auto outer_name = varname + std::to_string(var_index);
         auto inner_name = varname + std::to_string(var_index+1);
         auto split_var = var_index==0 ? varname : varname + std::to_string(var_index);
         std::cout << "splitting " << split_var << " into " << outer_name << " and "
                   << inner_name << " with factor " << size << std::endl;
-        
-        output_copy.split(Var(split_var), Var(outer_name), Var(inner_name), size);
+
+        if (output_copy.has_update_definition()) {
+          output_copy.update().split(Var(split_var), Var(outer_name), Var(inner_name), size);
+        } else {
+          output_copy.split(Var(split_var), Var(outer_name), Var(inner_name), size);
+        }
+
         var_indices[varname] += 1;
         var_order.insert(var_order.begin(), Var(outer_name));
         last_looplevel = LoopLevel(output_copy, Var(outer_name));
@@ -2938,6 +2958,7 @@ Func &Func::iteration_order(std::vector<IterLevel> levels) {
         var_order.insert(var_order.begin(), Var(varname));
       }
     }
+    std::cout << "vector has length " << var_order.size() << std::endl;
     auto innermost_var = var_order.at(0);
     if (rate > 0) {
       output_copy.unroll(innermost_var, rate, TailStrategy::RoundUp);
@@ -2946,7 +2967,12 @@ Func &Func::iteration_order(std::vector<IterLevel> levels) {
     std::cout << "setting order of " << level.name << " to {";
     for (auto var : var_order) { std::cout << var.name() << ","; }
     std::cout << "}" << std::endl;
-    output_copy.reorder(var_order);
+    if (output_copy.has_update_definition()) {
+      output_copy.update().reorder(var_order);
+    } else {
+      output_copy.reorder(var_order);
+    }
+    var_order.clear();
     
     //std::map<std::string, std::vector<VarOrRVar>> split_vars;
     //output_copy.apply_splits_and_bound(running_size, split_vars);
@@ -2965,13 +2991,13 @@ Func &Func::create_memories(std::vector<Func> funcs, LoopLevel compute_level) {
 
   if (rate > 0) {
     for (auto func : funcs) {
-      func.unroll(Var("x"), rate);
+      func.unroll(Var("x"), rate, TailStrategy::RoundUp);
       
       if (func.has_update_definition()) {
         for (auto rvar : func.rvars()) {
           func.update().unroll(rvar);
         }
-        func.update().unroll(Var("x"), rate);
+        func.update().unroll(Var("x"), rate, TailStrategy::RoundUp);
       }
     }
   }
