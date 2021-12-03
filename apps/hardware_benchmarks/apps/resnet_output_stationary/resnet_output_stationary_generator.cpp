@@ -60,44 +60,43 @@ public:
 
         conv(w, x, y) = cast<uint16_t>(0);
 
-        //Func hw_input("hw_input"), hw_kernel("hw_kernel");
-        //hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
-        //hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
-        //
-        //Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
-        //input_host(z, x, y) = hw_input(z, x, y);
-        //input_glb(z, x, y) = input_host(z, x, y);
-        //input_cgra(z, x, y) = input_glb(z, x, y);
-        //
-        //Func kernel_host("kernel_host"), kernel_glb("kernel_glb"), kernel_cgra("kernel_cgra");
-        //kernel_host(z, w, x, y) = hw_kernel(z, w, x, y);
-        //kernel_glb(z, w, x, y) = kernel_host(z, w, x, y);
-        //kernel_cgra(z, w, x, y) = kernel_glb(z, w, x, y);
-        //
-        //Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
-        //output_cgra(w, x, y) +=
-        //  kernel_cgra(r.z, w, r.x, r.y) *
-        //  input_cgra(r.z, stride*x + r.x, stride*y + r.y);
-        //
-        //output_glb(w, x, y) = output_cgra(w, x, y);
-        //hw_output(w, x, y) = output_glb(w, x, y);
-        //output(w, x, y) = max(0, i16(hw_output(w, x, y)));
 
         Func hw_input("hw_input"), hw_kernel("hw_kernel");
-        hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
-        hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
-        
-        Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
-        //input_host(z, x, y) = hw_input(z, x, y);
-
+        Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");        
         Func kernel_host("kernel_host"), kernel_glb("kernel_glb"), kernel_cgra("kernel_cgra");
-        //kernel_host(z, w, x, y) = hw_kernel(z, w, x, y);
-
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
-        hw_output(w, x, y) = i16(0);
-        hw_output(w, x, y) +=
-          hw_kernel(r.z, w, r.x, r.y) *
-          hw_input(r.z, stride*x + r.x, stride*y + r.y);
+
+        if (schedule == 11) {
+          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
+          hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
+          hw_output(w, x, y) = i16(0);
+          hw_output(w, x, y) +=
+            hw_kernel(r.z, w, r.x, r.y) *
+            hw_input(r.z, stride*x + r.x, stride*y + r.y);
+
+        } else {
+          //Func hw_input("hw_input"), hw_kernel("hw_kernel");
+          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
+          hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
+        
+          //Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
+          input_host(z, x, y) = hw_input(z, x, y);
+          input_glb(z, x, y) = input_host(z, x, y);
+          input_cgra(z, x, y) = input_glb(z, x, y);
+        
+          //Func kernel_host("kernel_host"), kernel_glb("kernel_glb"), kernel_cgra("kernel_cgra");
+          kernel_host(z, w, x, y) = hw_kernel(z, w, x, y);
+          kernel_glb(z, w, x, y) = kernel_host(z, w, x, y);
+          kernel_cgra(z, w, x, y) = kernel_glb(z, w, x, y);
+        
+          //Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
+          output_cgra(w, x, y) +=
+            kernel_cgra(r.z, w, r.x, r.y) *
+            input_cgra(r.z, stride*x + r.x, stride*y + r.y);
+        
+          output_glb(w, x, y) = output_cgra(w, x, y);
+          hw_output(w, x, y) = output_glb(w, x, y);
+        }
 
         output(w, x, y) = max(0, i16(hw_output(w, x, y)));
         

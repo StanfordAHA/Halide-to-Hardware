@@ -229,6 +229,12 @@ public:
             
             hw_input.compute_root()
               .accelerator_input();
+
+
+
+
+
+
             
           } else if (schedule == 4) {
             // Perform host tiliing

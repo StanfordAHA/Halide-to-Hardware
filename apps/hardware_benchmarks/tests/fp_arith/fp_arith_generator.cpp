@@ -30,7 +30,7 @@ public:
         sub(x,y)  = mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x,y) = u16(add(x,y));
+        hw_output(x,y) = u16(sub(x,y));
         output(x,y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
