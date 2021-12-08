@@ -120,7 +120,7 @@ int main( int argc, char **argv ) {
 
     bool write_images = false;
 
-    Buffer<int16_t> full_input(Z, X + pad*2, Y + pad*2);
+    Buffer<int16_t> full_input(Z, X + pad*2-(stride-1), Y + pad*2-(stride-1));
     Buffer<int16_t> oned_input(Z *(X + pad*2), Y + pad*2);
     Buffer<int16_t> interleaved_input(Z *(X + pad*2) * 2, Y + pad*2);
     std::vector<Buffer<int16_t>> inputs;
@@ -248,6 +248,5 @@ int main( int argc, char **argv ) {
       }
     }
 
-    
     return output;
 }  
