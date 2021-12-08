@@ -62,7 +62,8 @@ EXT                             = mat
 #  conv5_1: HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 n_ic=8 n_oc=8"
 #  conv5_x: HALIDE_GEN_ARGS="in_img=7   pad=1 ksize=3 stride=1 n_ic=8 n_oc=8"
 
-
+# 1x1 convolution:
+# HALIDE_GEN_ARGS="in_img=14 pad=0 ksize=1 stride=1 n_ic=16 n_oc=128 k_ic=8 k_oc=8 schedule=1"
 
 ###############################################################################
 # MODIFICATION : NONE

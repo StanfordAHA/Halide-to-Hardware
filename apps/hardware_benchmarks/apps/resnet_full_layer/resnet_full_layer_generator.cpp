@@ -60,7 +60,7 @@ public:
 
 
         Func hw_input("clamp_input"), hw_kernel("hw_kernel");
-        hw_input(z, x, y) = u16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
+        hw_input(z, x, y) = u16(input(z, clamp(x-pad, 0, in_img - 1), clamp(y-pad, 0, in_img - 1)));
         hw_kernel(z, w, x, y) = u16(kernel(z, w, x, y));
         
         Func input_host("input_host"), input_gb("input_gb"), input_cgra("input_cgra");

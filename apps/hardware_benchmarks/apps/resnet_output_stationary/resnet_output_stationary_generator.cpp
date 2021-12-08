@@ -52,6 +52,7 @@ public:
         Expr height = imgsize;
         Expr width = imgsize;
         int ic_outer = (int)n_ic / (int)k_ic;
+        int oc_outer = (int)n_oc / (int)k_oc;
 
         Func conv("conv");
         RDom r(0, ksize,
@@ -114,6 +115,7 @@ public:
           hw_kernel.bound(z, 0, n_ic);
           kernel_glb.bound(z, 0, n_ic);
           input_host.bound(z, 0, n_ic);
+          
 
           int gbsize = imgsize;
           int tilesize = ((int)stride == 2) ?
@@ -341,7 +343,17 @@ public:
 
           hw_kernel.bound(z, 0, n_ic);
           kernel_glb.bound(z, 0, n_ic);
+          kernel_glb.bound(w, 0, n_oc);
           input_host.bound(z, 0, n_ic);
+
+          //output_cgra.bound(w, 0, k_oc*8);
+          output_cgra.bound_extent(w, k_oc*8);
+          //output_glb.bound(w, 0, n_oc);
+
+
+          //kernel_cgra.bound_extent(z, ic_outer);
+          //output_cgra.bound_extent(w, oc_outer);
+          //std::cout << "set extent to " << (int)k_ic << " and " << (int)k_oc << std::endl;
 
           int gbsize = imgsize;
           int tilesize = ((int)stride == 2) ?
@@ -353,7 +365,7 @@ public:
 
           Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
           Var xi,yi;
-          Var w_cgra, w_glb;
+          Var w_iter("w_iter"), w_unroll("w_unroll"), w_cgra, w_glb("w_glb");
           Var z_cgra, z_glb;
           RVar rz_cgra, rz_glb;
 
@@ -379,25 +391,24 @@ public:
 
           output_cgra.compute_at(output_glb, w_glb); // memtile
           output_cgra
-            .reorder(w, x, y);
+            .split(w, w_iter, w_unroll, k_oc)
+            .reorder(w_unroll, w_iter, x, y);
 
           output_cgra.update()
             .split(r.z, rz_glb, rz_cgra, k_ic)
-            .reorder(rz_cgra, w, x, y, r.x, r.y, rz_glb);
+            .split(w, w_iter, w_unroll, k_oc)
+            .reorder(rz_cgra, w_unroll, w_iter, x, y, r.x, r.y, rz_glb);
 
           //Func interm_output_cgra = output_cgra.update().rfactor(r.z, z);
           //interm_output_cgra.compute_at(output_glb, x_glb);
 
           Func output_rf;
           output_cgra
-            .unroll(w, k_oc);
+            .unroll(w_unroll, k_oc);
           output_cgra.update()
             //.unroll(w_cgra, k_oc)
-            .unroll(w, k_oc)
+            .unroll(w_unroll, k_oc)
             .unroll(rz_cgra, k_ic); // this is the z reduction
-          
-          output_cgra.bound(w, 0, n_oc);
-
 
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
@@ -408,6 +419,7 @@ public:
           //input_host.stream_to_accelerator();
           input_glb.compute_at(hw_output, x_host); // global buffer
           input_cgra.compute_at(output_cgra, rz_glb);   // mem tile
+          //input_cgra.compute_at(output_cgra, w_iter);   // mem tile
 
           // kernel buffers
           hw_kernel.compute_root();
@@ -415,6 +427,7 @@ public:
           kernel_host.accelerator_input();
           kernel_glb.compute_at(hw_output, x_host); // global buffer
           kernel_cgra.compute_at(output_cgra, rz_glb);   // mem tile
+          //kernel_cgra.compute_at(output_cgra, w_iter);   // mem tile
 
           if (imgsize == 7) {
             kernel_cgra.unroll(z, 2); // unroll glb->cgra channels for small images
