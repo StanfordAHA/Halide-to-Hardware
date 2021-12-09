@@ -266,8 +266,10 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
 
+#$(HWSUPPORT)/hardware_image_helpers.h
+
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o 
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
@@ -333,7 +335,7 @@ $(BIN)/process_targets: FORCE
 
 # we should remake process in case there are extra dependencies
 #.PHONY: $(BIN)/process
-$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets
+$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_image_helpers.h
 	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)

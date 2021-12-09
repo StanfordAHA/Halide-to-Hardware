@@ -119,7 +119,7 @@ typedef struct WAV_HEADER {
     uint16_t        blockAlign;     // 2=16-bit mono, 4=16-bit stereo (NumChannels * BytesPerChannel)
     uint16_t        bitsPerChannel; // Number of bits per channel
     /* "data" sub-chunk */
-  uint16_t        junk; // for distortion file; love has none
+  //uint16_t        junk; // for distortion file; love has none
     unsigned char   DataID[4];      // "data"  string
     uint32_t        DataSize;       // Sampled data length (in bytes)
 } WaveHeader;
@@ -246,10 +246,9 @@ inline int testWavRead(std::string filename) {
     return 0;
 }
 
-inline uint32_t getDataSize(const WaveHeader& wave_header) {
+inline uint32_t getDataSize(const WaveHeader& wave_header, int scheme) {
   // 1: distortion
   // 2: love
-  int scheme = 1;
   if (scheme == 1) { //distortion
     uint16_t HeaderSize = sizeof(wave_header);
     uint32_t DataSize = wave_header.FileSize - HeaderSize;
@@ -265,7 +264,7 @@ inline uint32_t getDataSize(const WaveHeader& wave_header) {
 }
 
 template <class T>
-int readAudioData(const std::string& filename, AudioFile<T>* audiofile) {
+int readAudioData(const std::string& filename, AudioFile<T>* audiofile, int scheme) {
   // Read and parse an audio file in WAVE format
 
   // open file
@@ -287,7 +286,7 @@ int readAudioData(const std::string& filename, AudioFile<T>* audiofile) {
   assert(8*bytesPerChannel == wave_header.bitsPerChannel);
 
 
-  uint32_t DataSize = getDataSize(wave_header);
+  uint32_t DataSize = getDataSize(wave_header, scheme);
   
   uint32_t num_samples = DataSize / (wave_header.NumOfChan * bytesPerChannel);
   uint32_t ten_percent = num_samples / 10;
@@ -364,7 +363,7 @@ int readAudioData(const std::string& filename, AudioFile<T>* audiofile) {
 }
 
 template <class T>
-int writeAudioData(const std::string& filename, const AudioFile<T>& audiofile) {
+int writeAudioData(const std::string& filename, const AudioFile<T>& audiofile, int scheme) {
   // Write an audio file in WAVE format
 
   // open file
@@ -384,7 +383,7 @@ int writeAudioData(const std::string& filename, const AudioFile<T>& audiofile) {
   assert(0 < bytesPerChannel && bytesPerChannel <= 4);
   assert(8*bytesPerChannel == wave_header.bitsPerChannel);
 
-  uint32_t DataSize = getDataSize(wave_header);
+  uint32_t DataSize = getDataSize(wave_header, scheme);
   
   uint32_t num_samples = DataSize / (wave_header.NumOfChan * bytesPerChannel);
   uint32_t ten_percent = num_samples / 10;
