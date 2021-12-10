@@ -42,7 +42,7 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         Func hw_input, gray;
-        hw_input(c, x, y) = i16(input(x+3, y+3, c));
+        hw_input(c, x, y) = i16(input(x+(blockSize+4)/2, y+(blockSize+4)/2, c));
 
         // create a grayscale image
         gray(x, y) = cast<uint16_t>((77 * cast<uint16_t>(hw_input(0, x, y))

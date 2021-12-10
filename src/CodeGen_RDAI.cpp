@@ -221,7 +221,8 @@ string printname(const string &name) {
 }
 
 void CodeGen_RDAI::visit(const Call *op) {
-    if (op->is_intrinsic() && ends_with(op->name, ".stencil")) {
+  if (op->is_intrinsic() && ends_with(op->name, ".stencil")) {
+  //if (op->call_type == Call::CallType::Halide && ends_with(op->name, ".stencil")) {
         HW_Stencil_Type stencil = stencils.get(op->name);
         Region dim_bounds = stencil.bounds;
         internal_assert(dim_bounds.size() == op->args.size());

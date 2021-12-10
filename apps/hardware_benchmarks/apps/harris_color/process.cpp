@@ -104,7 +104,7 @@ int main( int argc, char **argv ) {
   int num_tiles_y        = host_tiling_y * glb_tiling;
   int output_width       = num_tiles_x * output_tile_width;
   int output_height      = num_tiles_y * output_tile_height;
-  int blockSize = 7;
+  int blockSize = 7; // overall harris kernel size = blur blockSize + 4
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
   processor.input  = Buffer<uint8_t>(output_width+blockSize-1, output_height+blockSize-1, 3);

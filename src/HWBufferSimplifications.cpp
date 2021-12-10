@@ -204,6 +204,7 @@ class InlineMemoryConstants : public IRMutator {
           for (auto provide : realize_provides.at(pc->name)) {
             //Expr call_equiv = Call::make(provide->values[0].type, provide->name, provide->args, Call::Intrinsic);
             Expr call_equiv = Call::make(UInt(32), provide->name, provide->args, Call::Intrinsic);
+            //Expr call_equiv = Call::make(UInt(32), provide->name, provide->args, Call::Halide);
             Expr replacement = provide->values[0];
             //std::cout << "trying to emulate " << Stmt(provide) << "  by replacing " << call_equiv << " with " << replacement << std::endl;
             //body = graph_substitute(call_equiv, replacement, body);
