@@ -116,7 +116,12 @@ public:
           kernel_glb.bound(z, 0, n_ic);
           input_host.bound(z, 0, n_ic);
           
-
+          kernel_glb.bound(w, 0, n_oc);
+          input_glb.bound(z, 0, n_ic);
+          input_cgra.bound_extent(z, k_ic);
+          kernel_cgra.bound_extent(z, k_ic);
+          kernel_cgra.bound_extent(w, k_oc);
+          
           int gbsize = imgsize;
           int tilesize = ((int)stride == 2) ?
             std::min(14, imgsize) : // we want the input to be 30 max
@@ -129,7 +134,7 @@ public:
           Var xi,yi;
           Var w_cgra, w_glb;
           Var z_cgra, z_glb;
-          RVar rz_cgra, rz_glb;
+          RVar rz_cgra("rz_cgra"), rz_glb("rz_glb");
 
           // Produce loop levels: host, global buffer, cgra
           hw_output.compute_root();
@@ -187,12 +192,6 @@ public:
           kernel_glb.compute_at(hw_output, x_host); // global buffer
           kernel_cgra.compute_at(output_cgra, rz_glb);   // mem tile
 
-          if (imgsize == 7) {
-            kernel_cgra.unroll(z, 2); // unroll glb->cgra channels for small images
-            input_cgra.unroll(z, 2); // unroll glb->cgra channels for small images
-          }
-
-
           //input_glb.unroll(z, k_ic);
           //input_cgra.unroll(z, k_ic);
           input_cgra
@@ -204,6 +203,11 @@ public:
             .split(w, w_glb, w_cgra, k_oc)
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
+
+          if (imgsize == 7) {
+            kernel_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
+            input_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
+          }
 
 
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
@@ -343,11 +347,11 @@ public:
 
           hw_kernel.bound(z, 0, n_ic);
           kernel_glb.bound(z, 0, n_ic);
-          kernel_glb.bound(w, 0, n_oc);
           input_host.bound(z, 0, n_ic);
 
           //output_cgra.bound(w, 0, k_oc*8);
           output_cgra.bound_extent(w, k_oc*8);
+          kernel_glb.bound(w, 0, n_oc);
           //output_glb.bound(w, 0, n_oc);
 
 
