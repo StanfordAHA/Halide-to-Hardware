@@ -13,7 +13,7 @@ public:
     Input<Buffer<int16_t>>  input_bias{"input_bias", 3};
     Output<Buffer<int16_t>> output{"output", 3};
 
-    GeneratorParam<int> in_img{"in_img", 56};
+    GeneratorParam<int> out_img{"out_img", 56};
     GeneratorParam<int> n_oc{"n_oc", 32};
   
     GeneratorParam<int32_t> myunroll{"myunroll", 8};
@@ -39,14 +39,14 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, in_img);
-          output.bound(y, 0, in_img);
+          output.bound(x, 0, out_img);
+          output.bound(y, 0, out_img);
           output.bound(w, 0, n_oc);
           
           //hw_input.compute_root();
           hw_output.compute_root();
           hw_output
-            .tile(x,y, xo,yo, xi,yi, in_img, in_img)
+            .tile(x,y, xo,yo, xi,yi, out_img, out_img)
             .reorder(w, xi, yi, xo, yo)
             .hw_accelerate(xi, xo);
           hw_output.unroll(w, myunroll);
