@@ -885,6 +885,9 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
         // save input to file
         string inputname = printname(closure_args[i].name);
+        if (!((elt_sizes[i]==8) || (elt_sizes[i]==16))) {
+          std::cout << inputname << " elt_size=" << elt_sizes[i] << std::endl;
+        }
         internal_assert((elt_sizes[i]==8) || (elt_sizes[i]==16));
         string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
         stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";

@@ -24,23 +24,29 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 16};    // default: 8
+    GeneratorParam<int> k_ic{"k_ic", 16};    // default: 16
   
     // k_oc determines the number of output channels
     GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
 
+    // m_ic determines the multiples of input channels in memory (m_ic * k_ic total)
+    GeneratorParam<int> m_ic{"m_ic", 1};    // default: 1
+  
+    // m_oc determines the multiples of output channels in memory (m_oc * k_oc total)
+    GeneratorParam<int> m_oc{"m_oc", 1};    // default: 1
+
     // n_ic determines the total number of input channels
-    GeneratorParam<int> n_ic{"n_ic", 32};    // default: 64
+    GeneratorParam<int> n_ic{"n_ic", 32};    // default: 32
   
     // n_oc determines the total number of output channels
-    GeneratorParam<int> n_oc{"n_oc", 32};    // default: 64
-
+    GeneratorParam<int> n_oc{"n_oc", 32};    // default: 32
+  
     // schedule to be used
     GeneratorParam<int> schedule{"schedule", 0};    // default: 0
 
     void generate() {
-        assert((int)n_ic >= (int)k_ic); // the number of total input channels must exceed unrolled channels
-        assert((int)n_oc >= (int)k_oc); // the number of total output channels must exceed unrolled channels
+        assert((int)n_ic >= (int)k_ic * (int)m_ic); // the number of total input channels must exceed unrolled channels
+        assert((int)n_oc >= (int)k_oc * (int)m_oc); // the number of total output channels must exceed unrolled channels
       
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
         int imgsize = floor( (in_img + 2*pad - ksize) / stride ) + 1;
@@ -115,6 +121,14 @@ public:
           hw_kernel.bound(z, 0, n_ic);
           kernel_glb.bound(z, 0, n_ic);
           input_host.bound(z, 0, n_ic);
+
+          int mem_oc = (int)k_oc * (int)m_oc;
+          int mem_ic = (int)k_ic * (int)m_ic;
+          
+          output_cgra.bound_extent(w, mem_oc);
+          kernel_cgra.bound_extent(w, mem_oc);
+          input_cgra.bound_extent(z, mem_ic);
+          kernel_cgra.bound_extent(z, mem_ic);
           
           kernel_glb.bound(w, 0, n_oc);
           input_glb.bound(z, 0, n_ic);
@@ -126,15 +140,19 @@ public:
           int tilesize = ((int)stride == 2) ?
             std::min(14, imgsize) : // we want the input to be 30 max
             std::min(28, imgsize);  // min of 28 and output image size
-          int tilesize_y = (pad == 3) ?
-            16 : // this occurs only for conv1. We need it smaller to fit
+          tilesize = (pad == 3) ?
+            16 : // this occurs only for conv1
             tilesize;
+          int tilesize_y = (pad == 3) ?
+            8 : // this occurs only for conv1. We need it smaller to fit
+            tilesize;
+
 
           Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
           Var xi,yi;
           Var w_cgra, w_glb;
           Var z_cgra, z_glb;
-          RVar rz_cgra("rz_cgra"), rz_glb("rz_glb");
+          RVar rz_unroll("rz_unroll"), rz_cgra("rz_cgra"), rz_glb("rz_glb");
 
           // Produce loop levels: host, global buffer, cgra
           hw_output.compute_root();
@@ -147,7 +165,7 @@ public:
           output_glb.compute_at(hw_output, x_host); // global buffer
           output_glb
             .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y)
-            .split(w, w_glb, w_cgra, k_oc)
+            .split(w, w_glb, w_cgra, mem_oc)
             // reorder from inner to outermost
             .reorder(w_cgra, x_cgra, y_cgra,
                      w_glb, x_glb, y_glb);
@@ -161,8 +179,9 @@ public:
             .reorder(w, x, y);
 
           output_cgra.update()
-            .split(r.z, rz_glb, rz_cgra, k_ic)
-            .reorder(rz_cgra, w, x, y, r.x, r.y, rz_glb);
+            .split(r.z, rz_glb, rz_cgra, mem_ic)
+            .split(rz_cgra, rz_cgra, rz_unroll, k_ic)
+            .reorder(rz_unroll, w, rz_cgra, x, y, r.x, r.y, rz_glb);
 
           //Func interm_output_cgra = output_cgra.update().rfactor(r.z, z);
           //interm_output_cgra.compute_at(output_glb, x_glb);
@@ -173,7 +192,7 @@ public:
           output_cgra.update()
             //.unroll(w_cgra, k_oc)
             .unroll(w, k_oc)
-            .unroll(rz_cgra, k_ic); // this is the z reduction
+            .unroll(rz_unroll, k_ic); // this is the z reduction
           
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
@@ -195,12 +214,12 @@ public:
           //input_glb.unroll(z, k_ic);
           //input_cgra.unroll(z, k_ic);
           input_cgra
-            .split(z, z_glb, z_cgra, k_ic)
+            .split(z, z_glb, z_cgra, mem_ic)
             .reorder(z_cgra, x, y, z_glb);
           //.reorder(zz, x, y, z);
           kernel_cgra
-            .split(z, z_glb, z_cgra, k_ic)
-            .split(w, w_glb, w_cgra, k_oc)
+            .split(z, z_glb, z_cgra, mem_ic)
+            .split(w, w_glb, w_cgra, mem_oc)
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
 
