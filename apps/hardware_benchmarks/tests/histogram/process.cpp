@@ -57,7 +57,7 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
 
   processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(64, 64);
+  processor.output  = Buffer<uint8_t>(16);
   
  return processor.process_command(argc, argv);
   

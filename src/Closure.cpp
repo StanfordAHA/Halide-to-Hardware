@@ -44,6 +44,7 @@ void Closure::found_buffer_ref(const string &name, Type type,
   //ignore.contains(name) << "\n";
     if (!ignore.contains(name)) {
         debug(3) << "Adding buffer " << name << " to closure\n";
+        std::cout << "Adding buffer " << name << " to closure\n";
         Buffer &ref = buffers[name];
         ref.type = type.element_of(); // TODO: Validate type is the same as existing refs?
         ref.read = ref.read || read;
@@ -60,7 +61,9 @@ void Closure::found_buffer_ref(const string &name, Type type,
 }
 
 void Closure::visit(const Call *op) {
-  if (op->call_type == Call::Intrinsic &&
+  //std::cout << op->name << " has call type " << op->call_type << std::endl;
+  //if ((op->call_type == Call::Intrinsic || op->call_type == Call::Halide || op->call_type == Call::Image) &&
+  if ((op->call_type == Call::Intrinsic) &&
       (ends_with(op->name, ".stencil") || ends_with(op->name, ".stencil_update"))) {
     // consider call to stencil and stencil_update
     debug(3) << "visit call " << op->name << ": ";

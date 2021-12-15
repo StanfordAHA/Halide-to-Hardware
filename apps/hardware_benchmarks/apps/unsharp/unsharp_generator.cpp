@@ -20,8 +20,8 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
-    GeneratorParam<uint8_t> width{"width", 58};         // default: 58
+    GeneratorParam<uint8_t> myunroll{"myunroll", 3};    // default: 3
+    GeneratorParam<uint8_t> width{"width", 126};        // default: 126
 
     void generate() {
         /* THE ALGORITHM */
@@ -251,12 +251,12 @@ public:
             //const int tileWidth = 122-0;
             //const int tileWidth = 141; //unroll=3  ; also try 63
             const int tileWidth = width;
-            //const int tileHeight = 256-0;
-            const int tileHeight = 66;
+            const int tileHeight = 256-6;
+            //const int tileHeight = 66;
             //const int numHostTilesX = 12-1;
             //const int numHostTilesY = 10-1;
-            const int numHostTilesX = 1;
-            const int numHostTilesY = 1;
+            const int numHostTilesX = 12;
+            const int numHostTilesY = 10;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;

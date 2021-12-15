@@ -16,13 +16,6 @@ int blockSize = 9;
   int16_t matrix[3][4] = {{549, -103,   7, -10221},
                           {-96,  373,  62,  -7254},
                           {-31, -261, 883,  -5563}};
-  //int32_t matrix[3][4] = {{ 200, -44,  17, -3900},
-  //                        {-38,  159, -21, -2541},
-  //                        {-8, -73,  228, -2008}};
-  //uint16_t matrix[3][4] = {{20, 44,  170,  39},
-  //                         {38,  15, 210,  25},
-  //                         {8,   73,  2008, 28}};
-
 
   class CameraPipeline : public Halide::Generator<CameraPipeline> {
     
@@ -32,21 +25,9 @@ int blockSize = 9;
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 1
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 1
     GeneratorParam<uint8_t> width{"width", 0};    // default: 1
     GeneratorParam<uint8_t> myunroll{"myunroll", 0};    // default: 1
-
-    //Func interleave_x(Func a, Func b) {
-    //  Func out;
-    //  out(x, y) = select((x%2)==0, a(x, y), b(x-1, y));
-    //  return out;
-    //}
-    //
-    //Func interleave_y(Func a, Func b) {
-    //  Func out;
-    //  out(x, y) = select((y%2)==0, a(x, y), b(x, y-1));
-    //  return out;
-    //}
 
 Func interleave_x(Func a, Func b) {
     Func out;
@@ -219,16 +200,6 @@ Func interleave_y(Func a, Func b) {
     // Matrix is defined in 8.8 fixed point
     //Func color_correct(Func input, int32_t matrix[3][4]) {
     Func color_correct(Func input, int16_t matrix[3][4]) {
-      //Expr ir = i32(input(x, y, 0));
-      //Expr ig = i32(input(x, y, 1));
-      //Expr ib = i32(input(x, y, 2));
-      //Expr r = matrix[0][3] + matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
-      //Expr g = matrix[1][3] + matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
-      //Expr b = matrix[2][3] + matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
-      //r = i16(r/256);
-      //g = i16(g/256);
-      //b = i16(b/256);
-      
       Expr ir = clamp(input(x, y, 0), 0, 10000);
       Expr ig = clamp(input(x, y, 1), 0, 10000);
       Expr ib = clamp(input(x, y, 2), 0, 10000);
@@ -251,15 +222,8 @@ Func interleave_y(Func a, Func b) {
 
       Func curved("curved");
       Expr in_val = clamp(input(x, y, c), u16(0), u16(1023));
-      //curved(x, y, c) = select(input(x, y, c) < 0, 0,
-      //                         input(x, y, c) >= 1024, 255,
-      //                         curve(in_val));
-      //curved(x, y, c) = curve(clamp(input(x, y, c), 0, 1023));
       curved(x, y, c) = curve(u16(in_val));
 
-      //acurved.reorder(x,y,c);
-      //curved.bound(c, 0, 3);
-      //curved.reorder(x,y,c).unroll(c);
       return curved;
     }
 
@@ -269,28 +233,13 @@ Func interleave_y(Func a, Func b) {
       Func hw_input;
       hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
 
-      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & 0xFCFF;
-      //uint16_t bits = (1 << 9) | (1 << 8); // tie these 0-indexed bits to 0
-      //uint16_t bits = (1 << 13); // tie these 0-indexed bits to 0
-      //uint16_t mask = ~(bits);
-      //std::cout << std::hex << "bits=" << bits << " mask=" << mask << std::dec << std::endl;
-      //hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2)) & mask;
-
-      
-      //hw_input(x,y) = i16(input(x+16, y+12));
-
       Func hw_input_copy;
-      //hw_input_copy(x,y) = hw_input(x,y);
       
       Func denoised;
       denoised = hot_pixel_suppression(hw_input);
 
       // Give more convenient names to the four channels we know
       Func r_r, g_gr, g_gb, b_b;
-      //g_gr(x, y) = raw(x, y);//deinterleaved(x, y, 0);
-      //r_r(x, y)  = raw(x+1, y);//deinterleaved(x, y, 1);
-      //b_b(x, y)  = raw(x, y+1);//deinterleaved(x, y, 2);
-      //g_gb(x, y) = raw(x+1, y+1);//deinterleaved(x, y, 3);
       g_gr(x, y) = denoised(2*x, 2*y);//deinterleaved(x, y, 0);
       r_r(x, y)  = denoised(2*x+1, 2*y);//deinterleaved(x, y, 1);
       b_b(x, y)  = denoised(2*x, 2*y+1);//deinterleaved(x, y, 2);
@@ -322,9 +271,6 @@ Func interleave_y(Func a, Func b) {
       
       hw_output(c, x, y) = curve_out(x, y, c);
       output(x, y, c) = u8(hw_output(c, x, y));
-      //hw_output(x, y, c) = denoised(x, y);
-      //output(x, y, c) = u8(hw_output(x, y, c));
-      //output(x, y, c) = u16(hw_output(x, y, c));
 
       //curve.bound(x, 0, 256);
       output.bound(c, 0, 3);
@@ -468,12 +414,12 @@ Func interleave_y(Func a, Func b) {
 
           } else if (schedule == 3) { // big parrot with unroll
             const int unroll = 1;
-            const int tileWidth = 64-8;
-            //const int tileWidth = 256-8;
-            const int tileHeight = 64-8;
-            //const int tileHeight = 152-8;
-            const int numHostTiles = 1;
-            const int numTiles = 1;
+            //const int tileWidth = 64-8;
+            const int tileWidth = 256-8;
+            //const int tileHeight = 64-8;
+            const int tileHeight = 192-8;
+            const int numHostTiles = 10;
+            const int numTiles = 1; // number of tiles in the glb
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
             const int outputWidth = numHostTiles * glbWidth;

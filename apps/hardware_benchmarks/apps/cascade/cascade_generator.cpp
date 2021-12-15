@@ -89,7 +89,7 @@ public:
           output.bound(x,0,outImgSizeX).bound(y,0,outImgSizeY);
           
           hw_output.in().compute_root()
-            .tile(x, y, xo, yo, xi, yi, 60, 60)
+            .tile(x, y, xo, yo, xi, yi, 360, 360)
             .hw_accelerate(xi, xo)
             .store_in(MemoryType::GLB);
           hw_output

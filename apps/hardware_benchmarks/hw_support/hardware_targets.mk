@@ -153,6 +153,7 @@ $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_c
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	(echo "//" `cat $(BIN)/halide_gen_args`) | cat >> $(BIN)/$(TESTNAME)_memory.cpp
 
 
 #: $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h
@@ -266,8 +267,10 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
 
+#$(HWSUPPORT)/hardware_image_helpers.h
+
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o 
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
@@ -333,7 +336,7 @@ $(BIN)/process_targets: FORCE
 
 # we should remake process in case there are extra dependencies
 #.PHONY: $(BIN)/process
-$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets
+$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_image_helpers.h
 	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
@@ -451,7 +454,7 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a
+run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)

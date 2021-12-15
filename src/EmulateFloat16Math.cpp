@@ -468,7 +468,7 @@ Stmt emulate_float16_math(const Stmt &stmt, const Target &t) {
     //std::cout << "original before bfloat" << std::endl << s;
     bool has_bfloat_hardware = t.has_feature(Target::BFloatHardware);
     s = WidenMath(has_bfloat_hardware).mutate(s);
-    //std::cout << "after widen:" << std::endl << s;
+    //std::cout << "after widen where bfloat=" << has_bfloat_hardware << std::endl << s;
     s = LowerBFloatConversions(has_bfloat_hardware).mutate(s);
     //std::cout << "after bfloat conversion" << std::endl << s;
     // LLVM trunk as of 2/22/2019 has bugs in the lowering of float16 conversions math on avx512

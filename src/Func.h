@@ -44,6 +44,27 @@ struct VarOrRVar {
     bool is_rvar;
 };
 
+struct VarExtent {
+  VarExtent(const VarOrRVar &v, Expr e, bool p = false) :
+    var(v), extent(e), is_parallelized(p) {}
+
+  const std::string &name() const {
+    return var.name();
+  }
+            
+  VarOrRVar var;
+  Expr extent;
+  bool is_parallelized;
+};
+
+struct IterLevel {
+  IterLevel(const std::string n, std::vector<VarExtent> list) :
+    name(n), varextents(list) {}
+
+  std::string name;
+  std::vector<VarExtent> varextents;
+};
+
 class ImageParam;
 
 namespace Internal {
@@ -352,6 +373,8 @@ public:
                 Expr xfactor, Expr yfactor,
                 TailStrategy tail = TailStrategy::Auto);
     Stage &reorder(const std::vector<VarOrRVar> &vars);
+  Stage &iteration_order(std::vector<VarExtent> varextents);
+  Stage &iteration_order(std::vector<IterLevel> levels);
 
     template <typename... Args>
     HALIDE_NO_USER_CODE_INLINE typename std::enable_if<Internal::all_are_convertible<VarOrRVar, Args...>::value, Stage &>::type
@@ -1370,6 +1393,8 @@ public:
      * which no custom wrapper has been specified.
      */
     Func in();
+    Func in(std::string name);
+    Func in_named(std::string name);
 
     /** Similar to \ref Func::in; however, instead of replacing the call to
      * this Func with an identity Func that refers to it, this replaces the
@@ -2245,8 +2270,31 @@ public:
     Func &accelerate_call_output(Var store_var);
   
     Func &accelerator_input();
-    Func stream_to_accelerator();
+    Func &stream_to_accelerator();
+    Func &stream_to_accelerator(std::vector<std::string> levels);
+    Func &stream_to_accelerator(std::vector<std::string> levels,
+                                std::vector<LoopLevel> computeats);
 
+    Func get_memory_level(std::string level);
+    VarOrRVar get_var(VarOrRVar v, int index);
+    LoopLevel get_looplevel(VarOrRVar v, int index);
+    LoopLevel get_looplevel(std::string, VarOrRVar v);
+    LoopLevel get_looplevel(std::string level, VarOrRVar v, int index);
+
+    Func &apply_splits_and_bound(std::map<std::string, std::vector<Expr>> running_size,
+                                 std::map<std::string, std::vector<VarOrRVar>>& split_vars);
+    Func &reorder_variables(std::vector<VarExtent> varextents,
+                            std::map<std::string, std::vector<VarOrRVar>>& split_vars);
+    Func &iteration_order(std::vector<VarExtent> varextents);
+    Func &iteration_order(std::vector<IterLevel> levels);
+
+    Func &create_memories(std::vector<Func> funcs, LoopLevel level);
+    Func &create_memories(std::vector<Func> funcs, LoopLevel level, VarOrRVar v, int rate);
+    Func &create_memories(std::vector<Func> funcs);
+
+    Func &output_rate(int rate);
+
+  
     /** Schedule a function to be linebuffered.
      */
     Func &linebuffer();

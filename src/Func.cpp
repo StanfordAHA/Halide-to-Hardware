@@ -1894,6 +1894,16 @@ Func Func::in() {
     return get_wrapper(func, name() + "_global_wrapper", {}, false);
 }
 
+Func Func::in(std::string s) {
+    invalidate_cache();
+    return get_wrapper(func, name() + "_" + s, {}, false);
+}
+
+Func Func::in_named(std::string s) {
+    invalidate_cache();
+    return get_wrapper(func, s, {}, false);
+}
+
 Func Func::clone_in(const Func &f) {
     invalidate_cache();
     vector<Func> fs = {f};
@@ -2634,16 +2644,399 @@ Func &Func::accelerator_input() {
 // Set this as an accelerator input, create a copy stage, and properly
 // schedule each func. The accelerator input is computed at the root level.
 // The copy stage is computed at the accelerator storage level.
-Func Func::stream_to_accelerator() {
+Func &Func::stream_to_accelerator() {
   //invalidate_cache();
   //func.schedule().accelerate_inputs().insert(hw_in.name());
   func.schedule().is_accelerator_input() = true;
   func.schedule().compute_level() = LoopLevel::root();
 
   auto new_func = get_wrapper(func, name() + "_global_wrapper", {}, false);
-  return new_func;
+  return *this;
 }
+
+Func &Func::stream_to_accelerator(std::vector<std::string> levels) {
+  func.schedule().is_accelerator_input() = true;
+  func.schedule().compute_level() = LoopLevel::root();
+
+  Func prev_func = *this;
+  for (size_t i=1; i<levels.size(); ++i) {
+    auto level = levels.at(i);
+    //if (i == 1) {
+    //  prev_func = get_wrapper(func, name() + "_" + level, {}, false);
+    //} else {
+    //  prev_func = prev_func.in(level);
+    //}
+    prev_func = prev_func.in(level);
+    
+    if (level == "GLB" || level == "glb") {
+      prev_func.store_in(MemoryType::GLB);
+    }
+  }
+  return *this;
+}
+
+Func &Func::stream_to_accelerator(std::vector<std::string> levels, std::vector<LoopLevel> compute_ats) {
+  internal_assert(levels.size() == compute_ats.size());
+  func.schedule().is_accelerator_input() = true;
+  //func.schedule().compute_level() = LoopLevel::root();
+  compute_at(compute_ats.at(levels.size()-1));
+  auto rootname = func.name();
+  auto rate = func.schedule().output_rate();
+  std::cout << "rate is " << rate << std::endl;
+
+  Func prev_func = *this;
+  for (int i=levels.size()-2; i>=0; --i) {
+    std::cout << "on level " << i << std::endl;
+    
+    auto level = levels.at(i);
+    prev_func = prev_func.in_named(rootname + "_" + level);
+
+    // unroll based on the rate
+    if (rate > 0) {
+      auto var = Var("x");
+      std::cout << "unrolling " << var.name() << " for " << prev_func.name()
+                << " from " << compute_ats.at(i).lock() << std::endl;
+      prev_func.unroll(var, rate, TailStrategy::RoundUp);
+    }
+    std::cout << "unroll " << i << std::endl;
+    
+    //std::cout << "in'ed " << i << std::endl;
+    prev_func.compute_at(compute_ats.at(i));
+    //std::cout << "compute_at " << i << std::endl;
+    
+    if (level == "GLB" || level == "glb") {
+      prev_func.store_in(MemoryType::GLB);
+    }
+  }
+  return *this;
+}
+
+Func Func::get_memory_level(std::string level) {
+  auto rootname = func.name();
+  return in_named(rootname + "_" + level);
+}
+
+VarOrRVar Func::get_var(VarOrRVar v, int index) {
+  auto stage = Stage(func, func.definition(), 0, args());
+  const vector<Dim> &dims = stage.get_schedule().dims();
+
+  int cidx = 0;
+  // Check that the new names aren't already in the dims list.
+  for (size_t i = 0; i < dims.size(); i++) {
+    auto varname = dims[i].var;
+    if (starts_with(varname, v.name())) {
+      cidx += 1;
+      if (cidx == index) {
+        return Var(varname);
+      }
+    }
+  }
+  internal_assert(false) << "There are only " << std::to_string(cidx)
+                         << " variables starting with " << v.name() << "\n";
+  return Var();
+}
+
+LoopLevel Func::get_looplevel(VarOrRVar v, int index) {
+  auto var = get_var(v, index);
+  return LoopLevel(*this, var);
+}
+
+LoopLevel Func::get_looplevel(std::string level, VarOrRVar v) {
+  auto func = get_memory_level(level);
+  return LoopLevel(func, v);
+}
+
+LoopLevel Func::get_looplevel(std::string level, VarOrRVar v, int index) {
+  auto func = get_memory_level(level);
+  return func.get_looplevel(v, index);
+}
+
+// Specify a sequence of splits and reorders. If all extents are specified,
+// also applies a bound to those variables.
+
+void extract_sizes(std::vector<VarExtent> varextents, std::map<std::string, std::vector<Expr>>& running_size) {
+  for (auto& varextent : varextents) {
+    auto var = varextent.var.name();
+    if (running_size.count(var) == 0) {
+      std::cout << "new list for " << var << " starting with " << varextent.extent << std::endl;
+      running_size[var].push_back(varextent.extent);
+    } else {
+      std::cout << "appending list for " << var << " with " << varextent.extent << std::endl;
+      Expr last_size = running_size[var].back();
+      //internal_assert(is_one(last_size > 0)) << "all must be positive (except very last)";
+      running_size[var].push_back(last_size * varextent.extent);
+    }
+  }
+}
+
+Func &Func::apply_splits_and_bound(std::map<std::string, std::vector<Expr>> running_size,
+                                   std::map<std::string, std::vector<VarOrRVar>>& split_vars) {
+  std::cout << "running size map is size " << running_size.size() << std::endl;
+  for (auto var_and_list : running_size) {
+    auto var = var_and_list.first;
+    auto var_index = 0;
+    auto size_list = var_and_list.second;
+    for (auto it = size_list.rbegin(); it != size_list.rend(); ++it) {
+      auto size = *it;
+      //if (it == size_list.rbegin() && (size > 0)) {
+      if (it == size_list.rbegin()) {
+        std::cout << "bounding var " << var << " to size " << simplify(size) << std::endl;
+        bound(Var(var), 0, simplify(size));
+        std::cout << " bound" << std::endl;
+        if (it == size_list.rend()) {
+          split_vars[var].push_back(Var(var));
+        }
+        
+      } else {
+        auto outer_name = var + "_" + std::to_string(var_index);
+        auto inner_name = (it+1 == size_list.rend()) ?
+          var + "_" + std::to_string(var_index+1) :
+          std::to_string(var_index+1);
+        auto split_var = var_index==0 ? var : std::to_string(var_index);
+        std::cout << "splitting " << split_var << " into " << outer_name << " and "
+                  << inner_name << " with factor " << size << std::endl;
+        
+        split(Var(split_var), Var(outer_name), Var(inner_name), size);
+        var_index += 1;
+        split_vars[var].push_back(Var(outer_name));        
+        if (it+1 == size_list.rend()) {
+          split_vars[var].push_back(Var(inner_name));
+        }
+      }
+    }
+  }
+  std::cout << "done of the split and bounds" << std::endl;
+  return *this;
+}
+
+Func &Func::reorder_variables(std::vector<VarExtent> varextents,
+                              std::map<std::string, std::vector<VarOrRVar>>& split_vars) {
+  std::vector<VarOrRVar> var_order;
+  for (auto varextent : varextents) {
+    std::cout << "retrieving var " << varextent.name()
+              << " Found=" << split_vars.count(varextent.name())
+              << " length=" << split_vars[varextent.name()].size() << std::endl;
+    VarOrRVar next_var = split_vars[varextent.name()].back();
+    split_vars[varextent.name()].pop_back();
+    var_order.push_back(next_var);
+
+    if (varextent.is_parallelized) {
+      unroll(next_var);
+    }
+  }
+  reorder(var_order);
+  return *this;
+}
+
+Func &Func::iteration_order(std::vector<VarExtent> varextents) {
+  std::map<std::string, std::vector<Expr>> running_size;
+  extract_sizes(varextents, running_size); // determine the split sizes
+
+  std::map<std::string, std::vector<VarOrRVar>> split_vars;
+  apply_splits_and_bound(running_size, split_vars); // apply variable splits and bound
+  reorder_variables(varextents, split_vars); // reorder all variables
   
+  //for (const auto& varextent : varextents) {
+  //  Var outer(varextent.name() + "_o");
+  //  Var inner(varextent.name() + "_i");
+  //  split(varextent.var, outer, inner, varextent.extent);
+  //}
+  return *this;
+}
+
+Func &Func::iteration_order(std::vector<IterLevel> levels) {
+  auto rate = func.schedule().output_rate();
+
+  std::map<std::string, std::vector<Expr>> running_size;
+  std::vector<Func> output_copies;
+  auto rootname = func.name();
+  for (size_t i=0; i<levels.size(); ++i) {
+    auto level = levels.at(i);
+    std::cout << "doing level " << level.name << " of length " << level.varextents.size() << std::endl;
+    auto& varextents = level.varextents;
+    extract_sizes(varextents, running_size);
+
+    Func copy;
+    if (i == 0) {
+      copy = *this;
+    } else {
+      copy = output_copies.back().in_named(rootname + "_" + level.name);
+    }
+    output_copies.push_back(copy);
+    if (level.name == "glb" || level.name == "GLB") {
+      copy.store_in(MemoryType::GLB);
+    }
+  }
+
+  std::set<std::string> have_bound;
+  LoopLevel last_looplevel;
+  for (int i=levels.size()-1; i>=0; --i) {
+    auto level = levels.at(i);
+    std::cout << "proceeding with level " << std::to_string(i) << " named " << level.name << std::endl;
+    auto& varextents = level.varextents;
+    auto output_copy = output_copies.at(i);
+    std::vector<VarOrRVar> var_order;
+    std::vector<VarOrRVar> inner_vars;
+
+    // Perform compute_at for this level (except outermost level)
+    if (i == (int)levels.size()-1) {
+      std::cout << "last level at root" << std::endl;
+      // do nothing to last level
+      output_copy.compute_root();
+    } else if (i == (int)levels.size()-2) {
+      std::cout << "penultimate level at root" << std::endl;
+      output_copy.compute_root();
+    } else {
+      //auto last_output = output_copies.at(i+1);
+      //auto last_varextents = levels.at(i+1).varextents;
+      output_copy.compute_at(last_looplevel);
+      std::cout << "setting compute at " << last_looplevel.lock() << std::endl;
+
+    }
+
+    // Go through vars in this level
+    //for (auto varextent : varextents) {
+    std::map<std::string, int> var_indices;
+    for (auto it = varextents.rbegin(); it != varextents.rend(); ++it) {
+      auto varextent = *it;
+      auto var = varextent.var;
+      auto varname = varextent.name();
+      auto size = running_size[varname].back();
+      auto var_index = var_indices[varname];
+      running_size[varname].pop_back();
+      
+      // Do bound for first encounter.
+      if (have_bound.count(varname) == 0) {
+        if (func.is_pure_arg(var.name())) {
+          output_copy.bound(Var(var.name()), 0, simplify(size));
+        }
+        
+        have_bound.insert(varname);
+        if (varname != "r$z") {
+          var_order.insert(var_order.begin(), var);
+        }
+        last_looplevel = LoopLevel(output_copy, Var(var.name()));
+        std::cout << func.name() << " bound var " << varname << " at " << size << std::endl;
+        
+      } else { // split
+        if (varextent.is_parallelized) {
+          output_copy.update().unroll(Var(varname));
+          //var_indices[varname] += 1;
+          var_order.insert(var_order.begin(), Var(varname));
+          last_looplevel = LoopLevel(output_copy, Var(varname));
+          continue;
+        }
+
+
+        
+        auto outer_name = varname + std::to_string(var_index);
+        auto inner_name = varname + std::to_string(var_index+1);
+        auto split_var = var_index==0 ? varname : varname + std::to_string(var_index);
+        std::cout << "splitting " << split_var << " into " << outer_name << " and "
+                  << inner_name << " with factor " << size << std::endl;
+
+        if (output_copy.has_update_definition()) {
+          output_copy.update().split(Var(split_var), Var(outer_name), Var(inner_name), size);
+        } else {
+          output_copy.split(Var(split_var), Var(outer_name), Var(inner_name), size);
+        }
+
+        var_indices[varname] += 1;
+        var_order.insert(var_order.begin(), Var(outer_name));
+        last_looplevel = LoopLevel(output_copy, Var(outer_name));
+        //if (it+1 == size_list.rend()) {
+        //  split_vars.push_back(Var(inner_name));
+        //}
+      }
+    }
+
+    // add inner variables
+    for (auto it = var_indices.rbegin(); it != var_indices.rend(); ++it) {
+      auto var_pair = *it;
+      auto varname = var_pair.first + std::to_string(var_pair.second);
+      if (var_pair.second != 0) {
+        var_order.insert(var_order.begin(), Var(varname));
+      }
+    }
+    std::cout << "vector has length " << var_order.size() << std::endl;
+    auto innermost_var = var_order.at(0);
+    if (rate > 0) {
+      output_copy.unroll(innermost_var, rate, TailStrategy::RoundUp);
+    }
+
+    std::cout << "setting order of " << level.name << " to {";
+    for (auto var : var_order) { std::cout << var.name() << ","; }
+    std::cout << "}" << std::endl;
+    if (output_copy.has_update_definition()) {
+      output_copy.update().reorder(var_order);
+    } else {
+      output_copy.reorder(var_order);
+    }
+    var_order.clear();
+    
+    //std::map<std::string, std::vector<VarOrRVar>> split_vars;
+    //output_copy.apply_splits_and_bound(running_size, split_vars);
+    //output_copy.reorder_variables(varextents, split_vars); // reorder all variables
+  }
+
+  return *this;
+}
+
+Func &Func::create_memories(std::vector<Func> funcs, LoopLevel compute_level) {
+  auto rate = func.schedule().output_rate();
+  
+  for (auto func : funcs) {
+    func.compute_at(compute_level);
+  }
+
+  if (rate > 0) {
+    for (auto func : funcs) {
+      func.unroll(Var("x"), rate, TailStrategy::RoundUp);
+      
+      if (func.has_update_definition()) {
+        for (auto rvar : func.rvars()) {
+          func.update().unroll(rvar);
+        }
+        func.update().unroll(Var("x"), rate, TailStrategy::RoundUp);
+      }
+    }
+  }
+  
+  return *this;
+}
+
+Func &Func::create_memories(std::vector<Func> funcs, LoopLevel compute_level, VarOrRVar v, int rate) {
+  internal_assert(rate > 0) << "Rate must be a positive integer\n";
+  auto r = func.schedule().output_rate();
+  internal_assert(r == 0 || rate == r) << "Rate has already been set\n";
+  
+  for (auto func : funcs) {
+    func.compute_at(compute_level);
+  }
+
+  for (auto func : funcs) {
+    if (func.has_update_definition()) {
+      for (auto rvar : func.rvars()) {
+        func.update().unroll(rvar);
+      }
+      func.update().unroll(v, rate, TailStrategy::RoundUp);
+    }
+  }
+  
+  return *this;
+}
+
+Func &Func::create_memories(std::vector<Func> funcs) {
+  auto& compute_level = func.schedule().accelerate_compute_level();
+  return create_memories(funcs, compute_level);
+}
+
+Func &Func::output_rate(int r) {
+  func.schedule().output_rate() = r;
+  std::cout << "setting the output rate to " << r << std::endl;
+  return *this;
+}
+
 Func &Func::linebuffer() {
     invalidate_cache();
     func.schedule().is_linebuffered() = true;

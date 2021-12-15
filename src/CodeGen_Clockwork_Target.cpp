@@ -57,10 +57,11 @@ class ContainsCall : public IRVisitor {
     void visit(const Call *op) {
       // Found a call. Ignore any intrsincs (like abs)
       if ((match_any || calls.count(op->name) > 0) &&
-          (!op->is_intrinsic())) {
+          (op->is_intrinsic() && ends_with(op->name, ".stencil"))) {
         found_calls.emplace_back(op->name);
+        //std::cout << "added call " << op->name << std::endl;
       }
-      //std::cout << "call name is " << op->name << std::endl;
+      //std::cout << "call name is " << op->name << " intrinsic=" << op->is_intrinsic() << " match_any=" << match_any << " count=" << calls.count(op->name) << std::endl;
       IRVisitor::visit(op);
     }
 
@@ -94,14 +95,15 @@ vector<string> contains_call(Expr e) {
 
 bool contains_call(vector<Expr> args, vector<bool>& calls_found) {
   bool one_found = false;
-    for (auto& e : args) {
-      ContainsCall cc({}, true);
-      e.accept(&cc);
-      bool found = cc.found_calls.size() > 0;
-      calls_found.push_back(found);
-      one_found = one_found || found;
-    }
-    return one_found;
+  for (auto& e : args) {
+    ContainsCall cc({}, true);
+    e.accept(&cc);
+    bool found = cc.found_calls.size() > 0;
+    calls_found.push_back(found);
+    one_found = one_found || found;
+  }
+  //std::cout << "Found call=" << one_found << std::endl;
+  return one_found;
 }
 
 
@@ -883,6 +885,9 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
         // save input to file
         string inputname = printname(closure_args[i].name);
+        if (!((elt_sizes[i]==8) || (elt_sizes[i]==16))) {
+          std::cout << inputname << " elt_size=" << elt_sizes[i] << std::endl;
+        }
         internal_assert((elt_sizes[i]==8) || (elt_sizes[i]==16));
         string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
         stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";
@@ -971,7 +976,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       // save output to file
       string outputname = printname(stencil_arg.name);
-      internal_assert((elt_size==8) || (elt_size==16));
+      internal_assert((elt_size==8) || (elt_size==16)) << "size is " << std::to_string(elt_size) << " for output\n";
       string extension = elt_size == 8 ? ".raw" : ".leraw";
       stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
       stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
@@ -1326,12 +1331,15 @@ void Compute_Closure::visit(const Load *op) {
 }
 
 void Compute_Closure::visit(const Call *op) {
+  //std::cout << "closure call for " << Expr(op) << std::endl;
   if (op->call_type == Call::Intrinsic &&
       (ends_with(op->name, ".stencil") || ends_with(op->name, ".stencil_update"))) {
+    //std::cout << "this is a stencil" << std::endl;
     // consider call to stencil and stencil_update
     debug(3) << "visit call " << op->name << ": ";
     if (!ignore.contains(op->name)) {
       debug(3) << "adding to closure.\n";
+      //std::cout << "adding to closure" << std::endl;
 
       ostringstream arg_print;
       arg_print << Expr(op);
@@ -1340,7 +1348,7 @@ void Compute_Closure::visit(const Call *op) {
       //if (unique_args.count(comp_arg) == 0) {
       if (unique_argstrs.count(printname(arg_print.str())) == 0) {
         string argname = unique_name(op->name);
-        //std::cout << "adding arg " << argname << Expr(op);
+        
         if (argname == op->name) { argname = unique_name(op->name); }
 
         unique_argstrs.insert(printname(arg_print.str()));
@@ -1348,14 +1356,16 @@ void Compute_Closure::visit(const Call *op) {
         vector<bool> calls_found;
         bool is_dynamic = contains_call(op->args, calls_found);
         var_comparg[argname] = Compute_Argument({argname, false, false, is_dynamic, op->type,
-              op->args, calls_found, op->name, Expr(op)});;
+              op->args, calls_found, op->name, Expr(op)});
+        //std::cout << "adding arg " << argname << Expr(op) << " where is_dynamic=" << is_dynamic << std::endl;
 
       } else {
-        //std::cout << "not adding " << Expr(op) << std::endl;
+        //std::cout << "not adding call " << Expr(op) << std::endl;
       }
       // do not recurse
       return;
     } else {
+      //std::cout << "not adding to closure" << std::endl;
       debug(3) << "not adding to closure.\n";
     }
   }

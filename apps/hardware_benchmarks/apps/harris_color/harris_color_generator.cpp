@@ -29,9 +29,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 0
-    GeneratorParam<uint8_t> width{"width", 66};    // default: 0
+    GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint16_t> myunroll{"myunroll", 2};    // default: 2
+    GeneratorParam<uint16_t> width{"width", 300-6};      // default: 120
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
     //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
@@ -42,7 +42,7 @@ public:
         Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
         Func hw_input, gray;
-        hw_input(c, x, y) = i16(input(x+3, y+3, c));
+        hw_input(c, x, y) = i16(input(x+(blockSize+4)/2, y+(blockSize+4)/2, c));
 
         // create a grayscale image
         gray(x, y) = cast<uint16_t>((77 * cast<uint16_t>(hw_input(0, x, y))
@@ -119,7 +119,7 @@ public:
           cim(x, y) > cim(x+1, y) && cim(x, y) > cim(x-1, y+1) &&
           cim(x, y) > cim(x, y+1) && cim(x, y) > cim(x+1, y+1);
         Func cim_output;
-        cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), 255, 0));
+        cim_output(x,y) = cast<int16_t>(select( is_max && (cim(x, y) >= threshold), i16(255), i16(0)));
         hw_output(x, y) = cim_output(x,y);
         //hw_output(x, y) = cast<uint8_t>(cim(x,y));
         //hw_output(x, y) = cast<uint8_t>(lgxx(x,y));
@@ -246,12 +246,13 @@ public:
             const int unroll = myunroll;
             //const int tileWidth = 128-6; // for unroll=2
             const int tileWidth = width;
-            //const int tileHeight = 256-0;
-            const int tileHeight = 66;
-            //const int numHostTilesX = 12;
-            //const int numHostTilesY = 10;
-            const int numHostTilesX = 1;
-            const int numHostTilesY = 1;
+            //const int tileHeight = 255;
+            const int tileHeight = 255;
+            //const int tileHeight = 66;
+            const int numHostTilesX = 5; //12;
+            const int numHostTilesY = 10; //10;
+            //const int numHostTilesX = 1;
+            //const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -320,6 +321,58 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 
+
+
+            
+          } else if (schedule == 11) { // do big parrot with new scheduling primitives
+            const int unroll = myunroll;
+            const int tileWidth = width;
+            const int tileHeight = 255;
+            const int numHostTilesX = 5; //12;
+            const int numHostTilesY = 10; //10;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            // Create three level memory hierarchy with iteration_order (and set rate)
+            auto level1 = IterLevel("CGRA", {{x, tileWidth}, {y, tileHeight}});
+            auto level2 = IterLevel("GLB",  {{x, 1}, {y, 1}});
+            auto level3 = IterLevel("host", {{x, 5}, {y, 10}});
+            hw_output.output_rate(myunroll)
+              .iteration_order({level1, level2, level3});
+
+            // Specify compute variables for memory hierarchy
+            auto x0 = Var("x0");
+            auto compute_cgra = hw_output.get_looplevel("CGRA", x0);
+            auto compute_glb = hw_output.get_looplevel("GLB", x0);
+            auto compute_host = LoopLevel::root();
+
+            // Create hardware accelerator
+            hw_output.get_memory_level("GLB")
+              .hw_accelerate(Var("x1"), x0);
+
+            // Create memories (and set rate)
+            hw_output.get_memory_level("GLB").output_rate(myunroll)
+              .create_memories({cim, lgxx, lgyy, lgxy, lxx, lyy, lxy,
+                    grad_x_unclamp, grad_y_unclamp, gray}, compute_cgra);
+            
+            kernel_x.compute_at(compute_cgra).unroll(x).unroll(y).unroll(x, unroll, TailStrategy::RoundUp);
+            kernel_y.compute_at(compute_cgra).unroll(x).unroll(y).unroll(x, unroll, TailStrategy::RoundUp);
+
+            // Stream input to accelerator (and set rate)
+            hw_input.output_rate(myunroll)
+              .stream_to_accelerator({"CGRA", "GLB", "host"},
+                                     {compute_cgra, compute_glb, compute_host});
+            hw_input.in().get_memory_level("CGRA").unroll(c);
+            hw_input.get_memory_level("GLB").unroll(c);
+
+
+
+            
+
+            
           } else { // default, basically sch5 with all buffers, 1 pixel/cycle
             output.bound(x, 0, tileSize_x);
             output.bound(y, 0, tileSize_y);
