@@ -67,14 +67,13 @@ public:
 
         conv(w, x, y) = cast<uint16_t>(0);
 
-
         Func hw_input("hw_input"), hw_kernel("hw_kernel");
         Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");        
         Func kernel_host("kernel_host"), kernel_glb("kernel_glb"), kernel_cgra("kernel_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         if (schedule == 11) {
-          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
+          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, in_img - 1), clamp(y-pad, 0, in_img - 1)));
           hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
           hw_output(w, x, y) = i16(0);
           hw_output(w, x, y) +=
@@ -83,7 +82,7 @@ public:
 
         } else {
           //Func hw_input("hw_input"), hw_kernel("hw_kernel");
-          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1)));
+          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, in_img - 1), clamp(y-pad, 0, in_img - 1)));
           hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
         
           //Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
