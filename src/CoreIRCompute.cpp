@@ -14,6 +14,7 @@
 #include "coreir.h"
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "coreir/libs/float_DW.h"
 #include "lakelib.h"
 //#include "cgralib.h"
 
@@ -198,6 +199,17 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   }
   gens["fconst"] = "coreir.const";
 
+  // add all generators from float_DW which includes add and mult
+  CoreIRLoadLibrary_float_DW(context);
+  std::vector<string> dwfplib_gen_names = {"dwfp_mul", "dwfp_add"};
+
+  for (auto gen_name : dwfplib_gen_names) {
+    // floating point library does not start with "dw"
+    gens[gen_name] = "float_DW." + gen_name.substr(2);
+    internal_assert(context->hasGenerator(gens[gen_name]))
+      << "could not find " << gen_name << "\n";
+  }
+  
   // add all modules from corebit
   context->getNamespace("corebit");
   std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
@@ -872,21 +884,34 @@ void CreateCoreIRModule::visit_binop(Type t, Expr a, Expr b, const char*  op_sym
     string binop_name = op_name + a_name + b_name + out_var;
     CoreIR::Wireable* coreir_inst;
 
+    string in0_name = "in0";
+    string in1_name = "in1";
+    string out_name = "out";
+    
     // properly cast to generator or module
     internal_assert(gens.count(op_name) > 0) << op_name << " is not one of the names Halide recognizes\n";
-    if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
+    if (context->getNamespace("float_DW")->hasGenerator(gens[op_name].substr(9))) {
+      coreir_inst = def->addInstance(binop_name, gens[op_name],
+                                     {{"exp_width", CoreIR::Const::make(context,8)},
+                                      {"sig_width", CoreIR::Const::make(context,7)},
+                                      {"ieee_compliance", CoreIR::Const::make(context,false)}});
+      in0_name = "a";
+      in1_name = "b";
+      out_name = "z";
+      
+    } else if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
       coreir_inst = def->addInstance(binop_name, gens[op_name],
                                      {{"exp_bits", CoreIR::Const::make(context,8)},
-                                         {"frac_bits", CoreIR::Const::make(context,7)}});
+                                      {"frac_bits", CoreIR::Const::make(context,7)}});
     } else if (context->hasGenerator(gens[op_name])) {
       coreir_inst = def->addInstance(binop_name, gens[op_name], {{"width", CoreIR::Const::make(context,bw)}});
     } else {
       coreir_inst = def->addInstance(binop_name, gens[op_name]);
     }
 
-    def->connect(a_wire, coreir_inst->sel("in0"));
-    def->connect(b_wire, coreir_inst->sel("in1"));
-    add_wire(out_var, coreir_inst->sel("out"));
+    def->connect(a_wire, coreir_inst->sel(in0_name));
+    def->connect(b_wire, coreir_inst->sel(in1_name));
+    add_wire(out_var, coreir_inst->sel(out_name));
 
   } else {
     out_var = "";
@@ -961,7 +986,7 @@ void CreateCoreIRModule::visit_ternop(Type t, Expr a, Expr b, Expr c, const char
 void CreateCoreIRModule::visit(const Mul *op) {
   internal_assert(op->a.type() == op->b.type());
   if (op->a.type().is_float()) {
-    visit_binop(op->type, op->a, op->b, "f*", "fmul");
+    visit_binop(op->type, op->a, op->b, "f*", "dwfp_mul");
   } else {
     visit_binop(op->type, op->a, op->b, "*", "mul");
   }
@@ -969,7 +994,7 @@ void CreateCoreIRModule::visit(const Mul *op) {
 void CreateCoreIRModule::visit(const Add *op) {
   internal_assert(op->a.type() == op->b.type());
   if (op->a.type().is_float()) {
-    visit_binop(op->type, op->a, op->b, "f+", "fadd");
+    visit_binop(op->type, op->a, op->b, "f+", "dwfp_add");
   } else {
     visit_binop(op->type, op->a, op->b, "+", "add");
   }

@@ -112,8 +112,8 @@ string type_to_c_type(Type type) {
     } else if (type.bits() == 16 && !type.is_bfloat()) {
       oss << "float16_t";
     } else if (type.bits() == 16 && type.is_bfloat()) {
-      //oss << "bfloat16_t";
-      oss << "uint16_t";
+      oss << "bfloat16_t";
+      //oss << "uint16_t";
     } else {
       user_error << "Can't represent a float with this many bits in C: " << type << "\n";
     }
