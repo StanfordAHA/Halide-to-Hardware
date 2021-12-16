@@ -132,7 +132,7 @@ HL_VIDEOPLAYER ?= mplayer
 # For CoreIR generation
 LDFLAGS += -lcurses
 LDFLAGS += -L$(COREIR_DIR)/lib -Wl,-rpath,$(COREIR_DIR)/lib
-LDFLAGS += -lcoreir -lcoreir-commonlib -lcoreirsim -lcoreir-float
+LDFLAGS += -lcoreir -lcoreir-commonlib -lcoreirsim -lcoreir-float -lcoreir-float_DW
 LDFLAGS += -L$(CLOCKWORK_DIR)/lib -Wl,-rpath,$(CLOCKWORK_DIR)/lib
 LDFLAGS += -lcoreir-cgralib
 

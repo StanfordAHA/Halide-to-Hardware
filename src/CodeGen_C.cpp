@@ -1928,6 +1928,9 @@ void CodeGen_C::visit(const FloatImm *op) {
         if (op->type.bits() == 64) {
             oss << "(double) ";
         }
+        if (op->type.is_bfloat()) {
+          oss << "b";
+        }
         oss << "float_from_bits(" << u.as_uint << " /* " << u.as_float << " */)";
         print_assignment(op->type, oss.str());
     }
