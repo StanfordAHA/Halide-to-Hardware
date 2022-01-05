@@ -29,7 +29,7 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 0
     GeneratorParam<uint16_t> myunroll{"myunroll", 2};    // default: 2
     GeneratorParam<uint16_t> width{"width", 300-6};      // default: 120
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128

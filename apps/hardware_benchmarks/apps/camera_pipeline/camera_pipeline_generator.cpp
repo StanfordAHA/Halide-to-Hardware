@@ -464,6 +464,17 @@ Func interleave_y(Func a, Func b) {
               .unroll(x, unroll);
             //.unroll(x).unroll(y);
 
+            if (true) {
+              b_r.compute_at(hw_output, xo);
+              g_r.compute_at(hw_output, xo);
+              b_gr.compute_at(hw_output, xo);
+              r_gr.compute_at(hw_output, xo);
+              b_gb.compute_at(hw_output, xo);
+              r_gb.compute_at(hw_output, xo);
+              r_b.compute_at(hw_output, xo);
+              g_b.compute_at(hw_output, xo);
+            }
+	    
             g_gr.compute_at(hw_output, xo).unroll(x, unroll);
             r_r.compute_at(hw_output, xo).unroll(x, unroll);
             b_b.compute_at(hw_output, xo).unroll(x, unroll);

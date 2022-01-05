@@ -885,20 +885,22 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
         // save input to file
         string inputname = printname(closure_args[i].name);
-        if (!((elt_sizes[i]==8) || (elt_sizes[i]==16))) {
+        if (!((elt_sizes[i]==1) || (elt_sizes[i]==8) || (elt_sizes[i]==16))) {
           std::cout << inputname << " elt_size=" << elt_sizes[i] << std::endl;
         }
-        internal_assert((elt_sizes[i]==8) || (elt_sizes[i]==16));
-        string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
-        stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";
-        stream << "\t" << inputname << "_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
-               << "\t\tsizeof(" << tile_name << "[0])";
-        for (size_t j = 0; j < extents.size(); j++) {
-          stream << " * " << extents[j];
+        internal_assert((elt_sizes[i]==1 || elt_sizes[i]==8) || (elt_sizes[i]==16));
+        if (elt_sizes[i] != 1) {
+          string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
+          stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";
+          stream << "\t" << inputname << "_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
+                 << "\t\tsizeof(" << tile_name << "[0])";
+          for (size_t j = 0; j < extents.size(); j++) {
+            stream << " * " << extents[j];
+          }
+          stream << ");" << std::endl
+                 << "\t" << inputname << "_file.close();" << std::endl
+                 << std::endl;
         }
-        stream << ");" << std::endl
-               << "\t" << inputname << "_file.close();" << std::endl
-               << std::endl;
       }
     }
     stream << "\n";
@@ -976,17 +978,19 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       // save output to file
       string outputname = printname(stencil_arg.name);
-      internal_assert((elt_size==8) || (elt_size==16)) << "size is " << std::to_string(elt_size) << " for output\n";
-      string extension = elt_size == 8 ? ".raw" : ".leraw";
-      stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
-      stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
-             << "\t\tsizeof(" << tile_name << "[0])";
+      internal_assert((elt_size==1) || (elt_size==8) || (elt_size==16)) << "size is " << std::to_string(elt_size) << " for output\n";
+      if (elt_size != 1) {
+        string extension = elt_size == 8 ? ".raw" : ".leraw";
+        stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
+        stream << "\t" << "hw_output_file.write(reinterpret_cast<const char *>(" << tile_name << ".data()),\n"
+               << "\t\tsizeof(" << tile_name << "[0])";
 
-      for (size_t j = 0; j < extents.size(); j++) {
-        stream << " * " << extents[j];
+        for (size_t j = 0; j < extents.size(); j++) {
+          stream << " * " << extents[j];
+        }
+        stream << ");" << std::endl
+               << "\t" << "hw_output_file.close();" << std::endl;
       }
-      stream << ");" << std::endl
-             << "\t" << "hw_output_file.close();" << std::endl;
 
       // save output pgm header
       int max_value = elt_size==8 ? 255 : 65535;

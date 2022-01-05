@@ -168,7 +168,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
                                              "mult_middle", "mult_high",
                                              "counter", //"linebuffer",
-                                             "muxn", "abs", "absd",
+                                             "muxn", "abs", "absd", "adc",
                                              "reg_array", "reshape", "transpose_reshape"
   };
   for (auto gen_name : commonlib_gen_names) {
@@ -993,11 +993,24 @@ void CreateCoreIRModule::visit(const Mul *op) {
 }
 void CreateCoreIRModule::visit(const Add *op) {
   internal_assert(op->a.type() == op->b.type());
+  //if (op->a.type().is_float()) {
+  //  visit_binop(op->type, op->a, op->b, "f+", "dwfp_add");
+  //} else {
+  //  visit_binop(op->type, op->a, op->b, "+", "add");
+  //}
+  // check if we can instantiate an ADC instead
+  if (const Add* addvar = op->a.as<Add>()) {
+    if (is_const(op->b) && id_const_value(op->b) == 1) {
+      visit_binop(op->type, addvar->a, addvar->b, "+1+", "adc");
+    }
+  }
+  
   if (op->a.type().is_float()) {
     visit_binop(op->type, op->a, op->b, "f+", "dwfp_add");
   } else {
     visit_binop(op->type, op->a, op->b, "+", "add");
   }
+  
   // check if we can instantiate a MAD instead
   /*
     if (const Mul* mul = op->a.as<Mul>()) {
