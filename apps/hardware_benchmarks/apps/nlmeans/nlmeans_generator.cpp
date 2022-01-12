@@ -3,6 +3,7 @@
 namespace {
 
 using namespace Halide;
+using namespace Halide::ConciseCasts;
 
 class NonLocalMeans : public Halide::Generator<NonLocalMeans> {
 public:
@@ -25,40 +26,45 @@ public:
         //Expr inv_sigma_sq = -69 / (patch_size * patch_size);
 
         // Add a boundary condition
-        Func hw_input;
+        Func hw_input, hw_input_bfloat;
         Func repeated = BoundaryConditions::repeat_edge(input);
         //hw_input(x, y, c) = cast<float>(repeated(x, y, c));
-        hw_input(x, y, c) = cast<int16_t>(repeated(x, y, c));
+        hw_input(x, y, c) = u16(repeated(x, y, c));
+        hw_input_bfloat(x, y, c) = cast<bfloat16_t>(hw_input(x, y, c));
 
         // Define the difference images
         Var dx("dx"), dy("dy");
         Func dc("dc");
-        dc(x, y, dx, dy, c) = pow(hw_input(x, y, c) - hw_input(x + dx, y + dy, c), 2);
+        Expr diff = hw_input_bfloat(x, y, c) - hw_input_bfloat(x + dx, y + dy, c);
+        dc(x, y, dx, dy, c) = diff * diff;
 
         // Sum across color channels
         RDom channels(0, 3);
         Func d("d");
-        d(x, y, dx, dy) = sum(dc(x, y, dx, dy, channels));
+        d(x, y, dx, dy) = bfloat16_t(0);
+        d(x, y, dx, dy) += (dc(x, y, dx, dy, channels));
 
         // Find the patch differences by blurring the difference images
         RDom patch_dom(-(7 / 2), 7);
         Func blur_d_y("blur_d_y");
-        blur_d_y(x, y, dx, dy) = sum(d(x, y + patch_dom, dx, dy));
+        blur_d_y(x, y, dx, dy) = bfloat16_t(0);
+        blur_d_y(x, y, dx, dy) += (d(x, y + patch_dom, dx, dy));
 
         Func blur_d("blur_d");
-        blur_d(x, y, dx, dy) = sum(blur_d_y(x + patch_dom, y, dx, dy));
+        blur_d(x, y, dx, dy) = bfloat16_t(0);
+        blur_d(x, y, dx, dy) += (blur_d_y(x + patch_dom, y, dx, dy));
 
         // Compute the weights from the patch differences
         Func w("w");
-        //w(x, y, dx, dy) = fast_exp(cast<float>(blur_d(x, y, dx, dy)) * inv_sigma_sq);
-        w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
+        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bfloat16_t(-3 / 2);
+        //w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
 
         // Add an alpha channel
         Func clamped_with_alpha("clamped_with_alpha");
-        clamped_with_alpha(x, y, c) = select(c==0, hw_input(x, y, 0),
-                                             c==1, hw_input(x, y, 1),
-                                             c==2, hw_input(x, y, 2),
-                                             /*c==3*/ 1);
+        clamped_with_alpha(x, y, c) = select(c==0, hw_input_bfloat(x, y, 0),
+                                             c==1, hw_input_bfloat(x, y, 1),
+                                             c==2, hw_input_bfloat(x, y, 2),
+                                             /*c==3*/ bfloat16_t(1));
 
         // Define a reduction domain for the search area
         //RDom s_dom(-(search_area / 2), search_area, -(search_area / 2), search_area);
@@ -66,13 +72,14 @@ public:
 
         // Compute the sum of the pixels in the search area
         Func non_local_means_sum("non_local_means_sum"), non_local_means, hw_output;
-        non_local_means_sum(x, y, c) += w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c);
+        non_local_means_sum(x, y, c) = bfloat16_t(0);
+        non_local_means_sum(x, y, c) += cast<bfloat16_t>(w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c));
 
         non_local_means(x, y, c) =
-            clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), 0.0f, 1.0f);
+          clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bfloat16_t(0.0f), bfloat16_t(1.0f));
 
-        hw_output(x, y, c) = non_local_means(x, y, c);
-        output(x, y, c) = cast<uint8_t>(hw_output(x, y, c));
+        hw_output(x, y, c) = u16(non_local_means(x, y, c));
+        output(x, y, c) = u8(hw_output(x, y, c));
 
         /* THE SCHEDULE */
 
@@ -95,6 +102,7 @@ public:
           hw_output
             .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
             .reorder(c, xi, yi, xo, yo)
+            .reorder_storage(c, x, y)
             .hw_accelerate(xi, xo);
         
           hw_output.unroll(c);
@@ -102,9 +110,12 @@ public:
           d.compute_at(hw_output, xo);
           blur_d_y.compute_at(hw_output, xo);
           blur_d.compute_at(hw_output, xo);
-          non_local_means_sum.compute_at(hw_output, xo);
+          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y);
+          non_local_means_sum.update().reorder(c, x, y);
 
-          hw_input.stream_to_accelerator();
+          hw_input.in().reorder(c, x, y);
+          
+          hw_input.reorder(c, x, y).stream_to_accelerator();
 
         } else if (get_target().has_gpu_feature()) {
             // 22 ms on a 2060 RTX

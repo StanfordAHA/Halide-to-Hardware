@@ -224,7 +224,9 @@ public:
 
           if (imgsize == 7) {
             kernel_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
-            input_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
+            input_cgra.unroll(z_cgra, 2);  // unroll glb->cgra channels for small images
+            kernel_glb.unroll(z, 2); // unroll host->glb channels for small images
+            input_glb.unroll(z, 2);  // unroll host->glb channels for small images
           }
 
 

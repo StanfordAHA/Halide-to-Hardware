@@ -25,9 +25,9 @@ int blockSize = 9;
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 3
     GeneratorParam<uint8_t> width{"width", 0};          // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 1
+    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
 
     Func interleave_x(Func a, Func b) {
       Func out;
@@ -212,7 +212,6 @@ int blockSize = 9;
       corrected(x, y, c) = select(c == 0, r,
                                   c == 1, g,
                                   b);
-
       return corrected;
     }
 
@@ -228,11 +227,26 @@ int blockSize = 9;
       return curved;
     }
 
+    const int tWidth = 256;
+    const int tHeight = 192;
+    const int nTiles = 1;
     
     void generate() {
 
-      Func hw_input;
-      hw_input(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
+      Func hw_input, hw_input_temp, hw_input_shuffle, hw_input_shift;
+      //hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
+      hw_input_temp(x,y) = u16(input(x, y));
+
+      if (get_target().has_feature(Target::Clockwork)) {
+        hw_input_shuffle(x, y, c) = hw_input_temp(2*x + c/2, 2*y + c%2);
+
+        //hw_input(x, y) = hw_input_shuffle(x/4 + 622*(y%2), y/2, x%4);
+        int iWidth = (tWidth * nTiles + blockSize-1) / 4;
+        hw_input_shift(x, y) = hw_input_shuffle(x/4 + iWidth*(y%2), y/2, x%4);
+        hw_input(x, y) = hw_input_shift(x+(blockSize-1)/2, y+(blockSize-1)/2);
+      } else {
+        hw_input(x, y) = hw_input_temp(x+(blockSize-1)/2, y+(blockSize-1)/2);
+      }
 
       Func hw_input_copy;
       
@@ -267,11 +281,21 @@ int blockSize = 9;
         //curve(x) = clamp(val*256.0f, 0.0f, 255.0f);
       }
 
-      Func hw_output, curve_out;
+      Func hw_output, curve_out, output_shuffle;
       curve_out = apply_curve(color_corrected, curve);
-      
       hw_output(c, x, y) = curve_out(x, y, c);
-      output(x, y, c) = u8(hw_output(c, x, y));
+
+      Var k;
+      if (get_target().has_feature(Target::Clockwork)) {
+        int iWidth = tWidth * nTiles / 4;
+        output_shuffle(c, k, x, y) = u8(hw_output(c, (x%iWidth)*4 + k, x/iWidth + 2*y));
+        //output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), max(x/2 - 1, 0), y/2);
+        output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), x/2, y/2);
+      } else {
+        //output(x, y, c) = u8(hw_output(c, x+2, y));
+        output(x, y, c) = u8(hw_output(c, x, y));
+      }
+
 
       //curve.bound(x, 0, 256);
       output.bound(c, 0, 3);
@@ -414,12 +438,13 @@ int blockSize = 9;
               .accelerator_input();
 
           } else if (schedule == 3) { // big parrot with unroll
-            const int unroll = myunroll;
+            const int unrollx = 2;
+            const int unrolly = 2;
             //const int tileWidth = 64-8;
-            const int tileWidth = 256-8;
+            const int tileWidth = tWidth;//256-8;
             //const int tileHeight = 64-8;
-            const int tileHeight = 192-8;
-            const int numHostTiles = 10;
+            const int tileHeight = tHeight;//192-8;
+            const int numHostTiles = nTiles;//10;
             const int numTiles = 1; // number of tiles in the glb
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -431,38 +456,49 @@ int blockSize = 9;
 
             hw_output.in().compute_root();
 
+            Var xii, yii, xio, yio;
             hw_output.in()
               .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-              .reorder(c, xi, yi, xo, yo)
+              .split(yi, yio, yii, unrolly)
+              .reorder(c, yii, xi, yio, xo, yo)
               .hw_accelerate(xi, xo);
             hw_output.in().unroll(c)
-              .unroll(xi, unroll, TailStrategy::RoundUp);
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(xi, unrollx, TailStrategy::RoundUp);
 
-            Var xii, yii, xio, yio;
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-              .reorder(c, xi, yi, xo, yo);
+              .split(yi, yio, yii, unrolly)
+              .reorder(c, yii, xi, yio, xo, yo);
             hw_output.compute_at(hw_output.in(), xo);
             hw_output.store_in(MemoryType::GLB);
             hw_output.unroll(c)
-              .unroll(xi, unroll, TailStrategy::RoundUp);
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(xi, unrollx, TailStrategy::RoundUp);
 
             curve_out.compute_at(hw_output, xo);
             curve_out.unroll(c)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .split(y, yio, yii, unrolly).reorder(c, yii, x, yio)
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(x, unrollx, TailStrategy::RoundUp);
         
             color_corrected.compute_at(hw_output, xo);
             color_corrected.unroll(c)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .split(y, yio, yii, unrolly).reorder(c, yii, x, yio)
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(x, unrollx, TailStrategy::RoundUp);
         
             demosaicked.compute_at(hw_output, xo);
             demosaicked
-              .reorder(c, x, y)
+              .split(y, yio, yii, unrolly).reorder(c, yii, x, yio)
               .unroll(c)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(x, unrollx, TailStrategy::RoundUp);
 
             denoised.compute_at(hw_output, xo)
-              .unroll(x, unroll);
+              .split(y, yio, yii, unrolly).reorder(yii, x, yio)
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(x, unrollx);
             //.unroll(x).unroll(y);
 
             bool buffer_memories = true;
@@ -478,28 +514,29 @@ int blockSize = 9;
             }
 
             if (true) {
-              b_r.unroll(x, unroll, TailStrategy::RoundUp);
-              g_r.unroll(x, unroll, TailStrategy::RoundUp);
-              b_gr.unroll(x, unroll, TailStrategy::RoundUp);
-              r_gr.unroll(x, unroll, TailStrategy::RoundUp);
-              b_gb.unroll(x, unroll, TailStrategy::RoundUp);
-              r_gb.unroll(x, unroll, TailStrategy::RoundUp);
-              r_b.unroll(x, unroll, TailStrategy::RoundUp);
-              g_b.unroll(x, unroll, TailStrategy::RoundUp);
+              g_gr.compute_at(hw_output, xo);
+              r_r.compute_at(hw_output, xo);
+              b_b.compute_at(hw_output, xo);
+              g_gb.compute_at(hw_output, xo);
             }
-
-            // when unrolled more than 1, these cause `make compare` to fail
-            //if (unroll == 1) {
+            
             if (false) {
-              g_gr.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              r_r.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              b_b.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              g_gb.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            //} else {
-            //  g_gr.compute_at(hw_output, xo);
-            //  r_r.compute_at(hw_output, xo);
-            //  b_b.compute_at(hw_output, xo);
-            //  g_gb.compute_at(hw_output, xo);
+              g_gr
+                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+                .unroll(x, unrollx, TailStrategy::RoundUp)
+                .unroll(yii, unrolly, TailStrategy::RoundUp);
+              r_r
+                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+                .unroll(x, unrollx, TailStrategy::RoundUp)
+                .unroll(yii, unrolly, TailStrategy::RoundUp);
+              b_b
+                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+                .unroll(x, unrollx, TailStrategy::RoundUp)
+                .unroll(yii, unrolly, TailStrategy::RoundUp);
+              g_gb
+                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+                .unroll(x, unrollx, TailStrategy::RoundUp)
+                .unroll(yii, unrolly, TailStrategy::RoundUp);
             }
         
             curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
@@ -508,11 +545,16 @@ int blockSize = 9;
 
             hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
             hw_input.in().in()
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .split(y, yio, yii, unrolly).reorder(yii, x, yio)
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(x, unrollx, TailStrategy::RoundUp);
             
             hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
             hw_input.in().store_in(MemoryType::GLB);
-            hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
+            hw_input.in()
+              .split(y, yio, yii, unrolly).reorder(yii, x, yio)
+              .unroll(yii, unrolly, TailStrategy::RoundUp)
+              .unroll(x, unrollx, TailStrategy::RoundUp);
             
             hw_input.compute_root()
               .accelerator_input();
@@ -628,4 +670,4 @@ int blockSize = 9;
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(CameraPipeline, camera_pipeline)
+HALIDE_REGISTER_GENERATOR(CameraPipeline, camera_pipeline_2x2)
