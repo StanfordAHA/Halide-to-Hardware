@@ -183,7 +183,7 @@ def main():
         inputs = meta['IOs']['inputs']
         for _input in inputs:
             if _input['datafile'][0:5] == 'input':
-                _input['datafile'] = 'input_padded_shuffle.raw'
+                _input['datafile'] = 'input_host_stencil_shuffle.raw'
             elif _input['datafile'][0:6] == 'kernel':
                 _input['datafile'] = 'kernel_shuffle.raw'
         outputs = meta['IOs']['outputs']

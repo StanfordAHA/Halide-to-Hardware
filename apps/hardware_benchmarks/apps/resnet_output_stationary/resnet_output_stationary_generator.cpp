@@ -222,13 +222,12 @@ public:
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
 
-          if (imgsize == 7) {
-            kernel_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
-            input_cgra.unroll(z_cgra, 2);  // unroll glb->cgra channels for small images
-            kernel_glb.unroll(z, 2); // unroll host->glb channels for small images
-            input_glb.unroll(z, 2);  // unroll host->glb channels for small images
-          }
-
+          //if (imgsize == 7) {
+          //  kernel_glb.unroll(z, 2); // unroll glb input for small images
+          //  input_glb.unroll(z, 2); // unroll glb input for small images
+          //  kernel_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
+          //  input_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
+          //}
 
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo

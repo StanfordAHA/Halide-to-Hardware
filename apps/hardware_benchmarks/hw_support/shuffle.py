@@ -1,4 +1,5 @@
 import json, sys
+import os
 import os.path as path
 import numpy as np
 import scipy.io
@@ -18,7 +19,7 @@ input_file = sys.argv[1]
 with open(input_file) as f:
     data = json.load(f)
     val_list = (data["top"]).split(".")
-    print(val_list)
+    # print(val_list)
     for ins_name, val in (data["namespaces"][val_list[0]]["modules"][val_list[1]]["instances"]).items():
         if "genref" not in val.keys():
             continue
@@ -72,6 +73,7 @@ with open(input_file) as f:
             compressed_ext = np.asarray(compressed_ext)
             compressed_stride = np.asarray(compressed_stride)
             compressed_new_stride= np.asarray(compressed_new_stride)
+            print("ext: ", ext)
             print("compressed ext: ", compressed_ext)
             print ("image size: ", img_size)
 
@@ -79,7 +81,8 @@ with open(input_file) as f:
             #TODO: should use a json file to save the input name
             def get_img_name(ins_name):
               if "input" in ins_name:
-                  return "input_padded"
+                  return "input_host_stencil"
+                  #return "input_padded"
                   #assert(path.exists("input_padded.mat"))
                   #data_org = scipy.io.loadmat("input_padded.mat")["input_padded"]
                   #data_org = np.random.randint(-128, 128, 58*58*16)
@@ -128,7 +131,9 @@ with open(input_file) as f:
 
 
             def sanity_check_all_addr_visit(img_size, addr_set):
+                # print("length of image", img_size)
                 for addr in range(img_size):
+                    # print("addr: ", addr)
                     assert(addr in addr_set)
 
             sanity_check_all_addr_visit(data_org.size, access_addr_set)
@@ -145,6 +150,8 @@ with open(input_file) as f:
             print ("\torigin stride: \t", stride)
             print ("\textend: \t", ext)
             print ("\tcycle stride: \t", glb_config["cycle_stride"])
+
+
 
 
             def merge_stride_and_add2json(ext, stride, glb_config):
@@ -186,16 +193,27 @@ with open(input_file) as f:
 
                 #print (addr_stride_merge_dims)
                 #print (sched_stride_merge_dims)
+        
+                # Layer 1
+                if "ksize=7" in os.getenv('HALIDE_GEN_ARGS') and "input" in ins_name:
+                    print("Layer 1 hack")
+                    new_addr_stride = [2, 222, 0, 1,]
+                    new_addr_ext = [112, 21, 4, 2]
+                    new_sched_stride = [1, 8960]
+                    new_sched_ext = [2352, 8]
+        
                 print ("====Merge Access Pattern to Fit GLB Controller===")
                 print ("\tnew_addr_stride:\t", new_addr_stride)
                 print ("\tnew_addr_ext:\t", new_addr_ext)
                 print ("\tnew_sched_stride:\t", new_sched_stride)
                 print ("\tnew_sched_ext:\t", new_sched_ext)
 
+
                 glb_config["new_addr_stride"] = new_addr_stride
                 glb_config["new_addr_extent"] = new_addr_ext
                 glb_config["new_sched_stride"] = new_sched_stride
                 glb_config["new_sched_extent"] = new_sched_ext
+
 
 
             merge_stride_and_add2json(ext, new_stride, glb_config)
