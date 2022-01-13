@@ -25,9 +25,9 @@ int blockSize = 9;
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 3
     GeneratorParam<uint8_t> width{"width", 0};          // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 1
+    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
 
     Func interleave_x(Func a, Func b) {
       Func out;
@@ -419,7 +419,7 @@ int blockSize = 9;
             const int tileWidth = 256-8;
             //const int tileHeight = 64-8;
             const int tileHeight = 192-8;
-            const int numHostTiles = 10;
+            const int numHostTiles = 1;
             const int numTiles = 1; // number of tiles in the glb
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -475,6 +475,10 @@ int blockSize = 9;
               r_gb.compute_at(hw_output, xo);
               r_b.compute_at(hw_output, xo);
               g_b.compute_at(hw_output, xo);
+	      g_gr.compute_at(hw_output, xo);
+	      r_r.compute_at(hw_output, xo);
+	      b_b.compute_at(hw_output, xo);
+	      g_gb.compute_at(hw_output, xo);
             }
 
             if (true) {
@@ -488,20 +492,6 @@ int blockSize = 9;
               g_b.unroll(x, unroll, TailStrategy::RoundUp);
             }
 
-            // when unrolled more than 1, these cause `make compare` to fail
-            //if (unroll == 1) {
-            if (false) {
-              g_gr.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              r_r.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              b_b.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              g_gb.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            //} else {
-            //  g_gr.compute_at(hw_output, xo);
-            //  r_r.compute_at(hw_output, xo);
-            //  b_b.compute_at(hw_output, xo);
-            //  g_gb.compute_at(hw_output, xo);
-            }
-        
             curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
             curve.store_in(MemoryType::ROM);
             // unroll by x?
