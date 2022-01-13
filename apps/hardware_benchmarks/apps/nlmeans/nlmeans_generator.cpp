@@ -41,22 +41,22 @@ public:
         // Sum across color channels
         RDom channels(0, 3);
         Func d("d");
-        d(x, y, dx, dy) = bfloat16_t(0);
+        d(x, y, dx, dy) = bf16(0);
         d(x, y, dx, dy) += (dc(x, y, dx, dy, channels));
 
         // Find the patch differences by blurring the difference images
         RDom patch_dom(-(7 / 2), 7);
         Func blur_d_y("blur_d_y");
-        blur_d_y(x, y, dx, dy) = bfloat16_t(0);
+        blur_d_y(x, y, dx, dy) = bf16(0);
         blur_d_y(x, y, dx, dy) += (d(x, y + patch_dom, dx, dy));
 
         Func blur_d("blur_d");
-        blur_d(x, y, dx, dy) = bfloat16_t(0);
+        blur_d(x, y, dx, dy) = bf16(0);
         blur_d(x, y, dx, dy) += (blur_d_y(x + patch_dom, y, dx, dy));
 
         // Compute the weights from the patch differences
         Func w("w");
-        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bfloat16_t(-3 / 2);
+        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bf16(-3 / 2);
         //w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
 
         // Add an alpha channel
@@ -64,7 +64,7 @@ public:
         clamped_with_alpha(x, y, c) = select(c==0, hw_input_bfloat(x, y, 0),
                                              c==1, hw_input_bfloat(x, y, 1),
                                              c==2, hw_input_bfloat(x, y, 2),
-                                             /*c==3*/ bfloat16_t(1));
+                                             /*c==3*/ bf16(1));
 
         // Define a reduction domain for the search area
         //RDom s_dom(-(search_area / 2), search_area, -(search_area / 2), search_area);
@@ -72,11 +72,11 @@ public:
 
         // Compute the sum of the pixels in the search area
         Func non_local_means_sum("non_local_means_sum"), non_local_means, hw_output;
-        non_local_means_sum(x, y, c) = bfloat16_t(0);
+        non_local_means_sum(x, y, c) = bf16(0);
         non_local_means_sum(x, y, c) += cast<bfloat16_t>(w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c));
 
         non_local_means(x, y, c) =
-          clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bfloat16_t(0.0f), bfloat16_t(1.0f));
+          clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bf16(0.0f), bf16(1.0f));
 
         hw_output(x, y, c) = u16(non_local_means(x, y, c));
         output(x, y, c) = u8(hw_output(x, y, c));

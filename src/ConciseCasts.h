@@ -23,6 +23,14 @@ inline Expr f32(Expr e) {
     return cast(Float(32, e.type().lanes()), e);
 }
 
+inline Expr f16(Expr e) {
+    return cast(Float(16, e.type().lanes()), e);
+}
+
+inline Expr bf16(Expr e) {
+    return cast(BFloat(16, e.type().lanes()), e);
+}
+
 inline Expr i64(Expr e) {
     return cast(Int(64, e.type().lanes()), e);
 }
