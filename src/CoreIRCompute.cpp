@@ -998,7 +998,8 @@ void CreateCoreIRModule::visit(const Add *op) {
   //} else {
   //  visit_binop(op->type, op->a, op->b, "+", "add");
   //}
-  // check if we can instantiate an ADC instead
+  // Check if we can instantiate an ADC instead.
+  // Order of operations after simplify should be consistent.
   if (const Add* addvar = op->a.as<Add>()) {
     if (is_const(op->b) && id_const_value(op->b) == 1) {
       visit_binop(op->type, addvar->a, addvar->b, "+1+", "adc");
@@ -1573,6 +1574,10 @@ void CreateCoreIRModule::visit(const Call *op) {
 
     
   } else if (op->name == "exp_f32") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "exp", "fexp");
+  } else if (op->name == "exp_bf16") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
     visit_unaryop(op->type, a, "exp", "fexp");

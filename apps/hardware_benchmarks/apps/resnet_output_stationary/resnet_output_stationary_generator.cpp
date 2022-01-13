@@ -229,7 +229,6 @@ public:
             input_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
           }
 
-
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
