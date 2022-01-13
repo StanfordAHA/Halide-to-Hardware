@@ -1577,6 +1577,10 @@ void CreateCoreIRModule::visit(const Call *op) {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
     visit_unaryop(op->type, a, "exp", "fexp");
+  } else if (op->name == "exp_bf16") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "exp", "fexp");
 
   } else if (op->name == "sqrt_f32") {
     internal_assert(op->args.size() == 1);

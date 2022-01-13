@@ -1192,6 +1192,8 @@ inline Expr exp(Expr x) {
         return Internal::Call::make(Float(64), "exp_f64", {std::move(x)}, Internal::Call::PureExtern);
     } else if (x.type() == Float(16)) {
         return Internal::Call::make(Float(16), "exp_f16", {std::move(x)}, Internal::Call::PureExtern);
+    } else if (x.type() == BFloat(16)) {
+      return Internal::Call::make(BFloat(16), "exp_bf16", {std::move(x)}, Internal::Call::PureExtern);
     } else {
         return Internal::Call::make(Float(32), "exp_f32", {cast<float>(std::move(x))}, Internal::Call::PureExtern);
     }
