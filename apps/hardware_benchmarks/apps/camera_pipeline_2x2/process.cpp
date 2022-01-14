@@ -94,14 +94,16 @@ int main( int argc, char **argv ) {
   int num_tiles          = host_tiling * glb_tiling;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
-  int blockSize = 9;
+  int blockSize = 9-1;
 
   // FIXME: why is this additional padding needed?
   vector<string> full_args(argv, argv + argc);
   string arch = full_args[2];
 
   iw = output_width + blockSize + 5*num_tiles;
+  //iw = output_width * 2;
   ih = output_height + blockSize + 5*num_tiles;
+  //ih = output_width * 2;
 
   if (schedule == 2 || schedule == 3) {
     ow = output_width;

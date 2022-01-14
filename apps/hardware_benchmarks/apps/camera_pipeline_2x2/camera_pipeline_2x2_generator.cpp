@@ -9,6 +9,7 @@
 namespace {
 int blockSize = 9;
 //int blockSize = 5;
+//int blockSize = 1;
 
   using namespace Halide;
   using namespace Halide::ConciseCasts;
@@ -56,6 +57,7 @@ int blockSize = 9;
       
       //denoised(x, y) = clamp(input(x,y), min_value, max_value);
       denoised(x, y) = clamp(input(x,y), 0, max_value);
+      //denoised(x, y) = input(x, y);
       return denoised;
     }
 
@@ -284,6 +286,8 @@ int blockSize = 9;
       Func hw_output, curve_out, output_shuffle;
       curve_out = apply_curve(color_corrected, curve);
       hw_output(c, x, y) = curve_out(x, y, c);
+      //hw_output(c, x, y) = demosaicked(x, y, c);
+      //hw_output(c, x, y) = denoised(x, y);
 
       Var k;
       if (get_target().has_feature(Target::Clockwork)) {
