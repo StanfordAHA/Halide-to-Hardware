@@ -535,4 +535,8 @@ uint16_t bfloat16_t::to_bits() const {
     return data;
 }
 
+bfloat16_t exp_bf16(bfloat16_t a) {
+  return bfloat16_t::make_from_bits(float_to_bfloat16( expf(bfloat16_to_float(a.to_bits())) ));
+}
+
 }  // namespace Halide
