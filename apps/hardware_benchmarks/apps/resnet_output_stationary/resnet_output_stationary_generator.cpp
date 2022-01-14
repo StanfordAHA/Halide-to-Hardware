@@ -170,7 +170,7 @@ public:
                      w_glb, x_glb, y_glb);
 
           if (imgsize == 7) {
-            //output_glb.unroll(w, 2); // unroll cgra->glb channels for small images
+            //output_glb.unroll(w_cgra, 2); // unroll cgra->glb channels for small images
           }
 
           output_cgra.compute_at(output_glb, w_glb); // memtile

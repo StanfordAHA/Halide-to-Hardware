@@ -52,14 +52,14 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__689":{
+          "const_p0__692":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__689.out"]
+          ["self.out_output_cgra_stencil","const_p0__692.out"]
         ]
       },
       "hcompute_output_cgra_stencil_1":{
@@ -67,668 +67,1244 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__698":{
+          "const_p0__701":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__698.out"]
+          ["self.out_output_cgra_stencil","const_p0__701.out"]
         ]
       },
       "hcompute_output_cgra_stencil_10":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_953_967_968":{
+          "add_1099_1129_1130":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_954_965_966":{
+          "add_1100_1127_1128":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_955_964_965":{
+          "add_1101_1126_1127":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_956_963_964":{
+          "add_1102_1125_1126":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_957_962_963":{
+          "add_1103_1124_1125":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_958_961_962":{
+          "add_1104_1123_1124":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_959_960_961":{
+          "add_1105_1122_1123":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_3_966_967":{
+          "add_1106_1121_1122":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_17_input_cgra_stencil_17_953":{
+          "add_1107_1120_1121":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1108_1119_1120":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1109_1118_1119":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1110_1117_1118":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1111_1116_1117":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1112_1115_1116":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1113_1114_1115":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_3_1128_1129":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1099":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_18_input_cgra_stencil_18_954":{
+          "mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1100":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_19_input_cgra_stencil_19_955":{
+          "mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1101":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_20_input_cgra_stencil_20_956":{
+          "mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1102":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_21_input_cgra_stencil_21_957":{
+          "mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1103":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_22_input_cgra_stencil_22_958":{
+          "mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1104":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_23_input_cgra_stencil_23_959":{
+          "mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1105":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_24_input_cgra_stencil_24_960":{
+          "mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1106":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1107":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1108":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1109":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1110":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1111":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1112":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1113":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1114":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_17_input_cgra_stencil_17_953.out","add_953_967_968.in0"],
-          ["add_output_cgra_stencil_3_966_967.out","add_953_967_968.in1"],
-          ["self.out_output_cgra_stencil","add_953_967_968.out"],
-          ["mul_kernel_cgra_stencil_18_input_cgra_stencil_18_954.out","add_954_965_966.in0"],
-          ["add_955_964_965.out","add_954_965_966.in1"],
-          ["add_output_cgra_stencil_3_966_967.in1","add_954_965_966.out"],
-          ["mul_kernel_cgra_stencil_19_input_cgra_stencil_19_955.out","add_955_964_965.in0"],
-          ["add_956_963_964.out","add_955_964_965.in1"],
-          ["mul_kernel_cgra_stencil_20_input_cgra_stencil_20_956.out","add_956_963_964.in0"],
-          ["add_957_962_963.out","add_956_963_964.in1"],
-          ["mul_kernel_cgra_stencil_21_input_cgra_stencil_21_957.out","add_957_962_963.in0"],
-          ["add_958_961_962.out","add_957_962_963.in1"],
-          ["mul_kernel_cgra_stencil_22_input_cgra_stencil_22_958.out","add_958_961_962.in0"],
-          ["add_959_960_961.out","add_958_961_962.in1"],
-          ["mul_kernel_cgra_stencil_23_input_cgra_stencil_23_959.out","add_959_960_961.in0"],
-          ["mul_kernel_cgra_stencil_24_input_cgra_stencil_24_960.out","add_959_960_961.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_3_966_967.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_17_input_cgra_stencil_17_953.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_17_input_cgra_stencil_17_953.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_18_input_cgra_stencil_18_954.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_18_input_cgra_stencil_18_954.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_19_input_cgra_stencil_19_955.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_19_input_cgra_stencil_19_955.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_20_input_cgra_stencil_20_956.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_20_input_cgra_stencil_20_956.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_21_input_cgra_stencil_21_957.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_21_input_cgra_stencil_21_957.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_22_input_cgra_stencil_22_958.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_22_input_cgra_stencil_22_958.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_23_input_cgra_stencil_23_959.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_23_input_cgra_stencil_23_959.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_24_input_cgra_stencil_24_960.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_24_input_cgra_stencil_24_960.in1"]
+          ["mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1099.out","add_1099_1129_1130.in0"],
+          ["add_output_cgra_stencil_3_1128_1129.out","add_1099_1129_1130.in1"],
+          ["self.out_output_cgra_stencil","add_1099_1129_1130.out"],
+          ["mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1100.out","add_1100_1127_1128.in0"],
+          ["add_1101_1126_1127.out","add_1100_1127_1128.in1"],
+          ["add_output_cgra_stencil_3_1128_1129.in1","add_1100_1127_1128.out"],
+          ["mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1101.out","add_1101_1126_1127.in0"],
+          ["add_1102_1125_1126.out","add_1101_1126_1127.in1"],
+          ["mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1102.out","add_1102_1125_1126.in0"],
+          ["add_1103_1124_1125.out","add_1102_1125_1126.in1"],
+          ["mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1103.out","add_1103_1124_1125.in0"],
+          ["add_1104_1123_1124.out","add_1103_1124_1125.in1"],
+          ["mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1104.out","add_1104_1123_1124.in0"],
+          ["add_1105_1122_1123.out","add_1104_1123_1124.in1"],
+          ["mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1105.out","add_1105_1122_1123.in0"],
+          ["add_1106_1121_1122.out","add_1105_1122_1123.in1"],
+          ["mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1106.out","add_1106_1121_1122.in0"],
+          ["add_1107_1120_1121.out","add_1106_1121_1122.in1"],
+          ["mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1107.out","add_1107_1120_1121.in0"],
+          ["add_1108_1119_1120.out","add_1107_1120_1121.in1"],
+          ["mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1108.out","add_1108_1119_1120.in0"],
+          ["add_1109_1118_1119.out","add_1108_1119_1120.in1"],
+          ["mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1109.out","add_1109_1118_1119.in0"],
+          ["add_1110_1117_1118.out","add_1109_1118_1119.in1"],
+          ["mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1110.out","add_1110_1117_1118.in0"],
+          ["add_1111_1116_1117.out","add_1110_1117_1118.in1"],
+          ["mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1111.out","add_1111_1116_1117.in0"],
+          ["add_1112_1115_1116.out","add_1111_1116_1117.in1"],
+          ["mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1112.out","add_1112_1115_1116.in0"],
+          ["add_1113_1114_1115.out","add_1112_1115_1116.in1"],
+          ["mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1113.out","add_1113_1114_1115.in0"],
+          ["mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1114.out","add_1113_1114_1115.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_3_1128_1129.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1099.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1099.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1100.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1100.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1101.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1101.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1102.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1102.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1103.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1103.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1104.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1104.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1105.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1105.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1106.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1106.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1107.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1107.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1108.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1108.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1109.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1109.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1110.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1110.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1111.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1111.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1112.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1112.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1113.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1113.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1114.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1114.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_11":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_1032_1046_1047":{
+          "add_1242_1272_1273":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1033_1044_1045":{
+          "add_1243_1270_1271":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1034_1043_1044":{
+          "add_1244_1269_1270":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1035_1042_1043":{
+          "add_1245_1268_1269":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1036_1041_1042":{
+          "add_1246_1267_1268":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1037_1040_1041":{
+          "add_1247_1266_1267":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1038_1039_1040":{
+          "add_1248_1265_1266":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_4_1045_1046":{
+          "add_1249_1264_1265":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_25_input_cgra_stencil_25_1032":{
+          "add_1250_1263_1264":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1251_1262_1263":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1252_1261_1262":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1253_1260_1261":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1254_1259_1260":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1255_1258_1259":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1256_1257_1258":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_4_1271_1272":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1242":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_26_input_cgra_stencil_26_1033":{
+          "mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1243":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_27_input_cgra_stencil_27_1034":{
+          "mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1244":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_28_input_cgra_stencil_28_1035":{
+          "mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1245":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_29_input_cgra_stencil_29_1036":{
+          "mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1246":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_30_input_cgra_stencil_30_1037":{
+          "mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1247":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_31_input_cgra_stencil_31_1038":{
+          "mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1248":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_32_input_cgra_stencil_32_1039":{
+          "mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1249":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1250":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1251":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1252":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1253":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1254":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1255":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1256":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1257":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_25_input_cgra_stencil_25_1032.out","add_1032_1046_1047.in0"],
-          ["add_output_cgra_stencil_4_1045_1046.out","add_1032_1046_1047.in1"],
-          ["self.out_output_cgra_stencil","add_1032_1046_1047.out"],
-          ["mul_kernel_cgra_stencil_26_input_cgra_stencil_26_1033.out","add_1033_1044_1045.in0"],
-          ["add_1034_1043_1044.out","add_1033_1044_1045.in1"],
-          ["add_output_cgra_stencil_4_1045_1046.in1","add_1033_1044_1045.out"],
-          ["mul_kernel_cgra_stencil_27_input_cgra_stencil_27_1034.out","add_1034_1043_1044.in0"],
-          ["add_1035_1042_1043.out","add_1034_1043_1044.in1"],
-          ["mul_kernel_cgra_stencil_28_input_cgra_stencil_28_1035.out","add_1035_1042_1043.in0"],
-          ["add_1036_1041_1042.out","add_1035_1042_1043.in1"],
-          ["mul_kernel_cgra_stencil_29_input_cgra_stencil_29_1036.out","add_1036_1041_1042.in0"],
-          ["add_1037_1040_1041.out","add_1036_1041_1042.in1"],
-          ["mul_kernel_cgra_stencil_30_input_cgra_stencil_30_1037.out","add_1037_1040_1041.in0"],
-          ["add_1038_1039_1040.out","add_1037_1040_1041.in1"],
-          ["mul_kernel_cgra_stencil_31_input_cgra_stencil_31_1038.out","add_1038_1039_1040.in0"],
-          ["mul_kernel_cgra_stencil_32_input_cgra_stencil_32_1039.out","add_1038_1039_1040.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_4_1045_1046.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_25_input_cgra_stencil_25_1032.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_25_input_cgra_stencil_25_1032.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_26_input_cgra_stencil_26_1033.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_26_input_cgra_stencil_26_1033.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_27_input_cgra_stencil_27_1034.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_27_input_cgra_stencil_27_1034.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_28_input_cgra_stencil_28_1035.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_28_input_cgra_stencil_28_1035.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_29_input_cgra_stencil_29_1036.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_29_input_cgra_stencil_29_1036.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_30_input_cgra_stencil_30_1037.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_30_input_cgra_stencil_30_1037.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_31_input_cgra_stencil_31_1038.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_31_input_cgra_stencil_31_1038.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_32_input_cgra_stencil_32_1039.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_32_input_cgra_stencil_32_1039.in1"]
+          ["mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1242.out","add_1242_1272_1273.in0"],
+          ["add_output_cgra_stencil_4_1271_1272.out","add_1242_1272_1273.in1"],
+          ["self.out_output_cgra_stencil","add_1242_1272_1273.out"],
+          ["mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1243.out","add_1243_1270_1271.in0"],
+          ["add_1244_1269_1270.out","add_1243_1270_1271.in1"],
+          ["add_output_cgra_stencil_4_1271_1272.in1","add_1243_1270_1271.out"],
+          ["mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1244.out","add_1244_1269_1270.in0"],
+          ["add_1245_1268_1269.out","add_1244_1269_1270.in1"],
+          ["mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1245.out","add_1245_1268_1269.in0"],
+          ["add_1246_1267_1268.out","add_1245_1268_1269.in1"],
+          ["mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1246.out","add_1246_1267_1268.in0"],
+          ["add_1247_1266_1267.out","add_1246_1267_1268.in1"],
+          ["mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1247.out","add_1247_1266_1267.in0"],
+          ["add_1248_1265_1266.out","add_1247_1266_1267.in1"],
+          ["mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1248.out","add_1248_1265_1266.in0"],
+          ["add_1249_1264_1265.out","add_1248_1265_1266.in1"],
+          ["mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1249.out","add_1249_1264_1265.in0"],
+          ["add_1250_1263_1264.out","add_1249_1264_1265.in1"],
+          ["mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1250.out","add_1250_1263_1264.in0"],
+          ["add_1251_1262_1263.out","add_1250_1263_1264.in1"],
+          ["mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1251.out","add_1251_1262_1263.in0"],
+          ["add_1252_1261_1262.out","add_1251_1262_1263.in1"],
+          ["mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1252.out","add_1252_1261_1262.in0"],
+          ["add_1253_1260_1261.out","add_1252_1261_1262.in1"],
+          ["mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1253.out","add_1253_1260_1261.in0"],
+          ["add_1254_1259_1260.out","add_1253_1260_1261.in1"],
+          ["mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1254.out","add_1254_1259_1260.in0"],
+          ["add_1255_1258_1259.out","add_1254_1259_1260.in1"],
+          ["mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1255.out","add_1255_1258_1259.in0"],
+          ["add_1256_1257_1258.out","add_1255_1258_1259.in1"],
+          ["mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1256.out","add_1256_1257_1258.in0"],
+          ["mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1257.out","add_1256_1257_1258.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_4_1271_1272.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1242.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1242.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1243.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1243.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1244.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1244.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1245.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1245.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1246.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1246.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1247.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1247.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1248.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1248.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1249.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1249.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1250.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1250.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1251.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1251.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1252.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1252.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1253.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1253.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1254.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1254.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1255.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1255.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1256.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1256.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1257.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1257.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_12":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_1111_1125_1126":{
+          "add_1385_1415_1416":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1112_1123_1124":{
+          "add_1386_1413_1414":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1113_1122_1123":{
+          "add_1387_1412_1413":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1114_1121_1122":{
+          "add_1388_1411_1412":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1115_1120_1121":{
+          "add_1389_1410_1411":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1116_1119_1120":{
+          "add_1390_1409_1410":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1117_1118_1119":{
+          "add_1391_1408_1409":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_5_1124_1125":{
+          "add_1392_1407_1408":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1111":{
+          "add_1393_1406_1407":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1394_1405_1406":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1395_1404_1405":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1396_1403_1404":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1397_1402_1403":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1398_1401_1402":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1399_1400_1401":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_5_1414_1415":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_65_input_cgra_stencil_65_1385":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1112":{
+          "mul_kernel_cgra_stencil_66_input_cgra_stencil_66_1386":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1113":{
+          "mul_kernel_cgra_stencil_67_input_cgra_stencil_67_1387":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1114":{
+          "mul_kernel_cgra_stencil_68_input_cgra_stencil_68_1388":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1115":{
+          "mul_kernel_cgra_stencil_69_input_cgra_stencil_69_1389":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1116":{
+          "mul_kernel_cgra_stencil_70_input_cgra_stencil_70_1390":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1117":{
+          "mul_kernel_cgra_stencil_71_input_cgra_stencil_71_1391":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1118":{
+          "mul_kernel_cgra_stencil_72_input_cgra_stencil_72_1392":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_73_input_cgra_stencil_73_1393":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_74_input_cgra_stencil_74_1394":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_75_input_cgra_stencil_75_1395":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_76_input_cgra_stencil_76_1396":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_77_input_cgra_stencil_77_1397":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_78_input_cgra_stencil_78_1398":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_79_input_cgra_stencil_79_1399":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_80_input_cgra_stencil_80_1400":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1111.out","add_1111_1125_1126.in0"],
-          ["add_output_cgra_stencil_5_1124_1125.out","add_1111_1125_1126.in1"],
-          ["self.out_output_cgra_stencil","add_1111_1125_1126.out"],
-          ["mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1112.out","add_1112_1123_1124.in0"],
-          ["add_1113_1122_1123.out","add_1112_1123_1124.in1"],
-          ["add_output_cgra_stencil_5_1124_1125.in1","add_1112_1123_1124.out"],
-          ["mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1113.out","add_1113_1122_1123.in0"],
-          ["add_1114_1121_1122.out","add_1113_1122_1123.in1"],
-          ["mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1114.out","add_1114_1121_1122.in0"],
-          ["add_1115_1120_1121.out","add_1114_1121_1122.in1"],
-          ["mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1115.out","add_1115_1120_1121.in0"],
-          ["add_1116_1119_1120.out","add_1115_1120_1121.in1"],
-          ["mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1116.out","add_1116_1119_1120.in0"],
-          ["add_1117_1118_1119.out","add_1116_1119_1120.in1"],
-          ["mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1117.out","add_1117_1118_1119.in0"],
-          ["mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1118.out","add_1117_1118_1119.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_5_1124_1125.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1111.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_33_input_cgra_stencil_33_1111.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1112.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_34_input_cgra_stencil_34_1112.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1113.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_35_input_cgra_stencil_35_1113.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1114.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_36_input_cgra_stencil_36_1114.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1115.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_37_input_cgra_stencil_37_1115.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1116.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_38_input_cgra_stencil_38_1116.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1117.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_39_input_cgra_stencil_39_1117.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1118.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_40_input_cgra_stencil_40_1118.in1"]
+          ["mul_kernel_cgra_stencil_65_input_cgra_stencil_65_1385.out","add_1385_1415_1416.in0"],
+          ["add_output_cgra_stencil_5_1414_1415.out","add_1385_1415_1416.in1"],
+          ["self.out_output_cgra_stencil","add_1385_1415_1416.out"],
+          ["mul_kernel_cgra_stencil_66_input_cgra_stencil_66_1386.out","add_1386_1413_1414.in0"],
+          ["add_1387_1412_1413.out","add_1386_1413_1414.in1"],
+          ["add_output_cgra_stencil_5_1414_1415.in1","add_1386_1413_1414.out"],
+          ["mul_kernel_cgra_stencil_67_input_cgra_stencil_67_1387.out","add_1387_1412_1413.in0"],
+          ["add_1388_1411_1412.out","add_1387_1412_1413.in1"],
+          ["mul_kernel_cgra_stencil_68_input_cgra_stencil_68_1388.out","add_1388_1411_1412.in0"],
+          ["add_1389_1410_1411.out","add_1388_1411_1412.in1"],
+          ["mul_kernel_cgra_stencil_69_input_cgra_stencil_69_1389.out","add_1389_1410_1411.in0"],
+          ["add_1390_1409_1410.out","add_1389_1410_1411.in1"],
+          ["mul_kernel_cgra_stencil_70_input_cgra_stencil_70_1390.out","add_1390_1409_1410.in0"],
+          ["add_1391_1408_1409.out","add_1390_1409_1410.in1"],
+          ["mul_kernel_cgra_stencil_71_input_cgra_stencil_71_1391.out","add_1391_1408_1409.in0"],
+          ["add_1392_1407_1408.out","add_1391_1408_1409.in1"],
+          ["mul_kernel_cgra_stencil_72_input_cgra_stencil_72_1392.out","add_1392_1407_1408.in0"],
+          ["add_1393_1406_1407.out","add_1392_1407_1408.in1"],
+          ["mul_kernel_cgra_stencil_73_input_cgra_stencil_73_1393.out","add_1393_1406_1407.in0"],
+          ["add_1394_1405_1406.out","add_1393_1406_1407.in1"],
+          ["mul_kernel_cgra_stencil_74_input_cgra_stencil_74_1394.out","add_1394_1405_1406.in0"],
+          ["add_1395_1404_1405.out","add_1394_1405_1406.in1"],
+          ["mul_kernel_cgra_stencil_75_input_cgra_stencil_75_1395.out","add_1395_1404_1405.in0"],
+          ["add_1396_1403_1404.out","add_1395_1404_1405.in1"],
+          ["mul_kernel_cgra_stencil_76_input_cgra_stencil_76_1396.out","add_1396_1403_1404.in0"],
+          ["add_1397_1402_1403.out","add_1396_1403_1404.in1"],
+          ["mul_kernel_cgra_stencil_77_input_cgra_stencil_77_1397.out","add_1397_1402_1403.in0"],
+          ["add_1398_1401_1402.out","add_1397_1402_1403.in1"],
+          ["mul_kernel_cgra_stencil_78_input_cgra_stencil_78_1398.out","add_1398_1401_1402.in0"],
+          ["add_1399_1400_1401.out","add_1398_1401_1402.in1"],
+          ["mul_kernel_cgra_stencil_79_input_cgra_stencil_79_1399.out","add_1399_1400_1401.in0"],
+          ["mul_kernel_cgra_stencil_80_input_cgra_stencil_80_1400.out","add_1399_1400_1401.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_5_1414_1415.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_65_input_cgra_stencil_65_1385.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_65_input_cgra_stencil_65_1385.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_66_input_cgra_stencil_66_1386.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_66_input_cgra_stencil_66_1386.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_67_input_cgra_stencil_67_1387.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_67_input_cgra_stencil_67_1387.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_68_input_cgra_stencil_68_1388.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_68_input_cgra_stencil_68_1388.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_69_input_cgra_stencil_69_1389.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_69_input_cgra_stencil_69_1389.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_70_input_cgra_stencil_70_1390.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_70_input_cgra_stencil_70_1390.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_71_input_cgra_stencil_71_1391.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_71_input_cgra_stencil_71_1391.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_72_input_cgra_stencil_72_1392.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_72_input_cgra_stencil_72_1392.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_73_input_cgra_stencil_73_1393.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_73_input_cgra_stencil_73_1393.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_74_input_cgra_stencil_74_1394.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_74_input_cgra_stencil_74_1394.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_75_input_cgra_stencil_75_1395.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_75_input_cgra_stencil_75_1395.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_76_input_cgra_stencil_76_1396.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_76_input_cgra_stencil_76_1396.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_77_input_cgra_stencil_77_1397.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_77_input_cgra_stencil_77_1397.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_78_input_cgra_stencil_78_1398.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_78_input_cgra_stencil_78_1398.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_79_input_cgra_stencil_79_1399.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_79_input_cgra_stencil_79_1399.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_80_input_cgra_stencil_80_1400.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_80_input_cgra_stencil_80_1400.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_13":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_1190_1204_1205":{
+          "add_1528_1558_1559":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1191_1202_1203":{
+          "add_1529_1556_1557":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1192_1201_1202":{
+          "add_1530_1555_1556":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1193_1200_1201":{
+          "add_1531_1554_1555":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1194_1199_1200":{
+          "add_1532_1553_1554":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1195_1198_1199":{
+          "add_1533_1552_1553":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1196_1197_1198":{
+          "add_1534_1551_1552":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_6_1203_1204":{
+          "add_1535_1550_1551":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1190":{
+          "add_1536_1549_1550":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1537_1548_1549":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1538_1547_1548":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1539_1546_1547":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1540_1545_1546":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1541_1544_1545":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1542_1543_1544":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_6_1557_1558":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_81_input_cgra_stencil_81_1528":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1191":{
+          "mul_kernel_cgra_stencil_82_input_cgra_stencil_82_1529":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1192":{
+          "mul_kernel_cgra_stencil_83_input_cgra_stencil_83_1530":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1193":{
+          "mul_kernel_cgra_stencil_84_input_cgra_stencil_84_1531":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1194":{
+          "mul_kernel_cgra_stencil_85_input_cgra_stencil_85_1532":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1195":{
+          "mul_kernel_cgra_stencil_86_input_cgra_stencil_86_1533":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1196":{
+          "mul_kernel_cgra_stencil_87_input_cgra_stencil_87_1534":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1197":{
+          "mul_kernel_cgra_stencil_88_input_cgra_stencil_88_1535":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_89_input_cgra_stencil_89_1536":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_90_input_cgra_stencil_90_1537":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_91_input_cgra_stencil_91_1538":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_92_input_cgra_stencil_92_1539":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_93_input_cgra_stencil_93_1540":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_94_input_cgra_stencil_94_1541":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_95_input_cgra_stencil_95_1542":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_96_input_cgra_stencil_96_1543":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1190.out","add_1190_1204_1205.in0"],
-          ["add_output_cgra_stencil_6_1203_1204.out","add_1190_1204_1205.in1"],
-          ["self.out_output_cgra_stencil","add_1190_1204_1205.out"],
-          ["mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1191.out","add_1191_1202_1203.in0"],
-          ["add_1192_1201_1202.out","add_1191_1202_1203.in1"],
-          ["add_output_cgra_stencil_6_1203_1204.in1","add_1191_1202_1203.out"],
-          ["mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1192.out","add_1192_1201_1202.in0"],
-          ["add_1193_1200_1201.out","add_1192_1201_1202.in1"],
-          ["mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1193.out","add_1193_1200_1201.in0"],
-          ["add_1194_1199_1200.out","add_1193_1200_1201.in1"],
-          ["mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1194.out","add_1194_1199_1200.in0"],
-          ["add_1195_1198_1199.out","add_1194_1199_1200.in1"],
-          ["mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1195.out","add_1195_1198_1199.in0"],
-          ["add_1196_1197_1198.out","add_1195_1198_1199.in1"],
-          ["mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1196.out","add_1196_1197_1198.in0"],
-          ["mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1197.out","add_1196_1197_1198.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_6_1203_1204.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1190.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_41_input_cgra_stencil_41_1190.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1191.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_42_input_cgra_stencil_42_1191.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1192.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_43_input_cgra_stencil_43_1192.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1193.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_44_input_cgra_stencil_44_1193.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1194.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_45_input_cgra_stencil_45_1194.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1195.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_46_input_cgra_stencil_46_1195.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1196.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_47_input_cgra_stencil_47_1196.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1197.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_48_input_cgra_stencil_48_1197.in1"]
+          ["mul_kernel_cgra_stencil_81_input_cgra_stencil_81_1528.out","add_1528_1558_1559.in0"],
+          ["add_output_cgra_stencil_6_1557_1558.out","add_1528_1558_1559.in1"],
+          ["self.out_output_cgra_stencil","add_1528_1558_1559.out"],
+          ["mul_kernel_cgra_stencil_82_input_cgra_stencil_82_1529.out","add_1529_1556_1557.in0"],
+          ["add_1530_1555_1556.out","add_1529_1556_1557.in1"],
+          ["add_output_cgra_stencil_6_1557_1558.in1","add_1529_1556_1557.out"],
+          ["mul_kernel_cgra_stencil_83_input_cgra_stencil_83_1530.out","add_1530_1555_1556.in0"],
+          ["add_1531_1554_1555.out","add_1530_1555_1556.in1"],
+          ["mul_kernel_cgra_stencil_84_input_cgra_stencil_84_1531.out","add_1531_1554_1555.in0"],
+          ["add_1532_1553_1554.out","add_1531_1554_1555.in1"],
+          ["mul_kernel_cgra_stencil_85_input_cgra_stencil_85_1532.out","add_1532_1553_1554.in0"],
+          ["add_1533_1552_1553.out","add_1532_1553_1554.in1"],
+          ["mul_kernel_cgra_stencil_86_input_cgra_stencil_86_1533.out","add_1533_1552_1553.in0"],
+          ["add_1534_1551_1552.out","add_1533_1552_1553.in1"],
+          ["mul_kernel_cgra_stencil_87_input_cgra_stencil_87_1534.out","add_1534_1551_1552.in0"],
+          ["add_1535_1550_1551.out","add_1534_1551_1552.in1"],
+          ["mul_kernel_cgra_stencil_88_input_cgra_stencil_88_1535.out","add_1535_1550_1551.in0"],
+          ["add_1536_1549_1550.out","add_1535_1550_1551.in1"],
+          ["mul_kernel_cgra_stencil_89_input_cgra_stencil_89_1536.out","add_1536_1549_1550.in0"],
+          ["add_1537_1548_1549.out","add_1536_1549_1550.in1"],
+          ["mul_kernel_cgra_stencil_90_input_cgra_stencil_90_1537.out","add_1537_1548_1549.in0"],
+          ["add_1538_1547_1548.out","add_1537_1548_1549.in1"],
+          ["mul_kernel_cgra_stencil_91_input_cgra_stencil_91_1538.out","add_1538_1547_1548.in0"],
+          ["add_1539_1546_1547.out","add_1538_1547_1548.in1"],
+          ["mul_kernel_cgra_stencil_92_input_cgra_stencil_92_1539.out","add_1539_1546_1547.in0"],
+          ["add_1540_1545_1546.out","add_1539_1546_1547.in1"],
+          ["mul_kernel_cgra_stencil_93_input_cgra_stencil_93_1540.out","add_1540_1545_1546.in0"],
+          ["add_1541_1544_1545.out","add_1540_1545_1546.in1"],
+          ["mul_kernel_cgra_stencil_94_input_cgra_stencil_94_1541.out","add_1541_1544_1545.in0"],
+          ["add_1542_1543_1544.out","add_1541_1544_1545.in1"],
+          ["mul_kernel_cgra_stencil_95_input_cgra_stencil_95_1542.out","add_1542_1543_1544.in0"],
+          ["mul_kernel_cgra_stencil_96_input_cgra_stencil_96_1543.out","add_1542_1543_1544.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_6_1557_1558.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_81_input_cgra_stencil_81_1528.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_81_input_cgra_stencil_81_1528.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_82_input_cgra_stencil_82_1529.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_82_input_cgra_stencil_82_1529.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_83_input_cgra_stencil_83_1530.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_83_input_cgra_stencil_83_1530.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_84_input_cgra_stencil_84_1531.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_84_input_cgra_stencil_84_1531.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_85_input_cgra_stencil_85_1532.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_85_input_cgra_stencil_85_1532.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_86_input_cgra_stencil_86_1533.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_86_input_cgra_stencil_86_1533.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_87_input_cgra_stencil_87_1534.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_87_input_cgra_stencil_87_1534.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_88_input_cgra_stencil_88_1535.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_88_input_cgra_stencil_88_1535.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_89_input_cgra_stencil_89_1536.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_89_input_cgra_stencil_89_1536.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_90_input_cgra_stencil_90_1537.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_90_input_cgra_stencil_90_1537.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_91_input_cgra_stencil_91_1538.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_91_input_cgra_stencil_91_1538.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_92_input_cgra_stencil_92_1539.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_92_input_cgra_stencil_92_1539.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_93_input_cgra_stencil_93_1540.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_93_input_cgra_stencil_93_1540.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_94_input_cgra_stencil_94_1541.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_94_input_cgra_stencil_94_1541.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_95_input_cgra_stencil_95_1542.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_95_input_cgra_stencil_95_1542.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_96_input_cgra_stencil_96_1543.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_96_input_cgra_stencil_96_1543.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_14":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_1269_1283_1284":{
+          "add_1671_1701_1702":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1270_1281_1282":{
+          "add_1672_1699_1700":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1271_1280_1281":{
+          "add_1673_1698_1699":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1272_1279_1280":{
+          "add_1674_1697_1698":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1273_1278_1279":{
+          "add_1675_1696_1697":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1274_1277_1278":{
+          "add_1676_1695_1696":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1275_1276_1277":{
+          "add_1677_1694_1695":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_7_1282_1283":{
+          "add_1678_1693_1694":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1269":{
+          "add_1679_1692_1693":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1680_1691_1692":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1681_1690_1691":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1682_1689_1690":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1683_1688_1689":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1684_1687_1688":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1685_1686_1687":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_7_1700_1701":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_100_input_cgra_stencil_100_1674":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1270":{
+          "mul_kernel_cgra_stencil_101_input_cgra_stencil_101_1675":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1271":{
+          "mul_kernel_cgra_stencil_102_input_cgra_stencil_102_1676":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1272":{
+          "mul_kernel_cgra_stencil_103_input_cgra_stencil_103_1677":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1273":{
+          "mul_kernel_cgra_stencil_104_input_cgra_stencil_104_1678":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1274":{
+          "mul_kernel_cgra_stencil_105_input_cgra_stencil_105_1679":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1275":{
+          "mul_kernel_cgra_stencil_106_input_cgra_stencil_106_1680":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1276":{
+          "mul_kernel_cgra_stencil_107_input_cgra_stencil_107_1681":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_108_input_cgra_stencil_108_1682":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_109_input_cgra_stencil_109_1683":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_110_input_cgra_stencil_110_1684":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_111_input_cgra_stencil_111_1685":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_112_input_cgra_stencil_112_1686":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_97_input_cgra_stencil_97_1671":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_98_input_cgra_stencil_98_1672":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_99_input_cgra_stencil_99_1673":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1269.out","add_1269_1283_1284.in0"],
-          ["add_output_cgra_stencil_7_1282_1283.out","add_1269_1283_1284.in1"],
-          ["self.out_output_cgra_stencil","add_1269_1283_1284.out"],
-          ["mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1270.out","add_1270_1281_1282.in0"],
-          ["add_1271_1280_1281.out","add_1270_1281_1282.in1"],
-          ["add_output_cgra_stencil_7_1282_1283.in1","add_1270_1281_1282.out"],
-          ["mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1271.out","add_1271_1280_1281.in0"],
-          ["add_1272_1279_1280.out","add_1271_1280_1281.in1"],
-          ["mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1272.out","add_1272_1279_1280.in0"],
-          ["add_1273_1278_1279.out","add_1272_1279_1280.in1"],
-          ["mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1273.out","add_1273_1278_1279.in0"],
-          ["add_1274_1277_1278.out","add_1273_1278_1279.in1"],
-          ["mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1274.out","add_1274_1277_1278.in0"],
-          ["add_1275_1276_1277.out","add_1274_1277_1278.in1"],
-          ["mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1275.out","add_1275_1276_1277.in0"],
-          ["mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1276.out","add_1275_1276_1277.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_7_1282_1283.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1269.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_49_input_cgra_stencil_49_1269.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1270.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_50_input_cgra_stencil_50_1270.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1271.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_51_input_cgra_stencil_51_1271.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1272.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_52_input_cgra_stencil_52_1272.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1273.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_53_input_cgra_stencil_53_1273.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1274.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_54_input_cgra_stencil_54_1274.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1275.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_55_input_cgra_stencil_55_1275.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1276.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_56_input_cgra_stencil_56_1276.in1"]
+          ["mul_kernel_cgra_stencil_97_input_cgra_stencil_97_1671.out","add_1671_1701_1702.in0"],
+          ["add_output_cgra_stencil_7_1700_1701.out","add_1671_1701_1702.in1"],
+          ["self.out_output_cgra_stencil","add_1671_1701_1702.out"],
+          ["mul_kernel_cgra_stencil_98_input_cgra_stencil_98_1672.out","add_1672_1699_1700.in0"],
+          ["add_1673_1698_1699.out","add_1672_1699_1700.in1"],
+          ["add_output_cgra_stencil_7_1700_1701.in1","add_1672_1699_1700.out"],
+          ["mul_kernel_cgra_stencil_99_input_cgra_stencil_99_1673.out","add_1673_1698_1699.in0"],
+          ["add_1674_1697_1698.out","add_1673_1698_1699.in1"],
+          ["mul_kernel_cgra_stencil_100_input_cgra_stencil_100_1674.out","add_1674_1697_1698.in0"],
+          ["add_1675_1696_1697.out","add_1674_1697_1698.in1"],
+          ["mul_kernel_cgra_stencil_101_input_cgra_stencil_101_1675.out","add_1675_1696_1697.in0"],
+          ["add_1676_1695_1696.out","add_1675_1696_1697.in1"],
+          ["mul_kernel_cgra_stencil_102_input_cgra_stencil_102_1676.out","add_1676_1695_1696.in0"],
+          ["add_1677_1694_1695.out","add_1676_1695_1696.in1"],
+          ["mul_kernel_cgra_stencil_103_input_cgra_stencil_103_1677.out","add_1677_1694_1695.in0"],
+          ["add_1678_1693_1694.out","add_1677_1694_1695.in1"],
+          ["mul_kernel_cgra_stencil_104_input_cgra_stencil_104_1678.out","add_1678_1693_1694.in0"],
+          ["add_1679_1692_1693.out","add_1678_1693_1694.in1"],
+          ["mul_kernel_cgra_stencil_105_input_cgra_stencil_105_1679.out","add_1679_1692_1693.in0"],
+          ["add_1680_1691_1692.out","add_1679_1692_1693.in1"],
+          ["mul_kernel_cgra_stencil_106_input_cgra_stencil_106_1680.out","add_1680_1691_1692.in0"],
+          ["add_1681_1690_1691.out","add_1680_1691_1692.in1"],
+          ["mul_kernel_cgra_stencil_107_input_cgra_stencil_107_1681.out","add_1681_1690_1691.in0"],
+          ["add_1682_1689_1690.out","add_1681_1690_1691.in1"],
+          ["mul_kernel_cgra_stencil_108_input_cgra_stencil_108_1682.out","add_1682_1689_1690.in0"],
+          ["add_1683_1688_1689.out","add_1682_1689_1690.in1"],
+          ["mul_kernel_cgra_stencil_109_input_cgra_stencil_109_1683.out","add_1683_1688_1689.in0"],
+          ["add_1684_1687_1688.out","add_1683_1688_1689.in1"],
+          ["mul_kernel_cgra_stencil_110_input_cgra_stencil_110_1684.out","add_1684_1687_1688.in0"],
+          ["add_1685_1686_1687.out","add_1684_1687_1688.in1"],
+          ["mul_kernel_cgra_stencil_111_input_cgra_stencil_111_1685.out","add_1685_1686_1687.in0"],
+          ["mul_kernel_cgra_stencil_112_input_cgra_stencil_112_1686.out","add_1685_1686_1687.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_7_1700_1701.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_100_input_cgra_stencil_100_1674.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_100_input_cgra_stencil_100_1674.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_101_input_cgra_stencil_101_1675.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_101_input_cgra_stencil_101_1675.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_102_input_cgra_stencil_102_1676.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_102_input_cgra_stencil_102_1676.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_103_input_cgra_stencil_103_1677.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_103_input_cgra_stencil_103_1677.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_104_input_cgra_stencil_104_1678.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_104_input_cgra_stencil_104_1678.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_105_input_cgra_stencil_105_1679.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_105_input_cgra_stencil_105_1679.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_106_input_cgra_stencil_106_1680.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_106_input_cgra_stencil_106_1680.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_107_input_cgra_stencil_107_1681.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_107_input_cgra_stencil_107_1681.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_108_input_cgra_stencil_108_1682.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_108_input_cgra_stencil_108_1682.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_109_input_cgra_stencil_109_1683.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_109_input_cgra_stencil_109_1683.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_110_input_cgra_stencil_110_1684.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_110_input_cgra_stencil_110_1684.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_111_input_cgra_stencil_111_1685.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_111_input_cgra_stencil_111_1685.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_112_input_cgra_stencil_112_1686.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_112_input_cgra_stencil_112_1686.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_97_input_cgra_stencil_97_1671.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_97_input_cgra_stencil_97_1671.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_98_input_cgra_stencil_98_1672.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_98_input_cgra_stencil_98_1672.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_99_input_cgra_stencil_99_1673.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_99_input_cgra_stencil_99_1673.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_15":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_1348_1362_1363":{
+          "add_1814_1844_1845":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1349_1360_1361":{
+          "add_1815_1842_1843":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1350_1359_1360":{
+          "add_1816_1841_1842":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1351_1358_1359":{
+          "add_1817_1840_1841":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1352_1357_1358":{
+          "add_1818_1839_1840":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1353_1356_1357":{
+          "add_1819_1838_1839":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_1354_1355_1356":{
+          "add_1820_1837_1838":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_8_1361_1362":{
+          "add_1821_1836_1837":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1348":{
+          "add_1822_1835_1836":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1823_1834_1835":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1824_1833_1834":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1825_1832_1833":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1826_1831_1832":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1827_1830_1831":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_1828_1829_1830":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_8_1843_1844":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_113_input_cgra_stencil_113_1814":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1349":{
+          "mul_kernel_cgra_stencil_114_input_cgra_stencil_114_1815":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1350":{
+          "mul_kernel_cgra_stencil_115_input_cgra_stencil_115_1816":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1351":{
+          "mul_kernel_cgra_stencil_116_input_cgra_stencil_116_1817":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1352":{
+          "mul_kernel_cgra_stencil_117_input_cgra_stencil_117_1818":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1353":{
+          "mul_kernel_cgra_stencil_118_input_cgra_stencil_118_1819":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1354":{
+          "mul_kernel_cgra_stencil_119_input_cgra_stencil_119_1820":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1355":{
+          "mul_kernel_cgra_stencil_120_input_cgra_stencil_120_1821":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_121_input_cgra_stencil_121_1822":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_122_input_cgra_stencil_122_1823":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_123_input_cgra_stencil_123_1824":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_124_input_cgra_stencil_124_1825":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_125_input_cgra_stencil_125_1826":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_126_input_cgra_stencil_126_1827":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_127_input_cgra_stencil_127_1828":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_128_input_cgra_stencil_128_1829":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1348.out","add_1348_1362_1363.in0"],
-          ["add_output_cgra_stencil_8_1361_1362.out","add_1348_1362_1363.in1"],
-          ["self.out_output_cgra_stencil","add_1348_1362_1363.out"],
-          ["mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1349.out","add_1349_1360_1361.in0"],
-          ["add_1350_1359_1360.out","add_1349_1360_1361.in1"],
-          ["add_output_cgra_stencil_8_1361_1362.in1","add_1349_1360_1361.out"],
-          ["mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1350.out","add_1350_1359_1360.in0"],
-          ["add_1351_1358_1359.out","add_1350_1359_1360.in1"],
-          ["mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1351.out","add_1351_1358_1359.in0"],
-          ["add_1352_1357_1358.out","add_1351_1358_1359.in1"],
-          ["mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1352.out","add_1352_1357_1358.in0"],
-          ["add_1353_1356_1357.out","add_1352_1357_1358.in1"],
-          ["mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1353.out","add_1353_1356_1357.in0"],
-          ["add_1354_1355_1356.out","add_1353_1356_1357.in1"],
-          ["mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1354.out","add_1354_1355_1356.in0"],
-          ["mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1355.out","add_1354_1355_1356.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_8_1361_1362.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1348.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_57_input_cgra_stencil_57_1348.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1349.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_58_input_cgra_stencil_58_1349.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1350.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_59_input_cgra_stencil_59_1350.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1351.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_60_input_cgra_stencil_60_1351.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1352.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_61_input_cgra_stencil_61_1352.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1353.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_62_input_cgra_stencil_62_1353.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1354.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_63_input_cgra_stencil_63_1354.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1355.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_64_input_cgra_stencil_64_1355.in1"]
+          ["mul_kernel_cgra_stencil_113_input_cgra_stencil_113_1814.out","add_1814_1844_1845.in0"],
+          ["add_output_cgra_stencil_8_1843_1844.out","add_1814_1844_1845.in1"],
+          ["self.out_output_cgra_stencil","add_1814_1844_1845.out"],
+          ["mul_kernel_cgra_stencil_114_input_cgra_stencil_114_1815.out","add_1815_1842_1843.in0"],
+          ["add_1816_1841_1842.out","add_1815_1842_1843.in1"],
+          ["add_output_cgra_stencil_8_1843_1844.in1","add_1815_1842_1843.out"],
+          ["mul_kernel_cgra_stencil_115_input_cgra_stencil_115_1816.out","add_1816_1841_1842.in0"],
+          ["add_1817_1840_1841.out","add_1816_1841_1842.in1"],
+          ["mul_kernel_cgra_stencil_116_input_cgra_stencil_116_1817.out","add_1817_1840_1841.in0"],
+          ["add_1818_1839_1840.out","add_1817_1840_1841.in1"],
+          ["mul_kernel_cgra_stencil_117_input_cgra_stencil_117_1818.out","add_1818_1839_1840.in0"],
+          ["add_1819_1838_1839.out","add_1818_1839_1840.in1"],
+          ["mul_kernel_cgra_stencil_118_input_cgra_stencil_118_1819.out","add_1819_1838_1839.in0"],
+          ["add_1820_1837_1838.out","add_1819_1838_1839.in1"],
+          ["mul_kernel_cgra_stencil_119_input_cgra_stencil_119_1820.out","add_1820_1837_1838.in0"],
+          ["add_1821_1836_1837.out","add_1820_1837_1838.in1"],
+          ["mul_kernel_cgra_stencil_120_input_cgra_stencil_120_1821.out","add_1821_1836_1837.in0"],
+          ["add_1822_1835_1836.out","add_1821_1836_1837.in1"],
+          ["mul_kernel_cgra_stencil_121_input_cgra_stencil_121_1822.out","add_1822_1835_1836.in0"],
+          ["add_1823_1834_1835.out","add_1822_1835_1836.in1"],
+          ["mul_kernel_cgra_stencil_122_input_cgra_stencil_122_1823.out","add_1823_1834_1835.in0"],
+          ["add_1824_1833_1834.out","add_1823_1834_1835.in1"],
+          ["mul_kernel_cgra_stencil_123_input_cgra_stencil_123_1824.out","add_1824_1833_1834.in0"],
+          ["add_1825_1832_1833.out","add_1824_1833_1834.in1"],
+          ["mul_kernel_cgra_stencil_124_input_cgra_stencil_124_1825.out","add_1825_1832_1833.in0"],
+          ["add_1826_1831_1832.out","add_1825_1832_1833.in1"],
+          ["mul_kernel_cgra_stencil_125_input_cgra_stencil_125_1826.out","add_1826_1831_1832.in0"],
+          ["add_1827_1830_1831.out","add_1826_1831_1832.in1"],
+          ["mul_kernel_cgra_stencil_126_input_cgra_stencil_126_1827.out","add_1827_1830_1831.in0"],
+          ["add_1828_1829_1830.out","add_1827_1830_1831.in1"],
+          ["mul_kernel_cgra_stencil_127_input_cgra_stencil_127_1828.out","add_1828_1829_1830.in0"],
+          ["mul_kernel_cgra_stencil_128_input_cgra_stencil_128_1829.out","add_1828_1829_1830.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_8_1843_1844.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_113_input_cgra_stencil_113_1814.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_113_input_cgra_stencil_113_1814.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_114_input_cgra_stencil_114_1815.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_114_input_cgra_stencil_114_1815.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_115_input_cgra_stencil_115_1816.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_115_input_cgra_stencil_115_1816.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_116_input_cgra_stencil_116_1817.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_116_input_cgra_stencil_116_1817.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_117_input_cgra_stencil_117_1818.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_117_input_cgra_stencil_117_1818.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_118_input_cgra_stencil_118_1819.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_118_input_cgra_stencil_118_1819.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_119_input_cgra_stencil_119_1820.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_119_input_cgra_stencil_119_1820.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_120_input_cgra_stencil_120_1821.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_120_input_cgra_stencil_120_1821.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_121_input_cgra_stencil_121_1822.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_121_input_cgra_stencil_121_1822.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_122_input_cgra_stencil_122_1823.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_122_input_cgra_stencil_122_1823.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_123_input_cgra_stencil_123_1824.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_123_input_cgra_stencil_123_1824.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_124_input_cgra_stencil_124_1825.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_124_input_cgra_stencil_124_1825.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_125_input_cgra_stencil_125_1826.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_125_input_cgra_stencil_125_1826.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_126_input_cgra_stencil_126_1827.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_126_input_cgra_stencil_126_1827.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_127_input_cgra_stencil_127_1828.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_127_input_cgra_stencil_127_1828.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_128_input_cgra_stencil_128_1829.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_128_input_cgra_stencil_128_1829.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_2":{
@@ -736,14 +1312,14 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__707":{
+          "const_p0__710":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__707.out"]
+          ["self.out_output_cgra_stencil","const_p0__710.out"]
         ]
       },
       "hcompute_output_cgra_stencil_3":{
@@ -751,14 +1327,14 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__716":{
+          "const_p0__719":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__716.out"]
+          ["self.out_output_cgra_stencil","const_p0__719.out"]
         ]
       },
       "hcompute_output_cgra_stencil_4":{
@@ -766,14 +1342,14 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__725":{
+          "const_p0__728":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__725.out"]
+          ["self.out_output_cgra_stencil","const_p0__728.out"]
         ]
       },
       "hcompute_output_cgra_stencil_5":{
@@ -781,14 +1357,14 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__734":{
+          "const_p0__737":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__734.out"]
+          ["self.out_output_cgra_stencil","const_p0__737.out"]
         ]
       },
       "hcompute_output_cgra_stencil_6":{
@@ -796,14 +1372,14 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__743":{
+          "const_p0__746":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__743.out"]
+          ["self.out_output_cgra_stencil","const_p0__746.out"]
         ]
       },
       "hcompute_output_cgra_stencil_7":{
@@ -811,232 +1387,424 @@
           ["out_output_cgra_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "const_p0__752":{
+          "const_p0__755":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
-          ["self.out_output_cgra_stencil","const_p0__752.out"]
+          ["self.out_output_cgra_stencil","const_p0__755.out"]
         ]
       },
       "hcompute_output_cgra_stencil_8":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_795_809_810":{
+          "add_813_843_844":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_796_807_808":{
+          "add_814_841_842":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_797_806_807":{
+          "add_815_840_841":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_798_805_806":{
+          "add_816_839_840":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_799_804_805":{
+          "add_817_838_839":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_800_803_804":{
+          "add_818_837_838":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_801_802_803":{
+          "add_819_836_837":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_1_808_809":{
+          "add_820_835_836":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_1_input_cgra_stencil_1_795":{
+          "add_821_834_835":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_822_833_834":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_823_832_833":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_824_831_832":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_825_830_831":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_826_829_830":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_827_828_829":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_1_842_843":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_10_input_cgra_stencil_10_822":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_2_input_cgra_stencil_2_796":{
+          "mul_kernel_cgra_stencil_11_input_cgra_stencil_11_823":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_3_input_cgra_stencil_3_797":{
+          "mul_kernel_cgra_stencil_12_input_cgra_stencil_12_824":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_4_input_cgra_stencil_4_798":{
+          "mul_kernel_cgra_stencil_13_input_cgra_stencil_13_825":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_5_input_cgra_stencil_5_799":{
+          "mul_kernel_cgra_stencil_14_input_cgra_stencil_14_826":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_6_input_cgra_stencil_6_800":{
+          "mul_kernel_cgra_stencil_15_input_cgra_stencil_15_827":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_7_input_cgra_stencil_7_801":{
+          "mul_kernel_cgra_stencil_16_input_cgra_stencil_16_828":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_8_input_cgra_stencil_8_802":{
+          "mul_kernel_cgra_stencil_1_input_cgra_stencil_1_813":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_2_input_cgra_stencil_2_814":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_3_input_cgra_stencil_3_815":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_4_input_cgra_stencil_4_816":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_5_input_cgra_stencil_5_817":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_6_input_cgra_stencil_6_818":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_7_input_cgra_stencil_7_819":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_8_input_cgra_stencil_8_820":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_9_input_cgra_stencil_9_821":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_1_input_cgra_stencil_1_795.out","add_795_809_810.in0"],
-          ["add_output_cgra_stencil_1_808_809.out","add_795_809_810.in1"],
-          ["self.out_output_cgra_stencil","add_795_809_810.out"],
-          ["mul_kernel_cgra_stencil_2_input_cgra_stencil_2_796.out","add_796_807_808.in0"],
-          ["add_797_806_807.out","add_796_807_808.in1"],
-          ["add_output_cgra_stencil_1_808_809.in1","add_796_807_808.out"],
-          ["mul_kernel_cgra_stencil_3_input_cgra_stencil_3_797.out","add_797_806_807.in0"],
-          ["add_798_805_806.out","add_797_806_807.in1"],
-          ["mul_kernel_cgra_stencil_4_input_cgra_stencil_4_798.out","add_798_805_806.in0"],
-          ["add_799_804_805.out","add_798_805_806.in1"],
-          ["mul_kernel_cgra_stencil_5_input_cgra_stencil_5_799.out","add_799_804_805.in0"],
-          ["add_800_803_804.out","add_799_804_805.in1"],
-          ["mul_kernel_cgra_stencil_6_input_cgra_stencil_6_800.out","add_800_803_804.in0"],
-          ["add_801_802_803.out","add_800_803_804.in1"],
-          ["mul_kernel_cgra_stencil_7_input_cgra_stencil_7_801.out","add_801_802_803.in0"],
-          ["mul_kernel_cgra_stencil_8_input_cgra_stencil_8_802.out","add_801_802_803.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_1_808_809.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_1_input_cgra_stencil_1_795.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_1_input_cgra_stencil_1_795.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_2_input_cgra_stencil_2_796.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_2_input_cgra_stencil_2_796.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_3_input_cgra_stencil_3_797.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_3_input_cgra_stencil_3_797.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_4_input_cgra_stencil_4_798.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_4_input_cgra_stencil_4_798.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_5_input_cgra_stencil_5_799.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_5_input_cgra_stencil_5_799.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_6_input_cgra_stencil_6_800.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_6_input_cgra_stencil_6_800.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_7_input_cgra_stencil_7_801.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_7_input_cgra_stencil_7_801.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_8_input_cgra_stencil_8_802.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_8_input_cgra_stencil_8_802.in1"]
+          ["mul_kernel_cgra_stencil_1_input_cgra_stencil_1_813.out","add_813_843_844.in0"],
+          ["add_output_cgra_stencil_1_842_843.out","add_813_843_844.in1"],
+          ["self.out_output_cgra_stencil","add_813_843_844.out"],
+          ["mul_kernel_cgra_stencil_2_input_cgra_stencil_2_814.out","add_814_841_842.in0"],
+          ["add_815_840_841.out","add_814_841_842.in1"],
+          ["add_output_cgra_stencil_1_842_843.in1","add_814_841_842.out"],
+          ["mul_kernel_cgra_stencil_3_input_cgra_stencil_3_815.out","add_815_840_841.in0"],
+          ["add_816_839_840.out","add_815_840_841.in1"],
+          ["mul_kernel_cgra_stencil_4_input_cgra_stencil_4_816.out","add_816_839_840.in0"],
+          ["add_817_838_839.out","add_816_839_840.in1"],
+          ["mul_kernel_cgra_stencil_5_input_cgra_stencil_5_817.out","add_817_838_839.in0"],
+          ["add_818_837_838.out","add_817_838_839.in1"],
+          ["mul_kernel_cgra_stencil_6_input_cgra_stencil_6_818.out","add_818_837_838.in0"],
+          ["add_819_836_837.out","add_818_837_838.in1"],
+          ["mul_kernel_cgra_stencil_7_input_cgra_stencil_7_819.out","add_819_836_837.in0"],
+          ["add_820_835_836.out","add_819_836_837.in1"],
+          ["mul_kernel_cgra_stencil_8_input_cgra_stencil_8_820.out","add_820_835_836.in0"],
+          ["add_821_834_835.out","add_820_835_836.in1"],
+          ["mul_kernel_cgra_stencil_9_input_cgra_stencil_9_821.out","add_821_834_835.in0"],
+          ["add_822_833_834.out","add_821_834_835.in1"],
+          ["mul_kernel_cgra_stencil_10_input_cgra_stencil_10_822.out","add_822_833_834.in0"],
+          ["add_823_832_833.out","add_822_833_834.in1"],
+          ["mul_kernel_cgra_stencil_11_input_cgra_stencil_11_823.out","add_823_832_833.in0"],
+          ["add_824_831_832.out","add_823_832_833.in1"],
+          ["mul_kernel_cgra_stencil_12_input_cgra_stencil_12_824.out","add_824_831_832.in0"],
+          ["add_825_830_831.out","add_824_831_832.in1"],
+          ["mul_kernel_cgra_stencil_13_input_cgra_stencil_13_825.out","add_825_830_831.in0"],
+          ["add_826_829_830.out","add_825_830_831.in1"],
+          ["mul_kernel_cgra_stencil_14_input_cgra_stencil_14_826.out","add_826_829_830.in0"],
+          ["add_827_828_829.out","add_826_829_830.in1"],
+          ["mul_kernel_cgra_stencil_15_input_cgra_stencil_15_827.out","add_827_828_829.in0"],
+          ["mul_kernel_cgra_stencil_16_input_cgra_stencil_16_828.out","add_827_828_829.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_1_842_843.in0"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_10_input_cgra_stencil_10_822.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_10_input_cgra_stencil_10_822.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_11_input_cgra_stencil_11_823.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_11_input_cgra_stencil_11_823.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_12_input_cgra_stencil_12_824.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_12_input_cgra_stencil_12_824.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_13_input_cgra_stencil_13_825.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_13_input_cgra_stencil_13_825.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_14_input_cgra_stencil_14_826.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_14_input_cgra_stencil_14_826.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_15_input_cgra_stencil_15_827.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_15_input_cgra_stencil_15_827.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_16_input_cgra_stencil_16_828.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_16_input_cgra_stencil_16_828.in1"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_1_input_cgra_stencil_1_813.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_1_input_cgra_stencil_1_813.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_2_input_cgra_stencil_2_814.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_2_input_cgra_stencil_2_814.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_3_input_cgra_stencil_3_815.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_3_input_cgra_stencil_3_815.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_4_input_cgra_stencil_4_816.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_4_input_cgra_stencil_4_816.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_5_input_cgra_stencil_5_817.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_5_input_cgra_stencil_5_817.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_6_input_cgra_stencil_6_818.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_6_input_cgra_stencil_6_818.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_7_input_cgra_stencil_7_819.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_7_input_cgra_stencil_7_819.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_8_input_cgra_stencil_8_820.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_8_input_cgra_stencil_8_820.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_9_input_cgra_stencil_9_821.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_9_input_cgra_stencil_9_821.in1"]
         ]
       },
       "hcompute_output_cgra_stencil_9":{
         "type":["Record",[
           ["out_output_cgra_stencil",["Array",16,"Bit"]],
-          ["in0_input_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
-          ["in1_kernel_cgra_stencil",["Array",8,["Array",16,"BitIn"]]],
+          ["in0_input_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
+          ["in1_kernel_cgra_stencil",["Array",16,["Array",16,"BitIn"]]],
           ["in2_output_cgra_stencil",["Array",1,["Array",16,"BitIn"]]]
         ]],
         "instances":{
-          "add_874_888_889":{
+          "add_956_986_987":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_875_886_887":{
+          "add_957_984_985":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_876_885_886":{
+          "add_958_983_984":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_877_884_885":{
+          "add_959_982_983":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_878_883_884":{
+          "add_960_981_982":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_879_882_883":{
+          "add_961_980_981":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_880_881_882":{
+          "add_962_979_980":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "add_output_cgra_stencil_2_887_888":{
+          "add_963_978_979":{
             "genref":"coreir.add",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_10_input_cgra_stencil_10_875":{
+          "add_964_977_978":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_965_976_977":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_966_975_976":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_967_974_975":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_968_973_974":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_969_972_973":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_970_971_972":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_output_cgra_stencil_2_985_986":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_17_input_cgra_stencil_17_956":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_11_input_cgra_stencil_11_876":{
+          "mul_kernel_cgra_stencil_18_input_cgra_stencil_18_957":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_12_input_cgra_stencil_12_877":{
+          "mul_kernel_cgra_stencil_19_input_cgra_stencil_19_958":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_13_input_cgra_stencil_13_878":{
+          "mul_kernel_cgra_stencil_20_input_cgra_stencil_20_959":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_14_input_cgra_stencil_14_879":{
+          "mul_kernel_cgra_stencil_21_input_cgra_stencil_21_960":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_15_input_cgra_stencil_15_880":{
+          "mul_kernel_cgra_stencil_22_input_cgra_stencil_22_961":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_16_input_cgra_stencil_16_881":{
+          "mul_kernel_cgra_stencil_23_input_cgra_stencil_23_962":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           },
-          "mul_kernel_cgra_stencil_9_input_cgra_stencil_9_874":{
+          "mul_kernel_cgra_stencil_24_input_cgra_stencil_24_963":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_25_input_cgra_stencil_25_964":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_26_input_cgra_stencil_26_965":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_27_input_cgra_stencil_27_966":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_28_input_cgra_stencil_28_967":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_29_input_cgra_stencil_29_968":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_30_input_cgra_stencil_30_969":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_31_input_cgra_stencil_31_970":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "mul_kernel_cgra_stencil_32_input_cgra_stencil_32_971":{
             "genref":"coreir.mul",
             "genargs":{"width":["Int",16]}
           }
         },
         "connections":[
-          ["mul_kernel_cgra_stencil_9_input_cgra_stencil_9_874.out","add_874_888_889.in0"],
-          ["add_output_cgra_stencil_2_887_888.out","add_874_888_889.in1"],
-          ["self.out_output_cgra_stencil","add_874_888_889.out"],
-          ["mul_kernel_cgra_stencil_10_input_cgra_stencil_10_875.out","add_875_886_887.in0"],
-          ["add_876_885_886.out","add_875_886_887.in1"],
-          ["add_output_cgra_stencil_2_887_888.in1","add_875_886_887.out"],
-          ["mul_kernel_cgra_stencil_11_input_cgra_stencil_11_876.out","add_876_885_886.in0"],
-          ["add_877_884_885.out","add_876_885_886.in1"],
-          ["mul_kernel_cgra_stencil_12_input_cgra_stencil_12_877.out","add_877_884_885.in0"],
-          ["add_878_883_884.out","add_877_884_885.in1"],
-          ["mul_kernel_cgra_stencil_13_input_cgra_stencil_13_878.out","add_878_883_884.in0"],
-          ["add_879_882_883.out","add_878_883_884.in1"],
-          ["mul_kernel_cgra_stencil_14_input_cgra_stencil_14_879.out","add_879_882_883.in0"],
-          ["add_880_881_882.out","add_879_882_883.in1"],
-          ["mul_kernel_cgra_stencil_15_input_cgra_stencil_15_880.out","add_880_881_882.in0"],
-          ["mul_kernel_cgra_stencil_16_input_cgra_stencil_16_881.out","add_880_881_882.in1"],
-          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_2_887_888.in0"],
-          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_10_input_cgra_stencil_10_875.in0"],
-          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_10_input_cgra_stencil_10_875.in1"],
-          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_11_input_cgra_stencil_11_876.in0"],
-          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_11_input_cgra_stencil_11_876.in1"],
-          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_12_input_cgra_stencil_12_877.in0"],
-          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_12_input_cgra_stencil_12_877.in1"],
-          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_13_input_cgra_stencil_13_878.in0"],
-          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_13_input_cgra_stencil_13_878.in1"],
-          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_14_input_cgra_stencil_14_879.in0"],
-          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_14_input_cgra_stencil_14_879.in1"],
-          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_15_input_cgra_stencil_15_880.in0"],
-          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_15_input_cgra_stencil_15_880.in1"],
-          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_16_input_cgra_stencil_16_881.in0"],
-          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_16_input_cgra_stencil_16_881.in1"],
-          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_9_input_cgra_stencil_9_874.in0"],
-          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_9_input_cgra_stencil_9_874.in1"]
+          ["mul_kernel_cgra_stencil_17_input_cgra_stencil_17_956.out","add_956_986_987.in0"],
+          ["add_output_cgra_stencil_2_985_986.out","add_956_986_987.in1"],
+          ["self.out_output_cgra_stencil","add_956_986_987.out"],
+          ["mul_kernel_cgra_stencil_18_input_cgra_stencil_18_957.out","add_957_984_985.in0"],
+          ["add_958_983_984.out","add_957_984_985.in1"],
+          ["add_output_cgra_stencil_2_985_986.in1","add_957_984_985.out"],
+          ["mul_kernel_cgra_stencil_19_input_cgra_stencil_19_958.out","add_958_983_984.in0"],
+          ["add_959_982_983.out","add_958_983_984.in1"],
+          ["mul_kernel_cgra_stencil_20_input_cgra_stencil_20_959.out","add_959_982_983.in0"],
+          ["add_960_981_982.out","add_959_982_983.in1"],
+          ["mul_kernel_cgra_stencil_21_input_cgra_stencil_21_960.out","add_960_981_982.in0"],
+          ["add_961_980_981.out","add_960_981_982.in1"],
+          ["mul_kernel_cgra_stencil_22_input_cgra_stencil_22_961.out","add_961_980_981.in0"],
+          ["add_962_979_980.out","add_961_980_981.in1"],
+          ["mul_kernel_cgra_stencil_23_input_cgra_stencil_23_962.out","add_962_979_980.in0"],
+          ["add_963_978_979.out","add_962_979_980.in1"],
+          ["mul_kernel_cgra_stencil_24_input_cgra_stencil_24_963.out","add_963_978_979.in0"],
+          ["add_964_977_978.out","add_963_978_979.in1"],
+          ["mul_kernel_cgra_stencil_25_input_cgra_stencil_25_964.out","add_964_977_978.in0"],
+          ["add_965_976_977.out","add_964_977_978.in1"],
+          ["mul_kernel_cgra_stencil_26_input_cgra_stencil_26_965.out","add_965_976_977.in0"],
+          ["add_966_975_976.out","add_965_976_977.in1"],
+          ["mul_kernel_cgra_stencil_27_input_cgra_stencil_27_966.out","add_966_975_976.in0"],
+          ["add_967_974_975.out","add_966_975_976.in1"],
+          ["mul_kernel_cgra_stencil_28_input_cgra_stencil_28_967.out","add_967_974_975.in0"],
+          ["add_968_973_974.out","add_967_974_975.in1"],
+          ["mul_kernel_cgra_stencil_29_input_cgra_stencil_29_968.out","add_968_973_974.in0"],
+          ["add_969_972_973.out","add_968_973_974.in1"],
+          ["mul_kernel_cgra_stencil_30_input_cgra_stencil_30_969.out","add_969_972_973.in0"],
+          ["add_970_971_972.out","add_969_972_973.in1"],
+          ["mul_kernel_cgra_stencil_31_input_cgra_stencil_31_970.out","add_970_971_972.in0"],
+          ["mul_kernel_cgra_stencil_32_input_cgra_stencil_32_971.out","add_970_971_972.in1"],
+          ["self.in2_output_cgra_stencil.0","add_output_cgra_stencil_2_985_986.in0"],
+          ["self.in1_kernel_cgra_stencil.0","mul_kernel_cgra_stencil_17_input_cgra_stencil_17_956.in0"],
+          ["self.in0_input_cgra_stencil.0","mul_kernel_cgra_stencil_17_input_cgra_stencil_17_956.in1"],
+          ["self.in1_kernel_cgra_stencil.1","mul_kernel_cgra_stencil_18_input_cgra_stencil_18_957.in0"],
+          ["self.in0_input_cgra_stencil.1","mul_kernel_cgra_stencil_18_input_cgra_stencil_18_957.in1"],
+          ["self.in1_kernel_cgra_stencil.2","mul_kernel_cgra_stencil_19_input_cgra_stencil_19_958.in0"],
+          ["self.in0_input_cgra_stencil.2","mul_kernel_cgra_stencil_19_input_cgra_stencil_19_958.in1"],
+          ["self.in1_kernel_cgra_stencil.3","mul_kernel_cgra_stencil_20_input_cgra_stencil_20_959.in0"],
+          ["self.in0_input_cgra_stencil.3","mul_kernel_cgra_stencil_20_input_cgra_stencil_20_959.in1"],
+          ["self.in1_kernel_cgra_stencil.4","mul_kernel_cgra_stencil_21_input_cgra_stencil_21_960.in0"],
+          ["self.in0_input_cgra_stencil.4","mul_kernel_cgra_stencil_21_input_cgra_stencil_21_960.in1"],
+          ["self.in1_kernel_cgra_stencil.5","mul_kernel_cgra_stencil_22_input_cgra_stencil_22_961.in0"],
+          ["self.in0_input_cgra_stencil.5","mul_kernel_cgra_stencil_22_input_cgra_stencil_22_961.in1"],
+          ["self.in1_kernel_cgra_stencil.6","mul_kernel_cgra_stencil_23_input_cgra_stencil_23_962.in0"],
+          ["self.in0_input_cgra_stencil.6","mul_kernel_cgra_stencil_23_input_cgra_stencil_23_962.in1"],
+          ["self.in1_kernel_cgra_stencil.7","mul_kernel_cgra_stencil_24_input_cgra_stencil_24_963.in0"],
+          ["self.in0_input_cgra_stencil.7","mul_kernel_cgra_stencil_24_input_cgra_stencil_24_963.in1"],
+          ["self.in1_kernel_cgra_stencil.8","mul_kernel_cgra_stencil_25_input_cgra_stencil_25_964.in0"],
+          ["self.in0_input_cgra_stencil.8","mul_kernel_cgra_stencil_25_input_cgra_stencil_25_964.in1"],
+          ["self.in1_kernel_cgra_stencil.9","mul_kernel_cgra_stencil_26_input_cgra_stencil_26_965.in0"],
+          ["self.in0_input_cgra_stencil.9","mul_kernel_cgra_stencil_26_input_cgra_stencil_26_965.in1"],
+          ["self.in1_kernel_cgra_stencil.10","mul_kernel_cgra_stencil_27_input_cgra_stencil_27_966.in0"],
+          ["self.in0_input_cgra_stencil.10","mul_kernel_cgra_stencil_27_input_cgra_stencil_27_966.in1"],
+          ["self.in1_kernel_cgra_stencil.11","mul_kernel_cgra_stencil_28_input_cgra_stencil_28_967.in0"],
+          ["self.in0_input_cgra_stencil.11","mul_kernel_cgra_stencil_28_input_cgra_stencil_28_967.in1"],
+          ["self.in1_kernel_cgra_stencil.12","mul_kernel_cgra_stencil_29_input_cgra_stencil_29_968.in0"],
+          ["self.in0_input_cgra_stencil.12","mul_kernel_cgra_stencil_29_input_cgra_stencil_29_968.in1"],
+          ["self.in1_kernel_cgra_stencil.13","mul_kernel_cgra_stencil_30_input_cgra_stencil_30_969.in0"],
+          ["self.in0_input_cgra_stencil.13","mul_kernel_cgra_stencil_30_input_cgra_stencil_30_969.in1"],
+          ["self.in1_kernel_cgra_stencil.14","mul_kernel_cgra_stencil_31_input_cgra_stencil_31_970.in0"],
+          ["self.in0_input_cgra_stencil.14","mul_kernel_cgra_stencil_31_input_cgra_stencil_31_970.in1"],
+          ["self.in1_kernel_cgra_stencil.15","mul_kernel_cgra_stencil_32_input_cgra_stencil_32_971.in0"],
+          ["self.in0_input_cgra_stencil.15","mul_kernel_cgra_stencil_32_input_cgra_stencil_32_971.in1"]
         ]
       },
       "hcompute_output_glb_stencil":{
