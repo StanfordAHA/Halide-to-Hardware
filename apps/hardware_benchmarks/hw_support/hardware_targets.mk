@@ -185,7 +185,7 @@ pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
 
 compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen $(BIN)/$(TESTNAME)_compute_mapped.json
-	cp /aha/clockwork/*_header.json /aha/garnet/headers/ && cp /aha/clockwork/*_header.json $(BIN)/
+	cp /aha/clockwork/*_header.json /aha/garnet/headers/ && cp /aha/clockwork/*_header.json $(BIN)/ && cp /aha/MetaMapper/libs/*_header.json $(BIN)/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -203,8 +203,12 @@ delay_mem:
 	make mem
 
 reschedule_mem:
-	rm -rf bin/map_result && make compile-mem
+	rm -rf bin/map_result
 	#make mem
+	cd $(BIN) && \
+	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
+	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; rm -f unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
 	python $(HWSUPPORT)/copy_clockwork_schedules.py $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json $(BIN)/$(TESTNAME)_flush_latencies.json $(BIN)/$(TESTNAME)_pond_latencies.json
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json

@@ -212,7 +212,7 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
   
   //Define our vector of instances to replace
   vector<Instance*> treeHeads;
-  unordered_set<std::string> operators = {"coreir.add", "coreir.mul", "corebit.and", "corebit.or", 
+  unordered_set<std::string> operators = {"coreir.add", "float.add", "coreir.mul", "corebit.and", "corebit.or", 
                                           "commonlib.smin", "commonlib.smax", "commonlib.umin", "commonlib.umax"};
   //std::cout << "Running tree reduction!" << endl;
 
@@ -263,12 +263,19 @@ bool MapperPasses::TreeReduction::runOnModule(Module* m) {
     Instance* tree;
     if (out_type->getKind() == Type::TypeKind::TK_Array) {
       auto arg_width = Const::make(c,static_cast<ArrayType*>(out_type)->getLen());
+      auto arg_exp_bits = Const::make(c,7);
+      auto arg_frac_bits = Const::make(c,8);
 
       string tree_name = headInst->getInstname() + "_tree";
 
       tree = def->addInstance(tree_name, opN,
                                         {{"width",arg_width},{"N",arg_N},{"operator",arg_op}}
         );
+
+      //tree = def->addInstance(tree_name, opN,
+      //                                  {{"exp_bits",arg_exp_bits},{"frac_bits",arg_frac_bits},{"N",arg_N},{"operator",arg_op}}
+      //  );
+
       
     } else {
       // this is a bit operator

@@ -20,9 +20,9 @@ with open(input_file) as f:
     val_list = (data["top"]).split(".")
     print(val_list)
     for ins_name, val in (data["namespaces"][val_list[0]]["modules"][val_list[1]]["instances"]).items():
-        if "genref" not in val.keys():
+        if "modref" not in val.keys():
             continue
-        if val["genref"] == "cgralib.IO":
+        if val["modref"] == "global.IO":
             #print (val["metadata"])
             io_config = (next(iter(val["metadata"])))
             glb_config = val["metadata"][io_config]
@@ -102,7 +102,7 @@ with open(input_file) as f:
             elif path.exists(img_file_name+".raw"):
                 data_org = np.fromfile(img_file_name + ".raw", dtype=">i2")
             else:
-                raise Exception(f"{image_file_name}.raw or {image_file_name}.mat does not exist")
+                raise Exception(f"{img_file_name}.raw or {img_file_name}.mat does not exist")
             print ("load halide generated image, with size =", data_org.shape)
             data_org = data_org.flatten('F')
             print ("After Flatten Fortran style size =", data_org.shape)
