@@ -57,7 +57,7 @@ public:
 
         // Compute the weights from the patch differences
         Func w("w");
-        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bf16(inv_sigma_sq);
+        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
         //w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
 
         // Add an alpha channel
