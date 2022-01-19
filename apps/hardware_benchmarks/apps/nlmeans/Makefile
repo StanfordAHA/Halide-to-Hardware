@@ -36,6 +36,7 @@ include ../../hw_support/Makefile.inc
 TESTNAME                        = nlmeans
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64-bfloat_hardware
+#HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
 
 

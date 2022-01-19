@@ -1,4 +1,5 @@
 #include "EmulateFloat16Math.h"
+#include "HWBufferUtils.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "CSE.h"
@@ -175,6 +176,13 @@ class WidenMath : public IRMutator {
             Expr ret = Call::make(t, op->name, new_args, op->call_type,
                                   op->func, op->value_index, op->image, op->param);
             return cast(op->type, ret);
+            
+        } else if (op->name == "exp_bf16") {
+          internal_assert(op->type == BFloat(16));
+          internal_assert(op->args.size() == 1);
+          Expr a = widen(mutate(op->args[0]));
+          return cast(op->type, Internal::Call::make(Float(32), "exp_f32", {cast<float>(std::move(a))}, Internal::Call::PureExtern));
+          
         } else {
             return IRMutator::visit(op);
         }
@@ -436,6 +444,46 @@ class LowerFloat16Conversions : public IRMutator {
             return IRMutator::visit(op);
         }
     }
+
+  Expr visit(const Variable *op) override {
+    if (op->type.is_bfloat()) {
+      auto type = UInt(16);
+      return Variable::make(type, op->name, op->image, op->param, op->reduction_domain);
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+
+  Stmt visit(const Allocate *op) override {
+    //std::cout << "Allocate " << op->name << " is type " << type_to_c_type(op->type) << std::endl;
+    if (op->type.is_bfloat()) {
+      //std::cout << "bfloat" << std::endl;
+      auto type = UInt(16);
+      auto body = mutate(op->body);
+      auto cond = mutate(op->condition);
+      auto alloc = Allocate::make(op->name, type, op->memory_type, op->extents, cond,
+                                  body, op->new_expr, op->free_function);
+      //std::cout << alloc << std::endl;
+      return alloc;
+    } else {
+      return IRMutator::visit(op);
+    }
+  }
+  
+  Stmt visit(const Realize *op) override {
+    auto new_types = std::vector<Type>(op->types.size());
+    for (size_t i=0; i<new_types.size(); ++i) {
+      new_types.at(i) = UInt(16);
+    }
+    
+    if (op->types[0].is_bfloat()) {
+      IRMutator::visit(op);
+      auto realize = Realize::make(op->name, new_types, op->memory_type, op->bounds,
+                                   op->condition, op->body);
+      return realize;
+    }
+    return IRMutator::visit(op);
+  }
 
     // ignore hardware accelerator block
     Stmt visit(const ProducerConsumer *op) override {

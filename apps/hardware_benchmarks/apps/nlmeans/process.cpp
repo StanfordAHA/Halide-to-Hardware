@@ -59,7 +59,7 @@ int main( int argc, char **argv ) {
 
   auto env_sch = getenv("schedule");
   auto schedule = env_sch ? atoi(env_sch) : 0;
-  std::cout << "using scheudle = " << schedule << std::endl;
+  std::cout << "using schedule = " << schedule << std::endl;
 
   //int input_width  = 1242;
   int host_tiling, glb_tiling;
@@ -84,16 +84,26 @@ int main( int argc, char **argv ) {
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
-  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
-  processor.input  = Buffer<uint8_t>(output_width+2, output_height+2);
-  processor.output = Buffer<uint8_t>(output_width, output_height);
-  
-  processor.inputs_preset = true;
-  for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-        processor.input(x, y) = x + y;
-      }
+  bool use_big_image = true;
+  if (use_big_image) {
+    processor.inputs_preset = true;
+    processor.input  = load_and_convert_image("../../../images/rgb.png");
+    processor.output = Buffer<uint8_t>(1250, 2560, 3);
+  } else {
+    processor.input  = Buffer<uint8_t>(output_width+2, output_height+2, 3);
+    processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   }
+  
+  std::cout << "Running with output size: " << processor.output.dim(0).extent() << "x" << processor.output.dim(1).extent() << std::endl;
+    
+  //processor.inputs_preset = true;
+  //for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+  //  for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+  //    for (int c = 0; c < processor.input.dim(2).extent(); c++) {
+  //      processor.input(x, y, c) = x + y + 4*c;
+  //    }
+  //  }
+  //}
         
   
   //processor.input   = Buffer<uint16_t>(64, 64);

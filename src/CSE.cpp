@@ -1,6 +1,7 @@
 #include <map>
 
 #include "CSE.h"
+#include "HWBufferUtils.h"
 #include "IREquality.h"
 #include "IRMutator.h"
 #include "IROperator.h"
@@ -124,6 +125,7 @@ public:
         if (const Variable *var = e.as<Variable>()) {
             if (let_substitutions.contains(var->name)) {
                 number = let_substitutions.get(var->name);
+                //std::cout << "entry type: " + type_to_c_type(entries[number].expr.type()) + " vs " + type_to_c_type(e.type()) + " for " << Expr(var) << "\n";
                 internal_assert(entries[number].expr.type() == e.type());
                 return entries[number].expr;
             }

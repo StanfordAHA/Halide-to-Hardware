@@ -485,6 +485,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     s = remove_dead_allocations(s);
     s = remove_trivial_for_loops(s);
     s = simplify(s);
+    //std::cout << "Lowering before final simplification:\n" << s << "\n\n";
     s = loop_invariant_code_motion(s);
     debug(1) << "Lowering after final simplification:\n" << s << "\n\n";
     std::cout << "Lowering after final simplification:\n" << s << "\n\n";

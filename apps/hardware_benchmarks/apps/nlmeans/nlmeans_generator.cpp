@@ -24,13 +24,14 @@ public:
 
         //Expr inv_sigma_sq = -1.0f / (sigma * sigma * patch_size * patch_size);
         //Expr inv_sigma_sq = -69 / (patch_size * patch_size);
+        Expr inv_sigma_sq = -1.0f / (0.12f * 0.12f * 7.f * 7.f);
 
         // Add a boundary condition
         Func hw_input, hw_input_bfloat;
         Func repeated = BoundaryConditions::repeat_edge(input);
         //hw_input(x, y, c) = cast<float>(repeated(x, y, c));
         hw_input(x, y, c) = u16(repeated(x, y, c));
-        hw_input_bfloat(x, y, c) = cast<bfloat16_t>(hw_input(x, y, c));
+        hw_input_bfloat(x, y, c) = cast<bfloat16_t>(hw_input(x, y, c)) / bf16(255);
 
         // Define the difference images
         Var dx("dx"), dy("dy");
@@ -56,7 +57,7 @@ public:
 
         // Compute the weights from the patch differences
         Func w("w");
-        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bf16(-3 / 2);
+        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bf16(inv_sigma_sq);
         //w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
 
         // Add an alpha channel
@@ -73,12 +74,13 @@ public:
         // Compute the sum of the pixels in the search area
         Func non_local_means_sum("non_local_means_sum"), non_local_means, hw_output;
         non_local_means_sum(x, y, c) = bf16(0);
-        non_local_means_sum(x, y, c) += cast<bfloat16_t>(w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c));
+        non_local_means_sum(x, y, c) += bf16(w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c));
 
         non_local_means(x, y, c) =
           clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bf16(0.0f), bf16(1.0f));
 
-        hw_output(x, y, c) = u16(non_local_means(x, y, c));
+        hw_output(x, y, c) = u16(non_local_means(x, y, c) * bf16(255));
+        //hw_output(x, y, c) = u16(hw_input_bfloat(x, y, c) * bf16(255));
         output(x, y, c) = u8(hw_output(x, y, c));
 
         /* THE SCHEDULE */
@@ -162,7 +164,8 @@ public:
         } else {
             // 64 ms on an Intel i9-9960X using 32 threads at 3.0 GHz
 
-            const int vec = natural_vector_size<float>();
+          //const int vec = natural_vector_size<float>();
+            const int vec = 1;
 
             non_local_means.compute_root()
                 .reorder(c, x, y)
@@ -185,6 +188,8 @@ public:
                 .vectorize(x, vec);
             blur_d.compute_at(non_local_means_sum, x)
                 .vectorize(x, vec);
+
+
         }
     }
 };

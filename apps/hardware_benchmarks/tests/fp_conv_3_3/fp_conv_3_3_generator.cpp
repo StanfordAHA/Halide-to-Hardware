@@ -32,6 +32,7 @@ public:
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
+        //conv(x, y)  += kernel(r.x, r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
         conv(x, y)  += fp_kernel(r.x, r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
         //conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
@@ -59,9 +60,10 @@ public:
             .unroll(r.y, 3);
 
           conv.compute_at(hw_output, xo);
+          kernel.compute_inline();
 
           //fp_kernel.compute_at(hw_output, xo);//.unroll(x).unroll(y);
-          //fp_kernel.compute_root();
+          //kernel.compute_root();
 
           
           hw_input.stream_to_accelerator();

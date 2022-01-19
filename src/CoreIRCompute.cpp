@@ -1705,7 +1705,7 @@ class ROMInit : public IRVisitor {
   using IRVisitor::visit;
 
   bool is_const(const Expr e) {
-    if (e.as<IntImm>() || e.as<UIntImm>()) {
+    if (e.as<IntImm>() || e.as<UIntImm>() || e.as<FloatImm>()) {
       return true;
     } else {
       return false;
@@ -1718,12 +1718,21 @@ class ROMInit : public IRVisitor {
       auto index_expr = op->index;
       //cout << "store: " << Stmt(op) << std::endl;
       //internal_assert(is_const(value_expr) && is_const(index_expr));
-      if (is_const(value_expr) && is_const(index_expr)) {
+      //if (is_const(value_expr) && is_const(index_expr)) {
+      if (is_const(index_expr)) {
         int index = id_const_value(index_expr);
-        int value = id_const_value(value_expr);
-        //init_values["init"][index] = value;
-        init_values[index] = value; // rom2 is formatted like this
+        if (auto fi = value_expr.as<FloatImm>()) {
+          auto value = fi->value;
+          init_values[index] = value; // rom2 is formatted like this
+          //std::cout << "float" << std::endl;
+        } else {
+          int value = id_const_value(value_expr);
+          //init_values["init"][index] = value;
+          init_values[index] = value; // rom2 is formatted like this
+        }
+        //std::cout << "  storing " << value_expr << " at index " << index_expr << std::endl;
       }
+      //std::cout << "storing " << value_expr << " at index " << index_expr << std::endl;
     }
     IRVisitor::visit(op);
   }
@@ -1752,6 +1761,7 @@ class ROMInit : public IRVisitor {
 
       //init_values["init"][index] = value;
       init_values[index] = value; // rom2 is formatted like this
+      //std::cout << "storing " << value << " at index " << index << std::endl;
     }
     IRVisitor::visit(op);
   }
@@ -1765,6 +1775,7 @@ public:
 // returns a map with all the initialization values for a rom
 nlohmann::json rom_init(Stmt s, vector<int> strides, string allocname) {
   ROMInit rom_init(allocname, strides);
+  //std::cout << s << std::endl;
   s.accept(&rom_init);
   return rom_init.init_values;
 }
