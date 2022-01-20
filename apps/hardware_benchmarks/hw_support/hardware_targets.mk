@@ -185,7 +185,6 @@ pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
 	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
 
 compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen $(BIN)/$(TESTNAME)_compute_mapped.json
-	cp /aha/clockwork/*_header.json $(BIN)/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -217,6 +216,8 @@ map $(BIN)/$(TESTNAME)_compute_mapped.json: $(BIN)/$(TESTNAME)_compute.json
 	python /aha/MetaMapper/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 	cp /aha/MetaMapper/libs/* $(BIN)/
+	cp /aha/MetaMapper/libs/* /aha/clockwork/
+	cp /aha/MetaMapper/libs/* /aha/garnet/headers/
 
 #FIXME: $(BIN)/unoptimized_$(TESTNAME).o
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
