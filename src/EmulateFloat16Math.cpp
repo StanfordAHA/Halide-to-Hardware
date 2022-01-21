@@ -182,6 +182,17 @@ class WidenMath : public IRMutator {
           internal_assert(op->args.size() == 1);
           Expr a = widen(mutate(op->args[0]));
           return cast(op->type, Internal::Call::make(Float(32), "exp_f32", {cast<float>(std::move(a))}, Internal::Call::PureExtern));
+        } else if (op->name == "pow_bf16") {
+          internal_assert(op->type == BFloat(16));
+          internal_assert(op->args.size() == 2);
+          Expr a = widen(mutate(op->args[0]));
+          Expr b = widen(mutate(op->args[1]));
+          return cast(op->type, Internal::Call::make(Float(32), "pow_f32", {cast<float>(std::move(a)), cast<float>(std::move(b))}, Internal::Call::PureExtern));
+        } else if (op->name == "log_bf16") {
+          internal_assert(op->type == BFloat(16));
+          internal_assert(op->args.size() == 1);
+          Expr a = widen(mutate(op->args[0]));
+          return cast(op->type, Internal::Call::make(Float(32), "log_f32", {cast<float>(std::move(a))}, Internal::Call::PureExtern));
           
         } else {
             return IRMutator::visit(op);

@@ -17,21 +17,21 @@ public:
         Var x("x"), y("y");
 
         Func hw_input("hw_input"), hw_input_bfloat;
-        hw_input(x, y) = cast<uint16_t>(input(x, y));
-        hw_input_bfloat(x, y) = cast<bfloat16_t>(hw_input(x, y));
+        hw_input(x, y) = bf16(input(x, y));
+        hw_input_bfloat(x, y) = hw_input(x, y);
 
         Func mult, div, add, add2, sub, mod, neg;
-        neg(x,y)  = Expr(bfloat16_t(13.3));//-Expr(bfloat16_t(13.3));
+        neg(x,y)  = bfloat16_t(13.3);//-Expr(bfloat16_t(13.3));
         mult(x,y) = hw_input_bfloat(x,y) * neg(x,y);
-        div(x,y)  = Expr(bfloat16_t(4.56)) / hw_input_bfloat(x,y);
-        mod(x,y)  = hw_input_bfloat(x,y);// % 16;
-        add(x,y)  = div(x,y) + mult(x,y) + Expr(bfloat16_t(9.8));
-        add2(x,y) = add(x,y) + mult(x,y); // these don't work for some reason
-        sub(x,y)  = mult(x,y) - add(x,y);
+        div(x,y)  = bfloat16_t(4.56) / hw_input_bfloat(x,y);
+        //mod(x,y)  = hw_input_bfloat(x,y);// % 16;
+        add(x,y)  = div(x,y) + mult(x,y) + bfloat16_t(9.8);
+        //add2(x,y) = add(x,y) + mult(x,y); // these don't work for some reason
+        sub(x,y)  = bf16(2) * mult(x,y) - add(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x,y) = u16(sub(x,y));
-        output(x,y) = u8(hw_output(x,y));
+        hw_output(x,y) = sub(x,y);
+        output(x,y) = u8(clamp(hw_output(x,y), 0, 255));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

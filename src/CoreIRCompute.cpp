@@ -1597,6 +1597,11 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "pow", "fpower");
+  } else if (op->name == "pow_bf16") {
+    internal_assert(op->args.size() == 2);
+    Expr a = op->args[0];
+    Expr b = op->args[1];
+    visit_binop(op->type, a, b, "pow", "fpower");
     
   } else if (op->name == "sin_f32") {
     internal_assert(op->args.size() == 1);

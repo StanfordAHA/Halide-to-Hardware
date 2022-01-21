@@ -27,11 +27,12 @@ public:
         Expr inv_sigma_sq = -1.0f / (0.12f * 0.12f * 7.f * 7.f);
 
         // Add a boundary condition
-        Func hw_input, hw_input_bfloat;
+        Func hw_input, hw_input_bfloat, reordered;
         Func repeated = BoundaryConditions::repeat_edge(input);
+        reordered(c, x, y) = repeated(x, y, c);
         //hw_input(x, y, c) = cast<float>(repeated(x, y, c));
-        hw_input(x, y, c) = u16(repeated(x, y, c));
-        hw_input_bfloat(x, y, c) = cast<bfloat16_t>(hw_input(x, y, c)) / bf16(255);
+        hw_input(c, x, y) = bf16(reordered(c, x, y)) / bf16(255);
+        hw_input_bfloat(x, y, c) = hw_input(c, x, y);
 
         // Define the difference images
         Var dx("dx"), dy("dy");
@@ -58,7 +59,7 @@ public:
         // Compute the weights from the patch differences
         Func w("w");
         w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
-        //w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
+        //w(x, y, dx, dy) = (blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
 
         // Add an alpha channel
         Func clamped_with_alpha("clamped_with_alpha");
@@ -79,9 +80,9 @@ public:
         non_local_means(x, y, c) =
           clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bf16(0.0f), bf16(1.0f));
 
-        hw_output(x, y, c) = u16(non_local_means(x, y, c) * bf16(255));
-        //hw_output(x, y, c) = u16(hw_input_bfloat(x, y, c) * bf16(255));
-        output(x, y, c) = u8(hw_output(x, y, c));
+        //hw_output(c, x, y) = non_local_means(x, y, c) * bf16(255);
+        hw_output(c, x, y) = hw_input_bfloat(x, y, c) * bf16(255);
+        output(x, y, c) = u8(hw_output(c, x, y));
 
         /* THE SCHEDULE */
 
@@ -91,8 +92,8 @@ public:
         if (auto_schedule) {
             // nothing
         } else if (get_target().has_feature(Target::Clockwork)) {
-          int outputSize = 64;
-          int tileSize = 64;
+          int outputSize = 62;
+          int tileSize = 62;
             
           output.bound(x, 0, outputSize);
           output.bound(y, 0, outputSize);

@@ -1213,6 +1213,8 @@ inline Expr log(Expr x) {
         return Internal::Call::make(Float(64), "log_f64", {std::move(x)}, Internal::Call::PureExtern);
     } else if (x.type() == Float(16)) {
         return Internal::Call::make(Float(16), "log_f16", {std::move(x)}, Internal::Call::PureExtern);
+    } else if (x.type() == BFloat(16)) {
+        return Internal::Call::make(BFloat(16), "log_bf16", {std::move(x)}, Internal::Call::PureExtern);
     } else {
         return Internal::Call::make(Float(32), "log_f32", {cast<float>(std::move(x))}, Internal::Call::PureExtern);
     }
@@ -1237,6 +1239,9 @@ inline Expr pow(Expr x, Expr y) {
     } else if (x.type() == Float(16)) {
         y = cast<float16_t>(std::move(y));
         return Internal::Call::make(Float(16), "pow_f16", {std::move(x), std::move(y)}, Internal::Call::PureExtern);
+    } else if (x.type() == BFloat(16)) {
+        y = cast<bfloat16_t>(std::move(y));
+        return Internal::Call::make(BFloat(16), "pow_bf16", {std::move(x), std::move(y)}, Internal::Call::PureExtern);
     } else {
         x = cast<float>(std::move(x));
         y = cast<float>(std::move(y));

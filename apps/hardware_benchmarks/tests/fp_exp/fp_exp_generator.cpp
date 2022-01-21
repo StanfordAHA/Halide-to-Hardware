@@ -26,7 +26,7 @@ public:
 
         Func hw_output("hw_output");
         //hw_output(x, y) = u8(square_root(x, y));
-        hw_output(x, y) = u8(power(x, y));
+        hw_output(x, y) = power(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

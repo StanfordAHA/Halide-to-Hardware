@@ -84,7 +84,7 @@ int main( int argc, char **argv ) {
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
-  bool use_big_image = true;
+  bool use_big_image = false;
   if (use_big_image) {
     processor.inputs_preset = true;
     processor.input  = load_and_convert_image("../../../images/rgb.png");
@@ -93,6 +93,7 @@ int main( int argc, char **argv ) {
     processor.input  = Buffer<uint8_t>(output_width+2, output_height+2, 3);
     processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   }
+  processor.tolerance = 1;
   
   std::cout << "Running with output size: " << processor.output.dim(0).extent() << "x" << processor.output.dim(1).extent() << std::endl;
     

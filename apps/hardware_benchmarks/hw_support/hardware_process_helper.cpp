@@ -190,7 +190,7 @@ int OneInOneOut_ProcessController<TI,TO>::make_compare_def(std::vector<std::stri
   }
 
   // compare images
-  bool equal_images = compare_images<TO>(output, output_comparison);
+  bool equal_images = compare_images<TO>(output, output_comparison, tolerance);
 
   std::string GREEN = "\033[32m";
   std::string RED = "\033[31m";
@@ -348,7 +348,7 @@ int ManyInOneOut_ProcessController<TI,TO>::make_compare_def(std::vector<std::str
   }
 
   // compare images
-  bool equal_images = compare_images<TO>(output, output_comparison);
+  bool equal_images = compare_images<TO>(output, output_comparison, tolerance);
 
   std::string GREEN = "\033[32m";
   std::string RED = "\033[31m";

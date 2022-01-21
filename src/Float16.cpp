@@ -332,12 +332,43 @@ float float16_to_float(const uint16_t& value) {
     return reinterpret_bits<float>(bits);
 }
 
+union {
+  uint32_t val;
+  float f;
+} union_var;
+
+uint16_t round_to_even(float a) {
+  //uint32_t e = reinterpret_cast<uint32_t&>(a);
+  union_var.f = a;
+  uint32_t e = union_var.val;
+  
+  // round float to even, comment out this codeblock for truncation
+  uint32_t half = 0x00008000;
+  uint32_t sum = e + half;
+  
+  // check if bottom bits are all zero
+  uint32_t mantissa_mask = 0x0000ffff;
+  bool is_zeroed = (sum & mantissa_mask) == 0;
+  
+  // clear last bit (round even) on tie
+  uint32_t clear_mask = ~( ((uint32_t)is_zeroed) << 16);
+  e = sum & clear_mask;
+
+  // clear bottom bits
+  e = e >> 16;
+  return (uint16_t)e;
+
+  //return bfloat16_t::make_from_bits(float_to_bfloat16( expf(bfloat16_to_float(a.to_bits())) ));
+  //return bfloat16_t::make_from_bits( (uint16_t)e );
+}
+
 // Similar routines for bfloat. It's somewhat simpler.
 uint16_t float_to_bfloat16(float f) {
-    uint16_t ret[2];
-    memcpy(ret, &f, sizeof(float));
-    // Assume little-endian floats
-    return ret[1];
+    //uint16_t ret[2];
+    //memcpy(ret, &f, sizeof(float));
+    //// Assume little-endian floats
+    //return ret[1];
+  return round_to_even(f);
 }
 
 float bfloat16_to_float(uint16_t b) {
@@ -443,7 +474,6 @@ uint16_t float16_t::to_bits() const {
     return data;
 }
 
-
 bfloat16_t::bfloat16_t(float value) : data(float_to_bfloat16(value)) {}
 
 bfloat16_t::bfloat16_t(double value) : data(float_to_bfloat16(value)) {}
@@ -535,39 +565,18 @@ uint16_t bfloat16_t::to_bits() const {
     return data;
 }
 
-union {
-  uint32_t val;
-  float f;
-} union_var;
-
-bfloat16_t round_to_even(float a) {
-  //uint32_t e = reinterpret_cast<uint32_t&>(a);
-  union_var.f = a;
-  uint32_t e = union_var.val;
-  
-  // round float to even, comment out this codeblock for truncation
-  uint32_t half = 0x00008000;
-  uint32_t sum = e + half;
-  
-  // check if bottom bits are all zero
-  uint32_t mantissa_mask = 0x0000ffff;
-  bool is_zeroed = (sum & mantissa_mask) == 0;
-  
-  // clear last bit (round even) on tie
-  uint32_t clear_mask = ~( ((uint32_t)is_zeroed) << 16);
-  e = sum & clear_mask;
-
-  // clear bottom bits
-  e = e >> 16;
-
-  //return bfloat16_t::make_from_bits(float_to_bfloat16( expf(bfloat16_to_float(a.to_bits())) ));
-  return bfloat16_t::make_from_bits( (uint16_t)e );
-}
-
 bfloat16_t exp_bf16(bfloat16_t a) {
   float e = bfloat16_to_float(a.to_bits());
   float result = expf(e);
-  bfloat16_t result_bf16 = round_to_even(result);
+  bfloat16_t result_bf16 = bfloat16_t::make_from_bits(round_to_even(result));
+  return result_bf16;
+}
+
+bfloat16_t pow_bf16(bfloat16_t a, bfloat16_t b) {
+  float e = bfloat16_to_float(a.to_bits());
+  float f = bfloat16_to_float(b.to_bits());
+  float result = powf(e, f);
+  bfloat16_t result_bf16 = bfloat16_t::make_from_bits(round_to_even(result));
   return result_bf16;
 }
 
