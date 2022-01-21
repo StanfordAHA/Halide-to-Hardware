@@ -80,8 +80,8 @@ public:
         non_local_means(x, y, c) =
           clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bf16(0.0f), bf16(1.0f));
 
-        //hw_output(c, x, y) = non_local_means(x, y, c) * bf16(255);
-        hw_output(c, x, y) = hw_input_bfloat(x, y, c) * bf16(255);
+        hw_output(c, x, y) = non_local_means(x, y, c) * bf16(255);
+        //hw_output(c, x, y) = hw_input_bfloat(x, y, c) * bf16(255);
         output(x, y, c) = u8(hw_output(c, x, y));
 
         /* THE SCHEDULE */

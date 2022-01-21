@@ -93,7 +93,7 @@ int main( int argc, char **argv ) {
     processor.input  = Buffer<uint8_t>(output_width+2, output_height+2, 3);
     processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   }
-  processor.tolerance = 1;
+  processor.tolerance = 8;
   
   std::cout << "Running with output size: " << processor.output.dim(0).extent() << "x" << processor.output.dim(1).extent() << std::endl;
     
