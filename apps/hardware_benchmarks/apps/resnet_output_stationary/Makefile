@@ -35,7 +35,8 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME                        = resnet_output_stationary
 USE_COREIR_VALID                = 1
-HL_TARGET                       = host-x86-64
+#HL_TARGET                       = host-x86-64
+HL_TARGET                       = host-x86-64-enable_ponds
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
 EXT                             = mat
 
