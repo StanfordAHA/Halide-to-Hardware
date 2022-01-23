@@ -24,13 +24,15 @@ public:
 
         //Expr inv_sigma_sq = -1.0f / (sigma * sigma * patch_size * patch_size);
         //Expr inv_sigma_sq = -69 / (patch_size * patch_size);
+        Expr inv_sigma_sq = -1.0f / (0.12f * 0.12f * 7.f * 7.f);
 
         // Add a boundary condition
-        Func hw_input, hw_input_bfloat;
+        Func hw_input, hw_input_bfloat, reordered;
         Func repeated = BoundaryConditions::repeat_edge(input);
+        reordered(c, x, y) = repeated(x, y, c);
         //hw_input(x, y, c) = cast<float>(repeated(x, y, c));
-        hw_input(x, y, c) = u16(repeated(x, y, c));
-        hw_input_bfloat(x, y, c) = cast<bfloat16_t>(hw_input(x, y, c));
+        hw_input(c, x, y) = bf16(reordered(c, x, y)) / bf16(255);
+        hw_input_bfloat(x, y, c) = hw_input(c, x, y);
 
         // Define the difference images
         Var dx("dx"), dy("dy");
@@ -41,30 +43,30 @@ public:
         // Sum across color channels
         RDom channels(0, 3);
         Func d("d");
-        d(x, y, dx, dy) = bfloat16_t(0);
+        d(x, y, dx, dy) = bf16(0);
         d(x, y, dx, dy) += (dc(x, y, dx, dy, channels));
 
         // Find the patch differences by blurring the difference images
         RDom patch_dom(-(7 / 2), 7);
         Func blur_d_y("blur_d_y");
-        blur_d_y(x, y, dx, dy) = bfloat16_t(0);
+        blur_d_y(x, y, dx, dy) = bf16(0);
         blur_d_y(x, y, dx, dy) += (d(x, y + patch_dom, dx, dy));
 
         Func blur_d("blur_d");
-        blur_d(x, y, dx, dy) = bfloat16_t(0);
+        blur_d(x, y, dx, dy) = bf16(0);
         blur_d(x, y, dx, dy) += (blur_d_y(x + patch_dom, y, dx, dy));
 
         // Compute the weights from the patch differences
         Func w("w");
-        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy)) * bfloat16_t(-3 / 2);
-        //w(x, y, dx, dy) = abs(blur_d(x, y, dx, dy) * -3 / 2);
+        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
+        //w(x, y, dx, dy) = (blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
 
         // Add an alpha channel
         Func clamped_with_alpha("clamped_with_alpha");
         clamped_with_alpha(x, y, c) = select(c==0, hw_input_bfloat(x, y, 0),
                                              c==1, hw_input_bfloat(x, y, 1),
                                              c==2, hw_input_bfloat(x, y, 2),
-                                             /*c==3*/ bfloat16_t(1));
+                                             /*c==3*/ bf16(1));
 
         // Define a reduction domain for the search area
         //RDom s_dom(-(search_area / 2), search_area, -(search_area / 2), search_area);
@@ -72,14 +74,15 @@ public:
 
         // Compute the sum of the pixels in the search area
         Func non_local_means_sum("non_local_means_sum"), non_local_means, hw_output;
-        non_local_means_sum(x, y, c) = bfloat16_t(0);
-        non_local_means_sum(x, y, c) += cast<bfloat16_t>(w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c));
+        non_local_means_sum(x, y, c) = bf16(0);
+        non_local_means_sum(x, y, c) += bf16(w(x, y, s_dom.x, s_dom.y) * clamped_with_alpha(x + s_dom.x, y + s_dom.y, c));
 
         non_local_means(x, y, c) =
-          clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bfloat16_t(0.0f), bfloat16_t(1.0f));
+          clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bf16(0.0f), bf16(1.0f));
 
-        hw_output(x, y, c) = u16(non_local_means(x, y, c));
-        output(x, y, c) = u8(hw_output(x, y, c));
+        hw_output(c, x, y) = non_local_means(x, y, c) * bf16(255);
+        //hw_output(c, x, y) = hw_input_bfloat(x, y, c) * bf16(255);
+        output(x, y, c) = u8(hw_output(c, x, y));
 
         /* THE SCHEDULE */
 
@@ -89,8 +92,8 @@ public:
         if (auto_schedule) {
             // nothing
         } else if (get_target().has_feature(Target::Clockwork)) {
-          int outputSize = 64;
-          int tileSize = 64;
+          int outputSize = 62;
+          int tileSize = 62;
             
           output.bound(x, 0, outputSize);
           output.bound(y, 0, outputSize);
@@ -162,7 +165,8 @@ public:
         } else {
             // 64 ms on an Intel i9-9960X using 32 threads at 3.0 GHz
 
-            const int vec = natural_vector_size<float>();
+          //const int vec = natural_vector_size<float>();
+            const int vec = 1;
 
             non_local_means.compute_root()
                 .reorder(c, x, y)
@@ -185,6 +189,8 @@ public:
                 .vectorize(x, vec);
             blur_d.compute_at(non_local_means_sum, x)
                 .vectorize(x, vec);
+
+
         }
     }
 };

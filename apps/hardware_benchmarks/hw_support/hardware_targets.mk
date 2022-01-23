@@ -410,10 +410,6 @@ $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	  echo "Unsupported file format: $(EXT)"; \
   fi
 
-$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
-	@-mkdir -p $(BIN)
-	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
-
 $(BIN)/%.raw: $(BIN)/%.leraw
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
 
@@ -453,6 +449,10 @@ $(BIN)/%.pgm: $(BIN)/%.png
   else \
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
+
+#$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
+#	@-mkdir -p $(BIN)
+#	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
 
 run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a $(BIN)/process
 	@-mkdir -p $(BIN)

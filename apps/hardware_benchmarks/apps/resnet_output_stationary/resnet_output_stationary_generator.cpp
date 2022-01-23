@@ -178,14 +178,9 @@ public:
             .reorder(w_cgra, x_cgra, y_cgra,
                      w_glb, x_glb, y_glb);
 
-          //if (imgsize == 7) {
-            //hw_output.unroll(w, 8);
-            //output_glb.unroll(w_cgra, 8); // unroll cgra->glb channels for small images
-            //Kalhan added
-          //} else if(imgsize != 16) {
-            hw_output.unroll(w, glb_o);
-            output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
-          //}
+          // Unroll output over glb (default 1)
+          hw_output.unroll(w, glb_o);
+          output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
 
           output_cgra.compute_at(output_glb, w_glb); // memtile
           output_cgra
@@ -236,17 +231,11 @@ public:
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
 
-          //if (imgsize <= 14) {
-            kernel_glb.unroll(z, glb_k); // unroll glb input for small images
-            kernel_cgra.unroll(z_cgra, glb_k); // unroll glb->cgra channels for small images
-            input_glb.unroll(z, glb_i); // unroll glb input for small images
-            input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
-         // } else if(imgsize != 16) {
-         //   kernel_glb.unroll(z, 2); // unroll glb input for small images
-         //   input_glb.unroll(z, 2); // unroll glb input for small images
-         //   kernel_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
-         //   input_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
-         // }
+          // Unroll input and kernel over glb (default 1)
+          kernel_glb.unroll(z, glb_k); // unroll glb input for small images
+          kernel_cgra.unroll(z_cgra, glb_k); // unroll glb->cgra channels for small images
+          input_glb.unroll(z, glb_i); // unroll glb input for small images
+          input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
 
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo

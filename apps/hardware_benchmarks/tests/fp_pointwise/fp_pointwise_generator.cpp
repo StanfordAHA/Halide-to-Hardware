@@ -18,7 +18,7 @@ public:
         Func product("product");
 
         Func hw_input("hw_input");
-        hw_input(x, y) = cast<bfloat16_t>(input(x, y));
+        hw_input(x, y) = bf16(input(x, y));
         Expr pi = bfloat16_t(3.1415926535f); // this should be stored as: 0x4049 == 3.140625
         //Expr pi = bfloat16_t(13.3f); // this should be stored as: 0x4049 == 3.140625
         product(x, y)  = hw_input(x, y) * pi;
@@ -42,6 +42,8 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
             .hw_accelerate(xi, xo);
 
+          product.compute_at(hw_output, xo);
+          
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

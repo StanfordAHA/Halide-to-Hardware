@@ -26,19 +26,22 @@ public:
         kernel(1,0) = bfloat16_t(2.4);      kernel(1,1) = bfloat16_t(0);       kernel(1,2) = bfloat16_t(2.6);
         kernel(2,0) = bfloat16_t(3.7);      kernel(2,1) = bfloat16_t(3.8);     kernel(2,2) = bfloat16_t(3.9);
         //fp_kernel(x) = cast<bfloat16_t>(3*x);
-        fp_kernel(x,y) = cast<bfloat16_t>(3*x + y);
+        //fp_kernel(x,y) = cast<bfloat16_t>(3*x + y);
+        fp_kernel(x,y) = cast<bfloat16_t>(1);
 
-        conv(x, y) = cast<bfloat16_t>(0);
+        //conv(x, y) = cast<bfloat16_t>(0);
 
         Func hw_input("hw_input");
-        hw_input(x, y) = u16(input(x, y));
-        conv(x, y)  += fp_kernel(r.x, r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
+        hw_input(x, y) = bf16(input(x, y));
+        //conv(x, y)  += kernel(r.x, r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
+        conv(x, y)  += bf16(fp_kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
+        //conv(x, y)  += bf16(hw_input(x + r.x, y + r.y));
         //conv(x, y)  += fp_kernel(r.x + 3* r.y) * cast<bfloat16_t>(hw_input(x + r.x, y + r.y));
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
         //output(x, y) = cast<uint8_t>(ceil(hw_output(x,y)) % 256);
-        output(x, y) = u8(ceil(hw_output(x,y)));
+        output(x, y) = u8( clamp(hw_output(x,y), 0, 255) );
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -54,14 +57,13 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
-          conv.update()
-            .unroll(r.x, 3)
-            .unroll(r.y, 3);
+          //conv.update().unroll(r.x, 3).unroll(r.y, 3);
 
           conv.compute_at(hw_output, xo);
+          //kernel.compute_inline();
 
           //fp_kernel.compute_at(hw_output, xo);//.unroll(x).unroll(y);
-          //fp_kernel.compute_root();
+          //kernel.compute_root();
 
           
           hw_input.stream_to_accelerator();
@@ -69,9 +71,6 @@ public:
         } else {  // schedule to CPU
           kernel.compute_root();
           conv.compute_root();
-          conv.update()
-            .unroll(r.x, 3)
-            .unroll(r.y, 3);
         }
 
     }

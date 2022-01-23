@@ -475,6 +475,10 @@ int blockSize = 9;
               r_gb.compute_at(hw_output, xo);
               r_b.compute_at(hw_output, xo);
               g_b.compute_at(hw_output, xo);
+              g_gr.compute_at(hw_output, xo);
+              r_r.compute_at(hw_output, xo);
+              b_b.compute_at(hw_output, xo);
+              g_gb.compute_at(hw_output, xo);
             }
 
             if (true) {
@@ -488,20 +492,6 @@ int blockSize = 9;
               g_b.unroll(x, unroll, TailStrategy::RoundUp);
             }
 
-            // when unrolled more than 1, these cause `make compare` to fail
-            //if (unroll == 1) {
-            if (false) {
-              g_gr.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              r_r.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              b_b.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-              g_gb.compute_at(hw_output, xo).unroll(x, unroll, TailStrategy::RoundUp);
-            //} else {
-            //  g_gr.compute_at(hw_output, xo);
-            //  r_r.compute_at(hw_output, xo);
-            //  b_b.compute_at(hw_output, xo);
-            //  g_gb.compute_at(hw_output, xo);
-            }
-        
             curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
             curve.store_in(MemoryType::ROM);
             // unroll by x?

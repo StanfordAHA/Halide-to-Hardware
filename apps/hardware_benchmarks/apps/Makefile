@@ -26,7 +26,8 @@ simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
 IMG_APPS := blur gaussian harris harris_color \
-						unsharp camera_pipeline fast_corner lens_distortion \
+						unsharp camera_pipeline camera_pipeline_2x2 \
+						fast_corner lens_distortion \
 						pyramid_blur local_laplacian laplacian_pyramid interpolate \
 						bilateral_grid \
 						max_filter nlmeans \

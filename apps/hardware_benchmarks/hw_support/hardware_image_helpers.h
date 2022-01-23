@@ -79,7 +79,8 @@ void create_image(Halide::Runtime::Buffer<T>* input,
 
 template <typename T>
 bool compare_images(const Halide::Runtime::Buffer<T>& image0,
-                    const Halide::Runtime::Buffer<T>& image1) {
+                    const Halide::Runtime::Buffer<T>& image1,
+                    const int tolerance) {
   bool equal_images = true;
 
   if (image0.height() != image1.height() ||
@@ -92,7 +93,7 @@ bool compare_images(const Halide::Runtime::Buffer<T>& image0,
 
   for (int y=0; y<image0.height(); y++) {
     for (int x=0; x<image0.width(); x++) {
-      if(image0(x,y) != image1(x,y)) {
+      if (abs(image0(x,y) - image1(x,y)) > tolerance) {
         std::cout << "y=" << y << "," << "x=" << x
                   << " CPU val = "<< (int)image0(x,y) << "(" << std::hex << +image0(x,y) << ")" << std::dec
                   << ", Clock val = " << (int)image1(x,y) << "(" << std::hex << +image1(x,y) << ")" << std::dec << std::endl;

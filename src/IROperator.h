@@ -1193,6 +1193,7 @@ inline Expr exp(Expr x) {
     } else if (x.type() == Float(16)) {
         return Internal::Call::make(Float(16), "exp_f16", {std::move(x)}, Internal::Call::PureExtern);
     } else if (x.type() == BFloat(16)) {
+      //return Internal::Call::make(Float(32), "exp_f32", {std::move(x)}, Internal::Call::PureExtern);
       return Internal::Call::make(BFloat(16), "exp_bf16", {std::move(x)}, Internal::Call::PureExtern);
     } else {
         return Internal::Call::make(Float(32), "exp_f32", {cast<float>(std::move(x))}, Internal::Call::PureExtern);
@@ -1212,6 +1213,8 @@ inline Expr log(Expr x) {
         return Internal::Call::make(Float(64), "log_f64", {std::move(x)}, Internal::Call::PureExtern);
     } else if (x.type() == Float(16)) {
         return Internal::Call::make(Float(16), "log_f16", {std::move(x)}, Internal::Call::PureExtern);
+    } else if (x.type() == BFloat(16)) {
+        return Internal::Call::make(BFloat(16), "log_bf16", {std::move(x)}, Internal::Call::PureExtern);
     } else {
         return Internal::Call::make(Float(32), "log_f32", {cast<float>(std::move(x))}, Internal::Call::PureExtern);
     }
@@ -1236,6 +1239,9 @@ inline Expr pow(Expr x, Expr y) {
     } else if (x.type() == Float(16)) {
         y = cast<float16_t>(std::move(y));
         return Internal::Call::make(Float(16), "pow_f16", {std::move(x), std::move(y)}, Internal::Call::PureExtern);
+    } else if (x.type() == BFloat(16)) {
+        y = cast<bfloat16_t>(std::move(y));
+        return Internal::Call::make(BFloat(16), "pow_bf16", {std::move(x), std::move(y)}, Internal::Call::PureExtern);
     } else {
         x = cast<float>(std::move(x));
         y = cast<float>(std::move(y));
@@ -1420,7 +1426,8 @@ inline Expr reinterpret(Type t, Expr e) {
         << "Reinterpret cast from type " << e.type()
         << " which has " << from_bits
         << " bits, to type " << t
-        << " which has " << to_bits << " bits\n";
+        << " which has " << to_bits << " bits"
+        << " for expr " << e << "\n";
     return Internal::Call::make(t, Internal::Call::reinterpret, {std::move(e)}, Internal::Call::PureIntrinsic);
 }
 
