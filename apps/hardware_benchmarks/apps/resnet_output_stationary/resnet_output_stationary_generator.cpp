@@ -40,6 +40,15 @@ public:
   
     // n_oc determines the total number of output channels
     GeneratorParam<int> n_oc{"n_oc", 32};    // default: 32
+
+    // glb_i determines the input glb unrolling
+    GeneratorParam<int> glb_i{"glb_i", 1};    // default: 32
+
+    // glb_k determines the kernel glb unrolling
+    GeneratorParam<int> glb_k{"glb_k", 1};    // default: 32
+
+    // glb_o determines the output glb unrolling
+    GeneratorParam<int> glb_o{"glb_o", 1};    // default: 32
   
     // schedule to be used
     GeneratorParam<int> schedule{"schedule", 0};    // default: 0
@@ -169,9 +178,9 @@ public:
             .reorder(w_cgra, x_cgra, y_cgra,
                      w_glb, x_glb, y_glb);
 
-          if (imgsize == 7) {
-            //output_glb.unroll(w_cgra, 2); // unroll cgra->glb channels for small images
-          }
+          // Unroll output over glb (default 1)
+          hw_output.unroll(w, glb_o);
+          output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
 
           output_cgra.compute_at(output_glb, w_glb); // memtile
           output_cgra
@@ -222,12 +231,11 @@ public:
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
 
-          //if (imgsize == 7) {
-          //  kernel_glb.unroll(z, 2); // unroll glb input for small images
-          //  input_glb.unroll(z, 2); // unroll glb input for small images
-          //  kernel_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
-          //  input_cgra.unroll(z_cgra, 2); // unroll glb->cgra channels for small images
-          //}
+          // Unroll input and kernel over glb (default 1)
+          kernel_glb.unroll(z, glb_k); // unroll glb input for small images
+          kernel_cgra.unroll(z_cgra, glb_k); // unroll glb->cgra channels for small images
+          input_glb.unroll(z, glb_i); // unroll glb input for small images
+          input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
 
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
