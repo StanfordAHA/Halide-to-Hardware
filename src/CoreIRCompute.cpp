@@ -890,7 +890,11 @@ void CreateCoreIRModule::visit_binop(Type t, Expr a, Expr b, const char*  op_sym
     
     // properly cast to generator or module
     internal_assert(gens.count(op_name) > 0) << op_name << " is not one of the names Halide recognizes\n";
-    if (context->getNamespace("float_DW")->hasGenerator(gens[op_name].substr(9))) {
+    if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
+      coreir_inst = def->addInstance(binop_name, gens[op_name],
+                                     {{"exp_bits", CoreIR::Const::make(context,8)},
+                                      {"frac_bits", CoreIR::Const::make(context,7)}});
+    } else if (context->getNamespace("float_DW")->hasGenerator(gens[op_name].substr(9))) {
       coreir_inst = def->addInstance(binop_name, gens[op_name],
                                      {{"exp_width", CoreIR::Const::make(context,8)},
                                       {"sig_width", CoreIR::Const::make(context,7)},
@@ -898,11 +902,6 @@ void CreateCoreIRModule::visit_binop(Type t, Expr a, Expr b, const char*  op_sym
       in0_name = "a";
       in1_name = "b";
       out_name = "z";
-      
-    } else if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
-      coreir_inst = def->addInstance(binop_name, gens[op_name],
-                                     {{"exp_bits", CoreIR::Const::make(context,8)},
-                                      {"frac_bits", CoreIR::Const::make(context,7)}});
     } else if (context->hasGenerator(gens[op_name])) {
       coreir_inst = def->addInstance(binop_name, gens[op_name], {{"width", CoreIR::Const::make(context,bw)}});
     } else {

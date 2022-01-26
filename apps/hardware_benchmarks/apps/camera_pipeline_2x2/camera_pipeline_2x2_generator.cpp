@@ -517,14 +517,12 @@ int blockSize = 9;
               g_b.compute_at(hw_output, xo);
             }
 
-            if (true) {
-              g_gr.compute_at(hw_output, xo);
-              r_r.compute_at(hw_output, xo);
-              b_b.compute_at(hw_output, xo);
-              g_gb.compute_at(hw_output, xo);
-            }
+            g_gr.compute_at(hw_output, xo);
+            r_r.compute_at(hw_output, xo);
+            b_b.compute_at(hw_output, xo);
+            g_gb.compute_at(hw_output, xo);
             
-            if (false) {
+            if (false) { // these buffers should not be unrolled
               g_gr
                 .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
                 .unroll(x, unrollx, TailStrategy::RoundUp)

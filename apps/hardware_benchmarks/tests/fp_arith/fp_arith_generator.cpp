@@ -25,12 +25,15 @@ public:
         mult(x,y) = hw_input_bfloat(x,y) * neg(x,y);
         div(x,y)  = bfloat16_t(4.56) / hw_input_bfloat(x,y);
         //mod(x,y)  = hw_input_bfloat(x,y);// % 16;
-        add(x,y)  = div(x,y) + mult(x,y) + bfloat16_t(9.8);
+        add(x,y)  = div(x,y) + hw_input_bfloat(x,y) + bfloat16_t(9.8);
         //add2(x,y) = add(x,y) + mult(x,y); // these don't work for some reason
-        sub(x,y)  = bf16(2) * mult(x,y) - add(x,y);
+        //sub(x,y)  =  mult(x,y) - add(x,y);
+        sub(x,y)  = bfloat16_t(2.6) * mult(x,y) - add(x,y);
+        
 
         Func hw_output("hw_output");
         hw_output(x,y) = sub(x,y);
+        //hw_output(x,y) = add(x,y);
         output(x,y) = u8(clamp(hw_output(x,y), 0, 255));
 
         /* THE SCHEDULE */
@@ -57,7 +60,22 @@ public:
           hw_input.stream_to_accelerator();
             
         } else {  // schedule to CPU
+          // CPU schedule must be similar for bfloat16 for outputs to be bit exact
           output.compute_root();
+
+          Var xi,yi, xo,yo;
+          hw_output
+            .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
+            .compute_root();
+
+          //sub.compute_at(hw_output, xo);
+          add.compute_at(hw_output, xo);
+          mult.compute_at(hw_output, xo);
+          //div.compute_at(hw_output, xo);
+          //mod.compute_at(hw_output, xo);
+
+
+
         }
         
     }

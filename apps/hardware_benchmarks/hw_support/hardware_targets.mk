@@ -167,7 +167,7 @@ UNOPTIMIZED_OBJS = $(patsub %.cpp,%.o,$(UNOPTIMIZED_CPPS))
 $(BIN)/clockwork_codegen.o: $(BIN)/clockwork_codegen.cpp
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) -c $< -o $@
 $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
-	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -o $@
+	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -lcoreir-float -lcoreir-float_DW -o $@
 $(BIN)/unoptimized_$(TESTNAME).cpp unopt-clockwork clockwork-unopt unopt: $(BIN)/clockwork_codegen
 	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib \
 	./clockwork_codegen unopt 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -183,6 +183,8 @@ compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
+#EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
 memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
@@ -579,14 +581,14 @@ check:
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
 	fi
 	@if [ -f "$(BIN)/$(TESTNAME)_memory.cpp" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " clk_cg"; \
-	else \
-	  printf "  \033[0;31m%s\033[0m" "!clk_cg"; \
-	fi
-	@if [ -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " clkwork"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!clkwork"; \
+	fi
+	@if [ -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " unopt"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!unopt"; \
 	fi
 	@if [ -f "$(BIN)/output_cpu.$(EXT)" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " out_cpu"; \

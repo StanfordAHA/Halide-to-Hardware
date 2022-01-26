@@ -31,7 +31,7 @@ public:
         Func repeated = BoundaryConditions::repeat_edge(input);
         reordered(c, x, y) = repeated(x, y, c);
         //hw_input(x, y, c) = cast<float>(repeated(x, y, c));
-        hw_input(c, x, y) = bf16(reordered(c, x, y)) / bf16(255);
+        hw_input(c, x, y) = bf16(reordered(c, x, y)) / bf16(256);
         hw_input_bfloat(x, y, c) = hw_input(c, x, y);
 
         // Define the difference images
@@ -79,9 +79,12 @@ public:
 
         non_local_means(x, y, c) =
           clamp(non_local_means_sum(x, y, c) / non_local_means_sum(x, y, 3), bf16(0.0f), bf16(1.0f));
+          //clamp(non_local_means_sum(x, y, c), bf16(0.0f), bf16(1.0f));
 
         hw_output(c, x, y) = non_local_means(x, y, c) * bf16(255);
         //hw_output(c, x, y) = hw_input_bfloat(x, y, c) * bf16(255);
+        //hw_output(c, x, y) = hw_input(c, x, y) * bf16(255);
+        //hw_output(c, x, y) = hw_input_bfloat(x, y, c, c) * bf16(255);
         output(x, y, c) = u8(hw_output(c, x, y));
 
         /* THE SCHEDULE */
@@ -111,10 +114,24 @@ public:
           hw_output.unroll(c);
 
           d.compute_at(hw_output, xo);
+          d.update()
+            .unroll(channels);
+          
           blur_d_y.compute_at(hw_output, xo);
+          //blur_d_y.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d_y.update()
+            .unroll(patch_dom);
+          
           blur_d.compute_at(hw_output, xo);
-          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y);
-          non_local_means_sum.update().reorder(c, x, y);
+          //blur_d.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d.update()
+            .unroll(patch_dom);
+          
+          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y)
+            .unroll(c);
+          //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y);
+          non_local_means_sum.update().reorder(c, x, y)
+            .unroll(s_dom.x).unroll(s_dom.y).unroll(c);
 
           hw_input.in().reorder(c, x, y);
           
@@ -165,9 +182,48 @@ public:
         } else {
             // 64 ms on an Intel i9-9960X using 32 threads at 3.0 GHz
 
-          //const int vec = natural_vector_size<float>();
-            const int vec = 1;
+          int outputSize = 62;
+          int tileSize = 62;
+          output.bound(x, 0, outputSize);
+          output.bound(y, 0, outputSize);
+          output.bound(c, 0, 3);
+            
 
+          hw_output.compute_root();
+
+          Var xi, xo, yi, yo;
+          hw_output
+            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+            .reorder(c, xi, yi, xo, yo)
+            .reorder_storage(c, x, y);
+        
+          hw_output.unroll(c);
+
+          d.compute_at(hw_output, xo);
+          d.update()
+            .unroll(channels);
+          
+          blur_d_y.compute_at(hw_output, xo);
+          //blur_d_y.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d_y.update()
+            .unroll(patch_dom);
+          
+          blur_d.compute_at(hw_output, xo);
+          //blur_d.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d.update()
+            .unroll(patch_dom);
+          
+          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y);
+          //.unroll(c);
+          //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y);
+          non_local_means_sum.update().reorder(c, x, y);
+          //.unroll(s_dom.x).unroll(s_dom.y).unroll(c);
+
+          hw_input.in().reorder(c, x, y);
+
+          //const int vec = natural_vector_size<float>();
+          /*
+            const int vec = 1;
             non_local_means.compute_root()
                 .reorder(c, x, y)
                 .tile(x, y, tx, ty, x, y, 16, 8)
@@ -189,7 +245,7 @@ public:
                 .vectorize(x, vec);
             blur_d.compute_at(non_local_means_sum, x)
                 .vectorize(x, vec);
-
+          */
 
         }
     }

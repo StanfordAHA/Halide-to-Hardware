@@ -57,7 +57,7 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 64-2, 64-2)
             .hw_accelerate(xi, xo);
 
-          //conv.update().unroll(r.x, 3).unroll(r.y, 3);
+          conv.update().unroll(r.x, 3).unroll(r.y, 3);
 
           conv.compute_at(hw_output, xo);
           //kernel.compute_inline();

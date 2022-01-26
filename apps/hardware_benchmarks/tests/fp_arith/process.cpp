@@ -58,7 +58,8 @@ int main( int argc, char **argv ) {
 
   processor.input   = Buffer<uint8_t>(64, 64);
   processor.output  = Buffer<uint8_t>(64, 64);
-  processor.tolerance = 1;
+  //processor.tolerance = 1;
+  std::cout << "Running with tolerance=" << processor.tolerance << std::endl;
   
   return processor.process_command(argc, argv);
   
