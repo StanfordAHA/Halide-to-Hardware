@@ -40,7 +40,7 @@ public:
 
           hw_output.compute_root();
           
-          hw_output.tile(x,y, xo,yo, xi,yi, 64, 64)
+          hw_output.tile(x,y, xo,yo, xi,yi, 63, 63)
             .hw_accelerate(xi, xo);
 
           merge.compute_at(hw_output, xo);
