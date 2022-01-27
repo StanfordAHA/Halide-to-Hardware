@@ -1,12 +1,12 @@
 # Usage:
-#  make all:       compiles all code
-#       generator: create Halide generator
-#       design:    create cpu design
-#       run:       run cpu design with image
-#       compare:   compare two output images
-#       eval:      evaluate runtime
-#       golden:    copy design and output image
-#       clean:     remove bin directory
+#  make all:	   compiles all code
+#	generator: create Halide generator
+#	design:    create cpu design
+#	run:	   run cpu design with image
+#	compare:   compare two output images
+#	eval:	   evaluate runtime
+#	golden:    copy design and output image
+#	clean:	   remove bin directory
 
 
 # define defulats to environment variables
@@ -23,7 +23,7 @@ CLOCKWORK_PATH ?= $(CLOCKWORK_DIR)
 ISL_PATH ?= $(CLOCKWORK_PATH)/barvinok-0.41/isl
 CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include -I$(ISL_PATH) -fPIC
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
-CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread
+CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread -lcoreir-float -lcoreir-float_DW
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
@@ -31,27 +31,29 @@ TESTGENNAME ?= $(TESTNAME)
 TESTORAPP = $(shell basename $(abspath $(ROOT_DIR)/..))
 USE_COREIR_VALID ?= 0
 EXT ?= png
+PIPELINED ?= 0
+META_TARGET ?= app
 
 # set this for Halide generator arguments
-HALIDE_GEN_ARGS ?= 
-HALIDE_GEN_SIZE_ARGS ?= 
+HALIDE_GEN_ARGS ?=
+HALIDE_GEN_SIZE_ARGS ?=
 
 # =========================== RDAI Configuration  ===================================
 
-RDAI_HOST_CXXFLAGS 			= -I$(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/include
-RDAI_PLATFORM_CXXFLAGS 		= -I$(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/include
+RDAI_HOST_CXXFLAGS			= -I$(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/include
+RDAI_PLATFORM_CXXFLAGS		= -I$(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/include
 
 RDAI_HOST_SRC				= $(wildcard $(RDAI_DIR)/host_runtimes/$(RDAI_HOST_RUNTIME)/src/*.cpp)
 RDAI_PLATFORM_SRC			= $(wildcard $(RDAI_DIR)/platform_runtimes/$(RDAI_PLATFORM_RUNTIME)/src/*.cpp)
 
 RDAI_HOST_SRC_FILES			= $(notdir $(RDAI_HOST_SRC))
-RDAI_PLATFORM_SRC_FILES 	= $(notdir $(RDAI_PLATFORM_SRC))
+RDAI_PLATFORM_SRC_FILES		= $(notdir $(RDAI_PLATFORM_SRC))
 
 RDAI_HOST_OBJ_NAMES			= $(patsubst %.cpp,%.o,$(RDAI_HOST_SRC_FILES))
-RDAI_PLATFORM_OBJ_NAMES 	= $(patsubst %.cpp,%.o,$(RDAI_PLATFORM_SRC_FILES))
+RDAI_PLATFORM_OBJ_NAMES		= $(patsubst %.cpp,%.o,$(RDAI_PLATFORM_SRC_FILES))
 
-RDAI_HOST_OBJ_DEPS 			= $(foreach obj,$(RDAI_HOST_OBJ_NAMES),$(BIN)/rdai_host-$(obj))
-RDAI_PLATFORM_OBJ_DEPS 		= $(foreach obj,$(RDAI_PLATFORM_OBJ_NAMES),$(BIN)/rdai_platform-$(obj))
+RDAI_HOST_OBJ_DEPS			= $(foreach obj,$(RDAI_HOST_OBJ_NAMES),$(BIN)/rdai_host-$(obj))
+RDAI_PLATFORM_OBJ_DEPS		= $(foreach obj,$(RDAI_PLATFORM_OBJ_NAMES),$(BIN)/rdai_platform-$(obj))
 
 # =========================== End of RDAI ======================================
 
@@ -87,7 +89,7 @@ $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_hel
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@ 
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
 
 $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o: $(HWSUPPORT)/coreir_sim_plugins.cpp $(HWSUPPORT)/coreir_sim_plugins.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
@@ -117,7 +119,7 @@ coreir design-coreir: $(BIN)/$(TESTNAME).generator
 
 coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
@@ -135,6 +137,7 @@ $(BIN)/design_top_graph.json:
 #$(BIN)/design_top_graph.json: $(BIN)/design_top.json
 #	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json $(BIN)/design_top_graph.json
 
+
 #$(BIN)/design_top.txt: $(BIN)/design_top.json $(HWSUPPORT)/$(BIN)/coreir_to_dot
 $(BIN)/design_top.txt: $(HWSUPPORT)/$(BIN)/coreir_to_dot $(BIN)/design_top_graph.json
 	cat $(BIN)/design_top_graph.json | sed "s/\([0-9]*\)\],\"Arg\",\"init\"/\1],\"\1\'h0\"/g" > $(BIN)/design_top_fixed.json
@@ -150,7 +153,7 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h \
 $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp \
-clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
+clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h $(BIN)/$(TESTNAME)_compute.json: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 	(echo "//" `cat $(BIN)/halide_gen_args`) | cat >> $(BIN)/$(TESTNAME)_memory.cpp
@@ -177,12 +180,18 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 	./clockwork_codegen opt 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
-	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+pipeline tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
+	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
+	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
+	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
+
+compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen $(BIN)/$(TESTNAME)_compute_mapped.json
+	cp /aha/clockwork/*_header.json $(BIN)/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
-	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
+	EXIT_CODE=$$?; rm -f unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
+
 memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
@@ -190,33 +199,38 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
-	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
-	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
-	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
-
 treegraph tree_graph: tree
 	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
 
 delay_mem:
-	rm -rf bin/map_result/ && make compile-mem
+	rm -rf bin/map_result/* && rm -rf bin/map_result && make compile-mem
 	make mem
 
+reschedule_mem:
+	rm -rf bin/map_result/* && rm -rf bin/map_result && make compile-mem
+	#make mem
+	python $(HWSUPPORT)/copy_clockwork_schedules.py $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json $(BIN)/$(TESTNAME)_flush_latencies.json
+
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
-	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
+
+map $(BIN)/$(TESTNAME)_compute_mapped.json: $(BIN)/$(TESTNAME)_compute.json
+	python /aha/MetaMapper/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
+	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
+	cp /aha/MetaMapper/libs/* $(BIN)/
 
 #FIXME: $(BIN)/unoptimized_$(TESTNAME).o
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
-	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)	-c $< -o $@
 #$(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
 #	@if [ ! -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
 #		$(MAKE) $(UNOPTIMIZED_OBJS); \
 #		ld -relocatable $(UNOPTIMIZED_OBJS) -o $@; \
 #	else \
-#		$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@; \
+#		$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)	-c $< -o $@; \
 #	fi
 $(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
-	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)	-c $< -o $@
 $(BIN)/$(TESTNAME)_clockwork.o: $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h
 	@echo -e "\n[COMPILE_INFO] building clockwork pipeline"
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH) -c $< -o $@
@@ -246,7 +260,7 @@ $(BIN)/halide_runtime.o: $(BIN)/$(TESTNAME).generator
 #						  $(RDAI_PLATFORM_OBJ_DEPS) \
 #							$(BIN)/$(TESTNAME).a
 #	@echo -e "\n[COMPILE_INFO] building process_clockwork"
-#	$(CXX) 	$(CXXFLAGS) -O3 -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) \
+#	$(CXX)	$(CXXFLAGS) -O3 -I$(BIN) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) \
 #			-DWITH_CLOCKWORK $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie
 
 design-verilog $(BIN)/top.v: $(BIN)/design_top.json
@@ -260,7 +274,7 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 
 #$(BIN)/process: process.cpp $(BIN)/$(TESTNAME).a $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_interpret.o $(HWSUPPORT)/coreir_sim_plugins.o
 #	@-mkdir -p $(BIN)
-#	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
+#	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)	-O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
 #	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
 #	$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ $(LDFLAGS) $(IMAGE_IO_FLAGS) -o $@
 #ifeq ($(UNAME), Darwin)
@@ -302,7 +316,7 @@ ifneq ("$(wildcard $(BIN)/design_top.json)","")
   WITH_COREIR = 1
 endif
 ifeq ($(WITH_COREIR),1)
-  PROCESS_DEPS += $(HWSUPPORT)/$(BIN)/coreir_interpret.o 
+  PROCESS_DEPS += $(HWSUPPORT)/$(BIN)/coreir_interpret.o
   PROCESS_TARGETS += -DWITH_COREIR
 endif
 
@@ -339,7 +353,7 @@ $(BIN)/process_targets: FORCE
 $(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_image_helpers.h
 	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)	-O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $(PROCESS_DEPS) $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
 ifeq ($(UNAME), Darwin)
@@ -369,15 +383,15 @@ FORCE:
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image $(HALIDE_GEN_ARGS) 
+	$(BIN)/process image $(HALIDE_GEN_ARGS)
 
 image-ascending: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image 1 $(HALIDE_GEN_ARGS) 
+	$(BIN)/process image 1 $(HALIDE_GEN_ARGS)
 
 image-float: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image 3 $(HALIDE_GEN_ARGS) 
+	$(BIN)/process image 3 $(HALIDE_GEN_ARGS)
 
 $(BIN)/input.$(EXT): input.$(EXT)
 	@-mkdir -p $(BIN)
@@ -399,7 +413,7 @@ $(BIN)/input.pgm: input.png
 
 $(BIN)/input_nn.pgm: input_padded.mat kernel.mat
 	@-mkdir -p $(BIN)
-	python $(HWSUPPORT)/interleave_input.py $(BIN)/input_nn.pgm; 
+	python $(HWSUPPORT)/interleave_input.py $(BIN)/input_nn.pgm;
 
 $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	if [ "$(EXT)" == "png" ]; then \
@@ -409,6 +423,10 @@ $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	else \
 	  echo "Unsupported file format: $(EXT)"; \
   fi
+
+$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
+	@-mkdir -p $(BIN)
+	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm;
 
 $(BIN)/%.raw: $(BIN)/%.leraw
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
@@ -449,10 +467,6 @@ $(BIN)/%.pgm: $(BIN)/%.png
   else \
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
-
-#$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
-#	@-mkdir -p $(BIN)
-#	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
 
 run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a $(BIN)/process
 	@-mkdir -p $(BIN)
@@ -516,7 +530,7 @@ compare-rewrite compare-rewrite-cpu compare-cpu-rewrite:
 compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(EXT): $(BIN)/output_clockwork.$(EXT) $(BIN)/output_cpu.$(EXT) $(BIN)/process
 #compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
 #	$(MAKE) $(BIN)/output_cpu.$(EXT)
-#	$(MAKE) $(BIN)/output_clockwork.$(EXT) 
+#	$(MAKE) $(BIN)/output_clockwork.$(EXT)
 	$(HALIDE_GEN_ARGS) $(BIN)/process compare $(BIN)/output_cpu.$(EXT) $(BIN)/output_clockwork.$(EXT); \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \
