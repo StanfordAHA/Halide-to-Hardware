@@ -226,17 +226,17 @@ private:
     Func flatten_pyramid(vector<Func> &pyramid, vector<Func> &upsampled) {
       using Halide::_;
 
-      Func lImg;
-      Func gImg;
+      
+      //init the last upsampled stencil to be the deepest gaussian pyramid
       int num_levels = pyramid.size();
+      upsampled[num_levels-1] = pyramid[num_levels-1];
+
+      //Blend to the top
       for (int level = num_levels-1; level > 0; --level) {
-        gImg = pyramid[level];
-        lImg = pyramid[level-1];
-        Func upsampled = upsample(gImg);
-        lImg(x,y,_) = lImg(x,y,_) + upsampled(x,y,_);
+        upsampled[level-1](x,y,_) = pyramid[level-1](x,y,_) + upsample(upsampled[level])(x,y,_);
       }
       
-      return lImg;
+      return upsampled[0];
     }
     
   };
