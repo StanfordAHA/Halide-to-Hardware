@@ -25,7 +25,7 @@ public:
 
         Func hw_input("hw_input"), input_broadcast("input_broadcast");
         hw_input(x, y) = u16(input(x, y));
-        input_broadcast(x, y, c) = hw_input(x, y) * c;
+        input_broadcast(x, y, c) = hw_input(x, y) * u16(c);
 
         conv(x, y)  += u16(input_broadcast(x + r.x, y + r.y, r.z));
 

@@ -161,6 +161,7 @@ public:
           Var w_cgra, w_glb;
           Var z_cgra, z_glb;
           RVar rz_unroll("rz_unroll"), rz_cgra("rz_cgra"), rz_glb("rz_glb");
+          RVar rz_split("rz_split")
 
           // Produce loop levels: host, global buffer, cgra
           hw_output.compute_root();

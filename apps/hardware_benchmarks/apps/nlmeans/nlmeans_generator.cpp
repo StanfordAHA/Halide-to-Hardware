@@ -14,6 +14,8 @@ public:
 
     Output<Buffer<uint8_t>> output{"output", 3};
 
+  const int patch_size = 5;
+
     void generate() {
         /* THE ALGORITHM */
 
@@ -47,7 +49,7 @@ public:
         d(x, y, dx, dy) += (dc(x, y, dx, dy, channels));
 
         // Find the patch differences by blurring the difference images
-        RDom patch_dom(-(7 / 2), 7);
+        RDom patch_dom(-(patch_size / 2), patch_size);
         Func blur_d_y("blur_d_y");
         blur_d_y(x, y, dx, dy) = bf16(0);
         blur_d_y(x, y, dx, dy) += (d(x, y + patch_dom, dx, dy));
@@ -70,7 +72,7 @@ public:
 
         // Define a reduction domain for the search area
         //RDom s_dom(-(search_area / 2), search_area, -(search_area / 2), search_area);
-        RDom s_dom(-(7 / 2), 7, -(7 / 2), 7);
+        RDom s_dom(-(patch_size / 2), patch_size, -(patch_size / 2), patch_size);
 
         // Compute the sum of the pixels in the search area
         Func non_local_means_sum("non_local_means_sum"), non_local_means, hw_output;
@@ -95,8 +97,8 @@ public:
         if (auto_schedule) {
             // nothing
         } else if (get_target().has_feature(Target::Clockwork)) {
-          int outputSize = 62;
-          int tileSize = 62;
+          int outputSize = 64;
+          int tileSize = 32;
             
           output.bound(x, 0, outputSize);
           output.bound(y, 0, outputSize);
@@ -113,27 +115,28 @@ public:
         
           hw_output.unroll(c);
 
+          //d.compute_at(hw_output, xo).reorder(dy, x, y, dx).unroll(dy);
           d.compute_at(hw_output, xo);
-          d.update()
-            .unroll(channels);
+          d.update().unroll(channels);
+            //.reorder(dy, x, y, dx).unroll(dy);
           
+          //blur_d_y.compute_at(hw_output, xo).reorder(dy, x, y, dx).unroll(dy);
           blur_d_y.compute_at(hw_output, xo);
           //blur_d_y.update().reorder(x, y, patch_dom, dx, dy);
-          blur_d_y.update()
-            .unroll(patch_dom);
-          
-          blur_d.compute_at(hw_output, xo);
-          //blur_d.update().reorder(x, y, patch_dom, dx, dy);
-          blur_d.update()
-            .unroll(patch_dom);
-          
-          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y)
-            .unroll(c);
-          //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y);
-          non_local_means_sum.update().reorder(c, x, y)
-            .unroll(s_dom.x).unroll(s_dom.y).unroll(c);
+          //blur_d_y.update().unroll(patch_dom).reorder(dy, x, y, dx).unroll(dy);
+          blur_d_y.update().unroll(patch_dom);
 
-          hw_input.in().reorder(c, x, y);
+          blur_d.compute_at(hw_output, xo).reorder(x, y, dx, dy);
+          //blur_d.compute_at(hw_output, xo).reorder(dy, x, y, dx).unroll(dy);
+          //blur_d.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d.update().reorder(patch_dom, x, y, dx, dy).unroll(patch_dom);
+          //blur_d.update().reorder(patch_dom, dy, x, y, dx).unroll(patch_dom).unroll(dy);
+          
+          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y).unroll(c);
+          //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y).unroll(c);
+          non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y).unroll(c).unroll(s_dom.y).unroll(s_dom.x);
+
+          hw_input.in().reorder(c, x, y).unroll(c);
           
           hw_input.reorder(c, x, y).stream_to_accelerator();
 
@@ -184,8 +187,8 @@ public:
 
           int outputSize = 62;
           int tileSize = 62;
-          output.bound(x, 0, outputSize);
-          output.bound(y, 0, outputSize);
+          //output.bound(x, 0, outputSize);
+          //output.bound(y, 0, outputSize);
           output.bound(c, 0, 3);
             
 

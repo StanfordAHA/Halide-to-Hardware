@@ -130,13 +130,14 @@ public:
           if (schedule == 1) {
             conv2.store_at(hw_output, xo).compute_at(hw_output, xo);
             conv2.update()
-              .reorder(r2.x, r2.y)
+              //.reorder(r2.x, r2.y)
               .unroll(r2.x)
               .unroll(r2.y);
             
+            conv1_shift.store_at(hw_output, xo).compute_at(hw_output, xo);
             conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
             conv1.update()
-              .reorder(r.y, r.x)
+              //.reorder(r.y, r.x)
               .unroll(r.x)
               .unroll(r.y);
           } else {

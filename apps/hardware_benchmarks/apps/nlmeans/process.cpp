@@ -79,7 +79,7 @@ int main( int argc, char **argv ) {
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 62;
+  int output_tile_width  = 64;
   int output_tile_height = output_tile_width;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
