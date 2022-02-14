@@ -40,27 +40,27 @@ public:
         Var dx("dx"), dy("dy");
         Func dc("dc");
         Expr diff = hw_input_bfloat(x, y, c) - hw_input_bfloat(x + dx, y + dy, c);
-        dc(x, y, dx, dy, c) = diff * diff;
+        dc(dx, dy, x, y, c) = diff * diff;
 
         // Sum across color channels
         RDom channels(0, 3);
         Func d("d");
-        d(x, y, dx, dy) = bf16(0);
-        d(x, y, dx, dy) += (dc(x, y, dx, dy, channels));
+        d(dx, dy, x, y) = bf16(0);
+        d(dx, dy, x, y) += (dc(dx, dy, x, y, channels));
 
         // Find the patch differences by blurring the difference images
         RDom patch_dom(-(patch_size / 2), patch_size);
         Func blur_d_y("blur_d_y");
-        blur_d_y(x, y, dx, dy) = bf16(0);
-        blur_d_y(x, y, dx, dy) += (d(x, y + patch_dom, dx, dy));
+        blur_d_y(dx, dy, x, y) = bf16(0);
+        blur_d_y(dx, dy, x, y) += (d(dx, dy, x, y + patch_dom));
 
         Func blur_d("blur_d");
-        blur_d(x, y, dx, dy) = bf16(0);
-        blur_d(x, y, dx, dy) += (blur_d_y(x + patch_dom, y, dx, dy));
+        blur_d(dx, dy, x, y) = bf16(0);
+        blur_d(dx, dy, x, y) += (blur_d_y(dx, dy, x + patch_dom, y));
 
         // Compute the weights from the patch differences
         Func w("w");
-        w(x, y, dx, dy) = exp(blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
+        w(x, y, dx, dy) = exp(blur_d(dx, dy, x, y) * bf16(inv_sigma_sq));
         //w(x, y, dx, dy) = (blur_d(x, y, dx, dy) * bf16(inv_sigma_sq));
 
         // Add an alpha channel
@@ -104,6 +104,7 @@ public:
           output.bound(y, 0, outputSize);
           output.bound(c, 0, 3);
 
+
           hw_output.compute_root();
 
           Var xi, xo, yi, yo;
@@ -115,6 +116,7 @@ public:
         
           hw_output.unroll(c);
 
+/*
           //d.compute_at(hw_output, xo).reorder(dy, x, y, dx).unroll(dy);
           d.compute_at(hw_output, xo);
           d.update().unroll(channels);
@@ -135,6 +137,27 @@ public:
           non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y).unroll(c);
           //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y).unroll(c);
           non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y).unroll(c).unroll(s_dom.y).unroll(s_dom.x);
+*/
+          d.compute_at(hw_output, xo).reorder(dx, dy, x, y);
+          d.update().reorder(dx, dy, x, y)
+            .unroll(channels);
+          
+          blur_d_y.compute_at(hw_output, xo).reorder(dx, dy, x, y);
+          //blur_d_y.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d_y.update().reorder(dx, dy, x, y)
+            .unroll(patch_dom);
+          
+          blur_d.compute_at(hw_output, xo).reorder(dx, dy, x, y);
+          //blur_d.update().reorder(x, y, patch_dom, dx, dy);
+          blur_d.update().reorder(dx, dy, x, y)
+            .unroll(patch_dom);
+          
+          non_local_means_sum.compute_at(hw_output, xo).reorder(c, x, y)
+            .unroll(c);
+          //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y);
+          non_local_means_sum.update().reorder(c, x, y)
+            .unroll(s_dom.x).unroll(s_dom.y)
+            .unroll(c);
 
           hw_input.in().reorder(c, x, y).unroll(c);
           
