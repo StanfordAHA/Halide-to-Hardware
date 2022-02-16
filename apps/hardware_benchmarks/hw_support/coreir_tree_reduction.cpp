@@ -1,5 +1,6 @@
 #include "coreir/libs/commonlib.h"
 #include "coreir/libs/float.h"
+#include "coreir/libs/float_DW.h"
 #include "lakelib.h"
 #include "coreir/passes/transform/rungenerators.h"
 #include "cgralib.h"
@@ -400,6 +401,7 @@ void coreir_tree_reduction(std::string coreir_design_filename,
   auto commonlib = CoreIRLoadLibrary_commonlib(context);
   CoreIRLoadLibrary_lakelib(context);
   CoreIRLoadLibrary_float(context);
+  CoreIRLoadLibrary_float_DW(context);
   CoreIRLoadLibrary_cgralib(context);
 
   Module* top;
