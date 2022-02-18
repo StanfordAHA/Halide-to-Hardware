@@ -23,7 +23,7 @@ CLOCKWORK_PATH ?= $(CLOCKWORK_DIR)
 ISL_PATH ?= $(CLOCKWORK_PATH)/barvinok-0.41/isl
 CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include -I$(ISL_PATH) -fPIC
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
-CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread
+CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread -lcoreir-float -lcoreir-float_DW
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
@@ -31,6 +31,8 @@ TESTGENNAME ?= $(TESTNAME)
 TESTORAPP = $(shell basename $(abspath $(ROOT_DIR)/..))
 USE_COREIR_VALID ?= 0
 EXT ?= png
+PIPELINED ?= 0
+META_TARGET ?= app
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?= 
@@ -177,8 +179,8 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 	./clockwork_codegen opt 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
-	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen $(BIN)/$(TESTNAME)_compute_mapped.json
+	cp /aha/MetaMapper/libs/*_header.json $(BIN)/ && cp /aha/MetaMapper/libs/*_header.json /aha/clockwork/ && cp /aha/MetaMapper/libs/*_header.json /aha/garnet/headers/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -204,8 +206,17 @@ delay_mem:
 	rm -rf bin/map_result/ && make compile-mem
 	make mem
 
+reschedule_mem:
+	rm -rf bin/map_result && make compile-mem
+	python $(HWSUPPORT)/copy_clockwork_schedules.py $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json $(BIN)/$(TESTNAME)_flush_latencies.json $(BIN)/$(TESTNAME)_pond_latencies.json
+
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
-	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
+
+map $(BIN)/$(TESTNAME)_compute_mapped.json: $(BIN)/$(TESTNAME)_compute.json
+	make tree
+	python /aha/MetaMapper/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
+	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 
 #FIXME: $(BIN)/unoptimized_$(TESTNAME).o
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o

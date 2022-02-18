@@ -168,7 +168,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
                                              "mult_middle", "mult_high",
                                              "counter", //"linebuffer",
-                                             "muxn", "abs", "absd", "adc",
+                                             "muxn", "abs", "absd", 
                                              "reg_array", "reshape", "transpose_reshape"
   };
   for (auto gen_name : commonlib_gen_names) {

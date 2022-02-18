@@ -59,8 +59,8 @@ int main( int argc, char **argv ) {
 
   auto env_sch = getenv("schedule");
   auto env_width = getenv("mywidth");
-  auto schedule = env_sch ? atoi(env_sch) : 9;
-  auto width = env_width ? atoi(env_width) : 368;
+  auto schedule = env_sch ? atoi(env_sch) : 3;
+  auto width = env_width ? atoi(env_width) : 184;
   (void) width;
   std::cout << "using schedule = " << schedule << std::endl;
 
