@@ -31,7 +31,7 @@ public:
 
     GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 0
     GeneratorParam<uint16_t> myunroll{"myunroll", 2};    // default: 2
-    GeneratorParam<uint16_t> width{"width", 300-6};      // default: 120
+    GeneratorParam<uint16_t> mywidth{"mywidth", 300-6};      // default: 120
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
     //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
@@ -245,7 +245,7 @@ public:
           } else if (schedule == 3) { // do big parrot with unroll
             const int unroll = myunroll;
             //const int tileWidth = 128-6; // for unroll=2
-            const int tileWidth = width;
+            const int tileWidth = mywidth;
             //const int tileHeight = 255;
             const int tileHeight = 255;
             //const int tileHeight = 66;
@@ -321,12 +321,94 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 
+          } else if (schedule == 31) { // do big parrot with outermost unroll
+            const int unroll = myunroll;
+            //const int tileWidth = 128-6; // for unroll=2
+            const int tileWidth = mywidth;
+            //const int tileHeight = 255;
+            const int tileHeight = 255;
+            //const int tileHeight = 66;
+            const int numHostTilesX = 5; //12;
+            const int numHostTilesY = 10; //10;
+            //const int numHostTilesX = 1;
+            //const int numHostTilesY = 1;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            Var xu, xn;
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in()
+              .unroll(xi, unroll, TailStrategy::RoundUp);
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.split(xi,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,yi,xu).unroll(xu);
+
+            cim.compute_at(hw_output, xo).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            lgxx.compute_at(hw_output, xo);
+            lgyy.compute_at(hw_output, xo);
+            lgxy.compute_at(hw_output, xo);
+            lgxx.update().unroll(box.x).unroll(box.y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lgyy.update().unroll(box.x).unroll(box.y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lgxy.update().unroll(box.x).unroll(box.y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lgxx.split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lgyy.split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lgxy.split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            lxx.compute_at(hw_output, xo).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lyy.compute_at(hw_output, xo).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            lxy.compute_at(hw_output, xo).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
+            kernel_x.unroll(x).unroll(y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            kernel_y.unroll(x).unroll(y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            grad_x_unclamp.compute_at(hw_output, xo);
+            grad_y_unclamp.compute_at(hw_output, xo);
+            grad_x_unclamp.update().unroll(r.x).unroll(r.y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            grad_y_unclamp.update().unroll(r.x).unroll(r.y).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            grad_x_unclamp.split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+            grad_y_unclamp.split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            gray.compute_at(hw_output, xo).split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(c)
+              .split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(c)
+              //.split(x,xn,xu,unroll,TailStrategy::RoundUp).reorder(xn,y,xu).unroll(xu);
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+            
 
 
             
           } else if (schedule == 11) { // do big parrot with new scheduling primitives
             const int unroll = myunroll;
-            const int tileWidth = width;
+            const int tileWidth = mywidth;
             const int tileHeight = 255;
             const int numHostTilesX = 5; //12;
             const int numHostTilesY = 10; //10;

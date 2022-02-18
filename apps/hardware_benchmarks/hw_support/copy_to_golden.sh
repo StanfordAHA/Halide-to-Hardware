@@ -14,3 +14,4 @@ echo "Copying files to golden"
 cp bin/${1}_compute.h ${GOLDEN}/${3}_compute.h
 cp bin/${1}_compute.json ${GOLDEN}/${3}_compute.json
 cp bin/${1}_memory.cpp ${GOLDEN}/${3}_memory.cpp
+cp bin/design_top.json ${GOLDEN}/${3}_design_top.json
