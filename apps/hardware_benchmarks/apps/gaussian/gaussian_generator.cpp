@@ -17,7 +17,7 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
   
-    GeneratorParam<uint16_t> schedule{"schedule", 9};    // default: 0
+    GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 3
     GeneratorParam<uint16_t> mywidth{"mywidth", 368};    // default: 368
     GeneratorParam<uint16_t> myunroll{"myunroll", 16};   // default: 16
 
@@ -230,6 +230,67 @@ public:
             hw_input.compute_root()
               .accelerator_input();
 
+          } else if (schedule == 31) {
+            // do the big tern and unroll
+            //const int unroll = 14;
+            const int unroll = myunroll;
+            //const int tileWidth = 248; // for unroll=8
+            //const int tileWidth = 266; // for unroll=14
+            //const int tileWidth = 42; // for unroll=14
+            //const int tileWidth = 256;
+            const int tileWidth = mywidth;
+            const int tileHeight = 196;
+            //const int tileHeight = 62;
+            const int numHostTilesX = 16-0;
+            const int numHostTilesY = 20-0;
+            //const int numHostTilesX = 1;
+            //const int numHostTilesY = 1;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+            
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+            //hw_input.in().bound(x, 0, glbWidth+2);
+            //hw_input.in().bound(y, 0, glbHeight+2);
+            //hw_input.bound(x, 0, outputWidth+2);
+            //hw_input.bound(y, 0, outputHeight+2);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .hw_accelerate(xi, xo);
+            hw_output.in().parallel(xi, unroll, TailStrategy::RoundUp);
+            hw_output.in().store_in(MemoryType::GLB);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.parallel(xii, unroll, TailStrategy::RoundUp);
+
+            blur.compute_at(hw_output, xio);
+            blur.parallel(x, unroll, TailStrategy::RoundUp);
+            
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
+            blur_unnormalized.update().parallel(x, unroll, TailStrategy::RoundUp);
+            blur_unnormalized.parallel(x, unroll, TailStrategy::RoundUp);
+            blur_unnormalized.compute_at(hw_output, xio);
+
+            hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
+            hw_input.in().in().parallel(x, unroll, TailStrategy::RoundUp);
+
+            hw_input.in().compute_at(hw_output.in(), xo);
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
+            
+            hw_input.compute_root()
+              .accelerator_input();
 
 
 
