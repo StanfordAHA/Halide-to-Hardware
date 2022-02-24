@@ -667,7 +667,7 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
          << std::boolalpha
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ");" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ", false);" << endl
          << endl
          << "      } else if (args[i] == \"compile_and_test_mem\") {" << endl
          << "        preprocess_prog(prg);" << endl
@@ -677,13 +677,39 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ");" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ", /*use_metamapper*/false);" << endl
+         << endl
+         << "        // Run interconnect agnostic tb" << endl
+         << "        auto cgra = cgra_flow_result(prg, dir);" << endl
+         << endl
+         << "        sanity_check(prg, cpu, cgra);" << endl
+         << "      } else if (args[i] == \"compile_mem_use_metamapper\") {" << endl
+         << "        preprocess_prog(prg);" << endl
+         << endl
+         << "        // Run Frontend Test, generate gold TB" << endl
+         << "        auto cpu = unoptimized_result(prg);" << endl
+         << endl
+         << "        // Run Memory Mapper and dump collateral into dir" << endl
+         << "        string dir = \"./map_result\";" << endl
+         << std::boolalpha
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ", true);" << endl
+         << endl
+         << "      } else if (args[i] == \"compile_and_test_mem_use_metamapper\") {" << endl
+         << "        preprocess_prog(prg);" << endl
+         << endl
+         << "        // Run Frontend Test, generate gold TB" << endl
+         << "        auto cpu = unoptimized_result(prg);" << endl
+         << endl
+         << "        // Run Memory Mapper and dump collateral into dir" << endl
+         << "        string dir = \"./map_result\";" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ", /*use_metamapper*/true);" << endl
          << endl
          << "        // Run interconnect agnostic tb" << endl
          << "        auto cgra = cgra_flow_result(prg, dir);" << endl
          << endl
          << "        sanity_check(prg, cpu, cgra);" << endl
          << "      }" << endl
+
          << "      i += 1;" << endl
          << "    }" << endl
          << "  }" << endl
