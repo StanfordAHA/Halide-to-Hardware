@@ -180,7 +180,8 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 	./clockwork_codegen opt 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
-compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen 
+compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
+	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -211,7 +212,7 @@ reschedule_mem:
 	python $(HWSUPPORT)/copy_clockwork_schedules.py $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json $(BIN)/$(TESTNAME)_flush_latencies.json $(BIN)/$(TESTNAME)_pond_latencies.json
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
-	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
 map: $(BIN)/clockwork_codegen
 	make tree
