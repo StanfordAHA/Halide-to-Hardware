@@ -13,6 +13,7 @@ route_*.png
 pnr_result.png
 after.png
 before.png
+*/*/golden/*
 !/handcrafted/*/bin
 !/handcrafted/*/bin/design_top.json
 !/handcrafted/*/bin/testing.json

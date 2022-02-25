@@ -11,8 +11,9 @@ public:
     Input<Buffer<int16_t>>  kernel{"kernel", 2};
     Output<Buffer<int16_t>> output{"output", 2};
 
-    int imgsize = 64;
-    int unroll = 8;
+    GeneratorParam<int> imgsize{"imgsize", 64};      // default: 64
+    GeneratorParam<int> myunroll{"myunroll", 8};     // default: 8
+    GeneratorParam<int> schedule{"schedule", 0};     // default: 0
 
     void generate() {
         /* THE ALGORITHM */
@@ -67,12 +68,12 @@ public:
 
           RVar rxi, rxo;
           mul.compute_at(hw_output, xo);
-          mul.unroll(x, unroll);
+          mul.unroll(x, myunroll);
           mul.update()
-            .split(r.x, rxo, rxi, unroll)
-            .split(x, xo, xi, unroll)
+            .split(r.x, rxo, rxi, myunroll)
+            .split(x, xo, xi, myunroll)
             .reorder(xi, rxi, xo, rxo, y)
-            .unroll(xi, unroll).unroll(rxi, unroll);
+            .unroll(xi, myunroll).unroll(rxi, myunroll);
             //.reorder(x, r.x, y)
             //.unroll(x, unroll).unroll(r.x, unroll);
             //.unroll(r.x, unroll).unroll(x, unroll);
@@ -82,6 +83,20 @@ public:
 
         } else {  // schedule to CPU
           hw_output.compute_root();
+
+          if (schedule == 0) {
+            mul.update().unroll(r.x, 8).parallel(x, 4);
+          } else if (schedule == 1) {
+            mul.update().vectorize(x, 8);
+          } else if (schedule == 2) {
+            mul.update().vectorize(x, 8).parallel(y, 4);
+          } else if (schedule == 3) {
+            mul.update().reorder(x, y, r.x).vectorize(x, 8).parallel(y, 4);
+          } else {
+
+          }
+          
+
         }
 
     }

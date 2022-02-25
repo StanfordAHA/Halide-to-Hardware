@@ -26,9 +26,10 @@ int blockSize = 9;
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 3
-    GeneratorParam<uint8_t> width{"width", 0};          // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
+    GeneratorParam<int32_t> schedule{"schedule", 3};    // default: 3
+    GeneratorParam<int32_t> mywidth{"mywidth", 2048};   // default: 2048
+    GeneratorParam<int32_t> unrollx{"unrollx", 2};      // default: 2
+    GeneratorParam<int32_t> unrolly{"unrolly", 2};      // default: 2
 
     Func interleave_x(Func a, Func b) {
       Func out;
@@ -43,8 +44,8 @@ int blockSize = 9;
     }
 
     Expr avg(Expr a, Expr b) {
-      //return (a + b + 1) >> 1;
-      return (a + b) >> 1;
+      return (a + b + 1) >> 1;
+      //return (a + b) >> 1;
     }
     
     // Performs hot pixel suppression by comparing to local pixels.
@@ -229,11 +230,13 @@ int blockSize = 9;
       return curved;
     }
 
-    const int tWidth = 256;
-    const int tHeight = 192;
-    const int nTiles = 1;
     
     void generate() {
+      //const int tWidth = 288;//mywidth;
+      //const int tHeight = 192;
+      const int tWidth = mywidth;
+      const int tHeight = 1024;
+      const int nTiles = 1; // TODO: fix this when nTiles > 1
 
       Func hw_input, hw_input_temp, hw_input_shuffle, hw_input_shift;
       //hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
@@ -442,8 +445,6 @@ int blockSize = 9;
               .accelerator_input();
 
           } else if (schedule == 3) { // big parrot with unroll
-            const int unrollx = 2;
-            const int unrolly = 2;
             //const int tileWidth = 64-8;
             const int tileWidth = tWidth;//256-8;
             //const int tileHeight = 64-8;
@@ -517,28 +518,45 @@ int blockSize = 9;
               g_b.compute_at(hw_output, xo);
             }
 
+            if (unrollx > 2) {
+              int halfx = unrollx/2;
+              b_r.compute_at(hw_output, xo).unroll(x, halfx);
+              g_r.compute_at(hw_output, xo).unroll(x, halfx);
+              b_gr.compute_at(hw_output, xo).unroll(x, halfx);
+              r_gr.compute_at(hw_output, xo).unroll(x, halfx);
+              b_gb.compute_at(hw_output, xo).unroll(x, halfx);
+              r_gb.compute_at(hw_output, xo).unroll(x, halfx);
+              r_b.compute_at(hw_output, xo).unroll(x, halfx);
+              g_b.compute_at(hw_output, xo).unroll(x, halfx);
+              g_gr.compute_at(hw_output, xo).unroll(x, halfx);
+              r_r.compute_at(hw_output, xo).unroll(x, halfx);
+              b_b.compute_at(hw_output, xo).unroll(x, halfx);
+              g_gb.compute_at(hw_output, xo).unroll(x, halfx);
+            }
+
             g_gr.compute_at(hw_output, xo);
             r_r.compute_at(hw_output, xo);
             b_b.compute_at(hw_output, xo);
             g_gb.compute_at(hw_output, xo);
             
-            if (false) { // these buffers should not be unrolled
+            if (true) { // these buffers should not be unrolled
               g_gr
                 .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                .unroll(x, unrollx, TailStrategy::RoundUp)
-                .unroll(yii, unrolly, TailStrategy::RoundUp);
-              r_r
-                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                .unroll(x, unrollx, TailStrategy::RoundUp)
-                .unroll(yii, unrolly, TailStrategy::RoundUp);
-              b_b
-                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                .unroll(x, unrollx, TailStrategy::RoundUp)
-                .unroll(yii, unrolly, TailStrategy::RoundUp);
-              g_gb
-                .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                .unroll(x, unrollx, TailStrategy::RoundUp)
-                .unroll(yii, unrolly, TailStrategy::RoundUp);
+                //.unroll(x, unrollx, TailStrategy::RoundUp)
+                //.unroll(yii, unrolly, TailStrategy::RoundUp);
+                .unroll(yii, 8, TailStrategy::RoundUp);
+              //r_r
+              //  .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+              //  .unroll(x, unrollx, TailStrategy::RoundUp)
+              //  .unroll(yii, unrolly, TailStrategy::RoundUp);
+              //b_b
+              //  .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+              //  .unroll(x, unrollx, TailStrategy::RoundUp)
+              //  .unroll(yii, unrolly, TailStrategy::RoundUp);
+              //g_gb
+              //  .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
+              //  .unroll(x, unrollx, TailStrategy::RoundUp)
+              //  .unroll(yii, unrolly, TailStrategy::RoundUp);
             }
         
             curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM

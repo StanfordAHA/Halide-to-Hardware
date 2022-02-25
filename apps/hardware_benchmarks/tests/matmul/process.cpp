@@ -53,12 +53,16 @@ int main( int argc, char **argv ) {
       functions["clockwork"] = [&](){ clockwork_process( processor ); };
   #endif
 
+  auto env_width = getenv("imgsize");
+  auto width = env_width ? atoi(env_width) : 64;
+  (void) width;
+      
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.inputs["input.mat"] = Buffer<int16_t>(64, 64);
-  processor.inputs["kernel.mat"] = Buffer<int16_t>(64, 64);
-  processor.output  = Buffer<int16_t>(64, 64);
+  processor.inputs["input.mat"] = Buffer<int16_t>(width, width);
+  processor.inputs["kernel.mat"] = Buffer<int16_t>(width, width);
+  processor.output  = Buffer<int16_t>(width, width);
   processor.inputs_preset = true;
 
 

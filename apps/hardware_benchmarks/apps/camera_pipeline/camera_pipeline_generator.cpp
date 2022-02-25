@@ -25,9 +25,9 @@ int blockSize = 9;
 
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
-    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
-    GeneratorParam<uint8_t> width{"width", 0};          // default: 0
-    GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 1
+    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 3
+    GeneratorParam<uint16_t> mywidth{"mywidth", 256};   // default: 256
+    GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
 
     Func interleave_x(Func a, Func b) {
       Func out;
@@ -416,7 +416,7 @@ int blockSize = 9;
           } else if (schedule == 3) { // big parrot with unroll
             const int unroll = myunroll;
             //const int tileWidth = 64-8;
-            const int tileWidth = 256-8;
+            const int tileWidth = mywidth;
             //const int tileHeight = 64-8;
             const int tileHeight = 192-8;
             const int numHostTiles = 10;
@@ -465,7 +465,7 @@ int blockSize = 9;
               .unroll(x, unroll);
             //.unroll(x).unroll(y);
 
-            bool buffer_memories = true;
+            bool buffer_memories = false;
             if (buffer_memories) {
               b_r.compute_at(hw_output, xo);
               g_r.compute_at(hw_output, xo);
@@ -473,15 +473,29 @@ int blockSize = 9;
               r_gr.compute_at(hw_output, xo);
               b_gb.compute_at(hw_output, xo);
               r_gb.compute_at(hw_output, xo);
-              r_b.compute_at(hw_output, xo);
-              g_b.compute_at(hw_output, xo);
-              g_gr.compute_at(hw_output, xo);
-              r_r.compute_at(hw_output, xo);
-              b_b.compute_at(hw_output, xo);
-              g_gb.compute_at(hw_output, xo);
+              //r_b.compute_at(hw_output, xo);
+              //g_b.compute_at(hw_output, xo);
+              //g_gr.compute_at(hw_output, xo);
+              //r_r.compute_at(hw_output, xo);
+              //b_b.compute_at(hw_output, xo);
+              //g_gb.compute_at(hw_output, xo);
             }
 
-            if (true) {
+            g_gr.compute_at(hw_output, xo);
+            r_r.compute_at(hw_output, xo);
+            b_b.compute_at(hw_output, xo);
+            g_gb.compute_at(hw_output, xo);
+
+            if (unroll > 3) {
+              int halfunroll = unroll/2;
+              g_gr.unroll(x, unroll, TailStrategy::RoundUp);
+              r_r.unroll(x, unroll, TailStrategy::RoundUp);
+              b_b.unroll(x, unroll, TailStrategy::RoundUp);
+              g_gb.unroll(x, unroll, TailStrategy::RoundUp);
+            }
+
+
+            if (false) {
               b_r.unroll(x, unroll, TailStrategy::RoundUp);
               g_r.unroll(x, unroll, TailStrategy::RoundUp);
               b_gr.unroll(x, unroll, TailStrategy::RoundUp);

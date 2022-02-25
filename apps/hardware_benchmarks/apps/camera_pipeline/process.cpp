@@ -56,7 +56,9 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
 
   auto env_sch = getenv("schedule");
-  auto schedule = env_sch ? atoi(env_sch) : 0;
+  auto schedule = env_sch ? atoi(env_sch) : 3;
+  auto env_width = getenv("mywidth");
+  auto mywidth = env_width ? atoi(env_width) : 256;
   std::cout << "using schedule = " << schedule << std::endl;
 
   int output_tile_width  = 56;
@@ -78,7 +80,8 @@ int main( int argc, char **argv ) {
     glb_tiling = 1;
     //output_tile_width = 64-8;
     //output_tile_height = 64-8;
-    output_tile_width = 256-8;
+    //output_tile_width = 256-8;
+    output_tile_width = mywidth;
     output_tile_height = 192-8;
     break;
   default:

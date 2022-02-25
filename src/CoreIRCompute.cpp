@@ -166,7 +166,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   // add all generators from commonlib
   CoreIRLoadLibrary_commonlib(context);
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
-                                             "mult_middle", "mult_high",
+                                             "mult_middle", "mult_high", "adc", 
                                              "counter", //"linebuffer",
                                              "muxn", "abs", "absd", 
                                              "reg_array", "reshape", "transpose_reshape"

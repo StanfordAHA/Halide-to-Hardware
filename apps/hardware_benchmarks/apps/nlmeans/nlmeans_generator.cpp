@@ -14,7 +14,7 @@ public:
 
     Output<Buffer<uint8_t>> output{"output", 3};
 
-  const int patch_size = 5;
+  const int patch_size = 7;
 
     void generate() {
         /* THE ALGORITHM */
@@ -156,7 +156,7 @@ public:
             .unroll(c);
           //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y);
           non_local_means_sum.update().reorder(c, x, y)
-            .unroll(s_dom.x).unroll(s_dom.y)
+            //.unroll(s_dom.x).unroll(s_dom.y)
             .unroll(c);
 
           hw_input.in().reorder(c, x, y).unroll(c);

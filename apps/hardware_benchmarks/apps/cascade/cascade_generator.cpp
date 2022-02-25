@@ -102,7 +102,7 @@ public:
 
           conv1.compute_at(hw_output, xio);
           conv1.update()
-            .unroll(r.x).unroll(r.y);
+            .unroll(r.x).unroll(r.y);//.unroll(x, 2);
 
           hw_input.in().in().compute_at(hw_output, xio);
           hw_input.in().compute_at(hw_output.in(), xo)

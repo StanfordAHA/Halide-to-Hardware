@@ -10,6 +10,8 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 2
+    GeneratorParam<uint8_t> mywidth{"mywidth", 128};    // default: 128
 
     void generate() {
         /* THE ALGORITHM */
@@ -134,8 +136,8 @@ public:
               .accelerator_input();
 
           } else if (schedule == 3) { // big color parrot with unroll
-            const int unroll = 2;
-            const int tileWidth = 128;
+            const int unroll = myunroll;
+            const int tileWidth = mywidth;
             const int tileHeight = 256;
             const int numHostTilesX = 24;
             const int numHostTilesY = 20;
