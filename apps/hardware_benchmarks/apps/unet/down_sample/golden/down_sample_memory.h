@@ -1,1 +1,0 @@
-prog down_sample();

@@ -19,9 +19,9 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
 
-    GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
-    GeneratorParam<uint16_t> myunroll{"myunroll", 3};    // default: 3
-    GeneratorParam<uint16_t> mywidth{"mywidth", 126};    // default: 126
+    GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 0
+    GeneratorParam<uint8_t> myunroll{"myunroll", 3};    // default: 0
+    GeneratorParam<uint8_t> width{"width", 66};    // default: 0
 
     void generate() {
         /* THE ALGORITHM */
@@ -250,14 +250,13 @@ public:
             const int unroll = myunroll;
             //const int tileWidth = 122-0;
             //const int tileWidth = 141; //unroll=3  ; also try 63
-            const int tileWidth = mywidth;
-            const int tileHeight = 256-6;
-            //const int tileHeight = 66;
+            const int tileWidth = width;
+            //const int tileHeight = 256-0;
+            const int tileHeight = 66;
             //const int numHostTilesX = 12-1;
             //const int numHostTilesY = 10-1;
-            //const int numHostTilesX = 12;
-            const int numHostTilesX = 5;
-            const int numHostTilesY = 10;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -274,7 +273,7 @@ public:
               .reorder(c, xi, yi, xo, yo)
               .hw_accelerate(xi, xo);
             hw_output.in().unroll(c)
-              .unroll(xi, unroll, TailStrategy::RoundUp);
+              .unroll(xi, unroll);
 
             hw_output
               .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
@@ -282,27 +281,27 @@ public:
             hw_output.compute_at(hw_output.in(), xo);
             hw_output.store_in(MemoryType::GLB);
             hw_output.unroll(c)
-              .unroll(xi, unroll, TailStrategy::RoundUp);
+              .unroll(xi, unroll);
 
             ratio.compute_at(hw_output, xo)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
             reciprocal.compute_at(hw_output, xo) // we don't want this memory
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
             rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
 
             sharpen.compute_at(hw_output, xo)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
 
             blur_unnormalized.compute_at(hw_output, xo)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
             //kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(x, unroll);
             
             gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
             gray.compute_at(hw_output, xo)
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
 
             hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
             hw_input.in().in()
@@ -312,7 +311,7 @@ public:
             hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
             hw_input.in().store_in(MemoryType::GLB);
             hw_input.in().unroll(c)  // hw input bound
-              .unroll(x, unroll, TailStrategy::RoundUp);
+              .unroll(x, unroll);
             
             hw_input.compute_root()
               .accelerator_input();

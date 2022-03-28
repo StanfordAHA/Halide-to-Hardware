@@ -1,1 +1,0 @@
-prog camera_pipeline();

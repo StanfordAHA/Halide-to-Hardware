@@ -1,1 +1,0 @@
-prog up_sample();
