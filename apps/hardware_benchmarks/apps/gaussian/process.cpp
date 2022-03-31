@@ -85,7 +85,7 @@ int main( int argc, char **argv ) {
   case 3: case 8: case 9:
     processor.inputs_preset = true;
     glb_tiling = 1;
-    host_tiling_x = 16-0;  host_tiling_y = 20-0;
+    host_tiling_x = 1;  host_tiling_y = 1;
     //output_tile_width = 266;
     //output_tile_height = 196;
     //host_tiling_x = 1;  host_tiling_y = 1;

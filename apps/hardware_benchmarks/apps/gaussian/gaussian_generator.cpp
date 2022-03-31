@@ -179,8 +179,8 @@ public:
             const int tileWidth = mywidth;
             const int tileHeight = 196;
             //const int tileHeight = 62;
-            const int numHostTilesX = 16-0;
-            const int numHostTilesY = 20-0;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
             //const int numHostTilesX = 1;
             //const int numHostTilesY = 1;
             const int numTiles = 1;

@@ -86,7 +86,7 @@ int main( int argc, char **argv ) {
     glb_tiling = 1;
     //host_tiling_x = 1;  host_tiling_y = 1;
     output_tile_width = width;
-    host_tiling_x = 5;  host_tiling_y = 10;
+    host_tiling_x = 1;  host_tiling_y = 1;
     //output_tile_height = 66-0;
     //host_tiling_x = 12;  host_tiling_y = 10;
     //output_tile_width = 126-0;

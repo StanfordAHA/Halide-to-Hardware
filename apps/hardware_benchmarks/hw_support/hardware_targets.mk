@@ -34,6 +34,7 @@ USE_COREIR_VALID ?= 0
 EXT ?= png
 PIPELINED ?= 0
 META_TARGET ?= app
+DISABLE_TREE ?= 0
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?= 
@@ -215,7 +216,12 @@ mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTN
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
 map: $(BIN)/clockwork_codegen
-	make tree
+	@if [ "$(DISABLE_TREE)" -eq "1" ]; then \
+	 echo "[tree/chain] disable make tree, use chain \n" \
+	else \
+	 echo "[tree/chain] by default, make tree \n" \
+	 make tree; \
+	fi
 	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/ 
