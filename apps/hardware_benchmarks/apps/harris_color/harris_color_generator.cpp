@@ -31,7 +31,7 @@ public:
 
     GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 0
     GeneratorParam<uint16_t> myunroll{"myunroll", 2};    // default: 2
-    GeneratorParam<uint16_t> mywidth{"mywidth", 300-6};      // default: 120
+    GeneratorParam<uint16_t> mywidth{"mywidth", 122};      // default: 120
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
     //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
