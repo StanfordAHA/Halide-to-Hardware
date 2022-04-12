@@ -539,7 +539,7 @@ int blockSize = 9;
             b_b.compute_at(hw_output, xo);
             g_gb.compute_at(hw_output, xo);
             
-            if (true) { // these buffers should not be unrolled
+            if (false) { // these buffers should not be unrolled
               g_gr
                 .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
                 //.unroll(x, unrollx, TailStrategy::RoundUp)

@@ -2,7 +2,7 @@
 
 # usage: copy_to_clockwork <file_dir> <golden_dir> <new_name>
 #
-echo "usage: copy_to_clockwork <file_dir> <golden_dir> <new_name>"
+echo "usage: copy_to_clockwork <old_dir> <golden_dir> <new_name>"
 
 APP=$1
 GOLDEN=$2

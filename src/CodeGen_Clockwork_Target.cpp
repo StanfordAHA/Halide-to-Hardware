@@ -1026,6 +1026,7 @@ void to_json(json& j, const io_info& i) {
 
 
 void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_map, ofstream& stream) {
+  //auto& stream = std::cout;
   stream << "#include \"clockwork_testscript.h\"\n";
   for (auto& xcel_pair : closure_map) {
     stream << "#include \"unoptimized_" << xcel_pair.first << ".h\"\n";
@@ -1129,6 +1130,8 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
         // subtract the minimum value, so it starts at 0
         //std::cout << closure_args[i].name  <<" = " << bounds[0].min << "; " <<" < "<< bounds[0].extent<<"; " <<"++) {\n";
+        //std::cout << mins.size() << " " <<  maxes.size() << " " <<extents.size() << " " <<bounds.size() << std::endl;
+        assert(mins.size() == bounds.size());
         for (size_t j=0; j<mins.size(); ++j) {
           mins[j] = simplify(mins[j] - bounds[j].min);
           maxes[j] = simplify(maxes[j] - bounds[j].min);

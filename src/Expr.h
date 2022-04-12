@@ -409,6 +409,10 @@ enum class MemoryType {
 
     /** Global Buffer for cgra */
     GLB,
+
+    /** Host memory outside accelerator */
+    Host,
+
 };
 
 namespace Internal {

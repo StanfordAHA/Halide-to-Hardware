@@ -204,23 +204,27 @@ public:
             hw_output.in().unroll(xi, unroll, TailStrategy::RoundUp);
             hw_output.in().store_in(MemoryType::GLB);
 
-            Var xii, yii, xio, yio;
+            Var xii("xii"), yii("yii"), xio("xio"), yio("yio");
             hw_output
               .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
             hw_output.compute_at(hw_output.in(), xo);
             hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
 
-            blur.compute_at(hw_output, xio);
+            //blur.compute_at(hw_output, xio);
+            auto compute_loop_level = yii;
+            //auto compute_loop_level = xio;
+            blur.store_at(hw_output, xio).compute_at(hw_output, compute_loop_level);
             blur.unroll(x, unroll, TailStrategy::RoundUp);
             
-            blur_unnormalized.update()
-              .unroll(win.x, blockSize)
-              .unroll(win.y, blockSize);
+            //blur_unnormalized.update()
+              //.unroll(win.x, blockSize)
+              //.unroll(win.y, blockSize);
             blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
             blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
-            blur_unnormalized.compute_at(hw_output, xio);
+            blur_unnormalized.compute_at(hw_output, compute_loop_level);
 
-            hw_input.in().in().compute_at(hw_output, xio); // represents the mem tile
+            hw_input.in().in().compute_at(hw_output, compute_loop_level); // represents the mem tile
+            if (compute_loop_level == yii) { hw_input.in().in().reorder(y, x); }
             hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
 
             hw_input.in().compute_at(hw_output.in(), xo);

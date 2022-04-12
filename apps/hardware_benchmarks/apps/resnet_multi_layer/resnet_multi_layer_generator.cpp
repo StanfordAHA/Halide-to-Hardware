@@ -29,7 +29,7 @@ public:
     // Change this using NLAYERS
     GeneratorParam<int> n_layers{"n_layers", 2};    // default: 2
 
-    GeneratorParam<int> schedule{"schedule", 1};
+    GeneratorParam<int> schedule{"schedule", 3};
   
     void generate() {
         //vector<int> pads =    { 1, 1, 1, 1 };
@@ -105,22 +105,27 @@ public:
             }
             input_gb[i](z, x, y)         = input_pad[i](z, x, y);
           }
-          input_cgra[i](zz, z, x, y)     = input_gb[i](k_ic*z + zz, x, y);
+          //input_cgra[i](zz, z, x, y)     = input_gb[i](k_ic*z + zz, x, y);
+          input_cgra[i](z, x, y)     = input_gb[i](z, x, y);
 
           kernel_gb[i](z, w, x, y)       = kernel_host[i](z, w, x, y);
-          kernel_cgra[i](zz, z, w, x, y) = kernel_gb[i](k_ic*z + zz, w, x, y);
+          //kernel_cgra[i](zz, z, w, x, y) = kernel_gb[i](k_ic*z + zz, w, x, y);
+          kernel_cgra[i](z, w, x, y) = kernel_gb[i](z, w, x, y);
 
           // Convolution
           auto ic_outer = n_cs[i] / k_ic;
           r[i] = RDom(0, ksizes[i],
                       0, ksizes[i],
-                      0, ic_outer,
-                      0, k_ic);
+                      0, n_cs[i]);
+                      //0, ic_outer,
+                      //0, k_ic);
           RDom R = r[i];
 
           output_cgra[i](x, y, w) +=
-            kernel_cgra[i](R.w, R.z, w, R.x, R.y) *
-            input_cgra[i](R.w, R.z, strides[i]*x + R.x, strides[i]*y + R.y);
+            //kernel_cgra[i](R.w, R.z, w, R.x, R.y) *
+            //input_cgra[i](R.w, R.z, strides[i]*x + R.x, strides[i]*y + R.y);
+            kernel_cgra[i](R.z, w, R.x, R.y) *
+            input_cgra[i](R.z, strides[i]*x + R.x, strides[i]*y + R.y);
 
           output_gb[i](x, y, w) = output_cgra[i](x, y, w);
           output_host[i](x, y, w) = output_gb[i](x, y, w);
@@ -139,7 +144,7 @@ public:
           Var xi,yi;
           Var w_cgra, w_gb;
           Var z_cgra, z_gb;
-          RVar rz_cgra, rz_gb;
+          RVar rz_unroll("rz_unroll"), rz_cgra("rz_cgra"), rz_gb("rz_gb");
 
           if (schedule == 1) {
             // Schedule 1: each layer is done with a different accelerator call
@@ -153,6 +158,7 @@ public:
             for (int i=0; i<nlayers; ++i) {
               output_cgra[i].bound(w, 0, n_cs[i+1]); // num output channels for each layer
               input_cgra[i].bound(zz, 0, k_ic);
+              //input_cgra[i].bound(z, 0, n_cs[i]/k_ic);
               kernel_cgra[i].bound(zz, 0, k_ic);
 
               auto gbsize = imgsize;
@@ -245,10 +251,12 @@ public:
               int ic_outer = 4;//FIXME//as<IntImm>(n_c[i] / k_ic).value;
               //hw_kernel.bound(z, 0, n_c[i]);
 
+              input_cgra[i].bound(z, 0, n_cs[i]);
+              kernel_cgra[i].bound(z, 0, n_cs[i]);
               //input_cgra[i].bound(z, 0, ic_outer);
-              input_cgra[i].bound(zz, 0, k_ic);
+              //input_cgra[i].bound(zz, 0, k_ic);
               //kernel_cgra[i].bound(z, 0, ic_outer);
-              kernel_cgra[i].bound(zz, 0, k_ic);
+              //kernel_cgra[i].bound(zz, 0, k_ic);
             }
 
             auto gbsize = imgsize;
@@ -281,13 +289,16 @@ public:
                 .reorder(w_cgra, x, y, w_gb);
               output_cgra[i].update()
                 //.split(r.z, rz_gb, rz_cgra, k_ic)
+                .split(r[i].z, rz_gb, rz_cgra, k_ic)
                 .split(w, w_gb, w_cgra, k_oc)
-                .reorder(r[i].w, w_cgra, x, y, r[i].x, r[i].y, w_gb, r[i].z);
+                .reorder(rz_cgra, w_cgra, x, y, r[i].x, r[i].y, w_gb, rz_gb);
+                //.reorder(r[i].w, w_cgra, x, y, r[i].x, r[i].y, w_gb, r[i].z);
 
               Func output_rf;
               output_cgra[i].update()
                 .unroll(w_cgra, k_oc)
-                .unroll(r[i].w, k_ic); // this is the z reduction
+                .unroll(rz_cgra, k_ic); // this is the z reduction
+                //
 
               output_cgra[i].unroll(w_cgra, k_oc);
 
@@ -308,14 +319,125 @@ public:
               //input_gb.unroll(z, k_ic);
               //input_cgra.unroll(z, k_ic);
               input_cgra[i]
-                //.split(z, z_gb, z_cgra, k_ic)
+                .split(z, z_gb, z_cgra, k_ic)
                 //.reorder(z_cgra, x, y, z_gb);
-                .reorder(zz, x, y, z);
+                //.reorder(zz, x, y, z);
+                .reorder(z_cgra, x, y, z_gb);
               kernel_cgra[i]
-                //.split(z, z_gb, z_cgra, k_ic)
+                .split(z, z_gb, z_cgra, k_ic)
                 //.reorder(z_cgra, w_cgra, x, y, z_gb, w_gb);
                 .split(w, w_gb, w_cgra, k_oc)
-                .reorder(zz, w_cgra, x, y, z, w_gb);
+                //.reorder(zz, w_cgra, x, y, z, w_gb);
+                .reorder(z_cgra, w_cgra, x, y, z_gb, w_gb);
+            }
+            
+            input_host.compute_root(); // host buffer
+            input_host.accelerator_input();
+
+
+          } else if (schedule == 3) {
+            // schedule 3: Create a single accelerator with a call for each layer
+            output.bound(x, 0, imgsize);
+            output.bound(y, 0, imgsize);
+            output.bound(w, 0, n_cs[nlayers]); // num output channels for the last layer
+            hw_output.bound(w, 0, n_cs[nlayers]);
+            //hw_input.bound(z, 0, n_cs[0]);
+
+            vector<int> xysizes(nlayers);
+            for (int i=nlayers-1; i>=0; --i) {
+              xysizes[i] =
+                i==nlayers-1 ? 28 : // final output size
+                xysizes[i+1] * strides[i+1] + 2*pads[i+1];
+            }
+
+          
+            for (int i=0; i<nlayers; ++i) {
+              output_cgra[i].bound(w, 0, n_cs[i+1]); // num output channels for each layer
+
+              int ic_outer = 4;//FIXME//as<IntImm>(n_c[i] / k_ic).value;
+              //hw_kernel.bound(z, 0, n_c[i]);
+
+              input_cgra[i].bound(z, 0, n_cs[i]);
+              kernel_cgra[i].bound(z, 0, n_cs[i]);
+              //input_cgra[i].bound(z, 0, ic_outer);
+              //input_cgra[i].bound(zz, 0, k_ic);
+              //kernel_cgra[i].bound(z, 0, ic_outer);
+              //kernel_cgra[i].bound(zz, 0, k_ic);
+            }
+
+            auto gbsize = imgsize;
+            hw_output.compute_root();
+            //hw_output.unroll(w, k_oc);
+            hw_output
+              .tile(x, y, x_host,y_host, xi,yi, gbsize,gbsize)
+              .reorder(xi,yi,w, x_host,y_host)
+              //.hw_accelerate(xi, x_host);
+              //.accelerator_output(x_host);
+              .store_in(MemoryType::Host).hw_accelerate(x_host);
+
+            for (int i=0; i<nlayers; ++i) {
+              //auto tilesize = std::min(imgsize, 28);
+              //auto tilesize = xysizes[i];
+              auto tilesize = 56;
+
+              // Produce loop levels: host, global buffer, cgra
+              output_gb[i].compute_at(hw_output, x_host); // global buffer
+              output_gb[i]
+                .tile(x, y, x_gb,y_gb, x_cgra,y_cgra, tilesize,tilesize)
+                .split(w, w_gb, w_cgra, k_oc)
+                // reorder from inner to outermost
+                .reorder(w_cgra, x_cgra, y_cgra,
+                         x_gb, y_gb, w_gb);
+              output_gb[i]
+                .store_in(MemoryType::GLB)
+                .hw_accelerate(Var::outermost());
+
+              output_cgra[i].compute_at(output_gb[i], x_gb); // memtile
+              output_cgra[i]
+                .split(w, w_gb, w_cgra, k_oc)
+                .reorder(w_cgra, x, y, w_gb);
+              output_cgra[i].update()
+                //.split(r.z, rz_gb, rz_cgra, k_ic)
+                .split(r[i].z, rz_gb, rz_cgra, k_ic)
+                .split(w, w_gb, w_cgra, k_oc)
+                .reorder(rz_cgra, w_cgra, x, y, r[i].x, r[i].y, w_gb, rz_gb);
+                //.reorder(r[i].w, w_cgra, x, y, r[i].x, r[i].y, w_gb, r[i].z);
+
+              Func output_rf;
+              output_cgra[i].update()
+                .unroll(w_cgra, k_oc)
+                .unroll(rz_cgra, k_ic); // this is the z reduction
+
+              output_cgra[i].unroll(w_cgra, k_oc);
+
+              // Three buffers: one at host,
+              //                a copy stage as the global buffer,
+              //                another copy stage as the memory tiles
+              input_gb[i].compute_at(hw_output, x_host) // global buffer
+                .accelerator_input();
+              //input_cgra.compute_at(output_gb, x_gb);   // mem tile
+              input_cgra[i].compute_at(output_cgra[i], w_gb);   // mem tile
+
+              // kernel buffers
+              kernel_host[i].compute_root(); // host buffer
+              kernel_host[i].accelerator_input();
+              kernel_gb[i].compute_at(hw_output, x_host); // global buffer
+              //kernel_cgra.compute_at(output_gb, x_gb);   // mem tile
+              kernel_cgra[i].compute_at(output_cgra[i], w_gb);   // mem tile
+
+              //input_gb.unroll(z, k_ic);
+              //input_cgra.unroll(z, k_ic);
+              input_cgra[i]
+                .split(z, z_gb, z_cgra, k_ic)
+                //.reorder(z_cgra, x, y, z_gb);
+                //.reorder(zz, x, y, z);
+                .reorder(z_cgra, x, y, z_gb);
+              kernel_cgra[i]
+                .split(z, z_gb, z_cgra, k_ic)
+                //.reorder(z_cgra, w_cgra, x, y, z_gb, w_gb);
+                .split(w, w_gb, w_cgra, k_oc)
+                //.reorder(zz, w_cgra, x, y, z, w_gb);
+                .reorder(z_cgra, w_cgra, x, y, z_gb, w_gb);
             }
             
             input_host.compute_root(); // host buffer
