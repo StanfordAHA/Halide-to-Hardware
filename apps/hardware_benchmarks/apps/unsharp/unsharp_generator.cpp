@@ -256,8 +256,8 @@ public:
             //const int numHostTilesX = 12-1;
             //const int numHostTilesY = 10-1;
             //const int numHostTilesX = 12;
-            const int numHostTilesX = 5;
-            const int numHostTilesY = 10;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;

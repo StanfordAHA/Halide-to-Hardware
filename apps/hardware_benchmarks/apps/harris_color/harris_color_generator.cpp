@@ -328,8 +328,8 @@ public:
             //const int tileHeight = 255;
             const int tileHeight = 255;
             //const int tileHeight = 66;
-            const int numHostTilesX = 5; //12;
-            const int numHostTilesY = 10; //10;
+            const int numHostTilesX = 1; //12;
+            const int numHostTilesY = 1; //10;
             //const int numHostTilesX = 1;
             //const int numHostTilesY = 1;
             const int numTiles = 1;
