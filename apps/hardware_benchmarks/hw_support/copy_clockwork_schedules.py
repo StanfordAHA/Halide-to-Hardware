@@ -35,7 +35,7 @@ for idx, line in enumerate(dest_lines):
         if pond_name in pond_latencies:
             def replace_func(matchobj):
                 return str(pond_latencies[pond_name])
-            new_line = re.sub(r'(?<="regfile2out":{"cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
+            new_line = re.sub(r'(?<="regfile2out_0":{"cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
         dest_lines[idx+2] = new_line
 
 fsource.close()
