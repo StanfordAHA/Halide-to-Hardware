@@ -5,7 +5,6 @@ namespace {
 using namespace std;
 
 using namespace Halide;
-using namespace Halide::ConciseCasts;
 
 int inImgSize = 64;
 int outImgSize = inImgSize;
@@ -17,10 +16,6 @@ public:
 
     GeneratorParam<int32_t> myunroll{"myunroll", 1};
   
-    Expr mul1(Expr a, Expr b) {
-      return i16(( (i32(a)) * (i32(b)) ) >> 8);
-    }
-
     void generate() {
         /* THE ALGORITHM */
 
@@ -32,7 +27,7 @@ public:
         //hw_input(x, y) = input_copy(x, y);
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         
-        mult(x, y) = mul1(hw_input(x,y), 65433);
+        mult(x, y) = hw_input(x,y) * 2;
         hw_output(x, y) = mult(x, y);
         output(x, y) = cast<uint8_t>(hw_output(x, y));
 
