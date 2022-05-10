@@ -1,4 +1,4 @@
-import sys, json, re
+import sys, json, re, os
 
 fsource = open(sys.argv[1], "r")
 fdest = open(sys.argv[2], "r")
@@ -14,7 +14,7 @@ new_pond_schedules = {}
 for idx, line in enumerate(source_lines):
     if line.strip() == '"modref":"global.MEM",':
         new_schedules[source_lines[idx-1]] = source_lines[idx+1]
-    if line.strip() == '"modref":"global.Pond",':
+    if line.strip() == '"modref":"global.Pond",' and 'POND_PIPELINED' in os.environ and os.environ['POND_PIPELINED'] == '1':
         new_pond_schedules[source_lines[idx-1]] = source_lines[idx+1]
 
 flush_latencies = json.load(flush_file)
