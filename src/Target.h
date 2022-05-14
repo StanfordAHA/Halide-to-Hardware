@@ -111,6 +111,7 @@ struct Target {
         UseExtractHWKernel = halide_target_feature_use_extract_hw_kernel,
         BFloatHardware = halide_target_feature_bfloat_hardware,
         EnablePonds = halide_target_feature_enable_ponds,
+        EnableDualPort = halide_target_feature_enable_dual_port,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}
