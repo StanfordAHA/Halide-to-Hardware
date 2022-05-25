@@ -6,13 +6,13 @@ flush_file = open(sys.argv[3], "r")
 pond_file = open(sys.argv[4], "r")
 
 source_lines = fsource.readlines()
-dest_lines = fdest.readlines()
+dest_lines = source_lines
 
 new_schedules = {}
 new_pond_schedules = {}
 
 for idx, line in enumerate(source_lines):
-    if line.strip() == '"modref":"global.MEM",':
+    if line.strip() == '"modref":"global.MEM",' or line.strip() == '"modref":"global.Pond",':
         new_schedules[source_lines[idx-1]] = source_lines[idx+1]
     if line.strip() == '"modref":"global.Pond",' and 'POND_PIPELINED' in os.environ and os.environ['POND_PIPELINED'] == '1':
         new_pond_schedules[source_lines[idx-1]] = source_lines[idx+1]
