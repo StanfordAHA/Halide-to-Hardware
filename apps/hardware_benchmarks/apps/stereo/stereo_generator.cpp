@@ -13,7 +13,8 @@ namespace {
     Input<Buffer<uint8_t>> right{"right", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
-    int windowR = 8;
+    //int windowR = 8;
+    int windowR = 4;
     int searchR = 10;
 
    
@@ -57,8 +58,8 @@ namespace {
       // hw_output(x, y) = cast<uint16_t>(SAD(x, y, 0)/256);
       output(x, y) = cast<uint8_t>(hw_output(x, y));
 
-      output.bound(x, 0, 128);
-      output.bound(y, 0, 128);
+      output.bound(x, 0, 64);
+      output.bound(y, 0, 64);
 
 
       if (get_target().has_feature(Target::Clockwork)) {
@@ -70,7 +71,11 @@ namespace {
         offset1.compute_at(hw_output, xo).store_at(hw_output, xo);
 
 
+        SAD.reorder(c, x, y);
+        SAD.update().reorder(c, x, y);
         SAD.compute_at(hw_output, xo).store_at(hw_output, xo);
+        SAD.update()
+          .unroll(win.x).unroll(win.y);
 
 
         // right_padded.compute_at(hw_output, xo).store_at(hw_output, xo);
