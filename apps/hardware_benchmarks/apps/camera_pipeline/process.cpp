@@ -84,6 +84,13 @@ int main( int argc, char **argv ) {
     output_tile_width = mywidth;
     output_tile_height = 192-8;
     break;
+  case 4:
+    processor.inputs_preset = true;
+    output_tile_width = 62;
+    output_tile_height = 84;
+    host_tiling = 4;
+    glb_tiling = 1;
+    break;
   default:
     processor.inputs_preset = false;
     host_tiling = 1;
@@ -132,6 +139,17 @@ int main( int argc, char **argv ) {
     // load this 2592x1968 image
     std::cout << "Using a big dog image" << std::endl;
     processor.input = load_and_convert_image("../../../images/bayer_raw.png");
+    auto boosted = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
+    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
+      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
+        boosted(x, y) = processor.input(x, y) * 64;
+      }
+    }
+    save_image(boosted, "boosted_input.png");
+
+  } else if (schedule == 4) {
+    std::cout << "Using a small dog image" << std::endl;
+    processor.input = load_and_convert_image("../../../images/bayer_small.png");
     auto boosted = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
     for (int y = 0; y < processor.input.dim(1).extent(); y++) {
       for (int x = 0; x < processor.input.dim(0).extent(); x++) {

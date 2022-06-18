@@ -58,7 +58,8 @@ int main( int argc, char **argv ) {
   auto env_sch = getenv("schedule");
   auto schedule = env_sch ? atoi(env_sch) : 3;
   auto env_width = getenv("mywidth");
-  auto mywidth = env_width ? atoi(env_width) : 2048;
+  //auto mywidth = env_width ? atoi(env_width) : 2048;
+  auto mywidth = env_width ? atoi(env_width) : 64;
   std::cout << "using schedule = " << schedule << std::endl;
 
   int output_tile_width  = 56;
@@ -77,14 +78,15 @@ int main( int argc, char **argv ) {
   case 3:
     processor.inputs_preset = true;
     //host_tiling = 10;
-    host_tiling = 1;
+    host_tiling = 2;
     glb_tiling = 1;
     //output_tile_width = 64-8;
     //output_tile_height = 64-8;
     //output_tile_width = 256-8;
     //output_tile_height = 192-8;
     output_tile_width = mywidth;
-    output_tile_height = 1024;
+    //output_tile_height = 1024;
+    output_tile_height = 64;
     break;
   default:
     processor.inputs_preset = false;
@@ -96,7 +98,10 @@ int main( int argc, char **argv ) {
   int num_tiles          = host_tiling * glb_tiling;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
-  int blockSize = 9-1;
+  //int blockSize = 9-1;
+  int blockSize = 9;
+  //int blockSize = 5;
+  //int blockSize = 1;
 
   // FIXME: why is this additional padding needed?
   vector<string> full_args(argv, argv + argc);
@@ -128,6 +133,7 @@ int main( int argc, char **argv ) {
   //processor.input  = Buffer<uint16_t>(output_width+blockSize-1, output_height+blockSize-1);
   //processor.input  = Buffer<uint16_t>(output_width+100+blockSize, output_height+100+blockSize);
   processor.input  = Buffer<uint16_t>(iw, ih);
+  auto input_using  = Buffer<uint16_t>(132,132);
   //processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   //processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
   processor.output = Buffer<uint8_t>(ow, oh, 3);
@@ -142,7 +148,16 @@ int main( int argc, char **argv ) {
         boosted(x, y) = processor.input(x, y) * 64;
       }
     }
+    //int i=0;
+    //for (int y = 0; y < input_using.dim(1).extent(); y++) {
+    //  for (int x = 0; x < input_using.dim(0).extent(); x++) {
+    //    processor.input(x,y) = i;
+    //    input_using(x,y) = processor.input(x,y);
+    //    i += 1;
+    //  }
+    //}
     save_image(boosted, "boosted_input.png");
+    save_image(input_using, "bin/input_using.png");
     
   } else {
     for (int y = 0; y < processor.input.dim(1).extent(); y++) {
@@ -173,8 +188,11 @@ int main( int argc, char **argv ) {
   //    }
   //  }
   //}
-  //std::cout << "fist pixel = " << +image(0,0,0) << "," << +image(0,0,1) << "," << +image(0,0,2) << std::endl
-  //          << "sec  pixel = " << +image(0,1,0) << "," << +image(0,1,1) << "," << +image(0,1,2) << std::endl;
+  auto image = input_using;
+  std::cout << std::hex
+            << "fist pixel = " << +image(0,0) << std::endl
+            << "sec  pixel = " << +image(1,0) << std::endl
+            << std::dec;
   //save_image(output, "bin/bison_bayer.png");
   
   auto cmd_output = processor.process_command(argc, argv);

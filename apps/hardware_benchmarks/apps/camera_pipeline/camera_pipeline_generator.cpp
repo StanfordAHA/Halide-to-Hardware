@@ -7,6 +7,7 @@
 #include "Halide.h"
 
 namespace {
+//int blockSize = 11;
 int blockSize = 9;
 //int blockSize = 5;
 
@@ -51,11 +52,47 @@ int blockSize = 9;
       Func denoised("denoised");
       Expr max_value = max(max(input(x-2, y), input(x+2, y)),
                            max(input(x, y-2), input(x, y+2)));
+      Expr max_diag  = max(max(input(x-2, y-2), input(x-2, y+2)),
+                           max(input(x+2, y-2), input(x+2, y+2)));
+      
+      //Expr max_left  = max(max(input(x-2, y-2), input(x-2, y)),
+      //                     max(input(x-2, y+2), input(x, y+2)));
+      //Expr max_rght  = max(max(input(x+2, y-2), input(x+2, y)),
+      //                     max(input(x+2, y+2), input(x, y-2)));
+      
+      //Expr max_value = max(max(max(input(x-2, y-2), input(x-2, y)),
+      //                         max(input(x-2, y+2), input(x, y-2))),
+      //                     max(max(input(x, y+2), input(x+2, y-2)),
+      //                         max(input(x+2, y), input(x+2, y+2))));
+      
       Expr min_value = min(min(input(x-2, y), input(x+2, y)),
                            min(input(x, y-2), input(x, y+2)));
+      Expr min_diag  = min(min(input(x-2, y-2), input(x-2, y+2)),
+                           min(input(x+2, y-2), input(x+2, y+2)));
+      
+      //Expr min_left  = min(min(input(x-2, y-2), input(x-2, y)),
+      //                     min(input(x-2, y+2), input(x, y+2)));
+      //Expr min_rght  = min(min(input(x+2, y-2), input(x+2, y)),
+      //                     min(input(x+2, y+2), input(x, y-2)));
+      
+      //Expr min_value = min(min(min(input(x-2, y-2), input(x-2, y)),
+      //                         min(input(x-2, y+2), input(x, y-2))),
+      //                     min(min(input(x, y+2), input(x+2, y-2)),
+      //                         min(input(x+2, y), input(x+2, y+2))));
+    
+      //max_value = select(input(x-1, y)*8 < input(x,y) && input(x,y-1)*8 < input(x,y), input(x-1,y), max_value);
+      
+      //Expr sec_max = min(min(max_value, max_diag), min(max_left, max_rght));
+      //Expr sec_min = max(max(min_value, min_diag), min(min_left, min_rght));
+      Expr sec_max = min(max_value, max_diag);
+      Expr sec_min = max(min_value, min_diag);
       
       //denoised(x, y) = clamp(input(x,y), min_value, max_value);
-      denoised(x, y) = clamp(input(x,y), 0, max_value);
+      denoised(x, y) = clamp(input(x,y), sec_min, sec_max);
+      //denoised(x, y) = clamp(input(x,y), min_value, input(x,y));
+      //denoised(x, y) = clamp(input(x,y), 0, max_value);
+      //denoised(x, y) = clamp(input(x,y), 0, input(x,y));
+      //denoised(x, y) = input(x, y);
       return denoised;
     }
 
@@ -267,10 +304,20 @@ int blockSize = 9;
         //curve(x) = clamp(val*256.0f, 0.0f, 255.0f);
       }
 
-      Func hw_output, curve_out;
+      Func hw_output, hw_output2, curve_out;
       curve_out = apply_curve(color_corrected, curve);
       
-      hw_output(c, x, y) = curve_out(x, y, c);
+      //hw_output(c, x, y) = curve_out(x, y, c);
+      if (schedule == 4) {
+        hw_output2(c, x, y) = curve_out(x, y, c);
+        hw_output(c, x, y) = select(c==0 && hw_output2(c,x,y) > 20*hw_output2(1,x,y), hw_output2(1,x,y),
+                                    c==1 && hw_output2(c,x,y) > 20*hw_output2(2,x,y) && hw_output2(c,x,y)>150, hw_output2(0,x,y),
+                                    //c==2 && hw_output2(c,x,y) > 20*hw_output2(2,x,y), hw_output2(2,x,y),
+                                    hw_output2(c,x,y));
+      } else {
+        hw_output(c, x, y) = curve_out(x, y, c);
+      }
+      
       output(x, y, c) = u8(hw_output(c, x, y));
 
       //curve.bound(x, 0, 256);
@@ -356,7 +403,7 @@ int blockSize = 9;
             hw_input.compute_root()
               .accelerator_input();
 
-          } else if (schedule == 2) { // big parrot
+          } else if (schedule == 2) { // big dog
             const int tileWidth = 64;
             const int tileHeight = 56;
             const int numHostTiles = 11;
@@ -413,7 +460,7 @@ int blockSize = 9;
             hw_input.compute_root()
               .accelerator_input();
 
-          } else if (schedule == 3) { // big parrot with unroll
+          } else if (schedule == 3) { // big dog with unroll
             const int unroll = myunroll;
             //const int tileWidth = 64-8;
             const int tileWidth = mywidth;
@@ -504,6 +551,102 @@ int blockSize = 9;
               r_gb.unroll(x, unroll, TailStrategy::RoundUp);
               r_b.unroll(x, unroll, TailStrategy::RoundUp);
               g_b.unroll(x, unroll, TailStrategy::RoundUp);
+            }
+
+            curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM
+            curve.store_in(MemoryType::ROM);
+            // unroll by x?
+
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(x, unroll, TailStrategy::RoundUp);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+
+          } else if (schedule == 4) { // small dog with unroll
+            const int unroll = myunroll;
+            //const int tileWidth = 64-8;
+            const int tileWidth = 62;
+            const int tileHeight = 84;
+            const int numHostTiles = 4;
+            const int numTiles = 1; // number of tiles in the glb
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c)
+              .unroll(xi, unroll, TailStrategy::RoundUp);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c)
+              .unroll(xi, unroll, TailStrategy::RoundUp);
+
+            curve_out.compute_at(hw_output, xo);
+            curve_out.unroll(c)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+        
+            color_corrected.compute_at(hw_output, xo);
+            color_corrected.unroll(c)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+        
+            demosaicked.compute_at(hw_output, xo);
+            demosaicked
+              .reorder(c, x, y)
+              .unroll(c)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+
+            denoised.compute_at(hw_output, xo)
+              .unroll(x, unroll);
+            //.unroll(x).unroll(y);
+
+            bool buffer_memories = true;
+            if (buffer_memories) {
+              b_r.compute_at(hw_output, xo);
+              g_r.compute_at(hw_output, xo);
+              b_gr.compute_at(hw_output, xo);
+              r_gr.compute_at(hw_output, xo);
+              b_gb.compute_at(hw_output, xo);
+              r_gb.compute_at(hw_output, xo);
+              //r_b.compute_at(hw_output, xo);
+              //g_b.compute_at(hw_output, xo);
+              //g_gr.compute_at(hw_output, xo);
+              //r_r.compute_at(hw_output, xo);
+              //b_b.compute_at(hw_output, xo);
+              //g_gb.compute_at(hw_output, xo);
+            }
+
+            g_gr.compute_at(hw_output, xo);
+            r_r.compute_at(hw_output, xo);
+            b_b.compute_at(hw_output, xo);
+            g_gb.compute_at(hw_output, xo);
+
+            if (unroll > 3) {
+              int halfunroll = unroll/2;
+              g_gr.unroll(x, unroll, TailStrategy::RoundUp);
+              r_r.unroll(x, unroll, TailStrategy::RoundUp);
+              b_b.unroll(x, unroll, TailStrategy::RoundUp);
+              g_gb.unroll(x, unroll, TailStrategy::RoundUp);
             }
 
             curve.compute_at(hw_output, xo).unroll(x);  // synthesize curve to a ROM

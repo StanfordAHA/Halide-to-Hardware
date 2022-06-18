@@ -9,7 +9,12 @@
 namespace {
 int blockSize = 9;
 //int blockSize = 5;
-//int blockSize = 1;
+//int blockSize = 1; // change the blocksize, output, and host_tiling... and it might not work
+// The way to properly fix this is:
+//  have "clockwork_testscript.cpp" mimic the same data transfers as "app_memory.cpp".
+// The current file assumes a row-major order that copies a block of data to the accelerator.
+//  Instead, capture the same block loads from the inputs (and stores to the outputs),
+//  and translating these to stream writes (and reads) in the clockwork testcript file.
 
   using namespace Halide;
   using namespace Halide::ConciseCasts;
@@ -27,7 +32,7 @@ int blockSize = 9;
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
     GeneratorParam<int32_t> schedule{"schedule", 3};    // default: 3
-    GeneratorParam<int32_t> mywidth{"mywidth", 2048};   // default: 2048
+    GeneratorParam<int32_t> mywidth{"mywidth", 64};   // default: 2048
     GeneratorParam<int32_t> unrollx{"unrollx", 2};      // default: 2
     GeneratorParam<int32_t> unrolly{"unrolly", 2};      // default: 2
 
@@ -55,6 +60,10 @@ int blockSize = 9;
                            max(input(x, y-2), input(x, y+2)));
       Expr min_value = min(min(input(x-2, y), input(x+2, y)),
                            min(input(x, y-2), input(x, y+2)));
+      //Expr max_value = max(max(input(x-0, y+2), input(x+4, y+2)),
+      //                     max(input(x+2, y-0), input(x+2, y+4)));
+      //Expr min_value = min(min(input(x-0, y+2), input(x+4, y+2)),
+      //                     min(input(x+2, y-0), input(x+2, y+4)));
       
       //denoised(x, y) = clamp(input(x,y), min_value, max_value);
       denoised(x, y) = clamp(input(x,y), 0, max_value);
@@ -235,8 +244,8 @@ int blockSize = 9;
       //const int tWidth = 288;//mywidth;
       //const int tHeight = 192;
       const int tWidth = mywidth;
-      const int tHeight = 1024;
-      const int nTiles = 1; // TODO: fix this when nTiles > 1
+      const int tHeight = 64; //1024
+      const int nTiles = 2; // TODO: fix this when nTiles > 1
 
       Func hw_input, hw_input_temp, hw_input_shuffle, hw_input_shift;
       //hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
@@ -246,11 +255,23 @@ int blockSize = 9;
         hw_input_shuffle(x, y, c) = hw_input_temp(2*x + c/2, 2*y + c%2);
 
         //hw_input(x, y) = hw_input_shuffle(x/4 + 622*(y%2), y/2, x%4);
+        //int iWidth = (tWidth * nTiles) / 4 + (blockSize-1) / 2;
         int iWidth = (tWidth * nTiles + blockSize-1) / 4;
+        int qWidth = (tWidth + blockSize-1) / 4;
+        int hWidth = (tWidth + blockSize-1) / 2;
+        int ttWidth = tWidth + blockSize-1;
+        //int iWidth = (tWidth * nTiles) / 4;
         hw_input_shift(x, y) = hw_input_shuffle(x/4 + iWidth*(y%2), y/2, x%4);
-        hw_input(x, y) = hw_input_shift(x+(blockSize-1)/2, y+(blockSize-1)/2);
+        //hw_input_shift(x, y) = hw_input_shuffle((x/4)%qWidth + qWidth*(y%2) + hWidth*(x/ttWidth), y/2, x%4);
+        //hw_input(x, y) = hw_input_shift(x+(blockSize-1)/2, y+(blockSize-1)/2);
+        //hw_input(x, y) = hw_input_shift(x, y);
+
+
+        hw_input(x, y) = hw_input_temp(x+(blockSize-1)/2, y+(blockSize-1)/2);
+        //hw_input(x, y) = hw_input_temp(x, y);
       } else {
         hw_input(x, y) = hw_input_temp(x+(blockSize-1)/2, y+(blockSize-1)/2);
+        //hw_input(x, y) = hw_input_temp(x, y);
       }
 
       Func hw_input_copy;
@@ -291,13 +312,15 @@ int blockSize = 9;
       hw_output(c, x, y) = curve_out(x, y, c);
       //hw_output(c, x, y) = demosaicked(x, y, c);
       //hw_output(c, x, y) = denoised(x, y);
+      //hw_output(c, x, y) = hw_input(x, y);
 
       Var k;
       if (get_target().has_feature(Target::Clockwork)) {
         int iWidth = tWidth * nTiles / 4;
         output_shuffle(c, k, x, y) = u8(hw_output(c, (x%iWidth)*4 + k, x/iWidth + 2*y));
-        //output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), max(x/2 - 1, 0), y/2);
-        output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), x/2, y/2);
+        //output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), x/2, y/2);
+        
+        output(x, y, c) = u8(hw_output(c, x, y));
       } else {
         //output(x, y, c) = u8(hw_output(c, x+2, y));
         output(x, y, c) = u8(hw_output(c, x, y));
@@ -453,6 +476,7 @@ int blockSize = 9;
             const int numTiles = 1; // number of tiles in the glb
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
+            //const int outputWidth = numHostTiles * glbWidth;
             const int outputWidth = numHostTiles * glbWidth;
             const int outputHeight = numHostTiles * glbHeight;
 
