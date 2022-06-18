@@ -79,7 +79,7 @@ int main( int argc, char **argv ) {
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 4;
+  int output_tile_width  = 8;//32;
   int output_tile_height = output_tile_width;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
@@ -91,9 +91,10 @@ int main( int argc, char **argv ) {
   processor.inputs_preset = true;
   for (int y = 0; y < processor.input.dim(1).extent(); y++) {
       for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-        processor.input(x, y) = x + y;
+        //processor.input(x, y) = x + y;
       }
   }
+  processor.input = load_and_convert_image("input.png");
         
   
   //processor.input   = Buffer<uint16_t>(64, 64);

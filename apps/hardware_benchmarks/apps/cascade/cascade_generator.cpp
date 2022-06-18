@@ -43,7 +43,7 @@ public:
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         //hw_input(x, y) = hw_input_copy(x, y);
 
-        if (schedule == 1 || schedule == 2) {
+        if (schedule != 0) {
           conv1(x, y) = u16(0);
           conv1(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         } else {
@@ -60,7 +60,7 @@ public:
         }
         conv1_shift(x, y) = conv1(x,y) / 16;
 
-        if (schedule == 1 || schedule == 2) {
+        if (schedule != 0) {
           conv2(x, y) = u16(0);
           conv2(x, y)  += u16(kernel(r2.x, r2.y)) * conv1_shift(x + r2.x, y + r2.y);
         } else {
@@ -100,7 +100,7 @@ public:
           conv2.update()
             .unroll(r2.x).unroll(r2.y);
 
-          conv1.compute_at(hw_output, xio);
+          conv1_shift.compute_at(hw_output, xio);
           conv1.update()
             .unroll(r.x).unroll(r.y);//.unroll(x, 2);
 
@@ -140,6 +140,57 @@ public:
               //.reorder(r.y, r.x)
               .unroll(r.x)
               .unroll(r.y);
+
+          } else if (schedule == 3) {
+            conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
+            conv2.update()
+              //.reorder(r2.x, r2.y)
+              .unroll(r2.x)
+              .unroll(r2.y);
+            
+            conv1_shift.store_at(hw_output, xo).compute_at(hw_output, xi);
+            conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
+            conv1.update()
+              //.reorder(r.y, r.x)
+              .unroll(r.x)
+              .unroll(r.y);
+
+          } else if (schedule == 4) {
+            conv2.store_at(hw_output, xo).compute_at(hw_output, yi);
+            conv2.update()
+              //.reorder(r2.x, r2.y)
+              .unroll(r2.x)
+              .unroll(r2.y);
+            
+            conv1_shift.store_at(hw_output, xo).compute_at(hw_output, yi);
+            conv1.store_at(hw_output, xo).compute_at(hw_output, yi);
+            conv1.update()
+              //.reorder(r.y, r.x)
+              .unroll(r.x)
+              .unroll(r.y);            
+            
+          } else if (schedule == 11) {
+            // create compute share schedule
+            conv2.store_at(hw_output, xo).compute_at(hw_output, xo);
+            //conv2.store_at(hw_output, xo).compute_at(hw_output, xi);
+            conv2.update()
+              .unroll(r2.x)
+              .unroll(r2.y);
+            
+            conv1_shift.store_at(hw_output, xo).compute_at(hw_output, xo);
+            //conv1_shift.store_at(hw_output, xo).compute_at(hw_output, xi);
+            conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
+            //conv1.store_at(hw_output, xo).compute_at(hw_output, xi);
+            conv1.update()
+              .unroll(r.x)
+              .unroll(r.y);
+
+            conv2.update(0).compute_share_root(y);
+            conv1.update(0).compute_share(conv2.update(0));
+            //conv2.compute_share_root(y);
+            //conv1.compute_share(conv2);
+
+            
           } else {
             //conv1.store_at(hw_output, xo).compute_at(hw_output, xo);
           }

@@ -38,6 +38,12 @@ struct for_loop {
   }
 };
 
+struct ComputeShare {
+  string op_name;
+  string kernel_name;
+  string loop_interleaving;
+};
+
 /** This class emits Clockwork compatible C++ code.
  */
 class CodeGen_Clockwork_Target {
@@ -73,6 +79,7 @@ protected:
       std::map<std::string, ROM_data> roms; // roms that have been identified
       std::vector<std::string> inputs; // inputs to the function
       std::map<std::string, std::vector<Expr> > realize_glb_indices; // offsets for glb
+      std::map<std::string, ComputeShare> compute_share_mappings; // compute kernel mappings
       std::string output;
 
       /** The stream we're outputting the memory on */

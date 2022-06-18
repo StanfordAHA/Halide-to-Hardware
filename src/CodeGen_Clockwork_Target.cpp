@@ -1980,12 +1980,25 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   // Output the function in relation to the loop level
   auto mem_bodyname = loop_list.back();
+
+  // If compute is shared, it will exist in this mapping structure.
   string func_name = printname(unique_name("hcompute_" + op->name));
+  string function_name;
+  if (compute_share_mappings.count(func_name)) {
+    auto share_info = compute_share_mappings[func_name];
+    function_name = "hcompute_" + share_info.kernel_name;
+    std::cout << "found compute called " << func_name
+              << " that maps to " << function_name << std::endl;
+  } else {
+    //std::cout << "can't find compute called " << func_name << std::endl;
+    function_name = func_name;
+  }
+  
   string mem_access = mem_bodyname == "prg" ? "." : "->";
   memory_stream << "  auto " << func_name  << " = "
                 << mem_bodyname << mem_access << "add_op(\""
                 << "op_" + func_name << "\");" << endl;
-  memory_stream << "  " << func_name << "->add_function(\"" << func_name << "\");" << endl;
+  memory_stream << "  " << func_name << "->add_function(\"" << function_name << "\");" << endl;
 
   // Find what the interface of this Provide is by using a closure
   CoreIR_Interface iface;
@@ -2277,6 +2290,14 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
     memory_stream << "// Call - read: " << Expr(op) << endl;
   } else if (op->name == "write_stream") {
     memory_stream << "// Call - write: " << Expr(op) << endl;
+  } else if (op->name == "compute_share_mapping") {
+    std::cout << "found a sharing for " << Expr(op) << std::endl;
+    internal_assert(op->args.size() == 3);
+    string op_name = "hcompute_" + op->args[0].as<StringImm>()->value;
+    string kernel_name = op->args[1].as<StringImm>()->value;
+    string loop_interleaving = op->args[2].as<StringImm>()->value;
+    compute_share_mappings[op_name] = ComputeShare({op_name, kernel_name, loop_interleaving});
+    return;
   }
   CodeGen_Clockwork_Base::visit(op);
 }

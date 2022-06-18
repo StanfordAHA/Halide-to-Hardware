@@ -224,7 +224,7 @@ public:
             blur_unnormalized.compute_at(hw_output, compute_loop_level);
 
             hw_input.in().in().compute_at(hw_output, compute_loop_level); // represents the mem tile
-            if (compute_loop_level == yii) { hw_input.in().in().reorder(y, x); }
+            //if (compute_loop_level == yii) { hw_input.in().in().reorder(y, x); }
             hw_input.in().in().unroll(x, unroll, TailStrategy::RoundUp);
 
             hw_input.in().compute_at(hw_output.in(), xo);

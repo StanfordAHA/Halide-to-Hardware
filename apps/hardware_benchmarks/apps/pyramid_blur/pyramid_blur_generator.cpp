@@ -14,7 +14,8 @@ using namespace Halide::ConciseCasts;
 // Size of blur for gradients.
 const int blockSize = 2;
 int num_levels = 4;
-int imgSize = 4;//64-(blockSize-1)*num_levels;
+//int imgSize = 4;//64-(blockSize-1)*num_levels;
+int imgSize = 8;
 
 class PyramidGaussianBlur : public Halide::Generator<PyramidGaussianBlur> {
 public:
@@ -75,13 +76,26 @@ public:
         Func ha_in;
         ha_in(x, y) = u16(hw_in(x, y));
 
+        Func k;
+        k(x, y) = 0;
+        k(0, 0) = 1;
+        k(0, 1) = 1;
+        k(1, 0) = 1;
+        k(1, 1) = 1;
+        
         Func blur0, blur1, blur2, blur3;
         // 2x2 conv
-        blur0(x, y) = kernel(0,0) * ha_in(2*x,2*y) + kernel(1,0) * hw_in(2*x+1,2*y) + kernel(0,1) * hw_in(2*x,2*y+1) + kernel(1,1) * hw_in(2*x+1,2*y+1);
-        blur1(x, y) = kernel(0,0) * blur0(2*x,2*y) + kernel(1,0) * blur0(2*x+1,2*y) + kernel(0,1) * blur0(2*x,2*y+1) + kernel(1,1) * blur0(2*x+1,2*y+1);
-        blur2(x, y) = kernel(0,0) * blur1(2*x,2*y) + kernel(1,0) * blur1(2*x+1,2*y) + kernel(0,1) * blur1(2*x,2*y+1) + kernel(1,1) * blur1(2*x+1,2*y+1);
-        blur3(x, y) = kernel(0,0) * blur2(2*x,2*y) + kernel(1,0) * blur2(2*x+1,2*y) + kernel(0,1) * blur2(2*x,2*y+1) + kernel(1,1) * blur2(2*x+1,2*y+1);
+        blur0(x, y) = (ha_in(2*x,2*y) + hw_in(2*x+1,2*y) + hw_in(2*x,2*y+1) + hw_in(2*x+1,2*y+1)) / 4;
+        blur1(x, y) = (blur0(2*x,2*y) + blur0(2*x+1,2*y) + blur0(2*x,2*y+1) + blur0(2*x+1,2*y+1)) / 4;
+        blur2(x, y) = (blur1(2*x,2*y) + blur1(2*x+1,2*y) + blur1(2*x,2*y+1) + blur1(2*x+1,2*y+1)) / 4;
+        blur3(x, y) = (blur2(2*x,2*y) + blur2(2*x+1,2*y) + blur2(2*x,2*y+1) + blur2(2*x+1,2*y+1)) / 4;
 
+        // 2x2 conv
+        //blur0(x, y) = (k(0,0) * ha_in(2*x,2*y) + k(1,0) * hw_in(2*x+1,2*y) + k(0,1) * hw_in(2*x,2*y+1) + k(1,1) * hw_in(2*x+1,2*y+1)) / 4;
+        //blur1(x, y) = (k(0,0) * blur0(2*x,2*y) + k(1,0) * blur0(2*x+1,2*y) + k(0,1) * blur0(2*x,2*y+1) + k(1,1) * blur0(2*x+1,2*y+1)) / 4;
+        //blur2(x, y) = (k(0,0) * blur1(2*x,2*y) + k(1,0) * blur1(2*x+1,2*y) + k(0,1) * blur1(2*x,2*y+1) + k(1,1) * blur1(2*x+1,2*y+1)) / 4;
+        //blur3(x, y) = (k(0,0) * blur2(2*x,2*y) + k(1,0) * blur2(2*x+1,2*y) + k(0,1) * blur2(2*x,2*y+1) + k(1,1) * blur2(2*x+1,2*y+1)) / 4;
+        
         // 3x3 conv
         //blur0(x, y) = kernel(0,0) * ha_in(2*x,2*y) + kernel(1,0) * hw_in(2*x+1,2*y) + kernel(0,1) * hw_in(2*x,2*y+1) + kernel(1,1) * hw_in(2*x+1,2*y+1) + kernel(1,2) * hw_in(2*x+1,2*y+2) + kernel(2,1) * hw_in(2*x+2,2*y+1) + kernel(2,2) * hw_in(2*x+2,2*y+2) + kernel(0,2) * hw_in(2*x+0,2*y+2) + kernel(2,0) * hw_in(2*x+2,2*y+0);
         //blur1(x, y) = kernel(0,0) * blur0(2*x,2*y) + kernel(1,0) * blur0(2*x+1,2*y) + kernel(0,1) * blur0(2*x,2*y+1) + kernel(1,1) * blur0(2*x+1,2*y+1) + kernel(1,2) * blur0(2*x+1,2*y+2) + kernel(2,1) * blur0(2*x+2,2*y+1) + kernel(2,2) * blur0(2*x+2,2*y+2) + kernel(0,2) * blur0(2*x+0,2*y+2) + kernel(2,0) * blur0(2*x+2,2*y+0);
@@ -102,7 +116,7 @@ public:
 
         Func hw_output;
         //hw_output(x, y) = blur[num_levels-1](x, y);
-        hw_output(x, y) =  blur3(x, y);
+        hw_output(x, y) =  blur2(x, y);
         output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
@@ -138,8 +152,8 @@ public:
             .hw_accelerate(xi, xo);
           
           blur3.compute_at(hw_output, xo);
-          blur2.compute_at(blur3, y);
-          blur1.compute_at(blur3, y);
+          //blur2.compute_at(blur3, y);
+          //blur1.compute_at(blur3, y);
           blur0.compute_at(hw_output, xo);
 
           /*output.tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
