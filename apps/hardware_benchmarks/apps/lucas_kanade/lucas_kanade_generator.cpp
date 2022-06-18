@@ -109,19 +109,10 @@ public:
         Func input0_copy("input0_copy"), input1_copy("input1_copy");
         Func hw_input0("hw_input0"), hw_input1("hw_input1");
 
-        Func i0_norm("i0_norm");
-        Func i1_norm("i1_norm");
-
-        Func kernel_x("kernel_x");
-        Func kernel_y("kernel_y");
-        Func kernel_t("kernel_t");
-
-        Func fx("fx");
-        Func fy("fx");
-        Func ft("ft");
-
-        Func u("u");
-        Func v("v");
+        Func i0_norm("i0_norm"), i1_norm("i1_norm");
+        Func kernel_x("kernel_x"), kernel_y("kernel_y"), kernel_t("kernel_t");
+        Func fx("fx"), fy("fx"), ft("ft");
+        Func u("u"), v("v");
 
         Func output0_copy("output0_copy"), output1_copy("output1_copy");
         Func hw_output("hw_output");
@@ -143,17 +134,16 @@ public:
 
         i0_norm(x,y) = cast<float>(hw_input0(x,y))/255.0f;
         i1_norm(x,y) = cast<float>(hw_input1(x,y))/255.0f;
-
+        
         kernel_x(x,y) = 0.0f;
-        kernel_y(x,y) = 0.0f;
-        kernel_t(x,y) = 0.0f;
-
         kernel_x(0,0) = -0.25f; kernel_x(1,0) = 0.25f;
         kernel_x(0,1) = -0.25f; kernel_x(1,1) = 0.25f;
-
+        
+        kernel_y(x,y) = 0.0f;
         kernel_y(0,0) = -0.25f; kernel_y(1,0) = -0.25f;
         kernel_y(0,1) = 0.25f;  kernel_y(1,1) = 0.25f;
 
+        kernel_t(x,y) = 0.0f;
         kernel_t(0,0) = 0.25f; kernel_t(1,0) = 0.25f;
         kernel_t(0,1) = 0.25f; kernel_t(1,1) = 0.25f;
 
@@ -179,15 +169,10 @@ public:
         //        u[i,j]=nu[0]
         //        v[i,j]=nu[1]
 
-        Func Ix("Ix");
-        Func Iy("Iy");
-        Func It("It");
+        Func Ix("Ix"), Iy("Iy"), It("It");
        
         Func b("b");
-        Func At("At");
-        Func AtA("AtA");
-        Func AtAinv("Ainv");
-        Func Apinv("Apinv");
+        Func At("At"), AtA("AtA"), AtAinv("Ainv"), Apinv("Apinv");
        
         Func eig("eig");
         Func nu("nu");
