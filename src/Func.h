@@ -453,6 +453,13 @@ public:
     }
     // @}
 
+    /** Set a base function and other functions that are all share
+     *  the same compute. This will result in a loop being created
+     *  the time-multiplixes a single computation unit.
+     */
+    Stage &compute_share_root(Var loop);
+    Stage &compute_share(Stage root);
+  
     /** Attempt to get the source file and line where this stage was
      * defined by parsing the process's own debug symbols. Returns an
      * empty string if no debug symbols were found or the debug
@@ -2265,6 +2272,7 @@ public:
                             std::vector<Func> taps = {});
     
     Func &hw_accelerate(Var compute_var, Var store_var);
+    Func &hw_accelerate(Var store_var);
 
     Func &accelerator_output(Var store_var);
     Func &accelerate_call_output(Var store_var);
@@ -2302,6 +2310,15 @@ public:
     /** Set the depth of the fifo from this function to consumer
      */
     Func &fifo_depth(Func consumer, int depth);
+
+    /** Set a base function and other functions that are all share
+     *  the same compute. This will result in a loop being created
+     *  the time-multiplixes a single computation unit.
+     */
+    Func &compute_share_root(Var loop);
+    Func &compute_share(Func root);
+
+    Func &memory_share(Func root);
 
     /** Aggressively inline all uses of this function. This is the
      * default schedule, so you're unlikely to need to call this. For

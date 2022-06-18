@@ -797,7 +797,7 @@ const std::vector<Parameter> &Function::output_buffers() const {
 }
 
 StageSchedule &Function::update_schedule(int idx) {
-    internal_assert(idx < (int)contents->updates.size()) << "Invalid update definition index\n";
+    internal_assert(idx < (int)contents->updates.size()) << "Invalid update definition index: " + std::to_string(idx) + "\n";
     return contents->updates[idx].schedule();
 }
 

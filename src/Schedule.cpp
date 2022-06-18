@@ -226,6 +226,13 @@ struct FuncScheduleContents {
     std::set<std::string> accelerate_inputs;
     std::string accelerate_exit;
     LoopLevel accelerate_compute_level, accelerate_store_level;
+
+    bool is_compute_shared = false;
+    bool is_compute_parent = false;
+    std::vector<std::string> shared_func_names;
+    std::map<int, std::string> shared_parent_stage;
+    std::map<int, LoopLevel> shared_compute_level;
+  
     std::map<std::string, int> fifo_depths;   // key is the name of the consumer
     std::map<std::string, Function> tap_funcs;
     std::map<std::string, Parameter> tap_params;
@@ -294,6 +301,12 @@ struct StageScheduleContents {
     bool touched;
     bool allow_race_conditions;
 
+    bool is_compute_shared = false;
+    bool is_compute_parent = false;
+    std::vector<std::string> shared_stage_names;
+    std::string shared_parent_stage;
+    LoopLevel shared_compute_level;
+  
     StageScheduleContents() : fuse_level(FuseLoopLevel()), touched(false),
                               allow_race_conditions(false) {};
 
@@ -365,6 +378,11 @@ FuncSchedule FuncSchedule::deep_copy(
     copy.contents->output_rate = contents->output_rate;
     copy.contents->tap_funcs = contents->tap_funcs;
     copy.contents->tap_params = contents->tap_params;
+    copy.contents->is_compute_shared = contents->is_compute_shared;
+    copy.contents->is_compute_parent = contents->is_compute_parent;
+    copy.contents->shared_func_names = contents->shared_func_names;
+    copy.contents->shared_compute_level = contents->shared_compute_level;
+    copy.contents->shared_parent_stage = contents->shared_parent_stage;
 
     // Deep-copy wrapper functions.
     for (const auto &iter : contents->wrappers) {
@@ -575,6 +593,76 @@ LoopLevel &FuncSchedule::accelerate_store_level() {
 const LoopLevel &FuncSchedule::accelerate_store_level() const {
     internal_assert(is_accelerated() || is_accelerate_call_output());
     return contents->accelerate_store_level;
+}
+
+bool StageSchedule::is_compute_shared() const {
+  return contents->is_compute_shared;
+}
+bool &StageSchedule::is_compute_shared() {
+  return contents->is_compute_shared;
+}
+
+bool StageSchedule::is_compute_parent() const {
+  return contents->is_compute_parent;
+}
+bool &StageSchedule::is_compute_parent() {
+  return contents->is_compute_parent;
+}
+
+const std::vector<std::string> &StageSchedule::shared_stage_names() const {
+  return contents->shared_stage_names;
+}
+std::vector<std::string> &StageSchedule::shared_stage_names() {
+  return contents->shared_stage_names;
+}
+
+const std::string &StageSchedule::shared_parent_stage() const {
+  return contents->shared_parent_stage;
+}
+std::string &StageSchedule::shared_parent_stage() {
+  return contents->shared_parent_stage;
+}
+
+const LoopLevel &StageSchedule::shared_compute_level() const {
+  return contents->shared_compute_level;
+}
+LoopLevel &StageSchedule::shared_compute_level() {
+  return contents->shared_compute_level;
+}
+
+bool FuncSchedule::is_compute_shared() const {
+  return contents->is_compute_shared;
+}
+bool &FuncSchedule::is_compute_shared() {
+  return contents->is_compute_shared;
+}
+
+bool FuncSchedule::is_compute_parent() const {
+  return contents->is_compute_parent;
+}
+bool &FuncSchedule::is_compute_parent() {
+  return contents->is_compute_parent;
+}
+
+const std::vector<std::string> &FuncSchedule::shared_func_names() const {
+  return contents->shared_func_names;
+}
+std::vector<std::string> &FuncSchedule::shared_func_names() {
+  return contents->shared_func_names;
+}
+
+const std::map<int, std::string> &FuncSchedule::shared_parent_stage() const {
+  return contents->shared_parent_stage;
+}
+std::map<int, std::string> &FuncSchedule::shared_parent_stage() {
+  return contents->shared_parent_stage;
+}
+
+const std::map<int, LoopLevel> &FuncSchedule::shared_compute_level() const {
+  return contents->shared_compute_level;
+}
+std::map<int, LoopLevel> &FuncSchedule::shared_compute_level() {
+  return contents->shared_compute_level;
 }
 
 void FuncSchedule::accept(IRVisitor *visitor) const {

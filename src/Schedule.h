@@ -515,6 +515,21 @@ public:
     const LoopLevel &accelerate_store_level() const;
     // @}
 
+    bool is_compute_shared() const;
+    bool &is_compute_shared();
+
+    bool is_compute_parent() const;
+    bool &is_compute_parent();
+    
+    const std::vector<std::string> &shared_func_names() const;
+    std::vector<std::string> &shared_func_names();
+    
+    const std::map<int, std::string> &shared_parent_stage() const;
+    std::map<int, std::string> &shared_parent_stage();
+    
+    const std::map<int, LoopLevel> &shared_compute_level() const;
+    std::map<int, LoopLevel> &shared_compute_level();
+
     /** Pass an IRVisitor through to all Exprs referenced in the
      * Schedule. */
     void accept(IRVisitor *) const;
@@ -606,6 +621,22 @@ public:
     bool &allow_race_conditions();
     // @}
 
+    bool is_compute_shared() const;
+    bool &is_compute_shared();
+  
+    bool is_compute_parent() const;
+    bool &is_compute_parent();
+
+  const std::vector<std::string> &shared_stage_names() const;
+  std::vector<std::string> &shared_stage_names();
+
+  const std::string &shared_parent_stage() const;
+  std::string &shared_parent_stage();
+
+  const LoopLevel &shared_compute_level() const;
+  LoopLevel &shared_compute_level();
+
+  
     /** Pass an IRVisitor through to all Exprs referenced in the
      * Schedule. */
     void accept(IRVisitor *) const;

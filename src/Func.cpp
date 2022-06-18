@@ -2615,6 +2615,55 @@ Func &Func::hw_accelerate(Var compute_var, Var store_var) {
     return *this;
 }
 
+Func &Func::hw_accelerate(Var store_var) {
+    /*
+      This method prepares enough information on related function schedules,
+      in order to draw the boundaries of the accelerator in the DAG of functinos.
+     */
+    invalidate_cache();
+
+    debug(3) << "accelerate function " << func.name() << " at "
+             << store_var.name() << "\n";
+    //std::cout << "accelerate function " << func.name() << " at " << compute_var.name()
+    //         << " " << store_var.name() << "\n";
+
+    // Treat MEM->GLB boundaries differently from GLB->host
+    if (func.schedule().memory_type() == MemoryType::GLB) {
+      func.schedule().is_accelerate_call_output() = true;
+    } else if (func.schedule().memory_type() == MemoryType::Host) {
+      func.schedule().is_accelerator_output() = true;
+    } else {
+      func.schedule().is_accelerator_output() = true;
+    }
+    func.schedule().is_accelerated() = true;
+    
+    // schedule the compute and store levels of the hw_out,
+    // which later becomes the constraints of the accelerator pipeline.
+
+    //func.schedule().is_accelerate_call_output() = true;
+    func.schedule().accelerate_store_level() = LoopLevel(*this, store_var).lock();
+    //std::cout << "store level is: defined=" << func.schedule().accelerate_store_level().defined()
+    //          << " varname=" << func.schedule().accelerate_store_level().var().name()
+    //          << "\n";
+
+    LoopLevel store_locked = func.schedule().store_level().lock();
+    LoopLevel compute_locked = func.schedule().compute_level().lock();
+    string store_varname =
+      store_locked.is_root() ? "root" :
+      store_locked.is_inlined() ? "inlined" :
+      store_locked.var().name();
+    string compute_varname =
+      compute_locked.is_root() ? "root" :
+      compute_locked.is_inlined() ? "inlined" :
+      compute_locked.var().name();
+    debug(3) << "check function " << func.name() << " " << func.schedule().is_accelerated() <<  "\n";
+    debug(3) << store_locked.func() << " " << store_varname << "\n";
+    debug(3) << compute_locked.func() << " " << compute_varname << "\n";
+
+    return *this;
+}
+
+
 // Set this as an accelerator output. This will be tag this function
 // as the output to a hardware accelerator at the specified variable.
 Func &Func::accelerator_output(Var store_var) {
@@ -3052,6 +3101,78 @@ Func &Func::fifo_depth(Func consumer, int depth) {
     // Also check if the this function is scheduled to be linebuffered
     func.schedule().fifo_depths()[consumer.name()] = depth;
     return *this;
+}
+
+Stage &Stage::compute_share_root(Var loop) {
+  function.update_schedule(stage_index-1).is_compute_parent() = true;
+  function.update_schedule(stage_index-1).is_compute_shared() = true;
+  function.update_schedule(stage_index-1).shared_compute_level() = LoopLevel(function, loop).lock();
+
+  // add oneself to list of shared functions
+  //function.update_schedule(stage_index-1).shared_stage_names().emplace_back(function.name());
+  function.update_schedule(stage_index-1).shared_parent_stage() = function.name();
+
+  function.schedule().is_compute_shared() = true;
+  function.schedule().is_compute_parent() = true;
+  function.schedule().shared_compute_level()[stage_index] = LoopLevel(function, loop).lock();
+  function.schedule().shared_parent_stage()[stage_index] = name();
+  std::cout << "set the compute share for stage " << std::to_string(stage_index) << std::endl;
+
+  return *this;
+}
+  
+Stage &Stage::compute_share(Stage compute_root) {  
+  internal_assert(compute_root.get_schedule().is_compute_parent() == true)
+    << compute_root.name() << " must be declared as a compute parent first\n";
+  //compute_root.get_schedule().shared_stage_names().emplace_back(name());
+  function.update_schedule(stage_index-1).shared_parent_stage() = compute_root.name();
+
+  function.update_schedule(stage_index-1).is_compute_shared() = true;
+  function.update_schedule(stage_index-1).shared_compute_level() = compute_root.get_schedule().shared_compute_level();
+  //function.schedule().compute_level() = compute_root.function().schedule().shared_compute_level();
+
+  function.schedule().shared_compute_level()[stage_index] = compute_root.get_schedule().shared_compute_level();
+  auto rootname_index = compute_root.name();
+  auto rootname = rootname_index.substr(0, rootname_index.find(".update("));
+  auto root_start = rootname_index.find(".update(") + 8;
+  auto root_len = rootname_index.find(")") - root_start;
+  auto root_idx = stoi(rootname_index.substr(root_start, root_len)) + 1;
+  function.schedule().shared_parent_stage()[stage_index] = rootname + "_stencil_" + std::to_string(root_idx);
+  function.schedule().is_compute_shared() = true;
+  //function.schedule().shared_parent_stage()[stage_index] = compute_root.name();
+
+  //std::cout << "saved the shared mapping as " << name() << " -> " << function.update_schedule(stage_index-1).shared_parent_stage() << std::endl;
+  std::cout << "saved the shared mapping as " << name() << " -> " << function.schedule().shared_parent_stage()[stage_index] << "  where num=" << root_idx << " for i=" << stage_index << std::endl;
+  
+  return *this;
+}
+
+Func &Func::compute_share_root(Var loop) {
+  func.schedule().is_compute_parent() = true;
+  func.schedule().is_compute_shared() = true;
+  func.schedule().shared_compute_level()[0] = LoopLevel(func, loop).lock();
+
+  // add oneself to list of shared functions
+  //function.update_schedule(stage_index-1).shared_stage_names().emplace_back(function.name());
+  func.schedule().shared_parent_stage()[0] = func.name();
+  std::cout << "setting the parent stage in Func for root" << std::endl;
+
+  return *this;
+}
+  
+Func &Func::compute_share(Func compute_root) {  
+  internal_assert(compute_root.function().schedule().is_compute_parent() == true)
+    << compute_root.name() << " must be declared as a compute parent first\n";
+  //compute_root.get_schedule().shared_stage_names().emplace_back(name());
+  func.schedule().shared_parent_stage()[0] = compute_root.function().name();
+
+  func.schedule().is_compute_shared() = true;
+  func.schedule().shared_compute_level()[0] = compute_root.function().schedule().shared_compute_level()[0];
+
+  std::cout << "saved the shared mapping as " << name() << " -> "
+            << func.schedule().shared_parent_stage()[0] << std::endl;
+  
+  return *this;
 }
 
 Func &Func::compute_inline() {

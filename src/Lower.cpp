@@ -47,6 +47,7 @@
 #include "LowerWarpShuffles.h"
 #include "MarkHWKernels.h"
 #include "Memoization.h"
+#include "MergeCompute.h"
 #include "PartitionLoops.h"
 #include "PurifyIndexMath.h"
 #include "Prefetch.h"
@@ -233,6 +234,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (t.has_feature(Target::Clockwork)) {
       s = extract_hwaccelerators(s, env);
       //std::cout << "IR after hwxcel extracted:\n" << s << std::endl;
+      s = merge_compute(s, env); // share compute kernels
     }
     
     if (t.has_feature(Target::CoreIR) || t.has_feature(Target::HLS)) {
