@@ -26,7 +26,7 @@ for idx, line in enumerate(dest_lines):
         mem_name = line.split('"')[1]
         if mem_name in flush_latencies:
             def replace_func(matchobj):
-                return str(int(matchobj.group(1)) - flush_latencies[mem_name])
+                return str(int(matchobj.group(1)) + flush_latencies[mem_name])
             new_line = re.sub(r'(?<=cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
         dest_lines[idx+2] = new_line
     if line in new_pond_schedules:
