@@ -23,7 +23,7 @@ public:
         hw_query(x) = input_query(x+1);
 
         Func sw("sw");
-        sw(x, y) = 0;
+        sw(x, y) = cast<uint16_t>(0);
         sw(r.x, r.y) = max(select(hw_ref(r.x-1) == hw_query(r.x-1),
                                   sw(r.x-1, r.y-1) +2,
                                   sw(r.x-1, r.y-1) -1),
@@ -50,7 +50,10 @@ public:
           hw_output.tile(x,y, xo,yo, xi,yi, 10, 10)
             .hw_accelerate(xi, xo);
 
-          sw.update().unroll(r.x);
+          sw.compute_at(hw_output, xo);
+          //remove the unroll to make compilation work, 
+          //but it's good to see if we could support the unrolling schedule
+          //sw.update().unroll(r.x);
           
           hw_ref.stream_to_accelerator();
           hw_query.stream_to_accelerator();

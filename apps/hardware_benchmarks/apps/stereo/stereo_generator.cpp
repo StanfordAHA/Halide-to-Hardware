@@ -15,7 +15,7 @@ namespace {
 
     //int windowR = 8;
     int windowR = 4;
-    int searchR = 10;
+    int searchR = 12;
 
    
 
@@ -64,18 +64,20 @@ namespace {
 
       if (get_target().has_feature(Target::Clockwork)) {
         hw_output.compute_root();
-        hw_output.tile(x, y, xo, yo, xi, yi, 128, 128).hw_accelerate(xi, xo);
+        hw_output.tile(x, y, xo, yo, xi, yi, 64, 64).hw_accelerate(xi, xo);
         
         offset_out.compute_at(hw_output, xo).store_at(hw_output, xo);
         offset0.compute_at(hw_output, xo).store_at(hw_output, xo);
+        offset0.update().unroll(search.x);
         offset1.compute_at(hw_output, xo).store_at(hw_output, xo);
+        offset1.update().unroll(search.x);
 
 
-        SAD.reorder(c, x, y);
-        SAD.update().reorder(c, x, y);
+        //SAD.reorder(c, x, y);
+        SAD.update().reorder(x, y, win.x, win.y);
         SAD.compute_at(hw_output, xo).store_at(hw_output, xo);
-        SAD.update()
-          .unroll(win.x).unroll(win.y);
+        //SAD.update()
+        //  .unroll(win.x).unroll(win.y);
 
 
         // right_padded.compute_at(hw_output, xo).store_at(hw_output, xo);
