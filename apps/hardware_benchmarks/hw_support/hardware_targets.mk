@@ -218,7 +218,6 @@ mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTN
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
 map: $(BIN)/clockwork_codegen
-	make tree
 	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json $(PIPELINED)
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/ 
