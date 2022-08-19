@@ -68,9 +68,9 @@ def parseDesignTop(meta, filename: str):
                 addr = coreirInstances[inst]["metadata"]["glb2out_0"]
                 metaIn = findIO(meta["IOs"]["inputs"], ioName)
                 if "io_tiles" in metaIn:
-                    metaIn["io_tiles"].append({"name":inst, "addr":addr})
+                    metaIn["io_tiles"].append({"name":inst, "addr":addr, "mode":"STATIC"})
                 else:
-                    metaIn["io_tiles"] = [{"name":inst, "addr":addr}]
+                    metaIn["io_tiles"] = [{"name":inst, "addr":addr, "mode":"STATIC"}]
 
                 # change read_data_stride based on the number of input tiles
                 metaIn["io_tiles"]
@@ -82,9 +82,9 @@ def parseDesignTop(meta, filename: str):
                 addr = coreirInstances[inst]["metadata"]["in2glb_0"]
                 metaOut = findIO(meta["IOs"]["outputs"], ioName)
                 if "io_tiles" in metaOut:
-                    metaOut["io_tiles"].append({"name":inst, "addr":addr})
+                    metaOut["io_tiles"].append({"name":inst, "addr":addr, "mode":"VALID"})
                 else:
-                    metaOut["io_tiles"] = [{"name":inst, "addr":addr}]
+                    metaOut["io_tiles"] = [{"name":inst, "addr":addr, "mode":"VALID"}]
 
         # alter the shape and data stride
         for input_struct in meta["IOs"]["inputs"]:
