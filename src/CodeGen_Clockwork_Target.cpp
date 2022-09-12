@@ -1275,7 +1275,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       // save output to file
       string outputname = printname(stencil_arg.name);
-      internal_assert((elt_size==1) || (elt_size==8) || (elt_size==16)) << "size is " << std::to_string(elt_size) << " for output\n";
+      internal_assert((elt_size==1) || (elt_size==8) || (elt_size==16)) << "Size is " << std::to_string(elt_size) << " for output. Make sure the Funcs, computation, and constants are cast to 16 bits.\n";
       if (elt_size != 1) {
         string extension = elt_size == 8 ? ".raw" : ".leraw";
         stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
@@ -1439,8 +1439,8 @@ void print_dynamic_args(const vector<Expr>& args,
     ostringstream arg_print;
     if (dynamic_calls_found[argi]) {
       const Call* index_call = arg.as<Call>();
-      internal_assert(index_call) <<
-        "dynamic argument must be a call:" << Expr(arg) << "\n";
+      // FIXME: There is an issue if this index is shifted.
+      internal_assert(index_call) << "dynamic argument must be a call:" << Expr(arg) << "\n";
 
       memory_stream << ", \"" << printname(index_call->name) << "\"";
       //std::cout << ", \"" << printname(index_call->name) << "\"";
@@ -2019,6 +2019,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     if (arg.is_dynamic) { //(contains_call(arg.args)) {
       memory_stream << "  " << func_name << "->add_dynamic_load(\""
                     << buffer_name << "\"";
+      //std::cout << "//store is: " << simplify(expand_expr(Stmt(op), scope));
       std::cout << "  " << func_name << "->add_dynamic_load(\""
                     << buffer_name << "\"\n";
 
@@ -2323,7 +2324,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
   std::cout << "shifting " << op->name << " by " << realize_mins << std::endl;
 
   if (has_variable_min) {
-    internal_assert(realize_glb_indices.count(op->name) == 0);
+    internal_assert(realize_glb_indices.count(op->name) == 0) << "glb index: " << op->name << "\n";
     realize_glb_indices[op->name] = realize_mins;
   }
 

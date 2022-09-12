@@ -554,13 +554,55 @@ ahahalidemem aha_halide_mem aha-halide-mem:
 	$(MAKE) bin/output_cgra.pgm --no-print-directory && \
 	$(MAKE) mem
 
-eval eval-cpu: $(BIN)/process
+# Do all evaluation: 
+eval: $(BIN)/process
+	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)
+
+eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)
 
 eval-coreir: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval coreir input.$(EXT)
+
+eval-loc:
+	@touch $(BIN)/results
+	echo -n "Halide loc: " >> $(BIN)/results
+	wc -l $(TESTNAME)_generator.cpp >> $(BIN)/results
+	echo -n "Clockwork memory:  " >> $(BIN)/results
+	wc -l $(BIN)/$(TESTNAME)_memory.cpp >> $(BIN)/results
+	echo -n "Clockwork compute: " >> $(BIN)/results
+	wc -l $(BIN)/$(TESTNAME)_compute.h >> $(BIN)/results
+	echo -n "App mapped: " >> $(BIN)/results
+	wc -l $(BIN)/design_top.json >> $(BIN)/results
+	cat $(BIN)/results
+
+eval-resources eval-rsrcs eval-area:
+	python $(HWSUPPORT)/eval_design_top.py $(BIN)/design_top.json --resources | tee -a $(BIN)/results >&1
+
+eval-latency:
+	python $(HWSUPPORT)/eval_design_top.py $(BIN)/design_top.json --latency | tee -a $(BIN)/results >&1
+
+eval-designtop:
+	python $(HWSUPPORT)/eval_design_top.py $(BIN)/design_top.json --resources --latency | tee -a $(BIN)/results >&1
+
+eval-ctime eval-compiler eval-compile_time:
+	{ time $(MAKE) halide; } 2> >(tee -a $(BIN)/results >&2)
+	@echo "^timing for 'make halide'" | tee -a $(BIN)/results >&1
+	{ time $(MAKE) clockwork; } 2> >(tee -a $(BIN)/results >&2)
+	@echo "^timing for 'make clockwork'" | tee -a $(BIN)/results >&1
+	{ time $(MAKE) mem; } 2> >(tee -a $(BIN)/results >&2)
+	@echo "^timing for 'make mem'" | tee -a $(BIN)/results >&1
+
+eval-all:
+	printf '\n\n########Starting new evaluation##########\n' >> $(BIN)/results
+	date >> $(BIN)/results
+	echo 'halide_gen_args:' >> $(BIN)/results
+	cat $(BIN)/halide_gen_args >> $(BIN)/results
+	$(MAKE) eval-ctime
+	$(MAKE) eval-loc
+	$(MAKE) eval-designtop
 
 update_golden updategolden golden: $(BIN)/output_cpu.$(EXT) $(BIN)/$(TESTNAME)_memory.cpp
 	@-mkdir -p $(GOLDEN)

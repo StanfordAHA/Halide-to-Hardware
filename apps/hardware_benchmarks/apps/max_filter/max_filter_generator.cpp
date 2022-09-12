@@ -2,6 +2,7 @@
 
 namespace {
 
+using namespace Halide;
 using namespace Halide::ConciseCasts;
 using namespace Halide::BoundaryConditions;
 
@@ -44,11 +45,15 @@ public:
     slice_for_radius(t) = cast<int>(floor(log(2 * t + 1) / logf(2)));
 
     // Produce every possible vertically-max-filtered version of the image:
-    Func vert("vert"), slice("slice");
+    Func vert("vert"), slice("slice"), slicer("slicer"), vert_index("vert_index");
     // t is the blur radius
     slice(t) = clamp(slice_for_radius(t), 0, slices);
-    Expr first_sample = vert_log(x, y - t, c, slice(t));
-    Expr second_sample = vert_log(x, y + t + 1 - clamp(1 << slice(t), 0, 2 * radius), c, slice(t));
+    slicer(t) = slice(t);
+    Expr first_sample = vert_log(x, y - t, c, slicer(t));
+    //Expr second_sample = vert_log(x, y + t + 1 - clamp(1 << slice(t), 0, 2 * radius), c, slicer(t));
+    //vert_index(y, t) = y + t + 1 - clamp(1 << slicer(t), 0, 2 * radius);
+    vert_index(y, t) = clamp(y + t + 1 - clamp(1 << slicer(t), 0, 2 * 26), 0, 100);
+    Expr second_sample = vert_log(x, vert_index(y, t), c, slicer(t));
     vert(x, y, c, t) = max(first_sample, second_sample);
 
     Func filter_height("filter_height");
@@ -86,7 +91,10 @@ public:
         vert_log.compute_at(hw_output, xo);
 
         //slice_for_radius.compute_at(hw_output, xo).unroll(t);
+        slicer.compute_at(hw_output, xo);
+        vert_index.compute_at(hw_output, xo);
         slice.compute_at(hw_output, xo).unroll(t);
+        slice.store_in(MemoryType::ROM);
         
         hw_input.stream_to_accelerator();
       } else if (get_target().has_gpu_feature()) {

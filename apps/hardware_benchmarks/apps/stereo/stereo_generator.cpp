@@ -17,11 +17,7 @@ namespace {
     int windowR = 4;
     int searchR = 10;
 
-   
-
     void generate() {
-      
-      
       Func left_padded, right_padded;
 
       Func SAD, offset0, offset1, hw_output;
@@ -30,7 +26,6 @@ namespace {
 
       right_padded = Halide::BoundaryConditions::repeat_edge(left);
       left_padded = Halide::BoundaryConditions::repeat_edge(right);
-
 
       Func hw_right_input("hw_right_input"), hw_right_input_copy("hw_right_input_copy");
       hw_right_input(x, y) = cast<uint16_t>(right_padded(x, y));
@@ -47,11 +42,15 @@ namespace {
       offset0(x, y) = cast<int16_t>(0);
       offset1(x, y) = cast<uint16_t>(65535);
 
-      offset1(x,y) = min(SAD(x, y, search.x), offset1(x, y));
-      offset0(x, y) = select(SAD(x, y, search.x) == offset1(x, y), cast<int16_t>(search.x), offset0(x, y));
+      Func argmini;
+      argmini(x,y) = argmin(SAD(x, y, search.x));
+      
+      //offset1(x,y) = min(SAD(x, y, search.x), offset1(x, y));
+      //offset0(x, y) = select(SAD(x, y, search.x) == offset1(x, y), cast<int16_t>(search.x), offset0(x, y));
 
       Func offset_out("offset_out");
-      offset_out(x, y) = offset0(x, y);
+      //offset_out(x, y) = offset0(x, y);
+      offset_out(x, y) = argmini(x, y)[0];
       // offset_out(x, y) = SAD(x, y, 0)/256;
 
       hw_output(x, y) = cast<uint16_t>(offset_out(x, y)) * 255 / searchR;
@@ -67,6 +66,7 @@ namespace {
         hw_output.tile(x, y, xo, yo, xi, yi, 128, 128).hw_accelerate(xi, xo);
         
         offset_out.compute_at(hw_output, xo).store_at(hw_output, xo);
+        argmini.compute_at(hw_output, xo);
         offset0.compute_at(hw_output, xo).store_at(hw_output, xo);
         offset1.compute_at(hw_output, xo).store_at(hw_output, xo);
 

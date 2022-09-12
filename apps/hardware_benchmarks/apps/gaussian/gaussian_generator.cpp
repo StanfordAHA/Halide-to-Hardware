@@ -209,16 +209,19 @@ public:
               .tile(x, y, xio, yio, xii, yii, tileWidth, tileHeight);
             hw_output.compute_at(hw_output.in(), xo);
             hw_output.unroll(xii, unroll, TailStrategy::RoundUp);
-
+            
             //blur.compute_at(hw_output, xio);
-            auto compute_loop_level = yii;
-            //auto compute_loop_level = xio;
+            //auto compute_loop_level = yii;
+            auto compute_loop_level = xio;
             blur.store_at(hw_output, xio).compute_at(hw_output, compute_loop_level);
             blur.unroll(x, unroll, TailStrategy::RoundUp);
+
+            //kernel.compute_root();
+            //kernel.compute_at(hw_output, compute_loop_level).unroll(x).unroll(y);
             
-            //blur_unnormalized.update()
-              //.unroll(win.x, blockSize)
-              //.unroll(win.y, blockSize);
+            blur_unnormalized.update()
+              .unroll(win.x, blockSize)
+              .unroll(win.y, blockSize);
             blur_unnormalized.update().unroll(x, unroll, TailStrategy::RoundUp);
             blur_unnormalized.unroll(x, unroll, TailStrategy::RoundUp);
             blur_unnormalized.compute_at(hw_output, compute_loop_level);

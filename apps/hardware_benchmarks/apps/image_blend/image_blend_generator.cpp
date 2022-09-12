@@ -21,9 +21,9 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
     Output<Buffer<uint8_t>> output{"output", 3};
 
     int pyramid_levels = 3;
-    int ksize = 23;
-    int shift = 11;
-    int scale = 512; // this is the weight scaling used until pyramid blending
+    int16_t ksize = 23;
+    int16_t shift = 11;
+    int16_t scale = 512; // this is the weight scaling used until pyramid blending
     
     void generate() {
 
@@ -40,18 +40,18 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       //   left weights: -------\__________
       //  right weights: _______/----------
       Func weight_left, weight_right, weight_sum, weight_left_norm, weight_right_norm;
-      int length = 128;
-      int blend_len = 32;
-      int regionL = length/2 - blend_len/2;
-      int regionR = length/2 + blend_len/2;
-      int shift = regionL;
-      int slope = scale / blend_len;
-      weight_left(x,y,c)   = select(x < regionL, scale,
-                                    x > regionR, 0,
-                                    scale - (x-shift) * slope);
-      weight_right(x,y,c)  = select(x < regionL, 0,
-                                    x > regionR, scale,
-                                    (x-shift) * slope);
+      int16_t length = 128;
+      int16_t blend_len = 32;
+      int16_t regionL = length/2 - blend_len/2;
+      int16_t regionR = length/2 + blend_len/2;
+      int16_t shift = regionL;
+      int16_t slope = scale / blend_len;
+      weight_left(x,y,c)   = i16(select(x < regionL, scale,
+                                        x > regionR, i16(0),
+                                        scale - (x-shift) * slope));
+      weight_right(x,y,c)  = i16(select(x < regionL, i16(0),
+                                        x > regionR, scale,
+                                        (x-shift) * slope));
       
       weight_left_norm(x,y,c)  = weight_left(x,y,c);
       weight_right_norm(x,y,c) = weight_right(x,y,c);
@@ -83,6 +83,7 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       // Collapse the merged pyramid to create a single image
       Func blended_image;
       vector<Func> upsampled(pyramid_levels);
+      fill_funcnames(upsampled, "flattened");
       blended_image = flatten_pyramid(merged_pyramid, upsampled);
       
       Func hw_output;

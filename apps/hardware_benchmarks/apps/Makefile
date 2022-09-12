@@ -8,6 +8,27 @@ TRAVIS_APPS := pointwise gaussian cascade harris \
 travis := $(TRAVIS_APPS)
 travis: $(TRAVIS_APPS)
 
+
+# application suite:
+# - stencils: gaussian, cascade, harris, unsharp, camera, nlmeans
+# - data-dependent: histogram, bilateral
+# - hierarchical: gaussian, laplacaian, exposure_fusion, optical_flow, image_blend
+# - DNNs: resnet, mobilenet, jitnet, unet, gemm
+THESIS_STENCIL_APPS := gaussian cascade harris unsharp camera_pipeline_2x2 nlmeans \
+												lucas_kanade histogram bilateral_grid
+THESIS_HIERARCHICAL_APPS := pyramid_blur laplacian_pyramid exposure_fusion image_blend lucas_kanade_hier
+THESIS_DNN_APPS := resnet_output_stationary mobilenet_layer_gen jitnet unet gemm
+
+THESIS_APPS := $(THESIS_STENCIL_APPS) \
+								$(THESIS_HIERARCHICAL_APPS) \
+								$(THESIS_DNN_APPS)
+
+thesis_stencil thesis-stencil: $(THESIS_STENCIL_APPS)
+thesis_pyramid thesis-pyramid thesis_hier thesis-hier: $(THESIS_HIERARCHICAL_APPS)
+thesis_dnn thesis-dnn: $(THESIS_DNN_APPS)
+thesis := $(THESIS_APPS)
+thesis: $(THESIS_APPS)
+
 # all directories (just text) excluding a particular list
 ALL_APPS := $(subst /,, $(dir $(wildcard */.)))
 ALL_APPS += $(subst / , , $(dir $(wildcard unet/*/.)))
@@ -17,7 +38,7 @@ ALL_APPS := $(filter-out $(IGNORED_DIRS), $(ALL_APPS))
 #ALL_APPS += $(dir $(wildcard unet/*/.))
 
 ### app suites include: ###
-APP_SUITES := simple img video dnn soc other travis paper
+APP_SUITES := simple img video dnn soc other travis paper thesis
 
 ### simple applications ###
 SIMPLE_APPS := pointwise brighten_and_blur cascade \

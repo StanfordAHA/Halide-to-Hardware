@@ -1,48 +1,83 @@
 #include <cstdio>
-#include <chrono>
+#include "hardware_process_helper.h"
+#include "halide_image_io.h"
 
-#include "gemm.h"
-//#include "gemm_auto_schedule.h"
+#if defined(WITH_CPU)
+   #include "gemm.h"
+#endif
 
-#include "halide_benchmark.h"
-#include "HalideBuffer.h"
+#if defined(WITH_COREIR)
+    #include "coreir_interpret.h"
+#endif
+
+#if defined(WITH_CLOCKWORK)
+    #include "rdai_api.h"
+    #include "clockwork_sim_platform.h"
+    #include "gemm_clockwork.h"
+#endif
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-int main(int argc, char **argv) {
-    Buffer<uint8_t> input_A(64, 64);
-    Buffer<uint8_t> input_B(64, 64);
+int main( int argc, char **argv ) {
+  std::map<std::string, std::function<void()>> functions;
+  ManyInOneOut_ProcessController<int16_t> processor("gemm", {"input.mat","kernel.met"});
 
-      for (int y = 0; y < input_A.height(); y++) {
-        for (int x = 0; x < input_A.width(); x++) {
-          input_A(x, y) = (uint8_t)rand();
+  #if defined(WITH_CPU)
+      auto cpu_process = [&]( auto &proc ) {
+        gemm(proc.inputs["input.mat"], proc.inputs["kernel.mat"], proc.output);
+      };
+      functions["cpu"] = [&](){ cpu_process( processor ); } ;
+  #endif
+  
+  #if defined(WITH_COREIR)
+      auto coreir_process = [&]( auto &proc ) {
+          run_coreir_on_interpreter<>( "bin/design_top.json",
+                                       proc.inputs["input.mat"], proc.output,
+                                       "self.in_arg_0_0_0", "self.out_0_0" );
+      };
+      functions["coreir"] = [&](){ coreir_process( processor ); };
+  #endif
+  
+  #if defined(WITH_CLOCKWORK)
+      auto clockwork_process = [&]( auto &proc ) {
+        RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
+        if ( rdai_platform ) {
+          printf( "[RUN_INFO] found an RDAI platform\n" );
+          gemm_clockwork(proc.inputs["input.mat"], proc.inputs["kernel.mat"], proc.output);
+          RDAI_unregister_platform( rdai_platform );
+        } else {
+          printf("[RUN_INFO] failed to register RDAI platform!\n");
         }
-      }
+      };
+      functions["clockwork"] = [&](){ clockwork_process( processor ); };
+  #endif
 
-      for (int y = 0; y < input_B.height(); y++) {
-        for (int x = 0; x < input_B.width(); x++) {
-          input_B(x, y) = (uint8_t)rand();
-        }
-      }
+  auto env_width = getenv("imgsize");
+  auto width = env_width ? atoi(env_width) : 64;
+  (void) width;
+      
+  // Add all defined functions
+  processor.run_calls = functions;
 
-    Buffer<uint8_t> output(64, 64);
+  processor.inputs["input.mat"] = Buffer<int16_t>(width, width);
+  processor.inputs["kernel.mat"] = Buffer<int16_t>(width, width);
+  processor.output  = Buffer<int16_t>(width, width);
+  processor.inputs_preset = true;
 
-    gemm(input_A, input_B, output);
 
-    // Timing code
+  for (int y = 0; y < processor.output.dim(1).extent(); y++) {
+    for (int x = 0; x < processor.output.dim(0).extent(); x++) {
+      processor.inputs["input.mat"](x, y) = x*-3 + y*2;
+    }
+  }
+  for (int y = 0; y < processor.output.dim(1).extent(); y++) {
+    for (int x = 0; x < processor.output.dim(0).extent(); x++) {
+      processor.inputs["kernel.mat"](x, y) = x*5 - y;
+    }
+  }
 
-    // Manually-tuned version
-    double min_t_manual = benchmark(10, 10, [&]() {
-        gemm(input_A, input_B, output);
-    });
-    printf("Manually-tuned time: %gms\n", min_t_manual * 1e3);
-
-    // Auto-scheduled version
-    // double min_t_auto = benchmark(10, 10, [&]() {
-    //    gemm_auto_schedule(input, filter, output);
-    // });
-    // printf("Auto-scheduled time: %gms\n", min_t_auto * 1e3);
-
-    return 0;
+  
+ return processor.process_command(argc, argv);
+  
 }

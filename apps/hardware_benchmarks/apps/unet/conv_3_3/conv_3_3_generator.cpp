@@ -125,7 +125,7 @@ public:
             //.unroll(r.z).unroll(r.x);                // unroll input channel, x dim
             //.unroll(r.z).unroll(r.x).unroll(r.y);    // unroll all rdoms
             //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 2);    // unroll all rdoms, x2
-            //.unroll(r.x, ksize).unroll(r.y, ksize);  // unroll conv
+            .unroll(r.x, ksize).unroll(r.y, ksize);  // unroll conv
             //.unroll(r.x, ksize);                     // unroll conv x
             //.unroll(w, k_w);                         // unroll output channel
             //.unroll(w, ksize).unroll(r.z, ksize);    // unroll channels
@@ -138,7 +138,7 @@ public:
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // weight stationary
             //.unroll(w, ksize).unroll(r.z, ksize);    // channel weight stationary
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
-            .unroll(x, ksize).unroll(y, ksize);      // output stationary
+            //.unroll(x, ksize).unroll(y, ksize);      // output stationary
 
 
           conv.linebuffer();
@@ -205,7 +205,8 @@ public:
             //.reorder(r.x,r.y,r.z,w,x,y);
             //.reorder(w,r.z,r.x,r.y,x,y);
             //.reorder(r.y,y,w,r.z,r.x,r.z,y);
-            .reorder(x,y,w,r.z,r.x,r.y);
+            //.reorder(x,y,w,r.z,r.x,r.y);
+            .reorder(r.x, r.y, x, y, r.z, w);
           
           conv.update()
             //.unroll(r.z, k_z/2);                     // unroll input channel
@@ -213,7 +214,7 @@ public:
             //.unroll(r.z).unroll(r.x);                // unroll input channel, x dim
             //.unroll(r.z).unroll(r.x).unroll(r.y);    // unroll all rdoms
             //.unroll(r.x).unroll(r.y).unroll(r.z).unroll(x, 2);    // unroll all rdoms, x2
-            //.unroll(r.x, ksize).unroll(r.y, ksize);  // unroll conv
+            .unroll(r.x, ksize).unroll(r.y, ksize);  // unroll conv
             //.unroll(r.x, ksize);                     // unroll conv x
             //.unroll(w, k_w);                         // unroll output channel
             //.unroll(w, ksize).unroll(r.z, ksize);    // unroll channels
@@ -226,7 +227,7 @@ public:
             //.unroll(r.x, ksize).unroll(r.y, ksize);  // weight stationary
             //.unroll(w, ksize).unroll(r.z, ksize);    // channel weight stationary
             //.unroll(y, ksize).unroll(r.y, ksize);    // row stationary
-          .unroll(x, ksize).unroll(y, ksize);      // output stationary
+            //.unroll(x, ksize).unroll(y, ksize);      // output stationary
 
 
           conv.compute_at(hw_output, xo);
