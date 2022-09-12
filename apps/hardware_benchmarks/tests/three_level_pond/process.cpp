@@ -21,7 +21,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<uint8_t> processor("three_level_pond");
+  OneInOneOut_ProcessController<int16_t> processor("three_level_pond");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -56,18 +56,20 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(34, 34);
-  processor.output  = Buffer<uint8_t>(32, 32);
+  processor.input   = Buffer<int16_t>(8, 8, 8);
+  processor.output  = Buffer<int16_t>(8, 8, 8);
   //processor.input   = Buffer<uint8_t>(514, 514);
   //processor.output  = Buffer<uint8_t>(512, 512);
 
+  processor.inputs_preset = true;
   int i=0;
   for (int y = 0; y < processor.input.dim(1).extent(); y++) {
     for (int x = 0; x < processor.input.dim(0).extent(); x++) {
       processor.input(x, y) = i;
       i = i+1;
-    } }
-  save_image(processor.input, "bin/input.png");
+  } }
+  save_image(processor.input, "bin/input.mat");
+
   
  return processor.process_command(argc, argv);
   
