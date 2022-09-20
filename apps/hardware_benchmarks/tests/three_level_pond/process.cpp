@@ -63,11 +63,13 @@ int main( int argc, char **argv ) {
 
   processor.inputs_preset = true;
   int i=0;
+  for (int z = 0; z < processor.input.dim(2).extent(); z++) {
   for (int y = 0; y < processor.input.dim(1).extent(); y++) {
     for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-      processor.input(x, y) = i;
+      processor.input(x, y, z) = i;
       i = i+1;
   } }
+  }
   save_image(processor.input, "bin/input.mat");
 
   
