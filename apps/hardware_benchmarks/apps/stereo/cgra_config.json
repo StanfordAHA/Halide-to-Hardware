@@ -1,0 +1,27 @@
+{
+	"IOs": {
+		"inputs": [{
+			"name": "hw_left_input",
+			"bitwidth": 16,
+			"shape": [64, 64],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_left_input_stencil.leraw"
+    }, 
+     {
+			"name": "hw_right_input",
+			"bitwidth": 16,
+			"shape": [64, 64],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_right_input_stencil.leraw"
+    }],
+		"output": {
+			"name": "hw_output",
+			"bitwidth": 16,
+			"pixels_per_cycle": 1,
+      "datafile": "bin/hw_output.raw"
+		}
+	},
+	"testing": {
+		"total_cycles": -1
+	}
+}
