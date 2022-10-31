@@ -121,6 +121,7 @@ protected:
     std::string target_name;
     std::string output_base_path;
     bool enable_ponds;
+    bool enable_dual_port;
 
     /* Arguments for each accelerator*/
     std::vector<std::string> xcel_names;
