@@ -1291,7 +1291,8 @@ typedef enum halide_target_feature_t {
     halide_target_feature_use_extract_hw_kernel = 65, ///< Enable old hwkernel functionality instead of unified buffer
     halide_target_feature_bfloat_hardware = 66, ///< Enable use of bfloat hardware in hardware accelerators as oppoosed to float
     halide_target_feature_enable_ponds = 67, ///< Enable Clockwork to map memories to ponds  in hardware accelerators in addition to memory tiles
-    halide_target_feature_end = 68 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
+    halide_target_feature_enable_dual_port = 68, ///< Enable Clockwork to map memories to dual-port memory
+    halide_target_feature_end = 69 ///< A sentinel. Every target is considered to have this feature, and setting this feature does nothing.
 } halide_target_feature_t;
 
 /** This function is called internally by Halide in some situations to determine
