@@ -124,6 +124,7 @@ protected:
     bool enable_dual_port;
     bool fetchwidth2;
 
+
     /* Arguments for each accelerator*/
     std::vector<std::string> xcel_names;
     std::map<std::string, std::vector<HW_Arg>> closure_args;

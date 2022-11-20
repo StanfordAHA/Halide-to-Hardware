@@ -319,11 +319,13 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Tar
   : target_name(name),
     enable_ponds(target.has_feature(Target::EnablePonds)),
     enable_dual_port(target.has_feature(Target::EnableDualPort)),
+
     fetchwidth2(target.has_feature(Target::EnableFetch2)),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader),
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
     clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
     //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
+
 
 void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream, bool enable_ponds, bool enable_dual_port, bool enable_fetch2);
 void print_clockwork_execution_header(string appname, vector<string> xcels, ofstream& stream);
