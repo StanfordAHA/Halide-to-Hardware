@@ -112,6 +112,7 @@ struct Target {
         BFloatHardware = halide_target_feature_bfloat_hardware,
         EnablePonds = halide_target_feature_enable_ponds,
         EnableDualPort = halide_target_feature_enable_dual_port,
+        EnableFetch2 = halide_target_feature_enable_fetch2,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}
