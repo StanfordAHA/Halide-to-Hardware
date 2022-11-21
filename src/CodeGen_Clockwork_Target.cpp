@@ -319,12 +319,15 @@ CodeGen_Clockwork_Target::CodeGen_Clockwork_Target(const string &name, const Tar
   : target_name(name),
     enable_ponds(target.has_feature(Target::EnablePonds)),
     enable_dual_port(target.has_feature(Target::EnableDualPort)),
+
+    fetchwidth2(target.has_feature(Target::EnableFetch2)),
     hdrc(hdr_stream, target, CodeGen_Clockwork_C::CPlusPlusHeader),
     srcc(src_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation),
     clkc(clk_stream, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
     //clkc(std::cout, target, CodeGen_Clockwork_C::CPlusPlusImplementation) { clkc.is_clockwork = true; }
 
-void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream, bool enable_ponds, bool enable_dual_port);
+
+void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream, bool enable_ponds, bool enable_dual_port, bool enable_fetch2);
 void print_clockwork_execution_header(string appname, vector<string> xcels, ofstream& stream);
 void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Arg>>& closure_args, ofstream& stream);
 void print_combined_unoptimized_file(vector<string> xcels, ofstream& stream);
@@ -376,7 +379,7 @@ CodeGen_Clockwork_Target::~CodeGen_Clockwork_Target() {
     ofstream clk_exec_h_file(clk_exec_h_name.c_str());
     ofstream clk_exec_cpp_file(clk_exec_cpp_name.c_str());
 
-    print_clockwork_codegen(target_name, xcel_names, clk_codegen_file, enable_ponds, enable_dual_port);
+    print_clockwork_codegen(target_name, xcel_names, clk_codegen_file, enable_ponds, enable_dual_port, fetchwidth2);
     std::cout << "printed codegen" << std::endl;
 
     print_clockwork_execution_header(target_name, xcel_names, clk_exec_h_file);
@@ -639,10 +642,12 @@ void print_combined_unoptimized_file(vector<string> xcels, ofstream& stream) {
 }
 
 void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& stream,
-                             bool enable_ponds, bool enable_dual_port) {
+                             bool enable_ponds, bool enable_dual_port, bool enable_fetch2) {
   std::string interface_function;
   if (enable_dual_port) {
     interface_function = "compile_app_for_garnet_dual_port_mem";
+  } else if (enable_fetch2) {
+    interface_function = "compile_app_for_garnet_fetch2_mem";
   } else {
     interface_function = "compile_app_for_garnet_single_port_mem";
   }

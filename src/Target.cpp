@@ -316,7 +316,8 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"use_extract_hw_kernel", Target::UseExtractHWKernel},
     {"bfloat_hardware", Target::BFloatHardware},
     {"enable_ponds", Target::EnablePonds},
-    {"enable_dual_port", Target::EnableDualPort}
+    {"enable_dual_port", Target::EnableDualPort},
+    {"enable_fetch2", Target::EnableFetch2}
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.
 };
