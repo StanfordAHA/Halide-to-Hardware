@@ -22,11 +22,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint8_t> processor("stereo", {"left.png", "right.png"});
+  ManyInOneOut_ProcessController<uint8_t> processor("stereo", {"left2.png", "right2.png"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        stereo(proc.inputs["left.png"], proc.inputs["right.png"], proc.output);
+        stereo(proc.inputs["left2.png"], proc.inputs["right2.png"], proc.output);
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -45,7 +45,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          stereo_clockwork(proc.inputs["left.png"], proc.inputs["right.png"], proc.output);
+          stereo_clockwork(proc.inputs["left2.png"], proc.inputs["right2.png"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -62,7 +62,7 @@ int main( int argc, char **argv ) {
     int L_X = 128;
     int L_Y = 128;
   
-    processor.inputs["right.png"] = Buffer<uint8_t>(R_X, R_Y);
+    processor.inputs["right2.png"] = Buffer<uint8_t>(R_X, R_Y);
     // auto right_copy_stencil = processor.inputs["right.png"];
     // for (int y = 0; y < right_copy_stencil.dim(1).extent(); y++) {
     //   for (int x = 0; x < right_copy_stencil.dim(0).extent(); x++) {
@@ -74,7 +74,7 @@ int main( int argc, char **argv ) {
     //           << processor.inputs["right.png"].dim(1).extent() << "\n";
 
   
-    processor.inputs["left.png"] = Buffer<uint8_t>(L_X, L_Y);
+    processor.inputs["left2.png"] = Buffer<uint8_t>(L_X, L_Y);
     // auto left_copy_stencil = processor.inputs["left.png"];
     // for (int y = 0; y < left_copy_stencil.dim(1).extent(); y++) {
     //   for (int x = 0; x < left_copy_stencil.dim(0).extent(); x++) {

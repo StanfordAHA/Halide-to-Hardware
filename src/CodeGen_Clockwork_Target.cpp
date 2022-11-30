@@ -2122,7 +2122,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     }
 
     if (is_dynamic) {
-      compute_stream << "hw_uint<64>& ignore, ";
+        string ignore_name = unique_name("ignore");
+        compute_stream << "hw_uint<64>& " << ignore_name << ", ";
     }
 
     //uint total_bitwidth = merged_args[argname].size() * esize;

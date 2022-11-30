@@ -39,6 +39,7 @@ namespace {
       hw_left_input(x, y) = cast<uint16_t>(left_padded(x, y));
       hw_left_input_copy(x,y) = hw_left_input(x, y);
 
+
       SAD(x, y, c) = cast<uint16_t>(0);
       SAD(x, y, c) += cast<uint16_t>(absd(hw_right_input_copy(x+win.x, y+win.y),
                                           hw_left_input_copy(x+win.x+5+c, y+win.y)));

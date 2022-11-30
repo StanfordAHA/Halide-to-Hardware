@@ -5,8 +5,8 @@
 namespace {
 
 
-const int width = 192;
-const int height = 320;
+const int imgWidth = 192;
+const int imgHeight = 320;
 
 using namespace Halide;
 using namespace Halide::ConciseCasts;
@@ -25,8 +25,27 @@ public:
     // The number of samples of the aperture to use
     const uint8_t aperture_samples = 32;
 
+    // Downsample with a 1 3 3 1 filter
+    Func downsample(Func f) {
+            using Halide::_;
+            Func downx, downy;
+            downx(x, y, _) = ((f(2 * x - 1, y, _) + 3 * (f(2 * x, y, _) + f(2 * x + 1, y, _)) + f(2 * x + 2, y, _))) >> 3;
+            downy(x, y, _) = ((downx(x, 2 * y - 1, _) + 3 * (downx(x, 2 * y, _) + downx(x, 2 * y + 1, _)) + downx(x, 2 * y + 2, _))) >> 3;
+            return downy;
+    }
+
+    // Upsample using bilinear interpolation
+    Func upsample(Func f) {
+            using Halide::_;
+            Func upx, upy;
+            upx(x, y, _) = (f((x / 2) - 1 + 2 * (x % 2), y, _) + 3 * f(x / 2, y, _)) >> 2;
+            upy(x, y, _) = (upx(x, (y / 2) - 1 + 2 * (y % 2), _) +  3 * upx(x, y / 2, _)) >> 2;
+            return upy;
+    }
+
     void generate() {
         /* THE ALGORITHM */
+
         Expr maximum_blur_radius =
             cast<int16_t>(max(cast<uint16_t>(slices) - focus_depth, focus_depth) >> 1);
 
@@ -34,18 +53,20 @@ public:
         rom_div_lookup(x) = u16( (u32(1) << 8) / u32(x)); 
 
         Func input_bound, hw_input;
+        
+        //input_bound(x, y, c) = input(x, y, c);
+        //input_bound = BoundaryConditions::repeat_edge(input);
 
-        input_bound = BoundaryConditions::repeat_edge(input);
-        hw_input(x, y, c) = input_bound(x, y, c);
+        hw_input(x, y, c) = input(x, y, c);
 
         Func diff;
         diff(x, y, z, c) = min(absd(hw_input(x, y, c), hw_input(x + 2 * z, y, c)),
-                               absd(hw_input(x, y, c), hw_input(x + 2 * z + 1, y, c)));
+                               absd(hw_input(x, y, c), hw_input(x + 2 * z + 1, y, c))); //max x access at imgWidth + 2*slices + 1
 
         Func cost;
         cost(x, y, z) = (diff(x, y, z, 0) * diff(x, y, z, 0) +
                          diff(x, y, z, 1) * diff(x, y, z, 1) +
-                         diff(x, y, z, 2) * diff(x, y, z, 2)); //Normalized to fit in 8-bit
+                         diff(x, y, z, 2) * diff(x, y, z, 2)); 
 
         // Compute confidence of cost estimate at each pixel by taking the
         // variance across the stack.
@@ -59,21 +80,14 @@ public:
         // Do a push-pull thing to blur the cost volume with an
         // exponential-decay type thing to inpaint over regions with low
         // confidence.
+
         Func cost_pyramid_push[8];
         cost_pyramid_push[0](x, y, z, c) =
             select(c == 0, (clamp((cost(x, y, z) * cost_confidence(x, y)), 0, 65535)) >> 8, 
                     cost_confidence(x, y));
 
-        Expr w = input.dim(0).extent(), h = input.dim(1).extent();
         for (int i = 1; i < 8; i++) {
-            /*
-            Expr print_cost_pyr = downsample(cost_pyramid_push[i - 1])(x, y, z, c) >> 8;
-            print_cost_pyr = print_when(print_cost_pyr > 30000, print_cost_pyr, "<- cost pyramid push[",i,"] at x = ",x,", y =",y);
-            */
             cost_pyramid_push[i](x, y, z, c) = cast<uint16_t>(downsample(cost_pyramid_push[i - 1])(x, y, z, c)) >> 8;
-            w >> 1;
-            h >> 1;
-            cost_pyramid_push[i] = BoundaryConditions::repeat_edge(cost_pyramid_push[i], {{0, w}, {0, h}});
         }
         
         Func cost_pyramid_pull[8];
@@ -81,8 +95,6 @@ public:
         for (int i = 6; i >= 0; i--) {
             cost_pyramid_pull[i](x, y, z, c) = cast<uint16_t>(upsample(cost_pyramid_pull[i + 1])(x, y, z, c) + ((cost_pyramid_push[i](x, y, z, c) - upsample(cost_pyramid_pull[i + 1])(x, y, z, c)) >> 1)) >> 8;;
         }
-
-        //lerp = a + t(b - a)
 
         Func filtered_cost_reciprocal;
 
@@ -104,7 +116,7 @@ public:
         depth(x, y) = cast<int8_t>(0);
         depth(x, y) = select(filtered_cost(x, y, r2) == filtered_cost_min(x, y),
                                 cast<int8_t>(r2),
-                                depth(x, y));
+                                cast<int8_t>(depth(x, y)));
 
         Func bokeh_radius;
         bokeh_radius(x, y) = cast<uint16_t>(abs(depth(x, y) - focus_depth)) >> 1;
@@ -136,7 +148,7 @@ public:
 
         Func random_v, random_u, hw_ru, hw_rv;
 
-        Expr random = cast<uint16_t>(clamp(random_float()*255, 0, 255));
+        Expr random = cast<uint16_t>(random_float()*255);
         //Expr random = cast<uint16_t>(clamp(random_int() >> 24, 0, 255));
         random_u(x, y, z) = random;
         random_v(x, y, z) = random;
@@ -157,7 +169,14 @@ public:
         RDom s(0, aperture_samples);
         sample_u = sample_locations(x, y, z)[0];
         sample_v = sample_locations(x, y, z)[1];
-        Expr sample_x = x + sample_u, sample_y = y + sample_v;
+
+        Func sample_x, sample_y, sample_x_clamped, sample_y_clamped;
+        sample_x(x, y, z) = x + sample_u;
+        sample_y(x, y, z) = y + sample_v;
+
+        sample_x_clamped(x, y, z) = clamp(sample_x(x, y, z), 0, imgWidth - 1);
+        sample_y_clamped(x, y, z) = clamp(sample_y(x, y, z), 0, imgHeight - 1);
+        
         Expr r_squared = sample_u * sample_u + sample_v * sample_v;
 
         // We use this sample if it's from a pixel whose bokeh influences
@@ -167,10 +186,10 @@ public:
             r_squared < bokeh_radius_squared(x, y);
 
         Expr this_pixel_is_within_bokeh_of_sample =
-            r_squared < bokeh_radius_squared(sample_x, sample_y);
+            r_squared < bokeh_radius_squared(sample_x_clamped(x, y, z), sample_y_clamped(x, y, z));
 
         Expr sample_is_in_front_of_this_pixel =
-            depth(sample_x, sample_y) < depth(x, y);
+            depth(sample_x_clamped(x, y, z), sample_y_clamped(x, y, z)) < depth(x, y);
 
         Func sample_weight;
         sample_weight(x, y, z) =
@@ -179,13 +198,10 @@ public:
                        this_pixel_is_within_bokeh_of_sample,
                    u16(1), u16(0));
 
-        sample_x = x + sample_locations(x, y, s)[0];
-        sample_y = y + sample_locations(x, y, s)[1];
-
-        output(x, y, c) += cast<uint16_t>(sample_weight(x, y, s) * input_with_alpha(sample_x, sample_y, c));
+        output(x, y, c) += cast<uint16_t>(sample_weight(x, y, s) * input_with_alpha(sample_x_clamped(x, y, s), sample_y_clamped(x, y, s), c));
 
         Func output_norm;
-        output_norm(x, y, c) = cast<uint8_t>(output(x, y, c) >> 8); //normalize norm values to fit in 8-bit
+        output_norm(x, y, c) = output(x, y, c) >> 8; //normalize norm values to fit in 8-bit
 
         Func reciprocal;
         reciprocal(x, y) = rom_div_lookup(max(output_norm(x, y, 3), u16(1))); //8.8 format
@@ -195,19 +211,24 @@ public:
 
         //hw_output(x, y, c) = cast<uint8_t>(255.0f*output(x, y, c) / output(x, y, 3));
         final(x, y, c) = hw_output(x, y, c);
+        
 
         /* THE SCHEDULE */
         final.bound(c, 0, 3);
-        final.bound(x, 0, 192);
-        final.bound(y, 0, 320);
+        final.bound(x, 0, imgWidth);
+        final.bound(y, 0, imgHeight);
         
         if (get_target().has_feature(Target::Clockwork)) {
             // CGRA Schedule
             const int numTiles = 1;
+            const int numHostTilesX = 1;
+            const int numHostTilesY = 1;
+            const int tileWidth = imgWidth;
+            const int tileHeight = imgHeight;
+            
             const int tileSize = 32;
             const int glbSize = 64;
-
-            const int unroll = 3;
+            const int unroll = 1;
 
             hw_output.in()
                 .compute_root()
@@ -215,7 +236,10 @@ public:
                 .reorder(c, xi, yi, xo, yo)
                 .hw_accelerate(xi, xo)
                 .unroll(c)
-                .unroll(xi, unroll, TailStrategy::RoundUp);
+                .unroll(xi, unroll, TailStrategy::RoundUp)
+                .bound(x, 0, imgWidth)
+                .bound(y, 0, imgHeight)
+                .bound(c, 0, 3);
 
             hw_output
                 .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
@@ -223,7 +247,10 @@ public:
                 .compute_at(hw_output.in(), xo)
                 .unroll(c)
                 .unroll(xi, unroll, TailStrategy::RoundUp)
-                .store_in(MemoryType::GLB);
+                .store_in(MemoryType::GLB)
+                .bound(x, 0, imgWidth)
+                .bound(y, 0, imgHeight)
+                .bound(c, 0, 3);
             
             reciprocal
                 .compute_at(hw_output, xo)
@@ -232,7 +259,8 @@ public:
             output_norm
                 .compute_at(hw_output, xo)
                 .unroll(c)
-                .unroll(x, unroll, TailStrategy::RoundUp);
+                .unroll(x, unroll, TailStrategy::RoundUp)
+                .bound(c, 0, 4);
 
             output.update()
                 .unroll(s, aperture_samples)
@@ -242,7 +270,8 @@ public:
             output
                 .compute_at(hw_output, xo)
                 .unroll(c)
-                .unroll(x, unroll, TailStrategy::RoundUp);
+                .unroll(x, unroll, TailStrategy::RoundUp)
+                .bound(c, 0, 4);
             
             rom_div_lookup
                 .compute_at(hw_output, xo)
@@ -251,6 +280,31 @@ public:
             sample_weight
                 .reorder(z, x, y)
                 .compute_at(hw_output, xo)
+                .bound(z, 0, s)
+                .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            sample_x_clamped
+                .reorder(z, x, y)
+                .compute_at(hw_output, xo)
+                .bound(z, 0, s)
+                .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            sample_y_clamped
+                .reorder(z, x, y)
+                .compute_at(hw_output, xo)
+                .bound(z, 0, s)
+                .unroll(x, unroll, TailStrategy::RoundUp);
+
+            sample_x
+                .reorder(z, x, y)
+                .compute_at(hw_output, xo)
+                .bound(z, 0, s)
+                .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            sample_y
+                .reorder(z, x, y)
+                .compute_at(hw_output, xo)
+                .bound(z, 0, s)
                 .unroll(x, unroll, TailStrategy::RoundUp);
 
             input_with_alpha
@@ -279,13 +333,13 @@ public:
                 .unroll(x, unroll, TailStrategy::RoundUp);
             
             depth
-                .compute_at(hw_output, xo)
                 .unroll(x, unroll, TailStrategy::RoundUp);
 
             filtered_cost
                 .reorder(z, x, y)
                 .compute_at(hw_output, xo)
-                .unroll(x, unroll, TailStrategy::RoundUp);
+                .unroll(x, unroll, TailStrategy::RoundUp)
+                .bound(z, 0, slices);
             
             filtered_cost_min
                 .compute_at(hw_output, xo)
@@ -293,32 +347,44 @@ public:
 
             filtered_cost_reciprocal
                 .compute_at(hw_output, xo)
-                .unroll(x, unroll, TailStrategy::RoundUp);
+                .unroll(x, unroll, TailStrategy::RoundUp)
+                .bound(z, 0, slices);
             
             for (int i = 0; i < 8; i++) {
-                cost_pyramid_push[i].compute_at(hw_output, xo)
+                cost_pyramid_push[i]
+                    .compute_at(hw_output, xo)
                     .reorder(c, z, x, y)
                     .unroll(c)
-                    .unroll(x, unroll, TailStrategy::RoundUp);
+                    .unroll(x, unroll, TailStrategy::RoundUp)
+                    .bound(z, 0, slices)
+                    .bound(c, 0, 3);
 
                 cost_pyramid_pull[i]
                     .compute_at(hw_output, xo)
                     .reorder(c, z, x, y)
                     .unroll(c)
-                    .unroll(x, unroll, TailStrategy::RoundUp);
-            }               
+                    .unroll(x, unroll, TailStrategy::RoundUp)
+                    .bound(z, 0, slices)
+                    .bound(c, 0, 3);
+            }
+
             cost_confidence
                 .compute_at(hw_output, xo)
                 .unroll(x, unroll, TailStrategy::RoundUp);
+
             cost
                 .reorder(z, x, y)
                 .compute_at(hw_output, xo)
-                .unroll(x, unroll, TailStrategy::RoundUp);
+                .unroll(x, unroll, TailStrategy::RoundUp)
+                .bound(z, 0, slices);
+
             diff
                 .reorder(c, z, x, y)
                 .compute_at(hw_output, xo)
                 .unroll(c)
-                .unroll(x, unroll, TailStrategy::RoundUp);
+                .unroll(x, unroll, TailStrategy::RoundUp)
+                .bound(z, 0, slices)
+                .bound(c, 0, 3);
             
             hw_rv.in().in()
                 .compute_at(hw_output, xo)
@@ -356,8 +422,8 @@ public:
                 .unroll(x, unroll, TailStrategy::RoundUp);
             
             hw_input
-              .compute_root()
-              .accelerator_input(); 
+                .compute_root()
+                .accelerator_input(); 
             
         } else {
             // Manual CPU schedule
@@ -422,32 +488,8 @@ public:
                 .vectorize(x)
                 .unroll(c);
             sample_weight.compute_at(output, x).unroll(x);
-            /*
-            sample_locations_y.compute_at(output, x).vectorize(x);
-            sample_locations_x.compute_at(output, x).vectorize(x);
-            */
+
         }
-    }
-
-private:
-    Var x, y, z, c;
-
-    // Downsample with a 1 3 3 1 filter
-    Func downsample(Func f) {
-        using Halide::_;
-        Func downx, downy;
-        downx(x, y, _) = ((f(2 * x - 1, y, _) + 3 * (f(2 * x, y, _) + f(2 * x + 1, y, _)) + f(2 * x + 2, y, _))) >> 3;
-        downy(x, y, _) = ((downx(x, 2 * y - 1, _) + 3 * (downx(x, 2 * y, _) + downx(x, 2 * y + 1, _)) + downx(x, 2 * y + 2, _))) >> 3;
-        return downy;
-    }
-
-    // Upsample using bilinear interpolation
-    Func upsample(Func f) {
-        using Halide::_;
-        Func upx, upy;
-        upx(x, y, _) = (f((x / 2) - 1 + 2 * (x % 2), y, _) + 3 * f(x / 2, y, _)) >> 2;
-        upy(x, y, _) = (upx(x, (y / 2) - 1 + 2 * (y % 2), _) +  3 * upx(x, y / 2, _)) >> 2;
-        return upy;
     }
 
 };
