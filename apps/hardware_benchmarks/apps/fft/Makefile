@@ -34,7 +34,7 @@ include ../../hw_support/Makefile.inc
 ###############################################################################
 
 TESTNAME                        = fft
-TESTGENNAME                     = fft1024
+TESTGENNAME                     = fft16
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
@@ -49,7 +49,3 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 ###############################################################################
 
 include ../../hw_support/hardware_targets.mk
-
-test-mem mem bin/design_top.json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json:
-	@echo "Doesn't map through clockwork. Takes too long."
-	exit 1

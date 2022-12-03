@@ -115,6 +115,15 @@ inline ComplexExpr expj(Halide::Expr x) {
     return ComplexExpr(Halide::cos(x), Halide::sin(x));
 }
 
+inline ComplexExpr expj_bf16(Halide::Expr x) {
+    // while faster, fast_cos leads to nan
+//    x = Halide::fast_cos(x);
+//    Halide::Expr y = sqrt(1 - x * x);
+//    return ComplexExpr(x, y);
+    return ComplexExpr(Halide::ConciseCasts::bf16(Halide::cos(x)), Halide::ConciseCasts::bf16(Halide::sin(x)));
+}
+
+
 // Complex number properties
 inline Halide::Expr abs(ComplexExpr z) {
     return Halide::sqrt(z.re() * z.re() + z.im() * z.im());
