@@ -55,9 +55,9 @@ public:
         Func input_bound, hw_input;
         
         //input_bound(x, y, c) = input(x, y, c);
-        //input_bound = BoundaryConditions::repeat_edge(input);
+        input_bound = BoundaryConditions::repeat_edge(input);
 
-        hw_input(x, y, c) = input(x, y, c);
+        hw_input(x, y, c) = input_bound(x, y, c);
 
         Func diff;
         diff(x, y, z, c) = min(absd(hw_input(x, y, c), hw_input(x + 2 * z, y, c)),
@@ -81,13 +81,14 @@ public:
         // exponential-decay type thing to inpaint over regions with low
         // confidence.
 
-        Func cost_pyramid_push[8];
+        Func cost_pyramid_push[8], downsampled[7];
         cost_pyramid_push[0](x, y, z, c) =
             select(c == 0, (clamp((cost(x, y, z) * cost_confidence(x, y)), 0, 65535)) >> 8, 
                     cost_confidence(x, y));
 
         for (int i = 1; i < 8; i++) {
-            cost_pyramid_push[i](x, y, z, c) = cast<uint16_t>(downsample(cost_pyramid_push[i - 1])(x, y, z, c)) >> 8;
+            downsampled[i - 1](x, y, z, c) = cast<uint16_t>(downsample(cost_pyramid_push[i - 1])(x, y, z, c)) >> 8;
+            cost_pyramid_push[i](x, y, z, c) = downsampled[i - 1](clamp(x, 0, imgWidth >> i), clamp(y, 0, imgHeight >> i), z, c);
         }
         
         Func cost_pyramid_pull[8];
