@@ -30,6 +30,9 @@ for idx, line in enumerate(dest_lines):
             def replace_func(matchobj):
                 return str(int(matchobj.group(1)) + flush_latencies[mem_name])
             new_line = re.sub(r'(?<=cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
+        def replace_func1(matchobj):
+            return str(int(matchobj.group(1)) - 1)
+        new_line = re.sub(r'(?<="stencil_valid":{"cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func1, new_line)
         dest_lines[idx+4] = new_line
 
     if line in new_pond_schedules:
