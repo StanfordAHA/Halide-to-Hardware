@@ -16,8 +16,11 @@ namespace {
 
   int ksize = 1;
   float sample_freq = 44100;
-int num_samples = 31466; //distortion
+
+//int32_t num_samples = 31467; //distortion
 //int32_t num_samples = 412255; //love
+
+  int num_samples = 20000; //general audio length to support
   int16_t max_value = 32767;
 
   Var t("t"), ti("ti"), to("to"), c("c");
@@ -260,6 +263,7 @@ int num_samples = 31466; //distortion
         hw_output.compute_root();
 
         hw_output.split(t, to, ti, num_samples - ksize + 1)
+          //hw_output.split(t, to, ti, 10000)
           .reorder(ti, c, to)
           .hw_accelerate(ti, to);
 

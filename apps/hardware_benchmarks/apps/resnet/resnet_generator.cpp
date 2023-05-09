@@ -13,7 +13,7 @@ public:
     int ksize = 3;
     int imgsize = 28;
   //int k_z = 8;
-  int k_z = 4; //input channel
+    int k_z = 4; //input channel
     int k_w = 3; // should be 8 output channels
 
     void generate() {

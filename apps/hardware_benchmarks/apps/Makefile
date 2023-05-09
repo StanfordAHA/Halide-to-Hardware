@@ -25,6 +25,7 @@ SIMPLE_APPS := pointwise brighten_and_blur cascade \
 simple := $(SIMPLE_APPS)
 
 ### imaging applications ###
+<<<<<<< HEAD
 # IMG_APPS := pointwise gaussian cascade harris \
 #             example fast_corner unsharp \
 #             demosaic demosaic_complex camera_pipeline \
@@ -33,6 +34,15 @@ IMG_APPS := gaussian harris \
 						unsharp camera_pipeline fast_corner lens_distortion \
 						local_laplacian laplacian_pyramid bilateral_grid \
             lucas_kanade stereo 
+=======
+IMG_APPS := blur gaussian harris harris_color \
+						unsharp camera_pipeline camera_pipeline_2x2 \
+						fast_corner lens_distortion \
+						pyramid_blur local_laplacian laplacian_pyramid interpolate \
+						bilateral_grid \
+						max_filter nlmeans \
+            lucas_kanade stereo lens_blur
+>>>>>>> verilator-test
 img := $(IMG_APPS)
 
 ### VIDEO APPS ###

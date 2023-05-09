@@ -243,6 +243,11 @@ private:
     uint16_t data = 0;
 };
 
+/** Other operators */
+// @{
+bfloat16_t exp_bf16(bfloat16_t a);
+// @}
+
 static_assert(sizeof(bfloat16_t) == 2, "bfloat16_t should occupy two bytes");
 
 }  // namespace Halide

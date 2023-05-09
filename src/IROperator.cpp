@@ -5,6 +5,7 @@
 
 #include "CSE.h"
 #include "Debug.h"
+#include "HWBufferUtils.h"
 #include "IREquality.h"
 #include "IROperator.h"
 #include "IRPrinter.h"
@@ -557,8 +558,11 @@ Expr halide_log(Expr x_full) {
 }
 
 Expr halide_exp(Expr x_full) {
+  //Type type = Float(32);
+    //Type orig_type = x_full.type();
+    //std::cout << "exp of " << x_full << std::endl;
     Type type = x_full.type();
-    internal_assert(type.element_of() == Float(32));
+    internal_assert(type.element_of() == Float(32)) << "Type is " + type_to_c_type(type) << "\n";
 
     float ln2_part1 = 0.6931457519f;
     float ln2_part2 = 1.4286067653e-6f;

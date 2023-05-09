@@ -476,12 +476,15 @@ public:
     bool &is_accelerator_output();
     bool is_accelerate_call_output() const;
     bool &is_accelerate_call_output();
-
+  
     /** The input functions of the hardware accelerator pipeline. */
     // @{
     const std::set<std::string> &accelerate_inputs() const;
     std::set<std::string> &accelerate_inputs();
     // @}
+
+    int output_rate() const;
+    int &output_rate();
 
     /** The tap functions and parameters of the hardware accelerator pipeline. */
     // @{

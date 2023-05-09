@@ -19,9 +19,9 @@ public:
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
 
         Func rnd, ceiling, flr;
-        ceiling(x,y) = ceil(hw_input(x,y));
-        flr(x,y) = floor(hw_input(x,y));
-        rnd(x,y) = round(hw_input(x,y));
+        ceiling(x,y) = cast<bfloat16_t>(ceil(hw_input(x,y)));
+        flr(x,y) = cast<bfloat16_t>(floor(hw_input(x,y)));
+        rnd(x,y) = cast<bfloat16_t>(round(hw_input(x,y)));
         
         Func hw_output("hw_output");
         hw_output(x, y) = rnd(x,y) + ceiling(x,y) + flr(x,y);

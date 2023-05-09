@@ -8,10 +8,10 @@ using namespace Halide::ConciseCasts;
 class MemTestHistogram : public Halide::Generator<MemTestHistogram> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Output<Buffer<uint8_t>> output{"output", 1};
 
     void generate() {
-        int outimgsize = 64;
+        int inimgsize = 64;
       
         /* THE ALGORITHM */
         Var x("x"), y("y"), b("b");
@@ -20,39 +20,39 @@ public:
         hw_input(x, y) = u16(input(x, y));
 
         Func bin, histogram;
-        Expr width = outimgsize;
-        Expr height = outimgsize;
-        //RDom r(0, width, 0, height);
-        RDom r(0, width);
+        Expr width = inimgsize;
+        Expr height = inimgsize;
+        RDom r(0, width, 0, height);
+        //RDom r(0, width);
         
         //bin(x, y) = i32(hw_input(x, y));
         //histogram(b) = u16(0);
         //histogram(bin(r.x, r.y)) += u16(1);
-        bin(x) = i32(hw_input(x, 0));
+        bin(x, y) = clamp(i32(hw_input(x, y) & 0xf), 0, 15); // take the lower 4 bits
         histogram(b) = u16(0);
-        histogram(bin(r.x)) += u16(1);
+        histogram(bin(r.x, r.y)) += u16(1);
         
         Func hw_output("hw_output");
         //hw_output(x, y) = histogram(x,y);
-        hw_output(x, y) = histogram(x);
-        output(x, y) = u8(hw_output(x,y));
+        hw_output(b) = histogram(b);
+        output(b) = u8(hw_output(b));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
         } else if (get_target().has_feature(Target::Clockwork)) {          
-          Var xi,yi, xo,yo;
+          Var xi,yi, xo,yo, bo, bi;
 
-          output.bound(x, 0, outimgsize);
-          output.bound(y, 0, outimgsize);
-          histogram.bound(b, 0, 256);
-
+          //histogram.bound(b, 0, 16);
+          histogram.bound_extent(b, 16);
+          output.bound(b, 0, 16);
           hw_output.compute_root();
           
           hw_output
-            .tile(x,y, xo,yo, xi,yi, outimgsize, outimgsize)
-            .hw_accelerate(xi, xo);
+            //.tile(x,y, xo,yo, xi,yi, outimgsize, outimgsize)
+            .split(b, bo, bi, 16)
+            .hw_accelerate(bi, bo);
           
-          bin.compute_at(hw_output, xo);
+          bin.compute_at(hw_output, bo);
 
           hw_input.stream_to_accelerator();
           

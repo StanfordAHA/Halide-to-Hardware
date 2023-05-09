@@ -214,10 +214,17 @@ int ksize = 9;
         //deinterleaved.unroll(c);
         
         //hw_input_copy.compute_at(hw_output, xo);
-        hw_input.unroll(x,2).unroll(y,2);
+        //hw_input.unroll(x,2).unroll(y,2);
         hw_input.stream_to_accelerator();
-        hw_input.in().unroll(x,2).unroll(y,2);
+        //hw_input.in().unroll(x,2).unroll(y,2);
         //hw_input.compute_root();
+
+        //Var yio, yii;
+        //hw_input.in()
+        //  .split(y, yio, yii, 2).reorder(yii, x, yio)
+        //  .unroll(yii, 2, TailStrategy::RoundUp)
+        //  .unroll(x, 2, TailStrategy::RoundUp);
+
 
           
       } else {    // schedule to CPU

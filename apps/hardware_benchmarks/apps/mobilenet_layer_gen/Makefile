@@ -56,7 +56,7 @@ EXT                             = mat
 
 #  conv1:   HALIDE_GEN_ARGS="in_img=112 pad=1 ksize=3 stride=1 k_ic=4 k_oc=8"
 #  conv2:   HALIDE_GEN_ARGS="in_img=112 pad=1 ksize=3 stride=2 k_ic=4 k_oc=8"
-#  conv3:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 k_ic=4 k_oc=8"
+#  conv3:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 k_ic=4 k_oc=16"
 #  conv4:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 k_ic=4 k_oc=8"
 #  conv5:   HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 k_ic=4 k_oc=8"
 #  conv6:   HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 k_ic=4 k_oc=8"

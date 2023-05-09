@@ -33,7 +33,7 @@ public:
 
         Func hw_output("hw_output");
         hw_output(x, y) = conv(x, y);
-        output(x, y) = u8(ceil(hw_output(x,y)));
+        output(x, y) = u8(clamp(hw_output(x,y), 0, 255));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {

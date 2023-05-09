@@ -24,7 +24,7 @@ public:
         tanh_val(x,y) = tanh(hw_input(x,y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(min_val(x,y) + tanh_val(x,y));
+        hw_output(x, y) = u16(min_val(x,y) + tanh_val(x,y));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

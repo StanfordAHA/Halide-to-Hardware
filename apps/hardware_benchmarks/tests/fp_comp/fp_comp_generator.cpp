@@ -28,9 +28,9 @@ public:
         eq(x,y) = hw_input(x,y) == bfloat16_t(66.f);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(select((lt(x,y) || ge(x,y)) && 
-                            (le(x,y) || gt(x,y)) && 
-                            (eq(x,y) || ne(x,y)), 200.0f, 0.0f));
+        hw_output(x, y) = u16(select((lt(x,y) || ge(x,y)) && 
+                                     (le(x,y) || gt(x,y)) && 
+                                     (eq(x,y) || ne(x,y)), 200.0f, 0.0f));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

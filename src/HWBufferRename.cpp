@@ -36,6 +36,7 @@ class RenameRealize : public IRMutator {
         new_args.emplace_back(new_arg);
       }
       //return Call::make(op->type, new_name, new_args, op->call_type);
+      //std::cout << "call type before rename was " << op->call_type << std::endl;
       return Call::make(op->type, new_name, new_args, Call::Intrinsic);
     } else {
       return IRMutator::visit(op);

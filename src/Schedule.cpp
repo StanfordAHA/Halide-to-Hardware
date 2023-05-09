@@ -222,6 +222,7 @@ struct FuncScheduleContents {
     bool is_accelerator_output;
     bool is_accelerate_call_output;
     bool is_linebuffered;
+    int output_rate;
     std::set<std::string> accelerate_inputs;
     std::string accelerate_exit;
     LoopLevel accelerate_compute_level, accelerate_store_level;
@@ -233,7 +234,7 @@ struct FuncScheduleContents {
       store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
         memory_type(MemoryType::Auto), memoized(false), async(false), is_hw_kernel(false),
         is_accelerated(false), is_accelerator_input(false), is_accelerator_output(false),
-        is_accelerate_call_output(false), is_linebuffered(false) {};
+        is_accelerate_call_output(false), is_linebuffered(false), output_rate(0) {};
 
     // Pass an IRMutator through to all Exprs referenced in the FuncScheduleContents
     void mutate(IRMutator *mutator) {
@@ -361,6 +362,7 @@ FuncSchedule FuncSchedule::deep_copy(
     copy.contents->is_accelerator_input = contents->is_accelerator_input;
     copy.contents->is_accelerator_output = contents->is_accelerator_output;
     copy.contents->is_accelerate_call_output = contents->is_accelerate_call_output;
+    copy.contents->output_rate = contents->output_rate;
     copy.contents->tap_funcs = contents->tap_funcs;
     copy.contents->tap_params = contents->tap_params;
 
@@ -483,7 +485,7 @@ bool &FuncSchedule::is_linebuffered() {
     return contents->is_linebuffered;
 }
 
-bool FuncSchedule::is_accelerator_input() const{
+bool FuncSchedule::is_accelerator_input() const {
     return contents->is_accelerator_input;
 }
 
@@ -491,7 +493,7 @@ bool &FuncSchedule::is_accelerator_input() {
     return contents->is_accelerator_input;
 }
 
-bool FuncSchedule::is_accelerator_output() const{
+bool FuncSchedule::is_accelerator_output() const {
     return contents->is_accelerator_output;
 }
 
@@ -499,7 +501,7 @@ bool &FuncSchedule::is_accelerator_output() {
     return contents->is_accelerator_output;
 }
 
-bool FuncSchedule::is_accelerate_call_output() const{
+bool FuncSchedule::is_accelerate_call_output() const {
     return contents->is_accelerate_call_output;
 }
 
@@ -507,14 +509,22 @@ bool &FuncSchedule::is_accelerate_call_output() {
     return contents->is_accelerate_call_output;
 }
 
-const std::set<std::string> &FuncSchedule::accelerate_inputs() const{
+const std::set<std::string> &FuncSchedule::accelerate_inputs() const {
   return contents->accelerate_inputs;
 }
 
 std::set<std::string> &FuncSchedule::accelerate_inputs() {
   return contents->accelerate_inputs;
 }
-  
+
+int FuncSchedule::output_rate() const {
+    return contents->output_rate;
+}
+
+int &FuncSchedule::output_rate() {
+    return contents->output_rate;
+}
+
 const std::map<std::string, Function> &FuncSchedule::tap_funcs() const {
     return contents->tap_funcs;
 }
@@ -539,7 +549,7 @@ std::map<std::string, int> &FuncSchedule::fifo_depths() {
     return contents->fifo_depths;
 }
 
-const std::string &FuncSchedule::accelerate_exit() const{
+const std::string &FuncSchedule::accelerate_exit() const {
     return contents->accelerate_exit;
 }
 

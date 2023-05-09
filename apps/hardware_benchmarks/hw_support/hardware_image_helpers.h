@@ -79,7 +79,8 @@ void create_image(Halide::Runtime::Buffer<T>* input,
 
 template <typename T>
 bool compare_images(const Halide::Runtime::Buffer<T>& image0,
-                    const Halide::Runtime::Buffer<T>& image1) {
+                    const Halide::Runtime::Buffer<T>& image1,
+                    const int tolerance) {
   bool equal_images = true;
 
   if (image0.height() != image1.height() ||
@@ -92,10 +93,12 @@ bool compare_images(const Halide::Runtime::Buffer<T>& image0,
 
   for (int y=0; y<image0.height(); y++) {
     for (int x=0; x<image0.width(); x++) {
-      if(image0(x,y) != image1(x,y)) {
+      auto diff = abs(image0(x,y) - image1(x,y));
+      if (diff > tolerance) {
         std::cout << "y=" << y << "," << "x=" << x
                   << " CPU val = "<< (int)image0(x,y) << "(" << std::hex << +image0(x,y) << ")" << std::dec
-                  << ", Clock val = " << (int)image1(x,y) << "(" << std::hex << +image1(x,y) << ")" << std::dec << std::endl;
+                  << ", Clock val = " << (int)image1(x,y) << "(" << std::hex << +image1(x,y) << ")" << std::dec
+                  << " off by error=" << diff << std::endl;
         equal_images = false;
       }
     }
@@ -119,7 +122,7 @@ typedef struct WAV_HEADER {
     uint16_t        blockAlign;     // 2=16-bit mono, 4=16-bit stereo (NumChannels * BytesPerChannel)
     uint16_t        bitsPerChannel; // Number of bits per channel
     /* "data" sub-chunk */
-  uint16_t        junk; // for distortion file; love has none
+  //uint16_t        junk; // for distortion file; love has none
     unsigned char   DataID[4];      // "data"  string
     uint32_t        DataSize;       // Sampled data length (in bytes)
 } WaveHeader;
@@ -246,10 +249,9 @@ inline int testWavRead(std::string filename) {
     return 0;
 }
 
-inline uint32_t getDataSize(const WaveHeader& wave_header) {
+inline uint32_t getDataSize(const WaveHeader& wave_header, int scheme) {
   // 1: distortion
   // 2: love
-  int scheme = 1;
   if (scheme == 1) { //distortion
     uint16_t HeaderSize = sizeof(wave_header);
     uint32_t DataSize = wave_header.FileSize - HeaderSize;
@@ -265,7 +267,7 @@ inline uint32_t getDataSize(const WaveHeader& wave_header) {
 }
 
 template <class T>
-int readAudioData(const std::string& filename, AudioFile<T>* audiofile) {
+int readAudioData(const std::string& filename, AudioFile<T>* audiofile, int scheme) {
   // Read and parse an audio file in WAVE format
 
   // open file
@@ -287,7 +289,7 @@ int readAudioData(const std::string& filename, AudioFile<T>* audiofile) {
   assert(8*bytesPerChannel == wave_header.bitsPerChannel);
 
 
-  uint32_t DataSize = getDataSize(wave_header);
+  uint32_t DataSize = getDataSize(wave_header, scheme);
   
   uint32_t num_samples = DataSize / (wave_header.NumOfChan * bytesPerChannel);
   uint32_t ten_percent = num_samples / 10;
@@ -364,7 +366,7 @@ int readAudioData(const std::string& filename, AudioFile<T>* audiofile) {
 }
 
 template <class T>
-int writeAudioData(const std::string& filename, const AudioFile<T>& audiofile) {
+int writeAudioData(const std::string& filename, const AudioFile<T>& audiofile, int scheme) {
   // Write an audio file in WAVE format
 
   // open file
@@ -384,7 +386,7 @@ int writeAudioData(const std::string& filename, const AudioFile<T>& audiofile) {
   assert(0 < bytesPerChannel && bytesPerChannel <= 4);
   assert(8*bytesPerChannel == wave_header.bitsPerChannel);
 
-  uint32_t DataSize = getDataSize(wave_header);
+  uint32_t DataSize = getDataSize(wave_header, scheme);
   
   uint32_t num_samples = DataSize / (wave_header.NumOfChan * bytesPerChannel);
   uint32_t ten_percent = num_samples / 10;

@@ -100,6 +100,57 @@ std::vector<std::string> get_tokens(const std::string &line, const std::string &
     return result;
 }
 
+<<<<<<< HEAD
+=======
+string type_to_c_type(Type type) {
+  ostringstream oss;
+
+  if (type.is_float()) {
+    if (type.bits() == 32) {
+      oss << "float";
+    } else if (type.bits() == 64) {
+      oss << "double";
+    } else if (type.bits() == 16 && !type.is_bfloat()) {
+      oss << "float16_t";
+    } else if (type.bits() == 16 && type.is_bfloat()) {
+      oss << "bfloat16_t";
+      //oss << "uint16_t";
+    } else {
+      user_error << "Can't represent a float with this many bits in C: " << type << "\n";
+    }
+    if (type.is_vector()) {
+      oss << type.lanes();
+    }
+
+  } else {
+    switch (type.bits()) {
+    case 1:
+      // bool vectors are always emitted as uint8 in the C++ backend
+      if (type.is_vector()) {
+        oss << "uint8x" << type.lanes() << "_t";
+      } else {
+        oss << "bool";
+      }
+      break;
+    case 8: case 16: case 32: case 64:
+      if (type.is_uint()) {
+        oss << 'u';
+      }
+      oss << "int" << type.bits();
+      if (type.is_vector()) {
+        oss << "x" << type.lanes();
+      }
+      oss << "_t";
+      break;
+    default:
+      user_error << "Can't represent an integer with this many bits in C: " << type << "\n";
+    }
+  }
+
+  return oss.str();
+}
+
+>>>>>>> verilator-test
 // return true if the for loop is not serialized
 bool is_parallelized(const For *op) {
   return op->for_type == ForType::Parallel ||

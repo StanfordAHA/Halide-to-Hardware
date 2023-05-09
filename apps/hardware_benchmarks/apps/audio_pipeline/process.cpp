@@ -60,9 +60,17 @@ int main( int argc, char **argv ) {
 
   // Read wave file
   AudioFile<int16_t> audioFile;
+
+  // NOTE: Audio files are not consistent, hardware_image_helpers.h must have "junk"
+  // in WAV_HEADER for some files. If changed, remake bin/process.
+  // Both love.wav and distortion.wav has had the "junk" field removed.
+  // NOTE: must change generator to have correct file length
+  
   //std::string filename = "love";
   std::string filename = "distortion";
-  readAudioData<int16_t>(filename + ".wav", &audioFile);
+  
+  int scheme = filename == "love" ? 2 : 1;
+  readAudioData<int16_t>(filename + ".wav", &audioFile, scheme);
   std::cout << audioFile.header;
 
   processor.input   = audioFile.data;
@@ -97,7 +105,7 @@ int main( int argc, char **argv ) {
   AudioFile<int16_t> outAudio;
   outAudio.header = audioFile.header;
   outAudio.data = processor.output;
-  writeAudioData<int16_t>("bin/" + filename + "1.wav", outAudio);
+  writeAudioData<int16_t>("bin/" + filename + "1.wav", outAudio, scheme);
   return ret_value;
   //return processor.process_command(argc, argv);
   

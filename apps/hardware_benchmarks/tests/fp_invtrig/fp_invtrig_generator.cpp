@@ -24,7 +24,7 @@ public:
         arctangent(x,y) = atan2(hw_input(x,y),arcsine(x,y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(arcsine(x,y) + arccosine(x,y) + arctangent(x,y));
+        hw_output(x, y) = u16(arcsine(x,y) + arccosine(x,y) + arctangent(x,y));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

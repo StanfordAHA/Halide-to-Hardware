@@ -57,7 +57,7 @@ public:
         Func hw_input("hw_input");
         Func clamp_input("clamp_input");
         //clamp_input(x, y, z) = input(clamp(x, 0, width - 1), clamp(y, 0, height - 1), z);
-        clamp_input(z, x, y) = input(z, clamp(x-pad, 0, width - 1), clamp(y-pad, 0, height - 1));
+        clamp_input(z, x, y) = input(z, clamp(x-pad, 0, in_img - 1), clamp(y-pad, 0, in_img - 1));
         //clamp_input(z, x, y) = input(z, x, y);
 
         Func hw_kernel;

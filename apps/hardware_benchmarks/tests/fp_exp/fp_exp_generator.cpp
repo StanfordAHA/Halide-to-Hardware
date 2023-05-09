@@ -21,12 +21,12 @@ public:
         Func exponential, natural_log, power, square_root;
         exponential(x,y) = exp(hw_input(x,y));
         natural_log(x,y) = exponential(x,y) + log(hw_input(x,y));
-        power(x,y) = pow(natural_log(x,y), 3);
+        power(x,y) = pow(hw_input(x,y), hw_input(x,y)) + natural_log(x,y);
         square_root(x,y) = sqrt(power(x,y) + 1);
 
         Func hw_output("hw_output");
         //hw_output(x, y) = u8(square_root(x, y));
-        hw_output(x, y) = u8(power(x, y));
+        hw_output(x, y) = power(x, y);
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */

@@ -16,6 +16,7 @@ GOLDEN ?= golden
 HWSUPPORT ?= ../../hw_support
 FUNCUBUF_PATH ?= $(abspath $(ROOT_DIR)/../../../..)
 LAKE_PATH ?= $(abspath $(CLOCKWORK_DIR)/../lake)
+METAMAPPER_PATH ?= $(abspath $(CLOCKWORK_DIR)/../MetaMapper)
 LDFLAGS += -lcoreir-lakelib
 
 #WITH_CLOCKWORK ?= 0
@@ -23,13 +24,15 @@ CLOCKWORK_PATH ?= $(CLOCKWORK_DIR)
 ISL_PATH ?= $(CLOCKWORK_PATH)/barvinok-0.41/isl
 CLOCKWORK_CXX_FLAGS = -std=c++17 -I$(CLOCKWORK_PATH) -I$(CLOCKWORK_PATH)/include -I$(ISL_PATH) -fPIC
 CLOCKWORK_LD_FLAGS = -L$(CLOCKWORK_PATH)/lib -L$(ISL_PATH) -Wl,-rpath,$(CLOCKWORK_PATH)/lib
-CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread
+CLOCKWORK_LD_FLAGS += -lclkwrk -lbarvinok -lisl -lntl -lgmp -lpolylibgmp -lpthread -lcoreir-float -lcoreir-float_DW
 
 # set default to TESTNAME which forces failure
 TESTNAME ?= undefined_testname
 TESTGENNAME ?= $(TESTNAME)
 USE_COREIR_VALID ?= 0
 EXT ?= png
+PIPELINED ?= 0
+META_TARGET ?= app
 
 # set this for Halide generator arguments
 HALIDE_GEN_ARGS ?= 
@@ -139,6 +142,7 @@ $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_c
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
+	(echo "//" `cat $(BIN)/halide_gen_args`) | cat >> $(BIN)/$(TESTNAME)_memory.cpp
 
 
 #: $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h
@@ -152,7 +156,7 @@ UNOPTIMIZED_OBJS = $(patsub %.cpp,%.o,$(UNOPTIMIZED_CPPS))
 $(BIN)/clockwork_codegen.o: $(BIN)/clockwork_codegen.cpp
 	$(CXX) $(CLOCKWORK_CXX_FLAGS) -c $< -o $@
 $(BIN)/clockwork_codegen: $(BIN)/clockwork_codegen.o
-	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -o $@
+	$(CXX) $(CLOCKWORK_CXX_FLAGS) $^ $(CLOCKWORK_LD_FLAGS) -L $(COREIR_DIR)/lib -Wl,-rpath $(COREIR_DIR)/lib -lcoreir -lcoreirsim -lcoreir-commonlib -lcoreir-float -lcoreir-float_DW -o $@
 $(BIN)/unoptimized_$(TESTNAME).cpp unopt-clockwork clockwork-unopt unopt: $(BIN)/clockwork_codegen
 	cd $(BIN) && LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib \
 	./clockwork_codegen unopt 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -167,7 +171,13 @@ compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
+<<<<<<< HEAD
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+=======
+	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
+#EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
+>>>>>>> verilator-test
 memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)/clockwork_codegen
 	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
 	cd $(BIN) && \
@@ -175,9 +185,52 @@ memtest test_mem test-mem test-mem-clockwork clockwork-mem-test mem-test: $(BIN)
 	./clockwork_codegen compile_and_test_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
 
+<<<<<<< HEAD
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
+=======
+test_reschedule_mem: $(BIN)/clockwork_codegen
+	@mkdir -p $(BIN)/coreir_compute && cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/coreir_compute/$(TESTNAME)_compute.json
+	cd $(BIN) && \
+	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
+	./clockwork_codegen compile_and_test_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; cd ..; exit $$EXIT_CODE
+
+tree: $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
+	cp $(BIN)/$(TESTNAME)_compute.json $(BIN)/$(TESTNAME)_compute_old.json && \
+	$(HWSUPPORT)/$(BIN)/coreir_tree_reduction $(BIN)/$(TESTNAME)_compute_old.json $(BIN)/$(TESTNAME)_compute_tree.json && \
+	cp $(BIN)/$(TESTNAME)_compute_tree.json $(BIN)/$(TESTNAME)_compute.json
+
+treegraph tree_graph: tree
+	$(MAKE) compile-mem && make mem && cp $(BIN)/design_top.json $(BIN)/design_top_graph.json && $(MAKE) graph.png
+
+delay_mem:
+	rm -rf bin/map_result/ && make compile-mem
+	make mem
+
+reschedule_mem:
+	cd $(BIN) && \
+	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
+	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
+	python $(HWSUPPORT)/copy_clockwork_schedules.py $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json $(BIN)/$(TESTNAME)_flush_latencies.json $(BIN)/$(TESTNAME)_pond_latencies.json
+
+mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
+
+map: $(BIN)/clockwork_codegen
+	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json 
+	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
+	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/ 
+	cd $(BIN) && \
+	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
+	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
+	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
+	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
+
+#FIXME: $(BIN)/unoptimized_$(TESTNAME).o
+>>>>>>> verilator-test
 $(BIN)/clockwork_testscript.o: $(BIN)/clockwork_testscript.cpp $(UNOPTIMIZED_OBJS) $(BIN)/unoptimized_$(TESTNAME).o
 	$(CXX) $(CXXFLAGS) -I$(CLOCKWORK_PATH)  -c $< -o $@
 #$(BIN)/unoptimized_%.o: $(BIN)/unoptimized_%.cpp
@@ -239,8 +292,10 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 #endif
 
+#$(HWSUPPORT)/hardware_image_helpers.h
+
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o 
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
@@ -306,7 +361,7 @@ $(BIN)/process_targets: FORCE
 
 # we should remake process in case there are extra dependencies
 #.PHONY: $(BIN)/process
-$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets
+$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_image_helpers.h
 	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
@@ -380,13 +435,16 @@ $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	  echo "Unsupported file format: $(EXT)"; \
   fi
 
-$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
-	@-mkdir -p $(BIN)
-	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
-
 $(BIN)/%.raw: $(BIN)/%.leraw
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
 
+<<<<<<< HEAD
+=======
+io inout inputs inputfiles rawio rawios ioraw ioraws : $(BIN)/design_meta_halide.json
+	python $(HWSUPPORT)/generate_raw_files.py $^
+
+.PHONY: $(BIN)/cgra_config.json
+>>>>>>> verilator-test
 $(BIN)/cgra_config.json:
 	@-mkdir -p $(BIN)
 	if [ -f cgra_config.json ]; then \
@@ -420,7 +478,11 @@ $(BIN)/%.pgm: $(BIN)/%.png
 	  convert $(BIN)/$*.png -depth $(BITWIDTH) ppm:$(BIN)/$*.pgm;\
   fi
 
-run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a
+#$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
+#	@-mkdir -p $(BIN)
+#	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
+
+run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
@@ -435,7 +497,7 @@ run-rewrite $(BIN)/output_rewrite.png: $(BIN)/design_top.json
 	$(MAKE) $(BIN)/process WITH_COREIR=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run rewrite input.png $(HALIDE_DEBUG_REDIRECT)
 
-run-clockwork $(BIN)/output_clockwork.$(EXT): $(BIN)/process $(BIN)/clockwork_testscript.o
+run-clockwork $(BIN)/output_clockwork.$(EXT) $(BIN)/design_meta_halide.json: $(BIN)/process $(BIN)/clockwork_testscript.o
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
@@ -493,6 +555,23 @@ compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(E
     (exit $$EXIT_CODE);  \
 	fi
 
+<<<<<<< HEAD
+=======
+#ahahalide aha_halide aha-halide:
+#	$(MAKE) compare && \
+#	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+#	$(MAKE) bin/output_cgra.pgm --no-print-directory
+ahahalide aha_halide aha-halide:
+	$(MAKE) compare && \
+	$(MAKE) rawio
+
+ahahalidemem aha_halide_mem aha-halide-mem:
+	$(MAKE) compare && \
+	$(MAKE) bin/input_cgra.pgm --no-print-directory && \
+	$(MAKE) bin/output_cgra.pgm --no-print-directory && \
+	$(MAKE) mem
+
+>>>>>>> verilator-test
 eval eval-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval cpu input.$(EXT)
@@ -531,14 +610,14 @@ check:
 	  printf "  \033[0;31m%s\033[0m" "!coreir"; \
 	fi
 	@if [ -f "$(BIN)/$(TESTNAME)_memory.cpp" ]; then \
-	  printf "  \033[0;32m%s\033[0m" " clk_cg"; \
-	else \
-	  printf "  \033[0;31m%s\033[0m" "!clk_cg"; \
-	fi
-	@if [ -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " clkwork"; \
 	else \
 	  printf "  \033[0;31m%s\033[0m" "!clkwork"; \
+	fi
+	@if [ -f "$(BIN)/unoptimized_$(TESTNAME).cpp" ]; then \
+	  printf "  \033[0;32m%s\033[0m" " unopt"; \
+	else \
+	  printf "  \033[0;31m%s\033[0m" "!unopt"; \
 	fi
 	@if [ -f "$(BIN)/output_cpu.$(EXT)" ]; then \
 	  printf "  \033[0;32m%s\033[0m" " out_cpu"; \
@@ -585,6 +664,9 @@ $(BIN)/graph.png: $(BIN)/design_top.txt
 	dot -Tpng $(BIN)/design_top.txt > $(BIN)/graph.png
 graph.png graph:
 	$(MAKE) $(BIN)/graph.png
+newgraph new_graph:
+	cp $(BIN)/design_top.json $(BIN)/design_top_graph.json
+	$(MAKE) graph
 
 clean:
 	rm -rf $(BIN) *_debug.csv

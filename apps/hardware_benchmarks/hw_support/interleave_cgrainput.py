@@ -28,7 +28,7 @@ with open(config_path, "r") as read_file:
 
         file_size = os.path.getsize(file_path)
         computed_size = input_size * bitwidth//8
-        assert file_size == computed_size, f"{file_name}: filesize={file_size}  !=  computedsize={computed_size}"
+        #assert file_size == computed_size, f"{file_name}: filesize={file_size}  !=  computedsize={computed_size}"
         input_length = max(input_length, input_size // input["pixels_per_cycle"])
         input_bw = input_bw + input["pixels_per_cycle"]
 

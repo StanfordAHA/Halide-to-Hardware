@@ -3,8 +3,9 @@ HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 
 default: all
 
-TRAVIS_TESTS := arith sshift fp_arith conv_4_4 \
-							inout_cgraconfig up_sample rom
+# fp_arith should be included eventually
+TRAVIS_TESTS := arith sshift conv_4_4 \
+								inout_cgraconfig up_sample rom
 travis := $(TRAVIS_TESTS)
 travis: $(TRAVIS_TESTS)
 

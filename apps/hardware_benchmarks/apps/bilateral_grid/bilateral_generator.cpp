@@ -2,23 +2,20 @@
 #include "halide_trace_config.h"
 
 namespace {
-int s_sigma = 24;
+int s_sigma = 8;
 int r_sigma = 16;
 
 class BilateralGrid : public Halide::Generator<BilateralGrid> {
 public:
 
     Input<Buffer<uint8_t>>  input{"input", 2};
-
     Output<Buffer<uint8_t>> output{"output", 2};
-
 
     Expr linterp(Expr zero_val, Expr one_val, Expr weight, int scale) {
         Expr result;
         result = (zero_val + ((weight * (one_val - zero_val))/scale));
         return result;
     }
-    
 
     void generate() {
         Var x("x"), y("y"), z("z"), c("c");
@@ -27,7 +24,6 @@ public:
         Func clamped = Halide::BoundaryConditions::repeat_edge(input);
 
         RDom r(0, s_sigma, 0, s_sigma);
-        //Expr val = cast<uint16_t>(clamped(x*s_sigma + r.x, y*s_sigma + r.y));
         Expr val = cast<uint16_t>(clamped(x*s_sigma + r.x, y*s_sigma + r.y));
         val = cast<uint16_t>(clamp(val, 0, 255));
 
@@ -37,53 +33,50 @@ public:
         histogram_count(x, y, z) = cast<uint16_t>(0);
         histogram_count(x, y, zi) += cast<uint16_t>(1);
 
-        // histogram_count(x,y,z) = clamp(histogram_count(x,y,z), 0, 65535);
-
         histogram(x, y, z) = cast<uint16_t>(0);
         histogram(x, y, zi) += cast<uint16_t>(val);
-        // histogram(x,y,z) = clamp(histogram(x,y,z), 0, 65535);
         
         Func hw_input_hist, input_copy_hist;
-        hw_input_hist(x, y, z) = cast<int>(histogram(x, y, z));
+        hw_input_hist(x, y, z) = cast<int16_t>(histogram(x, y, z));
         input_copy_hist(x, y, z) = hw_input_hist(x, y, z);
 
         Func blurx("blurx"), blury("blury"), blurz("blurz");
         blurz(x, y, z) = (input_copy_hist(x, y, z-2) +
-                             input_copy_hist(x, y, z-1)*4 +
-                             input_copy_hist(x, y, z  )*6 +
-                             input_copy_hist(x, y, z+1)*4 +
-                             input_copy_hist(x, y, z+2));
+                          input_copy_hist(x, y, z-1)*4 +
+                          input_copy_hist(x, y, z  )*6 +
+                          input_copy_hist(x, y, z+1)*4 +
+                          input_copy_hist(x, y, z+2));
         blurx(x, y, z) = (blurz(x-2, y, z) +
-                             blurz(x-1, y, z)*4 +
-                             blurz(x  , y, z)*6 +
-                             blurz(x+1, y, z)*4 +
-                             blurz(x+2, y, z));
+                          blurz(x-1, y, z)*4 +
+                          blurz(x  , y, z)*6 +
+                          blurz(x+1, y, z)*4 +
+                          blurz(x+2, y, z));
         blury(x, y, z) = (blurx(x, y-2, z) +
-                             blurx(x, y-1, z)*4 +
-                             blurx(x, y  , z)*6 +
-                             blurx(x, y+1, z)*4 +
-                             blurx(x, y+2, z));
+                          blurx(x, y-1, z)*4 +
+                          blurx(x, y  , z)*6 +
+                          blurx(x, y+1, z)*4 +
+                          blurx(x, y+2, z));
 
         Func hw_input_hist_count, input_copy_hist_count;
-        hw_input_hist_count(x, y, z) = cast<int>(histogram_count(x, y, z));
+        hw_input_hist_count(x, y, z) = cast<int16_t>(histogram_count(x, y, z));
         input_copy_hist_count(x, y, z) = hw_input_hist_count(x, y, z);
 
         Func blur_count_x("blur_count_x"), blur_count_y("blur_count_y"), blur_count_z("blur_count_z");
         blur_count_z(x, y, z) = (input_copy_hist_count(x, y, z-2) +
-                             input_copy_hist_count(x, y, z-1)*4 +
-                             input_copy_hist_count(x, y, z  )*6 +
-                             input_copy_hist_count(x, y, z+1)*4 +
-                             input_copy_hist_count(x, y, z+2));
+                                 input_copy_hist_count(x, y, z-1)*4 +
+                                 input_copy_hist_count(x, y, z  )*6 +
+                                 input_copy_hist_count(x, y, z+1)*4 +
+                                 input_copy_hist_count(x, y, z+2));
         blur_count_x(x, y, z) = (blur_count_z(x-2, y, z) +
-                             blur_count_z(x-1, y, z)*4 +
-                             blur_count_z(x  , y, z)*6 +
-                             blur_count_z(x+1, y, z)*4 +
-                             blur_count_z(x+2, y, z));
+                                 blur_count_z(x-1, y, z)*4 +
+                                 blur_count_z(x  , y, z)*6 +
+                                 blur_count_z(x+1, y, z)*4 +
+                                 blur_count_z(x+2, y, z));
         blur_count_y(x, y, z) = (blur_count_x(x, y-2, z) +
-                             blur_count_x(x, y-1, z)*4 +
-                             blur_count_x(x, y  , z)*6 +
-                             blur_count_x(x, y+1, z)*4 +
-                             blur_count_x(x, y+2, z));
+                                 blur_count_x(x, y-1, z)*4 +
+                                 blur_count_x(x, y  , z)*6 +
+                                 blur_count_x(x, y+1, z)*4 +
+                                 blur_count_x(x, y+2, z));
         
 
         Func hw_input, input_copy;
@@ -114,31 +107,25 @@ public:
         yii_p1(y) = yii(y) + 1;
         zi2_p1(x, y) = zi2(x, y) + 1;
 
+        Expr x_i = xii(x);
+        Expr xi_p1 = xii_p1(x);
+        Expr y_i = yii(y);
+        Expr yi_p1 = yii_p1(y);
+        Expr z_i = zi2(x,y);
+        Expr zi_p1 = zi2_p1(x, y);
+
         Func interpolated("interpolated");
-        Func interpolated_count("interpolated_count");
-        //interpolated(x, y) = linterp(linterp(linterp(blury(xii, yii, zi2),   blury(xii+1, yii, zi2), xf, s_sigma),
-        //                                linterp(blury(xii, yii+1, zi2), blury(xii+1, yii+1, zi2), xf, s_sigma), yf, s_sigma),
-        //                                linterp(linterp(blury(xii, yii, zi2+1),   blury(xii+1, yii, zi2+1), xf, s_sigma),
-        //                                linterp(blury(xii, yii+1, zi2+1), blury(xii+1, yii+1, zi2+1), xf, s_sigma), yf, s_sigma), zf, r_sigma);
-        //interpolated_count(x, y) = linterp(linterp(linterp(blur_count_y(xii, yii, zi2),   blur_count_y(xii+1, yii, zi2), xf, s_sigma),
-        //                                linterp(blur_count_y(xii, yii+1, zi2), blur_count_y(xii+1, yii+1, zi2), xf, s_sigma), yf, s_sigma),
-        //                                linterp(linterp(blur_count_y(xii, yii, zi2+1),   blur_count_y(xii+1, yii, zi2+1), xf, s_sigma),
-        //                                linterp(blur_count_y(xii, yii+1, zi2+1), blur_count_y(xii+1, yii+1, zi2+1), xf, s_sigma), yf, s_sigma), zf, r_sigma);
-        interpolated(x, y) = linterp(linterp(linterp(blury(xii(x), yii(y), zi2(x,y)),   blury(xii_p1(x), yii(y), zi2(x,y)), xf(x), s_sigma),
-                                        linterp(blury(xii(x), yii_p1(y), zi2(x,y)), blury(xii_p1(x), yii_p1(y), zi2(x,y)), xf(x), s_sigma), yf(y), s_sigma),
-                                        linterp(linterp(blury(xii(x), yii(y), zi2_p1(x,y)),   blury(xii_p1(x), yii(y), zi2_p1(x,y)), xf(x), s_sigma),
-                                        linterp(blury(xii(x), yii_p1(y), zi2_p1(x,y)), blury(xii_p1(x), yii_p1(y), zi2_p1(x,y)), xf(x), s_sigma), yf(y), s_sigma), zf(x,y), r_sigma);
-        interpolated_count(x, y) = linterp(linterp(linterp(blur_count_y(xii(x), yii(y), zi2(x,y)),   blur_count_y(xii_p1(x), yii(y), zi2(x,y)), xf(x), s_sigma),
-                                        linterp(blur_count_y(xii(x), yii_p1(y), zi2(x,y)), blur_count_y(xii_p1(x), yii_p1(y), zi2(x,y)), xf(x), s_sigma), yf(y), s_sigma),
-                                        linterp(linterp(blur_count_y(xii(x), yii(y), zi2_p1(x,y)),   blur_count_y(xii_p1(x), yii(y), zi2_p1(x,y)), xf(x), s_sigma),
-                                        linterp(blur_count_y(xii(x), yii_p1(y), zi2_p1(x,y)), blur_count_y(xii_p1(x), yii_p1(y), zi2_p1(x,y)), xf(x), s_sigma), yf(y), s_sigma), zf(x,y), r_sigma);
-
-
-
+        Func interp_count("interp_count");
+        interpolated(x, y) = linterp(linterp(linterp(blury(x_i, y_i,   z_i),   blury(xi_p1, y_i,   z_i),   xf(x), s_sigma),
+                                             linterp(blury(x_i, yi_p1, z_i),   blury(xi_p1, yi_p1, z_i),   xf(x), s_sigma), yf(y), s_sigma),
+                                     linterp(linterp(blury(x_i, y_i,   zi_p1), blury(xi_p1, y_i,   zi_p1), xf(x), s_sigma),
+                                             linterp(blury(x_i, yi_p1, zi_p1), blury(xi_p1, yi_p1, zi_p1), xf(x), s_sigma), yf(y), s_sigma), zf(x,y), r_sigma);
         
-                // interpolated(x, y) = linterp(blury(xii, yii, zi2),   blury(xii+1, yii, zi2), xf, s_sigma);
-                // interpolated_count(x, y) = linterp(blur_count_y(xii, yii, zi2),   blur_count_y(xii+1, yii, zi2), xf, s_sigma);
-        // interpolated(x, y) = blury(xii, yii, zi2)/(blur_count_y(xii, yii, zi2)); 
+        interp_count(x, y) = linterp(linterp(linterp(blur_count_y(x_i, y_i,   z_i),   blur_count_y(xi_p1, y_i,   z_i),   xf(x), s_sigma),
+                                             linterp(blur_count_y(x_i, yi_p1, z_i),   blur_count_y(xi_p1, yi_p1, z_i),   xf(x), s_sigma), yf(y), s_sigma),
+                                     linterp(linterp(blur_count_y(x_i, y_i,   zi_p1), blur_count_y(xi_p1, y_i,   zi_p1), xf(x), s_sigma),
+                                             linterp(blur_count_y(x_i, yi_p1, zi_p1), blur_count_y(xi_p1, yi_p1, zi_p1), xf(x), s_sigma), yf(y), s_sigma), zf(x,y), r_sigma);
+
 
         //blury.bound(x, 2, 14);
         //blury.bound(y, 2, 14);
@@ -146,7 +133,7 @@ public:
 
         // Normalize
         Func hw_output;
-        hw_output(x, y) = cast<uint8_t>(interpolated(x, y)/interpolated_count(x, y));
+        hw_output(x, y) = cast<uint8_t>(interpolated(x, y) / interp_count(x, y));
         output(x, y) = hw_output(x, y);
 
         output.bound(x,0,128);

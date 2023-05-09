@@ -14,6 +14,8 @@ public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
 
+    GeneratorParam<int32_t> myunroll{"myunroll", 1};
+  
     void generate() {
         /* THE ALGORITHM */
 
@@ -61,11 +63,14 @@ public:
           hw_output
               .tile(x,y, xo,yo, xi,yi, outImgSize, outImgSize)
               .hw_accelerate(xi, xo);
+          hw_output.unroll(xi, myunroll);
 
-          mult.compute_at(hw_output, xo);
+          mult.compute_at(hw_output, xo)
+            .unroll(x, myunroll);
           
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           hw_input.stream_to_accelerator();
+          hw_input.in().unroll(x, myunroll);
           //input_copy.compute_root();
           
         } else {

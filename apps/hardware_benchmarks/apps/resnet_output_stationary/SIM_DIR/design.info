@@ -1,0 +1,2 @@
+layout=/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/resnet_output_stationary/SIM_DIR/design.layout
+graph=1 /aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/resnet_output_stationary/SIM_DIR/1.graph 17 /aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/resnet_output_stationary/SIM_DIR/17.graph

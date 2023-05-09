@@ -1,0 +1,88 @@
+Netlists:
+e0: (p0, PE_output_width_17_num_0)	(p1, PE_input_width_17_num_1)
+e1: (p1, PE_output_width_17_num_0)	(p2, PE_input_width_17_num_0)
+e2: (p4, PE_output_width_17_num_0)	(p5, PE_input_width_17_num_0)
+e3: (p6, PE_output_width_17_num_0)	(p2, PE_input_width_17_num_1)
+e4: (I8, io2f_17)	(m7, MEM_input_width_17_num_2)
+e5: (m9, MEM_output_width_17_num_0)	(I10, f2io_17)
+e6: (I12, io2f_17)	(m11, MEM_input_width_17_num_2)
+e7: (m11, MEM_output_width_17_num_1)	(p3, PE_input_width_17_num_0)
+e8: (m11, MEM_output_width_17_num_2)	(p3, PE_input_width_17_num_2)
+e9: (p2, PE_output_width_17_num_0)	(m11, MEM_input_width_17_num_0)
+e10: (m13, MEM_output_width_17_num_0)	(I14, f2io_17)
+e11: (p5, PE_output_width_17_num_0)	(m13, MEM_input_width_17_num_3)
+e12: (I16, io2f_17)	(m15, MEM_input_width_17_num_2)
+e13: (m7, MEM_output_width_17_num_2)	(m15, MEM_input_width_17_num_0)
+e14: (m17, MEM_output_width_17_num_0)	(I18, f2io_17)
+e15: (I20, io2f_17)	(m19, MEM_input_width_17_num_2)
+e16: (m19, MEM_output_width_17_num_1)	(p3, PE_input_width_17_num_1)
+e17: (m19, MEM_output_width_17_num_2)	(p3, PE_input_width_17_num_3)
+e18: (m15, MEM_output_width_17_num_2)	(m19, MEM_input_width_17_num_0)
+e19: (I22, io2f_17)	(m21, MEM_input_width_17_num_2)
+e20: (m21, MEM_output_width_17_num_1)	(p4, PE_input_width_17_num_0)
+e21: (p3, PE_output_width_17_num_2)	(m21, MEM_input_width_17_num_0)
+e22: (I24, io2f_17)	(m23, MEM_input_width_17_num_2)
+e23: (m23, MEM_output_width_17_num_1)	(p4, PE_input_width_17_num_1)
+e24: (p3, PE_output_width_17_num_1)	(m23, MEM_input_width_17_num_0)
+e25: (m7, MEM_output_width_17_num_1)	(p0, PE_input_width_17_num_0)
+e26: (m7, MEM_output_width_17_num_1)	(m9, MEM_input_width_17_num_3)
+e27: (m15, MEM_output_width_17_num_1)	(p6, PE_input_width_17_num_0)
+e28: (m15, MEM_output_width_17_num_1)	(m17, MEM_input_width_17_num_3)
+
+ID to Names:
+p0: p0
+p1: p1
+p2: p2
+p3: p3
+p4: p4
+p5: p5
+p6: p6
+m7: m7
+I8: I8
+m9: m9
+I10: I10
+m11: m11
+I12: I12
+m13: m13
+I14: I14
+m15: m15
+I16: I16
+m17: m17
+I18: I18
+m19: m19
+I20: I20
+m21: m21
+I22: I22
+m23: m23
+I24: I24
+
+Netlist Bus:
+e0: 17
+e1: 17
+e2: 17
+e3: 17
+e4: 17
+e5: 17
+e6: 17
+e7: 17
+e8: 17
+e9: 17
+e10: 17
+e11: 17
+e12: 17
+e13: 17
+e14: 17
+e15: 17
+e16: 17
+e17: 17
+e18: 17
+e19: 17
+e20: 17
+e21: 17
+e22: 17
+e23: 17
+e24: 17
+e25: 17
+e26: 17
+e27: 17
+e28: 17

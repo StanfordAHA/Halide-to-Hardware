@@ -19,7 +19,13 @@ public:
   Output<Buffer<uint8_t>> output{"output", 3};
   //Output<Buffer<uint8_t>> output{"output", 2};
 
+<<<<<<< HEAD
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
+=======
+    GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
+    GeneratorParam<uint16_t> myunroll{"myunroll", 3};    // default: 3
+    GeneratorParam<uint16_t> mywidth{"mywidth", 126};    // default: 126
+>>>>>>> verilator-test
 
     void generate() {
         /* THE ALGORITHM */
@@ -147,7 +153,185 @@ public:
 
 
         } else if (get_target().has_feature(Target::Clockwork)) {
+<<<<<<< HEAD
           if (schedule == 1) { // single buffer
+=======
+          
+          if (schedule == 1) { // host and glb tiling
+            const int tileSize = 58;
+            const int numTiles = 4;
+            const int glbSize = tileSize * numTiles;
+            const int numHostTiles = 5;
+            const int outputSize = numHostTiles * glbSize;
+            const int inputSize = outputSize + blockSize-1;
+
+            output.bound(x, 0, outputSize);
+            output.bound(y, 0, outputSize);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c);
+
+            ratio.compute_at(hw_output, xo);
+            reciprocal.compute_at(hw_output, xo); // we don't want this memory
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+
+            sharpen.compute_at(hw_output, xo);
+
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur_unnormalized.update()
+              .unroll(win.x).unroll(win.y);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            
+            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
+            gray.compute_at(hw_output, xo);
+
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(c);  // hw input bound
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+          } else if (schedule == 2) { // do the big parrot
+            const int tileWidth = 58;
+            const int tileHeight = 94;
+            const int numHostTiles = 5;
+            const int numTiles = 5;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTiles * glbWidth;
+            const int outputHeight = numHostTiles * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c);
+
+            Var xii, yii, xio, yio;
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c);
+
+            ratio.compute_at(hw_output, xo);
+            reciprocal.compute_at(hw_output, xo); // we don't want this memory
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+
+            sharpen.compute_at(hw_output, xo);
+
+            blur_unnormalized.compute_at(hw_output, xo);
+            blur_unnormalized.update()
+              .unroll(win.x).unroll(win.y);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y);
+            
+            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
+            gray.compute_at(hw_output, xo);
+
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(c);  // hw input bound
+            
+            hw_input.compute_root()
+              .accelerator_input();
+
+          } else if (schedule == 3) { // do the big parrot with unroll
+            const int unroll = myunroll;
+            //const int tileWidth = 122-0;
+            //const int tileWidth = 141; //unroll=3  ; also try 63
+            const int tileWidth = mywidth;
+            const int tileHeight = 256-6;
+            //const int tileHeight = 66;
+            //const int numHostTilesX = 12-1;
+            //const int numHostTilesY = 10-1;
+            //const int numHostTilesX = 12;
+            const int numHostTilesX = 5;
+            const int numHostTilesY = 10;
+            const int numTiles = 1;
+            const int glbWidth = tileWidth * numTiles;
+            const int glbHeight = tileHeight * numTiles;
+            const int outputWidth = numHostTilesX * glbWidth;
+            const int outputHeight = numHostTilesY * glbHeight;
+
+            output.bound(x, 0, outputWidth);
+            output.bound(y, 0, outputHeight);
+
+            hw_output.in().compute_root();
+
+            hw_output.in()
+              .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
+              .reorder(c, xi, yi, xo, yo)
+              .hw_accelerate(xi, xo);
+            hw_output.in().unroll(c)
+              .unroll(xi, unroll, TailStrategy::RoundUp);
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
+              .reorder(c, xi, yi, xo, yo);
+            hw_output.compute_at(hw_output.in(), xo);
+            hw_output.store_in(MemoryType::GLB);
+            hw_output.unroll(c)
+              .unroll(xi, unroll, TailStrategy::RoundUp);
+
+            ratio.compute_at(hw_output, xo)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            reciprocal.compute_at(hw_output, xo) // we don't want this memory
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            rom_div_lookup.compute_at(hw_output, xo).unroll(x); // synthesize lookup to a ROM (8.8 output)
+
+            sharpen.compute_at(hw_output, xo)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+
+            blur_unnormalized.compute_at(hw_output, xo)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            blur_unnormalized.update()
+              .unroll(win.x).unroll(win.y)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(x, unroll);
+            
+            gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
+            gray.compute_at(hw_output, xo)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+
+            hw_input.in().in().compute_at(hw_output, xo); // represents the mem tile
+            hw_input.in().in()
+              .unroll(c)
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            hw_input.in().compute_at(hw_output.in(), xo); // represents the glb level
+            hw_input.in().store_in(MemoryType::GLB);
+            hw_input.in().unroll(c)  // hw input bound
+              .unroll(x, unroll, TailStrategy::RoundUp);
+            
+            hw_input.compute_root()
+              .accelerator_input();
+            
+          } else if (schedule == 4) { // single buffer
+            output.bound(x, 0, 64-blockSize+1);
+            output.bound(y, 0, 64-blockSize+1);
+
+            
+>>>>>>> verilator-test
             hw_output.compute_root();
             hw_output
               .tile(x, y, xo, yo, xi, yi, 60, 60).reorder(xi, yi, xo, yo)

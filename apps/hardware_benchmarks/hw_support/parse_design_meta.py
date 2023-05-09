@@ -59,9 +59,9 @@ def parseDesignTop(meta, filename: str):
                 addr = coreirInstances[inst]["metadata"]["glb2out_0"]
                 metaIn = findIO(meta["IOs"]["inputs"], ioName)
                 if "io_tiles" in metaIn:
-                    metaIn["io_tiles"].append({"name":inst, "addr":addr})
+                    metaIn["io_tiles"].append({"name":inst, "addr":addr, "mode":"STATIC"})
                 else:
-                    metaIn["io_tiles"] = [{"name":inst, "addr":addr}]
+                    metaIn["io_tiles"] = [{"name":inst, "addr":addr, "mode":"STATIC"}]
 
             elif inst.startswith("io16_"):
                 # this is a data output
@@ -69,9 +69,9 @@ def parseDesignTop(meta, filename: str):
                 addr = coreirInstances[inst]["metadata"]["in2glb_0"]
                 metaOut = findIO(meta["IOs"]["outputs"], ioName)
                 if "io_tiles" in metaOut:
-                    metaOut["io_tiles"].append({"name":inst, "addr":addr})
+                    metaOut["io_tiles"].append({"name":inst, "addr":addr, "mode":"VALID"})
                 else:
-                    metaOut["io_tiles"] = [{"name":inst, "addr":addr}]
+                    metaOut["io_tiles"] = [{"name":inst, "addr":addr, "mode":"VALID"}]
 
 
 def parseDesignPlace(meta, filename: str):
@@ -128,6 +128,22 @@ def main():
         if args.place != None:
             parseDesignPlace(meta, args.place)
 
+<<<<<<< HEAD
+=======
+    if args.shuffle:
+        inputs = meta['IOs']['inputs']
+        for _input in inputs:
+            if _input['datafile'][0:5] == 'input':
+                _input['datafile'] = 'input_host_stencil_shuffle.raw'
+            elif _input['datafile'][0:6] == 'kernel':
+                _input['datafile'] = 'kernel_shuffle.raw'
+        outputs = meta['IOs']['outputs']
+        for _output in outputs:
+            if _output['datafile'][0:9] == 'hw_output':
+                _output['datafile'] = 'hw_output_shuffle.raw'
+
+
+>>>>>>> verilator-test
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
         # pprint.pprint(meta, fileout, indent=2, compact=True)

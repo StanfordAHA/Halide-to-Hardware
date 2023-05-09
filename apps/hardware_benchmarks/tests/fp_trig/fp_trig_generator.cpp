@@ -24,7 +24,7 @@ public:
         tangent(x,y) = tan(hw_input(x,y));
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u8(sine(x,y) + cosine(x,y) + tangent(x,y));
+        hw_output(x, y) = u16(sine(x,y) + cosine(x,y) + tangent(x,y));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
