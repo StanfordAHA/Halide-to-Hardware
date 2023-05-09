@@ -187,6 +187,7 @@ int main( int argc, char **argv ) {
 
     processor.inputs["bias.mat"] = Buffer<int16_t>(W, imgsize_x, imgsize_y);
     auto bias_copy_stencil = processor.inputs["bias.mat"];
+    
     //int j=1;
     //bool first = true;
     for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {

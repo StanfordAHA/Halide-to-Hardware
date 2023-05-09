@@ -197,10 +197,11 @@ public:
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
           //                another copy stage as the memory tiles
-          //hw_input.compute_root();
+
           input_host.compute_root(); // host buffer
           input_host.accelerator_input();
           //input_host.stream_to_accelerator();
+          
           input_glb.compute_at(hw_output, x_host); // global buffer
           input_cgra.compute_at(output_cgra, rz_glb);   // mem tile
 
