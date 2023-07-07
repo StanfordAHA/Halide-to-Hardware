@@ -136,7 +136,7 @@ public:
           output_cgra.bound_extent(w, mem_oc);
           kernel_cgra.bound_extent(w, mem_oc);
           input_cgra.bound_extent(z, mem_ic);
-          kernel_cgra.bound_extent(z, mem_ic);
+          //kernel_cgra.bound_extent(z, mem_ic);
           
           kernel_glb.bound(w, 0, n_oc);
           input_glb.bound(z, 0, n_ic);
@@ -190,7 +190,7 @@ public:
           output_cgra.update()
             .split(r.z, rz_glb, rz_cgra, mem_ic)
             .split(rz_cgra, rz_cgra, rz_unroll, k_ic)
-            .reorder(rz_unroll, w, rz_cgra, x, y, r.x, r.y, rz_glb);
+            .reorder(rz_unroll, w, x, y, rz_cgra, r.x, r.y, rz_glb);
 
           //Func interm_output_cgra = output_cgra.update().rfactor(r.z, z);
           //interm_output_cgra.compute_at(output_glb, x_glb);
@@ -218,7 +218,7 @@ public:
           kernel_host.compute_root(); // host buffer
           kernel_host.accelerator_input();
           kernel_glb.compute_at(hw_output, x_host); // global buffer
-          kernel_cgra.compute_at(output_cgra, rz_glb);   // mem tile
+          kernel_cgra.compute_at(output_cgra, rz_cgra);   // mem tile
 
           //input_glb.unroll(z, k_ic);
           //input_cgra.unroll(z, k_ic);
@@ -227,9 +227,10 @@ public:
             .reorder(z_cgra, x, y, z_glb);
           //.reorder(zz, x, y, z);
           kernel_cgra
-            .split(z, z_glb, z_cgra, mem_ic)
+            //.split(z, z_glb, z_cgra, mem_ic)
             .split(w, w_glb, w_cgra, mem_oc)
-            .reorder(w_cgra, z_cgra, x, y, w_glb, z_glb);
+            //.reorder(w_cgra, z_cgra, x, y, w_glb, z_glb);
+            .reorder(w_cgra, z, x, y, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
 
           // Unroll input and kernel over glb (default 1)

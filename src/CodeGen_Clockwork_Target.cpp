@@ -680,7 +680,7 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ", /*use_metamapper*/false);" << endl
          << endl
          << "        // Run interconnect agnostic tb" << endl
-         << "        auto cgra = cgra_flow_result(prg, dir);" << endl
+         << "        auto cgra = cgra_flow_result(prg, dir, " << enable_ponds << ");" << endl
          << endl
          << "        sanity_check(prg, cpu, cgra);" << endl
          << "      } else if (args[i] == \"compile_mem_use_metamapper\") {" << endl
@@ -705,7 +705,7 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ", /*use_metamapper*/true);" << endl
          << endl
          << "        // Run interconnect agnostic tb" << endl
-         << "        auto cgra = cgra_flow_result(prg, dir);" << endl
+         << "        auto cgra = cgra_flow_result(prg, dir," <<enable_ponds<< " );" << endl
          << endl
          << "        sanity_check(prg, cpu, cgra);" << endl
          << "      }" << endl
