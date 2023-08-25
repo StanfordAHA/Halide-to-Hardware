@@ -81,8 +81,8 @@ int main( int argc, char **argv ) {
     //output_tile_height = 64-8;
     //output_tile_width = 256-8;
     //output_tile_height = 192-8;
-    output_tile_width = 256-8;
-    output_tile_height = 192-8;
+    output_tile_width = 64-8;
+    output_tile_height = 96-8;
     break;
   default:
     processor.inputs_preset = false;

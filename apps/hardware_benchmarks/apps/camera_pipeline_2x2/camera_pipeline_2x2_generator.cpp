@@ -229,8 +229,8 @@ int blockSize = 9;
       return curved;
     }
 
-    const int tWidth = 256-8;
-    const int tHeight = 192-8;
+    const int tWidth = 64-8;
+    const int tHeight = 96-8;
     const int nTiles = 1;
     
     void generate() {

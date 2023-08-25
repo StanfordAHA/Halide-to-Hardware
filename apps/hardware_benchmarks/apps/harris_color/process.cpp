@@ -88,7 +88,7 @@ int main( int argc, char **argv ) {
     host_tiling_y = 10;
     //output_tile_width = 126-6;
     output_tile_width = width;
-    output_tile_height = 255;
+    output_tile_height = 127;
     //output_tile_height = 255;
     //host_tiling_x = 1;  host_tiling_y = 1;
     //output_tile_width = width;

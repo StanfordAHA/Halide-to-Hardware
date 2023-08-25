@@ -27,7 +27,7 @@ public:
         //hw_input(x, y) = input_copy(x, y);
         hw_input(x, y) = cast<uint16_t>(input(x, y));
         
-        mult(x, y) = hw_input(x,y) * 2;
+        mult(x, y) = (hw_input(x,y) + 3) + hw_input(x,y);
         hw_output(x, y) = mult(x, y);
         output(x, y) = cast<uint8_t>(hw_output(x, y));
 
