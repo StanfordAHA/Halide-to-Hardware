@@ -1,0 +1,29 @@
+{
+	"IOs": {
+		"inputs": [{
+				"name": "matrix",
+				"bitwidth": 16,
+  			"shape": [8, 8],
+				"pixels_per_cycle": 1,
+				"datafile": "bin/matrix_input_stencil.raw"
+			},
+			{
+				"name": "vector",
+				"bitwidth": 16,
+				"shape": [8],
+				"pixels_per_cycle": 1,
+				"datafile": "bin/vector_input_stencil.raw"
+			}
+    ],
+		"output": {
+			"name": "hw_output",
+			"bitwidth": 16,
+			"shape": [8],
+			"pixels_per_cycle": 1,
+      "datafile": "bin/hw_output.raw"
+		}
+	},
+	"testing": {
+		"total_cycles": -1
+	}
+}

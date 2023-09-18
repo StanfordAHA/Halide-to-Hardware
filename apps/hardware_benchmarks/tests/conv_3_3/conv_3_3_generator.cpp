@@ -40,7 +40,6 @@ public:
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
-        //conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
