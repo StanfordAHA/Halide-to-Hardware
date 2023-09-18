@@ -105,9 +105,9 @@ int main( int argc, char **argv ) {
           //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
           //continue;
           if (rand() % 100 < 60) { // 60% zero, else rand
-            input_copy_stencil(z, x, y) = 0;
+            input_copy_stencil(z, x, y) = 1/ksize;
           } else {
-            input_copy_stencil(z, x, y) = (rand() % (max_rand));
+            input_copy_stencil(z, x, y) = 1/ksize;
           }
     } } }
 
