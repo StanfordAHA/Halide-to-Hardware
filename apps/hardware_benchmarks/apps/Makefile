@@ -16,8 +16,8 @@ travis: $(TRAVIS_APPS)
 # - DNNs: resnet, mobilenet, jitnet, unet, gemm
 THESIS_STENCIL_APPS := gaussian cascade harris unsharp camera_pipeline_2x2 nlmeans \
 												lucas_kanade histogram bilateral_grid
-THESIS_HIERARCHICAL_APPS := pyramid_blur laplacian_pyramid exposure_fusion image_blend lucas_kanade_hier
-THESIS_DNN_APPS := resnet_output_stationary mobilenet_layer_gen jitnet unet gemm
+THESIS_HIERARCHICAL_APPS := pyramid_blur laplacian_pyramid exposure_fusion image_blend lucas_kanade_hierarchical
+THESIS_DNN_APPS := resnet_output_stationary mobilenet_layer_gen gemm jitnet unet
 
 THESIS_APPS := $(THESIS_STENCIL_APPS) \
 								$(THESIS_HIERARCHICAL_APPS) \

@@ -393,9 +393,10 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //std::cout << "Before unrolling:\n" << s << "\n\n";    
     debug(1) << "Unrolling...\n";
     if (t.has_feature(Target::Clockwork)) {
-      s = unroll_loops_and_merge(s);
+      s = unroll_loops_and_merge(s); // Update Coalescing
+      //s = unroll_loops(s); // This demonstrates no update coalescing
       //std::cout << "After unrolling:\n" << s << "\n\n";
-      s = inline_memory_constants(s);
+      s = inline_memory_constants(s); // Memory constant inlining
       //std::cout << "After inlining:\n" << s << "\n\n";
     } else {
       s = unroll_loops(s);

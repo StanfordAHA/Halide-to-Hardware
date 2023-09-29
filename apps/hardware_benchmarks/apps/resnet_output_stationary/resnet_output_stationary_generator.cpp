@@ -14,11 +14,29 @@ public:
     // in_img determines the input image size
     GeneratorParam<int> in_img{"in_img", 56};    // default: 56
 
+    // in_w determines the input image width
+    GeneratorParam<int> in_w{"in_w", 0};    // default: 0 (unused)
+
+      // in_h determines the input image height
+    GeneratorParam<int> in_h{"in_h", 0};    // default: 0 (unused)
+  
     // pad determines the padding to the input image size
     GeneratorParam<int> pad{"pad", 1};    // default: 1
   
     // ksize determines the output stencil size
     GeneratorParam<uint8_t> ksize{"ksize", 3};    // default: 3
+
+    // kw determines the stencil width
+    GeneratorParam<uint8_t> kw{"kw", 0};    // default: 0 (unused)
+
+    // kh determines the stencil height
+    GeneratorParam<uint8_t> kh{"kh", 0};    // default: 0 (unused)
+
+    // tw determines the output tiling width
+    GeneratorParam<uint8_t> tw{"tw", 0};    // default: 0 (unused)
+
+    // th determines the output tiling height
+    GeneratorParam<uint8_t> th{"th", 0};    // default: 0 (unused)
   
     // Stride determines the sampling rate for the down sample
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
@@ -59,19 +77,33 @@ public:
       
         //int imgsize = (in_img + 0 - ksize + 1) / stride;
         int imgsize = floor( (in_img + 2*pad - ksize) / stride ) + 1;
+        
+        int in_width = (int)in_w == 0 ? in_img : in_w;
+        assert(in_width > 0); // set in_img or in_w;
+        int k_w = (int)kw == 0 ? ksize : kw;
+        assert(k_w != 0); // set ksize or kw
+        int pad_x = k_w == 1 ? 0 : pad;
+        int img_w = floor( (in_width + 2*pad_x - k_w) / stride ) + 1;
+
+        int in_height = (int)in_h == 0 ? in_img : in_h;
+        assert(in_height > 0); // set in_img or in_h;
+        int k_h = (int)kh == 0 ? ksize : kh;
+        assert(k_h != 0); // set ksize or kh
+        int pad_y = k_h == 1 ? 0 : pad;
+        int img_h = floor( (in_height + 2*pad_y - k_h) / stride ) + 1;
       
         /* THE ALGORITHM */
 
         Var x("x"), y("y"), z("z"), w("w"), zz("zz");
 
-        Expr height = imgsize;
-        Expr width = imgsize;
+        Expr height = img_h;
+        Expr width = img_w;
         int ic_outer = (int)n_ic / (int)k_ic;
         int oc_outer = (int)n_oc / (int)k_oc;
 
         Func conv("conv");
-        RDom r(0, ksize,
-               0, ksize,
+        RDom r(0, k_w,
+               0, k_h,
                0, n_ic);
 
         conv(w, x, y) = cast<uint16_t>(0);
@@ -82,7 +114,7 @@ public:
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         if (schedule == 11) {
-          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, in_img - 1), clamp(y-pad, 0, in_img - 1)));
+          hw_input(z, x, y) = i16(input(z, clamp(x-pad_x, 0, in_img - 1), clamp(y-pad_y, 0, in_img - 1)));
           hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
           hw_output(w, x, y) = i16(0);
           hw_output(w, x, y) +=
@@ -91,7 +123,7 @@ public:
 
         } else {
           //Func hw_input("hw_input"), hw_kernel("hw_kernel");
-          hw_input(z, x, y) = i16(input(z, clamp(x-pad, 0, in_img - 1), clamp(y-pad, 0, in_img - 1)));
+          hw_input(z, x, y) = i16(input(z, clamp(x-pad_x, 0, in_img - 1), clamp(y-pad_y, 0, in_img - 1)));
           hw_kernel(z, w, x, y) = i16(kernel(z, w, x, y));
         
           //Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
@@ -121,8 +153,8 @@ public:
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 0) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
-          output.bound(x, 0, imgsize);
-          output.bound(y, 0, imgsize);
+          output.bound(x, 0, img_w);
+          output.bound(y, 0, img_h);
           output.bound(w, 0, n_oc);
           hw_output.bound(w, 0, n_oc);
 
@@ -132,7 +164,7 @@ public:
 
           int mem_oc = (int)k_oc * (int)m_oc;
           int mem_ic = (int)k_ic * (int)m_ic;
-          
+
           output_cgra.bound_extent(w, mem_oc);
           kernel_cgra.bound_extent(w, mem_oc);
           input_cgra.bound_extent(z, mem_ic);
@@ -144,7 +176,8 @@ public:
           kernel_cgra.bound_extent(z, k_ic);
           kernel_cgra.bound_extent(w, k_oc);
           
-          int gbsize = imgsize;
+          int gbsize_w = img_w;
+          int gbsize_h = img_h;
           int tilesize = ((int)stride == 2) ?
             std::min(14, imgsize) : // we want the input to be 30 max
             std::min(28, imgsize);  // min of 28 and output image size
@@ -154,7 +187,12 @@ public:
           int tilesize_y = (pad == 3) ?
             8 : // this occurs only for conv1. We need it smaller to fit
             tilesize;
-
+          if (tw > 0) {
+            tilesize = tw;
+          }
+          if (th > 0) {
+            tilesize_y = th;
+          }
 
           Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
           Var xi,yi;
@@ -167,22 +205,24 @@ public:
           hw_output.compute_root();
           //hw_output.unroll(w, k_oc);
           hw_output
-            .tile(x, y, x_host,y_host, xi,yi, gbsize,gbsize)
+            .tile(x, y, x_host,y_host, xi,yi, gbsize_w,gbsize_h)
             .reorder(w,xi,yi, x_host,y_host)
             .hw_accelerate(xi, x_host);
 
           output_glb.compute_at(hw_output, x_host); // global buffer
           output_glb
-            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y)
+            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y, TailStrategy::RoundUp)
             .split(w, w_glb, w_cgra, mem_oc)
             // reorder from inner to outermost
             .reorder(w_cgra, x_cgra, y_cgra,
                      w_glb, x_glb, y_glb);
 
           // Unroll output over glb (default 1)
-          hw_output.unroll(w, glb_o);
-          output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
-
+          if (glb_o > 1) {
+            hw_output.unroll(w, glb_o);
+            output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
+          }
+          
           output_cgra.compute_at(output_glb, w_glb); // memtile
           output_cgra
             .reorder(w, x, y);
@@ -190,7 +230,8 @@ public:
           output_cgra.update()
             .split(r.z, rz_glb, rz_cgra, mem_ic)
             .split(rz_cgra, rz_cgra, rz_unroll, k_ic)
-            .reorder(rz_unroll, w, rz_cgra, x, y, r.x, r.y, rz_glb);
+            //.reorder(rz_unroll, w, rz_cgra, x, y, r.x, r.y, rz_glb);
+            .reorder(rz_unroll, r.x, r.y, w, rz_cgra, x, y, rz_glb);
 
           //Func interm_output_cgra = output_cgra.update().rfactor(r.z, z);
           //interm_output_cgra.compute_at(output_glb, x_glb);
@@ -202,6 +243,7 @@ public:
             //.unroll(w_cgra, k_oc)
             .unroll(w, k_oc)
             .unroll(rz_unroll, k_ic); // this is the z reduction
+          output_cgra.update().unroll(r.x).unroll(r.y);
           
           // Three buffers: one at host,
           //                a copy stage as the global buffer,
@@ -233,10 +275,12 @@ public:
             //.reorder(zz, w_cgra, x, y, z, w_glb);
 
           // Unroll input and kernel over glb (default 1)
-          kernel_glb.unroll(z, glb_k); // unroll glb input for small images
-          kernel_cgra.unroll(z_cgra, glb_k); // unroll glb->cgra channels for small images
-          input_glb.unroll(z, glb_i); // unroll glb input for small images
-          input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
+          if (glb_k > 1 || glb_i > 1) {
+            kernel_glb.unroll(z, glb_k); // unroll glb input for small images
+            kernel_cgra.unroll(z_cgra, glb_k); // unroll glb->cgra channels for small images
+            input_glb.unroll(z, glb_i); // unroll glb input for small images
+            input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
+          }
 
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
@@ -368,8 +412,8 @@ public:
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 1) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
-          output.bound(x, 0, imgsize);
-          output.bound(y, 0, imgsize);
+          output.bound(x, 0, img_w);
+          output.bound(y, 0, img_h);
           output.bound(w, 0, n_oc);
           hw_output.bound(w, 0, n_oc);
 
@@ -377,6 +421,22 @@ public:
           kernel_glb.bound(z, 0, n_ic);
           input_host.bound(z, 0, n_ic);
 
+
+          int mem_oc = (int)k_oc * (int)m_oc;
+          int mem_ic = (int)k_ic * (int)m_ic;
+
+          output_cgra.bound_extent(w, mem_oc);
+          kernel_cgra.bound_extent(w, mem_oc);
+          input_cgra.bound_extent(z, mem_ic);
+          kernel_cgra.bound_extent(z, mem_ic);
+          
+          kernel_glb.bound(w, 0, n_oc);
+          input_glb.bound(z, 0, n_ic);
+          input_cgra.bound_extent(z, k_ic);
+          kernel_cgra.bound_extent(z, k_ic);
+          kernel_cgra.bound_extent(w, k_oc);
+
+          
           //output_cgra.bound(w, 0, k_oc*8);
           output_cgra.bound_extent(w, k_oc*8);
           kernel_glb.bound(w, 0, n_oc);
@@ -387,13 +447,23 @@ public:
           //output_cgra.bound_extent(w, oc_outer);
           //std::cout << "set extent to " << (int)k_ic << " and " << (int)k_oc << std::endl;
 
-          int gbsize = imgsize;
+          int gbsize_w = img_w;
+          int gbsize_h = img_h;
           int tilesize = ((int)stride == 2) ?
             std::min(14, imgsize) : // we want the input to be 30 max
             std::min(28, imgsize);  // min of 28 and output image size
-          int tilesize_y = (pad == 3) ?
-            16 : // this occurs only for conv1. We need it smaller to fit
+          tilesize = (pad == 3) ?
+            16 : // this occurs only for conv1
             tilesize;
+          int tilesize_y = (pad == 3) ?
+            8 : // this occurs only for conv1. We need it smaller to fit
+            tilesize;
+          if (tw > 0) {
+            tilesize = tw;
+          }
+          if (th > 0) {
+            tilesize_y = th;
+          }
 
           Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
           Var xi,yi;
@@ -405,13 +475,13 @@ public:
           hw_output.compute_root();
           //hw_output.unroll(w, k_oc);
           hw_output
-            .tile(x, y, x_host,y_host, xi,yi, gbsize,gbsize)
+            .tile(x, y, x_host,y_host, xi,yi, gbsize_w,gbsize_h)
             .reorder(w,xi,yi, x_host,y_host)
             .hw_accelerate(xi, x_host);
 
           output_glb.compute_at(hw_output, x_host); // global buffer
           output_glb
-            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y)
+            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y, TailStrategy::RoundUp)
             .split(w, w_glb, w_cgra, k_oc * 8)
             // reorder from inner to outermost
             .reorder(w_cgra, x_cgra, y_cgra,

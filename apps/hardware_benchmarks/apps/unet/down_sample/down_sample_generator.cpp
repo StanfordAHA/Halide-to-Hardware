@@ -55,16 +55,17 @@ public:
         // relu with the final result
         max_pooling[0][0](x,y,z) = max(0, max_pooling[1][0](x,y,z)); // relu
         max_pool(x,y,z) = max_pooling[0][0](x,y,z);
-    
-        //max_pool(x, y, z) = maximum(hw_input(x * stride + r.x, y * stride + r.y, z));
-        hw_output(x, y, z) = cast<uint8_t>(max_pool(x, y, z));
         */
+        Func max_pool("max_pool"), maximum_func("maximum_func");
+        max_pool(x, y, z) = maximum(hw_input(x * stride + r.x, y * stride + r.y, z), maximum_func);
+        maximum_func.update().unroll(r.x).unroll(r.y);
+        hw_output(x, y, z) = cast<uint8_t>(max_pool(x, y, z));
         
         /* Average pooling (instead of maximum) works using these lines) */
-        Func avg_pool("avg_pool");
-        avg_pool(x, y, z) = u16(0);
-        avg_pool(x, y, z) += hw_input(x * stride + r.x, y * stride + r.y, z);
-        hw_output(x, y, z) = avg_pool(x, y, z) / 4;
+        //Func avg_pool("avg_pool");
+        //avg_pool(x, y, z) = u16(0);
+        //avg_pool(x, y, z) += hw_input(x * stride + r.x, y * stride + r.y, z);
+        //hw_output(x, y, z) = avg_pool(x, y, z) / 4;
 
         output(x, y, z) = u8(hw_output(x, y, z));
 
@@ -74,26 +75,6 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-            Var xi, yi, xo, yo;
-            hw_input.compute_root();
-            hw_output.compute_root();
-
-            hw_output.tile(x, y, xo, yo, xi, yi, 64 / stride, 64 / stride)
-              .reorder(xi,yi,z,xo,yo)
-              //.hw_accelerate(xi, xo);
-              .accelerate({hw_input}, xi, xo);
-
-            //max_pool.unroll(x, stride)
-            //        .unroll(y, stride);
-
-            //max_pool.linebuffer();
-            avg_pool.linebuffer();
-            avg_pool.update()
-              .unroll(r.x)
-              .unroll(r.y);
-
-            //hw_input.unroll(x, 4);
-            hw_input.stream_to_accelerator();
 
         } else if (get_target().has_feature(Target::Clockwork)) {
             Var xi, yi, xo, yo;
@@ -107,10 +88,9 @@ public:
             //        .unroll(y, stride);
 
             //max_pool.linebuffer();
-            avg_pool.compute_at(hw_output, xo);
-            avg_pool.update()
-              .unroll(r.x)
-              .unroll(r.y);
+            //avg_pool.compute_at(hw_output, xo);
+            maximum_func.compute_at(hw_output, xo);
+            maximum_func.update().unroll(r.x).unroll(r.y);
 
             //hw_input.unroll(x, 4);
             //hw_input.compute_at(hw_output, xo);

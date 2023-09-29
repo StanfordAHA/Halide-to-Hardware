@@ -56,8 +56,43 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(60, 60);
+  auto env_sch = getenv("schedule");
+  auto schedule = env_sch ? atoi(env_sch) : 3;
+  std::cout << "using schedule = " << schedule << std::endl;;
+
+  int host_tiling_x, host_tiling_y, glb_tiling, output_tile_width, output_tile_height;
+  switch (schedule) {
+  case 3:
+  case 50 ... 70:
+    processor.inputs_preset = true;
+    glb_tiling = 1;
+    host_tiling_x = 9;  host_tiling_y = 5;
+    output_tile_width = 666;
+    output_tile_height = 799;
+    break;
+  default:
+    processor.inputs_preset = false;
+    host_tiling_x = 1;  host_tiling_y = 1;
+    output_tile_width = 60;
+    output_tile_height = 60;
+    glb_tiling = 1;
+    break;
+  }
+
+  int num_tiles_x        = host_tiling_x * glb_tiling;
+  int num_tiles_y        = host_tiling_y * glb_tiling;
+  int output_width       = num_tiles_x * output_tile_width;
+  int output_height      = num_tiles_y * output_tile_height;
+
+  std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
+  processor.input  = Buffer<uint8_t>(output_width+4, output_height+4);
+  processor.output = Buffer<uint8_t>(output_width, output_height);
+
+  if (schedule == 3 || schedule >= 50) {
+    // load this 6000x4000 image
+    std::cout << "Using a big tern image" << std::endl;
+    processor.input = load_and_convert_image("../../images/tern_biggray.png");
+  }
   
   return processor.process_command(argc, argv);
   

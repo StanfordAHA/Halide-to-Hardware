@@ -205,6 +205,17 @@ public:
           //hw_input.compute_at(hw_output, xo);
           //input_copy.stream_to_accelerator();
           //input_copy.compute_root();
+          std::vector<Func> fs = {hw_input.in(), blur_unnormalized,
+                                   l0, h0, f1, f1_blur_unnormalized,
+                                   l1, h1, f2,
+                                   f2_temp, f2_temp_blur_unnormalized,
+                                   l1_up, f1_up,
+                                   f1_temp, f1_temp_blur_unnormalized,
+                                   l0_up, f0_up};
+          for (auto& f : fs) {
+            f.coarse_grain_loop(y);
+          }
+          hw_output.coarse_grain_loop(yi);
           
         } else {    // schedule to CPU
 

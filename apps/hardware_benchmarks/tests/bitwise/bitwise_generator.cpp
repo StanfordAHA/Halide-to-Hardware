@@ -19,13 +19,15 @@ public:
         hw_input(x, y) = u16(input(x, y));
 
         Func bitwise_and, bitwise_or, bitwise_inv, bitwise_xor;
-        bitwise_and(x,y) = hw_input(x,y) & 235;
+        bitwise_and(x,y) = hw_input(x,y) & u64(Expr(0x1fffffffff));
         bitwise_inv(x,y) = ~( bitwise_and(x,y) );
         bitwise_or(x,y)  = hw_input(x,y) | 63;
         bitwise_xor(x,y) = bitwise_inv(x,y) ^ bitwise_or(x,y);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = bitwise_xor(x, y);
+
+            
+        hw_output(x, y) = bitwise_and(x, y);
         output(x, y) = u8(hw_output(x,y));
         
         /* THE SCHEDULE */

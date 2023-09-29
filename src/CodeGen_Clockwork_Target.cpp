@@ -643,6 +643,9 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
   stream << "#include \"cgra_flow.h\"" << endl
          << "#include \"" << appname << "_compute.h\"" << endl
          << "#include \"" << appname << "_memory.cpp\"" << endl
+         << "#include <chrono>" << endl
+         << "#include <ctime>" << endl
+         << "#include <iostream>" << endl
          << endl
          << "int main(int argc, char **argv) {" << endl
          << "  std::vector<prog> prgs = { ";
@@ -662,12 +665,16 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << "        preprocess_prog(prg);" << endl
          << endl
          << "        // Run Frontend Test, generate gold TB" << endl
-         << "        auto cpu = unoptimized_result(prg);" << endl
+         << "        //auto cpu = unoptimized_result(prg);" << endl
+         << endl
+         << "        std::time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());" << endl
+         << "        std::cerr << \"Done of clockwork unoptimized run at \" << std::ctime(&time) << endl;" << endl
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
          << std::boolalpha
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ");" << endl
+    //<< "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ");" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, true, " << enable_ponds << ", false);" << endl
          << endl
          << "      } else if (args[i] == \"compile_and_test_mem\") {" << endl
          << "        preprocess_prog(prg);" << endl
@@ -677,7 +684,8 @@ void print_clockwork_codegen(string appname, vector<string> xcels, ofstream& str
          << endl
          << "        // Run Memory Mapper and dump collateral into dir" << endl
          << "        string dir = \"./map_result\";" << endl
-         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ");" << endl
+    //<< "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ");" << endl
+         << "        compile_app_for_garnet_single_port_mem(prg, dir, /*gen_config_only=*/false, /*enable_ponds=*/" << enable_ponds << ", /*enable_metamapper=*/false);" << endl
          << endl
          << "        // Run interconnect agnostic tb" << endl
          << "        auto cgra = cgra_flow_result(prg, dir);" << endl
@@ -1438,8 +1446,11 @@ void print_dynamic_args(const vector<Expr>& args,
     auto arg = args[argi];
     ostringstream arg_print;
     if (dynamic_calls_found[argi]) {
+      //memory_stream << Expr(arg) << ", "; continue; // Use this to ignore the feasibility of dynamic loads and stores
+      
       const Call* index_call = arg.as<Call>();
       // FIXME: There is an issue if this index is shifted.
+      //break; // this allows ROMs to be generated for non-inlining
       internal_assert(index_call) << "dynamic argument must be a call:" << Expr(arg) << "\n";
 
       memory_stream << ", \"" << printname(index_call->name) << "\"";
@@ -1447,7 +1458,7 @@ void print_dynamic_args(const vector<Expr>& args,
       for (int argi=index_call->args.size()-1; argi>=0; --argi) {
         auto dynamic_index = index_call->args[argi];
         ostringstream index_print;
-        index_print << add_floor_to_divs(simplify(expand_expr(dynamic_index, scope)));
+        //index_print << add_floor_to_divs(simplify(expand_expr(dynamic_index, scope)));
         memory_stream << ", \"" << removedots(index_print.str()) << "\"";
         //std::cout << ", \"" << removedots(index_print.str()) << "\"";
       }
@@ -1983,14 +1994,17 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
   // If compute is shared, it will exist in this mapping structure.
   string func_name = printname(unique_name("hcompute_" + op->name));
+  string base_func_name = func_name.substr(0, func_name.find("_stencil")) + "_stencil";
+  string func_name_idx = func_name.substr(func_name.find("_stencil") + 8);
+
   string function_name;
-  if (compute_share_mappings.count(func_name)) {
-    auto share_info = compute_share_mappings[func_name];
-    function_name = "hcompute_" + share_info.kernel_name;
+  if (compute_share_mappings.count(base_func_name)) {
+    auto share_info = compute_share_mappings[base_func_name];
+    function_name = "hcompute_" + share_info.kernel_name + "_stencil" + func_name_idx;
     std::cout << "found compute called " << func_name
               << " that maps to " << function_name << std::endl;
   } else {
-    //std::cout << "can't find compute called " << func_name << std::endl;
+    //std::cout << "can't find shared compute mapping for " << func_name << std::endl;
     function_name = func_name;
   }
   
@@ -2023,7 +2037,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
       std::cout << "  " << func_name << "->add_dynamic_load(\""
                     << buffer_name << "\"\n";
 
-      print_dynamic_args(arg.args, arg.args_is_dynamic, scope, memory_stream);
+      //print_dynamic_args(arg.args, arg.args_is_dynamic, scope, memory_stream);
 
     } else {
       memory_stream << "  " << func_name << "->add_load(\""
@@ -2113,7 +2127,8 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
     }
 
     if (is_dynamic) {
-      compute_stream << "hw_uint<64>& ignore, ";
+      string ignore_name = unique_name("ignore");
+      compute_stream << "hw_uint<64>& " << ignore_name << ", ";
     }
 
     //uint total_bitwidth = merged_args[argname].size() * esize;
@@ -2294,10 +2309,17 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Call *op) {
   } else if (op->name == "compute_share_mapping") {
     std::cout << "found a sharing for " << Expr(op) << std::endl;
     internal_assert(op->args.size() == 3);
-    string op_name = "hcompute_" + op->args[0].as<StringImm>()->value;
-    string kernel_name = op->args[1].as<StringImm>()->value;
+    string op_name = printname("hcompute_" + op->args[0].as<StringImm>()->value);
+    string kernel_name = printname(op->args[1].as<StringImm>()->value);
     string loop_interleaving = op->args[2].as<StringImm>()->value;
+    //std::cout << "inserting a compute mapping for " << op_name << std::endl;
     compute_share_mappings[op_name] = ComputeShare({op_name, kernel_name, loop_interleaving});
+    return;
+  } else if (op->name == "coarse_grain_loop_tag") {
+    std::cout << "found a sharing for " << Expr(op) << std::endl;
+    internal_assert(op->args.size() == 1);
+    string loop_name = printname(op->args[0].as<StringImm>()->value);
+    memory_stream << "" << loop_name << "->coarse_grain_loop_tag();" << endl;
     return;
   }
   CodeGen_Clockwork_Base::visit(op);

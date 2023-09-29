@@ -181,6 +181,7 @@ $(BIN)/optimized_$(TESTNAME).cpp opt-clockwork clockwork-opt opt: $(BIN)/clockwo
 
 compile_mem compile-mem mem-clockwork clockwork-mem $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json: $(BIN)/clockwork_codegen
 #	cp /aha/MetaMapper/libs/*_header.json $(BIN)/ && cp /aha/MetaMapper/libs/*_header.json /aha/clockwork/ && cp /aha/MetaMapper/libs/*_header.json /aha/garnet/headers/
+	@echo -n "preprocessing starting at:" && date
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -566,6 +567,10 @@ eval-coreir: $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(HALIDE_GEN_ARGS) $(BIN)/process eval coreir input.$(EXT)
 
+blankresult blankresults:
+	@-mkdir -p $(BIN)
+	touch $(BIN)/results
+
 eval-loc:
 	@touch $(BIN)/results
 	echo -n "Halide loc: " >> $(BIN)/results
@@ -576,7 +581,6 @@ eval-loc:
 	wc -l $(BIN)/$(TESTNAME)_compute.h >> $(BIN)/results
 	echo -n "App mapped: " >> $(BIN)/results
 	wc -l $(BIN)/design_top.json >> $(BIN)/results
-	cat $(BIN)/results
 
 eval-resources eval-rsrcs eval-area:
 	python $(HWSUPPORT)/eval_design_top.py $(BIN)/design_top.json --resources | tee -a $(BIN)/results >&1
@@ -587,6 +591,9 @@ eval-latency:
 eval-designtop:
 	python $(HWSUPPORT)/eval_design_top.py $(BIN)/design_top.json --resources --latency | tee -a $(BIN)/results >&1
 
+eval-complexity eval-memory:
+	python $(HWSUPPORT)/eval_memory.py $(BIN)/$(TESTNAME)_memory.cpp | tee -a $(BIN)/results >&1
+
 eval-ctime eval-compiler eval-compile_time:
 	{ time $(MAKE) halide; } 2> >(tee -a $(BIN)/results >&2)
 	@echo "^timing for 'make halide'" | tee -a $(BIN)/results >&1
@@ -595,14 +602,29 @@ eval-ctime eval-compiler eval-compile_time:
 	{ time $(MAKE) mem; } 2> >(tee -a $(BIN)/results >&2)
 	@echo "^timing for 'make mem'" | tee -a $(BIN)/results >&1
 
-eval-all:
+eval-files:
+	printf '\n### lines of code ###\n' >> $(BIN)/results
+	$(MAKE) eval-loc
+	printf '\n### resource usage ###\n' >> $(BIN)/results
+	$(MAKE) eval-designtop
+	printf '\n### complexity ###\n' >> $(BIN)/results
+	$(MAKE) eval-memory
+
+eval-all: $(BIN)/halide_gen_args
+	@-mkdir -p $(BIN)
+	@touch $(BIN)/results
 	printf '\n\n########Starting new evaluation##########\n' >> $(BIN)/results
 	date >> $(BIN)/results
 	echo 'halide_gen_args:' >> $(BIN)/results
 	cat $(BIN)/halide_gen_args >> $(BIN)/results
+	printf '\n### compile time ###\n' >> $(BIN)/results
 	$(MAKE) eval-ctime
+	printf '\n### lines of code ###\n' >> $(BIN)/results
 	$(MAKE) eval-loc
+	printf '\n### resource usage ###\n' >> $(BIN)/results
 	$(MAKE) eval-designtop
+	printf '\n### complexity ###\n' >> $(BIN)/results
+	$(MAKE) eval-memory
 
 update_golden updategolden golden: $(BIN)/output_cpu.$(EXT) $(BIN)/$(TESTNAME)_memory.cpp
 	@-mkdir -p $(GOLDEN)
@@ -700,5 +722,9 @@ pnr_result:
 
 clean:
 	rm -rf $(BIN) *_debug.csv test_results
+
+clean-not-results:
+	touch $(BIN)/results
+	cp $(BIN)/results results && rm -rf $(BIN) *_debug.csv test_results && mkdir bin && cp results bin/results
 
 test: run

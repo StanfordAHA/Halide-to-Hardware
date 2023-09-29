@@ -89,26 +89,30 @@ class RenameStencilRealizes : public IRMutator {
 
       // ROMs should be flattened, so don't append ".stencil"
       auto realization_type = identify_realization(unroll_loops(Stmt(op)), op->name);
-      if (realization_type != 5) {
-        std::cout << op->name << " is a realization type " << realization_type << std::endl;
+      if (realization_type != HWMemoryType::SRAM_REALIZATION) {
+        std::cout << op->name << " is a realization type " << HWMemoryTypeToString(realization_type) << std::endl;
       }
       if (op->name == "f0.0") {
         //std::cout << Stmt(simplify(unroll_loops(op)));
       }
 
       // ROMs tagged as Stack should not be flattened
-      bool tagged_rom = func.schedule().memory_type() == MemoryType::ROM;
+      bool tagged_rom = func.schedule().memory_type() == MemoryType::ROM; (void) tagged_rom;
       bool tagged_glb = func.schedule().memory_type() == MemoryType::GLB;
+      bool tagged_mem = func.schedule().memory_type() == MemoryType::MemoryTile;
+      bool tagged_pnd = func.schedule().memory_type() == MemoryType::Pond;
 
-      string op_name;
+      string op_name = op->name;
       if (tagged_glb) {
-        op_name = op->name + ".glb";
-      } else {
-        op_name = op->name;
+        op_name += ".glb";
+      } else if (tagged_mem) {
+        op_name += ".mem";
+      } else if (tagged_pnd) {
+        op_name += ".pond";
       }
-
-      if (!tagged_rom &&
-          (realization_type != ROM_REALIZATION &&
+      
+      if (!tagged_rom && // identifying ROM
+          (realization_type != ROM_REALIZATION && // identifying ROM
            realization_type != CONSTS_REALIZATION &&
            (in_xcel || func.schedule().is_accelerator_input()))) {
         // roms should be allocates, not stencil realizes

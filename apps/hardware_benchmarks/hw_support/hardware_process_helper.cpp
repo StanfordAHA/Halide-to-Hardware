@@ -236,7 +236,9 @@ int OneInOneOut_ProcessController<TI,TO>::make_eval_def(std::vector<std::string>
   std::string hardware_name = args[0];
   std::function<void()> run_call = run_calls.at(hardware_name);
   // Timing code
-  double min_t_manual = benchmark(10, 10, [&]() {
+  //  benchmark(num_samples, num_iterations)
+  //  Take minimum of after sample runs. Average across iterations.
+  double min_t_manual = benchmark(30, 30, [&]() {
       run_call();
     });
   printf("Manually-tuned time: %gms\n", min_t_manual * 1e3);

@@ -23,7 +23,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint8_t,float> processor("lucas_kanade", {"input0.png", "input1.png"});
+  ManyInOneOut_ProcessController<uint8_t,uint8_t> processor("lucas_kanade", {"input0.png", "input1.png"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -62,7 +62,24 @@ int main( int argc, char **argv ) {
     processor.inputs["input1.png"] = Buffer<uint8_t>(64,64);
 
     processor.inputs_preset = true;
-    processor.output = Buffer<float>(64, 64, 2);
+    processor.inputs["input0.png"] = load_and_convert_image("input0.png");
+    processor.inputs["input1.png"] = load_and_convert_image("input1.png");
+    auto input = processor.inputs["input0.png"];
+    std::cout << "input is: " << input.dim(0).extent() << " x " << input.dim(1).extent() << std::endl;
+    processor.output = Buffer<uint8_t>(input.dim(0).extent(), input.dim(1).extent(), 3);
+
+    // Below is a method that converts a color image to a gray image.
+    Buffer<uint8_t> seagull = load_and_convert_image("../../images/seagull4.png");
+    Buffer<uint8_t> new_seagull = Buffer<uint8_t>(128, 128);
+    for (int y = 0; y < seagull.dim(1).extent(); y++) {
+      for (int x = 0; x < seagull.dim(0).extent(); x++) {
+        new_seagull(x, y) = (seagull(x, y, 0)*77 + 150*seagull(x, y, 1) + seagull(x, y, 2)*29) / 256;
+      }
+    }
+    std::string output_filename = "bin/gray_seagull.png";
+    convert_and_save_image(new_seagull, output_filename);
+    std::cout << "gray bird written" << std::endl;
+    
 
     return processor.process_command(argc, argv);
 }

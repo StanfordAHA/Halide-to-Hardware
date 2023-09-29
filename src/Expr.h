@@ -404,12 +404,18 @@ enum class MemoryType {
      * on Hexagon */
     VTCM,
 
-    /** ROM for cgra */
+    /** ROM for CGRA */
     ROM,
 
-    /** Global Buffer for cgra */
+    /** Global Buffer for CGRA */
     GLB,
 
+    /** Memory tile for CGRA */
+    MemoryTile,
+
+    /** Pond for CGRA */
+    Pond,
+    
     /** Host memory outside accelerator */
     Host,
 

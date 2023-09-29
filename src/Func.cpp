@@ -3147,6 +3147,15 @@ Stage &Stage::compute_share(Stage compute_root) {
   return *this;
 }
 
+Stage &Stage::coarse_grain_loop(Var loop) {
+  function.schedule().shared_compute_level()[stage_index] = LoopLevel(function, loop).lock();
+  std::cout << "setting the coarse-grain loop for " << function.name()
+            << " update=" << std::to_string(stage_index) << std::endl;
+
+  return *this;
+
+}
+
 Func &Func::compute_share_root(Var loop) {
   func.schedule().is_compute_parent() = true;
   func.schedule().is_compute_shared() = true;
@@ -3172,6 +3181,13 @@ Func &Func::compute_share(Func compute_root) {
   std::cout << "saved the shared mapping as " << name() << " -> "
             << func.schedule().shared_parent_stage()[0] << std::endl;
   
+  return *this;
+}
+
+Func &Func::coarse_grain_loop(Var loop) {
+  func.schedule().shared_compute_level()[0] = LoopLevel(func, loop).lock();
+  std::cout << "setting the coarse-grain loop for " << name() << std::endl;
+
   return *this;
 }
 

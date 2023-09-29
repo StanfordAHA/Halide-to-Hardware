@@ -144,10 +144,13 @@ public:
                      w_glb, x_glb, y_glb)
             .unroll(w_cgra, k_oc);
 
-          if (imgsize == 7) {
-            //output_glb.unroll(w, 2); // unroll cgra->glb channels for small images
-          }
 
+          int glb_o = 1;
+          if (glb_o > 1) {
+            hw_output.unroll(w, glb_o);
+            output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
+          }
+          
           //output_cgra.compute_at(output_glb, w_glb); // memtile
           //output_cgra
           //  .reorder(w, x, y);
@@ -210,7 +213,6 @@ public:
             input_cgra.unroll(z, 2); // unroll glb->cgra channels for small images
           }
 
-
           //input_glb.unroll(z, k_ic);
           //input_cgra.unroll(z, k_ic);
           //input_cgra
@@ -226,6 +228,21 @@ public:
             .split(w, w_glb, w_cgra, k_oc)
             .reorder(z_cgra, w_cgra, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
+
+          int glb_k = 1;
+          int glb_i = 1;
+
+          if (glb_k > 1) {
+            filter_dw_glb.unroll(z, glb_k); // unroll glb input for small images
+            filter_dw_cgra.unroll(z_cgra, glb_k); // unroll glb input for small images
+            filter_pw_glb.unroll(z, glb_k); // unroll glb input for small images
+            filter_pw_cgra.unroll(z_cgra, glb_k); // unroll glb input for small images
+          }
+          if (glb_i > 1) {
+            input_glb.unroll(z, glb_i); // unroll glb input for small images
+            input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
+          }
+
           
         } else {  // schedule to CPU
           output_cgra.compute_root();

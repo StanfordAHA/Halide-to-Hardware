@@ -12,10 +12,16 @@ public:
   //Input<int> search_area{"search_area"}; // default is 7
     //Input<float> sigma{"sigma"}; // default is 0.12
 
+    GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 0
+    GeneratorParam<uint16_t> myunroll{"myunroll", 1};    // default: 1
+    GeneratorParam<uint16_t> mywidth{"mywidth", 32};      // default: 294
+    GeneratorParam<uint16_t> myheight{"myheight", 0};      // default: 0 (not used)
+
     Output<Buffer<uint8_t>> output{"output", 3};
 
-  const int patch_size = 7;
-
+    const int patch_size = 5;
+    const float patch_size_f = 5.f;
+  
     void generate() {
         /* THE ALGORITHM */
 
@@ -26,7 +32,8 @@ public:
 
         //Expr inv_sigma_sq = -1.0f / (sigma * sigma * patch_size * patch_size);
         //Expr inv_sigma_sq = -69 / (patch_size * patch_size);
-        Expr inv_sigma_sq = -1.0f / (0.12f * 0.12f * 7.f * 7.f);
+
+        Expr inv_sigma_sq = -1.0f / (0.12f * 0.12f * patch_size_f * patch_size_f);
 
         // Add a boundary condition
         Func hw_input, hw_input_bfloat, reordered;
@@ -97,19 +104,19 @@ public:
         if (auto_schedule) {
             // nothing
         } else if (get_target().has_feature(Target::Clockwork)) {
-          int outputSize = 64;
-          int tileSize = 32;
+          //int outputSize = 64;
+          int tileWidth = mywidth;
+          int tileHeight = myheight==0 ? tileWidth : myheight;
             
-          output.bound(x, 0, outputSize);
-          output.bound(y, 0, outputSize);
+          output.bound(x, 0, tileWidth);
+          output.bound(y, 0, tileHeight);
           output.bound(c, 0, 3);
-
 
           hw_output.compute_root();
 
           Var xi, xo, yi, yo;
           hw_output
-            .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
+            .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
             .reorder(c, xi, yi, xo, yo)
             .reorder_storage(c, x, y)
             .hw_accelerate(xi, xo);
@@ -156,7 +163,7 @@ public:
             .unroll(c);
           //non_local_means_sum.update().reorder(c, x, y, s_dom.x, s_dom.y);
           non_local_means_sum.update().reorder(c, x, y)
-            //.unroll(s_dom.x).unroll(s_dom.y)
+            .unroll(s_dom.x).unroll(s_dom.y)
             .unroll(c);
 
           hw_input.in().reorder(c, x, y).unroll(c);

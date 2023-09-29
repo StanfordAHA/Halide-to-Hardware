@@ -36,22 +36,23 @@ include ../../hw_support/Makefile.inc
 TESTNAME                        = mobilenet_output_stationary
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
-RDAI_PLATFORM_RUNTIME           = clockwork_sim
+#RDAI_PLATFORM_RUNTIME           = clockwork_sim
+RDAI_PLATFORM_RUNTIME           = clockwork_sim-enable_ponds
 EXT                             = mat
 
 # Set enviroment variable to set these:
 # HALIDE_GEN_ARGS ?= ksize=3 stride=2 k_ic=10 k_oc=3 in_img=64
 
 # mobilenet layers include:
-#  conv1:   HALIDE_GEN_ARGS="in_img=112 pad=1 ksize=3 stride=1 n_ic=32   n_oc=64   k_ic=4 k_oc=16"
-#  conv2:   HALIDE_GEN_ARGS="in_img=112 pad=1 ksize=3 stride=2 n_ic=64   n_oc=128  k_ic=4 k_oc=16"
-#  conv3:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 n_ic=128  n_oc=128  k_ic=4 k_oc=16"
-#  conv4:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 n_ic=128  n_oc=256  k_ic=4 k_oc=16"
-#  conv5:   HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 n_ic=256  n_oc=256  k_ic=4 k_oc=16"
-#  conv6:   HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 n_ic=256  n_oc=512  k_ic=4 k_oc=16"
-#  conv7:   HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=1 n_ic=512  n_oc=512  k_ic=4 k_oc=16"
-#  conv8:   HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 n_ic=512  n_oc=1024 k_ic=4 k_oc=16"
-#  conv9:   HALIDE_GEN_ARGS="in_img=7   pad=4 ksize=3 stride=2 n_ic=1024 n_oc=1024 k_ic=4 k_oc=16"
+#  conv1:   HALIDE_GEN_ARGS="in_img=112 pad=1 ksize=3 stride=1 n_ic=32   n_oc=64   k_ic=4 k_oc=8"
+#  conv2:   HALIDE_GEN_ARGS="in_img=112 pad=1 ksize=3 stride=2 n_ic=64   n_oc=128  k_ic=4 k_oc=8"
+#  conv3:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=1 n_ic=128  n_oc=128  k_ic=4 k_oc=8"
+#  conv4:   HALIDE_GEN_ARGS="in_img=56  pad=1 ksize=3 stride=2 n_ic=128  n_oc=256  k_ic=4 k_oc=8"
+#  conv5:   HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=1 n_ic=256  n_oc=256  k_ic=4 k_oc=8"
+#  conv6:   HALIDE_GEN_ARGS="in_img=28  pad=1 ksize=3 stride=2 n_ic=256  n_oc=512  k_ic=4 k_oc=8"
+#  conv7:   HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=1 n_ic=512  n_oc=512  k_ic=4 k_oc=8"
+#  conv8:   HALIDE_GEN_ARGS="in_img=14  pad=1 ksize=3 stride=2 n_ic=512  n_oc=1024 k_ic=4 k_oc=8"
+#  conv9:   HALIDE_GEN_ARGS="in_img=7   pad=4 ksize=3 stride=2 n_ic=1024 n_oc=1024 k_ic=4 k_oc=8"
 
 # resnet for reference
 #  conv1:   HALIDE_GEN_ARGS="in_img=224 pad=3 ksize=7 stride=2 n_ic=3   n_oc=64  k_ic=3 k_oc=16"

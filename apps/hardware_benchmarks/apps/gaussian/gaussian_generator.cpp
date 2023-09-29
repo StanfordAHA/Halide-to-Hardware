@@ -18,7 +18,8 @@ public:
     Output<Buffer<uint8_t>> output{"output", 2};
   
     GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 3
-    GeneratorParam<uint16_t> mywidth{"mywidth", 368};    // default: 368
+    GeneratorParam<uint16_t> mywidth{"mywidth", 992};    // old default 368
+    GeneratorParam<uint16_t> myheight{"myheight", 0};    // default: don't use
     GeneratorParam<uint16_t> myunroll{"myunroll", 16};   // default: 16
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
@@ -177,10 +178,14 @@ public:
             //const int tileWidth = 42; // for unroll=14
             //const int tileWidth = 256;
             const int tileWidth = mywidth;
-            const int tileHeight = 196;
+            //const int tileHeight = 799;
+            const int tileHeight = myheight==0 ? 480 : myheight;
+            //const int tileHeight = 196;
             //const int tileHeight = 62;
-            const int numHostTilesX = 16-0;
-            const int numHostTilesY = 20-0;
+            const int numHostTilesX = 1;//6;
+            const int numHostTilesY = 1;//5;
+            //const int numHostTilesX = 16-0;
+            //const int numHostTilesY = 20-0;
             //const int numHostTilesX = 1;
             //const int numHostTilesY = 1;
             const int numTiles = 1;
@@ -236,6 +241,8 @@ public:
             
             hw_input.compute_root()
               .accelerator_input();
+
+            kernel.unroll(x).unroll(y).compute_at(hw_output, xio);
 
           } else if (schedule == 31) {
             // do the big tern and unroll

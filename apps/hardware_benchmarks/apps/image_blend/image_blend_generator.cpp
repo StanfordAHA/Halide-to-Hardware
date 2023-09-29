@@ -21,19 +21,20 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
     Output<Buffer<uint8_t>> output{"output", 3};
 
     int pyramid_levels = 3;
-    int16_t ksize = 23;
+    //int16_t ksize = 23;
+    int16_t ksize = 1;
     int16_t shift = 11;
-    int16_t scale = 512; // this is the weight scaling used until pyramid blending
+    int16_t scale = 256; // this is the weight scaling used until pyramid blending. 512 is too large
     
     void generate() {
 
       Func hw_input_right, hw_input_right8, hw_input_left, hw_input_left8;
-      //hw_input_right(x,y,c) = u16(input_right(x+shift, y+shift, c));
+      //hw_input_right(x,y,c) = i16(input_right(x+shift, y+shift, c));
       hw_input_right8 = Halide::BoundaryConditions::repeat_edge(input_right);
-      hw_input_right(x,y,c) = u16(hw_input_right8(x,y,c));
-      //hw_input_left(x,y,c) = u16(input_left(x+shift, y+shift, c));
+      hw_input_right(x,y,c) = i16(hw_input_right8(x,y,c));
+      //hw_input_left(x,y,c) = i16(input_left(x+shift, y+shift, c));
       hw_input_left8 = Halide::BoundaryConditions::repeat_edge(input_left);
-      hw_input_left(x,y,c) = u16(hw_input_left8(x,y,c));
+      hw_input_left(x,y,c) = i16(hw_input_left8(x,y,c));
 
       // Create exposure weight: make it three regions:
       //        regions: left, blend, right
@@ -46,21 +47,23 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       int16_t regionR = length/2 + blend_len/2;
       int16_t shift = regionL;
       int16_t slope = scale / blend_len;
-      weight_left(x,y,c)   = i16(select(x < regionL, scale,
-                                        x > regionR, i16(0),
-                                        scale - (x-shift) * slope));
-      weight_right(x,y,c)  = i16(select(x < regionL, i16(0),
-                                        x > regionR, scale,
-                                        (x-shift) * slope));
+      //weight_left(x,y,c)   = i16(select(x < regionL, scale,
+      weight_left(x,y)   = i16(select(x < regionL, scale,
+                                    x > regionR, i16(0),
+                                    scale - (x-shift) * slope));
+      //weight_right(x,y,c)  = i16(select(x < regionL, i16(0),
+      weight_right(x,y)  = i16(select(x < regionL, i16(0),
+                                    x > regionR, scale,
+                                    (x-shift) * slope));
       
-      weight_left_norm(x,y,c)  = weight_left(x,y,c);
-      weight_right_norm(x,y,c) = weight_right(x,y,c);
+      //weight_left_norm(x,y,c)  = weight_left(x,y,c);
+      //weight_right_norm(x,y,c) = weight_right(x,y,c);
 
       // Create gaussian pyramids of the weights
       vector<Func> left_weight_gpyramid(pyramid_levels);
       vector<Func> right_weight_gpyramid(pyramid_levels);
-      left_weight_gpyramid  = gaussian_pyramid(weight_left_norm, pyramid_levels, "lweight");
-      right_weight_gpyramid = gaussian_pyramid(weight_right_norm, pyramid_levels, "rweight");
+      left_weight_gpyramid  = gaussian_pyramid(weight_left, pyramid_levels, "lweight");
+      right_weight_gpyramid = gaussian_pyramid(weight_right, pyramid_levels, "rweight");
 
       // Create laplacian pyramids of the input images
       vector<Func> left_input_lpyramid(pyramid_levels);
@@ -75,10 +78,10 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       // Merge the input pyramids using the weight pyramids
       vector<Func> merged_pyramid(pyramid_levels);
       merged_pyramid = merge_pyramids(left_weight_gpyramid,
-                                      right_weight_gpyramid,
-                                      left_input_lpyramid,
-                                      right_input_lpyramid,
-                                      "merge_pyr");
+                                         right_weight_gpyramid,
+                                         left_input_lpyramid,
+                                         right_input_lpyramid,
+                                         "merge_pyr");
 
       // Collapse the merged pyramid to create a single image
       Func blended_image;
@@ -90,18 +93,20 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       hw_output(x,y,c) = blended_image(x,y,c);
       //hw_output(x,y,c) = left_input_lpyramid[pyramid_levels-1](x,y,c);
       //hw_output(x,y,c) = left_input_gpyramid[pyramid_levels-1](x,y,c);
+      //hw_output(x,y,c) = merged_pyramid[pyramid_levels-1](x,y,c);
 
       output(x,y,c) = u8(hw_output(x,y,c));
 
       output.bound(c, 0, 3);
-      output.bound(x, 0, 128-ksize+1);
-      output.bound(y, 0, 128-ksize+1);
 
         
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
 
       } else if (get_target().has_feature(Target::Clockwork)) {
+
+        output.bound(x, 0, 128-ksize+1);
+        output.bound(y, 0, 128-ksize+1);
 
         hw_output.compute_root();
 
@@ -113,7 +118,8 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
         blended_image.compute_at(hw_output, xo);
 
         for (size_t i=0; i<merged_pyramid.size(); ++i) {
-          merged_pyramid[i].compute_at(hw_output, xo);
+          upsampled[i].compute_at(hw_output, xo);
+          //merged_pyramid[i].compute_at(hw_output, xo);
           
           left_input_lpyramid[i].compute_at(hw_output, xo);
           right_input_lpyramid[i].compute_at(hw_output, xo);
@@ -152,13 +158,23 @@ private:
     //    downy(x,y,_) = (downx(x, 2*y-1, _) + 3.0f * (downx(x, 2*y, _) + downx(x, 2*y+1, _)) + downx(x, 2*y+2, _)) / 8.0f;
     //    return downy;
     //}
+
     Func downsample(Func f) {
       using Halide::_;
-      Func down;
-      down(x,y,_) = f(x*2, y*2, _);
+      RDom win(0, 2, 0, 2);
+      Func down_acc, down;
+      //down_acc(x,y,_) += f(x*2 + win.x, y*2 + win.y, _);
+      //down(x,y,_) = down_acc(x,y,_) / 4;
+      down(x,y,_) = ( f(x*2,y*2,_) + f(x*2+1,y*2,_) + f(x*2,y*2+1,_) + f(x*2+1,y*2+1,_) ) / 4;
       return down;
     }
     
+    Func downsample_1d(Func f) {
+      using Halide::_;
+      Func down;
+      down(x,_) = ( f(x*2,_) + f(x*2+1,_) ) / 2;
+      return down;
+    }
     // Upsample using bilinear interpolation (1 3 3 1)
     //Func upsample(Func f) {
     //    using Halide::_;
@@ -193,6 +209,27 @@ private:
 
       return gPyramid;
     }
+
+    // Create a gaussian pyramid for a 1d vector
+    vector<Func> gaussian_pyramid_1d(Func f, int num_levels, std::string name) {
+      using Halide::_;
+      
+      vector<Func> gPyramid(num_levels);
+      fill_funcnames(gPyramid, name + "_gpyr");
+      std::cout << "pyramid has " << num_levels << " levels" << std::endl;
+      
+      gPyramid[0](x,_) = f(x,_);
+
+      for (int j = 1; j < num_levels; j++) {
+        std::cout << "connecting " << j << " to " << j-1<< std::endl;
+        gPyramid[j](x,_) = downsample_1d(gPyramid[j-1])(x,_);
+      }
+
+      std::cout << "next" << std::endl;
+
+      return gPyramid;
+    }
+
 
     // Create a laplacian pyramid
     vector<Func> laplacian_pyramid(Func f, int num_levels, vector<Func> &gPyramid, std::string name) {
@@ -229,7 +266,28 @@ private:
       for (int i=0; i<num_levels; ++i) {
         blended_pyramid[i](x,y,_) =
           (weights0[i](x,y,_) * img0[i](x,y,_) +
+          //(0 +
            weights1[i](x,y,_) * img1[i](x,y,_)) / scale;
+      }
+      
+      return blended_pyramid;
+    }
+    // Blend two pyramids together with weights
+    vector<Func> merge_pyramids_1d(vector<Func> weights0, vector<Func> weights1,
+                                   vector<Func> img0, vector<Func> img1, std::string name) {
+      using Halide::_;
+      
+      assert(weights0.size() == weights1.size());
+      assert(weights0.size() == img0.size());
+      assert(weights0.size() == img1.size());
+      int num_levels = weights0.size();
+      
+      vector<Func> blended_pyramid(num_levels);
+      fill_funcnames(blended_pyramid, name);
+      for (int i=0; i<num_levels; ++i) {
+        blended_pyramid[i](x,y,_) =
+          (weights0[i](x,_) * img0[i](x,y,_) +
+           weights1[i](x,_) * img1[i](x,y,_)) / scale;
       }
       
       return blended_pyramid;

@@ -15,6 +15,10 @@ public:
     GeneratorParam<int> myunroll{"myunroll", 8};     // default: 8
     GeneratorParam<int> schedule{"schedule", 0};     // default: 0
 
+    // io_unroll determines the input and output unrolling
+    GeneratorParam<int> io_unroll{"io_unroll", 1};    // default: 1
+
+
     void generate() {
         /* THE ALGORITHM */
 
@@ -62,6 +66,7 @@ public:
           hw_output
               .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
               .reorder(xi,yi, xo,yo)
+              .unroll(xi, io_unroll)
               .hw_accelerate(xi, xo);
 
           //kernel.compute_at(hw_output, xo);
@@ -73,13 +78,19 @@ public:
             .split(r.x, rxo, rxi, myunroll)
             .split(x, xo, xi, myunroll)
             .reorder(xi, rxi, xo, rxo, y)
-            .unroll(xi, myunroll).unroll(rxi, myunroll);
+            //.reorder(rxi, xi, rxo, xo, y)
+            //.reorder(xi, rxi, rxo, xo, y)
+            .unroll(rxi, myunroll).unroll(xi, myunroll);
             //.reorder(x, r.x, y)
             //.unroll(x, unroll).unroll(r.x, unroll);
             //.unroll(r.x, unroll).unroll(x, unroll);
 
+          //hw_input.unroll(x, io_unroll).stream_to_accelerator();
           hw_input.stream_to_accelerator();
+          hw_input.in().unroll(x, io_unroll);
+          //hw_kernel.unroll(x, io_unroll).stream_to_accelerator();
           hw_kernel.stream_to_accelerator();
+          hw_kernel.in().unroll(x, io_unroll);
 
         } else {  // schedule to CPU
           hw_output.compute_root();

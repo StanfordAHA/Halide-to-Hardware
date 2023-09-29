@@ -56,11 +56,13 @@ int main( int argc, char **argv ) {
   // Add all defined functions
   processor.run_calls = functions;
 
-  int ksize = 23;
+  //int ksize = 23;
+  int ksize = 1;
+  int imgsize = 128;
 
-  processor.inputs["in_bright.png"] = Buffer<uint8_t>(64, 64, 3);
-  processor.inputs["in_dark.png"]   = Buffer<uint8_t>(64, 64, 3);
-  processor.output                  = Buffer<uint8_t>(64-ksize+1, 64-ksize+1, 3);
+  processor.inputs["in_bright.png"] = Buffer<uint8_t>(imgsize, imgsize, 3);
+  processor.inputs["in_dark.png"]   = Buffer<uint8_t>(imgsize, imgsize, 3);
+  processor.output                  = Buffer<uint8_t>(imgsize-ksize+1, imgsize-ksize+1, 3);
   
   auto cmd_output = processor.process_command(argc, argv);
 

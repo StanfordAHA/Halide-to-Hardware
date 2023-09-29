@@ -35,7 +35,7 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME                        = cascade
 USE_COREIR_VALID                = 1
-HL_TARGET                       = host-x86-64
+HL_TARGET                       = host-x86-64-disable_llvm_loop_unroll-disable_llvm_loop_vectorize
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
 
 

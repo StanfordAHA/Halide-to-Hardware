@@ -1849,6 +1849,7 @@ bool validate_schedule(Function f, const Stmt &s, const Target &target, bool is_
         return true;
     }
 
+
     bool store_at_ok = false, compute_at_ok = false;
     const vector<ComputeLegalSchedules::Site> &sites = legal.sites_allowed;
     size_t store_idx = 0, compute_idx = 0;
@@ -1861,6 +1862,32 @@ bool validate_schedule(Function f, const Stmt &s, const Target &target, bool is_
             compute_at_ok = store_at_ok;
             compute_idx = i;
         }
+    }
+
+    // Check the coarse loops
+    bool uses_coarse_loops = f.schedule().shared_compute_level().size() > 0;
+    bool coarse_loop_ok = true;
+    if (uses_coarse_loops) {
+      for (auto& coarse_loop : f.schedule().shared_compute_level()) {
+        bool this_coarse_loop_ok = false;
+        // FIXME: how to check that the loop is correct
+        (void) coarse_loop;
+        for (size_t i = 0; i < sites.size(); i++) {
+          if (sites[i].loop_level.match(coarse_loop.second)) {
+            //this_coarse_loop_ok = true;
+          }
+        }
+        this_coarse_loop_ok = true;
+
+        if (!this_coarse_loop_ok) {
+          std::ostringstream err;
+          err << "Func \"" << f.name() << "\" has an invalid coarse-grain loop: " << coarse_loop.second << "\n";
+          //PrintUsesOfFunc printer(f.name(), err);
+          //s.accept(&printer);
+          user_error << err.str();
+          coarse_loop_ok = false;
+        }
+      }
     }
 
     // Check there isn't a parallel loop between the compute_at and the store_at
@@ -1878,7 +1905,7 @@ bool validate_schedule(Function f, const Stmt &s, const Target &target, bool is_
         }
     }
 
-    if (!store_at_ok || !compute_at_ok) {
+    if (!store_at_ok || !compute_at_ok || !coarse_loop_ok) {
         err << "Func \"" << f.name() << "\" is computed at the following invalid location:\n"
             << "  " << schedule_to_source(f, store_at, compute_at) << "\n"
             << "Legal locations for this function are:\n";

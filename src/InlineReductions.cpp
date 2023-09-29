@@ -137,6 +137,18 @@ Expr maximum(Expr e, const std::string &name) {
     return maximum(RDom(), e, name);
 }
 
+Expr maximum(Expr e, const Func &f, const std::string &name) {
+    Internal::FindFreeVars v(RDom(), name);
+    e = v.mutate(common_subexpression_elimination(e));
+
+    user_assert(v.rdom.defined()) << "Expression passed to maximum must reference a reduction domain";
+
+    f(v.free_vars) = e.type().min();
+    f(v.free_vars) = max(f(v.free_vars), e);
+    return f(v.call_args);
+}
+
+
 Expr maximum(RDom r, Expr e, const std::string &name) {
     Internal::FindFreeVars v(r, name);
     e = v.mutate(common_subexpression_elimination(e));

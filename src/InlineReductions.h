@@ -36,6 +36,7 @@ namespace Halide {
 Expr sum(Expr, const std::string &s = "sum");
 Expr product(Expr, const std::string &s = "product");
 Expr maximum(Expr, const std::string &s = "maximum");
+Expr maximum(Expr, const Func &f, const std::string &s = "maximum");
 Expr minimum(Expr, const std::string &s = "minimum");
 //@}
 

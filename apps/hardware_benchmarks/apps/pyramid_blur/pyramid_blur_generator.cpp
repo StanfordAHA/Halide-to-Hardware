@@ -13,7 +13,7 @@ using namespace Halide::ConciseCasts;
 
 // Size of blur for gradients.
 const int blockSize = 2; // this is controlled below, not here
-int num_levels = 5;
+int num_levels = 4;
 //int imgSize = 4;//64-(blockSize-1)*num_levels;
 int imgSize = 8;
 
@@ -21,6 +21,8 @@ class PyramidGaussianBlur : public Halide::Generator<PyramidGaussianBlur> {
 public:
     Input<Buffer<uint8_t>>  input{"input", 2};
     Output<Buffer<uint8_t>> output{"output", 2};
+
+    GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
 
     void generate() {
         /* THE ALGORITHM */
@@ -94,7 +96,7 @@ public:
         blur0(x, y) = (kernel(0,0) * ha_in(2*x,2*y) + kernel(1,0) * hw_in(2*x+1,2*y) + kernel(0,1) * hw_in(2*x,2*y+1) + kernel(1,1) * hw_in(2*x+1,2*y+1)) / 4;
         blur1(x, y) = (kernel(0,0) * blur0(2*x,2*y) + kernel(1,0) * blur0(2*x+1,2*y) + kernel(0,1) * blur0(2*x,2*y+1) + kernel(1,1) * blur0(2*x+1,2*y+1)) / 4;
         blur2(x, y) = (kernel(0,0) * blur1(2*x,2*y) + kernel(1,0) * blur1(2*x+1,2*y) + kernel(0,1) * blur1(2*x,2*y+1) + kernel(1,1) * blur1(2*x+1,2*y+1)) / 4;
-        blur3(x, y) = (kernel(0,0) * blur2(2*x,2*y) + kernel(1,0) * blur2(2*x+1,2*y) + kernel(0,1) * blur2(2*x,2*y+1) + kernel(1,1) * blur2(2*x+1,2*y+1)) / 4;
+        //blur3(x, y) = (kernel(0,0) * blur2(2*x,2*y) + kernel(1,0) * blur2(2*x+1,2*y) + kernel(0,1) * blur2(2*x,2*y+1) + kernel(1,1) * blur2(2*x+1,2*y+1)) / 4;
         
         // 3x3 conv
         //blur0(x, y) = kernel(0,0) * ha_in(2*x,2*y) + kernel(1,0) * hw_in(2*x+1,2*y) + kernel(0,1) * hw_in(2*x,2*y+1) + kernel(1,1) * hw_in(2*x+1,2*y+1) + kernel(1,2) * hw_in(2*x+1,2*y+2) + kernel(2,1) * hw_in(2*x+2,2*y+1) + kernel(2,2) * hw_in(2*x+2,2*y+2) + kernel(0,2) * hw_in(2*x+0,2*y+2) + kernel(2,0) * hw_in(2*x+2,2*y+0);
@@ -116,7 +118,7 @@ public:
 
         Func hw_output;
         //hw_output(x, y) = blur[num_levels-1](x, y);
-        hw_output(x, y) =  blur3(x, y);
+        hw_output(x, y) =  blur2(x, y);
         output(x, y) = cast<uint8_t>( hw_output(x, y) );
 
         /* THE SCHEDULE */
@@ -127,19 +129,171 @@ public:
           output.bound(x, 0, imgSize);
           output.bound(y, 0, imgSize);
 
-          hw_output.compute_root();
+          if (schedule == 0) {
+            hw_output.compute_root();
 
-          hw_output
-            .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
-            .hw_accelerate(xi, xo);
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+              .hw_accelerate(xi, xo);
 
-          blur3.compute_at(hw_output, xo);
-          blur2.compute_at(hw_output, xo);
-          blur1.compute_at(hw_output, xo);
-          blur0.compute_at(hw_output, xo);
+            blur3.compute_at(hw_output, xo);
+            blur2.compute_at(hw_output, xo);
+            blur1.compute_at(hw_output, xo);
+            blur0.compute_at(hw_output, xo);
 
 
-          hw_in.stream_to_accelerator();
+            hw_in.stream_to_accelerator();
+            
+          } else if (schedule == 1) {
+            // Share the compute kernels
+            hw_output.compute_root();
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+              .hw_accelerate(xi, xo);
+
+            blur3.compute_at(hw_output, xo);
+            blur2.compute_at(hw_output, xo);
+            blur1.compute_at(hw_output, xo);
+            blur0.compute_at(hw_output, xo);
+
+            // Share the compute kernels
+            blur3.compute_share_root(y);
+            blur2.compute_share(blur3);
+            blur1.compute_share(blur3);
+            blur0.compute_share(blur3);
+
+            // Assign coarse-grain loops
+            std::vector<Func> funcs = {blur3, blur2, blur1, blur0, hw_in.in()};
+            for (auto& func : funcs) {
+              func.coarse_grain_loop(y);
+            }
+            hw_output.coarse_grain_loop(yi);
+
+            hw_in.stream_to_accelerator();
+
+          } else if (schedule == 2) {
+            // Shared compute kernels; unroll x dim by 2
+            hw_output.compute_root();
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+              .hw_accelerate(xi, xo);
+
+            blur3.compute_at(hw_output, xo).unroll(x, 2);
+            blur2.compute_at(hw_output, xo).unroll(x, 2);
+            blur1.compute_at(hw_output, xo).unroll(x, 2);
+            blur0.compute_at(hw_output, xo).unroll(x, 2);
+
+            hw_in.in().unroll(x, 2);
+
+            // Share the compute kernels
+            blur3.compute_share_root(y);
+            blur2.compute_share(blur3);
+            blur1.compute_share(blur3);
+            blur0.compute_share(blur3);
+
+            // Assign coarse-grain loops
+            std::vector<Func> funcs = {blur3, blur2, blur1, blur0, hw_in.in()};
+            for (auto& func : funcs) {
+              func.coarse_grain_loop(y);
+            }
+            hw_output.coarse_grain_loop(yi);
+
+            hw_in.stream_to_accelerator();
+
+          } else if (schedule == 3) {
+            // Shared compute kernels; unroll x dim by 4
+            hw_output.compute_root();
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+              .hw_accelerate(xi, xo);
+
+            blur3.compute_at(hw_output, xo).unroll(x, 4);
+            blur2.compute_at(hw_output, xo).unroll(x, 4);
+            blur1.compute_at(hw_output, xo).unroll(x, 4);
+            blur0.compute_at(hw_output, xo).unroll(x, 4);
+
+            hw_in.in().unroll(x, 4);
+
+            // Share the compute kernels
+            blur3.compute_share_root(y);
+            blur2.compute_share(blur3);
+            blur1.compute_share(blur3);
+            blur0.compute_share(blur3);
+
+            // Assign coarse-grain loops
+            std::vector<Func> funcs = {blur3, blur2, blur1, blur0, hw_in.in()};
+            for (auto& func : funcs) {
+              func.coarse_grain_loop(y);
+            }
+            hw_output.coarse_grain_loop(yi);
+
+            hw_in.stream_to_accelerator();
+
+          } else if (schedule == 4) {
+            // Shared compute kernels; unroll x dim by 4; share latter kernels
+            hw_output.compute_root();
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+              .hw_accelerate(xi, xo);
+
+            blur3.compute_at(hw_output, xo).unroll(x, 4);
+            blur2.compute_at(hw_output, xo).unroll(x, 4);
+            blur1.compute_at(hw_output, xo).unroll(x, 4);
+            blur0.compute_at(hw_output, xo).unroll(x, 4);
+
+            hw_in.in().unroll(x, 4);
+
+            // Share the compute kernels
+            blur3.compute_share_root(y);
+            blur2.compute_share(blur3);
+            blur1.compute_share(blur3);
+
+            // Assign coarse-grain loops
+            std::vector<Func> funcs = {blur3, blur2, blur1, blur0, hw_in.in()};
+            for (auto& func : funcs) {
+              func.coarse_grain_loop(y);
+            }
+            hw_output.coarse_grain_loop(yi);
+
+            hw_in.stream_to_accelerator();
+
+          } else if (schedule == 5) {
+            // Shared compute kernels; 1 kernel x4, latter kernels shared, x2
+            hw_output.compute_root();
+
+            hw_output
+              .tile(x, y, xo, yo, xi, yi, imgSize, imgSize)
+              .hw_accelerate(xi, xo);
+
+            blur3.compute_at(hw_output, xo).unroll(x, 2);
+            blur2.compute_at(hw_output, xo).unroll(x, 2);
+            blur1.compute_at(hw_output, xo).unroll(x, 2);
+            blur0.compute_at(hw_output, xo).unroll(x, 4);
+
+            hw_in.in().unroll(x, 4);
+
+            // Share the compute kernels
+            blur3.compute_share_root(y);
+            blur2.compute_share(blur3);
+            blur1.compute_share(blur3);
+
+            // Assign coarse-grain loops
+            std::vector<Func> funcs = {blur3, blur2, blur1, blur0, hw_in.in()};
+            for (auto& func : funcs) {
+              func.coarse_grain_loop(y);
+            }
+            hw_output.coarse_grain_loop(yi);
+
+            hw_in.stream_to_accelerator();
+            
+          } else {
+            std::cout << "No schedule yet for schedule=" << (int)schedule << std::endl;
+            exit(1);
+          }
           
         } else {    // schedule to CPU
           output.bound(x, 0, imgSize);

@@ -526,7 +526,8 @@ public:
     
     const std::map<int, std::string> &shared_parent_stage() const;
     std::map<int, std::string> &shared_parent_stage();
-    
+
+    /* maps update stage to shared compute level */
     const std::map<int, LoopLevel> &shared_compute_level() const;
     std::map<int, LoopLevel> &shared_compute_level();
 

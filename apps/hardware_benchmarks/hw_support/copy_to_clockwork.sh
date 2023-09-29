@@ -9,6 +9,7 @@ CLOCKWORK=$2
 APP_NAME=$3
 
 echo "$1 being renamed to $3"
+echo "prog ${3}();"
 echo "Add \"prog ${3}();\" to example_progs.h and modify header in example_progs/${3}_memory.cpp"
 echo ""
 

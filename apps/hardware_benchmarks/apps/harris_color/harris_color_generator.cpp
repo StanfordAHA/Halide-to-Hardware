@@ -31,7 +31,8 @@ public:
 
     GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 0
     GeneratorParam<uint16_t> myunroll{"myunroll", 2};    // default: 2
-    GeneratorParam<uint16_t> mywidth{"mywidth", 300-6};      // default: 120
+    GeneratorParam<uint16_t> mywidth{"mywidth", 294};      // default: 294
+    GeneratorParam<uint16_t> myheight{"myheight", 0};      // default: 0 (not used)
     //Input<int32_t> tileSize_x{"tileSize_x", 64, 8, 128};    // default: 64. bounded between 8 and 128
     //Input<int32_t> tileSize_y{"tileSize_y", 64, 8, 128};    // default: 64. bounded between 8 and 128
 
@@ -247,10 +248,11 @@ public:
             //const int tileWidth = 128-6; // for unroll=2
             const int tileWidth = mywidth;
             //const int tileHeight = 255;
-            const int tileHeight = 255;
+            //const int tileHeight = 319;
+            const int tileHeight = myheight==0 ? 480 : myheight;
             //const int tileHeight = 66;
-            const int numHostTilesX = 5; //12;
-            const int numHostTilesY = 10; //10;
+            const int numHostTilesX = 5; //5; //12;
+            const int numHostTilesY = 8; //10; //10;
             //const int numHostTilesX = 1;
             //const int numHostTilesY = 1;
             const int numTiles = 1;
@@ -496,6 +498,9 @@ public:
             hw_input.in().unroll(c);
             hw_input.stream_to_accelerator();
             //hw_input_copy.compute_root();
+
+            kernel_x.compute_at(hw_output, xo);
+            kernel_y.compute_at(hw_output, xo);
           }
 
 

@@ -459,6 +459,8 @@ public:
      */
     Stage &compute_share_root(Var loop);
     Stage &compute_share(Stage root);
+
+    Stage &coarse_grain_loop(Var loop);
   
     /** Attempt to get the source file and line where this stage was
      * defined by parsing the process's own debug symbols. Returns an
@@ -2317,6 +2319,8 @@ public:
      */
     Func &compute_share_root(Var loop);
     Func &compute_share(Func root);
+
+    Func &coarse_grain_loop(Var loop);
 
     Func &memory_share(Func root);
 

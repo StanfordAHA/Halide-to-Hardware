@@ -32,7 +32,8 @@ int blockSize = 9;
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
     GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
     GeneratorParam<int32_t> schedule{"schedule", 3};    // default: 3
-    GeneratorParam<int32_t> mywidth{"mywidth", 64};   // default: 2048
+    GeneratorParam<int32_t> mywidth{"mywidth", 58};    // default: 58
+    GeneratorParam<int32_t> myheight{"myheight", 0};   // default: 0 (unused)
     GeneratorParam<int32_t> unrollx{"unrollx", 2};      // default: 2
     GeneratorParam<int32_t> unrolly{"unrolly", 2};      // default: 2
 
@@ -241,11 +242,11 @@ int blockSize = 9;
 
     
     void generate() {
-      //const int tWidth = 288;//mywidth;
-      //const int tHeight = 192;
-      const int tWidth = mywidth;
-      const int tHeight = 64; //1024
-      const int nTiles = 2; // TODO: fix this when nTiles > 1
+      const int tWidth = mywidth; //496
+      const int tHeight = myheight==0 ? 368 : myheight;
+      //const int tWidth = mywidth;
+      //const int tHeight = 64; //1024
+      const int nTiles = 1; // TODO: fix this when nTiles > 1
 
       Func hw_input, hw_input_temp, hw_input_shuffle, hw_input_shift;
       //hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));

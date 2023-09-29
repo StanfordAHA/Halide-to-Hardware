@@ -21,28 +21,37 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
     Output<Buffer<uint8_t>> output{"output", 3};
 
     int pyramid_levels = 3;
-    int bright_weighting = 3; // this would be used if a single frame is used
-    int ksize = 23;
-    int shift = 11;
+    uint16_t bright_weighting = 2; // this would be used if a single frame is used
+    //int ksize = 23;
+    int ksize = 1;
+    int shift = ksize / 2;
+    int imgsize = 128;
     
     void generate() {
 
       Func hw_input_bright, hw_input_bright8, hw_input_dark, hw_input_dark8;
       //hw_input_bright(x,y,c) = u16(input_bright(x+shift, y+shift, c));
       hw_input_bright8 = Halide::BoundaryConditions::repeat_edge(input_bright);
-      hw_input_bright(x,y,c) = u16(hw_input_bright8(x,y,c));
+      //hw_input_bright(x,y,c) = u16(min(255, bright_weighting * hw_input_bright8(x,y,c)));
+      hw_input_bright(x,y,c) = u16(min(255, (bright_weighting * u16(hw_input_bright8(x,y,c)))));
       //hw_input_dark(x,y,c) = u16(input_dark(x+shift, y+shift, c));
       hw_input_dark8 = Halide::BoundaryConditions::repeat_edge(input_dark);
       hw_input_dark(x,y,c) = u16(hw_input_dark8(x,y,c));
 
       // Create exposure weight
       Func weight_dark, weight_bright, weight_sum, weight_dark_norm, weight_bright_norm;
-      weight_dark(x,y,c)   = 2 * hw_input_dark(x,y,c);
-      weight_bright(x,y,c) = 2 * hw_input_bright(x,y,c);
-      weight_sum(x,y,c) = weight_dark(x,y,c) + weight_bright(x,y,c) + 1;
+      weight_dark(x,y,c)   = select(hw_input_dark(x,y,c) < u16(128), hw_input_dark(x,y,c), u16(255) - hw_input_dark(x,y,c));
+      //weight_dark(x,y,c)   = 2 * hw_input_dark(x,y,c);
+      //weight_bright(x,y,c) = 2 * hw_input_bright(x,y,c);
+      //weight_bright(x,y,c) = select(hw_input_bright(x,y,c) < u16(128), bright_weighting*hw_input_bright(x,y,c), u16(256) - min(bright_weighting*hw_input_bright(x,y,c), u16(255)));
+      weight_bright(x,y,c) = select(hw_input_bright(x,y,c) < u16(128), hw_input_bright(x,y,c), u16(256) - hw_input_bright(x,y,c));
+      //weight_sum(x,y,c) = weight_dark(x,y,c) + weight_bright(x,y,c) + 1;
+      weight_sum(x,y,c) = weight_dark(x,y,c) + weight_bright(x,y,c);
       
-      weight_dark_norm(x,y,c)   = weight_dark(x,y,c)   * 128 / weight_sum(x,y,c);
-      weight_bright_norm(x,y,c) = weight_bright(x,y,c) * 128 / weight_sum(x,y,c);
+      weight_dark_norm(x,y,c)   = select(weight_sum(x,y,c) == 0, 0,
+                                         weight_dark(x,y,c) * 128 / weight_sum(x,y,c));
+      weight_bright_norm(x,y,c) = select(weight_sum(x,y,c) == 0, 0,
+                                         weight_bright(x,y,c) * 128 / weight_sum(x,y,c));
 
       // Create gaussian pyramids of the weights
       vector<Func> dark_weight_gpyramid(pyramid_levels);
@@ -76,14 +85,16 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       
       Func hw_output;
       hw_output(x,y,c) = blended_image(x,y,c);
+      //hw_output(x,y,c) = hw_input_bright(x,y,c);
+      //hw_output(x,y,c) = weight_bright_norm(x,y,c);
       //hw_output(x,y,c) = dark_input_lpyramid[pyramid_levels-1](x,y,c);
       //hw_output(x,y,c) = dark_input_gpyramid[pyramid_levels-1](x,y,c);
 
       output(x,y,c) = u8(hw_output(x,y,c));
 
       output.bound(c, 0, 3);
-      output.bound(x, 0, 64-ksize+1);
-      output.bound(y, 0, 64-ksize+1);
+      output.bound(x, 0, imgsize-ksize+1);
+      output.bound(y, 0, imgsize-ksize+1);
 
         
       /* THE SCHEDULE */
@@ -93,7 +104,7 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
         hw_output.compute_root();
 
-        hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+        hw_output.tile(x, y, xo, yo, xi, yi, imgsize-ksize+1,imgsize-ksize+1)
           .reorder(xi,yi,c,xo,yo)
           .hw_accelerate(xi, xo);
         //hw_output.unroll(c);
@@ -101,7 +112,8 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
         blended_image.compute_at(hw_output, xo);
 
         for (size_t i=0; i<merged_pyramid.size(); ++i) {
-          merged_pyramid[i].compute_at(hw_output, xo);
+          upsampled[i].compute_at(hw_output, xo);
+          //merged_pyramid[i].compute_at(hw_output, xo);
           
           dark_input_lpyramid[i].compute_at(hw_output, xo);
           bright_input_lpyramid[i].compute_at(hw_output, xo);
@@ -140,10 +152,20 @@ private:
     //    downy(x,y,_) = (downx(x, 2*y-1, _) + 3.0f * (downx(x, 2*y, _) + downx(x, 2*y+1, _)) + downx(x, 2*y+2, _)) / 8.0f;
     //    return downy;
     //}
+    //Func downsample(Func f) {
+    //  using Halide::_;
+    //  Func down;
+    //  down(x,y,_) = f(x*2, y*2, _);
+    //  return down;
+    //}
     Func downsample(Func f) {
       using Halide::_;
-      Func down;
-      down(x,y,_) = f(x*2, y*2, _);
+      RDom win(0, 2, 0, 2);
+      Func down_acc, down;
+      //down_acc(x,y,_) += f(x*2 + win.x, y*2 + win.y, _);
+      //down(x,y,_) = down_acc(x,y,_) / 4;
+      //down_acc.update().unroll(win.x).unroll(win.y);
+      down(x,y,_) = ( f(x*2,y*2,_) + f(x*2+1,y*2,_) + f(x*2,y*2+1,_) + f(x*2+1,y*2+1,_) ) / 4;
       return down;
     }
     
@@ -217,6 +239,7 @@ private:
       for (int i=0; i<num_levels; ++i) {
         blended_pyramid[i](x,y,_) =
           (weights0[i](x,y,_) * img0[i](x,y,_) +
+          //(0 +
            weights1[i](x,y,_) * img1[i](x,y,_)) / 128;
       }
       

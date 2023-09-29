@@ -21,7 +21,8 @@ public:
 
     GeneratorParam<uint16_t> schedule{"schedule", 0};    // default: 0
     GeneratorParam<uint16_t> myunroll{"myunroll", 3};    // default: 3
-    GeneratorParam<uint16_t> mywidth{"mywidth", 126};    // default: 126
+    GeneratorParam<uint16_t> mywidth{"mywidth", 378};    // default: 126
+    GeneratorParam<uint16_t> myheight{"myheight", 0};    // default: 0 (unused)
 
     void generate() {
         /* THE ALGORITHM */
@@ -251,13 +252,15 @@ public:
             //const int tileWidth = 122-0;
             //const int tileWidth = 141; //unroll=3  ; also try 63
             const int tileWidth = mywidth;
-            const int tileHeight = 256-6;
+            //const int tileHeight = 256-6;
+            const int tileHeight = myheight==0 ? 319 : myheight;
+            //const int tileHeight = 480;
             //const int tileHeight = 66;
             //const int numHostTilesX = 12-1;
             //const int numHostTilesY = 10-1;
             //const int numHostTilesX = 12;
-            const int numHostTilesX = 5;
-            const int numHostTilesY = 10;
+            const int numHostTilesX = 4;//5;
+            const int numHostTilesY = 8;//10;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
@@ -298,7 +301,9 @@ public:
             blur_unnormalized.update()
               .unroll(win.x).unroll(win.y)
               .unroll(x, unroll, TailStrategy::RoundUp);
-            //kernel.compute_at(hw_output, xo).unroll(x).unroll(y).unroll(x, unroll);
+
+            kernel.compute_at(hw_output, xo).unroll(x).unroll(y);//.unroll(x, unroll);
+            //kernel.compute_at(hw_output, xo);
             
             gray.fifo_depth(hw_output, tilesize*9); // hw input bounds
             gray.compute_at(hw_output, xo)

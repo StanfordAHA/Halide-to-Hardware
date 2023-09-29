@@ -12,6 +12,7 @@ public:
     GeneratorParam<uint8_t> schedule{"schedule", 0};    // default: 0
     GeneratorParam<uint8_t> myunroll{"myunroll", 2};    // default: 2
     GeneratorParam<uint8_t> mywidth{"mywidth", 128};    // default: 128
+    GeneratorParam<uint8_t> myheight{"myheight", 0};    // default: 0 (don't use)
 
     void generate() {
         /* THE ALGORITHM */
@@ -60,7 +61,7 @@ public:
           
           if (schedule == 1) { // host and glb tiling
             const int blockSize = 1;
-            const int tileSize = 128;
+            const int tileSize = mywidth;
             const int numHostTiles = 5;
             const int numTiles = 2;
             const int glbSize = tileSize * numTiles;
@@ -138,9 +139,9 @@ public:
           } else if (schedule == 3) { // big color parrot with unroll
             const int unroll = myunroll;
             const int tileWidth = mywidth;
-            const int tileHeight = 256;
-            const int numHostTilesX = 24;
-            const int numHostTilesY = 20;
+            const int tileHeight = myheight==0 ? mywidth : myheight;
+            const int numHostTilesX = 10;
+            const int numHostTilesY = 10;
             const int numTiles = 1;
             const int glbWidth = tileWidth * numTiles;
             const int glbHeight = tileHeight * numTiles;
