@@ -8,7 +8,7 @@ using namespace Halide::ConciseCasts;
 class AvgPooling : public Halide::Generator<AvgPooling> {
 public:
     Input<Buffer<int16_t>>  input{"input", 3};
-    Input<Buffer<int16_t>>  filter_avg{"filter_avg", 3};
+    // Input<Buffer<int16_t>>  filter_avg{"filter_avg", 3};
     Output<Buffer<int16_t>> output{"output", 3};
 
     // in_img determines the input image size
@@ -21,7 +21,7 @@ public:
     GeneratorParam<int>  stride{"stride", 7};  // default: 1
 
     // n_ic determines the number of input channels
-    GeneratorParam<int> n_ic{"n_ic", 512};    // default: 8
+    GeneratorParam<int> n_ic{"n_ic", 64};    // default: 8
 
 
     void generate() {
@@ -31,7 +31,7 @@ public:
         int tile_size = imgsize;
         Var x("x"), y("y"), c("c");
         Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
-        Func filter_avg_host("filter_avg_host"), filter_avg_glb("filter_avg_glb"), filter_avg_cgra("filter_avg_cgra");
+        // Func filter_avg_host("filter_avg_host"), filter_avg_glb("filter_avg_glb"), filter_avg_cgra("filter_avg_cgra");
         Func avg_pooling("avg_pooling");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
@@ -39,13 +39,14 @@ public:
         input_glb(c, x, y) = input_host(c, x, y);
         input_cgra(c, x, y) = input_glb(c, x, y);
 
-        filter_avg_host(c, x, y) = u16(filter_avg(c, x, y));
-        filter_avg_glb(c, x, y) = filter_avg_host(c, x, y);
-        filter_avg_cgra(c, x, y) = filter_avg_glb(c, x, y);
+        // filter_avg_host(c, x, y) = u16(filter_avg(c, x, y));
+        // filter_avg_glb(c, x, y) = filter_avg_host(c, x, y);
+        // filter_avg_cgra(c, x, y) = filter_avg_glb(c, x, y);
 
         RDom r(0, ksize, 0, ksize);
         avg_pooling(c, x, y) = u16(0);
-        avg_pooling(c, x, y) += filter_avg_cgra(c, r.x, r.y) * input_cgra(c, stride * x + r.x, stride * y + r.y);
+        // avg_pooling(c, x, y) += filter_avg_cgra(c, r.x, r.y) * input_cgra(c, stride * x + r.x, stride * y + r.y);
+        avg_pooling(c, x, y) += input_cgra(c, stride * x + r.x, stride * y + r.y);
 
         output_cgra(c, x, y) = avg_pooling(c, x, y);
         output_glb(c, x, y) = output_cgra(c, x, y);
@@ -79,8 +80,8 @@ public:
                 .split(c, c_glb, c_cgra, 16)
                 .reorder(c_cgra, x_cgra, y_cgra, c_glb, x_glb, y_glb);
 
-            // hw_output.unroll(c, glb_o);
-            // output_glb.unroll(c_cgra, glb_o);
+            hw_output.unroll(c, 16);
+            output_glb.unroll(c_cgra, 16);
 
             output_cgra.compute_at(output_glb, c_glb);
             // output_cgra.reorder(c, x, y);
@@ -95,15 +96,22 @@ public:
             input_host.compute_root();
             input_host.accelerator_input();
 
-            filter_avg_cgra.compute_at(output_glb, c_glb);
-            filter_avg_glb.compute_at(hw_output, x_host);
-            filter_avg_host.compute_root();
-            filter_avg_host.accelerator_input();
+
+            // filter_avg_cgra.compute_at(output_glb, c_glb);
+            // filter_avg_glb.compute_at(hw_output, x_host);
+            // filter_avg_host.compute_root();
+            // filter_avg_host.accelerator_input();
             
             // filter_avg_glb.unroll(c, 16);
             // filter_avg_cgra.unroll(c_cgra, 16);
-            // input_glb.unroll(c, 16);
-            // input_cgra.unroll(c_cgra, 16);
+
+            // Unroll input over glb
+            input_cgra
+                .split(c, c_glb, c_cgra, 16)
+                .reorder(c_cgra, x, y, c_glb);
+                
+            input_glb.unroll(c, 4); // unroll glb input for small images
+            input_cgra.unroll(c_cgra, 4); // unroll glb->cgra channels for small images
         }
     }
 };
