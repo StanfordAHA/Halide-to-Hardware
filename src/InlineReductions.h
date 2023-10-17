@@ -4,6 +4,8 @@
 #include "IR.h"
 #include "RDom.h"
 #include "Tuple.h"
+#include "Expr.h"
+#include <string>
 
 /** \file
  * Defines some inline reductions: sum, product, minimum, maximum.
@@ -51,7 +53,7 @@ Expr minimum(Expr, const std::string &s = "minimum");
 // @{
 Expr sum(RDom, Expr, const std::string &s = "sum");
 Expr product(RDom, Expr, const std::string &s = "product");
-Expr maximum(RDom, Expr, const std::string &s = "maximum");
+Expr maximum(const RDom &, Expr, const std::string &s = "maximum");
 Expr minimum(RDom, Expr, const std::string &s = "minimum");
 // @}
 
@@ -65,6 +67,16 @@ Tuple argmin(Expr, const std::string &s = "argmin");
 Tuple argmax(RDom, Expr, const std::string &s = "argmax");
 Tuple argmin(RDom, Expr, const std::string &s = "argmin");
 // @}
+
+/** Inline reductions create an anonymous helper Func to do the
+ * work. The variants below instead take a named Func object to use,
+ * so that it is no longer anonymous and can be scheduled
+ * (e.g. unrolled across the reduction domain). The Func passed must
+ * not have any existing definition. */
+//@{
+
+Expr maximum(Expr, const Func &);
+Expr maximum(const RDom &, Expr, const Func &);
 
 }  // namespace Halide
 
