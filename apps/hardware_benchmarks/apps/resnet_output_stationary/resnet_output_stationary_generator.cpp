@@ -479,6 +479,127 @@ public:
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
           
+        } else if (get_target().has_feature(Target::Clockwork) && schedule == 12) {
+          // loop order: r.z, r.x, r.y, xi, yi, xo, yo
+          
+          output.bound(x, 0, imgsize);
+          output.bound(y, 0, imgsize);
+          output.bound(w, 0, n_oc);
+          hw_output.bound(w, 0, n_oc);
+
+          hw_kernel.bound(z, 0, n_ic);
+          kernel_glb.bound(z, 0, n_ic);
+          input_host.bound(z, 0, n_ic);
+
+          int mem_oc = (int)k_oc * (int)m_oc;
+          int mem_ic = (int)k_ic * (int)m_ic;
+          
+          output_cgra.bound_extent(w, mem_oc);
+          kernel_cgra.bound_extent(w, mem_oc);
+          input_cgra.bound_extent(z, mem_ic);
+          kernel_cgra.bound_extent(z, mem_ic);
+          
+          kernel_glb.bound(w, 0, n_oc);
+          input_glb.bound(z, 0, n_ic);
+          input_cgra.bound_extent(z, k_ic);
+          kernel_cgra.bound_extent(z, k_ic);
+          kernel_cgra.bound_extent(w, k_oc);
+          
+          int gbsize = imgsize;
+          int tilesize = ((int)stride == 2) ?
+            std::min(14, imgsize) : // we want the input to be 30 max
+            std::min(28, imgsize);  // min of 28 and output image size
+          tilesize = (pad == 3) ?
+            16 : // this occurs only for conv1
+            tilesize;
+          int tilesize_y = (pad == 3) ?
+            8 : // this occurs only for conv1. We need it smaller to fit
+            tilesize;
+
+
+          Var x_host,y_host, x_glb,y_glb, x_cgra,y_cgra;
+          Var xi,yi;
+          Var w_cgra, w_glb;
+          Var z_cgra, z_glb;
+          RVar rz_unroll("rz_unroll"), rz_cgra("rz_cgra"), rz_glb("rz_glb");
+          RVar rz_split("rz_split");
+
+          // Produce loop levels: host, global buffer, cgra
+          hw_output.compute_root();
+          //hw_output.unroll(w, k_oc);
+          hw_output
+            .tile(x, y, x_host,y_host, xi,yi, gbsize,gbsize)
+            .reorder(w,xi,yi, x_host,y_host)
+            .hw_accelerate(xi, x_host);
+
+          output_glb.compute_at(hw_output, x_host); // global buffer
+          output_glb
+            .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y)
+            .split(w, w_glb, w_cgra, mem_oc)
+            // reorder from inner to outermost
+            .reorder(w_cgra, x_cgra, y_cgra,
+                     w_glb, x_glb, y_glb);
+
+          // Unroll output over glb (default 1)
+          hw_output.unroll(w, glb_o);
+          output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
+
+          output_cgra.compute_at(output_glb, w_glb); // memtile
+          output_cgra
+            .reorder(w, x, y);
+
+          output_cgra.update()
+            .split(r.z, rz_glb, rz_cgra, mem_ic)
+            .split(rz_cgra, rz_cgra, rz_unroll, k_ic)
+            .reorder(rz_unroll, w, x, y, rz_cgra, r.x, r.y, rz_glb);
+
+          //Func interm_output_cgra = output_cgra.update().rfactor(r.z, z);
+          //interm_output_cgra.compute_at(output_glb, x_glb);
+
+          Func output_rf;
+          output_cgra
+            .unroll(w, k_oc);
+          output_cgra.update()
+            //.unroll(w_cgra, k_oc)
+            .unroll(w, k_oc)
+            .unroll(rz_unroll, k_ic); // this is the z reduction
+          
+          // Three buffers: one at host,
+          //                a copy stage as the global buffer,
+          //                another copy stage as the memory tiles
+          //hw_input.compute_root();
+          input_host.compute_root(); // host buffer
+          input_host.accelerator_input();
+          //input_host.stream_to_accelerator();
+          input_glb.compute_at(hw_output, x_host); // global buffer
+          input_cgra.compute_at(output_cgra, rz_glb);   // mem tile
+
+          // kernel buffers
+          hw_kernel.compute_root();
+          kernel_host.compute_root(); // host buffer
+          kernel_host.accelerator_input();
+          kernel_glb.compute_at(hw_output, x_host); // global buffer
+          kernel_cgra.compute_at(output_cgra, rz_cgra);   // mem tile
+
+          //input_glb.unroll(z, k_ic);
+          //input_cgra.unroll(z, k_ic);
+          input_cgra
+            .split(z, z_glb, z_cgra, mem_ic)
+            .reorder(z_cgra, x, y, z_glb);
+          //.reorder(zz, x, y, z);
+          kernel_cgra
+            // .split(z, z_glb, z_cgra, mem_ic)
+            .split(w, w_glb, w_cgra, mem_oc)
+            // .reorder(w_cgra, z_cgra, x, y, w_glb, z_glb);
+            .reorder(w_cgra, z, x, y, w_glb);
+            //.reorder(zz, w_cgra, x, y, z, w_glb);
+
+          // Unroll input and kernel over glb (default 1)
+          kernel_glb.unroll(w, glb_k); // unroll glb input for small images
+          kernel_cgra.unroll(w_cgra, glb_k); // unroll glb->cgra channels for small images
+          input_glb.unroll(z, glb_i); // unroll glb input for small images
+          input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
+
         } else {  // schedule to CPU
           output_cgra.compute_root();
           output_cgra.update()
