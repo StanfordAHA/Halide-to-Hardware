@@ -23,7 +23,7 @@ public:
     // n_ic determines the number of input channels
     GeneratorParam<int> n_ic{"n_ic", 64};    // default: 16
 
-    GeneratorParam<int> unroll{"unroll", 16};    // default: 16
+    GeneratorParam<int> unroll{"unroll", 8};    // default: 16
 
 
     void generate() {
@@ -53,7 +53,8 @@ public:
 
             // Define scheduling variables
             int out_img = floor((int(in_img) - int(ksize)) / stride) + 1;
-            int tile_size = out_img;
+            int gbsize = out_img / 4;
+            int tile_size = gbsize;
             Var x_host, x_glb, x_cgra;
             Var y_host, y_glb, y_cgra;
             Var c_glb, c_cgra;
@@ -67,7 +68,7 @@ public:
             // Reorder channel dimension to be the innermost to get the clockwork pass
             hw_output.in().compute_root();
             hw_output.in()
-                .tile(x, y, x_host, y_host, x_glb, y_glb, out_img, out_img)
+                .tile(x, y, x_host, y_host, x_glb, y_glb, gbsize, gbsize)
                 .reorder(c, x_glb, y_glb, x_host, y_host)
                 .hw_accelerate(x_glb, x_host);
             
