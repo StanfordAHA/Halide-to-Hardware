@@ -55,8 +55,8 @@ int main( int argc, char **argv ) {
       functions["clockwork"] = [&](){ clockwork_process( processor ); };
   #endif
 
-  const int X = 8;
-  const int Y = 8;
+  const int X = 32;
+  const int Y = 32;
       
   // Add all defined functions
   processor.run_calls = functions;
@@ -70,7 +70,7 @@ int main( int argc, char **argv ) {
   for (int y = 0; y < processor.inputs["matrix.mat"].dim(1).extent(); y++) {
     for (int x = 0; x < processor.inputs["matrix.mat"].dim(0).extent(); x++) { 
       
-      processor.inputs["matrix.mat"](x, y) = 1;
+      processor.inputs["matrix.mat"](x, y) = x;
       
     }
 

@@ -5,14 +5,14 @@
 				"bitwidth": 16,
   			"shape": [8, 8],
 				"pixels_per_cycle": 1,
-				"datafile": "bin/matrix_input_stencil.raw"
+				"datafile": "bin/matrix_input_host_stencil.raw"
 			},
 			{
 				"name": "vector",
 				"bitwidth": 16,
 				"shape": [8],
 				"pixels_per_cycle": 1,
-				"datafile": "bin/vector_input_stencil.raw"
+				"datafile": "bin/vector_input_host_stencil.raw"
 			}
     ],
 		"output": {
