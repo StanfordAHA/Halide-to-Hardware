@@ -12,8 +12,9 @@ namespace {
         Input<Buffer<int16_t>>  vector{"vector", 1};
         Output<Buffer<int16_t>> output{"output", 1};
 
-        GeneratorParam<int> out_img{"out_img", 32};
-        GeneratorParam<int> tile_size{"tile_size", 32}; 
+        GeneratorParam<int> in_img_width{"in_img_width", 8};
+        GeneratorParam<int> in_img_height{"in_img_height", 4};
+        GeneratorParam<int> tile_size{"tile_size", 4}; 
         GeneratorParam<int32_t> myunroll{"myunroll", 8};
         GeneratorParam<int> io_unroll{"io_unroll", 8};
     
@@ -21,7 +22,6 @@ namespace {
             Var x("x"), y("y");
             Func matrix_input_host("matrix_input_host"), matrix_input_cgra("matrix_input_cgra"), matrix_input_glb("matrix_input_glb");
             Func vector_input_cgra("vector_input_cgra"), vector_input_host("vector_input_host"), vector_input_glb("vector_input_glb");
-            Func multiply("multiply");
             Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
             matrix_input_host(x, y) = u16(matrix(x, y));
@@ -32,8 +32,8 @@ namespace {
             vector_input_glb(y) = vector_input_host(y);
             vector_input_cgra(y) = vector_input_glb(y);
 
-            RDom r(0, out_img);
-            output_cgra(y) += matrix_input_cgra(r.x, y) * vector_input_cgra(r.x);  
+            RDom r(0, in_img_width);
+            output_cgra(y) += matrix_input_cgra(r.x, y) * vector_input_cgra(r.x);
 
             output_glb(y) = output_cgra(y);
             hw_output(y) = output_glb(y);
@@ -42,11 +42,11 @@ namespace {
             if (get_target().has_feature(Target::Clockwork)) {
                 Var yi, y_host, y_glb, y_cgra;
 
-                output.bound(y, 0, out_img);
+                output.bound(y, 0, in_img_height);
 
                 hw_output.compute_root();
                 hw_output
-                    .split(y, y_host, yi, out_img)
+                    .split(y, y_host, yi, in_img_height)
                     .reorder(yi, y_host)
                     .hw_accelerate(yi, y_host);
                 
@@ -56,7 +56,9 @@ namespace {
                     .reorder(y_cgra, y_glb);    
 
                 output_cgra.compute_at(output_glb, y_glb);
+                // output_cgra.reorder(r.x, y_cgra, y_glb);
                 output_cgra.update().unroll(r.x, myunroll);
+                // output_cgra.store_in(MemoryType::MemoryTile);
 
                 matrix_input_cgra.compute_at(output_glb, y_glb);
                 matrix_input_glb.compute_at(hw_output, y_host);

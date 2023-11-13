@@ -55,26 +55,26 @@ int main( int argc, char **argv ) {
       functions["clockwork"] = [&](){ clockwork_process( processor ); };
   #endif
 
-  const int X = 32;
-  const int Y = 32;
+  const int X = 8;
+  const int Y = 4;
       
   // Add all defined functions
   processor.run_calls = functions;
 
   processor.inputs["matrix.mat"]        = Buffer<int16_t>(X, Y);
   processor.inputs["vector.mat"]        = Buffer<int16_t>(X);
-  processor.output                      = Buffer<int16_t>(X);
+  processor.output                      = Buffer<int16_t>(Y);
 
   processor.inputs_preset = true;
   
-  for (int y = 0; y < processor.inputs["matrix.mat"].dim(1).extent(); y++) {
-    for (int x = 0; x < processor.inputs["matrix.mat"].dim(0).extent(); x++) { 
+  for (int x = 0; x < processor.inputs["matrix.mat"].dim(0).extent(); x++) { 
+    for (int y = 0; y < processor.inputs["matrix.mat"].dim(1).extent(); y++) {
       
-      processor.inputs["matrix.mat"](x, y) = x;
+      processor.inputs["matrix.mat"](x, y) = x + y;
       
     }
+    processor.inputs["vector.mat"](x) = x;
 
-      processor.inputs["vector.mat"](y) = 1;
   }
   
   // save_image(processor.inputs["matrix.mat"], "bin/matrix.mat");
