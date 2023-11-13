@@ -66,10 +66,10 @@ int main( int argc, char **argv ) {
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
 
-    auto in_img = OX ? atoi(OX) : 9;
+    auto in_img = OX ? atoi(OX) : 64;
     auto ksize = KX ? atoi(KX) : 3;
     auto stride = S ? atoi(S) : 1;
-    auto n_ic = IC ? atoi(IC) : 1;
+    auto n_ic = IC ? atoi(IC) : 4;
 
     int X = in_img;
     int Y = in_img;
@@ -81,17 +81,22 @@ int main( int argc, char **argv ) {
     processor.inputs["input.mat"] = Buffer<uint8_t>(C, X, Y);
     processor.inputs_preset = true;
     auto input_copy_stencil = processor.inputs["input.mat"];
-    int i=1; (void) i;
+    int i=1;
     int max_rand = pow(2,8) - 1;
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int c = 0; c < input_copy_stencil.dim(0).extent(); c++) {
           if (rand() % 100 < 60) { // 60% zero, else rand
-            input_copy_stencil(c, x, y) = 0;
+            // input_copy_stencil(c, x, y) = 0;
+            input_copy_stencil(c, x, y) = i;
           } else {
-            input_copy_stencil(c, x, y) = (rand() % (max_rand));
+            // input_copy_stencil(c, x, y) = (rand() % (max_rand));
+            input_copy_stencil(c, x, y) = i;
           }
-        } } }
+        }
+        i++;
+      }
+    }
 
     std::cout << "input has dims: " << processor.inputs["input.mat"].dim(0).extent() << "x"
               << processor.inputs["input.mat"].dim(1).extent() << "x"
@@ -101,15 +106,21 @@ int main( int argc, char **argv ) {
     processor.inputs["kernel.mat"] = Buffer<uint8_t>(C, K_X, K_Y);
     processor.inputs_preset = true;
     auto kernel_copy_stencil = processor.inputs["kernel.mat"];
+    i=1;
     for (int y = 0; y < kernel_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < kernel_copy_stencil.dim(1).extent(); x++) {
         for (int c = 0; c < kernel_copy_stencil.dim(0).extent(); c++) {
           if (rand() % 100 < 60) { // 60% zero, else rand
-            kernel_copy_stencil(c, x, y) = 0;
+            // kernel_copy_stencil(c, x, y) = 0;
+            kernel_copy_stencil(c, x, y) = i;
           } else {
-            kernel_copy_stencil(c, x, y) = (rand() % (max_rand));
+            // kernel_copy_stencil(c, x, y) = (rand() % (max_rand));
+            kernel_copy_stencil(c, x, y) = i;
           }
-        } } }
+        }
+        i++;
+      }
+    }
 
     std::cout << "kernel has dims: " << processor.inputs["kernel.mat"].dim(0).extent() << "x"
               << processor.inputs["kernel.mat"].dim(1).extent() << "x"
