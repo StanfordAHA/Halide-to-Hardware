@@ -69,7 +69,7 @@ int main( int argc, char **argv ) {
     auto in_img = OX ? atoi(OX) : 114;
     auto ksize = KX ? atoi(KX) : 3;
     auto stride = S ? atoi(S) : 2;
-    auto n_ic = IC ? atoi(IC) : 64;
+    auto n_ic = IC ? atoi(IC) : 112;
 
     int X = in_img;
     int Y = in_img;
@@ -109,7 +109,6 @@ int main( int argc, char **argv ) {
     if (write_mat) {
       std::cout << "Writing input.mat to bin folder" << std::endl;
       save_image(processor.inputs["input.mat"], "bin/input.mat");
-      save_image(processor.output, "bin/output_gold.mat");
     }
 
     return processor.process_command(argc, argv);
