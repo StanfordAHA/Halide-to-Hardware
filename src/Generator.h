@@ -2686,6 +2686,7 @@ public:
         bool emit_coreir{false};
         bool emit_vhls{false};
         bool emit_clockwork{false};
+        bool emit_pono{false};
         bool emit_cpp_stub{false};
         bool emit_schedule{false};
         bool emit_registration{false};

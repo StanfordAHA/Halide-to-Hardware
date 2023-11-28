@@ -9,6 +9,7 @@
 #include "CodeGen_CoreIR_Testbench.h"
 #include "CodeGen_VHLS_Testbench.h"
 #include "CodeGen_Clockwork_Testbench.h"
+#include "CodeGen_Pono.h"
 #include "Debug.h"
 #include "HexagonOffload.h"
 #include "IROperator.h"
@@ -623,6 +624,38 @@ void Module::compile(const Outputs &output_files_arg) const {
                                 );
       std::cout << "[INFO] Module.compile(): clockwork header file = " << hdr_filename << "\n";
       hdr_cg.compile(*this);
+
+      contents->name = oldname;
+    }
+
+    if (!output_files.pono_source_name.empty()) {
+
+      // Emit pipeline code
+      std::string oldname = contents->name;
+      //contents->name = oldname + "_pono";
+      for (auto& f : contents->functions) {
+        if (f.name == oldname) {
+          f.name += "_pono";
+          std::cout << "[INFO] Adding pono to function " + f.name << std::endl;
+        }
+      }
+      
+      std::string pono_source_name = output_files.pono_source_name;
+      std::cout << "[INFO] Module.compile(): pono_source_name = " << pono_source_name << "\n";
+
+      // Get output directory name
+      bool uses_folder = pono_source_name.find("/") != std::string::npos;
+      std::string output_folder_name = uses_folder ? pono_source_name.substr(0,
+              pono_source_name.find_last_of("/") + 1) : "./";
+
+      // Construct pipeline header file
+      std::string pono_filename = output_folder_name + name() + "_pono.py";
+      std::ofstream pono_file(pono_filename);
+      Internal::CodeGen_Pono pono_cg(pono_file,
+                                 target().with_feature(Target::CPlusPlusMangling)
+                                );
+      std::cout << "[INFO] Module.compile(): pono file = " << pono_filename << "\n";
+      pono_cg.compile(*this);
 
       contents->name = oldname;
     }

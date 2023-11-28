@@ -158,6 +158,10 @@ clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_comp
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 	(echo "//" `cat $(BIN)/halide_gen_args`) | cat >> $(BIN)/$(TESTNAME)_memory.cpp
 
+$(BIN)/$(TESTNAME)_pono.cpp  \
+pono: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
+	@-mkdir -p $(BIN)
+	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-pono -e pono,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 
 #: $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h
 

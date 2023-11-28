@@ -415,6 +415,7 @@ SOURCE_FILES = \
   CodeGen_PowerPC.cpp \
   CodeGen_PTX_Dev.cpp \
   CodeGen_RDAI.cpp \
+  CodeGen_Pono.cpp \
   CodeGen_VHLS_Base.cpp \
   CodeGen_VHLS_Target.cpp \
   CodeGen_VHLS_Testbench.cpp \
@@ -600,6 +601,7 @@ HEADER_FILES = \
   CodeGen_PowerPC.h \
   CodeGen_PTX_Dev.h \
   CodeGen_RDAI.h \
+  CodeGen_Pono.h \
   CodeGen_X86.h \
   ConciseCasts.h \
   CPlusPlusMangle.h \

@@ -313,6 +313,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"hls", Target::HLS},
     {"coreir_hls", Target::CoreIRHLS},
     {"clockwork", Target::Clockwork},
+    {"pono", Target::Pono},
     {"use_extract_hw_kernel", Target::UseExtractHWKernel},
     {"bfloat_hardware", Target::BFloatHardware},
     {"enable_ponds", Target::EnablePonds}

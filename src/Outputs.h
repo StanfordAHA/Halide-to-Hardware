@@ -50,6 +50,8 @@ struct Outputs {
      * output is desired. */
     std::string clockwork_source_name;
 
+    std::string pono_source_name;
+
     /** The name of the emitted stmt file. Empty if no stmt file
      * output is desired. */
     std::string stmt_name;
@@ -146,6 +148,12 @@ struct Outputs {
         return updated;
     }  
   
+    Outputs pono_source(const std::string &pono_source_name) {
+        Outputs updated = *this;
+        updated.pono_source_name = pono_source_name;
+        return updated;
+    }  
+
     /** Make a new Outputs struct that emits everything this one does
      * and also a stmt file with the given name. */
     Outputs stmt(const std::string &stmt_name) const {

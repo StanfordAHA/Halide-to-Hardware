@@ -108,6 +108,7 @@ struct Target {
         HLS = halide_target_feature_hls,
         CoreIRHLS = halide_target_feature_coreir_hls,
         Clockwork = halide_target_feature_clockwork,
+        Pono = halide_target_feature_pono,
         UseExtractHWKernel = halide_target_feature_use_extract_hw_kernel,
         BFloatHardware = halide_target_feature_bfloat_hardware,
         EnablePonds = halide_target_feature_enable_ponds,

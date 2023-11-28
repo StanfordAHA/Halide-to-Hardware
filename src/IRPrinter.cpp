@@ -640,17 +640,17 @@ void IRPrinter::visit(const AssertStmt *op) {
 }
 
 void IRPrinter::visit(const ProducerConsumer *op) {
-    do_indent();
-    if (op->is_producer) {
-        stream << "produce " << op->name << " {\n";
-    } else {
-        stream << "consume " << op->name << " {\n";
-    }
-    indent += 2;
+    // do_indent();
+    // if (op->is_producer) {
+    //     stream << "produce " << op->name << " {\n";
+    // } else {
+    //     stream << "consume " << op->name << " {\n";
+    // }
+    // indent += 2;
     print(op->body);
-    indent -= 2;
-    do_indent();
-    stream << "}\n";
+    // indent -= 2;
+    // do_indent();
+    // stream << "}\n";
 }
 
 void IRPrinter::visit(const For *op) {
@@ -761,32 +761,32 @@ void IRPrinter::visit(const Free *op) {
 }
 
 void IRPrinter::visit(const Realize *op) {
-    do_indent();
-    stream << "realize " << op->name << "(";
-    for (size_t i = 0; i < op->bounds.size(); i++) {
-        stream << "[";
-        print(op->bounds[i].min);
-        stream << ", ";
-        print(op->bounds[i].extent);
-        stream << "]";
-        if (i < op->bounds.size() - 1) stream << ", ";
-    }
-    stream << ")";
-    if (op->memory_type != MemoryType::Auto) {
-        stream << " in " << op->memory_type;
-    }
-    if (!is_one(op->condition)) {
-        stream << " if ";
-        print(op->condition);
-    }
-    stream << " {\n";
+    // do_indent();
+    // stream << "realize " << op->name << "(";
+    // for (size_t i = 0; i < op->bounds.size(); i++) {
+    //     stream << "[";
+    //     print(op->bounds[i].min);
+    //     stream << ", ";
+    //     print(op->bounds[i].extent);
+    //     stream << "]";
+    //     if (i < op->bounds.size() - 1) stream << ", ";
+    // }
+    // stream << ")";
+    // if (op->memory_type != MemoryType::Auto) {
+    //     stream << " in " << op->memory_type;
+    // }
+    // if (!is_one(op->condition)) {
+    //     stream << " if ";
+    //     print(op->condition);
+    // }
+    // stream << " {\n";
 
-    indent += 2;
+    // indent += 2;
     print(op->body);
-    indent -= 2;
+    // indent -= 2;l
 
-    do_indent();
-    stream << "}\n";
+    // do_indent();
+    // stream << "}\n";
 }
 
 void IRPrinter::visit(const Prefetch *op) {
