@@ -140,5 +140,7 @@ apps/hardware_benchmarks/tests/merged_unit_tests/hw_offset_window
 apps/hardware_benchmarks/tests/merged_unit_tests/hw_simple_unsharp
 apps/hardware_benchmarks/tests/merged_unit_tests/mc_conv_coreir
 
+.ast_tools/
+
 # IDE
 cmake-build-*/
