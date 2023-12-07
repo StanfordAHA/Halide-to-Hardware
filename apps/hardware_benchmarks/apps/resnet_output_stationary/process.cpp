@@ -68,15 +68,16 @@ int main( int argc, char **argv ) {
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
 
-    auto in_img = OX ? atoi(OX) : 56;
+    auto width = 1;
+    auto height = OX ? atoi(OX) : 56;
     auto pad = P ? atoi(P) : 1;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
     auto n_ic = IC ? atoi(IC) : 16;
     auto n_oc = OC ? atoi(OC) : 8;
 
-    int X = in_img;
-    int Y = X;
+    int X = width;
+    int Y = height;
     int K_X = ksize;
     int K_Y = K_X;
     int P_X = pad;
@@ -96,19 +97,19 @@ int main( int argc, char **argv ) {
     processor.inputs["input.mat"] = Buffer<int16_t>(Z, X, Y);
     auto input_copy_stencil = processor.inputs["input.mat"];
     int i=1; (void) i;
-    int max_rand = pow(2,8) - 1;
+    int max_rand = 8;
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
           //input_copy_stencil(z, x, y) = z + x + y;      // diagonal
-          //input_copy_stencil(z, x, y) = 1;              // all ones
+          // input_copy_stencil(z, x, y) = 1;              // all ones
           //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
           //continue;
-          if (rand() % 100 < 60) { // 60% zero, else rand
-            input_copy_stencil(z, x, y) = 0;
-          } else {
-            input_copy_stencil(z, x, y) = (rand() % (max_rand));
-          }
+          // if (rand() % 100 < 60) { // 60% zero, else rand
+          //   input_copy_stencil(z, x, y) = 0;
+          // } else {
+            input_copy_stencil(z, x, y) = std::abs(rand() % max_rand);
+          // }
     } } }
 
     std::cout << "input has dims: " << processor.inputs["input.mat"].dim(0).extent() << "x"
@@ -164,19 +165,19 @@ int main( int argc, char **argv ) {
       for (int x = 0; x < kernel_copy_stencil.dim(2).extent(); x++) {
         for (int z = 0; z < kernel_copy_stencil.dim(1).extent(); z++) {
           for (int w = 0; w < kernel_copy_stencil.dim(0).extent(); w++) {
-            //kernel_copy_stencil(z, w, x, y) = z + w + x + y;
+            // kernel_copy_stencil(w, z, x, y) = z + w + x + y;
             //continue;
-            //kernel_copy_stencil(z, w, x, y) = 1;
+            // kernel_copy_stencil(w, z, x, y) = 1;
             
-            //kernel_copy_stencil(z, w, x, y) = j;
+            //kernel_copy_stencil(w, z, x, y) = j;
             //if (first && j==Z) { first = false; j=0; }
             //j = j+1;
 
-            if (rand() % 100 < 60) { // 60% zero, else rand
-              kernel_copy_stencil(w, z, x, y) = 0;
-            } else {
-              kernel_copy_stencil(w, z, x, y) = (rand() % (2*max_rand)) - max_rand;
-            }
+            // if (rand() % 100 < 60) { // 60% zero, else rand
+            //   kernel_copy_stencil(w, z, x, y) = 0;
+            // } else {
+            kernel_copy_stencil(w, z, x, y) = std::abs(rand() % max_rand);
+            // }
             
             //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;
     } } } }
