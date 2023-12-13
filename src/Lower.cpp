@@ -96,7 +96,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
              const vector<IRMutator *> &custom_passes) {
 
     //std::cout << "Starting lowering..." << std::endl;
-    //std::cout << "Target = " << t << std::endl;
+    std::cout << "Target = " << t << std::endl;
     std::vector<std::string> namespaces;
     std::string simple_pipeline_name = extract_namespaces(pipeline_name, namespaces);
 
@@ -230,7 +230,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     //  synthesize_hwbuffers(s, env, buf_xcels);
     //}
 
-    if (t.has_feature(Target::Clockwork)) {
+    if (t.has_feature(Target::Clockwork) || t.has_feature(Target::Pono)) {
       s = extract_hwaccelerators(s, env);
       //std::cout << "IR after hwxcel extracted:\n" << s << std::endl;
     }
@@ -308,7 +308,8 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     if (!t.has_feature(Target::CoreIRHLS) &&
         !t.has_feature(Target::CoreIR) &&
         !t.has_feature(Target::HLS) &&
-        !t.has_feature(Target::Clockwork)) { // FIXME: don't omit this pass globally with CoreIR
+        !t.has_feature(Target::Clockwork) && 
+        !t.has_feature(Target::Pono)) { // FIXME: don't omit this pass globally with CoreIR
       debug(1) << "Forking asynchronous producers...\n";
       s = fork_async_producers(s, env);
       debug(2) << "Lowering after forking asynchronous producers:\n" << s << '\n';
@@ -332,7 +333,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
     debug(1) << "Performing storage flattening...\n";
     //std::cout << "Before storage flattening...\n" << s << "\n\n";
 
-    if (t.has_feature(Target::Clockwork)) {
+    if (t.has_feature(Target::Clockwork) || t.has_feature(Target::Pono)) {
       s = rename_hwbuffers(s, env);
     }
     
@@ -390,7 +391,7 @@ Module lower(const vector<Function> &output_funcs, const string &pipeline_name, 
 
     //std::cout << "Before unrolling:\n" << s << "\n\n";    
     debug(1) << "Unrolling...\n";
-    if (t.has_feature(Target::Clockwork)) {
+    if (t.has_feature(Target::Clockwork) || t.has_feature(Target::Pono)) {
       s = unroll_loops_and_merge(s);
       //std::cout << "After unrolling:\n" << s << "\n\n";
       s = inline_memory_constants(s);

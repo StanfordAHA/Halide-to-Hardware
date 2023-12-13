@@ -50,7 +50,7 @@ public:
         //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get("hw_output.stencil")});
         //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get("cim.stencil")});
         
-        //std::cout << "output name is " << output_name << std::endl;        
+        std::cout << "output name is " << output_name << std::endl;        
         string out_scope_name = output_name.substr(1); // removes the preceding .
         string out_halide_name = out_scope_name + ".stencil";
 

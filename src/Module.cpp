@@ -651,7 +651,7 @@ void Module::compile(const Outputs &output_files_arg) const {
       // Construct pipeline header file
       std::string pono_filename = output_folder_name + name() + "_pono.py";
       std::ofstream pono_file(pono_filename);
-      Internal::CodeGen_Pono pono_cg(pono_file,
+      Internal::CodeGen_Pono_Wrapper pono_cg(pono_file,
                                  target().with_feature(Target::CPlusPlusMangling)
                                 );
       std::cout << "[INFO] Module.compile(): pono file = " << pono_filename << "\n";
