@@ -71,6 +71,9 @@ public:
 
     static void test();
 
+    // list of strings
+    std::vector<std::string> buffers;
+
 protected:
 
 
@@ -153,6 +156,9 @@ protected:
     virtual void compile(const LoweredFunc &func);
     virtual void compile(const Buffer<> &buffer);
 
+    std::string print_name(const std::string &name);
+
+    std::ostream &stream;
     CodeGen_Pono codegen;
     void visit(const ProducerConsumer *op) override;
 };
