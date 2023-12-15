@@ -103,12 +103,12 @@ int main( int argc, char **argv ) {
         for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
           //input_copy_stencil(z, x, y) = z + x + y;      // diagonal
           // input_copy_stencil(z, x, y) = 1;              // all ones
-          //input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
+          input_copy_stencil(z, x, y) = i;    i = i+1;  // increasing
           //continue;
           // if (rand() % 100 < 60) { // 60% zero, else rand
           //   input_copy_stencil(z, x, y) = 0;
           // } else {
-            input_copy_stencil(z, x, y) = std::abs(rand() % max_rand);
+          //  input_copy_stencil(z, x, y) = std::abs(rand() % max_rand);
           // }
     } } }
 
@@ -159,7 +159,7 @@ int main( int argc, char **argv ) {
     ///// KERNEL WEIGHTS /////  
     processor.inputs["kernel.mat"] = Buffer<int16_t>(W, Z, K_X, K_Y);
     auto kernel_copy_stencil = processor.inputs["kernel.mat"];
-    //int j=1;
+    int j=1;
     //bool first = true;
     for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {
       for (int x = 0; x < kernel_copy_stencil.dim(2).extent(); x++) {
@@ -169,14 +169,14 @@ int main( int argc, char **argv ) {
             //continue;
             // kernel_copy_stencil(w, z, x, y) = 1;
             
-            //kernel_copy_stencil(w, z, x, y) = j;
+            kernel_copy_stencil(w, z, x, y) = j;
             //if (first && j==Z) { first = false; j=0; }
-            //j = j+1;
+            j = j+1;
 
             // if (rand() % 100 < 60) { // 60% zero, else rand
             //   kernel_copy_stencil(w, z, x, y) = 0;
             // } else {
-            kernel_copy_stencil(w, z, x, y) = std::abs(rand() % max_rand);
+            //kernel_copy_stencil(w, z, x, y) = std::abs(rand() % max_rand);
             // }
             
             //std::cout << "kernel " << z << "," << w << "," << x << "," << y << " = " << +kernel_copy_stencil(z,w,x,y) << std::endl;

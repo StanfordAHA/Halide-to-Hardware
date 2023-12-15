@@ -169,6 +169,8 @@ public:
           hw_output.unroll(w, glb_o);
           output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
 
+          output_cgra.store_in(MemoryType::MemoryTile);
+
           output_cgra.compute_at(output_glb, w_glb); // memtile
           output_cgra
             .reorder(w, x, y);
