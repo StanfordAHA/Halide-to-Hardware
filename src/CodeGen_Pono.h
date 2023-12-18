@@ -145,13 +145,15 @@ protected:
 };
 
 
-class CodeGen_Pono_Wrapper : public IRVisitor {
+class CodeGen_Pono_Testbench : public IRVisitor {
 public:
-    CodeGen_Pono_Wrapper(std::ostream &s, Target t);
+    CodeGen_Pono_Testbench(std::ostream &s, std::ostream &ts, Target t, std::string target_filename);
     void compile(const Halide::Module &module);
 
 protected:
     using IRVisitor::visit;
+
+    Scope<HW_Stencil_Type_Pono> stencils;
 
     virtual void compile(const LoweredFunc &func);
     virtual void compile(const Buffer<> &buffer);
@@ -159,8 +161,10 @@ protected:
     std::string print_name(const std::string &name);
 
     std::ostream &stream;
+    std::ostream &testbench_stream;
     CodeGen_Pono codegen;
     void visit(const ProducerConsumer *op) override;
+    void visit(const Realize *op) override;
 };
 
 }  // namespace Internal

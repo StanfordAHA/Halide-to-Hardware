@@ -16,18 +16,75 @@ namespace Halide {
         using std::ostringstream;
         using std::string;
         using std::vector;
+        using std::pair;
 
-        CodeGen_Pono_Wrapper::CodeGen_Pono_Wrapper(ostream & s, Target t): stream(s), codegen(s, t) {
+        class Pono_Closure : public Closure {
+        public:
+            Pono_Closure(Stmt s, const string& output_fn_name) : output_name(output_fn_name) {
+                s.accept(this);
+            }
 
+            vector<HW_Arg_Pono> arguments(const Scope<HW_Stencil_Type_Pono>& streams_scope) {
+                vector<HW_Arg_Pono> result;
+                if (!buffers.empty()) {
+                std::cout << "buffers include: ";
+                for (auto buffer : buffers) {
+                    std::cout << buffer.first << ", ";
+                }
+                std::cout << std::endl;
+                }
+                internal_assert(buffers.empty()) << "we expect no references to buffers in a hardware pipeline\n";
+                for (const pair<string, Type> &v : vars) {
+                    if (ends_with(v.first, ".stencil")) {
+                        HW_Stencil_Type_Pono stencil_type = streams_scope.get(v.first);
+                        if (starts_with(v.first, output_name)) {
+                            result.push_back({v.first, true, true, Type(), stencil_type});
+                        } else {
+                            result.push_back({v.first, true, false, Type(), stencil_type});
+                        }
+                    } else {
+                        // it is a scalar variable
+                        result.push_back({v.first, false, false, v.second, HW_Stencil_Type_Pono()});
+                    }
+                }
+
+                std::cout << "output name is " << output_name << std::endl;        
+                string out_scope_name = output_name.substr(1); // removes the preceding .
+                string out_halide_name = out_scope_name + ".stencil";
+
+                if (streams_scope.contains(out_scope_name + ".glb.stencil")) {
+                    out_halide_name = out_scope_name + ".glb.stencil";
+                } else {
+                    internal_assert(streams_scope.contains(out_halide_name));
+                }
+                
+                //result.push_back({output_name + "_stencil", true, true, Type(), streams_scope.get(out_scope_name + ".stencil")});
+                result.push_back({out_halide_name, true, true, Type(), streams_scope.get(out_halide_name)});
+                return result;
+            }
+
+        protected:
+            const string& output_name;
+        };
+
+        CodeGen_Pono_Testbench::CodeGen_Pono_Testbench(ostream & s, ostream & ts, Target t, std::string target_filename): stream(s), testbench_stream(ts), codegen(s, t) {
+
+
+            testbench_stream << "import sys\n";
+            testbench_stream << "import os\n";
+            testbench_stream << "import numpy as np\n";
+            testbench_stream << "from " << target_filename << "_pono import run_app\n";
+
+            testbench_stream << "\n";
         }
 
-        void CodeGen_Pono_Wrapper::compile(const Module & input) {
+        void CodeGen_Pono_Testbench::compile(const Module & input) {
             for (const auto & f: input.functions()) {
                 compile(f);
             }
         }
 
-        void CodeGen_Pono_Wrapper::compile(const LoweredFunc & f) {
+        void CodeGen_Pono_Testbench::compile(const LoweredFunc & f) {
             const std::vector<LoweredArgument> &args = f.args;
             for (size_t i = 0; i < args.size(); i++) {
                 if (args[i].is_buffer()) {
@@ -38,11 +95,11 @@ namespace Halide {
 
         }
 
-        void CodeGen_Pono_Wrapper::compile(const Buffer < > & buffer) {
+        void CodeGen_Pono_Testbench::compile(const Buffer < > & buffer) {
 
         }
 
-        string CodeGen_Pono_Wrapper::print_name(const string & name) {
+        string CodeGen_Pono_Testbench::print_name(const string & name) {
             ostringstream oss;
 
             for (size_t i = 0; i < name.size(); i++) {
@@ -55,28 +112,90 @@ namespace Halide {
             return oss.str();
         }
 
-        void CodeGen_Pono_Wrapper::visit(const ProducerConsumer * op) {
+        void CodeGen_Pono_Testbench::visit(const Realize * op) {
+            if (ends_with(op->name, ".stencil")) {
+                HW_Stencil_Type_Pono stype({HW_Stencil_Type_Pono::StencilContainerType::Stencil, op->types[0], op->bounds, 1});
+                stencils.push(op->name, stype);
+            }
+
+            IRVisitor::visit(op);
+        }
+
+        void CodeGen_Pono_Testbench::visit(const ProducerConsumer * op) {
             string target_prefix = "_hls_target";
             if (starts_with(op->name, target_prefix) && op->is_producer) {
+                string output_name = op->name.substr(target_prefix.length());
+                Pono_Closure closure(op -> body, output_name);
+                vector<HW_Arg_Pono> args = closure.arguments(stencils);
+
+                stream << "def run_app(";
+                for (size_t i = 0; i < args.size(); i++) {
+                    stream << print_name(args[i].name);
+
+                    if (i < args.size() - 1) {
+                        stream << ", ";
+                    }
+                }
+                stream << "):\n";
+
                 std::cout << "visiting producer " << op -> name << std::endl;
 
-                stream << "def run_app(" << print_name(op -> name) << "):\n";
-
-                // Box box = box_provided(op -> body, op -> name);
-                // stream << print_name(op -> name) << " = ";
-                // for (size_t i = 0; i < box.size(); i++) {
-                //     stream << "[";
-                // }
-                // stream << "0";
-                // for (size_t i = 0; i < box.size(); i++) {
-                //     stream << " for _ in range(";
-                //     stream << box[i].min << ", " << box[i].max << " + 1";
-                //     stream << ")]";
-                // }
-                // stream << "\n";
                 codegen.print(op -> body);
+
+                for (size_t i = 0; i < args.size() - 1; i++) {
+                    testbench_stream << print_name(args[i].name) << " = np.fromfile(";
+
+                    testbench_stream << "\"bin/" << print_name(args[i].name) << ".leraw\", dtype=np.int16).reshape((";
+
+                    auto bounds = args[i].stencil_type.bounds;
+                    
+                    for (size_t j = 0; j < bounds.size(); j++) {
+                        testbench_stream << bounds[j].extent;
+                        if (j < bounds.size() - 1) {
+                            testbench_stream << ", ";
+                        }
+                    }
+                    testbench_stream << "))\n";
+                }
+
+                // Need to copy this from H2H clockwork implementation
+                // I guess we only allow one output thats called hw_output
+                // No idea why this is fixed
+                int output_buffer_idx = args.size() - 1;
+                testbench_stream << print_name(args[output_buffer_idx].name) << " = np.fromfile(";
+                testbench_stream << "\"bin/hw_output.leraw\", dtype=np.int16).reshape((";
+                auto bounds = args[output_buffer_idx].stencil_type.bounds;
+                for (size_t j = 0; j < bounds.size(); j++) {
+                    testbench_stream << bounds[j].extent;
+                    if (j < bounds.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << "))\n";
+
+                testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.fromfile(";
+                testbench_stream << "\"bin/hw_output.leraw\", dtype=np.int16).reshape((";
+                for (size_t j = 0; j < bounds.size(); j++) {
+                    testbench_stream << bounds[j].extent;
+                    if (j < bounds.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << "))\n";
+
+                testbench_stream << "\nrun_app(";
+                for (size_t i = 0; i < args.size(); i++) {
+                    testbench_stream << print_name(args[i].name);
+
+                    if (i < args.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << ")\n";
+
+                testbench_stream << "assert(np.array_equal(" << print_name(args[output_buffer_idx].name) << ", " << print_name(args[output_buffer_idx].name) << "_compare))\n";
+
             } else {
-                std::cout << "visiting consumer " << op -> name << std::endl;
                 IRVisitor::visit(op);
             }
         }

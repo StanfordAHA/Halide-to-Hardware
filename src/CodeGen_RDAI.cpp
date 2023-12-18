@@ -440,6 +440,7 @@ class CountAccelerators : public IRVisitor {
       string target_prefix = "_hls_target";
       if (starts_with(op->name, target_prefix) && op->is_producer) {
         xcels.insert(op->name);
+        std::cout << op->name << " is an accelerator" << std::endl;
       } else {
         IRVisitor::visit(op);
       }
