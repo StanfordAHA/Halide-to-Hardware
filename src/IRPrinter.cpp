@@ -139,6 +139,15 @@ std::ostream &operator<<(std::ostream &out, const MemoryType &t) {
     case MemoryType::GLB:
         out << "GLB";
         break;
+    case MemoryType::MemoryTile:
+        out << "MemoryTile";
+        break;
+    case MemoryType::Pond:
+        out << "Pond";
+        break;
+    case MemoryType::Host:
+        out << "Host";
+        break;
     }
     return out;
 }
