@@ -34,6 +34,15 @@ public:
 
     // glb_o determines the output glb unrolling
     GeneratorParam<int> glb_o{"glb_o", 8};
+
+    // Note, these are the halide gen args that I work:
+    // input_height=64 input_height_tile=64 input_width=8 kernel_width=8 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
+    // input_height=128 input_height_tile=64 input_width=8 kernel_width=8 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
+    // input_height=256 input_height_tile=64 input_width=8 kernel_width=8 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
+    // input_height=1024 input_height_tile=64 input_width=8 kernel_width=8 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
+    // input_height=1024 input_height_tile=64 input_width=16 kernel_width=16 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
+    // input_height=1024 input_height_tile=64 input_width=32 kernel_width=32 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
+    // input_height=1024 input_height_tile=64 input_width=64 kernel_width=64 input_width_unroll=8 kernel_width_unroll=8 glb_i=8 glb_k=8 glb_o=8 m_input_width=1 m_kernel_width=1
   
     void generate() {
         assert((int)input_width >= (int)input_width_unroll * (int)m_input_width); // the number of total input channels must exceed unrolled channels
