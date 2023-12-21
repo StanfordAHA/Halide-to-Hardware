@@ -55,7 +55,7 @@ public:
 
           hw_input.stream_to_accelerator();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, 63);

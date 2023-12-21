@@ -239,7 +239,7 @@ int blockSize = 9;
       //hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
       hw_input_temp(x,y) = u16(input(x, y));
 
-      if (get_target().has_feature(Target::Clockwork)) {
+      if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) || get_target().has_feature(Target::Pono)) {
         hw_input_shuffle(x, y, c) = hw_input_temp(2*x + c/2, 2*y + c%2);
 
         //hw_input(x, y) = hw_input_shuffle(x/4 + 622*(y%2), y/2, x%4);
@@ -290,7 +290,7 @@ int blockSize = 9;
       //hw_output(c, x, y) = denoised(x, y);
 
       Var k;
-      if (get_target().has_feature(Target::Clockwork)) {
+      if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) || get_target().has_feature(Target::Pono)) {
         int iWidth = tWidth * nTiles / 4;
         output_shuffle(c, k, x, y) = u8(hw_output(c, (x%iWidth)*4 + k, x/iWidth + 2*y));
         //output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), max(x/2 - 1, 0), y/2);
@@ -328,7 +328,7 @@ int blockSize = 9;
         
         hw_input.stream_to_accelerator();
 
-      } else if (get_target().has_feature(Target::Clockwork)) {
+      } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) || get_target().has_feature(Target::Pono)) {
 
           if (schedule == 1) { // host and glb tiling
             const int numHostTiles = 4;

@@ -97,6 +97,8 @@ protected:
     /** Emit spaces according to the current indentation level */
     void do_indent();
     std::string print_name(const std::string &name);
+    std::string print_type(const Halide::Type &t);
+
 
     void visit(const IntImm *) override;
     void visit(const UIntImm *) override;

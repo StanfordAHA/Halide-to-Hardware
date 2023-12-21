@@ -138,7 +138,7 @@ public:
           //hw_input.store_root().compute_at(pw_conv, x);
           //hw_input.store_at(hw_output, xo).compute_at(hw_output, xo);
           //hw_input.store_at(hw_output, xo).compute_at(pw_conv, x);
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           output.bound(x, 0, 16);
           output.bound(y, 0, 16);
           output.bound(k, 0, num_out_ch); //output channel

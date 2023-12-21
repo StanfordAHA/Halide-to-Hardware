@@ -84,7 +84,7 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
 
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
 
           if (schedule == 1) {
             // use global buffer and large input image

@@ -61,7 +61,7 @@ namespace {
       output.bound(y, 0, 128);
 
 
-      if (get_target().has_feature(Target::Clockwork)) {
+      if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
         hw_output.compute_root();
         hw_output.tile(x, y, xo, yo, xi, yi, 128, 128).hw_accelerate(xi, xo);
         

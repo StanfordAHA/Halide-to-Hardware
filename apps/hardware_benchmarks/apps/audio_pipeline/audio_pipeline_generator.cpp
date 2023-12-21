@@ -256,7 +256,7 @@ namespace {
       /* THE SCHEDULE */
       if (get_target().has_feature(Target::CoreIR)) {
 
-      } else if (get_target().has_feature(Target::Clockwork)) {
+      } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
         output.bound(t, 0, num_samples - ksize + 1);
         output.bound(c, 0, 2);
 

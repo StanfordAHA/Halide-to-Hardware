@@ -18,6 +18,37 @@ namespace Halide {
         using std::vector;
         using std::pair;
 
+
+class AssociatedProvideName : public IRVisitor {
+    using IRVisitor::visit;
+    void visit(const Provide *op) {
+      //std::cout << "this provide is " << Stmt(op);
+      for (auto value : op->values) {
+        if (contains_call(value, call_name)) {
+          internal_assert(!found || (op->name == provide_name)) << call_name << " is called by multiple provides! ("
+                                                                << provide_name << " and " << op->name << ")";
+          provide_name = op->name;
+          found = true;
+        }
+      }
+      IRVisitor::visit(op);
+    }
+
+public:
+  bool found;
+  string call_name;
+  string provide_name;
+
+  AssociatedProvideName(string call_name) : found(false), call_name(call_name) {}
+};
+
+string associated_provide_name(Stmt s, string call_name) {
+    AssociatedProvideName apn(call_name);
+    s.accept(&apn);
+    internal_assert(apn.found);
+    return apn.provide_name;
+}
+
         class Pono_Closure : public Closure {
         public:
             Pono_Closure(Stmt s, const string& output_fn_name) : output_name(output_fn_name) {
@@ -76,6 +107,8 @@ namespace Halide {
             testbench_stream << "from " << target_filename << "_pono import run_app\n";
 
             testbench_stream << "\n";
+
+            stream << "import numpy as np\n";
         }
 
         void CodeGen_Pono_Testbench::compile(const Module & input) {
@@ -112,6 +145,9 @@ namespace Halide {
             return oss.str();
         }
 
+
+
+
         void CodeGen_Pono_Testbench::visit(const Realize * op) {
             if (ends_with(op->name, ".stencil")) {
                 HW_Stencil_Type_Pono stype({HW_Stencil_Type_Pono::StencilContainerType::Stencil, op->types[0], op->bounds, 1});
@@ -143,41 +179,80 @@ namespace Halide {
                 codegen.print(op -> body);
 
                 for (size_t i = 0; i < args.size() - 1; i++) {
-                    testbench_stream << print_name(args[i].name) << " = np.fromfile(";
+                    if (args[i].is_stencil) {
 
-                    testbench_stream << "\"bin/" << print_name(args[i].name) << ".leraw\", dtype=np.int16).reshape((";
+                        string provide_name = associated_provide_name(op->body, args[i].name);
+                        auto box = box_provided(op->body, provide_name);
+                        args[i].box = box;
+                        auto extents = extract_extents(box);
 
-                    auto bounds = args[i].stencil_type.bounds;
-                    
-                    for (size_t j = 0; j < bounds.size(); j++) {
-                        testbench_stream << bounds[j].extent;
-                        if (j < bounds.size() - 1) {
-                            testbench_stream << ", ";
+                        testbench_stream << print_name(args[i].name) << " = np.fromfile(";
+
+                        testbench_stream << "\"bin/" << print_name(args[i].name) << ".leraw\", dtype=np." << args[i].stencil_type.elemType << ").reshape((";
+
+                        std::cout << print_name(args[i].name);
+                        
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            std::cout << " extent:" << extents[extents.size() - 1 - j];
+
+                            testbench_stream << extents[extents.size() - 1 - j];
+
+                            if (j < extents.size() - 1) {
+                                testbench_stream << ", ";
+                            }
                         }
+                        std::cout << std::endl;
+                        testbench_stream << "))\n";
+
+                        // Is transposed, so need to transpose back
+                        testbench_stream << print_name(args[i].name) << " = np.transpose(" << print_name(args[i].name) << ", (";
+                        
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << extents.size() - 1 - j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << ", ";
+                            }
+                        }
+                        testbench_stream << "))\n";
+                    } else {
+                        std::cout << "Found scalar input " << args[i].name << std::endl;
+                        testbench_stream << print_name(args[i].name) << " = " << 0 << "\n";
                     }
-                    testbench_stream << "))\n";
                 }
 
                 // Need to copy this from H2H clockwork implementation
                 // I guess we only allow one output thats called hw_output
                 // No idea why this is fixed
                 int output_buffer_idx = args.size() - 1;
-                testbench_stream << print_name(args[output_buffer_idx].name) << " = np.fromfile(";
-                testbench_stream << "\"bin/hw_output.leraw\", dtype=np.int16).reshape((";
-                auto bounds = args[output_buffer_idx].stencil_type.bounds;
-                for (size_t j = 0; j < bounds.size(); j++) {
-                    testbench_stream << bounds[j].extent;
-                    if (j < bounds.size() - 1) {
+                testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
+                auto box = box_provided(op->body, args[output_buffer_idx].name);
+                args[output_buffer_idx].box = box;
+                auto extents = extract_extents(box);
+
+                testbench_stream << "np.zeros((";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << extents[j];
+                    if (j < extents.size() - 1) {
                         testbench_stream << ", ";
                     }
                 }
                 testbench_stream << "))\n";
 
                 testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.fromfile(";
-                testbench_stream << "\"bin/hw_output.leraw\", dtype=np.int16).reshape((";
-                for (size_t j = 0; j < bounds.size(); j++) {
-                    testbench_stream << bounds[j].extent;
-                    if (j < bounds.size() - 1) {
+                testbench_stream << "\"bin/hw_output.leraw\", dtype=np." << args[output_buffer_idx].stencil_type.elemType << ").reshape((";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << extents[extents.size() - 1 - j];
+                    if (j < extents.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << "))\n";
+
+                testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.transpose(" << print_name(args[output_buffer_idx].name) << "_compare, (";
+                
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << extents.size() - 1 - j;
+                    if (j < extents.size() - 1) {
                         testbench_stream << ", ";
                     }
                 }
@@ -193,8 +268,16 @@ namespace Halide {
                 }
                 testbench_stream << ")\n";
 
-                testbench_stream << "assert(np.array_equal(" << print_name(args[output_buffer_idx].name) << ", " << print_name(args[output_buffer_idx].name) << "_compare))\n";
+                testbench_stream << "if (np.array_equal(" << print_name(args[output_buffer_idx].name) << ", " << print_name(args[output_buffer_idx].name) << "_compare)):\n";
 
+                testbench_stream << "  print(\"Test passed!\")\n";
+
+                testbench_stream << "else:\n";
+                testbench_stream << "  print(\"Test failed!\")\n";
+                testbench_stream << "  print(\"Expected:\")\n";
+                testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << "_compare)\n";
+                testbench_stream << "  print(\"Actual:\")\n";
+                testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << ")\n";
             } else {
                 IRVisitor::visit(op);
             }
@@ -243,31 +326,32 @@ namespace Halide {
 
         void CodeGen_Pono::visit(const IntImm * op) {
             // if (op->type == Int(32)) {
-            stream << op -> value;
+            // stream << op -> value;
             // } else {
-            // stream << "(" << op->type << ")" << op->value;
+            stream << print_type(op->type) << "(" << op->value << ")";
             // }
         }
 
         void CodeGen_Pono::visit(const UIntImm * op) {
             // stream << "(" << op->type << ")" << op->value;
-            stream << op -> value;
+            stream << print_type(op->type) << "(" << op->value << ")";
         }
 
         void CodeGen_Pono::visit(const FloatImm * op) {
-            switch (op -> type.bits()) {
-            case 64:
-                stream << op -> value;
-                break;
-            case 32:
-                stream << op -> value << 'f';
-                break;
-            case 16:
-                stream << op -> value << 'h';
-                break;
-            default:
-                internal_error << "Bad bit-width for float: " << op -> type << "\n";
-            }
+            // switch (op -> type.bits()) {
+            // case 64:
+            //     stream << op -> value;
+            //     break;
+            // case 32:
+            //     stream << op -> value << 'f';
+            //     break;
+            // case 16:
+            //     stream << op -> value << 'h';
+            //     break;
+            // default:
+            //     internal_error << "Bad bit-width for float: " << op -> type << "\n";
+            // }
+            stream << print_type(op->type) << "(" << op->value << ")";
         }
 
         void CodeGen_Pono::visit(const StringImm * op) {
@@ -304,9 +388,9 @@ namespace Halide {
         }
 
         void CodeGen_Pono::visit(const Cast * op) {
-            // stream << op->type << '(';
+            stream << print_type(op->type) << '(';
             print(op -> value);
-            // stream << ')';
+            stream << ')';
         }
 
         string CodeGen_Pono::print_name(const string & name) {
@@ -320,6 +404,24 @@ namespace Halide {
                 } else oss << name[i];
             }
             return oss.str();
+        }
+
+        string CodeGen_Pono::print_type(const Halide::Type & t) {
+
+            if (t.is_int()) {
+                return "np.int" + std::to_string(t.bits());
+            } else if (t.is_uint()) {
+                return "np.uint" + std::to_string(t.bits());
+            } else if (t.is_float()) {
+                return "float";
+            } else if (t.is_bfloat()) {
+                return "float";
+            } else if (t.is_handle()) {
+                return "";
+            } else {
+                return "";
+            }
+
         }
 
         void CodeGen_Pono::visit(const Variable * op) {
@@ -353,7 +455,7 @@ namespace Halide {
         void CodeGen_Pono::visit(const Div * op) {
             stream << '(';
             print(op -> a);
-            stream << "/";
+            stream << "//";
             print(op -> b);
             stream << ')';
         }
@@ -433,7 +535,7 @@ namespace Halide {
         void CodeGen_Pono::visit(const And * op) {
             stream << '(';
             print(op -> a);
-            stream << " && ";
+            stream << " and ";
             print(op -> b);
             stream << ')';
         }
@@ -441,7 +543,7 @@ namespace Halide {
         void CodeGen_Pono::visit(const Or * op) {
             stream << '(';
             print(op -> a);
-            stream << " || ";
+            stream << " or ";
             print(op -> b);
             stream << ')';
         }
@@ -496,10 +598,88 @@ namespace Halide {
 
         void CodeGen_Pono::visit(const Call * op) {
             // TODO: Print indication of C vs C++?
-            if (op -> is_intrinsic(Call::reinterpret) ||
-                op -> is_intrinsic(Call::make_struct)) {
-                // For calls that define a type that isn't just a function of
-                // the types of the args, we also print the type.
+            // if (op -> is_intrinsic(Call::reinterpret) ||
+            //     op -> is_intrinsic(Call::make_struct)) {
+            //     // For calls that define a type that isn't just a function of
+            //     // the types of the args, we also print the type.
+            //     stream << print_name(op -> name) << "(";
+            //     print_list(op -> args);
+            //     stream << ")";
+            // } else {
+            //     stream << print_name(op -> name) << "[";
+            //     print_arg_list(op -> args);
+            //     stream << "]";
+            // }
+
+            // add bitand, bitor, bitxor, bitnot
+            if (op->is_intrinsic(Call::bitwise_and)) {
+                internal_assert(op->args.size() == 2);
+                Expr a = op->args[0];
+                Expr b = op->args[1];
+                stream << '(';
+                print(a);
+                stream << " & ";
+                print(b);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::bitwise_or)) {
+                internal_assert(op->args.size() == 2);
+                Expr a = op->args[0];
+                Expr b = op->args[1];
+                stream << '(';
+                print(a);
+                stream << " | ";
+                print(b);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::bitwise_xor)) {
+                internal_assert(op->args.size() == 2);
+                Expr a = op->args[0];
+                Expr b = op->args[1];
+                stream << '(';
+                print(a);
+                stream << " ^ ";
+                print(b);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::bitwise_not)) {
+                internal_assert(op->args.size() == 1);
+                Expr a = op->args[0];
+                stream << "(1 << " << op->type.bits() << ") - 1 - ";
+                print(a);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::shift_left)) {
+                internal_assert(op->args.size() == 2);
+                Expr a = op->args[0];
+                Expr b = op->args[1];
+                stream << '(';
+                print(a);
+                stream << " << ";
+                print(b);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::shift_right)) {
+                internal_assert(op->args.size() == 2);
+                Expr a = op->args[0];
+                Expr b = op->args[1];
+                stream << '(';
+                print(a);
+                stream << " >> ";
+                print(b);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::abs)) {
+                internal_assert(op->args.size() == 1);
+                Expr a = op->args[0];
+                stream << "abs(";
+                print(a);
+                stream << ')';
+            } else if (op->is_intrinsic(Call::absd)) {
+                internal_assert(op->args.size() == 2);
+                Expr a = op->args[0];
+                Expr b = op->args[1];
+                stream << "abs(";
+                print(a);
+                stream << " - ";
+                print(b);
+                stream << ')';
+
+            } else if (op->is_intrinsic(Call::reinterpret)) {
                 stream << print_name(op -> name) << "(";
                 print_list(op -> args);
                 stream << ")";
@@ -588,15 +768,20 @@ namespace Halide {
 
         void CodeGen_Pono::visit(const Allocate * op) {
             do_indent();
-            stream << print_name(op -> name) << "[" << 0;
+            stream << print_name(op -> name) << " = ";
+
             for (size_t i = 0; i < op -> extents.size(); i++) {
-                stream << " * ";
-                print(op -> extents[i]);
+                stream << "[";
             }
-            stream << "]";
-            // if (op->memory_type != MemoryType::Auto) {
-            //     stream << " in " << op->memory_type;
-            // }
+
+            stream << "0";
+
+            for (size_t i = 0; i < op -> extents.size(); i++) {
+                stream << " for _ in range(";
+                print(op -> extents[op -> extents.size() - i - 1]);
+                stream << ")]";
+            }
+
             if (!is_one(op -> condition)) {
                 stream << " if ";
                 print(op -> condition);

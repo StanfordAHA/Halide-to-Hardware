@@ -41,7 +41,7 @@ public:
         output(x, y) = u8(clamp(hw_output(x,y), 0, 255));
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, imgsize);

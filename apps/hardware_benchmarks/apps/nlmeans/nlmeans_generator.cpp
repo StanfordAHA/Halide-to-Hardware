@@ -96,7 +96,7 @@ public:
 
         if (auto_schedule) {
             // nothing
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           int outputSize = 64;
           int tileSize = 32;
             

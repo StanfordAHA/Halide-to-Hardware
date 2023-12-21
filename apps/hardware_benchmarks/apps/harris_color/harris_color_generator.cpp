@@ -128,7 +128,7 @@ public:
 
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::Clockwork)) {
+        if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) || get_target().has_feature(Target::Pono)) {
 
           if (schedule == 1) { // do host and glb tiling
             const int tileSize = 58;

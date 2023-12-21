@@ -63,7 +63,7 @@ public:
 
     // Schedule
     if (!auto_schedule) {
-      if (get_target().has_feature(Target::Clockwork)) {
+      if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
         int outputSize = 64;
         int tileSize = 64;
             

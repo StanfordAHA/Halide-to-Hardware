@@ -75,7 +75,7 @@ public:
           hw_weight.stream_to_accelerator();
           kernel.compute_at(hw_output, xo);
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           Var xi,yi, xo,yo;
           
           hw_output.compute_root();

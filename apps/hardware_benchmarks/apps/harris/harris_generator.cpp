@@ -148,7 +148,7 @@ public:
 
 
         /* THE SCHEDULE */
-        if (get_target().has_feature(Target::Clockwork)) {
+        if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           int tileSize = 58;
 
           hw_output.compute_root();

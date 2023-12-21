@@ -147,7 +147,7 @@ public:
           hw_input.compute_at(hw_output, xi).store_at(hw_output, xo);
           hw_input.stream_to_accelerator();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           output.bound(x, 0, imgSize);
           output.bound(y, 0, imgSize);
 

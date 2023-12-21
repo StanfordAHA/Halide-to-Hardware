@@ -38,7 +38,7 @@ public:
 //            Q2(m,n,i,y) = z(m,n,y)/sqrt(sum(pow(z(m,n,cols.x),2)));
 //            Q = Q2;
 //
-//            if (get_target().has_feature(Target::Clockwork)) {
+//            if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
 //                summ.update().unroll(cols.x, 8);
 //            }
 //        }
@@ -47,7 +47,7 @@ public:
 //        QR(m,n,x,y) = 0.0f;
 //        QR(m,n,x,y) += R(m,n,rows.x,y)*Q(m,n,x,rows.x);
 //
-//        if (get_target().has_feature(Target::Clockwork)) {
+//        if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
 //            QR.update().unroll(rows.x, 8);
 //        }
 //
@@ -226,7 +226,7 @@ public:
 
         if (auto_schedule) {
         } else if (get_target().has_feature(Target::CoreIR)) {
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           
             output.bound(x, 0, width-2*window);
             output.bound(y, 0, height-2*window);

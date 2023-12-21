@@ -146,7 +146,7 @@ public:
           //kernel.bound(x, -blockSize/2, blockSize);
 
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           
           if (schedule == 1) { // host and glb tiling
             const int tileSize = 58;

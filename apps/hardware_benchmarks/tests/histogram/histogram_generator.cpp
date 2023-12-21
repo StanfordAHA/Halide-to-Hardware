@@ -39,7 +39,7 @@ public:
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
-        } else if (get_target().has_feature(Target::Clockwork)) {          
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {          
           Var xi,yi, xo,yo, bo, bi;
 
           //histogram.bound(b, 0, 16);

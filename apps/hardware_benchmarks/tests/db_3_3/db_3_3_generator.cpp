@@ -64,7 +64,7 @@ public:
           kernel.compute_at(conv, y);
           //kernel.compute_root();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, imgsize);

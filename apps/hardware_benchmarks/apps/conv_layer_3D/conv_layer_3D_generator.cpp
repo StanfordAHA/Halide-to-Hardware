@@ -56,7 +56,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           hw_input.bound(c, 0, ic);
           hw_output.bound(x, 0, ox);
           hw_output.bound(y, 0, oy);

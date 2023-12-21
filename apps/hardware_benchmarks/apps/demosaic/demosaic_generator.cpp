@@ -91,7 +91,7 @@ public:
           hw_input.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_input.stream_to_accelerator();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           output.bound(c, 0, 3);
           output.bound(x, 0, 62);
           output.bound(y, 0, 62);

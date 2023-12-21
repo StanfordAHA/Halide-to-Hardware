@@ -103,7 +103,7 @@ public:
           // 
           // hw_input.stream_to_accelerator();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           Var x_host,y_host, x_gb,y_gb, x_cgra,y_cgra;
           Var xi,yi;
 

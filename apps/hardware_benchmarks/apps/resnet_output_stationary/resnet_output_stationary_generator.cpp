@@ -118,7 +118,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
 
-        } else if (get_target().has_feature(Target::Clockwork) && schedule == 0) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) && schedule == 0) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
           output.bound(x, 0, imgsize);
@@ -238,7 +238,7 @@ public:
           input_glb.unroll(z, glb_i); // unroll glb input for small images
           input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
 
-        } else if (get_target().has_feature(Target::Clockwork) && schedule == 11) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) && schedule == 11) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
           output.bound(x, 0, imgsize);
@@ -365,7 +365,7 @@ public:
 
           
 
-        } else if (get_target().has_feature(Target::Clockwork) && schedule == 1) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) && schedule == 1) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
           output.bound(x, 0, imgsize);
@@ -479,7 +479,7 @@ public:
             .reorder(z_cgra, w_cgra, x, y, z_glb, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
           
-        } else if (get_target().has_feature(Target::Clockwork) && schedule == 12) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) && schedule == 12) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
           
           output.bound(x, 0, imgsize);

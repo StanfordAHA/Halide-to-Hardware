@@ -128,7 +128,7 @@ public:
                 }
                 outGPyramid[j].compute_root().gpu_tile(x, y, xi, yi, blockw, blockh);
             }
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
             // clockwork schedule
             int tilesize = 64;
           

@@ -324,7 +324,7 @@ Func interleave_y(Func a, Func b) {
         
         hw_input.stream_to_accelerator();
 
-      } else if (get_target().has_feature(Target::Clockwork)) {
+      } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
 
           if (schedule == 1) { // host and glb tiling
             const int numHostTiles = 1;

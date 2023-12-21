@@ -109,7 +109,7 @@ public:
         if (get_target().has_feature(Target::CoreIR)) {
 
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           output.bound(x, 0, imgSize);
           output.bound(y, 0, imgSize);
 

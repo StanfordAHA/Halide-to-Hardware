@@ -52,7 +52,7 @@ public:
           cout << "Loop nest" << endl;
           hw_output.print_loop_nest();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) || get_target().has_feature(Target::Pono)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, outImgSize);

@@ -87,7 +87,7 @@ public:
             if (auto_schedule) {
                 // don't do anything
             } else if (get_target().has_feature(Target::CoreIR)) {
-            } else if (get_target().has_feature(Target::Clockwork)) {
+            } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
                 //ints.compute_root();
                 //avg_ints.compute_root();
                 //weights_new.compute_root();
@@ -141,7 +141,7 @@ public:
 
         if (auto_schedule) {
         } else if (get_target().has_feature(Target::CoreIR)) {
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
             //hw_in_x.bound(x, 0, num_traps);
             //hw_in_y.bound(x, 0, num_traps);
             //hw_in_z.bound(x, 0, num_traps);

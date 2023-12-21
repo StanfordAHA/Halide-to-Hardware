@@ -136,7 +136,7 @@ public:
           hw_in.store_at(hw_output, xo).compute_at(hw_output, xi);
           hw_in.stream_to_accelerator();
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           output.bound(x, 0, 64-6);
           output.bound(y, 0, 64-6);
           //largest_seg.bound(x, 0, 64-6);

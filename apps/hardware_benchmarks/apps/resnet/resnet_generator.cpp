@@ -154,7 +154,7 @@ public:
           //hw_input.unroll(x, ksize);
           //hw_output.unroll(w, ksize);
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo, w
           
           output.bound(x, 0, imgsize);

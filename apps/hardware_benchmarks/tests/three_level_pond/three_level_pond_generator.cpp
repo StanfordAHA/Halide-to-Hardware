@@ -54,7 +54,7 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
 
-        } else if (get_target().has_feature(Target::Clockwork)) {
+        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono)) {
           Var x_host,y_host, x_cgra,y_cgra, x_pond,y_pond;
           Var k_cgra, k_pond;
           Var xi,yi;
