@@ -505,13 +505,14 @@ Stmt substitute_in_constants(Stmt s) {
 
 class ShiftRealizeBounds : public IRMutator {
   string name;
+  string input_stencil_name;
   vector<Expr>& mins;
   const Scope<Expr>& scope;
 
   using IRMutator::visit;
 
   Expr visit(const Call *op) {
-    if (op->name == name) {
+    if (op->name == name || op->name == input_stencil_name) {
       internal_assert(mins.size() == op->args.size());
       vector<Expr> new_args(mins.size());
 
@@ -544,7 +545,17 @@ class ShiftRealizeBounds : public IRMutator {
   }
 
 public:
-  ShiftRealizeBounds(string name, vector<Expr>& mins, const Scope<Expr>& scope) : name(name), mins(mins), scope(scope) {};
+  ShiftRealizeBounds(string name, vector<Expr>& mins, const Scope<Expr>& scope) : name(name), mins(mins), scope(scope) {
+    std::string orig_name = name;
+    std::string to_replace = "_global_wrapper.stencil";
+    std::string replace_with = ".stencil";
+
+    size_t pos = orig_name.find(to_replace);
+    if (pos != std::string::npos) {
+        orig_name.replace(pos, to_replace.length(), replace_with);
+    }
+    input_stencil_name = orig_name;
+  };
 };
 
 Stmt shift_realize_bounds(Stmt s, string bufname, vector<Expr>& mins, const Scope<Expr>& scope) {
