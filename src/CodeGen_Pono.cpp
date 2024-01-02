@@ -154,7 +154,17 @@ string associated_provide_name(Stmt s, string call_name) {
                 stencils.push(op->name, stype);
             }
 
-            IRVisitor::visit(op);
+            vector < Expr > realize_mins;
+            for (size_t i = 0; i < op -> bounds.size(); i++) {
+                realize_mins.emplace_back(op -> bounds[i].min);
+            }
+            std::cout << "CodeGen_Pono_Testbench shifting " << op->name << " by " << realize_mins << std::endl;
+
+            auto new_body = shift_realize_bounds(op -> body, op -> name, realize_mins, scope);
+            new_body.accept(this);
+            
+
+            // IRVisitor::visit(op);
         }
 
         void CodeGen_Pono_Testbench::visit(const ProducerConsumer * op) {
@@ -981,7 +991,7 @@ string associated_provide_name(Stmt s, string call_name) {
         void CodeGen_Pono::visit(const ProducerConsumer * op) {
             // string target_prefix = "_hls_target";
             // if (starts_with(op->name, target_prefix) && op->is_producer) {
-                std::cout << "produceconsume " << op->name << std::endl;
+                // std::cout << "produceconsume " << op->name << std::endl;
                 // if (op -> is_producer) {
                     Stmt hw_body = substitute_in_all_letstmts(op -> body);
                     print(hw_body);

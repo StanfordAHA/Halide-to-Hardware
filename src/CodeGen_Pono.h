@@ -154,7 +154,7 @@ public:
 
 protected:
     using IRVisitor::visit;
-
+    Scope<Expr> scope;
     Scope<HW_Stencil_Type_Pono> stencils;
 
     virtual void compile(const LoweredFunc &func);
