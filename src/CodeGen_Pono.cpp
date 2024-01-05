@@ -229,7 +229,7 @@ string associated_provide_name(Stmt s, string call_name) {
 
                         for (size_t j = 0; j < extents.size(); j++) {
                             do_indent();
-                            testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                            testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[j] << "):\n";
                             indent += 1;
                         }
                         do_indent();
@@ -256,7 +256,9 @@ string associated_provide_name(Stmt s, string call_name) {
 
                     } else {
                         std::cout << "Found scalar input " << args[i].name << std::endl;
-                        testbench_stream << print_name(args[i].name) << " = solver.create_term(0, solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
+                        do_indent();
+                        testbench_stream << print_name(args[i].name) << " = 0" << "\n";
+                        // testbench_stream << print_name(args[i].name) << " = solver.create_term(0, solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
                     }
                 }
 
@@ -286,7 +288,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 // Declare symbol array
                 for (size_t j = 0; j < extents.size(); j++) {
                     do_indent();
-                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[j] << "):\n";
                     indent += 1;
                 }
 
@@ -405,7 +407,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         // Constrain fts state var to be equal to input image
                         for (size_t j = 0; j < extents.size(); j++) {
                             do_indent();
-                            testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                            testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[j] << "):\n";
                             indent += 1;
                         }
 
@@ -485,7 +487,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 
                 for (size_t j = 0; j < extents.size(); j++) {
                     do_indent();
-                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[j] << "):\n";
                     indent += 1;
                 }
                 
@@ -779,7 +781,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.BVUmod, ";
+                stream << "solver.create_term(solver.ops.BVSmod, ";
                 print(op -> a);
                 stream << ", ";
                 print(op -> b);
@@ -997,12 +999,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << "(";
             }
             stream << print_name(op -> name) << "[";
+            bool old_python_type = python_type;
             python_type = true;
             print(op -> index);
             if (show_alignment) {
                 stream << " aligned(" << op -> alignment.modulus << ", " << op -> alignment.remainder << ")";
             }
-            python_type = false;
+            python_type = old_python_type;
             stream << "]";
             if (has_pred) {
                 stream << " if ";
@@ -1101,9 +1104,10 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ")";
             } else {
                 stream << print_name(op -> name) << "[";
+                bool old_python_type = python_type;
                 python_type = true;
                 print_arg_list(op -> args);
-                python_type = false;
+                python_type = old_python_type;
                 stream << "]";
             }
         }
@@ -1154,6 +1158,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 do_indent();
             }
             stream << print_name(op -> name) << "[";
+            bool old_python_type = python_type;
             python_type = true;
             print(op -> index);
             if (show_alignment) {
@@ -1162,7 +1167,7 @@ string associated_provide_name(Stmt s, string call_name) {
                     ", " <<
                     op -> alignment.remainder << ")";
             }
-            python_type = false;
+            python_type = old_python_type;
             stream << "] = ";
             print(op -> value);
             stream << '\n';
@@ -1174,9 +1179,10 @@ string associated_provide_name(Stmt s, string call_name) {
         void CodeGen_Pono::visit(const Provide * op) {
             do_indent();
             stream << print_name(op -> name) << "[";
+            bool old_python_type = python_type;
             python_type = true;
             print_arg_list(op -> args);
-            python_type = false;
+            python_type = old_python_type;
             stream << "] = ";
             if (op -> values.size() > 1) {
                 stream << "(";
