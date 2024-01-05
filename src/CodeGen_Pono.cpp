@@ -98,18 +98,17 @@ string associated_provide_name(Stmt s, string call_name) {
             const string& output_name;
         };
 
-        CodeGen_Pono_Testbench::CodeGen_Pono_Testbench(ostream & s, ostream & ts, Target t, std::string target_filename): stream(s), testbench_stream(ts), codegen(s, t), codegen_testbench(ts, t) {
+        CodeGen_Pono_Testbench::CodeGen_Pono_Testbench(ostream & s, ostream & ts, Target t, std::string target_filename): stream(s), testbench_stream(ts), indent(0), codegen(s, t), codegen_testbench(ts, t) {
 
 
             testbench_stream << "import sys\n";
             testbench_stream << "import os\n";
             testbench_stream << "import numpy as np\n";
+            testbench_stream << "import pono\n";
             testbench_stream << "from verified_agile_hardware.solver import Solver\n";
             testbench_stream << "from " << target_filename << "_pono import run_app\n";
 
             testbench_stream << "\n";
-
-            testbench_stream << "solver = Solver()\n";
 
             stream << "import numpy as np\n";
         }
@@ -133,6 +132,12 @@ string associated_provide_name(Stmt s, string call_name) {
 
         void CodeGen_Pono_Testbench::compile(const Buffer < > & buffer) {
 
+        }
+
+        void CodeGen_Pono_Testbench::do_indent() {
+            for (int i = 0; i < indent; i++) {
+                testbench_stream << "    ";
+            }
         }
 
         string CodeGen_Pono_Testbench::print_name(const string & name) {
@@ -199,10 +204,14 @@ string associated_provide_name(Stmt s, string call_name) {
                         args[i].box = box;
                         auto extents = extract_extents(box);
 
+
                         // Creating buffer input symbol arrays
-                        int indent = 0;
+                        testbench_stream << "def create_app(solver):\n";
+                       
+                        indent = 1;
 
                         // Declare array
+                        do_indent();
                         testbench_stream << print_name(args[i].name) << " = ";
                         for (size_t i = 0; i < extents.size(); i++) {
                             testbench_stream << "[";
@@ -217,16 +226,13 @@ string associated_provide_name(Stmt s, string call_name) {
 
 
                         // Fill array with symbols
+
                         for (size_t j = 0; j < extents.size(); j++) {
-                            for (int k = 0; k < indent; k++) {
-                                testbench_stream << "  ";
-                            }
+                            do_indent();
                             testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
                             indent += 1;
                         }
-                        for (int k = 0; k < indent; k++) {
-                            testbench_stream << "  ";
-                        }
+                        do_indent();
                         testbench_stream << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
                             testbench_stream << print_name(args[i].name) << "_dim_" << j;
@@ -246,8 +252,120 @@ string associated_provide_name(Stmt s, string call_name) {
 
                         testbench_stream << "\n";
                         
+                        indent -= extents.size();
+
+                    } else {
+                        std::cout << "Found scalar input " << args[i].name << std::endl;
+                        testbench_stream << print_name(args[i].name) << " = solver.create_term(0, solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
+                    }
+                }
+
+                // Need to copy this from H2H clockwork implementation
+                // I guess we only allow one output thats called hw_output
+                // No idea why this is fixed
+                int output_buffer_idx = args.size() - 1;
+                // testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
+                auto box = box_provided(op->body, args[output_buffer_idx].name);
+                args[output_buffer_idx].box = box;
+                auto extents = extract_extents(box);
+
+                // Declare array
+                do_indent();
+                testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
+                for (size_t i = 0; i < extents.size(); i++) {
+                    testbench_stream << "[";
+                }
+                testbench_stream << "0";
+                for (size_t i = 0; i < extents.size(); i++) {
+                    testbench_stream << " for _ in range(";
+                    testbench_stream << extents[extents.size() - i - 1];
+                    testbench_stream << ")]";
+                }
+                testbench_stream << "\n";
+
+                // Declare symbol array
+                for (size_t j = 0; j < extents.size(); j++) {
+                    do_indent();
+                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                    indent += 1;
+                }
+
+                // Fill array with symbols
+                do_indent();
+                testbench_stream << print_name(args[output_buffer_idx].name) << "[";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    if (j < extents.size() - 1) {
+                        testbench_stream << "][";
+                    }
+                }
+                testbench_stream << "] = solver.create_fts_state_var(\"" << print_name(args[output_buffer_idx].name) << "_\" + \"_\".join([str(";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    if (j < extents.size() - 1) {
+                        testbench_stream << "), str(";
+                    }
+                }
+                testbench_stream << ")]), solver.create_bvsort(" << args[output_buffer_idx].stencil_type.elemType.bits() << "))\n";
+                indent -= extents.size();
+                testbench_stream << "\n";
+
+                // Call run_app and return input output symbols
+                do_indent();
+                testbench_stream << "run_app(solver, ";
+                for (size_t i = 0; i < args.size(); i++) {
+                    testbench_stream << print_name(args[i].name);
+
+                    if (i < args.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << ")\n";
+
+                do_indent();
+                testbench_stream << "return ";
+                for (size_t i = 0; i < args.size(); i++) {
+                    testbench_stream << print_name(args[i].name);
+
+                    if (i < args.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << "\n";
+                
+
+
+                // main() testbench for comparing input/output pixels
+                indent = 0;
+                testbench_stream << "\ndef main():\n";
+                indent += 1;
+
+
+                // Create solver and call create_app
+                do_indent();
+                testbench_stream << "solver = Solver()\n";
+                do_indent();
+                
+                for (size_t i = 0; i < args.size(); i++) {
+                    testbench_stream << print_name(args[i].name);
+
+                    if (i < args.size() - 1) {
+                        testbench_stream << ", ";
+                    }
+                }
+                testbench_stream << " = create_app(solver)\n";
+
+                // read input image(s)
+                for (size_t i = 0; i < args.size() - 1; i++) {
+                    if (args[i].is_stencil) {
+
+                        string provide_name = associated_provide_name(op->body, args[i].name);
+                        auto box = box_provided(op->body, provide_name);
+                        args[i].box = box;
+                        auto extents = extract_extents(box);
 
                         // Reading in file to compare pixels values
+                        do_indent();
                         testbench_stream << print_name(args[i].name) << "_compare = np.fromfile(";
 
                         testbench_stream << "\"bin/" << print_name(args[i].name) << ".leraw\", dtype=np." << args[i].stencil_type.elemType << ").reshape((";
@@ -267,7 +385,8 @@ string associated_provide_name(Stmt s, string call_name) {
                         testbench_stream << "))\n";
 
                         // Is transposed, so need to transpose back
-                        testbench_stream << print_name(args[i].name) << "_compare = np.transpose(" << print_name(args[i].name) << ", (";
+                        do_indent();
+                        testbench_stream << print_name(args[i].name) << "_compare = np.transpose(" << print_name(args[i].name) << "_compare, (";
                         
                         for (size_t j = 0; j < extents.size(); j++) {
                             testbench_stream << extents.size() - 1 - j;
@@ -277,79 +396,64 @@ string associated_provide_name(Stmt s, string call_name) {
                         }
                         testbench_stream << "))\n";
 
-                    } else {
-                        std::cout << "Found scalar input " << args[i].name << std::endl;
-                        testbench_stream << print_name(args[i].name) << " = solver.create_term(0, solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
-                    }
+                        do_indent();
+
+                        testbench_stream << print_name(args[i].name) << "_compare = " << print_name(args[i].name) << "_compare.tolist()\n";
+
+
+
+                        // Constrain fts state var to be equal to input image
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            do_indent();
+                            testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                            indent += 1;
+                        }
+
+                        do_indent();
+                        testbench_stream << "solver.fts.constrain_init(solver.create_term(solver.ops.Equal, ";
+                        testbench_stream << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+                        
+                        testbench_stream << "], solver.create_term(";
+                        testbench_stream << print_name(args[i].name) << "_compare[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }    
+                        testbench_stream << "], solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))))\n";
+                        do_indent();
+                        testbench_stream << "solver.fts.assign_next(" << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+
+                        testbench_stream << "], " << print_name(args[i].name) << "[";
+
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+
+                        testbench_stream << "])\n";
+                        
+                        indent -= extents.size();
+                    } 
                 }
 
-                // Need to copy this from H2H clockwork implementation
-                // I guess we only allow one output thats called hw_output
-                // No idea why this is fixed
-                int output_buffer_idx = args.size() - 1;
-                // testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
-                auto box = box_provided(op->body, args[output_buffer_idx].name);
-                args[output_buffer_idx].box = box;
-                auto extents = extract_extents(box);
-
-                // testbench_stream << "np.zeros((";
-                // for (size_t j = 0; j < extents.size(); j++) {
-                    // testbench_stream << extents[j];
-                    // if (j < extents.size() - 1) {
-                        // testbench_stream << ", ";
-                    // }
-                // }
-                // testbench_stream << "))\n";
-
-                // Output symbol array
-                                        // Creating buffer input symbol arrays
-                int indent = 0;
-
-                // Declare array
-                testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
-                for (size_t i = 0; i < extents.size(); i++) {
-                    testbench_stream << "[";
-                }
-                testbench_stream << "0";
-                for (size_t i = 0; i < extents.size(); i++) {
-                    testbench_stream << " for _ in range(";
-                    testbench_stream << extents[extents.size() - i - 1];
-                    testbench_stream << ")]";
-                }
-                testbench_stream << "\n";
-
-
-                // Fill array with symbols
-                for (size_t j = 0; j < extents.size(); j++) {
-                    for (int k = 0; k < indent; k++) {
-                        testbench_stream << "  ";
-                    }
-                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
-                    indent += 1;
-                }
-                for (int k = 0; k < indent; k++) {
-                    testbench_stream << "  ";
-                }
-                testbench_stream << print_name(args[output_buffer_idx].name) << "[";
-                for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
-                    if (j < extents.size() - 1) {
-                        testbench_stream << "][";
-                    }
-                }
-                
-                testbench_stream << "] = solver.create_fts_state_var(\"" << print_name(args[output_buffer_idx].name) << "_\" + \"_\".join([str(";
-                for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
-                    if (j < extents.size() - 1) {
-                        testbench_stream << "), str(";
-                    }
-                }
-                testbench_stream << ")]), solver.create_bvsort(" << args[output_buffer_idx].stencil_type.elemType.bits() << "))\n";
-
-                testbench_stream << "\n";
-
-
+                // read output image for comparison
+                do_indent();
                 testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.fromfile(";
                 testbench_stream << "\"bin/hw_output.leraw\", dtype=np." << args[output_buffer_idx].stencil_type.elemType << ").reshape((";
                 for (size_t j = 0; j < extents.size(); j++) {
@@ -360,6 +464,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 }
                 testbench_stream << "))\n";
 
+                do_indent();
                 testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.transpose(" << print_name(args[output_buffer_idx].name) << "_compare, (";
                 
                 for (size_t j = 0; j < extents.size(); j++) {
@@ -370,53 +475,69 @@ string associated_provide_name(Stmt s, string call_name) {
                 }
                 testbench_stream << "))\n";
 
-                testbench_stream << "\nrun_app(solver, ";
-                for (size_t i = 0; i < args.size(); i++) {
-                    testbench_stream << print_name(args[i].name);
+                do_indent();
+                testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = " << print_name(args[output_buffer_idx].name) << "_compare.tolist()\n";
 
-                    if (i < args.size() - 1) {
-                        testbench_stream << ", ";
+
+                // create property term
+                do_indent();
+                testbench_stream << "property_term = solver.create_term(solver.ops.Equal, solver.create_term(0, solver.create_bvsort(16)), solver.create_term(0, solver.create_bvsort(16)))\n";
+                
+                for (size_t j = 0; j < extents.size(); j++) {
+                    do_indent();
+                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                    indent += 1;
+                }
+                
+                do_indent();
+                testbench_stream << "property_term = solver.create_term(solver.ops.And, property_term, solver.create_term(solver.ops.Equal, ";
+
+                testbench_stream << print_name(args[output_buffer_idx].name) << "[";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    if (j < extents.size() - 1) {
+                        testbench_stream << "][";
                     }
                 }
-                testbench_stream << ")\n";
+                testbench_stream << "], solver.create_term(";
+                testbench_stream << print_name(args[output_buffer_idx].name) << "_compare[";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    if (j < extents.size() - 1) {
+                        testbench_stream << "][";
+                    }
+                }
+                testbench_stream << "], solver.create_bvsort(" << args[output_buffer_idx].stencil_type.elemType.bits() << "))))\n";
 
-                // testbench_stream << "if (np.array_equal(" << print_name(args[output_buffer_idx].name) << ", " << print_name(args[output_buffer_idx].name) << "_compare)):\n";
+                indent -= extents.size();
 
-                // testbench_stream << "  print(\"Test passed!\")\n";
+                testbench_stream << "\n";
 
-                // testbench_stream << "else:\n";
-                // testbench_stream << "  print(\"Test failed!\")\n";
-                // testbench_stream << "  print(\"Expected:\")\n";
-                // testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << "_compare)\n";
-                // testbench_stream << "  print(\"Actual:\")\n";
-                // testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << ")\n";
-
-                // testbench_stream << "from PIL import Image\n";
-                // testbench_stream << "" << print_name(args[output_buffer_idx].name) << "_compare = np.transpose(" << print_name(args[output_buffer_idx].name) << "_compare, (";
-                
-                // for (size_t j = 0; j < extents.size(); j++) {
-                //     testbench_stream << extents.size() - 1 - j;
-                //     if (j < extents.size() - 1) {
-                //         testbench_stream << ", ";
-                //     }
-                // }
-                // testbench_stream << "))\n";
-                // testbench_stream << "im = Image.fromarray(np.uint8(" << print_name(args[output_buffer_idx].name) << "_compare)).convert('RGB')\n";
-                // testbench_stream << "im.save(\"expected.jpeg\")\n";
-
-                // testbench_stream << "" << print_name(args[output_buffer_idx].name) << " = np.transpose(" << print_name(args[output_buffer_idx].name) << ", (";
-                
-                // for (size_t j = 0; j < extents.size(); j++) {
-                //     testbench_stream << extents.size() - 1 - j;
-                //     if (j < extents.size() - 1) {
-                //         testbench_stream << ", ";
-                //     }
-                // }
-                // testbench_stream << "))\n";
-                // testbench_stream << "im = Image.fromarray(np.uint8(" << print_name(args[output_buffer_idx].name) << ")).convert('RGB')\n";
-                // testbench_stream << "im.save(\"actual.jpeg\")\n";
+                // solve
+                do_indent();
+                testbench_stream << "prop = pono.Property(solver.solver, property_term)" << "\n";
+                do_indent();
+                testbench_stream << "bmc = pono.Bmc(prop, solver.fts, solver.solver)" << "\n";
+                do_indent();
+                testbench_stream << "res = bmc.check_until(1)" << "\n";
+                do_indent();
+                testbench_stream << "if res == None or res:" << "\n";
+                indent += 1;
+                do_indent();
+                testbench_stream << "print(\"Formal check passed\")" << "\n";
+                indent -= 1;
+                do_indent();
+                testbench_stream << "else:" << "\n";
+                indent += 1;
+                do_indent();
+                testbench_stream << "print(\"Formal check failed\")" << "\n";
+                indent -= 1;
 
 
+                indent = 0;
+
+                testbench_stream << "\nif __name__==\"__main__\":\n";
+                testbench_stream << "    main()\n";
 
             } else {
                 // std::cout << "printing producer? " << op -> name << std::endl;

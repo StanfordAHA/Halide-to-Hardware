@@ -160,10 +160,12 @@ protected:
     virtual void compile(const LoweredFunc &func);
     virtual void compile(const Buffer<> &buffer);
 
+    void do_indent();
     std::string print_name(const std::string &name);
 
     std::ostream &stream;
     std::ostream &testbench_stream;
+    int indent;
     CodeGen_Pono codegen;
     CodeGen_Pono codegen_testbench;
     void visit(const ProducerConsumer *op) override;
