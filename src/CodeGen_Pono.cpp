@@ -58,11 +58,11 @@ string associated_provide_name(Stmt s, string call_name) {
             vector<HW_Arg_Pono> arguments(const Scope<HW_Stencil_Type_Pono>& streams_scope) {
                 vector<HW_Arg_Pono> result;
                 if (!buffers.empty()) {
-                std::cout << "buffers include: ";
-                for (auto buffer : buffers) {
-                    std::cout << buffer.first << ", ";
-                }
-                std::cout << std::endl;
+                    std::cout << "buffers include: ";
+                    for (auto buffer : buffers) {
+                        std::cout << buffer.first << ", ";
+                    }
+                    std::cout << std::endl;
                 }
                 internal_assert(buffers.empty()) << "we expect no references to buffers in a hardware pipeline\n";
                 for (const pair<string, Type> &v : vars) {
@@ -98,15 +98,18 @@ string associated_provide_name(Stmt s, string call_name) {
             const string& output_name;
         };
 
-        CodeGen_Pono_Testbench::CodeGen_Pono_Testbench(ostream & s, ostream & ts, Target t, std::string target_filename): stream(s), testbench_stream(ts), codegen(s, t) {
+        CodeGen_Pono_Testbench::CodeGen_Pono_Testbench(ostream & s, ostream & ts, Target t, std::string target_filename): stream(s), testbench_stream(ts), codegen(s, t), codegen_testbench(ts, t) {
 
 
             testbench_stream << "import sys\n";
             testbench_stream << "import os\n";
             testbench_stream << "import numpy as np\n";
+            testbench_stream << "from verified_agile_hardware.solver import Solver\n";
             testbench_stream << "from " << target_filename << "_pono import run_app\n";
 
             testbench_stream << "\n";
+
+            testbench_stream << "solver = Solver()\n";
 
             stream << "import numpy as np\n";
         }
@@ -174,7 +177,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 Pono_Closure closure(op -> body, output_name);
                 vector<HW_Arg_Pono> args = closure.arguments(stencils);
 
-                stream << "def run_app(";
+                stream << "def run_app(solver, ";
                 for (size_t i = 0; i < args.size(); i++) {
                     stream << print_name(args[i].name);
 
@@ -196,7 +199,56 @@ string associated_provide_name(Stmt s, string call_name) {
                         args[i].box = box;
                         auto extents = extract_extents(box);
 
-                        testbench_stream << print_name(args[i].name) << " = np.fromfile(";
+                        // Creating buffer input symbol arrays
+                        int indent = 0;
+
+                        // Declare array
+                        testbench_stream << print_name(args[i].name) << " = ";
+                        for (size_t i = 0; i < extents.size(); i++) {
+                            testbench_stream << "[";
+                        }
+                        testbench_stream << "0";
+                        for (size_t i = 0; i < extents.size(); i++) {
+                            testbench_stream << " for _ in range(";
+                            testbench_stream << extents[extents.size() - i - 1];
+                            testbench_stream << ")]";
+                        }
+                        testbench_stream << "\n";
+
+
+                        // Fill array with symbols
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            for (int k = 0; k < indent; k++) {
+                                testbench_stream << "  ";
+                            }
+                            testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                            indent += 1;
+                        }
+                        for (int k = 0; k < indent; k++) {
+                            testbench_stream << "  ";
+                        }
+                        testbench_stream << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+                        
+                        testbench_stream << "] = solver.create_fts_state_var(\"" << print_name(args[i].name) << "_\" + \"_\".join([str(";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "), str(";
+                            }
+                        }
+                        testbench_stream << ")]), solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
+
+                        testbench_stream << "\n";
+                        
+
+                        // Reading in file to compare pixels values
+                        testbench_stream << print_name(args[i].name) << "_compare = np.fromfile(";
 
                         testbench_stream << "\"bin/" << print_name(args[i].name) << ".leraw\", dtype=np." << args[i].stencil_type.elemType << ").reshape((";
 
@@ -215,7 +267,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         testbench_stream << "))\n";
 
                         // Is transposed, so need to transpose back
-                        testbench_stream << print_name(args[i].name) << " = np.transpose(" << print_name(args[i].name) << ", (";
+                        testbench_stream << print_name(args[i].name) << "_compare = np.transpose(" << print_name(args[i].name) << ", (";
                         
                         for (size_t j = 0; j < extents.size(); j++) {
                             testbench_stream << extents.size() - 1 - j;
@@ -224,9 +276,10 @@ string associated_provide_name(Stmt s, string call_name) {
                             }
                         }
                         testbench_stream << "))\n";
+
                     } else {
                         std::cout << "Found scalar input " << args[i].name << std::endl;
-                        testbench_stream << print_name(args[i].name) << " = " << 0 << "\n";
+                        testbench_stream << print_name(args[i].name) << " = solver.create_term(0, solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
                     }
                 }
 
@@ -234,19 +287,68 @@ string associated_provide_name(Stmt s, string call_name) {
                 // I guess we only allow one output thats called hw_output
                 // No idea why this is fixed
                 int output_buffer_idx = args.size() - 1;
-                testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
+                // testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
                 auto box = box_provided(op->body, args[output_buffer_idx].name);
                 args[output_buffer_idx].box = box;
                 auto extents = extract_extents(box);
 
-                testbench_stream << "np.zeros((";
+                // testbench_stream << "np.zeros((";
+                // for (size_t j = 0; j < extents.size(); j++) {
+                    // testbench_stream << extents[j];
+                    // if (j < extents.size() - 1) {
+                        // testbench_stream << ", ";
+                    // }
+                // }
+                // testbench_stream << "))\n";
+
+                // Output symbol array
+                                        // Creating buffer input symbol arrays
+                int indent = 0;
+
+                // Declare array
+                testbench_stream << print_name(args[output_buffer_idx].name) << " = ";
+                for (size_t i = 0; i < extents.size(); i++) {
+                    testbench_stream << "[";
+                }
+                testbench_stream << "0";
+                for (size_t i = 0; i < extents.size(); i++) {
+                    testbench_stream << " for _ in range(";
+                    testbench_stream << extents[extents.size() - i - 1];
+                    testbench_stream << ")]";
+                }
+                testbench_stream << "\n";
+
+
+                // Fill array with symbols
                 for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << extents[j];
+                    for (int k = 0; k < indent; k++) {
+                        testbench_stream << "  ";
+                    }
+                    testbench_stream << "for " << print_name(args[output_buffer_idx].name) << "_dim_" << j << " in range(" << extents[extents.size() - 1 - j] << "):\n";
+                    indent += 1;
+                }
+                for (int k = 0; k < indent; k++) {
+                    testbench_stream << "  ";
+                }
+                testbench_stream << print_name(args[output_buffer_idx].name) << "[";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
                     if (j < extents.size() - 1) {
-                        testbench_stream << ", ";
+                        testbench_stream << "][";
                     }
                 }
-                testbench_stream << "))\n";
+                
+                testbench_stream << "] = solver.create_fts_state_var(\"" << print_name(args[output_buffer_idx].name) << "_\" + \"_\".join([str(";
+                for (size_t j = 0; j < extents.size(); j++) {
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    if (j < extents.size() - 1) {
+                        testbench_stream << "), str(";
+                    }
+                }
+                testbench_stream << ")]), solver.create_bvsort(" << args[output_buffer_idx].stencil_type.elemType.bits() << "))\n";
+
+                testbench_stream << "\n";
+
 
                 testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.fromfile(";
                 testbench_stream << "\"bin/hw_output.leraw\", dtype=np." << args[output_buffer_idx].stencil_type.elemType << ").reshape((";
@@ -268,7 +370,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 }
                 testbench_stream << "))\n";
 
-                testbench_stream << "\nrun_app(";
+                testbench_stream << "\nrun_app(solver, ";
                 for (size_t i = 0; i < args.size(); i++) {
                     testbench_stream << print_name(args[i].name);
 
@@ -278,23 +380,53 @@ string associated_provide_name(Stmt s, string call_name) {
                 }
                 testbench_stream << ")\n";
 
-                testbench_stream << "if (np.array_equal(" << print_name(args[output_buffer_idx].name) << ", " << print_name(args[output_buffer_idx].name) << "_compare)):\n";
+                // testbench_stream << "if (np.array_equal(" << print_name(args[output_buffer_idx].name) << ", " << print_name(args[output_buffer_idx].name) << "_compare)):\n";
 
-                testbench_stream << "  print(\"Test passed!\")\n";
+                // testbench_stream << "  print(\"Test passed!\")\n";
 
-                testbench_stream << "else:\n";
-                testbench_stream << "  print(\"Test failed!\")\n";
-                testbench_stream << "  print(\"Expected:\")\n";
-                testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << "_compare)\n";
-                testbench_stream << "  print(\"Actual:\")\n";
-                testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << ")\n";
+                // testbench_stream << "else:\n";
+                // testbench_stream << "  print(\"Test failed!\")\n";
+                // testbench_stream << "  print(\"Expected:\")\n";
+                // testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << "_compare)\n";
+                // testbench_stream << "  print(\"Actual:\")\n";
+                // testbench_stream << "  print(" << print_name(args[output_buffer_idx].name) << ")\n";
+
+                // testbench_stream << "from PIL import Image\n";
+                // testbench_stream << "" << print_name(args[output_buffer_idx].name) << "_compare = np.transpose(" << print_name(args[output_buffer_idx].name) << "_compare, (";
+                
+                // for (size_t j = 0; j < extents.size(); j++) {
+                //     testbench_stream << extents.size() - 1 - j;
+                //     if (j < extents.size() - 1) {
+                //         testbench_stream << ", ";
+                //     }
+                // }
+                // testbench_stream << "))\n";
+                // testbench_stream << "im = Image.fromarray(np.uint8(" << print_name(args[output_buffer_idx].name) << "_compare)).convert('RGB')\n";
+                // testbench_stream << "im.save(\"expected.jpeg\")\n";
+
+                // testbench_stream << "" << print_name(args[output_buffer_idx].name) << " = np.transpose(" << print_name(args[output_buffer_idx].name) << ", (";
+                
+                // for (size_t j = 0; j < extents.size(); j++) {
+                //     testbench_stream << extents.size() - 1 - j;
+                //     if (j < extents.size() - 1) {
+                //         testbench_stream << ", ";
+                //     }
+                // }
+                // testbench_stream << "))\n";
+                // testbench_stream << "im = Image.fromarray(np.uint8(" << print_name(args[output_buffer_idx].name) << ")).convert('RGB')\n";
+                // testbench_stream << "im.save(\"actual.jpeg\")\n";
+
+
+
             } else {
+                // std::cout << "printing producer? " << op -> name << std::endl;
+                // codegen_testbench.print(op);
                 IRVisitor::visit(op);
             }
         }
 
         CodeGen_Pono::CodeGen_Pono(ostream & s, Target t):
-            IRPrinter(s), id("$$ BAD ID $$"), target(t), indent(2), producer(false) {
+            IRPrinter(s), id("$$ BAD ID $$"), target(t), indent(2), python_type(false)  {
 
             }
 
@@ -335,33 +467,15 @@ string associated_provide_name(Stmt s, string call_name) {
         }
 
         void CodeGen_Pono::visit(const IntImm * op) {
-            // if (op->type == Int(32)) {
-            // stream << op -> value;
-            // } else {
-            stream << print_type(op->type) << "(" << op->value << ")";
-            // }
+            stream << print_type(op->type, std::to_string(op->value));
         }
 
         void CodeGen_Pono::visit(const UIntImm * op) {
-            // stream << "(" << op->type << ")" << op->value;
-            stream << print_type(op->type) << "(" << op->value << ")";
+            stream << print_type(op->type, std::to_string(op->value));
         }
 
         void CodeGen_Pono::visit(const FloatImm * op) {
-            // switch (op -> type.bits()) {
-            // case 64:
-            //     stream << op -> value;
-            //     break;
-            // case 32:
-            //     stream << op -> value << 'f';
-            //     break;
-            // case 16:
-            //     stream << op -> value << 'h';
-            //     break;
-            // default:
-            //     internal_error << "Bad bit-width for float: " << op -> type << "\n";
-            // }
-            stream << print_type(op->type) << "(" << op->value << ")";
+            stream << print_type(op->type, std::to_string(op->value));
         }
 
         void CodeGen_Pono::visit(const StringImm * op) {
@@ -416,12 +530,46 @@ string associated_provide_name(Stmt s, string call_name) {
             return oss.str();
         }
 
-        string CodeGen_Pono::print_type(const Halide::Type & t) {
+        string CodeGen_Pono::print_type(const Halide::Type &t, const std::string &val) {
+
+            if (python_type) {
+                if (t.is_int()) {
+                    return "np.int" + std::to_string(t.bits()) + "(" + val + ")";
+                } else if (t.is_uint()) {
+                    return "np.int" + std::to_string(t.bits()) + "(" + val + ")";
+                } else if (t.is_float()) {
+                    return "float(" + val + ")";
+                } else if (t.is_bfloat()) {
+                    return "float(" + val + ")";
+                } else if (t.is_handle()) {
+                    return "";
+                } else {
+                    return "";
+                }
+            } else {
+                if (t.is_int()) {
+                    return "solver.create_term(" + val + ", solver.create_bvsort(" + std::to_string(t.bits()) + "))";
+                } else if (t.is_uint()) {
+                    return "solver.create_term(" + val + ", solver.create_bvsort(" + std::to_string(t.bits()) + "))";
+                } else if (t.is_float()) {
+                    return "print_pono_type needs update";
+                } else if (t.is_bfloat()) {
+                    return "print_pono_type needs update";
+                } else if (t.is_handle()) {
+                    return "";
+                } else {
+                    return "";
+                }
+            }
+
+        }
+
+        string CodeGen_Pono::print_type(const Halide::Type &t) {
 
             if (t.is_int()) {
                 return "np.int" + std::to_string(t.bits());
             } else if (t.is_uint()) {
-                return "np.uint" + std::to_string(t.bits());
+                return "np.int" + std::to_string(t.bits());
             } else if (t.is_float()) {
                 return "float";
             } else if (t.is_bfloat()) {
@@ -431,146 +579,294 @@ string associated_provide_name(Stmt s, string call_name) {
             } else {
                 return "";
             }
-
         }
+
 
         void CodeGen_Pono::visit(const Variable * op) {
             stream << print_name(op -> name);
         }
 
+        void CodeGen_Pono::visit(const Mul * op) {
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << "*";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVMul, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";
+            }
+        }
+
         void CodeGen_Pono::visit(const Add * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " + ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " + ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVAdd, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const Sub * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " - ";
-            print(op -> b);
-            stream << ')';
-        }
-
-        void CodeGen_Pono::visit(const Mul * op) {
-            stream << '(';
-            print(op -> a);
-            stream << "*";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " - ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVSub, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const Div * op) {
-            stream << '(';
-            print(op -> a);
-            stream << "//";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << "//";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVUdiv, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const Mod * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " % ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " % ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVUmod, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const Min * op) {
-            stream << "min(";
-            print(op -> a);
-            stream << ", ";
-            print(op -> b);
-            stream << ")";
+            if (python_type) {
+                stream << "min(";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";
+            } else {
+                stream << "solver.create_term(solver.ops.Ite, ";
+                stream << "solver.create_term(solver.ops.BVUlt, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+                stream << ", ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";
+            }
         }
 
         void CodeGen_Pono::visit(const Max * op) {
-            stream << "max(";
-            print(op -> a);
-            stream << ", ";
-            print(op -> b);
-            stream << ")";
+            if (python_type) {
+                stream << "max(";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";
+            } else {
+                stream << "solver.create_term(solver.ops.Ite, ";
+                stream << "solver.create_term(solver.ops.BVUgt, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+                stream << ", ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")"; 
+            }
         }
 
         void CodeGen_Pono::visit(const EQ * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " == ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " == ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.Equal, ";
+                print(op -> a);
+                stream << " =, ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const NE * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " != ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " != ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.Not, solver.create_term(solver.ops.Equal, ";
+                print(op -> a);
+                stream << " !, ";
+                print(op -> b);
+                stream << "))";    
+            }
         }
 
         void CodeGen_Pono::visit(const LT * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " < ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " < ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVUlt, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const LE * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " <= ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " <= ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVUle, ";
+                print(op -> a);
+                stream << " <, ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const GT * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " > ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " > ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVUgt, ";
+                print(op -> a);
+                stream << ", ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const GE * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " >= ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " >= ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVUge, ";
+                print(op -> a);
+                stream << " >, ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const And * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " and ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " and ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVAnd, ";
+                print(op -> a);
+                stream << " an, ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const Or * op) {
-            stream << '(';
-            print(op -> a);
-            stream << " or ";
-            print(op -> b);
-            stream << ')';
+            if (python_type) {
+                stream << '(';
+                print(op -> a);
+                stream << " or ";
+                print(op -> b);
+                stream << ')';
+            } else {
+                stream << "solver.create_term(solver.ops.BVOr, ";
+                print(op -> a);
+                stream << " o, ";
+                print(op -> b);
+                stream << ")";    
+            }
         }
 
         void CodeGen_Pono::visit(const Not * op) {
-            stream << '!';
-            print(op -> a);
+            if (python_type) {
+                stream << '!';
+                print(op -> a);
+            } else {
+                stream << "solver.create_term(solver.ops.Not, ";
+                print(op -> a);
+                stream << ")";
+            }
         }
 
         void CodeGen_Pono::visit(const Select * op) {
-            stream << "(";
-            print(op -> true_value);
-            stream << " if ";
-            print(op -> condition);
-            stream << " else ";
-            print(op -> false_value);
-            stream << ")";
+            if (python_type) {
+                stream << "(";
+                print(op -> true_value);
+                stream << " if ";
+                print(op -> condition);
+                stream << " else ";
+                print(op -> false_value);
+                stream << ")";
+            } else {
+                stream << "solver.create_term(solver.ops.Ite, ";
+                print(op -> condition);
+                stream << ", ";
+                print(op -> true_value);
+                stream << ", ";
+                print(op -> false_value);
+                stream << ")";
+            }
         }
 
         void CodeGen_Pono::visit(const Load * op) {
@@ -580,10 +876,12 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << "(";
             }
             stream << print_name(op -> name) << "[";
+            python_type = true;
             print(op -> index);
             if (show_alignment) {
                 stream << " aligned(" << op -> alignment.modulus << ", " << op -> alignment.remainder << ")";
             }
+            python_type = false;
             stream << "]";
             if (has_pred) {
                 stream << " if ";
@@ -607,19 +905,6 @@ string associated_provide_name(Stmt s, string call_name) {
         }
 
         void CodeGen_Pono::visit(const Call * op) {
-            // TODO: Print indication of C vs C++?
-            // if (op -> is_intrinsic(Call::reinterpret) ||
-            //     op -> is_intrinsic(Call::make_struct)) {
-            //     // For calls that define a type that isn't just a function of
-            //     // the types of the args, we also print the type.
-            //     stream << print_name(op -> name) << "(";
-            //     print_list(op -> args);
-            //     stream << ")";
-            // } else {
-            //     stream << print_name(op -> name) << "[";
-            //     print_arg_list(op -> args);
-            //     stream << "]";
-            // }
 
             // add bitand, bitor, bitxor, bitnot
             if (op->is_intrinsic(Call::bitwise_and)) {
@@ -695,7 +980,9 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ")";
             } else {
                 stream << print_name(op -> name) << "[";
+                python_type = true;
                 print_arg_list(op -> args);
+                python_type = false;
                 stream << "]";
             }
         }
@@ -716,6 +1003,7 @@ string associated_provide_name(Stmt s, string call_name) {
         void CodeGen_Pono::visit(const For * op) {
 
             do_indent();
+            python_type = true;
             stream << op -> for_type << op -> device_api << " " << print_name(op -> name) << " in range(";
             print(op -> min);
             stream << ", ";
@@ -723,7 +1011,7 @@ string associated_provide_name(Stmt s, string call_name) {
             stream << "+";
             print(op -> extent);
             stream << "):\n";
-
+            python_type = false;
             indent += 2;
             print(op -> body);
             indent -= 2;
@@ -745,6 +1033,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 do_indent();
             }
             stream << print_name(op -> name) << "[";
+            python_type = true;
             print(op -> index);
             if (show_alignment) {
                 stream << " aligned(" <<
@@ -752,6 +1041,7 @@ string associated_provide_name(Stmt s, string call_name) {
                     ", " <<
                     op -> alignment.remainder << ")";
             }
+            python_type = false;
             stream << "] = ";
             print(op -> value);
             stream << '\n';
@@ -763,7 +1053,9 @@ string associated_provide_name(Stmt s, string call_name) {
         void CodeGen_Pono::visit(const Provide * op) {
             do_indent();
             stream << print_name(op -> name) << "[";
+            python_type = true;
             print_arg_list(op -> args);
+            python_type = false;
             stream << "] = ";
             if (op -> values.size() > 1) {
                 stream << "(";
@@ -786,26 +1078,29 @@ string associated_provide_name(Stmt s, string call_name) {
 
             stream << "0";
 
+            python_type = true;
+
             for (size_t i = 0; i < op -> extents.size(); i++) {
                 stream << " for _ in range(";
                 print(op -> extents[op -> extents.size() - i - 1]);
                 stream << ")]";
             }
+            python_type = false;
 
-            if (!is_one(op -> condition)) {
-                stream << " if ";
-                print(op -> condition);
-            }
-            if (op -> new_expr.defined()) {
-                stream << "\n";
-                do_indent();
-                stream << " custom_new { " << op -> new_expr << " }";
-            }
-            if (!op -> free_function.empty()) {
-                stream << "\n";
-                do_indent();
-                stream << " custom_delete { " << op -> free_function << "(" << print_name(op -> name) << "); }";
-            }
+            // if (!is_one(op -> condition)) {
+            //     stream << " if ";
+            //     print(op -> condition);
+            // }
+            // if (op -> new_expr.defined()) {
+            //     stream << "\n";
+            //     do_indent();
+            //     stream << " custom_new { " << op -> new_expr << " }";
+            // }
+            // if (!op -> free_function.empty()) {
+            //     stream << "\n";
+            //     do_indent();
+            //     stream << " custom_delete { " << op -> free_function << "(" << print_name(op -> name) << "); }";
+            // }
             stream << "\n";
             print(op -> body);
         }
@@ -847,11 +1142,13 @@ string associated_provide_name(Stmt s, string call_name) {
 
             stream << "0";
 
+            python_type = true;
             for (size_t i = 0; i < op -> bounds.size(); i++) {
                 stream << " for _ in range(";
                 print(op -> bounds[op -> bounds.size() - i - 1].extent);
                 stream << ")]";
             }
+            python_type = false;
             stream << "\n";
 
             print(new_body);

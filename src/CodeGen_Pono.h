@@ -92,13 +92,13 @@ protected:
 
     Scope<Expr> scope;
 
-    bool producer;
+    bool python_type;
 
     /** Emit spaces according to the current indentation level */
     void do_indent();
     std::string print_name(const std::string &name);
+    std::string print_type(const Halide::Type &t, const std::string &val);
     std::string print_type(const Halide::Type &t);
-
 
     void visit(const IntImm *) override;
     void visit(const UIntImm *) override;
@@ -165,6 +165,7 @@ protected:
     std::ostream &stream;
     std::ostream &testbench_stream;
     CodeGen_Pono codegen;
+    CodeGen_Pono codegen_testbench;
     void visit(const ProducerConsumer *op) override;
     void visit(const Realize *op) override;
 };
