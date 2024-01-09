@@ -689,16 +689,20 @@ string associated_provide_name(Stmt s, string call_name) {
 
         string CodeGen_Pono::print_type(const Halide::Type &t) {
 
-            if (t.is_int()) {
-                return "np.int" + std::to_string(t.bits());
-            } else if (t.is_uint()) {
-                return "np.int" + std::to_string(t.bits());
-            } else if (t.is_float()) {
-                return "float";
-            } else if (t.is_bfloat()) {
-                return "float";
-            } else if (t.is_handle()) {
-                return "";
+            if (python_type) {
+                if (t.is_int()) {
+                    return "np.int" + std::to_string(t.bits());
+                } else if (t.is_uint()) {
+                    return "np.int" + std::to_string(t.bits());
+                } else if (t.is_float()) {
+                    return "float";
+                } else if (t.is_bfloat()) {
+                    return "float";
+                } else if (t.is_handle()) {
+                    return "";
+                } else {
+                    return "";
+                }
             } else {
                 return "";
             }
@@ -765,11 +769,24 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.BVUdiv, ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")";    
+                int shift_amt;
+                if (is_const_power_of_two_integer(op->b, &shift_amt)) {
+                    if (op->type.is_int()) {
+                        stream << "solver.create_term(solver.ops.BVAshr, ";
+                    } else {
+                        stream << "solver.create_term(solver.ops.BVLshr, ";
+                    }
+                    print(op -> a);
+                    stream << ", ";
+                    print(shift_amt);
+                    stream << ")";    
+                } else {
+                    stream << "solver.create_term(solver.ops.BVSdiv, ";
+                    print(op -> a);
+                    stream << ", ";
+                    print(op -> b);
+                    stream << ")";  
+                }  
             }
         }
 
@@ -797,17 +814,17 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ")";
             } else {
-                stream << "solver.create_term(solver.ops.Ite, ";
-                stream << "solver.create_term(solver.ops.BVUlt, ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")";    
-                stream << ", ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")";
+                stream << "solver.create_term(solver.ops.Ite, ";                    
+                    stream << "solver.create_term(solver.ops.BVSlt, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", ";
+                    print(op -> a);
+                    stream << ", ";
+                    print(op -> b);
+                    stream << ")";
             }
         }
 
@@ -820,16 +837,16 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ")";
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                stream << "solver.create_term(solver.ops.BVUgt, ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")";    
-                stream << ", ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")"; 
+                    stream << "solver.create_term(solver.ops.BVSgt, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", ";
+                    print(op -> a);
+                    stream << ", ";
+                    print(op -> b);
+                    stream << ")"; 
             }
         }
 
@@ -841,11 +858,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.Equal, ";
-                print(op -> a);
-                stream << " =, ";
-                print(op -> b);
-                stream << ")";    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.Equal, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", solver.create_term(1, solver.create_bvsort(1)), solver.create_term(0, solver.create_bvsort(1)))";
             }
         }
 
@@ -857,11 +876,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.Not, solver.create_term(solver.ops.Equal, ";
-                print(op -> a);
-                stream << " !, ";
-                print(op -> b);
-                stream << "))";    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.Not, solver.create_term(solver.ops.Equal, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << "))";    
+                    stream << ", solver.create_term(1, solver.create_bvsort(1)), solver.create_term(0, solver.create_bvsort(1)))";
             }
         }
 
@@ -873,11 +894,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.BVUlt, ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")";    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.BVSlt, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", solver.create_term(1, solver.create_bvsort(1)), solver.create_term(0, solver.create_bvsort(1)))";
             }
         }
 
@@ -889,11 +912,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.BVUle, ";
-                print(op -> a);
-                stream << " <, ";
-                print(op -> b);
-                stream << ")";    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.BVSle, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", solver.create_term(1, solver.create_bvsort(1)), solver.create_term(0, solver.create_bvsort(1)))";
             }
         }
 
@@ -905,11 +930,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.BVUgt, ";
-                print(op -> a);
-                stream << ", ";
-                print(op -> b);
-                stream << ")";    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.BVSgt, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", solver.create_term(1, solver.create_bvsort(1)), solver.create_term(0, solver.create_bvsort(1)))";
             }
         }
 
@@ -921,11 +948,13 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ')';
             } else {
-                stream << "solver.create_term(solver.ops.BVUge, ";
-                print(op -> a);
-                stream << " >, ";
-                print(op -> b);
-                stream << ")";    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.BVSge, ";
+                        print(op -> a);
+                        stream << ", ";
+                        print(op -> b);
+                        stream << ")";    
+                    stream << ", solver.create_term(1, solver.create_bvsort(1)), solver.create_term(0, solver.create_bvsort(1)))";
             }
         }
 
@@ -939,7 +968,7 @@ string associated_provide_name(Stmt s, string call_name) {
             } else {
                 stream << "solver.create_term(solver.ops.BVAnd, ";
                 print(op -> a);
-                stream << " an, ";
+                stream << ", ";
                 print(op -> b);
                 stream << ")";    
             }
@@ -955,7 +984,7 @@ string associated_provide_name(Stmt s, string call_name) {
             } else {
                 stream << "solver.create_term(solver.ops.BVOr, ";
                 print(op -> a);
-                stream << " o, ";
+                stream << ", ";
                 print(op -> b);
                 stream << ")";    
             }
@@ -966,7 +995,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << '!';
                 print(op -> a);
             } else {
-                stream << "solver.create_term(solver.ops.Not, ";
+                stream << "solver.create_term(solver.ops.BVNot, ";
                 print(op -> a);
                 stream << ")";
             }
@@ -983,12 +1012,14 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ")";
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                print(op -> condition);
-                stream << ", ";
-                print(op -> true_value);
-                stream << ", ";
-                print(op -> false_value);
-                stream << ")";
+                    stream << "solver.create_term(solver.ops.Equal, ";
+                        print(op -> condition);
+                        stream << ", solver.create_term(1, solver.create_bvsort(1)))";
+                    stream << ", ";
+                    print(op -> true_value);
+                    stream << ", ";
+                    print(op -> false_value);
+                    stream << ")";
             }
         }
 
@@ -1033,71 +1064,166 @@ string associated_provide_name(Stmt s, string call_name) {
             // add bitand, bitor, bitxor, bitnot
             if (op->is_intrinsic(Call::bitwise_and)) {
                 internal_assert(op->args.size() == 2);
-                Expr a = op->args[0];
-                Expr b = op->args[1];
-                stream << '(';
-                print(a);
-                stream << " & ";
-                print(b);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << '(';
+                    print(a);
+                    stream << " & ";
+                    print(b);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << "solver.create_term(solver.ops.BVAnd, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";    
+                }
             } else if (op->is_intrinsic(Call::bitwise_or)) {
                 internal_assert(op->args.size() == 2);
-                Expr a = op->args[0];
-                Expr b = op->args[1];
-                stream << '(';
-                print(a);
-                stream << " | ";
-                print(b);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << '(';
+                    print(a);
+                    stream << " | ";
+                    print(b);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << "solver.create_term(solver.ops.BVOr, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";    
+                }
             } else if (op->is_intrinsic(Call::bitwise_xor)) {
                 internal_assert(op->args.size() == 2);
-                Expr a = op->args[0];
-                Expr b = op->args[1];
-                stream << '(';
-                print(a);
-                stream << " ^ ";
-                print(b);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << '(';
+                    print(a);
+                    stream << " ^ ";
+                    print(b);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << "solver.create_term(solver.ops.BVXor, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";    
+                }
             } else if (op->is_intrinsic(Call::bitwise_not)) {
                 internal_assert(op->args.size() == 1);
-                Expr a = op->args[0];
-                stream << "(1 << " << op->type.bits() << ") - 1 - ";
-                print(a);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    stream << "(1 << " << op->type.bits() << ") - 1 - ";
+                    print(a);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    stream << "solver.create_term(solver.ops.BVNot, ";
+                    print(a);
+                    stream << ")";    
+                }
             } else if (op->is_intrinsic(Call::shift_left)) {
                 internal_assert(op->args.size() == 2);
-                Expr a = op->args[0];
-                Expr b = op->args[1];
-                stream << '(';
-                print(a);
-                stream << " << ";
-                print(b);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << '(';
+                    print(a);
+                    stream << " << ";
+                    print(b);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << "solver.create_term(solver.ops.BVShl, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";    
+                }
             } else if (op->is_intrinsic(Call::shift_right)) {
                 internal_assert(op->args.size() == 2);
-                Expr a = op->args[0];
-                Expr b = op->args[1];
-                stream << '(';
-                print(a);
-                stream << " >> ";
-                print(b);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << '(';
+                    print(a);
+                    stream << " >> ";
+                    print(b);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    // Might be the wrong type of right shift?
+                    stream << "solver.create_term(solver.ops.BVAshr, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";    
+                }
             } else if (op->is_intrinsic(Call::abs)) {
                 internal_assert(op->args.size() == 1);
-                Expr a = op->args[0];
-                stream << "abs(";
-                print(a);
-                stream << ')';
+                if (python_type) {
+                    Expr a = op->args[0];
+                    stream << "abs(";
+                    print(a);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    stream << "solver.create_term(solver.ops.Ite, ";
+                    stream << "solver.create_term(solver.ops.BVSlt, ";
+                    print(a);
+                    stream << ", solver.create_term(0, solver.create_bvsort(" << op->type.bits() << "))), ";
+                    stream << "solver.create_term(solver.ops.BVSub, ";
+                    stream << "solver.create_term(0, solver.create_bvsort(" << op->type.bits() << ")), ";
+                    print(a);
+                    stream << "), ";
+                    print(a);
+                    stream << ")";
+                }
             } else if (op->is_intrinsic(Call::absd)) {
                 internal_assert(op->args.size() == 2);
-                Expr a = op->args[0];
-                Expr b = op->args[1];
-                stream << "abs(";
-                print(a);
-                stream << " - ";
-                print(b);
-                stream << ')';
-
+                if (python_type) {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << "abs(";
+                    print(a);
+                    stream << " - ";
+                    print(b);
+                    stream << ')';
+                } else {
+                    Expr a = op->args[0];
+                    Expr b = op->args[1];
+                    stream << "solver.create_term(solver.ops.Ite, ";
+                        stream << "solver.create_term(solver.ops.BVSgt, ";
+                            print(a);
+                            stream << ", ";
+                            print(b);
+                            stream << ")";    
+                        stream << ", ";
+                        stream << "solver.create_term(solver.ops.BVSub, ";
+                            print(a);
+                            stream << ", ";
+                            print(b);
+                            stream << ")";
+                        stream << ", ";
+                        stream << "solver.create_term(solver.ops.BVSub, ";
+                            print(b);
+                            stream << ", ";
+                            print(a);
+                            stream << ")";
+                        stream << ")";
+                }
             } else if (op->is_intrinsic(Call::reinterpret)) {
                 stream << print_name(op -> name) << "(";
                 print_list(op -> args);
