@@ -13,8 +13,8 @@ public:
   int ksize = 3;  
   //Input<int32_t> tilesize_x{"tilesize_x", 64, 8, 128}; // default 64. bounded between 8 and 128
   //Input<int32_t> tilesize_y{"tilesize_y", 64, 8, 128}; // default 64. bounded between 8 and 128
-  int tilesize_x = 32-ksize+1;
-  int tilesize_y = 32-ksize+1;
+  int tilesize_x = 64-ksize+1;
+  int tilesize_y = 64-ksize+1;
 
     void generate() {
         /* THE ALGORITHM */
@@ -29,18 +29,17 @@ public:
 //        kernel(0,0) = 17;      kernel(1,0) = 4;        kernel(2,0) = 6;
 //        kernel(0,1) = 7;       kernel(1,1) = 19;       kernel(2,1) = 4;
 //        kernel(0,2) = 5;       kernel(1,2) = 21;       kernel(2,2) = 15;
-      //  kernel(0,0) = 1;      kernel(1,0) = 1;       kernel(2,0) = 1;
-      //  kernel(0,1) = 1;      kernel(1,1) = 1;       kernel(2,1) = 1;
-      //  kernel(0,2) = 1;      kernel(1,2) = 1;       kernel(2,2) = 1;
-        kernel(0,0) = 0;      kernel(0,1) = 3;      kernel(0,2) = 6;
-        kernel(1,0) = 1;       kernel(1,1) = 4;       kernel(1,2) = 7;
-        kernel(2,0) = 2;      kernel(2,1) = 5;      kernel(2,2) = 8;
+//        kernel(0,0) = 1;      kernel(1,0) = 1;       kernel(2,0) = 1;
+//        kernel(0,1) = 1;      kernel(1,1) = 1;       kernel(2,1) = 1;
+//        kernel(0,2) = 1;      kernel(1,2) = 1;       kernel(2,2) = 1;
+        kernel(0,0) = 11;      kernel(0,1) = 12;      kernel(0,2) = 13;
+        kernel(1,0) = 0;       kernel(1,1) = 0;       kernel(1,2) = 16;
+        kernel(2,0) = 17;      kernel(2,1) = 18;      kernel(2,2) = 19;
         
         conv(x, y) = u16(0);
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
-        //conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
         conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
 
         Func hw_output("hw_output");
@@ -72,7 +71,7 @@ public:
           //kernel.store_at(hw_output, yi).compute_at(hw_output, yi);
           hw_input.stream_to_accelerator();
 
-        } else if (get_target().has_feature(Target::Clockwork) || get_target().has_feature(Target::Pono) || get_target().has_feature(Target::Pono)) {
+        } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
           output.bound(x, 0, tilesize_x);

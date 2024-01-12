@@ -90,6 +90,8 @@ protected:
      * statements */
     int indent;
 
+    int num_roms;
+
     Scope<Expr> scope;
 
     bool python_type;
