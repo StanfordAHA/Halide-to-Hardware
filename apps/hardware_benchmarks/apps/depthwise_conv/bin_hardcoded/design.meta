@@ -1,0 +1,4 @@
+placement=design.place
+bitstream=depthwise_conv_glb.bs
+input=input.pgm
+output=gold.pgm

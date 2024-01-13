@@ -12,7 +12,7 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     // in_img determines the input image size
-    GeneratorParam<int> in_img{"in_img", 64};    // default: 114
+    GeneratorParam<int> in_img{"in_img", 116};    // default: 114
   
     // ksize determines the output stencil size
     GeneratorParam<int> ksize{"ksize", 3};    // default: 3
@@ -21,9 +21,9 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // n_ic determines the number of input channels
-    GeneratorParam<int> n_ic{"n_ic", 4};    // default: 16
+    GeneratorParam<int> n_ic{"n_ic", 7};    // default: 16
 
-    GeneratorParam<int> unroll{"unroll", 1};    // default: 8
+    GeneratorParam<int> unroll{"unroll", 7};    // default: 8
 
 
     void generate() {
@@ -31,7 +31,6 @@ public:
         /* THE ALGORITHM */
         // Define algorithm variables
         Var x("x"), y("y"), c("c");
-        Func hw_input("hw_input"), hw_kernel("hw_kernel");
         Func input_host("input_host"), kernel_host("kernel_host");
         Func hw_output("hw_output");
 
@@ -72,7 +71,7 @@ public:
             output.bound(x, 0, out_img);
             output.bound(y, 0, out_img);
             output.bound(c, 0, n_ic);
-            kernel_host.bound(c, 0, n_ic);
+            // kernel_host.bound(c, 0, n_ic);
 
             // Tile the image at host level, by default the tile size is the whole output image
             // Reorder channel dimension to be the innermost to get the clockwork pass
@@ -89,10 +88,13 @@ public:
             depthwise_conv.update().unroll(r.x).unroll(r.y).unroll(c);
 
             // Unroll input channels along glb; by default using all GLB tile
+            input_host.in().compute_at(hw_output, x_host);
+            // input_host.in().store_in(MemoryType::GLB);
             input_host.in().unroll(c);
             input_host.compute_root().accelerator_input();
             
             // Unroll kernel channels along glb; by default using all GLB tiles
+            kernel_host.in().compute_at(hw_output, x_host);
             kernel_host.in().unroll(c);
             kernel_host.compute_root().accelerator_input();
 
