@@ -77,7 +77,6 @@ apps/*/*.ll
 apps/*/*.sass
 apps/*/filter
 apps/HelloAndroidGL/jni/halide_gl_filter.h
-*.json
 
 # tutorial intermediates
 tutorial/lesson_10_halide.h
