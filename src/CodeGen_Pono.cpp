@@ -254,6 +254,50 @@ string associated_provide_name(Stmt s, string call_name) {
                         }
                         testbench_stream << ")]), solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
 
+
+                        // Need to do this next part to ensure input var values don't change 
+                        do_indent();
+
+                        testbench_stream << "input_var_init = solver.create_fts_state_var(\"init_" << print_name(args[i].name) << "_\" + \"_\".join([str(";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "), str(";
+                            }
+                        }
+                        testbench_stream << ")]), solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
+
+                        do_indent();
+                        testbench_stream << "solver.fts.constrain_init(solver.create_term(solver.ops.Equal, ";
+
+                        testbench_stream << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+                        testbench_stream << "], input_var_init))\n";
+
+                        do_indent();
+                        testbench_stream << "solver.fts.assign_next(" << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+
+                        testbench_stream << "], " << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+
+                        testbench_stream << "])\n";
+
                         testbench_stream << "\n";
                         
                         indent -= extents.size();
@@ -434,25 +478,7 @@ string associated_provide_name(Stmt s, string call_name) {
                             }
                         }    
                         testbench_stream << "], solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))))\n";
-                        do_indent();
-                        testbench_stream << "solver.fts.assign_next(" << print_name(args[i].name) << "[";
-                        for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
-                            if (j < extents.size() - 1) {
-                                testbench_stream << "][";
-                            }
-                        }
 
-                        testbench_stream << "], " << print_name(args[i].name) << "[";
-
-                        for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
-                            if (j < extents.size() - 1) {
-                                testbench_stream << "][";
-                            }
-                        }
-
-                        testbench_stream << "])\n";
                         
                         indent -= extents.size();
                     } 
