@@ -223,7 +223,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         testbench_stream << "0";
                         for (size_t i = 0; i < extents.size(); i++) {
                             testbench_stream << " for _ in range(";
-                            testbench_stream << extents[extents.size() - i - 1];
+                            testbench_stream << extents[i];
                             testbench_stream << ")]";
                         }
                         testbench_stream << "\n";
@@ -239,7 +239,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         do_indent();
                         testbench_stream << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
                             if (j < extents.size() - 1) {
                                 testbench_stream << "][";
                             }
@@ -272,7 +272,7 @@ string associated_provide_name(Stmt s, string call_name) {
 
                         testbench_stream << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
                             if (j < extents.size() - 1) {
                                 testbench_stream << "][";
                             }
@@ -282,7 +282,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         do_indent();
                         testbench_stream << "solver.fts.assign_next(" << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
                             if (j < extents.size() - 1) {
                                 testbench_stream << "][";
                             }
@@ -290,7 +290,7 @@ string associated_provide_name(Stmt s, string call_name) {
 
                         testbench_stream << "], " << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
                             if (j < extents.size() - 1) {
                                 testbench_stream << "][";
                             }
@@ -328,7 +328,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 testbench_stream << "0";
                 for (size_t i = 0; i < extents.size(); i++) {
                     testbench_stream << " for _ in range(";
-                    testbench_stream << extents[extents.size() - i - 1];
+                    testbench_stream << extents[i];
                     testbench_stream << ")]";
                 }
                 testbench_stream << "\n";
@@ -344,7 +344,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 do_indent();
                 testbench_stream << print_name(args[output_buffer_idx].name) << "[";
                 for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << (extents.size() - j - 1);
                     if (j < extents.size() - 1) {
                         testbench_stream << "][";
                     }
@@ -435,16 +435,16 @@ string associated_provide_name(Stmt s, string call_name) {
                         testbench_stream << "))\n";
 
                         // Is transposed, so need to transpose back
-                        do_indent();
-                        testbench_stream << print_name(args[i].name) << "_compare = np.transpose(" << print_name(args[i].name) << "_compare, (";
+                        // do_indent();
+                        // testbench_stream << print_name(args[i].name) << "_compare = np.transpose(" << print_name(args[i].name) << "_compare, (";
                         
-                        for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << extents.size() - 1 - j;
-                            if (j < extents.size() - 1) {
-                                testbench_stream << ", ";
-                            }
-                        }
-                        testbench_stream << "))\n";
+                        // for (size_t j = 0; j < extents.size(); j++) {
+                        //     testbench_stream << extents.size() - 1 - j;
+                        //     if (j < extents.size() - 1) {
+                        //         testbench_stream << ", ";
+                        //     }
+                        // }
+                        // testbench_stream << "))\n";
 
                         do_indent();
 
@@ -463,7 +463,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         testbench_stream << "solver.fts.constrain_init(solver.create_term(solver.ops.Equal, ";
                         testbench_stream << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
                             if (j < extents.size() - 1) {
                                 testbench_stream << "][";
                             }
@@ -472,7 +472,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         testbench_stream << "], solver.create_term(";
                         testbench_stream << print_name(args[i].name) << "_compare[";
                         for (size_t j = 0; j < extents.size(); j++) {
-                            testbench_stream << print_name(args[i].name) << "_dim_" << j;
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
                             if (j < extents.size() - 1) {
                                 testbench_stream << "][";
                             }
@@ -496,16 +496,16 @@ string associated_provide_name(Stmt s, string call_name) {
                 }
                 testbench_stream << "))\n";
 
-                do_indent();
-                testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.transpose(" << print_name(args[output_buffer_idx].name) << "_compare, (";
+                // do_indent();
+                // testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = np.transpose(" << print_name(args[output_buffer_idx].name) << "_compare, (";
                 
-                for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << extents.size() - 1 - j;
-                    if (j < extents.size() - 1) {
-                        testbench_stream << ", ";
-                    }
-                }
-                testbench_stream << "))\n";
+                // for (size_t j = 0; j < extents.size(); j++) {
+                //     testbench_stream << extents.size() - 1 - j;
+                //     if (j < extents.size() - 1) {
+                //         testbench_stream << ", ";
+                //     }
+                // }
+                // testbench_stream << "))\n";
 
                 do_indent();
                 testbench_stream << print_name(args[output_buffer_idx].name) << "_compare = " << print_name(args[output_buffer_idx].name) << "_compare.tolist()\n";
@@ -526,7 +526,7 @@ string associated_provide_name(Stmt s, string call_name) {
 
                 testbench_stream << print_name(args[output_buffer_idx].name) << "[";
                 for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << (extents.size() - j - 1);
                     if (j < extents.size() - 1) {
                         testbench_stream << "][";
                     }
@@ -534,7 +534,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 testbench_stream << "], solver.create_term(";
                 testbench_stream << print_name(args[output_buffer_idx].name) << "_compare[";
                 for (size_t j = 0; j < extents.size(); j++) {
-                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << j;
+                    testbench_stream << print_name(args[output_buffer_idx].name) << "_dim_" << (extents.size() - j - 1);
                     if (j < extents.size() - 1) {
                         testbench_stream << "][";
                     }
@@ -599,7 +599,7 @@ string associated_provide_name(Stmt s, string call_name) {
 
         void CodeGen_Pono::print_arg_list(const std::vector < Expr > & exprs) {
             for (size_t i = 0; i < exprs.size(); i++) {
-                print(exprs[i]);
+                print(exprs[exprs.size() - 1 - i]);
                 if (i < exprs.size() - 1) {
                     stream << "][";
                 }
@@ -872,8 +872,12 @@ string associated_provide_name(Stmt s, string call_name) {
                 print(op -> b);
                 stream << ")";
             } else {
-                stream << "solver.create_term(solver.ops.Ite, ";                    
+                stream << "solver.create_term(solver.ops.Ite, ";
+                if (op->type.is_int()) {
                     stream << "solver.create_term(solver.ops.BVSlt, ";
+                } else {
+                    stream << "solver.create_term(solver.ops.BVUlt, ";
+                }
                         print(op -> a);
                         stream << ", ";
                         print(op -> b);
@@ -895,7 +899,11 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ")";
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    stream << "solver.create_term(solver.ops.BVSgt, ";
+                    if (op->type.is_int()) {
+                        stream << "solver.create_term(solver.ops.BVSgt, ";
+                    } else {
+                        stream << "solver.create_term(solver.ops.BVUgt, ";
+                    }
                         print(op -> a);
                         stream << ", ";
                         print(op -> b);
@@ -953,7 +961,11 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    stream << "solver.create_term(solver.ops.BVSlt, ";
+                    if (op->type.is_int()) {
+                        stream << "solver.create_term(solver.ops.BVSlt, ";
+                    } else {
+                        stream << "solver.create_term(solver.ops.BVUlt, ";
+                    }
                         print(op -> a);
                         stream << ", ";
                         print(op -> b);
@@ -971,7 +983,11 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    stream << "solver.create_term(solver.ops.BVSle, ";
+                    if (op->type.is_int()) {
+                        stream << "solver.create_term(solver.ops.BVSle, ";
+                    } else {
+                        stream << "solver.create_term(solver.ops.BVUle, ";
+                    }
                         print(op -> a);
                         stream << ", ";
                         print(op -> b);
@@ -989,7 +1005,11 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    stream << "solver.create_term(solver.ops.BVSgt, ";
+                    if (op->type.is_int()) {
+                        stream << "solver.create_term(solver.ops.BVSgt, ";
+                    } else {
+                        stream << "solver.create_term(solver.ops.BVUgt, ";
+                    }
                         print(op -> a);
                         stream << ", ";
                         print(op -> b);
@@ -1007,7 +1027,11 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    stream << "solver.create_term(solver.ops.BVSge, ";
+                    if (op->type.is_int()) {
+                        stream << "solver.create_term(solver.ops.BVSge, ";
+                    } else {
+                        stream << "solver.create_term(solver.ops.BVUge, ";
+                    }
                         print(op -> a);
                         stream << ", ";
                         print(op -> b);
@@ -1241,24 +1265,27 @@ string associated_provide_name(Stmt s, string call_name) {
                     Expr a = op->args[0];
                     Expr b = op->args[1];
                     stream << "solver.create_term(solver.ops.Ite, ";
-                        stream << "solver.create_term(solver.ops.BVSgt, ";
-                            print(a);
-                            stream << ", ";
-                            print(b);
-                            stream << ")";    
-                        stream << ", ";
-                        stream << "solver.create_term(solver.ops.BVSub, ";
-                            print(a);
-                            stream << ", ";
-                            print(b);
-                            stream << ")";
-                        stream << ", ";
-                        stream << "solver.create_term(solver.ops.BVSub, ";
-                            print(b);
-                            stream << ", ";
-                            print(a);
-                            stream << ")";
-                        stream << ")";
+                    stream << "solver.create_term(solver.ops.BVSlt, ";
+                    stream << "solver.create_term(solver.ops.BVSub, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";   
+                    stream << ", solver.create_term(0, solver.create_bvsort(" << op->type.bits() << "))), ";
+                    stream << "solver.create_term(solver.ops.BVSub, ";
+                    stream << "solver.create_term(0, solver.create_bvsort(" << op->type.bits() << ")), ";
+                    stream << "solver.create_term(solver.ops.BVSub, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";   
+                    stream << "), ";
+                    stream << "solver.create_term(solver.ops.BVSub, ";
+                    print(a);
+                    stream << ", ";
+                    print(b);
+                    stream << ")";   
+                    stream << ")";
                 }
             } else if (op->is_intrinsic(Call::reinterpret)) {
                 stream << print_name(op -> name) << "(";
@@ -1371,26 +1398,11 @@ string associated_provide_name(Stmt s, string call_name) {
 
         void CodeGen_Pono::visit(const Realize * op) {
 
-            //  bool has_variable_min = false;
             vector < Expr > realize_mins;
             for (size_t i = 0; i < op -> bounds.size(); i++) {
                 realize_mins.emplace_back(op -> bounds[i].min);
-                // if (!is_const(simplify(op->bounds[i].min))) {
-                //   has_variable_min = true;
-                // }
             }
-            //   //auto new_body = op->body;
             auto new_body = shift_realize_bounds(op -> body, op -> name, realize_mins, scope);
-            // std::cout << "shifting " << op -> name << " by " << realize_mins << std::endl;
-
-            //   if (has_variable_min) {
-            //     internal_assert(realize_glb_indices.count(op->name) == 0);
-            //     realize_glb_indices[op->name] = realize_mins;
-            //   }
-
-            //   //auto new_realize = Realize::make(op->name, op->types, op->memory_type, op->bounds, op->condition, new_body);
-
-            //   new_body.accept(this);
 
             do_indent();
             // stream << "realize ";
@@ -1405,7 +1417,7 @@ string associated_provide_name(Stmt s, string call_name) {
             python_type = true;
             for (size_t i = 0; i < op -> bounds.size(); i++) {
                 stream << " for _ in range(";
-                print(op -> bounds[op -> bounds.size() - i - 1].extent);
+                print(op -> bounds[i].extent);
                 stream << ")]";
             }
             python_type = false;
