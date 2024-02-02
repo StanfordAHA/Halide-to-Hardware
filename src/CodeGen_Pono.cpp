@@ -375,10 +375,12 @@ string associated_provide_name(Stmt s, string call_name) {
                 do_indent();
                 testbench_stream << "return ";
                 for (size_t i = 0; i < args.size(); i++) {
-                    testbench_stream << print_name(args[i].name);
+                    if (args[i].is_stencil) {
+                        testbench_stream << print_name(args[i].name);
 
-                    if (i < args.size() - 1) {
-                        testbench_stream << ", ";
+                        if (i < args.size() - 1) {
+                            testbench_stream << ", ";
+                        }
                     }
                 }
                 testbench_stream << "\n";
@@ -397,10 +399,12 @@ string associated_provide_name(Stmt s, string call_name) {
                 do_indent();
                 
                 for (size_t i = 0; i < args.size(); i++) {
-                    testbench_stream << print_name(args[i].name);
+                    if (args[i].is_stencil) {
+                        testbench_stream << print_name(args[i].name);
 
-                    if (i < args.size() - 1) {
-                        testbench_stream << ", ";
+                        if (i < args.size() - 1) {
+                            testbench_stream << ", ";
+                        }
                     }
                 }
                 testbench_stream << " = create_app(solver)\n";
