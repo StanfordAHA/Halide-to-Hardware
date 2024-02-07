@@ -1,2 +1,0 @@
-export app=unoptimized_depthwise_conv
-export HLS_CLOCK_FREQUENCY=250000000
