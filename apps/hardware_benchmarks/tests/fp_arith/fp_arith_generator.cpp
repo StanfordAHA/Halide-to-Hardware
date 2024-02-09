@@ -20,21 +20,16 @@ public:
         hw_input(x, y) = bf16(input(x, y));
         hw_input_bfloat(x, y) = hw_input(x, y);
 
-        Func mult, div, add, add2, sub, mod, neg;
-        neg(x,y)  = bfloat16_t(13.3);//-Expr(bfloat16_t(13.3));
-        mult(x,y) = hw_input_bfloat(x,y) * neg(x,y);
-        div(x,y)  = bfloat16_t(4.56) / hw_input_bfloat(x,y);
-        //mod(x,y)  = hw_input_bfloat(x,y);// % 16;
-        add(x,y)  = div(x,y) + hw_input_bfloat(x,y) + bfloat16_t(9.8);
-        //add2(x,y) = add(x,y) + mult(x,y); // these don't work for some reason
-        //sub(x,y)  =  mult(x,y) - add(x,y);
-        sub(x,y)  = bfloat16_t(2.6) * mult(x,y) - add(x,y);
-        
+        Func mult, div, add, add2, sub, mod, neg, expo;
+        mult(x,y) = hw_input_bfloat(x,y) * bfloat16_t(1.576);
+        add(x,y)  = mult(x,y) + bfloat16_t(9.8);
+        div(x,y)  = bfloat16_t(4.56) / add(x,y);
+        sub(x,y)  = div(x,y) - bfloat16_t(2.6);
+        expo(x,y)  = exp(sub(x,y));
 
         Func hw_output("hw_output");
-        hw_output(x,y) = sub(x,y);
-        //hw_output(x,y) = add(x,y);
-        output(x,y) = u8(clamp(hw_output(x,y), 0, 255));
+        hw_output(x,y) = expo(x,y);
+        output(x,y) = u8(clamp(hw_output(x,y), 0, bfloat16_t(254.5)));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR)) {
@@ -50,12 +45,6 @@ public:
           hw_output
               .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
               .hw_accelerate(xi, xo);
-
-          mult.compute_at(hw_output, xo);
-          div.compute_at(hw_output, xo);
-          mod.compute_at(hw_output, xo);
-          add.compute_at(hw_output, xo);
-          sub.compute_at(hw_output, xo);
 
           hw_input.stream_to_accelerator();
             
