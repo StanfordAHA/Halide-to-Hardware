@@ -2,6 +2,8 @@ include ../../hw_support/Makefile.inc
 
 TESTNAME = hdr_plus
 USE_COREIR_VALID = 1
+HL_TARGET = host-x86-64
+RDAI_PLATFORM_RUNTIME = clockwork_sim
 
 include ../../hw_support/hardware_targets.mk
 
@@ -52,3 +54,8 @@ $(BIN)/motion.a: $(BIN)/motion.generator
 test: $(BIN)/process
 	@mkdir -p $(@D) output
 	$(BIN)/process data 
+
+
+align_test:
+	g++ -g -o align align/align.cpp
+
