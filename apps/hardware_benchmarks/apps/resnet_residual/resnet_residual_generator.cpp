@@ -109,7 +109,7 @@ public:
     
         //Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
         output_cgra(w, x, y) += kernel_cgra(w, r.z, r.x, r.y) * input_cgra(r.z, stride*x + r.x, stride*y + r.y);
-        output_glb(w, x, y) = output_cgra(w, x, y) + residual_glb(w, x, y);
+        output_glb(w, x, y) = output_cgra(w, x, y) + residual_cgra(w, x, y);
         hw_output(w, x, y) = output_glb(w, x, y);
         output(w, x, y) = max(0, i16(hw_output(w, x, y)));
         
@@ -417,7 +417,7 @@ public:
           int gbsize = imgsize;
           int tilesize = ((int)stride == 2) ?
             std::min(14, imgsize) : // we want the input to be 30 max
-            std::min(28, imgsize);  // min of 28 and output image size
+            std::min(7, imgsize);  // min of 28 and output image size
           tilesize = (pad == 3) ?
             16 : // this occurs only for conv1
             tilesize;
@@ -494,7 +494,7 @@ public:
           residual_host.compute_root(); // host buffer
           residual_host.accelerator_input();
           residual_glb.compute_at(hw_output, x_host); // global buffer
-          residual_cgra.compute_at(output_glb, w_glb);   // mem tile
+          // residual_cgra.compute_at(output_glb, w_glb);   // mem tile
 
           //input_glb.unroll(z, k_ic);
           //input_cgra.unroll(z, k_ic);
@@ -508,9 +508,9 @@ public:
             // .reorder(w_cgra, z_cgra, x, y, w_glb, z_glb);
             .reorder(w_cgra, z, x, y, w_glb);
             //.reorder(zz, w_cgra, x, y, z, w_glb);
-          residual_cgra
-            .split(w, w_glb, w_cgra, mem_oc)
-            .reorder(w_cgra, x, y, w_glb);
+          // residual_cgra
+          //   .split(w, w_glb, w_cgra, mem_oc)
+          //   .reorder(w_cgra, x, y, w_glb);
 
           // Unroll input and kernel over glb (default 1)
           kernel_glb.unroll(w, glb_k); // unroll glb input for small images
@@ -518,7 +518,7 @@ public:
           input_glb.unroll(z, glb_i); // unroll glb input for small images
           input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
           residual_glb.unroll(w, glb_r); // unroll glb input for small images
-          residual_cgra.unroll(w_cgra, glb_r); // unroll glb->cgra channels for small images
+          // residual_cgra.unroll(w_cgra, glb_r); // unroll glb->cgra channels for small images
 
         }
         else {  // schedule to CPU
