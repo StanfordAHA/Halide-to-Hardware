@@ -160,13 +160,13 @@ int main( int argc, char **argv ) {
         for (int x = 0; x < imgsize_x; x++) {
             for (int y = 0; y < imgsize_y; y++) {
                 // std::cout << "c: " << c << " x: " << x << " y: " << y << " input: " << bfloat16_to_float_process(input_copy_stencil(c, x, y)) << std::endl;
-                float max_val = -std::numeric_limits<float>::infinity(); // Start with the lowest possible value
+                float max_val = -std::numeric_limits<float>::infinity();
                 for (int kx = 0; kx < K_X; kx++) { // Kernel height
                     for (int ky = 0; ky < K_Y; ky++) { // Kernel width
-                        int src_x = x * stride + kx; // Calculate source x coordinate in the input image
-                        int src_y = y * stride + ky; // Calculate source y coordinate in the input image
+                        int src_x = x * stride + kx;
+                        int src_y = y * stride + ky;
                         if (src_x < X && src_y < Y) {
-                            float val = bfloat16_to_float_process(input_copy_stencil(c, src_x, src_y)); // Assuming a function to convert bfloat16 to float
+                            float val = bfloat16_to_float_process(input_copy_stencil(c, src_x, src_y));
                             max_val = std::max(max_val, val); // Keep the max value
                         }
                     }
