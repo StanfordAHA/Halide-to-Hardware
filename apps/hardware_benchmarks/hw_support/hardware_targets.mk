@@ -430,6 +430,14 @@ $(BIN)/input_nn.pgm: input_padded.mat kernel.mat
 	@-mkdir -p $(BIN)
 	python $(HWSUPPORT)/interleave_input.py $(BIN)/input_nn.pgm; 
 
+# use provided inputs first: copy .raw to bin/.raw or convert .mat to bin/.raw
+$(BIN)/%.raw: %.raw
+	cp $*.raw $(BIN)/$*.raw
+
+$(BIN)/%.raw: %.mat
+	python $(HWSUPPORT)/mat2raw.py $*.mat $(BIN)/$*.raw
+
+# then try to convert .png, .mat and finally .leraw
 $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	if [ "$(EXT)" == "png" ]; then \
 	  $(HWSUPPORT)/steveconvert.csh $(BIN)/$*.png $(BIN)/$*.raw; \
