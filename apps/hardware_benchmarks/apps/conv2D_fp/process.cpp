@@ -1,6 +1,8 @@
 #include <iostream>
 #include <math.h>
 #include <cstdio>
+#include <fstream>
+#include <vector>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 
@@ -68,13 +70,84 @@ float bfloat16_to_float_process(uint16_t b) {
     return ret;
 }
 
+void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
+    std::ofstream out(filename, std::ios::binary);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open file for writing: " << filename << std::endl;
+        return;
+    }
+
+    // Iterate through each element of the buffer and write in big-endian order
+    for (int i = 0; i < buffer.number_of_elements(); ++i) {
+        uint16_t val = buffer(i);
+        // Swap bytes if the system is little-endian
+        uint16_t big_endian_val = (val << 8) | (val >> 8); // Swap bytes to convert to big-endian
+        out.write(reinterpret_cast<const char*>(&big_endian_val), sizeof(big_endian_val));
+    }
+
+    out.close();
+}
+
+void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
+    std::ifstream inFile(filename, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Failed to open file for reading: " << filename << std::endl;
+        return;
+    }
+
+    // Get the extents of each dimension in the buffer
+    std::vector<int> extents(buffer.dimensions());
+    for (int i = 0; i < buffer.dimensions(); i++) {
+        extents[i] = buffer.dim(i).extent();
+    }
+
+    // Initialize indices to zero for all dimensions
+    std::vector<int> indices(buffer.dimensions(), 0);
+
+    // Function to recursively fill the buffer, with column-major order
+    std::function<void(int)> fillBuffer = [&](int dim) {
+        if (dim == -1) { // All dimensions are set
+            uint16_t value;
+            inFile.read(reinterpret_cast<char*>(&value), sizeof(value));
+            if (!inFile) {
+                std::cerr << "Error reading data for indices ";
+                for (int i = 0; i < indices.size(); ++i) {
+                    std::cerr << indices[i] << (i < indices.size() - 1 ? ", " : "");
+                }
+                std::cerr << std::endl;
+                throw std::runtime_error("Failed to read data from file");
+            }
+            // Perform byte swap if necessary (for big-endian files)
+            value = (value >> 8) | (value << 8);
+            buffer(indices.data()) = value;
+        } else { // Set the current dimension and recurse
+            for (int i = 0; i < extents[dim]; ++i) {
+                indices[dim] = i;
+                fillBuffer(dim - 1);
+            }
+            indices[dim] = 0;
+        }
+    };
+
+    try {
+        // From the last dimension down to 0; reverse order for column-major)
+        fillBuffer(buffer.dimensions() - 1);
+    } catch (const std::exception& e) {
+        std::cerr << "An exception occurred: " << e.what() << std::endl;
+        inFile.close();
+        return;
+    }
+
+    inFile.close();
+}
+
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint16_t> processor("conv2D_fp", {"input_host_stencil.mat", "kernel_host_stencil.mat"});
+  ManyInOneOut_ProcessController<uint16_t> processor("conv2D_fp", {"input_host_stencil.mat", "kernel_host_stencil.mat", "bias_host_stencil.raw"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        conv2D_fp(proc.inputs["input_host_stencil.mat"], proc.inputs["kernel_host_stencil.mat"], proc.output);
+        conv2D_fp(proc.inputs["input_host_stencil.mat"], proc.inputs["kernel_host_stencil.mat"], proc.inputs["bias_host_stencil.raw"], proc.output);
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -93,7 +166,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          conv2D_fp_clockwork(proc.inputs["input_host_stencil.mat"], proc.inputs["kernel_host_stencil.mat"], proc.output);
+          conv2D_fp_clockwork(proc.inputs["input_host_stencil.mat"], proc.inputs["kernel_host_stencil.mat"], proc.inputs["bias_host_stencil.raw"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -142,7 +215,7 @@ int main( int argc, char **argv ) {
           if (rand() % 100 < in_sparsity) {
             input_copy_stencil(z, x, y) = float_to_bfloat16_process(0.0f);
           } else {
-            input_copy_stencil(z, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
+            input_copy_stencil(z, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX));
           }
           // std::cout << "input: " << " z: " << z << " x: " << x << " y: " << y << " val: " << bfloat16_to_float_process(input_copy_stencil(z, x, y)) << std::endl;
         }
@@ -177,6 +250,16 @@ int main( int argc, char **argv ) {
               << processor.inputs["kernel_host_stencil.mat"].dim(2).extent() << "x"
               << processor.inputs["kernel_host_stencil.mat"].dim(3).extent() << "\n";
 
+    ///// BIAS /////
+    processor.inputs["bias_host_stencil.raw"] = Halide::Runtime::Buffer<uint16_t>(W);
+    auto bias_copy_stencil = processor.inputs["bias_host_stencil.raw"];
+    for (int w = 0; w < bias_copy_stencil.dim(0).extent(); w++) {
+      // Use large bias in case it falls within compare tolerance
+      bias_copy_stencil(w) = float_to_bfloat16_process(10.0f * (static_cast<float>(rand()) / RAND_MAX));
+    }
+
+    std::cout << "bias has dims: " << processor.inputs["bias_host_stencil.raw"].dim(0).extent() << "\n";
+
     ///// GOLD OUTPUTS /////
     int imgsize_x = std::floor( (X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y - K_Y) / stride ) + 1;
@@ -200,6 +283,7 @@ int main( int argc, char **argv ) {
               }
             }
           }
+          sum += bfloat16_to_float_process(bias_copy_stencil(w));
           processor.output(w, x, y) = float_to_bfloat16_process(sum);
         }
       }
@@ -209,6 +293,7 @@ int main( int argc, char **argv ) {
               << processor.output.dim(1).extent() << "x"
               << processor.output.dim(2).extent() << "\n";
 
+    // use provided inputs first: convert .mat to bin/.raw or copy .raw to bin/.raw
     bool write_mat = true;
     if (write_mat) {
       std::cout << "Writing input_host_stencil.mat to bin folder" << std::endl;
@@ -216,6 +301,9 @@ int main( int argc, char **argv ) {
 
       std::cout << "Writing kernel_host_stencil.mat to bin folder" << std::endl;
       save_image(processor.inputs["kernel_host_stencil.mat"], "bin/kernel_host_stencil.mat");
+
+      std::cout << "Writing bias_host_stencil.raw to bin folder" << std::endl;
+      saveHalideBufferToRawBigEndian(processor.inputs["bias_host_stencil.raw"], "bin/bias_host_stencil.raw");
 
       std::cout << "Writing hw_output.mat to bin folder" << std::endl;
       save_image(processor.output, "bin/hw_output.mat");
