@@ -133,7 +133,7 @@ int main( int argc, char **argv ) {
     }
   }
 
-  save_image(processor.inputs["bin/hw_input_stencil.mat"], "bin/hw_input_stencil.mat");
+  save_image(processor.inputs["hw_input_stencil.mat"], "bin/hw_input_stencil.mat");
   save_image(processor.output, "bin/hw_output.mat");
   
   return processor.process_command(argc, argv);
