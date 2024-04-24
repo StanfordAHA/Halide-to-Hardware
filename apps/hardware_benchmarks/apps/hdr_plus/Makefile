@@ -56,6 +56,15 @@ test: $(BIN)/process
 	$(BIN)/process data 
 
 
+raw: unprocessed_raw.cpp unprocessed_raw
+
+unprocessed_raw: unprocessed_raw.o
+	$(CXX) $(CXXFLAGS) -o $@ -I /usr/include/ unprocessed_raw.o -L /usr/lib/ -lraw
+
+unprocessed_raw.cpp.o: 
+	$(CXX) $(CXXFLAGS) $< -o $@
+
+
 align_test:
 	g++ -g -o align align/align.cpp
 

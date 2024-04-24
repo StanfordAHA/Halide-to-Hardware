@@ -19,6 +19,11 @@ LAKE_PATH ?= $(abspath $(CLOCKWORK_DIR)/../lake)
 METAMAPPER_PATH ?= $(abspath $(CLOCKWORK_DIR)/../MetaMapper)
 LDFLAGS += -lcoreir-lakelib
 
+LIBRAW_INCLUDE_PATH ?=  /usr/include/
+LIBRAW_LINK_PATH ?=  /usr/lib/
+OPENCV_INCLUDE_PATH ?= /usr/include/opencv4/
+ 
+
 #WITH_CLOCKWORK ?= 0
 CLOCKWORK_PATH ?= $(CLOCKWORK_DIR)
 ISL_PATH ?= $(CLOCKWORK_PATH)/barvinok-0.41/isl
@@ -365,12 +370,14 @@ $(BIN)/process_targets: FORCE
 
 # we should remake process in case there are extra dependencies
 #.PHONY: $(BIN)/process
-$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_image_helpers.h
+#-I$(LIBRAW_INCLUDE_PATH) -L$(LIBRAW_LINK_PATH) -lraw
+#/usr/local/include/libraw/libraw.h 
+$(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_image_helpers.h 
 	@#echo coreir=$(WITH_COREIR) cpu=$(WITH_CPU) clockwork=$(WITH_CLOCKWORK)
 	@-mkdir -p $(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS)  -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $(PROCESS_DEPS) $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS) -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS) -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
+	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $(PROCESS_DEPS) $(LDFLAGS) $(IMAGE_IO_FLAGS) -I$(LIBRAW_INCLUDE_PATH) -I$(OPENCV_INCLUDE_PATH) -L$(LIBRAW_LINK_PATH) -lraw -lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_imgcodecs -ltiff -no-pie $(PROCESS_TARGETS) -o $@
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif

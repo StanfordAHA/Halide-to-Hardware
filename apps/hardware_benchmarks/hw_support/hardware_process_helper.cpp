@@ -24,10 +24,12 @@ int ProcessController<T>::process_command(int argc, char **argv) {
   std::string command = full_args[1];
   std::vector<std::string> args(argv + 2, argv + argc);
 
+  //printf("About to go into if-else block!\n");
   if (command == "image") {
     return make_image_def(args);
 
   } else if (command == "run") {
+    printf("About to do RUN step\n");
     return make_run_def(args);
 
   } else if (command == "compare") {
@@ -44,6 +46,8 @@ int ProcessController<T>::process_command(int argc, char **argv) {
     return 1;
   }
 }
+
+
 
 template <class T>
 int ProcessController<T>::make_image_def(std::vector<std::string> args) {
@@ -157,6 +161,10 @@ int OneInOneOut_ProcessController<TI,TO>::make_run_def(std::vector<std::string> 
     return 1;
   }
 
+  printf("Input dim 0: %d\n", input.dim(0).extent());
+  printf("Input dim 1: %d\n", input.dim(1).extent());
+   cout << "First pixel of input..." << endl;
+  cout << (int) input(0, 0) << endl;
   // run on input image
   std::string hardware_name = args[0];
   std::function<void()> run_call = run_calls.at(hardware_name);
@@ -167,8 +175,32 @@ int OneInOneOut_ProcessController<TI,TO>::make_run_def(std::vector<std::string> 
   std::cout << "using extension " << extension << std::endl;
   std::string output_filename = "bin/output_" + hardware_name + "." + extension;
   convert_and_save_image(output, output_filename);
+
+  printf("Output dim 0: %d\n", output.dim(0).extent());
+  printf("Output dim 1: %d\n", output.dim(1).extent());
+
   cout << "First pixel of output..." << endl;
   cout << (int) output(0, 0) << endl;
+
+  // bool correct = true;
+  // for (int y=0; y<input.height(); y++) {
+  //   for (int x=0; x<input.width(); x++) {
+  //     auto diff = uint16_t(input(x,y)) - uint16_t(output(x,y));
+  //     if (diff < 0){
+  //       diff = -1 * diff;
+  //     }
+  //     if (diff != 0) {
+  //       correct = false;
+  //       std::cout << "y=" << y << "," << "x=" << x
+  //                 << " CPU val = "<< (uint16_t)input(x,y) << "(" << std::hex << +input(x,y) << ")" << std::dec
+  //                 << ", Clock val = " << (uint16_t)output(x,y) << "(" << std::hex << +output(x,y) << ")" << std::dec
+  //                 << " off by error=" << diff << std::endl;
+  //     }
+  //   }
+  // }
+
+  // printf("Correctness is %d\n", correct);
+
 
   std::cout << "Ran " << design_name << " on " << hardware_name << "\n";
   return 0;
@@ -533,8 +565,13 @@ template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_compare_def(
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_test_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_eval_def(std::vector<std::string> args);
 
+template int ManyInOneOut_ProcessController<uint16_t, uint8_t>::make_image_def(std::vector<std::string> args);
 template int ManyInOneOut_ProcessController<uint8_t, float>::make_image_def(std::vector<std::string> args);
+template int ManyInOneOut_ProcessController<uint16_t, uint8_t>::make_run_def(std::vector<std::string> args);
 template int ManyInOneOut_ProcessController<uint8_t, float>::make_run_def(std::vector<std::string> args);
+template int ManyInOneOut_ProcessController<uint16_t, uint8_t>::make_compare_def(std::vector<std::string> args);
 template int ManyInOneOut_ProcessController<uint8_t, float>::make_compare_def(std::vector<std::string> args);
+template int ManyInOneOut_ProcessController<uint16_t, uint8_t>::make_test_def(std::vector<std::string> args);
 template int ManyInOneOut_ProcessController<uint8_t, float>::make_test_def(std::vector<std::string> args);
+template int ManyInOneOut_ProcessController<uint16_t, uint8_t>::make_eval_def(std::vector<std::string> args);
 template int ManyInOneOut_ProcessController<uint8_t, float>::make_eval_def(std::vector<std::string> args);

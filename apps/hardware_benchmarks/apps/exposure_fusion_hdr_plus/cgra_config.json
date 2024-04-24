@@ -1,0 +1,28 @@
+{
+	"IOs": {
+		"inputs": [{
+			"name": "hw_input_bright_stencil",
+			"bitwidth": 16,
+			"shape": [64, 64, 3],
+			"pixels_per_cycle": 3,
+			"datafile": "bin/hw_input_bright_stencil.raw"
+    },
+{
+			"name": "hw_input_dark_stencil",
+			"bitwidth": 16,
+			"shape": [64, 64, 3],
+			"pixels_per_cycle": 3,
+			"datafile": "bin/hw_input_dark_stencil.raw"
+    }
+		],
+		"output": {
+			"name": "hw_output",
+			"bitwidth": 16,
+			"pixels_per_cycle": 1,
+      "datafile": "bin/hw_output.raw"
+		}
+	},
+	"testing": {
+		"total_cycles": -1
+	}
+}
