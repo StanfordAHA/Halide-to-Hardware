@@ -104,7 +104,7 @@ public:
           cast<bfloat16_t>(kernel_cgra(w, r.z, r.x, r.y)) *
           cast<bfloat16_t>(input_cgra(r.z, stride*x + r.x, stride*y + r.y));
       
-        output_glb(w, x, y) = cast<bfloat16_t>(output_cgra(w, x, y));
+        output_glb(w, x, y) = min(max(cast<bfloat16_t>(output_cgra(w, x, y)), bfloat16_t(0.0f)), bfloat16_t(6.0f));
 
         // hw_output(w, x, y) = max(cast<bfloat16_t>(output_glb(w, x, y)), Expr(bfloat16_t(0.0f)));
         // hw_output(w, x, y) = clamp(cast<bfloat16_t>(output_glb(w, x, y)), Expr(bfloat16_t(0.0f)), Expr(bfloat16_t(6.0f)));
