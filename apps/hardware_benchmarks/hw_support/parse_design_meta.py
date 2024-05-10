@@ -158,6 +158,49 @@ def parseDesignPlace(meta, filename: str):
                 setOrCheck(tileOut, "y_pos", int(words[2]))
                 tileOut["valid_name"] = validName
 
+# Hacky functions to tile xy loop when flattened and add padding to extents
+def parseLoopExtentforPadding(meta, halide_gen_args):
+    # Get pad_o values
+    args = halide_gen_args.split()
+    args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
+    pad_o = args_dict.get('pad_o', 0)
+
+    # Get X_dim
+    out_shape_list = meta['IOs']['outputs'][0]['shape']
+    assert out_shape_list[-1] == out_shape_list[-2], "Only square output supported for output padding"
+    X_dim = out_shape_list[-1]
+
+    # Change extent for all io tiles
+    assert len(meta['IOs']['outputs']) == 1, "Only one output supported for output padding"
+    io_tiles_list = meta['IOs']['outputs'][0]['io_tiles']
+    for io_tile in io_tiles_list:
+        addr_dict = io_tile['addr']
+        found_X_cnt = 0
+        # add dimension if X_dim or Y_dim are flattened
+        for i, ext in enumerate(addr_dict['extent']):
+            if ext == X_dim:
+                found_X_cnt += 1
+                addr_dict['extent'][i] += 2 * pad_o
+            elif ext == X_dim * X_dim:
+                found_X_cnt += 2
+                addr_dict['dimensionality'] += 1
+                addr_dict['extent'][i] = X_dim + 2 * pad_o
+                addr_dict['extent'].insert(i+1, X_dim + 2 * pad_o)
+                addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+                break
+            elif ext % X_dim == 0:
+                found_X_cnt += 1
+                addr_dict['dimensionality'] += 1
+                addr_dict['extent'][i] = X_dim + 2 * pad_o
+                addr_dict['extent'].insert(i+1, ext // X_dim)
+                addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+        assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
+
+    # Add HALIDE_GEN_ARGS to meta file
+    meta["HALIDE_GEN_ARGS"] = args_dict
+
 def main():
     args = parseArguments()
 
@@ -194,6 +237,10 @@ def main():
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
+        # If pad_o in args call padding functions to modify extents
+        halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
+        if "pad_o" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
+
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
