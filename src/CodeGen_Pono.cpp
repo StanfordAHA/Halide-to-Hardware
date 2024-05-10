@@ -200,7 +200,7 @@ string associated_provide_name(Stmt s, string call_name) {
                 codegen.print(op -> body);
                 
                 // Creating buffer input symbol arrays
-                testbench_stream << "def create_app(solver):\n";
+                testbench_stream << "def create_app(solver, starting_pixel_state_var=0, ending_pixel_state_var=float('inf')):\n";
 
                 for (size_t i = 0; i < args.size() - 1; i++) {
                     if (args[i].is_stencil) {
@@ -236,6 +236,30 @@ string associated_provide_name(Stmt s, string call_name) {
                             testbench_stream << "for " << print_name(args[i].name) << "_dim_" << j << " in range(" << extents[j] << "):\n";
                             indent += 1;
                         }
+
+                        do_indent();
+                        testbench_stream << "pixel_idx = ";
+
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            
+                            testbench_stream << "(" << print_name(args[i].name) << "_dim_" << j << " * ";
+                            if (j == 0){
+                                testbench_stream << "1";
+                            } else {
+                                testbench_stream << extents[j-1];
+                            }
+                            testbench_stream << ")";
+
+                            if (j < extents.size() - 1) {
+                                testbench_stream << " + ";
+                            }
+                        }
+                        testbench_stream << "\n";
+                        do_indent();
+
+                        testbench_stream << "if pixel_idx >= starting_pixel_state_var and pixel_idx < ending_pixel_state_var:\n";
+                        indent += 1;
+
                         do_indent();
                         testbench_stream << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
@@ -273,10 +297,27 @@ string associated_provide_name(Stmt s, string call_name) {
 
                         testbench_stream << "])\n";
 
-                        testbench_stream << "\n";
-                        
-                        indent -= extents.size();
+                        indent -= 1;
 
+                        do_indent();
+                        testbench_stream << "else:\n";
+                        indent += 1;
+                        do_indent();
+
+                        testbench_stream << print_name(args[i].name) << "[";
+                        for (size_t j = 0; j < extents.size(); j++) {
+                            testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
+                            if (j < extents.size() - 1) {
+                                testbench_stream << "][";
+                            }
+                        }
+                        
+                        testbench_stream << "] = solver.create_term(0, " << "solver.create_bvsort(" << args[i].stencil_type.elemType.bits() << "))\n";
+
+                        
+                        indent -= extents.size() + 1;
+
+                        testbench_stream << "\n";
                     } else {
                         std::cout << "Found scalar input " << args[i].name << std::endl;
                         do_indent();
@@ -412,7 +453,7 @@ string associated_provide_name(Stmt s, string call_name) {
                         }
 
                         do_indent();
-                        testbench_stream << "solver.fts.constrain_init(solver.create_term(solver.ops.Equal, ";
+                        testbench_stream << "solver.fts.add_invar(solver.create_term(solver.ops.Equal, ";
                         testbench_stream << print_name(args[i].name) << "[";
                         for (size_t j = 0; j < extents.size(); j++) {
                             testbench_stream << print_name(args[i].name) << "_dim_" << (extents.size() - j - 1);
