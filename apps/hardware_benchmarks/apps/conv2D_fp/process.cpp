@@ -183,12 +183,14 @@ int main( int argc, char **argv ) {
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
+    auto PO = getenv("pad_o");
 
     auto in_img = OX ? atoi(OX) : 56;
     auto ksize = K ? atoi(K) : 3;
     auto stride = S ? atoi(S) : 1;
     auto n_ic = IC ? atoi(IC) : 16;
     auto n_oc = OC ? atoi(OC) : 8;
+    auto pad_o = PO ? atoi(PO) : 0;
 
     int X = in_img;
     int Y = X;
@@ -196,6 +198,8 @@ int main( int argc, char **argv ) {
     int K_Y = K_X;
     int Z = n_ic; // input channel 
     int W = n_oc; // output channel
+    int PO_X = pad_o;
+    int PO_Y = PO_X;
 
     if (true) {//OX || P || K || S || IC || OC) {
       std::cout << "using inputs set within process.cpp" << std::endl;
@@ -215,7 +219,10 @@ int main( int argc, char **argv ) {
           if (rand() % 100 < in_sparsity) {
             input_copy_stencil(z, x, y) = float_to_bfloat16_process(0.0f);
           } else {
-            input_copy_stencil(z, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX));
+            input_copy_stencil(z, x, y) = float_to_bfloat16_process(
+              // [-0.05, 0.05]
+              ((float)rand() / RAND_MAX) * 0.1 - 0.05
+            );
           }
           // std::cout << "input: " << " z: " << z << " x: " << x << " y: " << y << " val: " << bfloat16_to_float_process(input_copy_stencil(z, x, y)) << std::endl;
         }
@@ -237,7 +244,10 @@ int main( int argc, char **argv ) {
             if (rand() % 100 < kernel_sparsity) {
               kernel_copy_stencil(w, z, x, y) = float_to_bfloat16_process(0.0f);
             } else {
-              kernel_copy_stencil(w, z, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX));
+              kernel_copy_stencil(w, z, x, y) = float_to_bfloat16_process(
+                // [0, 0.005]
+                ((float)rand() / RAND_MAX) * 0.005
+              );
             }
             // std::cout << "kernel: " << " w: " << w << " z: " << z << " x: " << x << " y: " << y << " val: " << bfloat16_to_float_process(kernel_copy_stencil(w, z, x, y)) << std::endl;
           } 
@@ -254,8 +264,10 @@ int main( int argc, char **argv ) {
     processor.inputs["bias_host_stencil.raw"] = Halide::Runtime::Buffer<uint16_t>(W);
     auto bias_copy_stencil = processor.inputs["bias_host_stencil.raw"];
     for (int w = 0; w < bias_copy_stencil.dim(0).extent(); w++) {
-      // Use large bias in case it falls within compare tolerance
-      bias_copy_stencil(w) = float_to_bfloat16_process(10.0f * (static_cast<float>(rand()) / RAND_MAX));
+      bias_copy_stencil(w) = float_to_bfloat16_process(
+        // [-0.05, 0.05]
+        ((float)rand() / RAND_MAX) * 0.1 - 0.05
+      );
     }
 
     std::cout << "bias has dims: " << processor.inputs["bias_host_stencil.raw"].dim(0).extent() << "\n";
@@ -263,7 +275,11 @@ int main( int argc, char **argv ) {
     ///// GOLD OUTPUTS /////
     int imgsize_x = std::floor( (X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y - K_Y) / stride ) + 1;
+    int imgsize_x_padded = imgsize_x + 2 * PO_X;
+    int imgsize_y_padded = imgsize_y + 2 * PO_Y;
     processor.output = Halide::Runtime::Buffer<uint16_t>(W, imgsize_x, imgsize_y);
+    auto output_gold_tensor = Halide::Runtime::Buffer<uint16_t>(W, imgsize_x_padded, imgsize_y_padded);
+    output_gold_tensor.fill(0);
 
     // Conv2D operation
     for (int w = 0; w < W; w++) { // For each output channel
@@ -284,14 +300,15 @@ int main( int argc, char **argv ) {
             }
           }
           sum += bfloat16_to_float_process(bias_copy_stencil(w));
-          processor.output(w, x, y) = float_to_bfloat16_process(sum);
+          sum = std::min(std::max(sum, 0.0f), 6.0f);
+          output_gold_tensor(w, x + PO_X, y + PO_Y) = float_to_bfloat16_process(sum);
         }
       }
     }
 
-    std::cout << "output has dims: " << processor.output.dim(0).extent() << "x"
-              << processor.output.dim(1).extent() << "x"
-              << processor.output.dim(2).extent() << "\n";
+    std::cout << "output has dims: " << output_gold_tensor.dim(0).extent() << "x"
+              << output_gold_tensor.dim(1).extent() << "x"
+              << output_gold_tensor.dim(2).extent() << "\n";
 
     // use provided inputs first: convert .mat to bin/.raw or copy .raw to bin/.raw
     bool write_mat = true;
@@ -306,7 +323,7 @@ int main( int argc, char **argv ) {
       saveHalideBufferToRawBigEndian(processor.inputs["bias_host_stencil.raw"], "bin/bias_host_stencil.raw");
 
       std::cout << "Writing hw_output.mat to bin folder" << std::endl;
-      save_image(processor.output, "bin/hw_output.mat");
+      save_image(output_gold_tensor, "bin/hw_output.mat");
     }
 
     return processor.process_command(argc, argv);
