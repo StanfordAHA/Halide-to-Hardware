@@ -141,6 +141,22 @@ void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<ui
     inFile.close();
 }
 
+void copyFile(const std::string &srcPath, const std::string &dstPath) {
+    std::ifstream src(srcPath, std::ios::binary);
+    std::ofstream dst(dstPath, std::ios::binary);
+
+    if (!src.is_open() || !dst.is_open()) {
+        throw std::runtime_error("Error opening files while copying from " + srcPath + " to " + dstPath);
+    }
+
+    dst << src.rdbuf();
+}
+
+bool file_exists(const std::string& name) {
+    std::ifstream f(name.c_str());
+    return f.good();
+}
+
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
   ManyInOneOut_ProcessController<uint16_t> processor("conv2D_fp", {"input_host_stencil.mat", "kernel_host_stencil.mat", "bias_host_stencil.raw"});
@@ -184,6 +200,7 @@ int main( int argc, char **argv ) {
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
     auto PO = getenv("pad_o");
+    auto use_torch_gold = getenv("TORCH_GOLD_LAYER");
 
     auto in_img = OX ? atoi(OX) : 56;
     auto ksize = K ? atoi(K) : 3;
@@ -191,6 +208,7 @@ int main( int argc, char **argv ) {
     auto n_ic = IC ? atoi(IC) : 16;
     auto n_oc = OC ? atoi(OC) : 8;
     auto pad_o = PO ? atoi(PO) : 0;
+    std::string use_torch_gold_str = use_torch_gold ? use_torch_gold : "";
 
     int X = in_img;
     int Y = X;
@@ -311,19 +329,47 @@ int main( int argc, char **argv ) {
               << output_gold_tensor.dim(2).extent() << "\n";
 
     // use provided inputs first: convert .mat to bin/.raw or copy .raw to bin/.raw
-    bool write_mat = true;
-    if (write_mat) {
+    if (use_torch_gold_str == "") {
+      if (file_exists("input_host_stencil.mat")) {
+        std::cout << "Removing existing input_host_stencil.mat" << std::endl;
+        remove("input_host_stencil.mat");
+      }
       std::cout << "Writing input_host_stencil.mat to bin folder" << std::endl;
       save_image(processor.inputs["input_host_stencil.mat"], "bin/input_host_stencil.mat");
 
+      if (file_exists("kernel_host_stencil.mat")) {
+        std::cout << "Removing existing kernel_host_stencil.mat" << std::endl;
+        remove("kernel_host_stencil.mat");
+      }
       std::cout << "Writing kernel_host_stencil.mat to bin folder" << std::endl;
       save_image(processor.inputs["kernel_host_stencil.mat"], "bin/kernel_host_stencil.mat");
 
+      if (file_exists("bias_host_stencil.raw")) {
+        std::cout << "Removing existing bias_host_stencil.raw" << std::endl;
+        remove("bias_host_stencil.raw");
+      }
       std::cout << "Writing bias_host_stencil.raw to bin folder" << std::endl;
       saveHalideBufferToRawBigEndian(processor.inputs["bias_host_stencil.raw"], "bin/bias_host_stencil.raw");
 
+      if (file_exists("hw_output.mat")) {
+        std::cout << "Removing existing hw_output.mat" << std::endl;
+        remove("hw_output.mat");
+      }
       std::cout << "Writing hw_output.mat to bin folder" << std::endl;
       save_image(output_gold_tensor, "bin/hw_output.mat");
+    } else {
+      std::cout << "Reading input_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/input_host_stencil.mat", "./input_host_stencil.mat");
+
+      std::cout << "Reading kernel_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/kernel_host_stencil.mat", "./kernel_host_stencil.mat");
+
+      // Have to use raw for bias since Halide mat2raw has issues with 1D array
+      std::cout << "Reading bias_host_stencil.raw from " << "pytorch_gold/" << use_torch_gold << std::endl;
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/bias_host_stencil.raw", "./bias_host_stencil.raw");
+
+      std::cout << "Reading hw_output.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./hw_output.mat");
     }
 
     return processor.process_command(argc, argv);
