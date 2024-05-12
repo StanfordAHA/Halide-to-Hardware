@@ -163,7 +163,8 @@ def parseLoopExtentforPadding(meta, halide_gen_args):
     # Get pad_o values
     args = halide_gen_args.split()
     args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
-    pad_o = args_dict.get('pad_o', 0)
+    pad_o_left = args_dict.get('pad_o_left', 0)
+    pad_o_right = args_dict.get('pad_o_right', 0)
 
     # Get X_dim
     out_shape_list = meta['IOs']['outputs'][0]['shape']
@@ -180,19 +181,19 @@ def parseLoopExtentforPadding(meta, halide_gen_args):
         for i, ext in enumerate(addr_dict['extent']):
             if ext == X_dim:
                 found_X_cnt += 1
-                addr_dict['extent'][i] += 2 * pad_o
+                addr_dict['extent'][i] += (pad_o_left + pad_o_right)
             elif ext == X_dim * X_dim:
                 found_X_cnt += 2
                 addr_dict['dimensionality'] += 1
-                addr_dict['extent'][i] = X_dim + 2 * pad_o
-                addr_dict['extent'].insert(i+1, X_dim + 2 * pad_o)
+                addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
+                addr_dict['extent'].insert(i+1, X_dim + (pad_o_left + pad_o_right))
                 addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
                 addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
                 break
             elif ext % X_dim == 0:
                 found_X_cnt += 1
                 addr_dict['dimensionality'] += 1
-                addr_dict['extent'][i] = X_dim + 2 * pad_o
+                addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
                 addr_dict['extent'].insert(i+1, ext // X_dim)
                 addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
                 addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
@@ -239,7 +240,7 @@ def main():
     with open(outputName, 'w', encoding='utf-8') as fileout:
         # If pad_o in args call padding functions to modify extents
         halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
-        if halide_gen_args and "pad_o" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
+        if halide_gen_args and "pad_o_left" in halide_gen_args or "pad_o_right" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)

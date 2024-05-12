@@ -199,7 +199,8 @@ int main( int argc, char **argv ) {
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
-    auto PO = getenv("pad_o");
+    auto PO_L = getenv("pad_o_left");
+    auto PO_R = getenv("pad_o_right");
     auto use_torch_gold = getenv("TORCH_GOLD_LAYER");
 
     auto in_img = OX ? atoi(OX) : 56;
@@ -207,7 +208,8 @@ int main( int argc, char **argv ) {
     auto stride = S ? atoi(S) : 1;
     auto n_ic = IC ? atoi(IC) : 16;
     auto n_oc = OC ? atoi(OC) : 8;
-    auto pad_o = PO ? atoi(PO) : 0;
+    auto pad_o_left = PO_L ? atoi(PO_L) : 0;
+    auto pad_o_right = PO_R ? atoi(PO_R) : 0;
     std::string use_torch_gold_str = use_torch_gold ? use_torch_gold : "";
 
     int X = in_img;
@@ -216,8 +218,8 @@ int main( int argc, char **argv ) {
     int K_Y = K_X;
     int Z = n_ic; // input channel 
     int W = n_oc; // output channel
-    int PO_X = pad_o;
-    int PO_Y = PO_X;
+    int PO_LEFT = pad_o_left;
+    int PO_RIGHT = pad_o_right;
 
     if (true) {//OX || P || K || S || IC || OC) {
       std::cout << "using inputs set within process.cpp" << std::endl;
@@ -293,8 +295,8 @@ int main( int argc, char **argv ) {
     ///// GOLD OUTPUTS /////
     int imgsize_x = std::floor( (X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y - K_Y) / stride ) + 1;
-    int imgsize_x_padded = imgsize_x + 2 * PO_X;
-    int imgsize_y_padded = imgsize_y + 2 * PO_Y;
+    int imgsize_x_padded = imgsize_x + PO_LEFT + PO_RIGHT;
+    int imgsize_y_padded = imgsize_y + PO_LEFT + PO_RIGHT;
     processor.output = Halide::Runtime::Buffer<uint16_t>(W, imgsize_x, imgsize_y);
     auto output_gold_tensor = Halide::Runtime::Buffer<uint16_t>(W, imgsize_x_padded, imgsize_y_padded);
     output_gold_tensor.fill(0);
@@ -319,7 +321,7 @@ int main( int argc, char **argv ) {
           }
           sum += bfloat16_to_float_process(bias_copy_stencil(w));
           sum = std::min(std::max(sum, 0.0f), 6.0f);
-          output_gold_tensor(w, x + PO_X, y + PO_Y) = float_to_bfloat16_process(sum);
+          output_gold_tensor(w, x + PO_LEFT, y + PO_LEFT) = float_to_bfloat16_process(sum);
         }
       }
     }

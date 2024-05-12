@@ -16,7 +16,8 @@ public:
     GeneratorParam<int> in_img{"in_img", 56};    // default: 56
 
     // pad_o determines the output padding
-    GeneratorParam<int> pad_o{"pad_o", 0};    // default: 0
+    GeneratorParam<int> pad_o_left{"pad_o_left", 0};    // default: 0
+    GeneratorParam<int> pad_o_right{"pad_o_right", 0};    // default: 0
 
     // ksize determines the output stencil size
     GeneratorParam<int> ksize{"ksize", 3};    // default: 3
@@ -146,9 +147,9 @@ public:
           
           int gbsize = imgsize;
           int maxTileSize;
-          if (pad_o == 0 || imgsize <= 14) {
+          if (pad_o_left == 0 && pad_o_right == 0 || imgsize <= 26) {
             // By default we want the input to be 30 max
-            maxTileSize = (stride == 2) ? 14 : 28; 
+            maxTileSize = (stride == 2) ? 26 : 52; 
           }
           else {
             // Use larger tile size when use padding and will reorder loop
@@ -181,7 +182,7 @@ public:
             .tile(x, y, x_glb,y_glb, x_cgra,y_cgra, tilesize,tilesize_y)
             .split(w, w_glb, w_cgra, mem_oc);
 
-          if (pad_o == 0 || imgsize <= 14) {
+          if (pad_o_left == 0 && pad_o_right == 0 || imgsize <= 26) {
             output_glb.reorder(w_cgra, x_cgra, y_cgra, w_glb, x_glb, y_glb);
           } else {
             output_glb.reorder(w_cgra, x_cgra, x_glb, y_cgra, y_glb, w_glb);
@@ -191,7 +192,7 @@ public:
           hw_output.unroll(w, glb_o);
           output_glb.unroll(w_cgra, glb_o); // unroll cgra->glb channels for small images
 
-          if (pad_o == 0 || imgsize <= 14) {
+          if (pad_o_left == 0 && pad_o_right == 0 || imgsize <= 26) {
             output_cgra.compute_at(output_glb, w_glb); // memtile
           } else {
             output_cgra.compute_at(output_glb, y_cgra); // memtile
@@ -235,7 +236,7 @@ public:
           bias_host.accelerator_input();
           bias_glb.compute_at(hw_output, x_host); // global buffer
 
-          if (pad_o == 0 || imgsize <= 14) {
+          if (pad_o_left == 0 && pad_o_right == 0 || imgsize <= 26) {
             bias_cgra.compute_at(output_glb, w_glb);   // mem tile
           } else {
             bias_cgra.compute_at(output_glb, y_cgra);   // mem tile
