@@ -1,11 +1,13 @@
 #include <iostream>
 #include <math.h>
 #include <cstdio>
+#include <fstream>
+#include <vector>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 
 #if defined(WITH_CPU)
-   #include "depthwise_conv.h"
+   #include "depthwise_conv_preload_fp.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -15,7 +17,7 @@
 #if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-    #include "depthwise_conv_clockwork.h"
+    #include "depthwise_conv_preload_fp_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -68,13 +70,100 @@ float bfloat16_to_float_process(uint16_t b) {
     return ret;
 }
 
+void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
+    std::ofstream out(filename, std::ios::binary);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open file for writing: " << filename << std::endl;
+        return;
+    }
+
+    // Iterate through each element of the buffer and write in big-endian order
+    for (int i = 0; i < buffer.number_of_elements(); ++i) {
+        uint16_t val = buffer(i);
+        // Swap bytes if the system is little-endian
+        uint16_t big_endian_val = (val << 8) | (val >> 8); // Swap bytes to convert to big-endian
+        out.write(reinterpret_cast<const char*>(&big_endian_val), sizeof(big_endian_val));
+    }
+
+    out.close();
+}
+
+void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
+    std::ifstream inFile(filename, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Failed to open file for reading: " << filename << std::endl;
+        return;
+    }
+
+    // Get the extents of each dimension in the buffer
+    std::vector<int> extents(buffer.dimensions());
+    for (int i = 0; i < buffer.dimensions(); i++) {
+        extents[i] = buffer.dim(i).extent();
+    }
+
+    // Initialize indices to zero for all dimensions
+    std::vector<int> indices(buffer.dimensions(), 0);
+
+    // Function to recursively fill the buffer, with column-major order
+    std::function<void(int)> fillBuffer = [&](int dim) {
+        if (dim == -1) { // All dimensions are set
+            uint16_t value;
+            inFile.read(reinterpret_cast<char*>(&value), sizeof(value));
+            if (!inFile) {
+                std::cerr << "Error reading data for indices ";
+                for (int i = 0; i < indices.size(); ++i) {
+                    std::cerr << indices[i] << (i < indices.size() - 1 ? ", " : "");
+                }
+                std::cerr << std::endl;
+                throw std::runtime_error("Failed to read data from file");
+            }
+            // Perform byte swap if necessary (for big-endian files)
+            value = (value >> 8) | (value << 8);
+            buffer(indices.data()) = value;
+        } else { // Set the current dimension and recurse
+            for (int i = 0; i < extents[dim]; ++i) {
+                indices[dim] = i;
+                fillBuffer(dim - 1);
+            }
+            indices[dim] = 0;
+        }
+    };
+
+    try {
+        // From the last dimension down to 0; reverse order for column-major)
+        fillBuffer(buffer.dimensions() - 1);
+    } catch (const std::exception& e) {
+        std::cerr << "An exception occurred: " << e.what() << std::endl;
+        inFile.close();
+        return;
+    }
+
+    inFile.close();
+}
+
+void copyFile(const std::string &srcPath, const std::string &dstPath) {
+    std::ifstream src(srcPath, std::ios::binary);
+    std::ofstream dst(dstPath, std::ios::binary);
+
+    if (!src.is_open() || !dst.is_open()) {
+        throw std::runtime_error("Error opening files while copying from " + srcPath + " to " + dstPath);
+    }
+
+    dst << src.rdbuf();
+}
+
+bool file_exists(const std::string& name) {
+    std::ifstream f(name.c_str());
+    return f.good();
+}
+
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint16_t> processor("depthwise_conv", {"input_host_stencil.mat"});
+  ManyInOneOut_ProcessController<uint16_t> processor("depthwise_conv_preload_fp", {"input_host_stencil.mat"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        depthwise_conv(proc.inputs["input_host_stencil.mat"], proc.output);
+        depthwise_conv_preload_fp(proc.inputs["input_host_stencil.mat"], proc.output);
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -93,7 +182,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          depthwise_conv_clockwork(proc.inputs["input_host_stencil.mat"], proc.output);
+          depthwise_conv_preload_fp_clockwork(proc.inputs["input_host_stencil.mat"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -125,15 +214,10 @@ int main( int argc, char **argv ) {
     processor.inputs["input_host_stencil.mat"] = Buffer<uint16_t>(C, X, Y);
     processor.inputs_preset = true;
     auto input_copy_stencil = processor.inputs["input_host_stencil.mat"];
-    int sparsity=0;
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int c = 0; c < input_copy_stencil.dim(0).extent(); c++) {
-          if (rand() % 100 < sparsity) {
-            input_copy_stencil(c, x, y) = 0;
-          } else {
-            input_copy_stencil(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
-          }
+          input_copy_stencil(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
         }
       }
     }
@@ -149,16 +233,14 @@ int main( int argc, char **argv ) {
 
     // Kernel generation similar to the preload kernel in the Halide generator
     int block_size = ksize;
-    float total_range = 2.0f; // From -1 to 1
-    int total_elements = block_size * block_size;
-    float step = total_range / (total_elements - 1);
+    float step = 0.03f;
     // Assuming the kernel buffer dimensions are (C, block_size, block_size)
     Buffer<uint16_t> kernel_stencil(C, block_size, block_size);
     // Populate the kernel buffer
     for (int c = 0; c < C; ++c) {
         for (int y = 0; y < block_size; ++y) {
             for (int x = 0; x < block_size; ++x) {
-                float value = 0.0f + step * (y * block_size + x);
+                float value = -1.0f + step * (y * block_size + x);
                 kernel_stencil(c, x, y) = float_to_bfloat16_process(value);
             }
         }

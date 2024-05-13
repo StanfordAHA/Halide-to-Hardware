@@ -8,7 +8,6 @@ using namespace Halide::ConciseCasts;
 class DepthwiseConv : public Halide::Generator<DepthwiseConv> {
 public:
     Input<Buffer<uint16_t>> input{"input", 3};
-    // Input<Buffer<uint16_t>> kernel{"kernel", 3};
     Output<Buffer<uint16_t>> output{"output", 3};
 
     // in_img determines the input image size
@@ -23,6 +22,7 @@ public:
     // n_ic determines the number of input channels
     GeneratorParam<int> n_ic{"n_ic", 24};    // default: 16
 
+    // Unroll determines channel and glb unrolling
     GeneratorParam<int> unroll{"unroll", 6};    // default: 8
 
 
@@ -43,15 +43,12 @@ public:
         // create preload kernel
         const int block_size = int(ksize);
         Func kernel_preload("kernel_preload");
-        float total_range = 2.0f; // From -1 to 1
-        int total_elements = block_size * block_size;
-        float step = total_range / (total_elements - 1);
-        Expr value = cast<bfloat16_t>(0.0f + step * (y * block_size + x));
+        float step = 0.03f;
+        Expr value = cast<bfloat16_t>(-1.0f + step * (y * block_size + x));
         kernel_preload(c, x, y) = cast<bfloat16_t>(value);
 
         // DepthwiseConv Expression
         Func depthwise_conv;
-        depthwise_conv(c, x, y) = cast<bfloat16_t>(0);
         depthwise_conv(c, x, y) += cast<bfloat16_t>(kernel_preload(c, r.x, r.y) * input_host(c, stride * x + r.x, stride * y + r.y));
 
         // Send the Output
@@ -114,4 +111,4 @@ public:
 };
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(DepthwiseConv, depthwise_conv)
+HALIDE_REGISTER_GENERATOR(DepthwiseConv, depthwise_conv_preload_fp)

@@ -1,6 +1,7 @@
 {
 	"IOs": {
-		"inputs": [{
+		"inputs": [
+			{
 				"name": "input",
 				"bitwidth": 16,
   			"shape": [4, 9, 9],
