@@ -199,6 +199,7 @@ int main( int argc, char **argv ) {
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
     auto OC = getenv("n_oc");
+    auto RELU6 = getenv("relu6");
     auto PO_L = getenv("pad_o_left");
     auto PO_R = getenv("pad_o_right");
     auto use_torch_gold = getenv("TORCH_GOLD_LAYER");
@@ -208,6 +209,7 @@ int main( int argc, char **argv ) {
     auto stride = S ? atoi(S) : 1;
     auto n_ic = IC ? atoi(IC) : 16;
     auto n_oc = OC ? atoi(OC) : 8;
+    auto relu6 = RELU6 ? atoi(RELU6) : 1;
     auto pad_o_left = PO_L ? atoi(PO_L) : 0;
     auto pad_o_right = PO_R ? atoi(PO_R) : 0;
     std::string use_torch_gold_str = use_torch_gold ? use_torch_gold : "";
@@ -218,6 +220,7 @@ int main( int argc, char **argv ) {
     int K_Y = K_X;
     int Z = n_ic; // input channel 
     int W = n_oc; // output channel
+    int use_relu6 = relu6;
     int PO_LEFT = pad_o_left;
     int PO_RIGHT = pad_o_right;
 
@@ -320,7 +323,7 @@ int main( int argc, char **argv ) {
             }
           }
           sum += bfloat16_to_float_process(bias_copy_stencil(w));
-          sum = std::min(std::max(sum, 0.0f), 6.0f);
+          if (use_relu6) sum = std::min(std::max(sum, 0.0f), 6.0f);
           output_gold_tensor(w, x + PO_LEFT, y + PO_LEFT) = float_to_bfloat16_process(sum);
         }
       }

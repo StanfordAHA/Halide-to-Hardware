@@ -54,6 +54,9 @@ public:
 
     // glb_o determines the output glb unrolling
     GeneratorParam<int> glb_o{"glb_o", 1};    // default: 32
+
+    // relu6 determines whether to use ReLU6 activation
+    GeneratorParam<int> relu6{"relu6", 1};    // default: 1
   
     // schedule to be used
     GeneratorParam<int> schedule{"schedule", 0};    // default: 0
@@ -107,10 +110,14 @@ public:
         output_cgra(w, x, y) +=
           cast<bfloat16_t>(kernel_cgra(w, r.z, r.x, r.y)) *
           cast<bfloat16_t>(input_cgra(r.z, stride*x + r.x, stride*y + r.y));
-      
-        output_glb(w, x, y) = min(max(cast<bfloat16_t>(output_cgra(w, x, y)), bfloat16_t(0.0f)), bfloat16_t(6.0f));
-        hw_output(w, x, y) = output_glb(w, x, y);
 
+        if (relu6 == 0) {
+          output_glb(w, x, y) = cast<bfloat16_t>(output_cgra(w, x, y));
+        } else {
+          output_glb(w, x, y) = min(max(cast<bfloat16_t>(output_cgra(w, x, y)), bfloat16_t(0.0f)), bfloat16_t(6.0f));
+        }
+
+        hw_output(w, x, y) = output_glb(w, x, y);
         output(w, x, y) = cast<uint16_t>(hw_output(w, x, y));
         
         /* THE SCHEDULE */
@@ -147,11 +154,12 @@ public:
           
           int gbsize = imgsize;
           int maxTileSize;
-          if (pad_o_left == 0 && pad_o_right == 0 || imgsize <= 26) {
+          if (pad_o_left == 0 && pad_o_right == 0) {
+            maxTileSize = (stride == 2) ? 14 : 28; 
+          } else if (imgsize <= 26) {
             // By default we want the input to be 30 max
             maxTileSize = (stride == 2) ? 26 : 52; 
-          }
-          else {
+          } else {
             // Use larger tile size when use padding and will reorder loop
             maxTileSize = (stride == 2) ? 30 : 60; 
           }
