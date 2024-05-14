@@ -240,7 +240,8 @@ def main():
     with open(outputName, 'w', encoding='utf-8') as fileout:
         # If pad_o in args call padding functions to modify extents
         halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
-        if halide_gen_args and "pad_o_left" in halide_gen_args or "pad_o_right" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
+        if halide_gen_args is not None:
+            if "pad_o_left" in halide_gen_args or "pad_o_right" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
