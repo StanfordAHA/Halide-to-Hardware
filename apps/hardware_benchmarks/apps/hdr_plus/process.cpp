@@ -5,6 +5,9 @@
 #include <libraw/libraw.h>
 #include <opencv4/opencv2/opencv.hpp>
 
+
+
+
 #if defined(WITH_CPU)
    #include "hdr_plus.h"
 #endif
@@ -135,7 +138,9 @@ int main( int argc, char **argv ) {
   //OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
   //FIXME: FOR NOW, outputing int16_t. Once outputting RGB images, should send out uint8_t.
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
-  OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
+  //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
+  //OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
+  OneInOneOut_ProcessController<float, uint8_t> processor("hdr_plus");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -261,36 +266,139 @@ std::vector<std::string> img_names;
 
 
   // Load the input images (bayer raw)
-  Buffer<uint16_t> imgs;
+  //Buffer<uint16_t> imgs;
+  Buffer<float> imgs;
 
-  int im_width = 1248;
+  int im_width = 1250;
   int im_height = 1120;
-  imgs = Buffer<uint16_t>(im_width, im_height, 3);
+  //int im_width = 128;
+  //int im_height = 128;
+  //imgs = Buffer<uint16_t>(im_width, im_height, 3);
+  imgs = Buffer<float>(im_width, im_height, 3);
 
-  cv::Mat input_frame_0 = cv::imread("../hdr_plus/images/png/taxi/taxi_0.png", cv::IMREAD_UNCHANGED);
-  cv::Mat input_frame_1 = cv::imread("../hdr_plus/images/png/taxi/taxi_1.png", cv::IMREAD_UNCHANGED);
-  cv::Mat input_frame_2 = cv::imread("../hdr_plus/images/png/taxi/taxi_2.png", cv::IMREAD_UNCHANGED);
+  bool use_k_10bit =false;
+  bool use_k_raw = true;
 
-  if (input_frame_0.empty()) {
-        std::cerr << "Error: Could not open the image file." << std::endl;
-        return -1;
+  if (use_k_10bit){
+
+    for (int frame_num = 0; frame_num < 3; frame_num++){
+
+      // Open the input file
+      std::string taxi_10bit_file_prefix = "./taxi_10bit_";
+      //std::string taxi_10bit_filename = taxi_10bit_file_prefix + std::to_string(frame_num) + "_small.txt";
+      std::string taxi_10bit_filename = taxi_10bit_file_prefix + std::to_string(frame_num) + ".txt";
+      std::ifstream taxi_10bit_file(taxi_10bit_filename);
+
+      // Check if the file is opened successfully
+      int count = 0;
+      if (!taxi_10bit_file.is_open()) {
+          std::cerr << "Error: Unable to open file!" << std::endl;
+          return 1; // Exit with error code
+      }
+
+      // Read the file line by line
+      std::string line;
+      int y = 0;
+
+      while (std::getline(taxi_10bit_file, line)) {
+      //while(count < im_width * im_height) {
+          // Create a string stream from the current line
+          std::istringstream iss(line);
+
+
+          // Tokenize the line using ',' as the delimiter
+          std::string token;
+          int x = 0;
+          while (std::getline(iss, token, ',')) {
+          //while(x < im_width){
+              //std::getline(iss, token, ',');
+              count++;
+              // convert this to unsigned short 
+              imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
+              x++;
+          }
+          y++;
+      }
+
+      // Close the input file
+      taxi_10bit_file.close();
+
     }
 
-    printf("The Input image dimensions are: (%d, %d)\n", input_frame_0.rows, input_frame_0.cols);
-    // Loop over the elements of the cv::Mat matrix
-    for (int y = 0; y < input_frame_0.rows; ++y) {
-        for (int x = 0; x < input_frame_0.cols; ++x) {
-            cv::Vec3b pixel_0 = input_frame_0.at<cv::Vec3b>(y, x);
-            imgs(x, y, 0) = pixel_0[0] * 4;
+  } else if(use_k_raw) {
 
-            cv::Vec3b pixel_1 = input_frame_1.at<cv::Vec3b>(y, x);
-            imgs(x, y, 1) = pixel_1[0] * 4;
+    for (int frame_num = 0; frame_num < 3; frame_num++){
 
-            cv::Vec3b pixel_2 = input_frame_2.at<cv::Vec3b>(y, x);
-            imgs(x, y, 2) = pixel_2[0] * 4;
-            //std::cout << "Pixel value = " << static_cast<unsigned short>(pixel[0]) << std::endl;
+        // Open the input file
+        std::string taxi_raw_file_prefix = "./taxi_";
+        //std::string taxi_10bit_filename = taxi_10bit_file_prefix + std::to_string(frame_num) + "_small.txt";
+        std::string taxi_raw_filename = taxi_raw_file_prefix + std::to_string(frame_num) + "_raw.txt";
+        std::ifstream taxi_raw_file(taxi_raw_filename);
+
+        // Check if the file is opened successfully
+        int count = 0;
+        if (!taxi_raw_file.is_open()) {
+            std::cerr << "Error: Unable to open file!" << std::endl;
+            return 1; // Exit with error code
         }
+
+        // Read the file line by line
+        std::string line;
+        int y = 0;
+
+        while (std::getline(taxi_raw_file, line)) {
+        //while(count < im_width * im_height) {
+            // Create a string stream from the current line
+            std::istringstream iss(line);
+
+
+            // Tokenize the line using ',' as the delimiter
+            std::string token;
+            int x = 0;
+            while (std::getline(iss, token, ',')) {
+            //while(x < im_width){
+                //std::getline(iss, token, ',');
+                count++;
+                // convert this to unsigned short 
+                //imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
+                imgs(x, y, frame_num) = std::stof(token);
+                x++;
+            }
+            y++;
+        }
+
+        // Close the input file
+        taxi_raw_file.close();
+
     }
+  
+
+  } else {
+    cv::Mat input_frame_0 = cv::imread("../hdr_plus/images/png/taxi/taxi_0.png", cv::IMREAD_UNCHANGED);
+    cv::Mat input_frame_1 = cv::imread("../hdr_plus/images/png/taxi/taxi_1.png", cv::IMREAD_UNCHANGED);
+    cv::Mat input_frame_2 = cv::imread("../hdr_plus/images/png/taxi/taxi_2.png", cv::IMREAD_UNCHANGED);
+
+    if (input_frame_0.empty()) {
+          std::cerr << "Error: Could not open the image file." << std::endl;
+          return -1;
+      }
+
+      printf("The Input image dimensions are: (%d, %d)\n", input_frame_0.rows, input_frame_0.cols);
+      // Loop over the elements of the cv::Mat matrix
+      for (int y = 0; y < input_frame_0.rows; ++y) {
+          for (int x = 0; x < input_frame_0.cols; ++x) {
+              cv::Vec3b pixel_0 = input_frame_0.at<cv::Vec3b>(y, x);
+              imgs(x, y, 0) = pixel_0[0] * 1;
+
+              cv::Vec3b pixel_1 = input_frame_1.at<cv::Vec3b>(y, x);
+              imgs(x, y, 1) = pixel_1[0] * 1;
+
+              cv::Vec3b pixel_2 = input_frame_2.at<cv::Vec3b>(y, x);
+              imgs(x, y, 2) = pixel_2[0] * 1;
+              //std::cout << "Pixel value = " << static_cast<unsigned short>(pixel[0]) << std::endl;
+          }
+      }
+  }
 
   
   processor.input = imgs;
@@ -313,20 +421,25 @@ std::vector<std::string> img_names;
   printf("Successfully load input images!\n");
 
 
-  processor.output = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
+  //processor.output = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
+  processor.output = Buffer<uint8_t>(1250, 1120, 3);
+  //processor.output = Buffer<uint8_t>(1096, 1112, 3);
+  //processor.output = Buffer<uint8_t>(128, 128, 3);
   auto cmd_output = processor.process_command(argc, argv);
   printf("Ran process command!");
 
-  auto boosted_output = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
-  auto output_2 = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
+  //auto boosted_output = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
+  //auto output_2 = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
+  auto boosted_output = Buffer<uint8_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent(), processor.output.dim(2).extent());
+  auto output_2 = Buffer<uint8_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent(), processor.output.dim(2).extent());
     for (int y = 0; y < processor.output.dim(1).extent(); y++) {
       for (int x = 0; x < processor.output.dim(0).extent(); x++) {
         boosted_output(x, y) = processor.output(x, y) * 64;
         output_2(x, y) = processor.output(x, y);
       }
     }
-    save_image(boosted_output, "boosted_output.png");
-    save_image(output_2, "output_2.png");
+    //save_image(boosted_output, "boosted_output.png");
+    //save_image(output_2, "output_2.png");
 
 
   

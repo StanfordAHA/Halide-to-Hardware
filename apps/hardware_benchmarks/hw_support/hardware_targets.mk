@@ -490,10 +490,16 @@ $(BIN)/%.pgm: $(BIN)/%.png
 #	@-mkdir -p $(BIN)
 #	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
 
+# LINE I USED PRIOR
+#$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT) > out.txt
+# ABOVE IS THE LINE I USED PRIOR 
+
+
 run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a $(BIN)/process
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CPU=1
-	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT)
+	
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run cpu input.png $(HALIDE_DEBUG_REDIRECT) > out.txt
 
 run-coreir $(BIN)/output_coreir.$(EXT): $(BIN)/design_top.json
 	@-mkdir -p $(BIN)

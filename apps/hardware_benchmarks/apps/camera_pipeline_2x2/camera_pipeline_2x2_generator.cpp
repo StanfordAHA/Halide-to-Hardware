@@ -19,10 +19,33 @@ int blockSize = 9;
   //                         {-31, -261, 883,  -5563}};
   
    
-
+  /*
   int16_t matrix[3][4] = {{476, -180,  -40, 0},
                           {-60,  426,  -110, 0},
                           {2, -168, 420, 0}};
+  */
+
+  //Divide everything above by 256 
+  float matrix[3][4] = {{1.859375, -0.703125,  -0.15625, 0},
+                        {-0.234375,  1.6640625,  -0.4296875, 0},
+                        {0.0078125, -0.65625, 1.640625, 0}};
+
+
+// FOR DNG 
+//  float matrix[3][4] = {{1.7734375, -0.765625  -0.0078125, 0},
+//                        {-0.2578125,  1.5078125,  -0.25, 0},
+//                        {0, -0.7265625, 1.7265625, 0}};
+
+
+//  float matrix[3][4] = {{1.7734375, -0.2578125,  0, 0},
+//                         {-0.765625,  1.5078125,  -0.7265625, 0},
+//                         {-0.0078125, -0.25, 1.7265625, 0}};
+
+
+//  float matrix[3][4] = {{1, 1,  1, 0},
+//                         {1,  1,  1, 0},
+//                         {1, 1, 1, 0}};
+  
   
 
 // NOTE: NEED TO EXPRESS THIS for 4 CHANNELS. ONLY HAVE 1 CHANNEL RN...
@@ -66,13 +89,14 @@ int blockSize = 9;
     Input<Buffer<uint16_t>>  input{"input", 2};
     Input<Buffer<uint16_t>>  lens_shading_factors{"lens_shading_factors", 2};
     Output<Buffer<uint8_t>> output{"output", 3};
+    //Output<Buffer<uint16_t>> output{"output", 3};
 
-    GeneratorParam<float> gamma{"gamma", /*default=*/2.0};
-    GeneratorParam<float> contrast{"contrast", /*default=*/50.0};
+    GeneratorParam<float> gamma{"gamma", /*default=*/3.02}; // default: 2.0
+    GeneratorParam<float> contrast{"contrast", /*default=*/100.0}; // default: 50
     GeneratorParam<uint8_t> schedule{"schedule", 3};    // default: 3
     GeneratorParam<uint8_t> width{"width", 0};          // default: 0
     GeneratorParam<uint8_t> myunroll{"myunroll", 1};    // default: 1
-    GeneratorParam<float> blackLevel{"blackLevel", 25};    // default: 25
+    GeneratorParam<float> blackLevel{"blackLevel", 1};    // default: 25
     GeneratorParam<float> whiteLevel{"whiteLevel", 1023};    // default: 1023
 
     Func interleave_x(Func a, Func b) {
@@ -90,6 +114,16 @@ int blockSize = 9;
     Expr avg(Expr a, Expr b) {
       //return (a + b + 1) >> 1;
       return (a + b) >> 1;
+    }
+
+     Expr avg_float(Expr a, Expr b) {
+      //return (a + b + 1) >> 1;
+      return (a + b)/2;
+    }
+
+    Expr absd_float(Expr a, Expr b) {
+      //return (a + b + 1) >> 1;
+      return abs(a - b);
     }
 
 
@@ -129,6 +163,72 @@ int blockSize = 9;
       return channel_max;
     }
 
+
+
+    Func my_demosaic(Func input){
+      
+      Var x, y;
+
+      Expr row_is_even = (y%2 == 0);
+      Expr col_is_even = (x%2 == 0);
+
+
+      // A
+      Expr is_red_point = row_is_even && !(col_is_even);
+      Expr is_blue_point = !(row_is_even) && col_is_even;
+      Expr is_green_r_point = row_is_even && col_is_even;
+      Expr is_green_b_point = !(row_is_even) && !(col_is_even);
+
+      // B
+      // Expr is_red_point = !row_is_even && !(col_is_even);
+      // Expr is_blue_point = row_is_even && col_is_even;
+      // Expr is_green_r_point = !row_is_even && col_is_even;
+      // Expr is_green_b_point = row_is_even && !(col_is_even);
+
+      // C
+      //Expr is_red_point = row_is_even && col_is_even;
+      //Expr is_blue_point = !row_is_even && !col_is_even;
+      //Expr is_green_r_point = row_is_even && !col_is_even;
+      //Expr is_green_b_point = !row_is_even && col_is_even;
+
+      // D
+      // Expr is_red_point = !row_is_even && col_is_even;
+      // Expr is_blue_point = row_is_even && !col_is_even;
+      // Expr is_green_r_point = !row_is_even && !col_is_even;
+      // Expr is_green_b_point = row_is_even && col_is_even;
+
+
+
+      Expr neighbor_blue_red = (input(x+1, y+1) + input(x+1, y-1) + input(x-1, y+1) + input(x-1, y-1))/4.0f;
+      Expr neighbor_red_blue = neighbor_blue_red;
+      
+      Expr neighbor_green_red = (input(x-1, y) + input(x+1, y) + input(x, y-1) + input(x, y+1))/4.0f;
+      Expr neighbor_green_blue = neighbor_green_red;
+
+      Expr neighbor_red_green_r = (input(x-1, y) + input(x+1, y))/2.0f;
+      Expr neighbor_blue_green_r = (input(x, y-1) + input(x, y+1))/2.0f;
+
+      Expr neighbor_red_green_b = neighbor_blue_green_r;
+      Expr neighbor_blue_green_b = neighbor_red_green_r;
+
+      Expr r = select(is_red_point, input(x, y), (select(is_blue_point, neighbor_red_blue, (select(is_green_r_point, neighbor_red_green_r, neighbor_red_green_b))))) * 1.0f;  
+      
+      Expr g = select(is_green_r_point || is_green_b_point, input(x, y), (select(is_red_point, neighbor_green_red, neighbor_green_blue))) * 0.85f;
+
+      Expr b = select(is_blue_point, input(x, y), (select(is_red_point, neighbor_blue_red, (select(is_green_r_point, neighbor_blue_green_r, neighbor_blue_green_b)))))  * 1.0f;
+    
+      Func demosaicked("demosaicked");
+      
+      demosaicked(x, y, c) = select(c == 0, r,
+                                   c == 1, g,
+                                   b);
+
+      
+      //demosaicked(x, y, c) = 0.0f;
+      return demosaicked;
+    }
+
+
     // Demosaics a raw input image. Recall that the values appear as:
     //   R G R G R G R G
     //   G B G B G B G B
@@ -159,17 +259,27 @@ int blockSize = 9;
       // Try interpolating vertically and horizontally. Also compute
       // differences vertically and horizontally. Use interpolation in
       // whichever direction had the smallest difference.
-      Expr gv_r  = avg(g_gb(x, y-1), g_gb(x, y));
-      Expr gvd_r = absd(g_gb(x, y-1), g_gb(x, y));
-      Expr gh_r  = avg(g_gr(x+1, y), g_gr(x, y));
-      Expr ghd_r = absd(g_gr(x+1, y), g_gr(x, y));
+      //Expr gv_r  = avg(g_gb(x, y-1), g_gb(x, y));
+      //Expr gvd_r = absd(g_gb(x, y-1), g_gb(x, y));
+      //Expr gh_r  = avg(g_gr(x+1, y), g_gr(x, y));
+      //Expr ghd_r = absd(g_gr(x+1, y), g_gr(x, y));
+
+      Expr gv_r  = avg_float(g_gb(x, y-1), g_gb(x, y));
+      Expr gvd_r = absd_float(g_gb(x, y-1), g_gb(x, y));
+      Expr gh_r  = avg_float(g_gr(x+1, y), g_gr(x, y));
+      Expr ghd_r = absd_float(g_gr(x+1, y), g_gr(x, y));
 
       g_r(x, y)  = select(ghd_r < gvd_r, gh_r, gv_r);
 
-      Expr gv_b  = avg(g_gr(x, y+1), g_gr(x, y));
-      Expr gvd_b = absd(g_gr(x, y+1), g_gr(x, y));
-      Expr gh_b  = avg(g_gb(x-1, y), g_gb(x, y));
-      Expr ghd_b = absd(g_gb(x-1, y), g_gb(x, y));
+      // Expr gv_b  = avg(g_gr(x, y+1), g_gr(x, y));
+      // Expr gvd_b = absd(g_gr(x, y+1), g_gr(x, y));
+      // Expr gh_b  = avg(g_gb(x-1, y), g_gb(x, y));
+      // Expr ghd_b = absd(g_gb(x-1, y), g_gb(x, y));
+
+      Expr gv_b  = avg_float(g_gr(x, y+1), g_gr(x, y));
+      Expr gvd_b = absd_float(g_gr(x, y+1), g_gr(x, y));
+      Expr gh_b  = avg_float(g_gb(x-1, y), g_gb(x, y));
+      Expr ghd_b = absd_float(g_gb(x-1, y), g_gb(x, y));
 
       g_b(x, y)  = select(ghd_b < gvd_b, gh_b, gv_b);
 
@@ -178,6 +288,7 @@ int blockSize = 9;
       // interpolated it in the same way (i.e. add the second derivative
       // of the green channel at the same place).
       Expr correction;
+      /*
       correction = g_gr(x, y) - avg(g_r(x, y), g_r(x-1, y));
       r_gr(x, y) = correction + avg(r_r(x-1, y), r_r(x, y));
 
@@ -190,6 +301,20 @@ int blockSize = 9;
 
       correction = g_gb(x, y) - avg(g_b(x, y), g_b(x+1, y));
       b_gb(x, y) = correction + avg(b_b(x, y), b_b(x+1, y));
+      */
+
+      correction = g_gr(x, y) - avg_float(g_r(x, y), g_r(x-1, y));
+      r_gr(x, y) = correction + avg_float(r_r(x-1, y), r_r(x, y));
+
+      // Do the same for other reds and blues at green sites
+      correction = g_gr(x, y) - avg_float(g_b(x, y), g_b(x, y-1));
+      b_gr(x, y) = correction + avg_float(b_b(x, y), b_b(x, y-1));
+
+      correction = g_gb(x, y) - avg_float(g_r(x, y), g_r(x, y+1));
+      r_gb(x, y) = correction + avg_float(r_r(x, y), r_r(x, y+1));
+
+      correction = g_gb(x, y) - avg_float(g_b(x, y), g_b(x+1, y));
+      b_gb(x, y) = correction + avg_float(b_b(x, y), b_b(x+1, y));
 
       // Now interpolate diagonally to get red at blue and blue at
       // red. Hold onto your hats; this gets really fancy. We do the
@@ -199,24 +324,41 @@ int blockSize = 9;
       // also use the same trick as interpolating red and blue at green
       // sites - we correct our interpolations using the second
       // derivative of green at the same sites.
-      correction = g_b(x, y)  - avg(g_r(x, y), g_r(x-1, y+1));
-      Expr rp_b  = correction + avg(r_r(x, y), r_r(x-1, y+1));
-      Expr rpd_b = absd(r_r(x, y), r_r(x-1, y+1));
+      // correction = g_b(x, y)  - avg(g_r(x, y), g_r(x-1, y+1));
+      // Expr rp_b  = correction + avg(r_r(x, y), r_r(x-1, y+1));
+      // Expr rpd_b = absd(r_r(x, y), r_r(x-1, y+1));
 
-      correction = g_b(x, y)  - avg(g_r(x-1, y), g_r(x, y+1));
-      Expr rn_b  = correction + avg(r_r(x-1, y), r_r(x, y+1));
-      Expr rnd_b = absd(r_r(x-1, y), r_r(x, y+1));
+      correction = g_b(x, y)  - avg_float(g_r(x, y), g_r(x-1, y+1));
+      Expr rp_b  = correction + avg_float(r_r(x, y), r_r(x-1, y+1));
+      Expr rpd_b = absd_float(r_r(x, y), r_r(x-1, y+1));
+
+
+      // correction = g_b(x, y)  - avg(g_r(x-1, y), g_r(x, y+1));
+      // Expr rn_b  = correction + avg(r_r(x-1, y), r_r(x, y+1));
+      // Expr rnd_b = absd(r_r(x-1, y), r_r(x, y+1));
+
+      correction = g_b(x, y)  - avg_float(g_r(x-1, y), g_r(x, y+1));
+      Expr rn_b  = correction + avg_float(r_r(x-1, y), r_r(x, y+1));
+      Expr rnd_b = absd_float(r_r(x-1, y), r_r(x, y+1));
 
       r_b(x, y)  = select(rpd_b < rnd_b, rp_b, rn_b);
 
       // Same thing for blue at red
-      correction = g_r(x, y)  - avg(g_b(x, y), g_b(x+1, y-1));
-      Expr bp_r  = correction + avg(b_b(x, y), b_b(x+1, y-1));
-      Expr bpd_r = absd(b_b(x, y), b_b(x+1, y-1));
+      // correction = g_r(x, y)  - avg(g_b(x, y), g_b(x+1, y-1));
+      // Expr bp_r  = correction + avg(b_b(x, y), b_b(x+1, y-1));
+      // Expr bpd_r = absd(b_b(x, y), b_b(x+1, y-1));
 
-      correction = g_r(x, y)  - avg(g_b(x+1, y), g_b(x, y-1));
-      Expr bn_r  = correction + avg(b_b(x+1, y), b_b(x, y-1));
-      Expr bnd_r = absd(b_b(x+1, y), b_b(x, y-1));
+      correction = g_r(x, y)  - avg_float(g_b(x, y), g_b(x+1, y-1));
+      Expr bp_r  = correction + avg_float(b_b(x, y), b_b(x+1, y-1));
+      Expr bpd_r = absd_float(b_b(x, y), b_b(x+1, y-1));
+
+      // correction = g_r(x, y)  - avg(g_b(x+1, y), g_b(x, y-1));
+      // Expr bn_r  = correction + avg(b_b(x+1, y), b_b(x, y-1));
+      // Expr bnd_r = absd(b_b(x+1, y), b_b(x, y-1));
+
+      correction = g_r(x, y)  - avg_float(g_b(x+1, y), g_b(x, y-1));
+      Expr bn_r  = correction + avg_float(b_b(x+1, y), b_b(x, y-1));
+      Expr bnd_r = absd_float(b_b(x+1, y), b_b(x, y-1));
 
       b_r(x, y)  =  select(bpd_r < bnd_r, bp_r, bn_r);
 
@@ -229,9 +371,12 @@ int blockSize = 9;
                             interleave_x(b_b, b_gb));
 
       Func demosaicked("demosaicked");
-      demosaicked(x, y, c) = cast<int16_t>(select(c == 0, r(x, y),
+      //demosaicked(x, y, c) = cast<int16_t>(select(c == 0, r(x, y),
+      //                              c == 1, g(x, y),
+      //                              b(x, y)));
+      demosaicked(x, y, c) = select(c == 0, r(x, y),
                                     c == 1, g(x, y),
-                                    b(x, y)));
+                                    b(x, y));
       //demosaicked.bound(c, 0, 3);
       return demosaicked;
     }
@@ -272,13 +417,26 @@ int blockSize = 9;
     // Applies a color correction matrix to redefine rgb values.
     // Matrix is defined in 8.8 fixed point
     //Func color_correct(Func input, int32_t matrix[3][4]) {
-    Func color_correct(Func input, int16_t matrix[3][4]) {
-      Expr ir = clamp(input(x, y, 0), 0, 10000);
-      Expr ig = clamp(input(x, y, 1), 0, 10000);
-      Expr ib = clamp(input(x, y, 2), 0, 10000);
-      Expr r = (matrix[0][3]>>8) + mul1(matrix[0][0], ir) + mul1(matrix[0][1], ig) + mul1(matrix[0][2], ib);
-      Expr g = (matrix[1][3]>>8) + mul1(matrix[1][0], ir) + mul1(matrix[1][1], ig) + mul1(matrix[1][2], ib);
-      Expr b = (matrix[2][3]>>8) + mul1(matrix[2][0], ir) + mul1(matrix[2][1], ig) + mul1(matrix[2][2], ib);
+    //Func color_correct(Func input, int16_t matrix[3][4]) {
+    Func color_correct(Func input, float matrix[3][4]) {
+      //Expr ir = clamp(input(x, y, 0), 0, 10000);
+      //Expr ig = clamp(input(x, y, 1), 0, 10000);
+      //Expr ib = clamp(input(x, y, 2), 0, 10000);
+
+      // Clipping at 0, but not putting an upper bound
+      Expr ir = select(input(x, y, 0) < 0, 0, input(x, y, 0));
+      Expr ig = select(input(x, y, 1) < 0, 0, input(x, y, 1));
+      Expr ib = select(input(x, y, 2) < 0, 0, input(x, y, 2));
+
+
+      //Expr r = (matrix[0][3]>>8) + mul1(matrix[0][0], ir) + mul1(matrix[0][1], ig) + mul1(matrix[0][2], ib);
+      //Expr g = (matrix[1][3]>>8) + mul1(matrix[1][0], ir) + mul1(matrix[1][1], ig) + mul1(matrix[1][2], ib);
+      //Expr b = (matrix[2][3]>>8) + mul1(matrix[2][0], ir) + mul1(matrix[2][1], ig) + mul1(matrix[2][2], ib);
+
+
+      Expr r = matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
+      Expr g = matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
+      Expr b = matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
 
       Func corrected("corrected");
       corrected(x, y,  c) = select(c == 0, r,
@@ -305,10 +463,23 @@ int blockSize = 9;
 
       // This clamping is here to handle negative output from demosaicking int datatype
       // Anything <0 is converted to 0. 
-      Expr in_val = clamp(input(x, y, c), u16(0), u16(1023));
+      //Expr in_val = clamp(input(x, y, c), u16(0), u16(1023));
+      //Expr in_val = clamp(input(x, y, c), 0.0f, 1023.f);
+      Expr in_val = select(input(x, y, c) < 0, 0.0f, input(x, y, c));
       curved(x, y, c) = curve(u16(in_val));
 
+      //curved(x, y, c) = in_val;
+      //curved(x, y, c) = curve(in_val);
+
       return curved;
+    }
+
+
+    Func gamma_correction (Func input, float gamma_factor){
+      Func output;
+      Expr pixel_out = pow(input(x, y, c), gamma_factor);
+      output(x, y, c) = pixel_out;
+      return output;
     }
 
     const int tWidth = 256-8;
@@ -319,7 +490,8 @@ int blockSize = 9;
 
       Func hw_input, hw_input_temp, hw_input_shuffle, hw_input_shift;
       //hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
-      hw_input_temp(x,y) = u16(input(x, y));
+      //hw_input_temp(x,y) = u16(input(x, y));
+      hw_input_temp(x,y) = cast<float>(input(x, y));
 
       if (get_target().has_feature(Target::Clockwork)) {
         hw_input_shuffle(x, y, c) = hw_input_temp(2*x + c/2, 2*y + c%2);
@@ -336,6 +508,7 @@ int blockSize = 9;
       
       Func denoised;
       denoised = hot_pixel_suppression(hw_input);
+      //denoised.trace_stores();
 
 
       //Func lens_shading_corrected;
@@ -348,10 +521,16 @@ int blockSize = 9;
       // b_b(x, y)  = lens_shading_corrected(2*x, 2*y+1);//deinterleaved(x, y, 2);
       // g_gb(x, y) = lens_shading_corrected(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
 
-      g_gr(x, y) = denoised(2*x, 2*y);//deinterleaved(x, y, 0);
-      r_r(x, y)  = denoised(2*x+1, 2*y);//deinterleaved(x, y, 1);
-      b_b(x, y)  = denoised(2*x, 2*y+1);//deinterleaved(x, y, 2);
-      g_gb(x, y) = denoised(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
+       g_gr(x, y) = denoised(2*x, 2*y);//deinterleaved(x, y, 0);
+       r_r(x, y)  = denoised(2*x+1, 2*y);//deinterleaved(x, y, 1);
+       b_b(x, y)  = denoised(2*x, 2*y+1);//deinterleaved(x, y, 2);
+       g_gb(x, y) = denoised(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
+
+
+      //g_gr(x, y) = hw_input(2*x, 2*y);//deinterleaved(x, y, 0);
+      //r_r(x, y)  = hw_input(2*x+1, 2*y);//deinterleaved(x, y, 1);
+      //b_b(x, y)  = hw_input(2*x, 2*y+1);//deinterleaved(x, y, 2);
+      //g_gb(x, y) = hw_input(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
 
      
      
@@ -384,15 +563,17 @@ int blockSize = 9;
       
 
       // Perform demosaicking on the white balanced pixels
-      Func demosaicked;
+      Func demosaicked, my_demosaicked;
       Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
       demosaicked = demosaic(g_gr, r_r, b_b, g_gb,
                              b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b);
+
+      my_demosaicked = my_demosaic(denoised);
       //demosaicked = demosaic(g_gr_wb, r_r_wb, b_b_wb, g_gb_wb,
       //                       b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b);
 
       Func color_corrected;
-      color_corrected = color_correct(demosaicked, matrix);
+      color_corrected = color_correct(my_demosaicked, matrix);
 
       Func curve;
       {
@@ -415,12 +596,16 @@ int blockSize = 9;
 
         // BL, WL CHANGE
         //curve(x) = u16(clamp(val*256.0f, 0.0f, 255.0f));
-        curve(x) = select(x <= minRaw, 0, select(x > maxRaw, 255, u16(clamp(val*256.0f, 0.0f, 255.0f))));
+        curve(x) = select(x <= minRaw, 0, select(x > maxRaw, u16(255), u16(clamp(val*256.0f, 0.0f, 255.0f))));
+        //curve(x) = select(x <= minRaw, 0, select(x > maxRaw, u16(16384), u16(clamp(val*16384.0f, 0.0f, 16384.0f))));
+        //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 255.f, clamp(val*256.0f, 0.0f, 255.0f)));
         //curve(x) = clamp(val*256.0f, 0.0f, 255.0f);
       }
 
-      Func hw_output, curve_out, output_shuffle;
-      curve_out = apply_curve(color_corrected, curve);
+      Func hw_output, curve_out, output_shuffle, gamma_corr_out;
+      curve_out = apply_curve(my_demosaicked, curve);
+      gamma_corr_out = gamma_correction(curve_out, 1.1f);
+      //curve_out = apply_curve(color_corrected, curve);
       hw_output(c, x, y) = curve_out(x, y, c);
       //hw_output(c, x, y) = demosaicked(x, y, c);
       //hw_output(c, x, y) = denoised(x, y);
@@ -434,6 +619,7 @@ int blockSize = 9;
       } else {
         //output(x, y, c) = u8(hw_output(c, x+2, y));
         output(x, y, c) = u8(hw_output(c, x, y));
+        //output(x, y, c) = u16(hw_output(c, x, y));
       }
 
 

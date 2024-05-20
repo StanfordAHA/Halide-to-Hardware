@@ -21,7 +21,7 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<uint8_t> processor("exposure_fusion");
+  OneInOneOut_ProcessController<uint16_t, uint8_t> processor("exposure_fusion");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -56,10 +56,13 @@ int main( int argc, char **argv ) {
   int ksize = 23;
 
   //processor.input = Buffer<uint8_t>(64, 64, 3);
-  processor.input = Buffer<uint8_t>(1096, 1112, 3);
+  //processor.input = Buffer<uint8_t>(1096, 1112, 3);
+  processor.input = Buffer<uint16_t>(4000, 3000, 3);
   processor.input = load_and_convert_image("../camera_pipeline_2x2/bin/output_cpu.png");
+  //processor.input = load_and_convert_image("../hdr_plus/bin/output_cpu.png");
   //processor.output = Buffer<uint8_t>(64-ksize+1, 64-ksize+1, 3);
-  processor.output = Buffer<uint8_t>(1096, 1112, 3);
+  //processor.output = Buffer<uint8_t>(1096, 1112, 3);
+  processor.output = Buffer<uint8_t>(4000, 3000, 3);
   
 
   processor.inputs_preset = true;

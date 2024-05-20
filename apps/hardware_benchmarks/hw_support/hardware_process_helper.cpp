@@ -165,6 +165,12 @@ int OneInOneOut_ProcessController<TI,TO>::make_run_def(std::vector<std::string> 
   printf("Input dim 1: %d\n", input.dim(1).extent());
    cout << "First pixel of input..." << endl;
   cout << (int) input(0, 0) << endl;
+    cout << "Second pixel of input..." << endl;
+  cout << (int) input(0, 1) << endl;
+    cout << "Third pixel of input..." << endl;
+  cout << (int) input(1, 0) << endl;
+    cout << "Fourth pixel of input..." << endl;
+  cout << (int) input(1, 1) << endl;
   // run on input image
   std::string hardware_name = args[0];
   std::function<void()> run_call = run_calls.at(hardware_name);
@@ -564,6 +570,13 @@ template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_run_def(std:
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_compare_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_test_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_eval_def(std::vector<std::string> args);
+
+
+template int OneInOneOut_ProcessController<float, uint8_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float, uint8_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float, uint8_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float, uint8_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<float, uint8_t>::make_eval_def(std::vector<std::string> args);
 
 template int ManyInOneOut_ProcessController<uint16_t, uint8_t>::make_image_def(std::vector<std::string> args);
 template int ManyInOneOut_ProcessController<uint8_t, float>::make_image_def(std::vector<std::string> args);

@@ -128,6 +128,7 @@ int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
   //OneInOneOut_ProcessController<uint16_t, uint8_t> processor("camera_pipeline_2x2");
   ManyInOneOut_ProcessController<uint16_t, uint8_t> processor("camera_pipeline_2x2", {"input_image", "lens_shading_map"});
+  //ManyInOneOut_ProcessController<uint16_t, uint16_t> processor("camera_pipeline_2x2", {"input_image", "lens_shading_map"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -236,8 +237,19 @@ int main( int argc, char **argv ) {
   //processor.inputs["input_image"]  = Buffer<uint16_t>(output_width+100+blockSize, output_height+100+blockSize);
 
   //processor.inputs["input_image"]  = Buffer<uint16_t>(iw, ih);
+
+
+  bool use_hdr_output = false;
+  bool use_dng = false;
+  bool use_k_10bit = true;
+
+
   processor.inputs["input_image"]  = Buffer<uint16_t>(1250, 1120);
   processor.inputs["lens_shading_map"] = Buffer<uint16_t>(4208, 3120);
+
+  if (use_dng) {
+    processor.inputs["input_image"]  = Buffer<uint16_t>(4208, 3120);
+  }
 
 
 
@@ -281,6 +293,7 @@ int main( int argc, char **argv ) {
 
     // END CODE FOR READING IN LENS SHADING FACTORS 
 
+
   printf("Total number of values written is %d\n", count);
 
   // for (int y = 0; y < processor.inputs["lens_shading_map"].dim(1).extent(); y++){
@@ -304,7 +317,14 @@ int main( int argc, char **argv ) {
   //processor.output = Buffer<uint8_t>(output_width, output_height, 3);
   //processor.output = Buffer<uint8_t>(output_width+40, output_height+40, 3);
   //processor.output = Buffer<uint8_t>(ow, oh, 3);
+
+
+  //processor.output = Buffer<uint8_t>(1096, 1112, 3);
   processor.output = Buffer<uint8_t>(1096, 1112, 3);
+
+  if (use_dng){
+    processor.output = Buffer<uint8_t>(4000, 3000, 3);
+  }
   //processor.output = Buffer<uint8_t>(2400, 1800, 3);
   
 
@@ -322,10 +342,11 @@ int main( int argc, char **argv ) {
   int im_width = 1250;
   int im_height = 1120;
   auto input_image = Buffer<uint16_t>(im_width, im_height);
-  //input_image = load_and_convert_image("../hdr_plus/bin/output_cpu.png");
-  input_image = load_and_convert_image("../hdr_plus/output_2.png");
+  
 
-
+  if (use_hdr_output) {
+    //input_image = load_and_convert_image("../hdr_plus/bin/output_cpu.png");
+    input_image = load_and_convert_image("../hdr_plus/output_2.png");
 
     // DO THIS SAME THING IN HDR+ PROCESS. OUTPUT THE IMAGE TWICE 
     // Loop over the elements of the cv::Mat matrix
@@ -334,6 +355,98 @@ int main( int argc, char **argv ) {
             processor.inputs["input_image"](x, y) = input_image(x, y) * 1;
         }
     }
+    
+  } else if (use_dng) {
+
+    // Open the input file
+    std::ifstream dng_file("../hdr_plus/dng_out.txt");
+
+    // Check if the file is opened successfully
+    int count = 0;
+    if (!dng_file.is_open()) {
+        std::cerr << "Error: Unable to open file!" << std::endl;
+        return 1; // Exit with error code
+    }
+
+    // Read the file line by line
+    std::string line;
+    int y = 0;
+
+    while (std::getline(dng_file, line)) {
+        // Create a string stream from the current line
+        std::istringstream iss(line);
+
+
+        // Tokenize the line using ',' as the delimiter
+        std::string token;
+        int x = 0;
+        while (std::getline(iss, token, ',')) {
+            count++;
+            // convert this to unsigned short 
+            processor.inputs["input_image"](x, y) = static_cast<unsigned short>(stoul(token));
+            x++;
+        }
+        y++;
+    }
+
+    // Close the input file
+    dng_file.close();
+
+  } else if (use_k_10bit) {
+    // Open the input file
+    std::ifstream taxi_10bit_file("./taxi_10bit_out.txt");
+
+    // Check if the file is opened successfully
+    int count = 0;
+    if (!taxi_10bit_file.is_open()) {
+        std::cerr << "Error: Unable to open file!" << std::endl;
+        return 1; // Exit with error code
+    }
+
+    // Read the file line by line
+    std::string line;
+    int y = 0;
+
+    while (std::getline(taxi_10bit_file, line)) {
+        // Create a string stream from the current line
+        std::istringstream iss(line);
+
+
+        // Tokenize the line using ',' as the delimiter
+        std::string token;
+        int x = 0;
+        while (std::getline(iss, token, ',')) {
+            count++;
+            // convert this to unsigned short 
+            processor.inputs["input_image"](x, y) = static_cast<unsigned short>(stoul(token));
+            x++;
+        }
+        y++;
+    }
+
+    // Close the input file
+    taxi_10bit_file.close();
+    
+  } else {
+    cv::Mat input_frame = cv::imread("../hdr_plus/images/png/taxi/taxi_0.png", cv::IMREAD_UNCHANGED);
+
+    if (input_frame.empty()) {
+          std::cerr << "Error: Could not open the image file." << std::endl;
+          return -1;
+      }
+
+      printf("The Input image dimensions are: (%d, %d)\n", input_frame.rows, input_frame.cols);
+
+      // Loop over the elements of the cv::Mat matrix
+      for (int y = 0; y < input_frame.rows; ++y) {
+          for (int x = 0; x < input_frame.cols; ++x) {
+              cv::Vec3b pixel_0 = input_frame.at<cv::Vec3b>(y, x);
+              processor.inputs["input_image"](x, y) = pixel_0[0] * 1;
+          }
+      }
+
+  }
+ 
 
   if (schedule == 2 || schedule == 3) {
     // load this 2592x1968 image

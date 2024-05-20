@@ -1,5 +1,6 @@
 import cv2
 import argparse
+import numpy as np
 
 
 parser = argparse.ArgumentParser()
@@ -15,6 +16,8 @@ input_file_path = args.input_file
 output_file_path = args.output_file
 
 scene = cv2.imread(input_file_path, cv2.IMREAD_UNCHANGED)
+print(scene.dtype)
+print(np.max(scene))
 
 # Check if the image was loaded successfully
 if scene is None:
