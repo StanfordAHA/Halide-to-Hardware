@@ -5,6 +5,7 @@
 #include <vector>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
+#include "coreir.h"
 
 #if defined(WITH_CPU)
    #include "conv2D_fp.h"
@@ -22,6 +23,8 @@
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
+
+nlohmann::json output_starting_json;
 
 union {
   uint32_t val;
@@ -155,6 +158,29 @@ void copyFile(const std::string &srcPath, const std::string &dstPath) {
 bool file_exists(const std::string& name) {
     std::ifstream f(name.c_str());
     return f.good();
+}
+
+std::vector<int> parse_glb_bank_config_env_var(const std::string& env_var_name) {
+    std::vector<int> values;
+    const char* env_var_value = std::getenv(env_var_name.c_str());
+
+    if (env_var_value) {
+        std::string value_str = env_var_value;
+        std::istringstream iss(value_str);
+        std::string token;
+
+        // Split the string by commas and convert to integers
+        while (std::getline(iss, token, ',')) {
+            // Trim potential whitespace
+            token.erase(0, token.find_first_not_of(" \t\n\r\f\v"));
+            token.erase(token.find_last_not_of(" \t\n\r\f\v") + 1);
+            values.push_back(std::stoi(token));
+        }
+    } else {
+        std::cerr << "Environment variable " << env_var_name << " not found." << std::endl;
+    }
+
+    return values;
 }
 
 int main( int argc, char **argv ) {
@@ -375,6 +401,40 @@ int main( int argc, char **argv ) {
 
       std::cout << "Reading hw_output.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
       copyFile("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./hw_output.mat");
+    }
+
+    // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
+    std::cout << "Checking for GLB bank configuration..." << std::endl;
+    std::cout << "USE_GLB_BANK_CONFIG = " << getenv("USE_GLB_BANK_CONFIG") << std::endl;
+    if (getenv("USE_GLB_BANK_CONFIG") && std::stoi(getenv("USE_GLB_BANK_CONFIG"))) {
+      std::vector<int> input_host_stencil = parse_glb_bank_config_env_var("INPUT_HOST_STENCIL_POS");
+      std::vector<int> kernel_host_stencil = parse_glb_bank_config_env_var("KERNEL_HOST_STENCIL_POS");
+      std::vector<int> bias_host_stencil = parse_glb_bank_config_env_var("BIAS_HOST_STENCIL_POS");
+      std::vector<int> hw_output_stencil = parse_glb_bank_config_env_var("HW_OUTPUT_STENCIL_POS");
+      std::vector<int> glb_inputs = parse_glb_bank_config_env_var("GLB_INPUTS");
+
+      // Create the glb_bank_config.json structure
+      json config = {
+          {"inputs", {
+              {"input_host_stencil", input_host_stencil},
+              {"kernel_host_stencil", kernel_host_stencil},
+              {"bias_host_stencil", bias_host_stencil}
+          }},
+          {"outputs", {
+              {"hw_output_stencil", hw_output_stencil}
+          }},
+          {"glb_inputs", glb_inputs}
+      };
+
+      std::ofstream file("bin/glb_bank_config.json");
+      if (file.is_open()) {
+          file << config.dump(4) << std::endl;
+          file.close();
+          std::cout << "Successfully wrote to bin/glb_bank_config.json" << std::endl;
+      } else {
+          std::cerr << "Unable to open file for writing." << std::endl;
+          return 1;
+      }
     }
 
     return processor.process_command(argc, argv);

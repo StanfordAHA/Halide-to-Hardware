@@ -202,6 +202,19 @@ def parseLoopExtentforPadding(meta, halide_gen_args):
     # Add HALIDE_GEN_ARGS to meta file
     meta["HALIDE_GEN_ARGS"] = args_dict
 
+def addGLBBankConfig(meta):
+    with open("bin/glb_bank_config.json", "r") as f:
+        glb_json = json.load(f)
+    meta["GLB_BANK_CONFIG"] = glb_json
+    for input_index, input_dict in enumerate(meta["IOs"]["inputs"]):
+        assert "io_tiles" in input_dict, "io_tiles must be key of input_dict"
+        for tile_index, io_tile in enumerate(input_dict["io_tiles"]):
+            # Check if 'x_pos' of this io_tile is in 'glb_inputs' of the GLB_BANK_CONFIG
+            if io_tile["x_pos"] in meta["GLB_BANK_CONFIG"].get("glb_inputs", []):
+                meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 1
+            else:
+                meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
+
 def main():
     args = parseArguments()
 
@@ -242,6 +255,8 @@ def main():
         halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
         if halide_gen_args is not None:
             if "pad_o_left" in halide_gen_args or "pad_o_right" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
+
+        if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
