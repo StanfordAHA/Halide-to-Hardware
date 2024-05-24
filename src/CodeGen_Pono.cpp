@@ -362,17 +362,17 @@ string associated_provide_name(Stmt s, string call_name) {
                 testbench_stream << ")\n";
 
                 do_indent();
-                testbench_stream << "return ";
+                testbench_stream << "return {";
                 for (size_t i = 0; i < args.size(); i++) {
                     if (args[i].is_stencil) {
-                        testbench_stream << print_name(args[i].name);
+                        testbench_stream << "\"" << print_name(args[i].name) << "\": " << print_name(args[i].name);
 
                         if (i < args.size() - 1) {
                             testbench_stream << ", ";
                         }
                     }
                 }
-                testbench_stream << "\n";
+                testbench_stream << "}\n";
                 
 
 
@@ -387,16 +387,22 @@ string associated_provide_name(Stmt s, string call_name) {
                 testbench_stream << "solver = Solver()\n";
                 do_indent();
                 
+                testbench_stream << "inputs_and_outputs_dict = create_app(solver)\n";
+
+                // do_indent();
+
                 for (size_t i = 0; i < args.size(); i++) {
                     if (args[i].is_stencil) {
-                        testbench_stream << print_name(args[i].name);
+                        do_indent();
+                        testbench_stream << print_name(args[i].name) << " = inputs_and_outputs_dict[\"" << print_name(args[i].name) << "\"]\n";
 
-                        if (i < args.size() - 1) {
-                            testbench_stream << ", ";
-                        }
+                        // if (i < args.size() - 1) {
+                        //     testbench_stream << "\n";
+                        //     do_indent();
+                        // }
                     }
                 }
-                testbench_stream << " = create_app(solver)\n";
+                
 
                 // read input image(s)
                 for (size_t i = 0; i < args.size() - 1; i++) {
