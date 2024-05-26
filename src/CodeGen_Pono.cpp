@@ -960,7 +960,8 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    if (op->type.is_int()) {
+                Halide::Type t = op->a.type();
+                    if (t.is_int()) {
                         stream << "solver.create_term(solver.ops.BVSlt, ";
                     } else {
                         stream << "solver.create_term(solver.ops.BVUlt, ";
@@ -982,7 +983,8 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    if (op->type.is_int()) {
+                Halide::Type t = op->a.type();
+                    if (t.is_int()) {
                         stream << "solver.create_term(solver.ops.BVSle, ";
                     } else {
                         stream << "solver.create_term(solver.ops.BVUle, ";
@@ -1004,7 +1006,8 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    if (op->type.is_int()) {
+                Halide::Type t = op->a.type();
+                    if (t.is_int()) {
                         stream << "solver.create_term(solver.ops.BVSgt, ";
                     } else {
                         stream << "solver.create_term(solver.ops.BVUgt, ";
@@ -1026,7 +1029,8 @@ string associated_provide_name(Stmt s, string call_name) {
                 stream << ')';
             } else {
                 stream << "solver.create_term(solver.ops.Ite, ";
-                    if (op->type.is_int()) {
+                Halide::Type t = op->a.type();
+                    if (t.is_int()) {
                         stream << "solver.create_term(solver.ops.BVSge, ";
                     } else {
                         stream << "solver.create_term(solver.ops.BVUge, ";
