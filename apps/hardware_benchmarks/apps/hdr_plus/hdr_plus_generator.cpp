@@ -4,6 +4,7 @@
  */
 #define T_SIZE 16
 #define LOG_2_T_SIZE 4
+#define G_T_SIZE 8
 #include "Halide.h"
 
 namespace {
@@ -43,10 +44,13 @@ public:
     GeneratorParam<uint8_t>      normalization_shift{"normalization_shift", 8, 1, 16}; 
     //GeneratorParam<uint16_t>     min_dist{"min_dist", 16, 1, 128}; 
     //GeneratorParam<uint16_t>     max_dist{"max_dist", 256, 32, 4096};
-    GeneratorParam<uint16_t>     min_dist{"min_dist", 5, 1, 128}; 
-    GeneratorParam<uint16_t>     max_dist{"max_dist", 26, 32, 4096};
+    //GeneratorParam<uint16_t>     min_dist{"min_dist", 5, 1, 128}; 
+    GeneratorParam<float>     min_dist{"min_dist", 0.005}; 
+    //GeneratorParam<uint16_t>     max_dist{"max_dist", 26, 32, 4096};
+    GeneratorParam<float>     max_dist{"max_dist", 0.025}; 
     //GeneratorParam<uint16_t>     dist_max_min_diff{"dist_max_min_diff", 240};  
-    GeneratorParam<uint16_t>     dist_max_min_diff{"dist_max_min_diff", 21};  
+    //GeneratorParam<uint16_t>     dist_max_min_diff{"dist_max_min_diff", 21};  
+    GeneratorParam<float>      dist_max_min_diff{"dist_max_min_diff", 0.02}; 
 
     // FOR CAMERA PIPELINE
     GeneratorParam<float> gamma{"gamma", /*default=*/3.2}; // default: 2.0
@@ -804,7 +808,7 @@ public:
         //             min_coor_lvl_0[0] + i32(ceil(coarse_offset_lvl_0(tx_lvl_0, ty_lvl_0, 1, n_lvl_0)))); 
 
 
-        alignPyramid[0].trace_stores();
+        //alignPyramid[0].trace_stores();
         
         
         
@@ -873,6 +877,8 @@ public:
          * MERGE STEP
          */
 
+        
+        Var tx_image, ty_image; 
 
         // Why shift by 4? Explicit tiling of the image? 
         // Ans: I think tile_x and tile_y are the (x,y) location of a tile (think of tiles as grid points themselves)
@@ -881,13 +887,17 @@ public:
         //tile_y = y >> LOG_2_T_SIZE;
         tile_x = x / T_SIZE;
         tile_y = y / T_SIZE;
-        //ix = x - tile_x*T_SIZE; // this looks very weird 
-        ix = x%T_SIZE;
-        //iy = y - tile_y*T_SIZE;
-        iy = y%T_SIZE;
+        ix = x - tile_x*T_SIZE; // this looks very weird 
+        //ix = x%T_SIZE;
+        iy = y - tile_y*T_SIZE;
+        //iy = y%T_SIZE;
 
         // In the paper, they claim to use 16x16 tiles 
         RDom r_tile(0, T_SIZE, 0, T_SIZE);
+
+
+        // Use 8x8 tiles for grayscsle image  
+        RDom G_R_tile(0, G_T_SIZE, 0, G_T_SIZE);
 
         // This should be for the 4 color panes of the bayer raw: R, G, G, B
         RDom r_channel(0, 4);
@@ -906,26 +916,26 @@ public:
 
 
         // I THINK HOW TO DO OVERLAPING TILES IS DIVIDE T_SIZE BY 2 IN THIS EXPRESSION. 
-        Expr offset_x = align_output(tx, ty, 0, n);
-        Expr offset_y = align_output(tx, ty, 1, n);
+        Expr offset_x = align_output(tx_image/4, ty_image/4, 0, n);
+        Expr offset_y = align_output(tx_image/4, ty_image/4, 1, n);
         //Expr ref_x = tx*T_SIZE/2 + r_tile.x;
         //Expr ref_y = ty*T_SIZE/2 + r_tile.y;
-        Expr ref_x = clamp(tx*T_SIZE + r_tile.x, 0, input.width()/2 - 1);
-        Expr ref_y = clamp(ty*T_SIZE + r_tile.y, 0, input.height()/2 - 1);
+        Expr ref_x = clamp((tx_image*T_SIZE/2)/2 + G_R_tile.x, 0, input.width()/2 - 1);
+        Expr ref_y = clamp((ty_image*T_SIZE/2)/2 + G_R_tile.y, 0, input.height()/2 - 1);
 
         // Find the corresponding tile in the alternate frame, using the results of alignment 
-        Expr alt_x = clamp(ref_x + offset_x, 0, input.width()/2 - 1);
-        Expr alt_y = clamp(ref_y + offset_y, 0, input.height()/2 - 1);
+        Expr alt_x = clamp((tx_image*T_SIZE/2)/2 + G_R_tile.x + offset_x, 0, input.width()/2 - 1);
+        Expr alt_y = clamp((ty_image*T_SIZE/2)/2 + G_R_tile.y + offset_y, 0, input.height()/2 - 1);
 
         // Here "c" should represent the Bayer color plane, but I don't see where "c" is defined? 
         // ANS: It is defined as a variable in the private section
 
         // Pixel in reference frame and alternate frame respectively 
         // Using deinterleaved because merging is done separately for each color channel 
-        Expr ref_val = deinterleaved(ref_x, ref_y, c, 0);
-        Expr alt_val = deinterleaved(alt_x, alt_y, c, n);
-        //Expr ref_val = gray(ref_x, ref_y, 0);
-        //Expr alt_val = gray(alt_x, alt_y, n);
+        //Expr ref_val = deinterleaved(ref_x, ref_y, c, 0);
+        //Expr alt_val = deinterleaved(alt_x, alt_y, c, n);
+        Expr ref_val = gray(ref_x, ref_y, 0);
+        Expr alt_val = gray(alt_x, alt_y, n);
   
         // ???
         Expr norm_shift = normalization_shift;
@@ -935,11 +945,11 @@ public:
         // the iteration domain here is r_tile.x and r_tile.
         
         //dist_channel(tx, ty, c, n) = sum(u32(abs(i32(i32(ref_val) - i32(alt_val)))));
-        dist_channel(tx, ty, c, n) = sum(abs(ref_val - alt_val));
+        dist_channel(tx_image, ty_image, n) = sum(abs(ref_val - alt_val));
         //dist_channel(tx, ty, n) = sum(abs(ref_val - alt_val));
         //output(x, y, c) = u8(dist_channel(x/16, y/16, c, 0));
         //output(x, y, c) = u8(dist_channel(x/16, y/16, 0));
-        dist_channel.trace_stores();
+        //dist_channel.trace_stores();
 
 
 
@@ -955,9 +965,12 @@ public:
 
         // Dist channel norm is average distance per pixel. Tiles are size 16x16, so 256 pixels per tile. So divide the total distance sum by 256 
        //dist_channel_norm(tx, ty, c, n) = dist_channel(tx, ty, c, n) >> norm_shift;
-        dist_channel_norm(tx, ty, c, n) = dist_channel(tx, ty, c, n)/256.f;
+        //dist_channel_norm(tx, ty, c, n) = dist_channel(tx, ty, c, n)/256.f;
+
+        // Dividing by 64.f b/c currently using 8x8 tiles 
+        dist_channel_norm(tx_image, ty_image, n) = dist_channel(tx_image, ty_image, n)/64.f;
         //dist_channel_norm(tx, ty, c, n) = dist_channel(tx, ty, c, n);
-        dist_channel_norm.trace_stores();
+        //dist_channel_norm.trace_stores();
 
 
         /* TODO
@@ -976,10 +989,14 @@ public:
         //    u16(u16(max_dist) - u16(dist_channel_norm(tx, ty, c, n)))); 
 
 
-        weight(tx, ty, c, n) = select(n == 0, cast<float>(dist_max_min_diff),
-            dist_channel_norm(tx, ty, c, n) < cast<float>(min_dist), cast<float>(dist_max_min_diff),
-            dist_channel_norm(tx, ty, c, n) > cast<float>(max_dist), 0.0f, 
-            cast<float>(max_dist) - dist_channel_norm(tx, ty, c, n)); 
+        // weight(tx, ty, c, n) = select(n == 0, cast<float>(dist_max_min_diff),
+        //     dist_channel_norm(tx, ty, c, n) < cast<float>(min_dist), cast<float>(dist_max_min_diff),
+        //     dist_channel_norm(tx, ty, c, n) > cast<float>(max_dist), 0.0f, 
+        //     cast<float>(max_dist) - dist_channel_norm(tx, ty, c, n)); 
+
+
+
+        weight(tx_image, ty_image, n) = select(n == 0, 1.0f, 1.0f - min(1.0f, max(0.0f, dist_channel_norm(tx_image, ty_image, n) - cast<float>(min_dist))/(cast<float>(dist_max_min_diff))));
         
         //weight.trace_stores();
 
@@ -987,36 +1004,47 @@ public:
         // Summing over images: WHY??
         // ANS: To create denominator for weighted sum expr below. Each color channel has its own weight tensor 
         //sum_weight(tx, ty, c) = sum(u32(weight(tx, ty, c, r_imgs)));
-        sum_weight(tx, ty, c) = sum(weight(tx, ty, c, r_imgs));
+        //sum_weight(tx, ty, c) = sum(weight(tx, ty, c, r_imgs));
+        sum_weight(tx_image, ty_image) = sum(weight(tx_image, ty_image, r_imgs));
         //sum_weight.trace_stores();
 
         // Normalize the weight by the sum of all weights so it lies between 0 and 1
         // TODO: Convert this division into a shift 
-        unscaled_normalized_weight(tx, ty, c, n) = weight(tx, ty, c, n) * 1.0f/sum_weight(tx, ty, c);
+        //unscaled_normalized_weight(tx, ty, c, n) = weight(tx, ty, c, n) * 1.0f/sum_weight(tx, ty, c);
+        unscaled_normalized_weight(tx_image, ty_image, n) = weight(tx_image, ty_image, n) * 1.0f/sum_weight(tx_image, ty_image);
         //unscaled_normalized_weight.trace_stores();
 
 
         // THIS CAST IS LIKELY PROBLEMATIC 
-        normalized_weight(tx, ty, c, n) = cast<uint16_t>(unscaled_normalized_weight(tx, ty, c, n) * 256.f);
+        //normalized_weight(tx, ty, c, n) = cast<uint16_t>(unscaled_normalized_weight(tx, ty, c, n) * 256.f);
         //normalized_weight.trace_stores();
         //print(normalized_weight(tx, ty, c, n));
 
         // I think these are recomputed so r_imgs is the only reduction domain in the final sum 
         //ref_x = tx*T_SIZE/2 + xi;
         //ref_y = ty*T_SIZE/2 + yi;
-        ref_x = clamp(tx*T_SIZE + xi, 0, input.width()/2 - 1);
-        ref_y = clamp(ty*T_SIZE + yi, 0, input.height()/2 - 1);
-        alt_x = clamp(ref_x + offset_x, 0, input.width()/2 - 1);
-        alt_y = clamp(ref_y + offset_y, 0, input.height()/2 - 1);
-        ref_val = deinterleaved(ref_x, ref_y, c, 0);
-        alt_val = deinterleaved(alt_x, alt_y, c, n);
+        // ref_x = clamp(tx*T_SIZE + xi, 0, input.width()/2 - 1);
+        // ref_y = clamp(ty*T_SIZE + yi, 0, input.height()/2 - 1);
+        // alt_x = clamp(ref_x + offset_x, 0, input.width()/2 - 1);
+        // alt_y = clamp(ref_y + offset_y, 0, input.height()/2 - 1);
+        // ref_val = deinterleaved(ref_x, ref_y, c, 0);
+        // alt_val = deinterleaved(alt_x, alt_y, c, n);
+
+
+        ref_x = clamp(tx_image*(T_SIZE/2) + xi, 0, input.width() - 1);
+        ref_y = clamp(ty_image*(T_SIZE/2) + yi, 0, input.height() - 1);
+        alt_x = clamp(tx_image*(T_SIZE/2) + xi + 2*offset_x, 0, input.width() - 1);
+        alt_y = clamp(ty_image*(T_SIZE/2) + yi+ 2*offset_y, 0, input.height() - 1);
+        ref_val = clamped_input_float(ref_x, ref_y, 0);
+        alt_val = clamped_input_float(alt_x, alt_y, n);
         
 
         
 
      
         Func val;
-        val(xi, yi, tx, ty, c, n) = select(n == 0, ref_val, alt_val);
+        //val(xi, yi, tx, ty, c, n) = select(n == 0, ref_val, alt_val);
+        val(xi, yi, tx_image, ty_image, n) = select(n == 0, ref_val, alt_val);
         //val.trace_stores();
         // Weighted sum of all frames (reference frame and all alternate frames)
         // TODO: Unshuffle back into bayer pattern before sending output 
@@ -1026,7 +1054,8 @@ public:
 
         RVar tee_x, tee_y;
 
-        Func output_deinterleaved_tiled;
+        //Func output_deinterleaved_tiled;
+        Func output_tiled;
 
         //output_deinterleaved(x, y, c) = u16(0);
         //output_deinterleaved(x, y, c) = u16(sum(u32(weight(tile_x, tile_y, c, r_imgs)) * u32(val(ix, iy, tile_x, tile_y, c, r_imgs))) / sum_weight(tile_x, tile_y, c));
@@ -1039,7 +1068,9 @@ public:
        
         // USED 
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = u16(sum(u32(unscaled_normalized_weight(tx, ty, c, r_imgs) * val(xi, yi, tx, ty, c, r_imgs))));
-        output_deinterleaved_tiled(x, y, c) = sum(unscaled_normalized_weight(tile_x, tile_y, c, r_imgs) * val(ix, iy, tile_x, tile_y, c, r_imgs));
+        //output_deinterleaved_tiled(x, y, c) = sum(unscaled_normalized_weight(tile_x, tile_y, c, r_imgs) * val(ix, iy, tile_x, tile_y, c, r_imgs));
+        output_tiled(xi, yi, tx_image, ty_image) = sum(weight(tx_image, ty_image, r_imgs) * val(xi, yi, tx_image, ty_image, r_imgs));
+        output_tiled.trace_stores();
         //output_deinterleaved_tiled.trace_stores();
 
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = u16(sum(u32(mul2(unscaled_normalized_weight(tx, ty, c, r_imgs), val(xi, yi, tx, ty, c, r_imgs)))));
@@ -1048,22 +1079,31 @@ public:
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = mul3(pre_output_deinterleaved_tiled(xi, yi, tx, ty, c), ,);
 
         //print(output_deinterleaved_tiled(xi, yi, tx, ty, c));
+        
 
+        Func output_tiled_normalized_cosined;
+        output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi) * 1.0f/sum_weight(tx_image, ty_image);
+        //output_tiled_normalized_cosined.trace_stores();
 
-        // Func output_deinterleaved;
-        // //output_deinterleaved(x, y, c) = u16(0);
-        // output_deinterleaved(x, y, c) = cast<float>(0);
-        // //output_deinterleaved(x_prime, y, c) += output_deinterleaved_tiled(ix, iy, tile_x, tile_y, c);
+      
+        Func final_output;
+        //final_output(x, y, c) = u16(0);
+        final_output(x, y) = cast<float>(0);
+        //final_output(x_prime, y, c) += final_output_tiled(ix, iy, tile_x, tile_y, c);
 
-        // //2 * num_tiles - 1, to account for overlapping tiles 
+        //2 * num_tiles - 1, to account for overlapping tiles 
+        // TODO: Fix these formulas 
         // Expr num_tx_locs =  2 * (((input.width())/2) >> LOG_2_T_SIZE) - 1;
         // Expr num_ty_locs =  2 * (((input.height())/2) >> LOG_2_T_SIZE) - 1;
+        Expr num_tx_locs =  156;
+        Expr num_ty_locs = 139;
 
-        // RDom tile_RDom(0, num_tx_locs, 0, num_ty_locs, 0, T_SIZE, 0, T_SIZE);
-        // Expr x_prime = tile_RDom.x * T_SIZE/2 + tile_RDom.z;
-        // Expr y_prime = tile_RDom.y * T_SIZE/2 + tile_RDom.w;
-        // //output_deinterleaved(x_prime, y_prime, c) += mul2(output_deinterleaved_tiled(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y, c), mul2(cast<uint16_t>(raised_cosine_weight(tile_RDom.z) * 256.0f),  cast<uint16_t>(raised_cosine_weight(tile_RDom.w) * 256.0f)));
-        // output_deinterleaved(x_prime, y_prime, c) += output_deinterleaved_tiled(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y, c) * raised_cosine_weight(tile_RDom.z) * raised_cosine_weight(tile_RDom.w);
+        RDom tile_RDom(0, num_tx_locs, 0, num_ty_locs, 0, T_SIZE, 0, T_SIZE);
+        Expr x_prime = tile_RDom.x * T_SIZE/2 + tile_RDom.z;
+        Expr y_prime = tile_RDom.y * T_SIZE/2 + tile_RDom.w;
+        //final_output(x_prime, y_prime, c) += mul2(final_output_tiled(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y, c), mul2(cast<uint16_t>(raised_cosine_weight(tile_RDom.z) * 256.0f),  cast<uint16_t>(raised_cosine_weight(tile_RDom.w) * 256.0f)));
+        final_output(x_prime, y_prime) += output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y);
+   
 
 
         //output_deinterleaved(tee_x * (T_SIZE/2) + r_tile.x, tee_y * (T_SIZE/2) + r_tile.y, c) += output_deinterleaved_tiled(r_tile.x, r_tile.y, tee_x, tee_y, c);
@@ -1074,21 +1114,22 @@ public:
         // Deinterleave: should be the inverse of the interleaving operation done prior  
         //output(x, y) = output_shuffle(x/2, y/2, y%2 + 2*(x%2));
         //FIXME: NEED THE TWO SELECTS!!!
-        Func row_r_result;
-        Func row_b_result;
+        // Func row_r_result;
+        // Func row_b_result;
 
-        // G R G R G R
-        // Selecting between g_gr and r_r
-        row_r_result(x, y) = select((x%2)==0, output_deinterleaved_tiled(x/2, y, 0), output_deinterleaved_tiled(x/2, y, 1));
+        // // G R G R G R
+        // // Selecting between g_gr and r_r
+        // row_r_result(x, y) = select((x%2)==0, output_deinterleaved_tiled(x/2, y, 0), output_deinterleaved_tiled(x/2, y, 1));
 
-        // B G B G B G
-        // Selecting between b_b and g_gb 
-        row_b_result(x, y) = select((x%2)==0, output_deinterleaved_tiled(x/2, y, 2), output_deinterleaved_tiled(x/2, y, 3));
+        // // B G B G B G
+        // // Selecting between b_b and g_gb 
+        // row_b_result(x, y) = select((x%2)==0, output_deinterleaved_tiled(x/2, y, 2), output_deinterleaved_tiled(x/2, y, 3));
 
 
         Func merge_output;
-        merge_output(x, y) = u16(select((y%2)==0, row_r_result(x, y/2), row_b_result(x, y/2)));
-        output(x, y, c) = u8(merge_output(x, y));
+        //merge_output(x, y) = u16(select((y%2)==0, row_r_result(x, y/2), row_b_result(x, y/2)));
+        merge_output(x, y) = final_output(x, y);
+        output(x, y, c) = u8(merge_output(x, y) * 255.f);
         //output.trace_stores();
         //output(x, y) = input(x, y, 0);
 
@@ -1291,10 +1332,17 @@ public:
         //output_shuffle.reorder(c, x, y).tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
         merge_output.reorder(x, y).tile(x, y, xo, yo, xi, yi, 16, 16).fuse(xo, yo, outer).parallel(outer);
         merge_output.compute_root();
-        dist_channel.reorder(c, tx, ty, n);
-        weight.compute_root().parallel(ty, 4).vectorize(tx, 4);
-        sum_weight.store_at(merge_output, outer).compute_at(merge_output, yi).parallel(ty, 4).vectorize(tx, 4);
+        //dist_channel.reorder(c, tx, ty, n).compute_root();
+        dist_channel.reorder(tx_image, ty_image, n).compute_root();
+        dist_channel_norm.compute_root();
+        weight.compute_root().parallel(ty_image, 4).vectorize(tx_image, 4);
+        sum_weight.store_at(merge_output, outer).compute_at(merge_output, yi).parallel(ty_image, 4).vectorize(tx_image, 4);
         val.store_at(merge_output, outer).compute_at(merge_output, yi);
+
+
+        output_tiled.store_at(merge_output, outer).compute_at(merge_output, yi);
+        output_tiled_normalized_cosined.store_at(merge_output, outer).compute_at(merge_output, yi);
+        final_output.store_at(merge_output, outer).compute_at(merge_output, yi);
 
 
         // // CAMERA PIPELINE SCHEDULE
