@@ -73,11 +73,12 @@ while(line):
 
         abs_difference = abs(value - kayvon_divided_tiles[ty][tx][yi][xi])
         if(abs_difference > tolerance):
-            print(f"At tx {tx}, ty {tx}, xi {xi}, yi {yi}, expected {kayvon_divided_tiles[ty][tx][yi][xi]} but got {value}. Difference is {abs_difference}.")
+            print(f"At tx {tx}, ty {ty}, xi {xi}, yi {yi}, expected {kayvon_divided_tiles[ty][tx][yi][xi]} but got {value}. Difference is {abs_difference}.")
                 
     line = trace_file.readline()
     lineCount += 1
-    if(lineCount == 256):
+    #if(lineCount == 204800):
+    if(lineCount == 3215099):
         break
 
 #print(align_coords)   

@@ -4,7 +4,7 @@ import pandas as pd
 
 
 
-trace_file_path = "./weights_out.txt"
+trace_file_path = "./out.txt"
 
 
 num_tx = 156

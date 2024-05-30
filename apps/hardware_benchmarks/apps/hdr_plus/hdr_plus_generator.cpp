@@ -1031,12 +1031,21 @@ public:
         // alt_val = deinterleaved(alt_x, alt_y, c, n);
 
 
-        ref_x = clamp(tx_image*(T_SIZE/2) + xi, 0, input.width() - 1);
-        ref_y = clamp(ty_image*(T_SIZE/2) + yi, 0, input.height() - 1);
-        alt_x = clamp(tx_image*(T_SIZE/2) + xi + 2*offset_x, 0, input.width() - 1);
-        alt_y = clamp(ty_image*(T_SIZE/2) + yi+ 2*offset_y, 0, input.height() - 1);
-        ref_val = clamped_input_float(ref_x, ref_y, 0);
-        alt_val = clamped_input_float(alt_x, alt_y, n);
+        // ref_x = clamp((tx_image*(T_SIZE/2)) + xi, 0, input.width() - 1);
+        // ref_y = clamp((ty_image*(T_SIZE/2)) + yi, 0, input.height() - 1);
+        // alt_x = clamp((tx_image*(T_SIZE/2)) + xi + (2*offset_x), 0, input.width() - 1);
+        // alt_y = clamp((ty_image*(T_SIZE/2)) + yi+ (2*offset_y), 0, input.height() - 1);
+        ref_x = (tx_image*(T_SIZE/2)) + xi;
+        ref_y = (ty_image*(T_SIZE/2)) + yi;
+        alt_x = (tx_image*(T_SIZE/2)) + xi + (2*offset_x);
+        alt_y = (ty_image*(T_SIZE/2)) + yi+ (2*offset_y);
+        //ref_val = clamped_input_float(ref_x, ref_y, 0);
+        //alt_val = clamped_input_float(alt_x, alt_y, n);
+        ref_val = clamped_input(ref_x, ref_y, 0);
+        alt_val = clamped_input(alt_x, alt_y, n);
+
+        Expr x_index = select(n == 0, ref_x, alt_x);
+        Expr y_index = select(n == 0, ref_y, alt_y);
         
 
         
@@ -1044,7 +1053,12 @@ public:
      
         Func val;
         //val(xi, yi, tx, ty, c, n) = select(n == 0, ref_val, alt_val);
-        val(xi, yi, tx_image, ty_image, n) = select(n == 0, ref_val, alt_val);
+        //val(xi, yi, tx_image, ty_image, n) = select(n == 0, ref_val, alt_val);
+        //val(xi, yi, tx_image, ty_image, n) = clamped_input(x_index, y_index, n);
+        Expr x_index_in_bounds = ((x_index >= 0) && (x_index < input.width()));
+        Expr y_index_in_bounds = ((y_index >= 0) && (y_index < input.height()));
+
+        val(xi, yi, tx_image, ty_image, n) = select(x_index_in_bounds && y_index_in_bounds, clamped_input(x_index, y_index, n), 0.0f);
         //val.trace_stores();
         // Weighted sum of all frames (reference frame and all alternate frames)
         // TODO: Unshuffle back into bayer pattern before sending output 
@@ -1070,7 +1084,13 @@ public:
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = u16(sum(u32(unscaled_normalized_weight(tx, ty, c, r_imgs) * val(xi, yi, tx, ty, c, r_imgs))));
         //output_deinterleaved_tiled(x, y, c) = sum(unscaled_normalized_weight(tile_x, tile_y, c, r_imgs) * val(ix, iy, tile_x, tile_y, c, r_imgs));
         output_tiled(xi, yi, tx_image, ty_image) = sum(weight(tx_image, ty_image, r_imgs) * val(xi, yi, tx_image, ty_image, r_imgs));
-        output_tiled.trace_stores();
+        //output_tiled(xi, yi, tx_image, ty_image) = cast<float>(0);
+      
+        //output_tiled(xi, yi, tx_image, ty_image) += select((x_index_in_bounds && y_index_in_bounds), weight(tx_image, ty_image, n) * val(xi, yi, tx_image, ty_image, n), 0.0f);
+        // output_tiled(xi, yi, tx_image, ty_image) = weight(tx_image, ty_image, 0) * val(xi, yi, tx_image, ty_image, 0) 
+        // + weight(tx_image, ty_image, 1) * val(xi, yi, tx_image, ty_image, 1)
+        // + weight(tx_image, ty_image, 2) * val(xi, yi, tx_image, ty_image, 2);
+        //output_tiled.trace_stores();
         //output_deinterleaved_tiled.trace_stores();
 
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = u16(sum(u32(mul2(unscaled_normalized_weight(tx, ty, c, r_imgs), val(xi, yi, tx, ty, c, r_imgs)))));
@@ -1082,7 +1102,7 @@ public:
         
 
         Func output_tiled_normalized_cosined;
-        output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi) * 1.0f/sum_weight(tx_image, ty_image);
+        output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi) * (1.0f/sum_weight(tx_image, ty_image));
         //output_tiled_normalized_cosined.trace_stores();
 
       
@@ -1099,10 +1119,22 @@ public:
         Expr num_ty_locs = 139;
 
         RDom tile_RDom(0, num_tx_locs, 0, num_ty_locs, 0, T_SIZE, 0, T_SIZE);
-        Expr x_prime = tile_RDom.x * T_SIZE/2 + tile_RDom.z;
-        Expr y_prime = tile_RDom.y * T_SIZE/2 + tile_RDom.w;
+        Expr x_prime = (tile_RDom.x * (T_SIZE/2)) + tile_RDom.z;
+        Expr y_prime = (tile_RDom.y * (T_SIZE/2)) + tile_RDom.w;
         //final_output(x_prime, y_prime, c) += mul2(final_output_tiled(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y, c), mul2(cast<uint16_t>(raised_cosine_weight(tile_RDom.z) * 256.0f),  cast<uint16_t>(raised_cosine_weight(tile_RDom.w) * 256.0f)));
         final_output(x_prime, y_prime) += output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y);
+
+
+        Expr track_value = ((x_prime == 0) && (y_prime == 129));
+        Expr my_debug_value = output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y);
+        my_debug_value = print_when((x_prime == 0) && (y_prime == 129), my_debug_value, "This is OTNC when x = 0, y = 129");
+
+        //Func my_debug_tile;
+        //my_debug_tile(x, y) = cast<float>(0);
+        
+
+        //my_debug_tile(x_prime, y_prime) = select(track_value, output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y), 0.0f);
+        //my_debug_tile.trace_stores();
    
 
 
@@ -1129,6 +1161,7 @@ public:
         Func merge_output;
         //merge_output(x, y) = u16(select((y%2)==0, row_r_result(x, y/2), row_b_result(x, y/2)));
         merge_output(x, y) = final_output(x, y);
+        merge_output.trace_stores();
         output(x, y, c) = u8(merge_output(x, y) * 255.f);
         //output.trace_stores();
         //output(x, y) = input(x, y, 0);
@@ -1330,7 +1363,7 @@ public:
 
         //MERGE SCHEDULE 
         //output_shuffle.reorder(c, x, y).tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
-        merge_output.reorder(x, y).tile(x, y, xo, yo, xi, yi, 16, 16).fuse(xo, yo, outer).parallel(outer);
+        merge_output.reorder(x, y).tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
         merge_output.compute_root();
         //dist_channel.reorder(c, tx, ty, n).compute_root();
         dist_channel.reorder(tx_image, ty_image, n).compute_root();
@@ -1343,6 +1376,7 @@ public:
         output_tiled.store_at(merge_output, outer).compute_at(merge_output, yi);
         output_tiled_normalized_cosined.store_at(merge_output, outer).compute_at(merge_output, yi);
         final_output.store_at(merge_output, outer).compute_at(merge_output, yi);
+        //my_debug_tile.store_at(merge_output, outer).compute_at(merge_output, yi);
 
 
         // // CAMERA PIPELINE SCHEDULE
@@ -1816,7 +1850,7 @@ private:
 
     Expr raised_cosine_weight(Expr in){
         const float PI = 3.141592f;
-        return 0.5f - 0.5f * cos(2.0f * PI * (in + 0.5f) / T_SIZE);
+        return 0.5f - (0.5f * cos(2.0f * PI * (in + 0.5f) / T_SIZE));
     }
 
     /*

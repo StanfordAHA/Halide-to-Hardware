@@ -47,7 +47,8 @@ while(line):
   
 k_weighted_tiles_file.close()
 
-#print(kayvon_weighted_tiles)
+#print(kayvon_weighted_tiles[12][12][0][0])
+
 
 
 # Now, compare to my weighted tiles 
@@ -73,12 +74,13 @@ while(line):
 
         abs_difference = abs(value - kayvon_weighted_tiles[ty][tx][yi][xi])
         if(abs_difference > tolerance):
-            print(f"At tx {tx}, ty {tx}, xi {xi}, yi {yi}, expected {kayvon_weighted_tiles[ty][tx][yi][xi]} but got {value}. Difference is {abs_difference}.")
+            print(f"At tx {tx}, ty {ty}, xi {xi}, yi {yi}, expected {kayvon_weighted_tiles[ty][tx][yi][xi]} but got {value}. Difference is {abs_difference}.")
                 
     line = trace_file.readline()
     lineCount += 1
-    if(lineCount == 20480):
-        break
+    #if(lineCount == 256):
+    #if(lineCount == 4343536):
+    #    break
 
 #print(align_coords)   
 trace_file.close()
