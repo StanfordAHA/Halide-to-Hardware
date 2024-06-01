@@ -43,8 +43,8 @@ public:
         // create preload kernel
         const int block_size = int(ksize);
         Func kernel_preload("kernel_preload");
-        float step = 0.03f;
-        Expr value = cast<bfloat16_t>(-1.0f + step * (y * block_size + x));
+        float step = 0.3f;
+        Expr value = cast<bfloat16_t>(2.8f + step * (y * block_size + x));
         kernel_preload(c, x, y) = cast<bfloat16_t>(value);
 
         // DepthwiseConv Expression

@@ -233,14 +233,14 @@ int main( int argc, char **argv ) {
 
     // Kernel generation similar to the preload kernel in the Halide generator
     int block_size = ksize;
-    float step = 0.03f;
+    float step = 0.3f;
     // Assuming the kernel buffer dimensions are (C, block_size, block_size)
     Buffer<uint16_t> kernel_stencil(C, block_size, block_size);
     // Populate the kernel buffer
     for (int c = 0; c < C; ++c) {
         for (int y = 0; y < block_size; ++y) {
             for (int x = 0; x < block_size; ++x) {
-                float value = -1.0f + step * (y * block_size + x);
+                float value = 2.8f + step * (y * block_size + x);
                 kernel_stencil(c, x, y) = float_to_bfloat16_process(value);
             }
         }
