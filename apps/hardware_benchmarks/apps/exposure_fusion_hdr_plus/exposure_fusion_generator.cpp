@@ -16,10 +16,12 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
   class ExposureFusion : public Halide::Generator<ExposureFusion> {
     
   public:
-    Input<Buffer<uint16_t>>  input{"input", 3};
+    //Input<Buffer<uint16_t>>  input{"input", 3};
+    Input<Buffer<float>>  input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
+    //Output<Buffer<uint8_t>> output{"output", 2};
 
-    int pyramid_levels = 3;
+    int pyramid_levels = 4;
     int bright_weighting = 3; // this would be used if a single frame is used
     int ksize = 23;
     int shift = 11;
@@ -58,12 +60,12 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       //hw_input_dark(x, y) = u16(mul2_fixed_point(cast<uint16_t>(0.299f * 256.0f), hw_input(x, y, 0)) + mul2_fixed_point(cast<uint16_t>(0.587f * 256.0f), hw_input(x, y, 1)) + mul2_fixed_point(cast<uint16_t>(0.114f * 256.0f), hw_input(x, y, 2)));
       
       //hw_input_dark(x, y) = u16(mul2_fixed_point(cast<uint16_t>(0.299f * 256.0f), hw_input(x, y, 0)) + mul2_fixed_point(cast<uint16_t>(0.587f * 256.0f), hw_input(x, y, 1)) + mul2_fixed_point(cast<uint16_t>(0.114f * 256.0f), hw_input(x, y, 2)));
-      hw_input_dark(x, y) = 0.299f * hw_input_float(x, y, 0) + 0.587f * hw_input_float(x, y, 1) + 0.114f * hw_input_float(x, y, 2);
+      hw_input_dark(x, y) = (0.299f * hw_input_float(x, y, 0)) + (0.587f * hw_input_float(x, y, 1)) + (0.114f * hw_input_float(x, y, 2));
 
       // input bright is input dark, multiplied by a scale factor (3.25 f)
       //hw_input_bright(x, y) = u16((832 * u16(hw_input_dark(x, y))) >> 8);
       //hw_input_bright(x, y) = mul2_fixed_point(cast<uint16_t>(3.25f * 256.0f), hw_input_dark(x, y));
-      hw_input_bright(x, y) = 3.25f * hw_input_dark(x, y);
+      hw_input_bright(x, y) = 2.25f * hw_input_dark(x, y);
 
 
       // Gamma correct the dark and bright images
@@ -121,8 +123,11 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       // weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))/255.f) - 0.5f) *  (((hw_input_dark(x, y))/255.f) - 0.5f)));
       // weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))/255.f) - 0.5f) * (((hw_input_bright(x, y))/255.f) - 0.5f)));
 
-      weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))/16384.f) - 0.5f) *  (((hw_input_dark(x, y))/16384.f) - 0.5f)));
-      weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))/16384.f) - 0.5f) * (((hw_input_bright(x, y))/16384.f) - 0.5f)));
+      //weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))/16384.f) - 0.5f) *  (((hw_input_dark(x, y))/16384.f) - 0.5f)));
+      //weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))/16384.f) - 0.5f) * (((hw_input_bright(x, y))/16384.f) - 0.5f)));
+
+      weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))) - 0.5f) *  (((hw_input_dark(x, y))) - 0.5f)));
+      weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))) - 0.5f) * (((hw_input_bright(x, y))) - 0.5f)));
 
 
 
@@ -140,9 +145,12 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y);
       
       // WHY MULTIPLY BY 128???
-      weight_dark_norm(x,y)   = weight_dark(x,y)   * 128.0f / weight_sum(x,y);
-      weight_bright_norm(x,y) = weight_bright(x,y) * 128.0f / weight_sum(x,y);
+      //weight_dark_norm(x,y)   = weight_dark(x,y)   * 128.0f / weight_sum(x,y);
+      //weight_bright_norm(x,y) = weight_bright(x,y) * 128.0f / weight_sum(x,y);
+      weight_dark_norm(x,y)   = weight_dark(x,y) / weight_sum(x,y);
+      weight_bright_norm(x,y) = weight_bright(x,y) / weight_sum(x,y);
 
+      //weight_bright_norm.trace_stores();
 
       // this thing is probably 0 because of the datatype. That's why he multiplied by 128
       //weight_dark_norm(x,y)   = weight_dark(x,y) / weight_sum(x,y);
@@ -156,8 +164,24 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       // Create gaussian pyramids of the weights
       vector<Func> dark_weight_gpyramid(pyramid_levels);
       vector<Func> bright_weight_gpyramid(pyramid_levels);
+
+      // Expr pyramid_widths[pyramid_levels];
+      // Expr pyramid_heights[pyramid_levels];
+
+      // pyramid_widths[0] = 1248;
+      // pyramid_widths[1] = 624;
+      // pyramid_widths[2] = 312;
+
+      // pyramid_heights[0] = 1120;
+      // pyramid_heights[1] = 560;
+      // pyramid_heights[2] = 280; 
+
+
       dark_weight_gpyramid =   gaussian_pyramid(weight_dark_norm, pyramid_levels, "dweight");
       bright_weight_gpyramid = gaussian_pyramid(weight_bright_norm, pyramid_levels, "bweight");
+
+      //dark_weight_gpyramid[0].trace_stores();
+      //bright_weight_gpyramid[0].trace_stores();
 
       // Create laplacian pyramids of the input images
       vector<Func> dark_input_lpyramid(pyramid_levels);
@@ -169,6 +193,9 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       bright_input_lpyramid = laplacian_pyramid(hw_input_bright_gamma_corr, pyramid_levels,
                                                 bright_input_gpyramid, "binput");
 
+      //dark_input_lpyramid[0].trace_stores();    
+      //bright_input_lpyramid[3].trace_stores();          
+
       // Merge the input pyramids using the weight pyramids
       vector<Func> merged_pyramid(pyramid_levels);
       merged_pyramid = merge_pyramids(dark_weight_gpyramid,
@@ -177,19 +204,39 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
                                       bright_input_lpyramid,
                                       "merge_pyr");
 
+
+      //merged_pyramid[0].trace_stores();
+
       // Collapse the merged pyramid to create a single image
-      Func blended_image, blended_image_gamma;
+      Func blended_image, initial_blended_image, intermediate_blended_image;
       vector<Func> upsampled(pyramid_levels);
-      blended_image_gamma = flatten_pyramid(merged_pyramid, upsampled);
+      initial_blended_image = flatten_pyramid(merged_pyramid, upsampled);
+      //initial_blended_image.trace_stores();
 
       // Undo the gamma correction
       float my_reverse_gamma_exponent = 2.2f;
-      //blended_image(x, y) = pow(cast<float>(blended_image_gamma(x, y)), my_reverse_gamma_exponent);
-      blended_image(x, y) = pow(blended_image_gamma(x, y), my_reverse_gamma_exponent);
-      Func hw_input_dark_reverse_gamma_corr, hw_input_bright_reverse_gamma_corr;
-      hw_input_dark_reverse_gamma_corr(x, y) = pow(hw_input_dark_gamma_corr(x, y), 2.2f);
-      hw_input_bright_reverse_gamma_corr(x, y) = pow(hw_input_bright_gamma_corr(x, y), 2.2f);
-      //GammaCorrect(blended_image_gamma, blended_image, 2.2f);
+      //blended_image(x, y) = pow(cast<float>(initial_blended_image(x, y)), my_reverse_gamma_exponent);
+      //output(x, y) = u8(initial_blended_image(x, y));
+      //output = convert_to_u8(initial_blended_image);
+
+
+      
+      // BEGIN BLOCK COMMENT 
+      // intermediate_blended_image(x, y) = pow(initial_blended_image(x, y), my_reverse_gamma_exponent);
+      // intermediate_blended_image.trace_stores();
+
+      blended_image(x, y) = pow(initial_blended_image(x, y), my_reverse_gamma_exponent);
+      //blended_image.trace_stores();
+
+
+
+      //blended_image(x, y) = pow(intermediate_blended_image(x, y), 1.f/2.2f);
+
+
+      // Func hw_input_dark_reverse_gamma_corr, hw_input_bright_reverse_gamma_corr;
+      // hw_input_dark_reverse_gamma_corr(x, y) = pow(hw_input_dark_gamma_corr(x, y), 2.2f);
+      // hw_input_bright_reverse_gamma_corr(x, y) = pow(hw_input_bright_gamma_corr(x, y), 2.2f);
+      //GammaCorrect(initial_blended_image, blended_image, 2.2f);
       
 
       // YUV-TO-RGB conversion
@@ -274,66 +321,135 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       //                          c == 1, g_out_signed(x, y),
       //                                  b_out_signed(x, y));
       //hw_output(x, y, c) = clamp(hw_output_signed(x, y, c), u16(0), u16(255));
-      hw_output(x, y, c) = hw_output_signed(x, y, c);
+      Func hw_output_gamma;
+      hw_output_gamma(x, y, c) = pow(hw_output_signed(x, y, c), 1.f/2.2f);
+      hw_output(x, y, c) =  clamp((hw_output_gamma(x, y, c) * 255.f), 0, 255.f);
+      hw_output.trace_stores();
 
       Expr minRaw = 25;
       Expr maxRaw = 16368;
       Expr invRange = 1.0f / (maxRaw - minRaw);
 
-      
-      //output(x,y,c) = u8(hw_output(x,y,c));
-      output(x,y,c) = u8(clamp(cast<float>(hw_output(x,y,c) - minRaw) * invRange, 0.0f, 1.0f) * 256.f);
+      // END BLOCK COMMENT 
 
-      output.bound(c, 0, 3);
+      
+      output(x,y,c) = u8(hw_output(x,y,c));
+
+      // NOTE: This probably isn't correct for data that is in a [0.f-1.f] range
+      //output(x,y,c) = u8(clamp(cast<float>(hw_output(x,y,c) - minRaw) * invRange, 0.0f, 1.0f) * 255.f);
+
+      //USED 
+      //output(x,y,c) = u8(hw_output(x,y,c));
+      //output.trace_stores();
+
+
+      // USED
+      //output.bound(c, 0, 3);
       //output.bound(x, 0, 64-ksize+1);
       //output.bound(y, 0, 64-ksize+1);
 
         
       /* THE SCHEDULE */
+      Var xo("xo"), yo("yo"), outer("outer");
       if (get_target().has_feature(Target::CoreIR)) {
 
       } else if (get_target().has_feature(Target::Clockwork)) {
 
-        hw_output.compute_root();
+        // hw_output.compute_root();
 
-        hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-          .reorder(xi,yi,c,xo,yo)
-          .hw_accelerate(xi, xo);
+        // hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+        //   .reorder(xi,yi,c,xo,yo)
+        //   .hw_accelerate(xi, xo);
         //hw_output.unroll(c);
 
-        blended_image.compute_at(hw_output, xo);
+        //blended_image.compute_at(hw_output, xo);
 
-        for (size_t i=0; i<merged_pyramid.size(); ++i) {
-          merged_pyramid[i].compute_at(hw_output, xo);
+        // for (size_t i=0; i<merged_pyramid.size(); ++i) {
+        //   merged_pyramid[i].compute_at(hw_output, xo);
           
-          dark_input_lpyramid[i].compute_at(hw_output, xo);
-          bright_input_lpyramid[i].compute_at(hw_output, xo);
-          dark_input_gpyramid[i].compute_at(hw_output, xo);
-          bright_input_gpyramid[i].compute_at(hw_output, xo);
+        //   dark_input_lpyramid[i].compute_at(hw_output, xo);
+        //   bright_input_lpyramid[i].compute_at(hw_output, xo);
+        //   dark_input_gpyramid[i].compute_at(hw_output, xo);
+        //   bright_input_gpyramid[i].compute_at(hw_output, xo);
           
-          dark_weight_gpyramid[i].compute_at(hw_output, xo);
-          bright_weight_gpyramid[i].compute_at(hw_output, xo);
-        }
+        //   dark_weight_gpyramid[i].compute_at(hw_output, xo);
+        //   bright_weight_gpyramid[i].compute_at(hw_output, xo);
+        // }
 
-        weight_sum.compute_at(hw_output, xo);
+        // weight_sum.compute_at(hw_output, xo);
         
         hw_input_bright.stream_to_accelerator();
         hw_input_dark.stream_to_accelerator();
         
       } else {    // schedule to CPU
+        // //hw_output.compute_root();
+        // output.compute_root();
+        // //output.tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
+        // weight_dark_norm.compute_root();
+        // weight_bright_norm.compute_root();
+        // hw_input_dark.compute_root();
+        // hw_input_bright.compute_root();
+        // hw_input_float.compute_root();
+        // for (size_t i=0; i<merged_pyramid.size(); ++i) {
+        //   merged_pyramid[i].compute_root();
+        //   dark_input_lpyramid[i].compute_root();
+        //   bright_input_lpyramid[i].compute_root();
+        //   dark_weight_gpyramid[i].compute_root();
+        //   bright_weight_gpyramid[i].compute_root();
+        // }
+        // initial_blended_image.compute_root();
+        // initial_blended_image.tile(x, y, xo, yo, xi, yi, 16, 16).fuse(xo, yo, outer).parallel(outer);
+        // //intermediate_blended_image.compute_root();
+        // //blended_image.compute_root();
+
+
+        // COPYING CLOCKWORK SCHEDULE
         output.compute_root();
+
+        output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+          .reorder(xi,yi,xo,yo);
+
+
+        initial_blended_image.compute_at(output, xo);
+        //intermediate_blended_image.compute_at(output, xo);
+        blended_image.compute_at(output, xo);
+
         for (size_t i=0; i<merged_pyramid.size(); ++i) {
-          merged_pyramid[i].compute_root();
-          dark_input_lpyramid[i].compute_root();
-          bright_input_lpyramid[i].compute_root();
-          dark_weight_gpyramid[i].compute_root();
-          bright_weight_gpyramid[i].compute_root();
+          merged_pyramid[i].compute_at(output, xo);
+          
+          dark_input_lpyramid[i].compute_at(output, xo);
+          bright_input_lpyramid[i].compute_at(output, xo);
+          dark_input_gpyramid[i].compute_at(output, xo);
+          bright_input_gpyramid[i].compute_at(output, xo);
+          
+          dark_weight_gpyramid[i].compute_at(output, xo);
+          bright_weight_gpyramid[i].compute_at(output, xo);
         }
+
+
+        weight_bright_norm.compute_at(output, xo);
+        weight_sum.compute_at(output, xo);
+        hw_output.compute_at(output, xo);
+
+
       }
     }
 
 private:
     Var x, y, c, k;
+
+
+
+    Func convert_to_u8(Func in) {
+      Var x, y;
+      Func out;
+      out(x, y) = u8(in(x, y));
+
+      std::cout << "Done converting" << std::endl;
+
+      return out;
+      
+    }
 
     // Downsample with a 1 3 3 1 filter
     //Func downsample(Func f) {
@@ -352,30 +468,67 @@ private:
 
 
 
-    Func downsample_float(Func f_in, Expr size) {
+   Func downsample_float(Func f_in, Expr size, Expr gauss_width, Expr gauss_height) {
         Var x, y;
         using Halide::_;
         Func f, down;
-        f(x, y, _) = f_in(x, y, _);
+    
+        f(x, y) = f_in(x, y);
+        Expr x_index_0 = clamp(size*x-1, 0, gauss_width-1);
+        Expr x_index_1 = clamp(size*x, 0, gauss_width-1);
+        Expr x_index_2 = clamp(size*x+1, 0, gauss_width-1);
+        Expr x_index_3 = clamp(size*x+2, 0, gauss_width-1);
 
-        down(x, y, _) = (1.f/64.f) * f(size*x-1, size*y-1, _) + (3.f/64.f) * f(size*x-1, size*y, _) + (3.f/64.f) * f(size*x-1, size*y+1, _) + (1.f/64.f) * f(size*x-1, size*y+2, _) 
-                        + (3.f/64.f) * f(size*x, size*y-1, _) + (9.f/64.f) * f(size*x, size*y, _) + (9.f/64.f) * f(size*x, size*y+1, _) + (3.f/64.f) * f(size*x, size*y+2, _) 
-                        + (3.f/64.f) * f(size*x+1, size*y-1, _) + (9.f/64.f) * f(size*x+1, size*y, _) + (9.f/64.f) * f(size*x+1, size*y+1, _) + (3.f/64.f) * f(size*x+1, size*y+2, _) 
-                        + (1.f/64.f) * f(size*x+2, size*y-1, _) + (3.f/64.f) * f(size*x+2, size*y, _) + (3.f/64.f) * f(size*x+2, size*y+1, _) + (1.f/64.f) * f(size*x+2, size*y+2, _);
+
+        Expr y_index_0 = clamp(size*y-1, 0, gauss_height-1);
+        Expr y_index_1 = clamp(size*y, 0, gauss_height-1);
+        Expr y_index_2 = clamp(size*y+1, 0, gauss_height-1);
+        Expr y_index_3 = clamp(size*y+2, 0, gauss_height-1);
+
+        // down(x, y) = (1.f/64.f) * f(x_index_0, y_index_0) + (3.f/64.f) * f(x_index_0, y_index_1) + (3.f/64.f) * f(x_index_0, y_index_2) + (1.f/64.f) * f(x_index_0, y_index_3) 
+        //                 + (3.f/64.f) * f(x_index_1, y_index_0) + (9.f/64.f) * f(x_index_1, y_index_1) + (9.f/64.f) * f(x_index_1, y_index_2) + (3.f/64.f) * f(x_index_1, y_index_3) 
+        //                 + (3.f/64.f) * f(x_index_2, y_index_0) + (9.f/64.f) * f(x_index_2, y_index_1) + (9.f/64.f) * f(x_index_2, y_index_2) + (3.f/64.f) * f(x_index_2, y_index_3) 
+        //                 + (1.f/64.f) * f(x_index_3, y_index_0) + (3.f/64.f) * f(x_index_3, y_index_1) + (3.f/64.f) * f(x_index_3, y_index_2) + (1.f/64.f) * f(x_index_3, y_index_3);
+
+        down(x, y) = (1.f/64.f) * f(clamp(size*x-1, 0, gauss_width-1), clamp(size*y-1, 0, gauss_height-1)) + (3.f/64.f) * f(clamp(size*x-1, 0, gauss_width-1), clamp(size*y, 0, gauss_height-1)) + (3.f/64.f) * f(clamp(size*x-1, 0, gauss_width-1), clamp(size*y+1, 0, gauss_height-1)) + (1.f/64.f) * f(clamp(size*x-1, 0, gauss_width-1), clamp(size*y+2, 0, gauss_height-1)) 
+                        + (3.f/64.f) * f(clamp(size*x, 0, gauss_width-1), clamp(size*y-1, 0, gauss_height-1)) + (9.f/64.f) * f(clamp(size*x, 0, gauss_width-1), clamp(size*y, 0, gauss_height-1)) + (9.f/64.f) * f(clamp(size*x, 0, gauss_width-1), clamp(size*y+1, 0, gauss_height-1)) + (3.f/64.f) * f(clamp(size*x, 0, gauss_width-1), clamp(size*y+2, 0, gauss_height-1)) 
+                        + (3.f/64.f) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y-1, 0, gauss_height-1)) + (9.f/64.f) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y, 0, gauss_height-1)) + (9.f/64.f) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y+1, 0, gauss_height-1)) + (3.f/64.f) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y+2, 0, gauss_height-1)) 
+                        + (1.f/64.f) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y-1, 0, gauss_height-1)) + (3.f/64.f) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y, 0, gauss_height-1)) + (3.f/64.f) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y+1, 0, gauss_height-1)) + (1.f/64.f) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y+2, 0, gauss_height-1));
         return down;
     }
 
 
-    Func upsample_float_size_2(Func f_in) {
+    // Func upsample_float_size_2(Func f_in) {
+    //   Var x, y;
+    //   using Halide::_;
+    //   Func up;
+
+    //   up(x, y, _) = (0.75f * 0.75f) * f_in(x/2, y/2, _) + (0.75f * 0.25f) * f_in(x/2, (y/2) - 1 + 2*(y % 2), _) + 
+    //   (0.25f * 0.75f) * f_in((x/2) - 1 + 2*(x % 2), y/2, _) + (0.25f * 0.25f) * f_in((x/2) - 1 + 2*(x % 2), (y/2) - 1 + 2*(y % 2), _);
+
+    //   return up;
+    // }
+
+    Func upsample_float_size_2(Func f_in, Expr gauss_width, Expr gauss_height) {
       Var x, y;
       using Halide::_;
-      Func up;
+      Func up, up_float, f_in_shift;
 
-      up(x, y, _) = (0.75f * 0.75f) * f_in(x/2, y/2, _) + (0.75f * 0.25f) * f_in(x/2, (y/2) - 1 + 2*(y % 2), _) + 
-      (0.25f * 0.75f) * f_in((x/2) - 1 + 2*(x % 2), y/2, _) + (0.25f * 0.25f) * f_in((x/2) - 1 + 2*(x % 2), (y/2) - 1 + 2*(y % 2), _);
+
+      f_in_shift(x, y) = f_in(x, y);
+
+      up_float(x, y) = (0.75f * 0.75f) * f_in(x/2, y/2) 
+      + (0.75f * 0.25f) * f_in(x/2, clamp((y/2) - 1 + 2*(y % 2), 0, gauss_height-1))
+      + (0.25f * 0.75f) * f_in(clamp((x/2) - 1 + 2*(x % 2), 0, gauss_width-1), y/2) 
+      + (0.25f * 0.25f) * f_in(clamp((x/2) - 1 + 2*(x % 2), 0, gauss_width-1), clamp((y/2) - 1 + 2*(y % 2), 0, gauss_height-1));
+
+
+      up(x, y) = up_float(x, y);
 
       return up;
     }
+
+
     
     // Upsample using bilinear interpolation (1 3 3 1)
     //Func upsample(Func f) {
@@ -396,6 +549,29 @@ private:
     vector<Func> gaussian_pyramid(Func f, int num_levels, std::string name) {
       using Halide::_;
       
+      Expr pyramid_widths[pyramid_levels];
+      Expr pyramid_heights[pyramid_levels];
+
+      // pyramid_widths[0] = 1248;
+      // pyramid_widths[1] = 624;
+      // pyramid_widths[2] = 312;
+      // pyramid_widths[3] = 156;
+
+      pyramid_widths[0] = 1264;
+      pyramid_widths[1] = 632;
+      pyramid_widths[2] = 316;
+      pyramid_widths[3] = 158;
+
+      // pyramid_heights[0] = 1120;
+      // pyramid_heights[1] = 560;
+      // pyramid_heights[2] = 280; 
+      // pyramid_heights[3] = 140; 
+
+      pyramid_heights[0] = 1136;
+      pyramid_heights[1] = 568;
+      pyramid_heights[2] = 284; 
+      pyramid_heights[3] = 142; 
+
       vector<Func> gPyramid(num_levels);
       fill_funcnames(gPyramid, name + "_gpyr");
       std::cout << "pyramid has " << num_levels << " levels" << std::endl;
@@ -405,7 +581,7 @@ private:
       for (int j = 1; j < num_levels; j++) {
         std::cout << "connecting " << j << " to " << j-1<< std::endl;
         //gPyramid[j](x,y,_) = downsample(gPyramid[j-1])(x,y,_);
-        gPyramid[j](x,y,_) = downsample_float(gPyramid[j-1], 2)(x,y,_);
+        gPyramid[j](x,y,_) = downsample_float(gPyramid[j-1], 2, pyramid_widths[j-1], pyramid_heights[j-1])(x,y,_);
       }
 
       std::cout << "next" << std::endl;
@@ -416,6 +592,29 @@ private:
     // Create a laplacian pyramid
     vector<Func> laplacian_pyramid(Func f, int num_levels, vector<Func> &gPyramid, std::string name) {
       using Halide::_;
+
+      Expr pyramid_widths[pyramid_levels];
+      Expr pyramid_heights[pyramid_levels];
+
+      // pyramid_widths[0] = 1248;
+      // pyramid_widths[1] = 624;
+      // pyramid_widths[2] = 312;
+      // pyramid_widths[3] = 156;
+
+      pyramid_widths[0] = 1264;
+      pyramid_widths[1] = 632;
+      pyramid_widths[2] = 316;
+      pyramid_widths[3] = 158;
+
+      // pyramid_heights[0] = 1120;
+      // pyramid_heights[1] = 560;
+      // pyramid_heights[2] = 280; 
+      // pyramid_heights[3] = 140; 
+
+      pyramid_heights[0] = 1136;
+      pyramid_heights[1] = 568;
+      pyramid_heights[2] = 284; 
+      pyramid_heights[3] = 142; 
       
       gPyramid = gaussian_pyramid(f, num_levels, name + "_gpyr");
 
@@ -427,7 +626,8 @@ private:
 
       // Create the laplacian pyramid from the last level up to the first.
       for (int j = num_levels-2; j >= 0; j--) {
-        lPyramid[j](x,y,_) = gPyramid[j](x,y,_) - upsample_float_size_2(gPyramid[j+1])(x,y,_);
+        std::cout << "Building laplacian pyramid level " << j << std::endl;
+        lPyramid[j](x,y,_) = gPyramid[j](x,y,_) - upsample_float_size_2(gPyramid[j+1], pyramid_widths[j+1], pyramid_heights[j+1])(x,y,_);
       }
 
       return lPyramid;
@@ -446,6 +646,7 @@ private:
       vector<Func> blended_pyramid(num_levels);
       fill_funcnames(blended_pyramid, name);
       for (int i=0; i<num_levels; ++i) {
+        std::cout << "Merging pyramids on level " << i << std::endl;
         blended_pyramid[i](x,y,_) =
           //(weights0[i](x,y,_) * img0[i](x,y,_) +
           // weights1[i](x,y,_) * img1[i](x,y,_)) / 128;
@@ -461,8 +662,11 @@ private:
           //(mul2_fixed_point(cast<uint16_t>(weights0[i](x,y,_)/128.0f * 256.0f), cast<uint16_t>(img0[i](x,y,_))) +
           // mul2_fixed_point(cast<uint16_t>(weights1[i](x,y,_)/128.0f * 256.0f), cast<uint16_t>(img1[i](x,y,_))));
 
-          (weights0[i](x,y,_)/128.f * img0[i](x,y,_) +
-          weights1[i](x,y,_)/128.f * img1[i](x,y,_));
+          // (weights0[i](x,y,_)/128.f * img0[i](x,y,_) +
+          // weights1[i](x,y,_)/128.f * img1[i](x,y,_));
+
+          ((weights0[i](x,y,_) * img0[i](x,y,_)) +
+          (weights1[i](x,y,_) * img1[i](x,y,_)));
 
 
 
@@ -481,6 +685,28 @@ private:
     Func flatten_pyramid(vector<Func> &pyramid, vector<Func> &upsampled) {
       using Halide::_;
 
+      Expr pyramid_widths[pyramid_levels];
+      Expr pyramid_heights[pyramid_levels];
+
+      // pyramid_widths[0] = 1248;
+      // pyramid_widths[1] = 624;
+      // pyramid_widths[2] = 312;
+      // pyramid_widths[3] = 156;
+
+      pyramid_widths[0] = 1264;
+      pyramid_widths[1] = 632;
+      pyramid_widths[2] = 316;
+      pyramid_widths[3] = 158;
+
+      // pyramid_heights[0] = 1120;
+      // pyramid_heights[1] = 560;
+      // pyramid_heights[2] = 280; 
+      // pyramid_heights[3] = 140; 
+
+      pyramid_heights[0] = 1136;
+      pyramid_heights[1] = 568;
+      pyramid_heights[2] = 284; 
+      pyramid_heights[3] = 142; 
       
       //init the last upsampled stencil to be the deepest gaussian pyramid
       int num_levels = pyramid.size();
@@ -488,9 +714,11 @@ private:
 
       //Blend to the top
       for (int level = num_levels-1; level > 0; --level) {
-        upsampled[level-1](x,y,_) = pyramid[level-1](x,y,_) + upsample_float_size_2(upsampled[level])(x,y,_);
+        std::cout << "Flattening pyramids on level " << level << std::endl;
+        upsampled[level-1](x,y,_) = pyramid[level-1](x,y,_) + upsample_float_size_2(upsampled[level], pyramid_widths[level], pyramid_heights[level])(x,y,_);
       }
       
+      std::cout << "Done flattening" << std::endl;
       return upsampled[0];
     }
     

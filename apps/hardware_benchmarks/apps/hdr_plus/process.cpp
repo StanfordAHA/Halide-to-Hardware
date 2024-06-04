@@ -422,7 +422,8 @@ std::vector<std::string> img_names;
 
 
   //processor.output = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
-  processor.output = Buffer<uint8_t>(1250, 1120, 3);
+  //processor.output = Buffer<uint8_t>(1250, 1120, 3);
+  processor.output = Buffer<uint8_t>(1248, 1120, 3);
   //processor.output = Buffer<uint8_t>(1096, 1112, 3);
   //processor.output = Buffer<uint8_t>(128, 128, 3);
   auto cmd_output = processor.process_command(argc, argv);
