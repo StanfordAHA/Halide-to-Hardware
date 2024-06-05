@@ -21,7 +21,7 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
     Output<Buffer<uint8_t>> output{"output", 3};
     //Output<Buffer<uint8_t>> output{"output", 2};
 
-    int pyramid_levels = 4;
+    int ef_pyramid_levels = 4;
     int bright_weighting = 3; // this would be used if a single frame is used
     int ksize = 23;
     int shift = 11;
@@ -45,40 +45,40 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
     void generate() {
 
-      Func hw_input, hw_input_8, hw_input_float;
-      hw_input_8 = Halide::BoundaryConditions::repeat_edge(input);
-      hw_input(x,y,c) = u16(hw_input_8(x,y,c));
-      hw_input_float(x, y, c) = cast<float>(hw_input_8(x, y, c));
+      Func ef_hw_input, ef_hw_input_8, ef_hw_input_float;
+      ef_hw_input_8 = Halide::BoundaryConditions::repeat_edge(input);
+      ef_hw_input(x,y,c) = u16(ef_hw_input_8(x,y,c));
+      ef_hw_input_float(x, y, c) = cast<float>(ef_hw_input_8(x, y, c));
 
        // Create dark and bright versions of image 
-      Func hw_input_bright, hw_input_dark;
+      Func ef_hw_input_bright, ef_hw_input_dark;
       
       // input dark is grayscale version of input
       // Grayscale = 0.299R + 0.587G + 0.114B; break G down into two equal halves
-      //hw_input_dark(x, y) = u16((77 * u16(hw_input(x, y, 0)) + 150 * u16(hw_input(x, y, 1)) + 29 * u16(hw_input(x, y, 2))) >> 8);
+      //ef_hw_input_dark(x, y) = u16((77 * u16(ef_hw_input(x, y, 0)) + 150 * u16(ef_hw_input(x, y, 1)) + 29 * u16(ef_hw_input(x, y, 2))) >> 8);
 
-      //hw_input_dark(x, y) = u16(mul2_fixed_point(cast<uint16_t>(0.299f * 256.0f), hw_input(x, y, 0)) + mul2_fixed_point(cast<uint16_t>(0.587f * 256.0f), hw_input(x, y, 1)) + mul2_fixed_point(cast<uint16_t>(0.114f * 256.0f), hw_input(x, y, 2)));
+      //ef_hw_input_dark(x, y) = u16(mul2_fixed_point(cast<uint16_t>(0.299f * 256.0f), ef_hw_input(x, y, 0)) + mul2_fixed_point(cast<uint16_t>(0.587f * 256.0f), ef_hw_input(x, y, 1)) + mul2_fixed_point(cast<uint16_t>(0.114f * 256.0f), ef_hw_input(x, y, 2)));
       
-      //hw_input_dark(x, y) = u16(mul2_fixed_point(cast<uint16_t>(0.299f * 256.0f), hw_input(x, y, 0)) + mul2_fixed_point(cast<uint16_t>(0.587f * 256.0f), hw_input(x, y, 1)) + mul2_fixed_point(cast<uint16_t>(0.114f * 256.0f), hw_input(x, y, 2)));
-      hw_input_dark(x, y) = (0.299f * hw_input_float(x, y, 0)) + (0.587f * hw_input_float(x, y, 1)) + (0.114f * hw_input_float(x, y, 2));
+      //ef_hw_input_dark(x, y) = u16(mul2_fixed_point(cast<uint16_t>(0.299f * 256.0f), ef_hw_input(x, y, 0)) + mul2_fixed_point(cast<uint16_t>(0.587f * 256.0f), ef_hw_input(x, y, 1)) + mul2_fixed_point(cast<uint16_t>(0.114f * 256.0f), ef_hw_input(x, y, 2)));
+      ef_hw_input_dark(x, y) = (0.299f * ef_hw_input_float(x, y, 0)) + (0.587f * ef_hw_input_float(x, y, 1)) + (0.114f * ef_hw_input_float(x, y, 2));
 
       // input bright is input dark, multiplied by a scale factor (3.25 f)
-      //hw_input_bright(x, y) = u16((832 * u16(hw_input_dark(x, y))) >> 8);
-      //hw_input_bright(x, y) = mul2_fixed_point(cast<uint16_t>(3.25f * 256.0f), hw_input_dark(x, y));
-      hw_input_bright(x, y) = 2.25f * hw_input_dark(x, y);
+      //ef_hw_input_bright(x, y) = u16((832 * u16(ef_hw_input_dark(x, y))) >> 8);
+      //ef_hw_input_bright(x, y) = mul2_fixed_point(cast<uint16_t>(3.25f * 256.0f), ef_hw_input_dark(x, y));
+      ef_hw_input_bright(x, y) = 2.25f * ef_hw_input_dark(x, y);
 
 
       // Gamma correct the dark and bright images
-      Func hw_input_bright_gamma_corr, hw_input_dark_gamma_corr;
-      //hw_input_bright_gamma_corr(x, y) = hw_input_bright(x, y);
-      //hw_input_dark_gamma_corr(x, y) = hw_input_dark(x, y);
+      Func ef_hw_input_bright_gamma_corr, ef_hw_input_dark_gamma_corr;
+      //ef_hw_input_bright_gamma_corr(x, y) = ef_hw_input_bright(x, y);
+      //ef_hw_input_dark_gamma_corr(x, y) = ef_hw_input_dark(x, y);
 
 
       float my_gamma_exponent = 1.f/2.2f;
-      //hw_input_bright_gamma_corr(x, y) = pow(cast<float>(hw_input_bright(x, y)), my_gamma_exponent);
-      //hw_input_dark_gamma_corr(x, y) = pow(cast<float>(hw_input_dark(x, y)), my_gamma_exponent);
-      hw_input_bright_gamma_corr(x, y) = pow(hw_input_bright(x, y), my_gamma_exponent);
-      hw_input_dark_gamma_corr(x, y) = pow(hw_input_dark(x, y), my_gamma_exponent);
+      //ef_hw_input_bright_gamma_corr(x, y) = pow(cast<float>(ef_hw_input_bright(x, y)), my_gamma_exponent);
+      //ef_hw_input_dark_gamma_corr(x, y) = pow(cast<float>(ef_hw_input_dark(x, y)), my_gamma_exponent);
+      ef_hw_input_bright_gamma_corr(x, y) = pow(ef_hw_input_bright(x, y), my_gamma_exponent);
+      ef_hw_input_dark_gamma_corr(x, y) = pow(ef_hw_input_dark(x, y), my_gamma_exponent);
 
 
       /* COMMENTING OUT THIS SECTION OF CODE FOR NOW, SINCE IT ISN'T USED ELSEWHERE 
@@ -89,84 +89,84 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       Func b_y_diff;
 
       // BUG FIX: SILENT OVERFLOW WHEN DOING U16 - I16: HALIDE CONVERTS IT TO I16 - I16. RANGE OF UNSIGNED OPERAND GETS HALVED. 
-      b_y_diff(x, y) = u32(hw_input(x, y, 2)) - hw_input_dark(x, y);
+      b_y_diff(x, y) = u32(ef_hw_input(x, y, 2)) - ef_hw_input_dark(x, y);
       input_u(x, y) = cast<int16_t>(mul2_fixed_point_signed(b_y_diff(x, y), cast<int16_t>(0.492f * 256.0f)));
 
       // yuv.V = 0.877f * (rgb.R - yuv.Y)
       Func r_y_diff;
-      r_y_diff(x, y) = u32(hw_input(x, y, 0)) - hw_input_dark(x, y);
+      r_y_diff(x, y) = u32(ef_hw_input(x, y, 0)) - ef_hw_input_dark(x, y);
       input_v(x, y) = cast<int16_t>(mul2_fixed_point_signed(r_y_diff(x, y), cast<int16_t>(0.877f * 256.0f)));
       */
 
 
       // Create exposure weight
-      Func weight_dark, weight_bright, weight_sum, weight_dark_norm, weight_bright_norm;
-      //weight_dark(x,y)   = 2 * hw_input_dark(x,y);
-      //weight_bright(x,y) = 2 * hw_input_bright(x,y);
+      Func weight_dark, weight_bright, ef_weight_sum, weight_dark_norm, weight_bright_norm;
+      //weight_dark(x,y)   = 2 * ef_hw_input_dark(x,y);
+      //weight_bright(x,y) = 2 * ef_hw_input_bright(x,y);
 
       // What is this weighting function??? 
-      //weight_dark(x,y)   = hw_input_dark(x,y) << 1;
-      //weight_bright(x,y) = hw_input_bright(x,y) << 1;
+      //weight_dark(x,y)   = ef_hw_input_dark(x,y) << 1;
+      //weight_bright(x,y) = ef_hw_input_bright(x,y) << 1;
 
-      //weight_dark(x, y) = exp(-12.5f * cast<float>((hw_input_dark(x, y) - cast<uint16_t>(0.5f * 256.0f))* (hw_input_dark(x, y) - cast<uint16_t>(0.5f * 256.0f))));
-      //weight_bright(x, y) = exp(-12.5f * cast<float>((hw_input_bright(x, y) - cast<uint16_t>(0.5f * 256.0f))* (hw_input_bright(x, y) - cast<uint16_t>(0.5f * 256.0f))));
+      //weight_dark(x, y) = exp(-12.5f * cast<float>((ef_hw_input_dark(x, y) - cast<uint16_t>(0.5f * 256.0f))* (ef_hw_input_dark(x, y) - cast<uint16_t>(0.5f * 256.0f))));
+      //weight_bright(x, y) = exp(-12.5f * cast<float>((ef_hw_input_bright(x, y) - cast<uint16_t>(0.5f * 256.0f))* (ef_hw_input_bright(x, y) - cast<uint16_t>(0.5f * 256.0f))));
 
       //weight_dark(x, y) = 1.0f;
       //weight_bright(x, y) = 0.0f;
 
 
       // Forming weights before doing gamma correction. Divide pixel intensity by 255.f to bring it into [0, 1] range
-      //weight_dark(x, y) = exp(-12.5f * cast<float>(((cast<float>(hw_input_dark(x, y))/255.f) - 0.5f) *  cast<float>((cast<float>(hw_input_dark(x, y))/255.f) - 0.5f)));
-      //weight_bright(x, y) = exp(-12.5f * cast<float>(((cast<float>(hw_input_bright(x, y))/255.f) - 0.5f) *  cast<float>((cast<float>(hw_input_bright(x, y))/255.f) - 0.5f)));
+      //weight_dark(x, y) = exp(-12.5f * cast<float>(((cast<float>(ef_hw_input_dark(x, y))/255.f) - 0.5f) *  cast<float>((cast<float>(ef_hw_input_dark(x, y))/255.f) - 0.5f)));
+      //weight_bright(x, y) = exp(-12.5f * cast<float>(((cast<float>(ef_hw_input_bright(x, y))/255.f) - 0.5f) *  cast<float>((cast<float>(ef_hw_input_bright(x, y))/255.f) - 0.5f)));
 
 
-      // weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))/255.f) - 0.5f) *  (((hw_input_dark(x, y))/255.f) - 0.5f)));
-      // weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))/255.f) - 0.5f) * (((hw_input_bright(x, y))/255.f) - 0.5f)));
+      // weight_dark(x, y) = exp(-12.5f * ((((ef_hw_input_dark(x, y))/255.f) - 0.5f) *  (((ef_hw_input_dark(x, y))/255.f) - 0.5f)));
+      // weight_bright(x, y) = exp(-12.5f * ((((ef_hw_input_bright(x, y))/255.f) - 0.5f) * (((ef_hw_input_bright(x, y))/255.f) - 0.5f)));
 
-      //weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))/16384.f) - 0.5f) *  (((hw_input_dark(x, y))/16384.f) - 0.5f)));
-      //weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))/16384.f) - 0.5f) * (((hw_input_bright(x, y))/16384.f) - 0.5f)));
+      //weight_dark(x, y) = exp(-12.5f * ((((ef_hw_input_dark(x, y))/16384.f) - 0.5f) *  (((ef_hw_input_dark(x, y))/16384.f) - 0.5f)));
+      //weight_bright(x, y) = exp(-12.5f * ((((ef_hw_input_bright(x, y))/16384.f) - 0.5f) * (((ef_hw_input_bright(x, y))/16384.f) - 0.5f)));
 
-      weight_dark(x, y) = exp(-12.5f * ((((hw_input_dark(x, y))) - 0.5f) *  (((hw_input_dark(x, y))) - 0.5f)));
-      weight_bright(x, y) = exp(-12.5f * ((((hw_input_bright(x, y))) - 0.5f) * (((hw_input_bright(x, y))) - 0.5f)));
-
-
+      weight_dark(x, y) = exp(-12.5f * ((((ef_hw_input_dark(x, y))) - 0.5f) *  (((ef_hw_input_dark(x, y))) - 0.5f)));
+      weight_bright(x, y) = exp(-12.5f * ((((ef_hw_input_bright(x, y))) - 0.5f) * (((ef_hw_input_bright(x, y))) - 0.5f)));
 
 
-      //weight_dark(x, y) = exp(-12.5f * cast<float>(((cast<float>(hw_input_dark_gamma_corr(x, y))/12.41f) - 0.5f) *  cast<float>((cast<float>(hw_input_dark_gamma_corr(x, y))/12.41f) - 0.5f)));
-      //weight_bright(x, y) = exp(-12.5f * cast<float>(((cast<float>(hw_input_bright_gamma_corr(x, y))/12.41f) - 0.5f) *  cast<float>((cast<float>(hw_input_bright_gamma_corr(x, y))/12.41f) - 0.5f)));
+
+
+      //weight_dark(x, y) = exp(-12.5f * cast<float>(((cast<float>(ef_hw_input_dark_gamma_corr(x, y))/12.41f) - 0.5f) *  cast<float>((cast<float>(ef_hw_input_dark_gamma_corr(x, y))/12.41f) - 0.5f)));
+      //weight_bright(x, y) = exp(-12.5f * cast<float>(((cast<float>(ef_hw_input_bright_gamma_corr(x, y))/12.41f) - 0.5f) *  cast<float>((cast<float>(ef_hw_input_bright_gamma_corr(x, y))/12.41f) - 0.5f)));
 
       //weight_dark(x, y) = 0.5f;
       //weight_bright(x, y) = 0.5f;
 
-      //weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y) + u32(1);
+      //ef_weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y) + u32(1);
 
       // WHAT'S THIS +1 FOR???
-      //weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y) + 1.0f;
-      weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y);
+      //ef_weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y) + 1.0f;
+      ef_weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y);
       
       // WHY MULTIPLY BY 128???
-      //weight_dark_norm(x,y)   = weight_dark(x,y)   * 128.0f / weight_sum(x,y);
-      //weight_bright_norm(x,y) = weight_bright(x,y) * 128.0f / weight_sum(x,y);
-      weight_dark_norm(x,y)   = weight_dark(x,y) / weight_sum(x,y);
-      weight_bright_norm(x,y) = weight_bright(x,y) / weight_sum(x,y);
+      //weight_dark_norm(x,y)   = weight_dark(x,y)   * 128.0f / ef_weight_sum(x,y);
+      //weight_bright_norm(x,y) = weight_bright(x,y) * 128.0f / ef_weight_sum(x,y);
+      weight_dark_norm(x,y)   = weight_dark(x,y) / ef_weight_sum(x,y);
+      weight_bright_norm(x,y) = weight_bright(x,y) / ef_weight_sum(x,y);
 
       //weight_bright_norm.trace_stores();
 
       // this thing is probably 0 because of the datatype. That's why he multiplied by 128
-      //weight_dark_norm(x,y)   = weight_dark(x,y) / weight_sum(x,y);
-      //weight_bright_norm(x,y) = weight_bright(x,y) / weight_sum(x,y);
-      //weight_dark_norm(x,y)   = (weight_dark(x,y) << 7) / weight_sum(x,y);
-      //weight_bright_norm(x,y) = (weight_bright(x,y) << 7) / weight_sum(x,y);
+      //weight_dark_norm(x,y)   = weight_dark(x,y) / ef_weight_sum(x,y);
+      //weight_bright_norm(x,y) = weight_bright(x,y) / ef_weight_sum(x,y);
+      //weight_dark_norm(x,y)   = (weight_dark(x,y) << 7) / ef_weight_sum(x,y);
+      //weight_bright_norm(x,y) = (weight_bright(x,y) << 7) / ef_weight_sum(x,y);
 
       //weight_dark_norm(x,y,c)   = weight_dark(x,y,c)   * 128 ;
       //weight_bright_norm(x,y,c) = weight_bright(x,y,c) * 128 ;
 
       // Create gaussian pyramids of the weights
-      vector<Func> dark_weight_gpyramid(pyramid_levels);
-      vector<Func> bright_weight_gpyramid(pyramid_levels);
+      vector<Func> dark_weight_gpyramid(ef_pyramid_levels);
+      vector<Func> bright_weight_gpyramid(ef_pyramid_levels);
 
-      // Expr pyramid_widths[pyramid_levels];
-      // Expr pyramid_heights[pyramid_levels];
+      // Expr pyramid_widths[ef_pyramid_levels];
+      // Expr pyramid_heights[ef_pyramid_levels];
 
       // pyramid_widths[0] = 1248;
       // pyramid_widths[1] = 624;
@@ -177,27 +177,27 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       // pyramid_heights[2] = 280; 
 
 
-      dark_weight_gpyramid =   gaussian_pyramid(weight_dark_norm, pyramid_levels, "dweight");
-      bright_weight_gpyramid = gaussian_pyramid(weight_bright_norm, pyramid_levels, "bweight");
+      dark_weight_gpyramid =   gaussian_pyramid(weight_dark_norm, ef_pyramid_levels, "dweight");
+      bright_weight_gpyramid = gaussian_pyramid(weight_bright_norm, ef_pyramid_levels, "bweight");
 
       //dark_weight_gpyramid[0].trace_stores();
       //bright_weight_gpyramid[0].trace_stores();
 
       // Create laplacian pyramids of the input images
-      vector<Func> dark_input_lpyramid(pyramid_levels);
-      vector<Func> dark_input_gpyramid(pyramid_levels);
-      vector<Func> bright_input_lpyramid(pyramid_levels);
-      vector<Func> bright_input_gpyramid(pyramid_levels);
-      dark_input_lpyramid =   laplacian_pyramid(hw_input_dark_gamma_corr, pyramid_levels,
+      vector<Func> dark_input_lpyramid(ef_pyramid_levels);
+      vector<Func> dark_input_gpyramid(ef_pyramid_levels);
+      vector<Func> bright_input_lpyramid(ef_pyramid_levels);
+      vector<Func> bright_input_gpyramid(ef_pyramid_levels);
+      dark_input_lpyramid =   laplacian_pyramid(ef_hw_input_dark_gamma_corr, ef_pyramid_levels,
                                                 dark_input_gpyramid, "dinput");
-      bright_input_lpyramid = laplacian_pyramid(hw_input_bright_gamma_corr, pyramid_levels,
+      bright_input_lpyramid = laplacian_pyramid(ef_hw_input_bright_gamma_corr, ef_pyramid_levels,
                                                 bright_input_gpyramid, "binput");
 
       //dark_input_lpyramid[0].trace_stores();    
       //bright_input_lpyramid[3].trace_stores();          
 
       // Merge the input pyramids using the weight pyramids
-      vector<Func> merged_pyramid(pyramid_levels);
+      vector<Func> merged_pyramid(ef_pyramid_levels);
       merged_pyramid = merge_pyramids(dark_weight_gpyramid,
                                       bright_weight_gpyramid,
                                       dark_input_lpyramid,
@@ -209,7 +209,7 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
       // Collapse the merged pyramid to create a single image
       Func blended_image, initial_blended_image, intermediate_blended_image;
-      vector<Func> upsampled(pyramid_levels);
+      vector<Func> upsampled(ef_pyramid_levels);
       initial_blended_image = flatten_pyramid(merged_pyramid, upsampled);
       //initial_blended_image.trace_stores();
 
@@ -233,113 +233,114 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
       //blended_image(x, y) = pow(intermediate_blended_image(x, y), 1.f/2.2f);
 
 
-      // Func hw_input_dark_reverse_gamma_corr, hw_input_bright_reverse_gamma_corr;
-      // hw_input_dark_reverse_gamma_corr(x, y) = pow(hw_input_dark_gamma_corr(x, y), 2.2f);
-      // hw_input_bright_reverse_gamma_corr(x, y) = pow(hw_input_bright_gamma_corr(x, y), 2.2f);
+      // Func ef_hw_input_dark_reverse_gamma_corr, ef_hw_input_bright_reverse_gamma_corr;
+      // ef_hw_input_dark_reverse_gamma_corr(x, y) = pow(ef_hw_input_dark_gamma_corr(x, y), 2.2f);
+      // ef_hw_input_bright_reverse_gamma_corr(x, y) = pow(ef_hw_input_bright_gamma_corr(x, y), 2.2f);
       //GammaCorrect(initial_blended_image, blended_image, 2.2f);
       
 
       // YUV-TO-RGB conversion
-      Func hw_output, hw_output_signed;
+      Func ef_hw_output, ef_hw_output_signed;
       
       // R = blended_image (Y) + 1.14f * yuv.V
       Func r_out_signed, g_out_signed, b_out_signed;
-      //r_out_signed(x, y) = cast<int16_t>(u32(hw_input_dark(x,y))); 
-      //r_out_signed(x, y) = cast<int16_t>(u32(hw_input_bright(x,y))); 
-      //r_out_signed(x, y) = cast<int16_t>(u32(hw_input_dark(x,y)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
+      //r_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y))); 
+      //r_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_bright(x,y))); 
+      //r_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
       //r_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)));
       //r_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
       
 
       Func r_channel_scale_factor;
-      //r_channel_scale_factor(x, y) = cast<float>(hw_input(x, y, 0))/cast<float>(hw_input_dark(x, y));
-      r_channel_scale_factor(x, y) = hw_input_float(x, y, 0)/hw_input_dark(x, y);
+      //r_channel_scale_factor(x, y) = cast<float>(ef_hw_input(x, y, 0))/cast<float>(ef_hw_input_dark(x, y));
+      r_channel_scale_factor(x, y) = ef_hw_input_float(x, y, 0)/ef_hw_input_dark(x, y);
       //r_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(blended_image(x, y)), cast<uint16_t>(r_channel_scale_factor(x, y) * 256.0f));
       r_out_signed(x, y) = blended_image(x, y) * r_channel_scale_factor(x, y);
 
       //r_out_signed(x, y) = cast<int16_t>(u32(cast<uint16_t>(blended_image(x, y) * 256.0f)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
       //r_out_signed(x, y) = cast<int16_t>(blended_image(x, y));
-      //r_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(hw_input_dark_reverse_gamma_corr(x,y))) +
-      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(hw_input_bright_reverse_gamma_corr(x,y)));
-      //r_out_signed(x, y) = cast<int16_t>(hw_input_bright_reverse_gamma_corr(x, y));
+      //r_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_dark_reverse_gamma_corr(x,y))) +
+      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_bright_reverse_gamma_corr(x,y)));
+      //r_out_signed(x, y) = cast<int16_t>(ef_hw_input_bright_reverse_gamma_corr(x, y));
 
       // G = blended_image (Y) - 0.395f * yuv.U - 0.581f * yuv.V
-      //g_out_signed(x, y) = cast<int16_t>(u32(hw_input_dark(x,y))); 
-      //g_out_signed(x, y) = cast<int16_t>(u32(hw_input_bright(x,y))); 
-      //g_out_signed(x, y) = cast<int16_t>(u32(hw_input_dark(x,y)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
+      //g_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y))); 
+      //g_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_bright(x,y))); 
+      //g_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
       //g_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)));
       //g_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
       Func g_channel_scale_factor;
-      //g_channel_scale_factor(x, y) = cast<float>(hw_input(x, y, 1))/cast<float>(hw_input_dark(x, y));
-      g_channel_scale_factor(x, y) = hw_input_float(x, y, 1)/hw_input_dark(x, y);
+      //g_channel_scale_factor(x, y) = cast<float>(ef_hw_input(x, y, 1))/cast<float>(ef_hw_input_dark(x, y));
+      g_channel_scale_factor(x, y) = ef_hw_input_float(x, y, 1)/ef_hw_input_dark(x, y);
       //g_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(blended_image(x, y)), cast<uint16_t>(g_channel_scale_factor(x, y) * 256.0f));
       g_out_signed(x, y) = blended_image(x, y) * g_channel_scale_factor(x, y);
 
       //g_out_signed(x, y) = cast<int16_t>(u32(cast<uint16_t>(blended_image(x, y) * 256.0f)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
       //g_out_signed(x, y) = cast<int16_t>(blended_image(x, y));
-      //g_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(hw_input_dark_reverse_gamma_corr(x,y))) +
-      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(hw_input_bright_reverse_gamma_corr(x,y)));
-      //g_out_signed(x, y) = cast<int16_t>(hw_input_bright_reverse_gamma_corr(x, y));
+      //g_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_dark_reverse_gamma_corr(x,y))) +
+      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_bright_reverse_gamma_corr(x,y)));
+      //g_out_signed(x, y) = cast<int16_t>(ef_hw_input_bright_reverse_gamma_corr(x, y));
 
       // B = blended_image (Y) + 2.033f * yuv.U
-      //b_out_signed(x, y) = cast<int16_t>(u32(hw_input_dark(x,y))); 
-      //b_out_signed(x, y) = cast<int16_t>(u32(hw_input_bright(x,y))); 
-      //b_out_signed(x, y) = cast<int16_t>(u32(hw_input_dark(x,y)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
+      //b_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y))); 
+      //b_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_bright(x,y))); 
+      //b_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
       //b_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)));
       //b_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
       Func b_channel_scale_factor;
-      //b_channel_scale_factor(x, y) = cast<float>(hw_input(x, y, 2))/cast<float>(hw_input_dark(x, y));
-      b_channel_scale_factor(x, y) = hw_input_float(x, y, 2)/hw_input_dark(x, y);
+      //b_channel_scale_factor(x, y) = cast<float>(ef_hw_input(x, y, 2))/cast<float>(ef_hw_input_dark(x, y));
+      b_channel_scale_factor(x, y) = ef_hw_input_float(x, y, 2)/ef_hw_input_dark(x, y);
       //b_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(blended_image(x, y)), cast<uint16_t>(b_channel_scale_factor(x, y) * 256.0f));
       b_out_signed(x, y) = blended_image(x, y) * b_channel_scale_factor(x, y);
 
 
       //b_out_signed(x, y) = cast<int16_t>(u32(cast<uint16_t>(blended_image(x, y) * 256.0f)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
       //b_out_signed(x, y) = cast<int16_t>(blended_image(x, y));
-      //b_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(hw_input_dark_reverse_gamma_corr(x,y))) +
-      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(hw_input_bright_reverse_gamma_corr(x,y)));
-      //b_out_signed(x, y) = cast<int16_t>(hw_input_bright_reverse_gamma_corr(x, y));
+      //b_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_dark_reverse_gamma_corr(x,y))) +
+      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_bright_reverse_gamma_corr(x,y)));
+      //b_out_signed(x, y) = cast<int16_t>(ef_hw_input_bright_reverse_gamma_corr(x, y));
 
 
 
       // MAYBE WITH THE NEW FORMULA, DON'T NEED TO DO THIS SIGNED CAST ANYMORE 
-      //hw_output_signed(x,y,c) = cast<int16_t>(select(c == 0, r_out_signed(x, y),
+      //ef_hw_output_signed(x,y,c) = cast<int16_t>(select(c == 0, r_out_signed(x, y),
       //                           c == 1, g_out_signed(x, y),
       //                                   b_out_signed(x, y)));
-      hw_output_signed(x,y,c) = select(c == 0, r_out_signed(x, y),
+      ef_hw_output_signed(x,y,c) = select(c == 0, r_out_signed(x, y),
                                  c == 1, g_out_signed(x, y),
                                          b_out_signed(x, y));
 
       
      
-      //hw_output(x,y,c) = dark_input_lpyramid[pyramid_levels-1](x,y,c);
-      //hw_output(x,y,c) = dark_input_gpyramid[pyramid_levels-1](x,y,c);
+      //ef_hw_output(x,y,c) = dark_input_lpyramid[ef_pyramid_levels-1](x,y,c);
+      //ef_hw_output(x,y,c) = dark_input_gpyramid[ef_pyramid_levels-1](x,y,c);
 
-      //hw_output(x, y, c) = clamp(hw_output_signed(x, y, c), u16(0), u16(255));
+      //ef_hw_output(x, y, c) = clamp(ef_hw_output_signed(x, y, c), u16(0), u16(255));
 
-      //hw_output(x,y,c) = select(c == 0, r_out_signed(x, y),
+      //ef_hw_output(x,y,c) = select(c == 0, r_out_signed(x, y),
       //                          c == 1, g_out_signed(x, y),
       //                                  b_out_signed(x, y));
-      //hw_output(x, y, c) = clamp(hw_output_signed(x, y, c), u16(0), u16(255));
-      Func hw_output_gamma;
-      hw_output_gamma(x, y, c) = pow(hw_output_signed(x, y, c), 1.f/2.2f);
-      hw_output(x, y, c) =  clamp((hw_output_gamma(x, y, c) * 255.f), 0, 255.f);
-      hw_output.trace_stores();
+      //ef_hw_output(x, y, c) = clamp(ef_hw_output_signed(x, y, c), u16(0), u16(255));
+      Func ef_hw_output_gamma;
+      ef_hw_output_gamma(x, y, c) = pow(ef_hw_output_signed(x, y, c), 1.f/2.2f);
+      ef_hw_output(x, y, c) =  clamp((ef_hw_output_gamma(x, y, c) * 255.f), 0, 255.f);
+      ef_hw_output.trace_stores();
 
-      Expr minRaw = 25;
-      Expr maxRaw = 16368;
-      Expr invRange = 1.0f / (maxRaw - minRaw);
+      // Expr minRaw = 25;
+      // Expr maxRaw = 16368;
+      // Expr invRange = 1.0f / (maxRaw - minRaw);
 
       // END BLOCK COMMENT 
 
       
-      output(x,y,c) = u8(hw_output(x,y,c));
+      output(x,y,c) = u8(ef_hw_output(x,y,c));
+      output.bound(c, 0, 3);
 
       // NOTE: This probably isn't correct for data that is in a [0.f-1.f] range
-      //output(x,y,c) = u8(clamp(cast<float>(hw_output(x,y,c) - minRaw) * invRange, 0.0f, 1.0f) * 255.f);
+      //output(x,y,c) = u8(clamp(cast<float>(ef_hw_output(x,y,c) - minRaw) * invRange, 0.0f, 1.0f) * 255.f);
 
       //USED 
-      //output(x,y,c) = u8(hw_output(x,y,c));
+      //output(x,y,c) = u8(ef_hw_output(x,y,c));
       //output.trace_stores();
 
 
@@ -355,41 +356,41 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
       } else if (get_target().has_feature(Target::Clockwork)) {
 
-        // hw_output.compute_root();
+        // ef_hw_output.compute_root();
 
-        // hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+        // ef_hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
         //   .reorder(xi,yi,c,xo,yo)
         //   .hw_accelerate(xi, xo);
-        //hw_output.unroll(c);
+        //ef_hw_output.unroll(c);
 
-        //blended_image.compute_at(hw_output, xo);
+        //blended_image.compute_at(ef_hw_output, xo);
 
         // for (size_t i=0; i<merged_pyramid.size(); ++i) {
-        //   merged_pyramid[i].compute_at(hw_output, xo);
+        //   merged_pyramid[i].compute_at(ef_hw_output, xo);
           
-        //   dark_input_lpyramid[i].compute_at(hw_output, xo);
-        //   bright_input_lpyramid[i].compute_at(hw_output, xo);
-        //   dark_input_gpyramid[i].compute_at(hw_output, xo);
-        //   bright_input_gpyramid[i].compute_at(hw_output, xo);
+        //   dark_input_lpyramid[i].compute_at(ef_hw_output, xo);
+        //   bright_input_lpyramid[i].compute_at(ef_hw_output, xo);
+        //   dark_input_gpyramid[i].compute_at(ef_hw_output, xo);
+        //   bright_input_gpyramid[i].compute_at(ef_hw_output, xo);
           
-        //   dark_weight_gpyramid[i].compute_at(hw_output, xo);
-        //   bright_weight_gpyramid[i].compute_at(hw_output, xo);
+        //   dark_weight_gpyramid[i].compute_at(ef_hw_output, xo);
+        //   bright_weight_gpyramid[i].compute_at(ef_hw_output, xo);
         // }
 
-        // weight_sum.compute_at(hw_output, xo);
+        // ef_weight_sum.compute_at(ef_hw_output, xo);
         
-        hw_input_bright.stream_to_accelerator();
-        hw_input_dark.stream_to_accelerator();
+        ef_hw_input_bright.stream_to_accelerator();
+        ef_hw_input_dark.stream_to_accelerator();
         
       } else {    // schedule to CPU
-        // //hw_output.compute_root();
+        // //ef_hw_output.compute_root();
         // output.compute_root();
         // //output.tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
         // weight_dark_norm.compute_root();
         // weight_bright_norm.compute_root();
-        // hw_input_dark.compute_root();
-        // hw_input_bright.compute_root();
-        // hw_input_float.compute_root();
+        // ef_hw_input_dark.compute_root();
+        // ef_hw_input_bright.compute_root();
+        // ef_hw_input_float.compute_root();
         // for (size_t i=0; i<merged_pyramid.size(); ++i) {
         //   merged_pyramid[i].compute_root();
         //   dark_input_lpyramid[i].compute_root();
@@ -428,8 +429,8 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 
 
         weight_bright_norm.compute_at(output, xo);
-        weight_sum.compute_at(output, xo);
-        hw_output.compute_at(output, xo);
+        ef_weight_sum.compute_at(output, xo);
+        ef_hw_output.compute_at(output, xo);
 
 
       }
@@ -438,18 +439,6 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
 private:
     Var x, y, c, k;
 
-
-
-    Func convert_to_u8(Func in) {
-      Var x, y;
-      Func out;
-      out(x, y) = u8(in(x, y));
-
-      std::cout << "Done converting" << std::endl;
-
-      return out;
-      
-    }
 
     // Downsample with a 1 3 3 1 filter
     //Func downsample(Func f) {
@@ -468,7 +457,7 @@ private:
 
 
 
-   Func downsample_float(Func f_in, Expr size, Expr gauss_width, Expr gauss_height) {
+   Func downsample_float_ef(Func f_in, Expr size, Expr gauss_width, Expr gauss_height) {
         Var x, y;
         using Halide::_;
         Func f, down;
@@ -498,7 +487,7 @@ private:
     }
 
 
-    // Func upsample_float_size_2(Func f_in) {
+    // Func upsample_float_size_2_ef(Func f_in) {
     //   Var x, y;
     //   using Halide::_;
     //   Func up;
@@ -509,7 +498,7 @@ private:
     //   return up;
     // }
 
-    Func upsample_float_size_2(Func f_in, Expr gauss_width, Expr gauss_height) {
+    Func upsample_float_size_2_ef(Func f_in, Expr gauss_width, Expr gauss_height) {
       Var x, y;
       using Halide::_;
       Func up, up_float, f_in_shift;
@@ -549,8 +538,8 @@ private:
     vector<Func> gaussian_pyramid(Func f, int num_levels, std::string name) {
       using Halide::_;
       
-      Expr pyramid_widths[pyramid_levels];
-      Expr pyramid_heights[pyramid_levels];
+      Expr pyramid_widths[ef_pyramid_levels];
+      Expr pyramid_heights[ef_pyramid_levels];
 
       // pyramid_widths[0] = 1248;
       // pyramid_widths[1] = 624;
@@ -581,7 +570,7 @@ private:
       for (int j = 1; j < num_levels; j++) {
         std::cout << "connecting " << j << " to " << j-1<< std::endl;
         //gPyramid[j](x,y,_) = downsample(gPyramid[j-1])(x,y,_);
-        gPyramid[j](x,y,_) = downsample_float(gPyramid[j-1], 2, pyramid_widths[j-1], pyramid_heights[j-1])(x,y,_);
+        gPyramid[j](x,y,_) = downsample_float_ef(gPyramid[j-1], 2, pyramid_widths[j-1], pyramid_heights[j-1])(x,y,_);
       }
 
       std::cout << "next" << std::endl;
@@ -593,8 +582,8 @@ private:
     vector<Func> laplacian_pyramid(Func f, int num_levels, vector<Func> &gPyramid, std::string name) {
       using Halide::_;
 
-      Expr pyramid_widths[pyramid_levels];
-      Expr pyramid_heights[pyramid_levels];
+      Expr pyramid_widths[ef_pyramid_levels];
+      Expr pyramid_heights[ef_pyramid_levels];
 
       // pyramid_widths[0] = 1248;
       // pyramid_widths[1] = 624;
@@ -627,7 +616,7 @@ private:
       // Create the laplacian pyramid from the last level up to the first.
       for (int j = num_levels-2; j >= 0; j--) {
         std::cout << "Building laplacian pyramid level " << j << std::endl;
-        lPyramid[j](x,y,_) = gPyramid[j](x,y,_) - upsample_float_size_2(gPyramid[j+1], pyramid_widths[j+1], pyramid_heights[j+1])(x,y,_);
+        lPyramid[j](x,y,_) = gPyramid[j](x,y,_) - upsample_float_size_2_ef(gPyramid[j+1], pyramid_widths[j+1], pyramid_heights[j+1])(x,y,_);
       }
 
       return lPyramid;
@@ -685,8 +674,8 @@ private:
     Func flatten_pyramid(vector<Func> &pyramid, vector<Func> &upsampled) {
       using Halide::_;
 
-      Expr pyramid_widths[pyramid_levels];
-      Expr pyramid_heights[pyramid_levels];
+      Expr pyramid_widths[ef_pyramid_levels];
+      Expr pyramid_heights[ef_pyramid_levels];
 
       // pyramid_widths[0] = 1248;
       // pyramid_widths[1] = 624;
@@ -715,7 +704,7 @@ private:
       //Blend to the top
       for (int level = num_levels-1; level > 0; --level) {
         std::cout << "Flattening pyramids on level " << level << std::endl;
-        upsampled[level-1](x,y,_) = pyramid[level-1](x,y,_) + upsample_float_size_2(upsampled[level], pyramid_widths[level], pyramid_heights[level])(x,y,_);
+        upsampled[level-1](x,y,_) = pyramid[level-1](x,y,_) + upsample_float_size_2_ef(upsampled[level], pyramid_widths[level], pyramid_heights[level])(x,y,_);
       }
       
       std::cout << "Done flattening" << std::endl;
