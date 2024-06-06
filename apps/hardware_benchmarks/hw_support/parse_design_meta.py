@@ -200,7 +200,7 @@ def parseLoopExtentforPadding(meta, halide_gen_args):
         assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
 
     # Add HALIDE_GEN_ARGS to meta file
-    meta["HALIDE_GEN_ARGS"] = args_dict
+    if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
 
 def addGLBBankConfig(meta):
     with open("bin/glb_bank_config.json", "r") as f:
@@ -214,6 +214,22 @@ def addGLBBankConfig(meta):
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 1
             else:
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
+
+# Function to change extent for glb tiling or add dimensions
+def parseLoopExtentforTiling(meta, halide_gen_args):
+    # Get unroll values
+    args = halide_gen_args.split()
+    args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
+    unroll = args_dict.get('unroll', 0)
+    n_ic = args_dict.get('n_ic', 0)
+    assert len(meta['IOs']['outputs']) == 1, "Only one output supported for output padding"
+    io_tiles_list = meta['IOs']['outputs'][0]['io_tiles']
+    for io_tile in io_tiles_list:
+        addr_dict = io_tile['addr']
+        assert addr_dict['dimensionality'] == 2, "Implement fully unrolled first"
+    # Add HALIDE_GEN_ARGS to meta file
+    if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
+    if meta.get("NUM_GLB_TILING") is None: meta["NUM_GLB_TILING"] = os.getenv("NUM_GLB_TILING")
 
 def main():
     args = parseArguments()
@@ -251,10 +267,12 @@ def main():
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
-        # If pad_o in args call padding functions to modify extents
         halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
         if halide_gen_args is not None:
+            # If pad_o in args call padding functions to modify extents
             if "pad_o_left" in halide_gen_args or "pad_o_right" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
+            # If NUM_GLB_TILING is set then edit extent if necessary
+            if os.getenv("NUM_GLB_TILING") is not None and atoi(os.getenv("NUM_GLB_TILING")) > 0: parseLoopExtentforTiling(meta, halide_gen_args)
 
         if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
 
