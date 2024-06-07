@@ -1,11 +1,11 @@
 import sys, json, re, os
 
 fsource = open(sys.argv[1], "r")
+fdest = open(sys.argv[2], "r")
 flush_file = open(sys.argv[3], "r")
 pond_file = open(sys.argv[4], "r")
-stencil_valid_file = open(sys.argv[5], "r")
-
 source_lines = fsource.readlines()
+dest_lines = source_lines
 
 new_mem_schedules = {}
 new_pond_schedules = {}
@@ -21,10 +21,8 @@ for idx, line in enumerate(source_lines):
 
 flush_latencies = json.load(flush_file)
 pond_latencies = json.load(pond_file)
-stencil_valid_latencies = json.load(stencil_valid_file)
 
-for idx, line in enumerate(source_lines):
-    new_line = ""
+for idx, line in enumerate(dest_lines):
     if line in new_mem_schedules:
         new_line = new_mem_schedules[line]
         mem_name = line.split('"')[1]
@@ -32,12 +30,7 @@ for idx, line in enumerate(source_lines):
             def replace_func(matchobj):
                 return str(int(matchobj.group(1)) + flush_latencies[mem_name])
             new_line = re.sub(r'(?<=cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
-
-        if mem_name in stencil_valid_latencies:
-            def replace_func(matchobj):
-                return str(int(matchobj.group(1)) + stencil_valid_latencies[mem_name])
-            new_line = re.sub(r'(?<=cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
-        source_lines[idx+4] = new_line
+        dest_lines[idx+4] = new_line
 
     if line in new_pond_schedules:
         new_line = new_pond_schedules[line]
@@ -46,7 +39,7 @@ for idx, line in enumerate(source_lines):
             def replace_func(matchobj):
                 return str(int(matchobj.group(1)) + flush_latencies[mem_name])
             new_line = re.sub(r'(?<=cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
-        source_lines[idx+4] = new_line
+        dest_lines[idx+4] = new_line
         
     if line in new_pond_pipe_schedules:
         new_line = new_pond_pipe_schedules[line]
@@ -55,17 +48,13 @@ for idx, line in enumerate(source_lines):
             def replace_func(matchobj):
                 return str(pond_latencies[pond_name])
             new_line = re.sub(r'(?<="regfile2out_0":{"cycle_starting_addr":\[)(\d*)(?=],"cycle_stride)', replace_func, new_line)
-        source_lines[idx+2] = new_line
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    if "-" in new_line:
-        print(f"{FAIL}design_top.json has a schedule with a negative number:\n{new_line}\nThis application will probably fail{ENDC}")
-        
+        dest_lines[idx+2] = new_line
 
 fsource.close()
+fdest.close()
 
 fout = open(sys.argv[2], "w")
-for line in source_lines:
+for line in dest_lines:
     fout.write(line)
 
 fout.close()
