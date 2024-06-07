@@ -139,8 +139,8 @@ int main( int argc, char **argv ) {
   //FIXME: FOR NOW, outputing int16_t. Once outputting RGB images, should send out uint8_t.
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
-  //OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
-  OneInOneOut_ProcessController<float, uint8_t> processor("hdr_plus");
+  OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
+  //OneInOneOut_ProcessController<float, uint8_t> processor("hdr_plus");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
@@ -266,18 +266,18 @@ std::vector<std::string> img_names;
 
 
   // Load the input images (bayer raw)
-  //Buffer<uint16_t> imgs;
-  Buffer<float> imgs;
+  Buffer<uint16_t> imgs;
+  //Buffer<float> imgs;
 
   int im_width = 1250;
   int im_height = 1120;
   //int im_width = 128;
   //int im_height = 128;
-  //imgs = Buffer<uint16_t>(im_width, im_height, 3);
-  imgs = Buffer<float>(im_width, im_height, 3);
+  imgs = Buffer<uint16_t>(im_width, im_height, 3);
+  //imgs = Buffer<float>(im_width, im_height, 3);
 
-  bool use_k_10bit =false;
-  bool use_k_raw = true;
+  bool use_k_10bit = true;
+  bool use_k_raw = false;
 
   if (use_k_10bit){
 
