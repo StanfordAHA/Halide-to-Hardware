@@ -58,14 +58,18 @@ public:
     //GeneratorParam<uint16_t>     max_dist{"max_dist", 256, 32, 4096};
     //GeneratorParam<uint16_t>     min_dist{"min_dist", 5, 1, 128}; 
     //GeneratorParam<float>     min_dist{"min_dist", 0.005}; 
-    GeneratorParam<float>     min_dist{"min_dist", 5.1}; 
+    //GeneratorParam<float>     min_dist{"min_dist", 5.1}; 
+    GeneratorParam<uint16_t>     min_dist{"min_dist", 5}; 
     //GeneratorParam<uint16_t>     max_dist{"max_dist", 26, 32, 4096};
     //GeneratorParam<float>     max_dist{"max_dist", 0.025}; 
-    GeneratorParam<float>     max_dist{"max_dist", 25.6}; 
+    //GeneratorParam<float>     max_dist{"max_dist", 25.6}; 
+    GeneratorParam<uint16_t>     max_dist{"max_dist", 26}; 
     //GeneratorParam<uint16_t>     dist_max_min_diff{"dist_max_min_diff", 240};  
     //GeneratorParam<uint16_t>     dist_max_min_diff{"dist_max_min_diff", 21};  
     //GeneratorParam<float>      dist_max_min_diff{"dist_max_min_diff", 0.02}; 
-    GeneratorParam<float>      dist_max_min_diff{"dist_max_min_diff", 20.5}; 
+    //GeneratorParam<float>      dist_max_min_diff{"dist_max_min_diff", 20.5}; 
+    GeneratorParam<uint16_t>      dist_max_min_diff{"dist_max_min_diff", 21}; 
+
 
     // FOR CAMERA PIPELINE
     GeneratorParam<float> gamma{"gamma", /*default=*/2.0}; // default: 2.0; USED: 3.2 
@@ -819,7 +823,7 @@ public:
 
         Expr dist_lvl_0 = abs(i16(gPyramid[0](x_ref_lvl_0, y_ref_lvl_0, 0)) - i16(gPyramid[0](x_cmp_lvl_0, y_cmp_lvl_0, n_lvl_0))); 
         scores_lvl_0(tx_lvl_0, ty_lvl_0, x_s_lvl_0, y_s_lvl_0, n_lvl_0) = sum(dist_lvl_0);
-        scores_lvl_0.trace_stores();
+        //scores_lvl_0.trace_stores();
         Tuple min_coor_lvl_0 = argmin(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0));
 
         alignPyramid[0](tx_lvl_0, ty_lvl_0, xy_lvl_0, n_lvl_0) = select(n_lvl_0 == 0, 0,
@@ -993,7 +997,7 @@ public:
 
         // Dividing by 64.f b/c currently using 8x8 tiles 
         //dist_channel_norm(tx_image, ty_image, n) = dist_channel(tx_image, ty_image, n)/64.f;
-        dist_channel_norm(tx_image, ty_image, n) = cast<float>(dist_channel(tx_image, ty_image, n) >> 6);
+        dist_channel_norm(tx_image, ty_image, n) = dist_channel(tx_image, ty_image, n) >> 6;
         //dist_channel_norm(tx, ty, c, n) = dist_channel(tx, ty, c, n);
         //dist_channel_norm.trace_stores();
 
@@ -1022,8 +1026,8 @@ public:
 
 
 
-        weight(tx_image, ty_image, n) = select(n == 0, 1.0f, 1.0f - min(1.0f, max(0.0f, dist_channel_norm(tx_image, ty_image, n) - cast<float>(min_dist))/(cast<float>(dist_max_min_diff))));
-        //weight(tx_image, ty_image, n) = select(n == 0, u16(256), u16(256) - min(u16(256), max(u16(0), dist_channel_norm(tx_image, ty_image, n) - cast<float>(min_dist))/(cast<float>(dist_max_min_diff))));
+        //weight(tx_image, ty_image, n) = select(n == 0, 1.0f, 1.0f - min(1.0f, max(0.0f, dist_channel_norm(tx_image, ty_image, n) - cast<float>(min_dist))/(cast<float>(dist_max_min_diff))));
+        weight(tx_image, ty_image, n) = select(n == 0, u16(256), u16(256) - u16(min(i32(256), max(i32(0), (dist_channel_norm(tx_image, ty_image, n) - i32(min_dist)) * i32(256))    / (i32(dist_max_min_diff)   ))));
         //weight.trace_stores();
 
 
@@ -1069,8 +1073,8 @@ public:
         //alt_val = clamped_input_float(alt_x, alt_y, n);
         // ref_val = clamped_input_float(ref_x, ref_y, 0);
         // alt_val = clamped_input_float(alt_x, alt_y, n);
-        ref_val = cast<float>(clamped_input(ref_x, ref_y, 0));
-        alt_val = cast<float>(clamped_input(alt_x, alt_y, n));
+        ref_val = clamped_input(ref_x, ref_y, 0);
+        alt_val = clamped_input(alt_x, alt_y, n);
 
         Expr x_index = select(n == 0, ref_x, alt_x);
         Expr y_index = select(n == 0, ref_y, alt_y);
@@ -1086,7 +1090,9 @@ public:
         Expr x_index_in_bounds = ((x_index >= 0) && (x_index < input.width()));
         Expr y_index_in_bounds = ((y_index >= 0) && (y_index < input.height()));
 
-        val(xi, yi, tx_image, ty_image, n) = select(x_index_in_bounds && y_index_in_bounds, clamped_input_float(x_index, y_index, n), 0.0f);
+
+        // val(xi, yi, tx_image, ty_image, n) = select(x_index_in_bounds && y_index_in_bounds, clamped_input_float(x_index, y_index, n), 0.0f);
+        val(xi, yi, tx_image, ty_image, n) = select(x_index_in_bounds && y_index_in_bounds, clamped_input(x_index, y_index, n), u16(0));
         //val.trace_stores();
         // Weighted sum of all frames (reference frame and all alternate frames)
         // TODO: Unshuffle back into bayer pattern before sending output 
@@ -1111,14 +1117,22 @@ public:
         // USED 
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = u16(sum(u32(unscaled_normalized_weight(tx, ty, c, r_imgs) * val(xi, yi, tx, ty, c, r_imgs))));
         //output_deinterleaved_tiled(x, y, c) = sum(unscaled_normalized_weight(tile_x, tile_y, c, r_imgs) * val(ix, iy, tile_x, tile_y, c, r_imgs));
-        output_tiled(xi, yi, tx_image, ty_image) = sum(weight(tx_image, ty_image, r_imgs) * val(xi, yi, tx_image, ty_image, r_imgs));
+
+
+        // output_tiled(xi, yi, tx_image, ty_image) = sum((weight(tx_image, ty_image, r_imgs) * val(xi, yi, tx_image, ty_image, r_imgs)));
+        // output_tiled(xi, yi, tx_image, ty_image) = sum((weight(tx_image, ty_image, r_imgs) * val(xi, yi, tx_image, ty_image, r_imgs))/256.f);
+        output_tiled(xi, yi, tx_image, ty_image) = sum(u16((u32(weight(tx_image, ty_image, r_imgs)) * u32(val(xi, yi, tx_image, ty_image, r_imgs))) >> 8));
+
+
+
         //output_tiled(xi, yi, tx_image, ty_image) = cast<float>(0);
+        //output_tiled.trace_stores();
       
         //output_tiled(xi, yi, tx_image, ty_image) += select((x_index_in_bounds && y_index_in_bounds), weight(tx_image, ty_image, n) * val(xi, yi, tx_image, ty_image, n), 0.0f);
         // output_tiled(xi, yi, tx_image, ty_image) = weight(tx_image, ty_image, 0) * val(xi, yi, tx_image, ty_image, 0) 
         // + weight(tx_image, ty_image, 1) * val(xi, yi, tx_image, ty_image, 1)
         // + weight(tx_image, ty_image, 2) * val(xi, yi, tx_image, ty_image, 2);
-        //output_tiled.trace_stores();
+       
         //output_deinterleaved_tiled.trace_stores();
 
         //output_deinterleaved_tiled(xi, yi, tx, ty, c) = u16(sum(u32(mul2(unscaled_normalized_weight(tx, ty, c, r_imgs), val(xi, yi, tx, ty, c, r_imgs)))));
@@ -1130,13 +1144,19 @@ public:
         
 
         Func output_tiled_normalized_cosined;
-        output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi) * (1.0f/sum_weight(tx_image, ty_image));
+        //output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi) * (1.0f/sum_weight(tx_image, ty_image));
+
+
+        // output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi) * (1.0f/sum_weight(tx_image, ty_image) * (256.f));
+        output_tiled_normalized_cosined(xi, yi, tx_image, ty_image) = u16(((output_tiled(xi, yi, tx_image, ty_image) * raised_cosine_weight(xi) * raised_cosine_weight(yi))/(sum_weight(tx_image, ty_image))) * 256.f);
+        
+        
         //output_tiled_normalized_cosined.trace_stores();
 
       
         Func final_output;
-        //final_output(x, y, c) = u16(0);
-        final_output(x, y) = cast<float>(0);
+        final_output(x, y) = u16(0);
+        //final_output(x, y) = cast<float>(0);
         //final_output(x_prime, y, c) += final_output_tiled(ix, iy, tile_x, tile_y, c);
 
         //2 * num_tiles - 1, to account for overlapping tiles 
@@ -1153,9 +1173,9 @@ public:
         final_output(x_prime, y_prime) += output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y);
 
 
-        Expr track_value = ((x_prime == 0) && (y_prime == 129));
-        Expr my_debug_value = output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y);
-        my_debug_value = print_when((x_prime == 0) && (y_prime == 129), my_debug_value, "This is OTNC when x = 0, y = 129");
+        // Expr track_value = ((x_prime == 0) && (y_prime == 129));
+        // Expr my_debug_value = output_tiled_normalized_cosined(tile_RDom.z, tile_RDom.w, tile_RDom.x, tile_RDom.y);
+        // my_debug_value = print_when((x_prime == 0) && (y_prime == 129), my_debug_value, "This is OTNC when x = 0, y = 129");
 
         //Func my_debug_tile;
         //my_debug_tile(x, y) = cast<float>(0);
@@ -1189,7 +1209,7 @@ public:
         Func merge_output;
         //merge_output(x, y) = u16(select((y%2)==0, row_r_result(x, y/2), row_b_result(x, y/2)));
         merge_output(x, y) = final_output(x, y);
-        //merge_output.trace_stores();
+        merge_output.trace_stores();
         //output(x, y, c) = u8(merge_output(x, y) * 255.f);
         //output.trace_stores();
         //output(x, y) = input(x, y, 0);
@@ -1353,7 +1373,7 @@ public:
 
         //output(x, y, c) = u8((cp_output(x, y, c)/3072.f) * 255.f);
         //output(x, y, c) = u8((cp_output(x, y, c)/1023.f) * 255.f);
-        output(x, y, c) = u8(cp_output(x, y, c) * 255.f);
+        //output(x, y, c) = u8(cp_output(x, y, c) * 255.f);
 
 
         //curve.bound(x, 0, 256);
@@ -1673,7 +1693,7 @@ public:
       // END BLOCK COMMENT 
 
       
-      //output(x,y,c) = u8(ef_hw_output(x,y,c));
+      output(x,y,c) = u8(ef_hw_output(x,y,c));
       // output.bound(c, 0, 3);
 
       // NOTE: This probably isn't correct for data that is in a [0.f-1.f] range
@@ -2113,8 +2133,8 @@ public:
             color_corrected
                 .compute_at(curve_out, x)
                 .reorder(c, x, y)
-                .vectorize(x);
-                //.unroll(c);
+                .vectorize(x)
+                .unroll(c);
 
             //demosaicked->intermed_compute_at.set({processed, yi});
             //demosaicked->intermed_store_at.set({processed, yo});
@@ -2128,88 +2148,88 @@ public:
             }
         }
 
-      // // EXPOSURE FUSION SCHEDULE
-      // if (get_target().has_feature(Target::CoreIR)) {
+      // EXPOSURE FUSION SCHEDULE
+      if (get_target().has_feature(Target::CoreIR)) {
 
-      // } else if (get_target().has_feature(Target::Clockwork)) {
+      } else if (get_target().has_feature(Target::Clockwork)) {
 
-      //   // ef_hw_output.compute_root();
+        // ef_hw_output.compute_root();
 
-      //   // ef_hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-      //   //   .reorder(xi,yi,c,xo,yo)
-      //   //   .hw_accelerate(xi, xo);
-      //   //ef_hw_output.unroll(c);
+        // ef_hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+        //   .reorder(xi,yi,c,xo,yo)
+        //   .hw_accelerate(xi, xo);
+        //ef_hw_output.unroll(c);
 
-      //   //blended_image.compute_at(ef_hw_output, xo);
+        //blended_image.compute_at(ef_hw_output, xo);
 
-      //   // for (size_t i=0; i<merged_pyramid.size(); ++i) {
-      //   //   merged_pyramid[i].compute_at(ef_hw_output, xo);
+        // for (size_t i=0; i<merged_pyramid.size(); ++i) {
+        //   merged_pyramid[i].compute_at(ef_hw_output, xo);
           
-      //   //   dark_input_lpyramid[i].compute_at(ef_hw_output, xo);
-      //   //   bright_input_lpyramid[i].compute_at(ef_hw_output, xo);
-      //   //   dark_input_gpyramid[i].compute_at(ef_hw_output, xo);
-      //   //   bright_input_gpyramid[i].compute_at(ef_hw_output, xo);
+        //   dark_input_lpyramid[i].compute_at(ef_hw_output, xo);
+        //   bright_input_lpyramid[i].compute_at(ef_hw_output, xo);
+        //   dark_input_gpyramid[i].compute_at(ef_hw_output, xo);
+        //   bright_input_gpyramid[i].compute_at(ef_hw_output, xo);
           
-      //   //   dark_weight_gpyramid[i].compute_at(ef_hw_output, xo);
-      //   //   bright_weight_gpyramid[i].compute_at(ef_hw_output, xo);
-      //   // }
+        //   dark_weight_gpyramid[i].compute_at(ef_hw_output, xo);
+        //   bright_weight_gpyramid[i].compute_at(ef_hw_output, xo);
+        // }
 
-      //   // ef_weight_sum.compute_at(ef_hw_output, xo);
+        // ef_weight_sum.compute_at(ef_hw_output, xo);
         
-      //   ef_hw_input_bright.stream_to_accelerator();
-      //   ef_hw_input_dark.stream_to_accelerator();
+        ef_hw_input_bright.stream_to_accelerator();
+        ef_hw_input_dark.stream_to_accelerator();
         
-      // } else {    // schedule to CPU
-      //   // //ef_hw_output.compute_root();
-      //   // output.compute_root();
-      //   // //output.tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
-      //   // weight_dark_norm.compute_root();
-      //   // weight_bright_norm.compute_root();
-      //   // ef_hw_input_dark.compute_root();
-      //   // ef_hw_input_bright.compute_root();
-      //   // ef_hw_input_float.compute_root();
-      //   // for (size_t i=0; i<merged_pyramid.size(); ++i) {
-      //   //   merged_pyramid[i].compute_root();
-      //   //   dark_input_lpyramid[i].compute_root();
-      //   //   bright_input_lpyramid[i].compute_root();
-      //   //   dark_weight_gpyramid[i].compute_root();
-      //   //   bright_weight_gpyramid[i].compute_root();
-      //   // }
-      //   // initial_blended_image.compute_root();
-      //   // initial_blended_image.tile(x, y, xo, yo, xi, yi, 16, 16).fuse(xo, yo, outer).parallel(outer);
-      //   // //intermediate_blended_image.compute_root();
-      //   // //blended_image.compute_root();
+      } else {    // schedule to CPU
+        // //ef_hw_output.compute_root();
+        // output.compute_root();
+        // //output.tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
+        // weight_dark_norm.compute_root();
+        // weight_bright_norm.compute_root();
+        // ef_hw_input_dark.compute_root();
+        // ef_hw_input_bright.compute_root();
+        // ef_hw_input_float.compute_root();
+        // for (size_t i=0; i<merged_pyramid.size(); ++i) {
+        //   merged_pyramid[i].compute_root();
+        //   dark_input_lpyramid[i].compute_root();
+        //   bright_input_lpyramid[i].compute_root();
+        //   dark_weight_gpyramid[i].compute_root();
+        //   bright_weight_gpyramid[i].compute_root();
+        // }
+        // initial_blended_image.compute_root();
+        // initial_blended_image.tile(x, y, xo, yo, xi, yi, 16, 16).fuse(xo, yo, outer).parallel(outer);
+        // //intermediate_blended_image.compute_root();
+        // //blended_image.compute_root();
 
 
-      //   // COPYING CLOCKWORK SCHEDULE
-      //   output.compute_root();
+        // COPYING CLOCKWORK SCHEDULE
+        output.compute_root();
 
-      //   output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-      //     .reorder(xi,yi,xo,yo);
+        output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
+          .reorder(xi,yi,xo,yo);
 
 
-      //   initial_blended_image.compute_at(output, xo);
-      //   //intermediate_blended_image.compute_at(output, xo);
-      //   blended_image.compute_at(output, xo);
+        initial_blended_image.compute_at(output, xo);
+        //intermediate_blended_image.compute_at(output, xo);
+        blended_image.compute_at(output, xo);
 
-      //   for (size_t i=0; i<merged_pyramid.size(); ++i) {
-      //     merged_pyramid[i].compute_at(output, xo);
+        for (size_t i=0; i<merged_pyramid.size(); ++i) {
+          merged_pyramid[i].compute_at(output, xo);
           
-      //     dark_input_lpyramid[i].compute_at(output, xo);
-      //     bright_input_lpyramid[i].compute_at(output, xo);
-      //     dark_input_gpyramid[i].compute_at(output, xo);
-      //     bright_input_gpyramid[i].compute_at(output, xo);
+          dark_input_lpyramid[i].compute_at(output, xo);
+          bright_input_lpyramid[i].compute_at(output, xo);
+          dark_input_gpyramid[i].compute_at(output, xo);
+          bright_input_gpyramid[i].compute_at(output, xo);
           
-      //     dark_weight_gpyramid[i].compute_at(output, xo);
-      //     bright_weight_gpyramid[i].compute_at(output, xo);
-      //   }
+          dark_weight_gpyramid[i].compute_at(output, xo);
+          bright_weight_gpyramid[i].compute_at(output, xo);
+        }
 
 
-      //   weight_bright_norm.compute_at(output, xo);
-      //   ef_weight_sum.compute_at(output, xo);
-      //   ef_hw_output_gamma.compute_at(output, xo);
-      //   ef_hw_output.compute_at(output, xo);
-      // }
+        weight_bright_norm.compute_at(output, xo);
+        ef_weight_sum.compute_at(output, xo);
+        ef_hw_output_gamma.compute_at(output, xo);
+        ef_hw_output.compute_at(output, xo);
+      }
     }
 private:
     //Var x, y, tx, ty, xy, xi, yi, c, n;
