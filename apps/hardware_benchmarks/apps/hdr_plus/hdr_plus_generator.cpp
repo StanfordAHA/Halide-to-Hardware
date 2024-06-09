@@ -40,10 +40,18 @@ void fill_funcnames(vector<Func>& funcs, std::string name) {
   //                       {-0.234375,  1.6640625,  -0.4296875, 0},
   //                       {0.0078125, -0.65625, 1.640625, 0}};
 
-  float matrix[3][4] = {{1.7734375, -0.765625,  -0.0078125, 0},
-                        {-0.2578125,  1.5078125,  -0.25, 0},
-                        {0, -0.7265625, 1.7265625, 0}};
 
+
+  // For taxi 
+  // float matrix[3][4] = {{1.7734375, -0.765625,  -0.0078125, 0},
+  //                       {-0.2578125,  1.5078125,  -0.25, 0},
+  //                       {0, -0.7265625, 1.7265625, 0}};
+
+  // For taxi 
+  // Multiply everything above by 256 
+  int16_t matrix[3][4] = {{454, -196,  -2, 0},
+                          {-66,  386,  -64, 0},
+                          {0, -186, 442, 0}};
 
 class HDRPlus : public Halide::Generator<HDRPlus> {
 public:
@@ -135,7 +143,7 @@ public:
                            min(input(x, y-2), input(x, y+2)));
       
       //denoised(x, y) = clamp(input(x,y), min_value, max_value);
-      denoised(x, y) = clamp(input(x,y), 0, max_value);
+      denoised(x, y) = clamp(input(x,y), u16(0), max_value);
       //denoised(x, y) = input(x, y);
       return denoised;
     }
@@ -168,14 +176,18 @@ public:
       Expr is_green_b_point = !(row_is_even) && !(col_is_even);
 
 
-      Expr neighbor_blue_red = (input(x+1, y+1) + input(x+1, y-1) + input(x-1, y+1) + input(x-1, y-1))/4.0f;
+      //Expr neighbor_blue_red = (input(x+1, y+1) + input(x+1, y-1) + input(x-1, y+1) + input(x-1, y-1))/4.0f;
+      Expr neighbor_blue_red = (input(x+1, y+1) + input(x+1, y-1) + input(x-1, y+1) + input(x-1, y-1)) >> 2;
       Expr neighbor_red_blue = neighbor_blue_red;
       
-      Expr neighbor_green_red = (input(x-1, y) + input(x+1, y) + input(x, y-1) + input(x, y+1))/4.0f;
+      //Expr neighbor_green_red = (input(x-1, y) + input(x+1, y) + input(x, y-1) + input(x, y+1))/4.0f;
+      Expr neighbor_green_red = (input(x-1, y) + input(x+1, y) + input(x, y-1) + input(x, y+1)) >> 2;
       Expr neighbor_green_blue = neighbor_green_red;
 
-      Expr neighbor_red_green_r = (input(x-1, y) + input(x+1, y))/2.0f;
-      Expr neighbor_blue_green_r = (input(x, y-1) + input(x, y+1))/2.0f;
+      // Expr neighbor_red_green_r = (input(x-1, y) + input(x+1, y))/2.0f;
+      // Expr neighbor_blue_green_r = (input(x, y-1) + input(x, y+1))/2.0f;
+      Expr neighbor_red_green_r = (input(x-1, y) + input(x+1, y)) >> 1;
+      Expr neighbor_blue_green_r = (input(x, y-1) + input(x, y+1)) >> 1;
 
       Expr neighbor_red_green_b = neighbor_blue_green_r;
       Expr neighbor_blue_green_b = neighbor_red_green_r;
@@ -191,6 +203,11 @@ public:
       demosaicked(x, y, c) = select(c == 0, r,
                                    c == 1, g,
                                    b);
+
+
+      // demosaicked(x, y, c) = cast<int16_t>(select(c == 0, r,
+      //                         c == 1, g,
+      //                         b));
 
       
       //demosaicked(x, y, c) = 0.0f;
@@ -386,8 +403,8 @@ public:
     // Applies a color correction matrix to redefine rgb values.
     // Matrix is defined in 8.8 fixed point
     //Func color_correct(Func input, int32_t matrix[3][4]) {
-    //Func color_correct(Func input, int16_t matrix[3][4]) {
-    Func color_correct(Func input, float matrix[3][4]) {
+    Func color_correct(Func input, int16_t matrix[3][4]) {
+    //Func color_correct(Func input, float matrix[3][4]) {
       //Expr ir = clamp(input(x, y, 0), 0, 10000);
       //Expr ig = clamp(input(x, y, 1), 0, 10000);
       //Expr ib = clamp(input(x, y, 2), 0, 10000);
@@ -398,14 +415,14 @@ public:
       Expr ib = select(input(x, y, 2) < 0, 0, input(x, y, 2));
 
 
-      //Expr r = (matrix[0][3]>>8) + mul1(matrix[0][0], ir) + mul1(matrix[0][1], ig) + mul1(matrix[0][2], ib);
-      //Expr g = (matrix[1][3]>>8) + mul1(matrix[1][0], ir) + mul1(matrix[1][1], ig) + mul1(matrix[1][2], ib);
-      //Expr b = (matrix[2][3]>>8) + mul1(matrix[2][0], ir) + mul1(matrix[2][1], ig) + mul1(matrix[2][2], ib);
+      Expr r = (matrix[0][3]>>8) + mul1(matrix[0][0], ir) + mul1(matrix[0][1], ig) + mul1(matrix[0][2], ib);
+      Expr g = (matrix[1][3]>>8) + mul1(matrix[1][0], ir) + mul1(matrix[1][1], ig) + mul1(matrix[1][2], ib);
+      Expr b = (matrix[2][3]>>8) + mul1(matrix[2][0], ir) + mul1(matrix[2][1], ig) + mul1(matrix[2][2], ib);
 
 
-      Expr r = matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
-      Expr g = matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
-      Expr b = matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
+      // Expr r = matrix[0][0] * ir + matrix[0][1] * ig + matrix[0][2] * ib;
+      // Expr g = matrix[1][0] * ir + matrix[1][1] * ig + matrix[1][2] * ib;
+      // Expr b = matrix[2][0] * ir + matrix[2][1] * ig + matrix[2][2] * ib;
 
       Func corrected("corrected");
       corrected(x, y,  c) = select(c == 0, r,
@@ -425,7 +442,9 @@ public:
       // Anything <0 is converted to 0. 
       //Expr in_val = clamp(input(x, y, c), u16(0), u16(1023));
       //Expr in_val = clamp(input(x, y, c), 0.0f, 1023.f);
-      Expr in_val = select(input(x, y, c) < 0, 0.0f, input(x, y, c));
+
+      //Expr in_val = select(input(x, y, c) < 0, 0.0f, input(x, y, c));
+      Expr in_val = select(input(x, y, c) < 0, u16(0), u16(input(x, y, c)));
       curved(x, y, c) = curve(u16(in_val));
 
       //curved(x, y, c) = in_val;
@@ -1209,7 +1228,7 @@ public:
         Func merge_output;
         //merge_output(x, y) = u16(select((y%2)==0, row_r_result(x, y/2), row_b_result(x, y/2)));
         merge_output(x, y) = final_output(x, y);
-        merge_output.trace_stores();
+        //merge_output.trace_stores();
         //output(x, y, c) = u8(merge_output(x, y) * 255.f);
         //output.trace_stores();
         //output(x, y) = input(x, y, 0);
@@ -1228,7 +1247,10 @@ public:
         //cp_hw_input_temp(x,y) = u16(input(x, y));
         //cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y) * 1024.f);
         //cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y) * 16383.f);
-        cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y));
+
+        //cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y));
+        cp_hw_input_temp(x,y) = merge_output(x, y);
+        
 
         if (get_target().has_feature(Target::Clockwork)) {
             cp_hw_input_shuffle(x, y, c) = cp_hw_input_temp(2*x + c/2, 2*y + c%2);
@@ -1261,6 +1283,8 @@ public:
         r_r(x, y)  = denoised(2*x+1, 2*y);//deinterleaved(x, y, 1);
         b_b(x, y)  = denoised(2*x, 2*y+1);//deinterleaved(x, y, 2);
         g_gb(x, y) = denoised(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
+
+        denoised.trace_stores();
 
 
         //g_gr(x, y) = cp_hw_input(2*x, 2*y);//deinterleaved(x, y, 0);
@@ -1336,8 +1360,9 @@ public:
             //curve(x) = select(x <= minRaw, 0, select(x > maxRaw, u16(255), u16(clamp(val*256.0f, 0.0f, 255.0f))));
             //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 1.0f, clamp(val, 0.0f, 1.0f)));
             //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 3072.f, clamp(val * 3072.f, 0.0f, 3072.f)));
-            curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 1023.f, clamp(val * 1023.f, 0.0f, 1023.f)));
 
+            // curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 1023.f, clamp(val * 1023.f, 0.0f, 1023.f)));
+            curve(x) = select(x <= minRaw, u16(0), select(x > maxRaw, u16(1023), u16(clamp(val * 1023.f, 0.0f, 1023.f))));
 
             //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 255.f, clamp(val*256.0f, 0.0f, 255.0f)));
             //curve(x) = clamp(val*256.0f, 0.0f, 255.0f);
