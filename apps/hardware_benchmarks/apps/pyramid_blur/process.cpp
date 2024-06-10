@@ -79,13 +79,13 @@ int main( int argc, char **argv ) {
   }
 
   int num_tiles          = host_tiling * glb_tiling;
-  int output_tile_width  = 4;
+  int output_tile_width  = 8;
   int output_tile_height = output_tile_width;
   int output_width       = num_tiles * output_tile_width;
   int output_height      = num_tiles * output_tile_height;
 
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
-  processor.input  = Buffer<uint8_t>(output_width*2*2*2*2, output_height*2*2*2*2);
+  processor.input  = Buffer<uint8_t>(output_width*2*2*2, output_height*2*2*2);
   processor.output = Buffer<uint8_t>(output_width, output_height);
   
   processor.inputs_preset = true;

@@ -999,11 +999,11 @@ void CreateCoreIRModule::visit(const Add *op) {
   //}
   // Check if we can instantiate an ADC instead.
   // Order of operations after simplify should be consistent.
-  if (const Add* addvar = op->a.as<Add>()) {
-    if (is_const(op->b) && id_const_value(op->b) == 1) {
-      visit_binop(op->type, addvar->a, addvar->b, "+1+", "adc");
-    }
-  }
+  // if (const Add* addvar = op->a.as<Add>()) {
+  //   if (is_const(op->b) && id_const_value(op->b) == 1) {
+  //     visit_binop(op->type, addvar->a, addvar->b, "+1+", "adc");
+  //   }
+  // }
   
   if (op->a.type().is_float()) {
     visit_binop(op->type, op->a, op->b, "f+", "dwfp_add");
