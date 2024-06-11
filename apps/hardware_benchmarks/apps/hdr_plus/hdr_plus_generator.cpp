@@ -715,7 +715,7 @@ public:
 
         Expr dist_lvl_4 = abs(i16(gPyramid[4](x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid[4](x_cmp_lvl_4, y_cmp_lvl_4, n_lvl_4))); 
         //Expr dist_lvl_4 = absd(gPyramid[4](x_ref_lvl_4, y_ref_lvl_4, 0), gPyramid[4](x_cmp_lvl_4, y_cmp_lvl_4, n_lvl_4)); 
-        scores_lvl_4(tx_lvl_4, ty_lvl_4, x_s_lvl_4, y_s_lvl_4, n_lvl_4) = sum(dist_lvl_4);
+        scores_lvl_4(tx_lvl_4, ty_lvl_4, x_s_lvl_4, y_s_lvl_4, n_lvl_4) = sum(i32(dist_lvl_4));
         //scores_lvl_4.trace_stores();
 
         Tuple min_coor_lvl_4 = argmin(scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4));
@@ -759,7 +759,7 @@ public:
         // Expr y_cmp_lvl_3 = clamp(ty_lvl_3 * T_SIZE + r_tile_lvl_3.y + i32(ceil(coarse_offset_lvl_3(tx_lvl_3, ty_lvl_3, 1, n_lvl_3))) + y_s_lvl_3, 0, gauss_height[3]-1);
 
         Expr dist_lvl_3 = abs(i16(gPyramid[3](x_ref_lvl_3, y_ref_lvl_3, 0)) - i16(gPyramid[3](x_cmp_lvl_3, y_cmp_lvl_3, n_lvl_3))); 
-        scores_lvl_3(tx_lvl_3, ty_lvl_3, x_s_lvl_3, y_s_lvl_3, n_lvl_3) = sum(dist_lvl_3);
+        scores_lvl_3(tx_lvl_3, ty_lvl_3, x_s_lvl_3, y_s_lvl_3, n_lvl_3) = sum(i32(dist_lvl_3));
         Tuple min_coor_lvl_3 = argmin(scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3));
 
 
@@ -801,7 +801,7 @@ public:
 
 
         Expr dist_lvl_2 = abs(i16(gPyramid[2](x_ref_lvl_2, y_ref_lvl_2, 0)) - i16(gPyramid[2](x_cmp_lvl_2, y_cmp_lvl_2, n_lvl_2))); 
-        scores_lvl_2(tx_lvl_2, ty_lvl_2, x_s_lvl_2, y_s_lvl_2, n_lvl_2) = sum(dist_lvl_2);
+        scores_lvl_2(tx_lvl_2, ty_lvl_2, x_s_lvl_2, y_s_lvl_2, n_lvl_2) = sum(i32(dist_lvl_2));
         scores_lvl_2.trace_stores();
         Tuple min_coor_lvl_2 = argmin(scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2));
 
@@ -844,7 +844,7 @@ public:
         // Expr y_cmp_lvl_1 = clamp(ty_lvl_1 * T_SIZE + r_tile_lvl_1.y + i32(ceil(coarse_offset_lvl_1(tx_lvl_1, ty_lvl_1, 1, n_lvl_1))) + y_s_lvl_1, 0, gauss_height[1]-1);
 
         Expr dist_lvl_1 = abs(i16(gPyramid[1](x_ref_lvl_1, y_ref_lvl_1, 0)) - i16(gPyramid[1](x_cmp_lvl_1, y_cmp_lvl_1, n_lvl_1))); 
-        scores_lvl_1(tx_lvl_1, ty_lvl_1, x_s_lvl_1, y_s_lvl_1, n_lvl_1) = sum(dist_lvl_1);
+        scores_lvl_1(tx_lvl_1, ty_lvl_1, x_s_lvl_1, y_s_lvl_1, n_lvl_1) = sum(i32(dist_lvl_1));
         //scores_lvl_1.trace_stores();
         Tuple min_coor_lvl_1 = argmin(scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1));
 
@@ -888,7 +888,7 @@ public:
         // Expr y_cmp_lvl_0 = clamp(ty_lvl_0 * T_SIZE + r_tile_lvl_0.y + i32(ceil(coarse_offset_lvl_0(tx_lvl_0, ty_lvl_0, 1, n_lvl_0))) + y_s_lvl_0, 0, gauss_height[0]-1);
 
         Expr dist_lvl_0 = abs(i16(gPyramid[0](x_ref_lvl_0, y_ref_lvl_0, 0)) - i16(gPyramid[0](x_cmp_lvl_0, y_cmp_lvl_0, n_lvl_0))); 
-        scores_lvl_0(tx_lvl_0, ty_lvl_0, x_s_lvl_0, y_s_lvl_0, n_lvl_0) = sum(dist_lvl_0);
+        scores_lvl_0(tx_lvl_0, ty_lvl_0, x_s_lvl_0, y_s_lvl_0, n_lvl_0) = sum(i32(dist_lvl_0));
         //scores_lvl_0.trace_stores();
         Tuple min_coor_lvl_0 = argmin(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0));
 
