@@ -1264,12 +1264,7 @@ public:
 
 
       // Gamma correct the dark and bright images
-
       float forward_gamma_exponent = 1.f/2.2f;
-      //float forward_gamma_exponent = 2.2f;
-      //ef_hw_input_bright_gamma_corr(x, y) = pow(cast<float>(ef_hw_input_bright(x, y)), forward_gamma_exponent);
-      //ef_hw_input_dark_gamma_corr(x, y) = pow(cast<float>(ef_hw_input_dark(x, y)), forward_gamma_exponent);
-
 
      /* Func: forward_gamma_corr
       * Notes: This should be synthesized into a lookup table
@@ -1281,12 +1276,6 @@ public:
         forward_gamma_corr(x) = u16(pow(cast<float>(x)/1023.f, forward_gamma_exponent) * 1023.f);
 
       }
-
-
-      //ef_hw_input_bright_gamma_corr(x, y) = pow(ef_hw_input_bright(x, y), forward_gamma_exponent);
-      //ef_hw_input_bright_gamma_corr(x, y) = pow(ef_hw_input_bright(x, y)/1023.f, forward_gamma_exponent);
-
-
       
      /* Func: ef_hw_input_bright_gamma_corr
       * dtype: u16
@@ -1296,8 +1285,6 @@ public:
       Func ef_hw_input_bright_gamma_corr;
       ef_hw_input_bright_gamma_corr = apply_forward_gamma_corr(ef_hw_input_bright, forward_gamma_corr);
 
-      //ef_hw_input_dark_gamma_corr(x, y) = pow(ef_hw_input_dark(x, y), forward_gamma_exponent);
-      //ef_hw_input_dark_gamma_corr(x, y) = pow(ef_hw_input_dark(x, y)/1023.f, forward_gamma_exponent);
 
      /* Func: ef_hw_input_dark_gamma_corr
       * dtype: u16
@@ -1321,6 +1308,7 @@ public:
       * Notes: Subtraction done w/ signed datatype as per usual; subtract 512 which represents the "middle" intensity
       * Notes: divide by 1023.f to bring into [0.f-1.f] range before applying exp()
       * Notes: this whole thing should probably just be a pre-computed LUT; LUT input: [0-2032], LUT output: weight [0.1-1.f]
+      * Notes: INT2F conversion required here 
       */ 
       weight_dark(x, y) = exp(-12.5f * (((i16(ef_hw_input_dark(x, y)) - i16(512))/1023.f) *  ((i16(ef_hw_input_dark(x, y)) - i16(512))/1023.f)));
       weight_bright(x, y) = exp(-12.5f * (((i16(ef_hw_input_bright(x, y)) - i16(512))/1023.f) * ((i16(ef_hw_input_bright(x, y)) - i16(512))/1023.f)));
@@ -1350,7 +1338,7 @@ public:
       weight_dark_norm(x,y)   = u16((weight_dark(x,y) / ef_weight_sum(x,y)) * 1023.f);
       weight_bright_norm(x,y) = u16((weight_bright(x,y) / ef_weight_sum(x,y)) * 1023.f);
 
-      weight_dark_norm.trace_stores();
+      //weight_dark_norm.trace_stores();
 
    
       // Create gaussian pyramids of the weights
@@ -1389,8 +1377,11 @@ public:
       //dark_input_lpyramid[0].trace_stores();    
       //bright_input_lpyramid[3].trace_stores();          
 
-      // Merge the input pyramids using the weight pyramids
-      // IMPORTANT: Keep in mind that the laplacian pyramids have type i16, while weights currently have type u16
+     /* Func: merged_pyramid
+      * dtype: i16
+      * True range: [-1023 to +1023]
+      * Consumer(s): initial_blended_image (flatten_pyramid)
+      */ 
       vector<Func> merged_pyramid(ef_pyramid_levels);
       merged_pyramid = merge_pyramids(dark_weight_gpyramid,
                                       bright_weight_gpyramid,
@@ -1404,31 +1395,28 @@ public:
       // Collapse the merged pyramid to create a single image
       Func blended_image, initial_blended_image, intermediate_blended_image;
       vector<Func> upsampled(ef_pyramid_levels);
+
+
+     /* Func: initial_blended_image
+      * dtype: i16
+      * True range: [-2048 to +2048] (worst case? unsure)
+      * Consumer(s): blended_image 
+      */ 
       initial_blended_image = flatten_pyramid(merged_pyramid, upsampled);
       //initial_blended_image.trace_stores();
 
       // Undo the gamma correction
       float reverse_gamma_exponent = 2.2f;
-      //float reverse_gamma_exponent = 1.f/2.2f;
-      //blended_image(x, y) = pow(cast<float>(initial_blended_image(x, y)), reverse_gamma_exponent);
-      //output(x, y) = u8(initial_blended_image(x, y));
-      //output = convert_to_u8(initial_blended_image);
 
 
-      
-      // BEGIN BLOCK COMMENT 
-      // intermediate_blended_image(x, y) = pow(initial_blended_image(x, y), reverse_gamma_exponent);
-      // intermediate_blended_image.trace_stores();
-
-      //blended_image(x, y) = pow(initial_blended_image(x, y), reverse_gamma_exponent);
-
-      //blended_image(x, y) = pow(initial_blended_image(x, y)/1023.f, reverse_gamma_exponent);
+     /* Func: reverse_gamma_corr
+      * Notes: This should be synthesized into a lookup table
+      * LUT input: data in [-2048 to +2048], worst case. For typical case, consider fact that initial_blended_image max and min are 1012.0 and -8.0 respectively for taxi
+      * LUT output: data in the [0, 1023] range. 
+      */ 
       Func reverse_gamma_corr;
       {
-
-        //reverse_gamma_corr(x) = pow(cast<float>(x)/1023.f, reverse_gamma_exponent);
         reverse_gamma_corr(x) = u16(pow(cast<float>(x)/1023.f, reverse_gamma_exponent) * 1023.f);
-
       }
 
 
@@ -1438,163 +1426,108 @@ public:
        * Consumer(s): initial_r_out, initial_g_out, initial_b_out
        */
       blended_image = apply_reverse_gamma_corr(initial_blended_image, reverse_gamma_corr);
-      //blended_image.trace_stores();
-
-
+      blended_image.trace_stores();
 
       //blended_image(x, y) = pow(intermediate_blended_image(x, y), 1.f/2.2f);
 
-
-      // Func ef_hw_input_dark_reverse_gamma_corr, ef_hw_input_bright_reverse_gamma_corr;
-      // ef_hw_input_dark_reverse_gamma_corr(x, y) = pow(ef_hw_input_dark_gamma_corr(x, y), 2.2f);
-      // ef_hw_input_bright_reverse_gamma_corr(x, y) = pow(ef_hw_input_bright_gamma_corr(x, y), 2.2f);
-      //GammaCorrect(initial_blended_image, blended_image, 2.2f);
-      
-
       // YUV-TO-RGB conversion
       Func ef_hw_output, initial_ef_hw_output;
-      
-      // R = blended_image (Y) + 1.14f * yuv.V
-      //Func r_out_signed, g_out_signed, b_out_signed;
       Func initial_r_out, initial_g_out, initial_b_out;
-      //r_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y))); 
-      //r_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_bright(x,y))); 
-      //r_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
-      //r_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)));
-      //r_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
-      
+  
 
+      /* Func: r_channel_scale_factor 
+       * dtype: u16
+       * True range: [0, 1023] 
+       * Consumer(s): initial_r_out
+       * Notes: The [0-1023] range is used to represent the [0.f-1.f] decimal range of r_channel_scale_factor
+       * Notes: INT2F and F2INT conversion required here
+       */
       Func r_channel_scale_factor;
-      //r_channel_scale_factor(x, y) = select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 0))/cast<float>(ef_hw_input_dark(x, y)));
       r_channel_scale_factor(x, y) = u16(select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 0))/cast<float>(ef_hw_input_dark(x, y))) * 1023.f);
-      //r_channel_scale_factor.trace_stores();
-
-      //r_channel_scale_factor(x, y) = (ef_hw_input_float(x, y, 0))/ef_hw_input_dark(x, y);
 
 
-      //r_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(blended_image(x, y)), cast<uint16_t>(r_channel_scale_factor(x, y) * 256.0f));
-      //r_out_signed(x, y) = blended_image(x, y) * r_channel_scale_factor(x, y);
+      /* Func: initial_r_out 
+       * dtype: u16
+       * True range: [0, 1023] (typical case; worse case unknown...)
+       * Consumer(s): initial_ef_hw_output
+       */
       initial_r_out(x, y) = mul_1023_unsigned(blended_image(x, y), r_channel_scale_factor(x, y));
 
-      //r_out_signed(x, y) = cast<int16_t>(u32(cast<uint16_t>(blended_image(x, y) * 256.0f)) + mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(1.14f * 256.0f)));
-      //r_out_signed(x, y) = cast<int16_t>(blended_image(x, y));
-      //r_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_dark_reverse_gamma_corr(x,y))) +
-      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_bright_reverse_gamma_corr(x,y)));
-      //r_out_signed(x, y) = cast<int16_t>(ef_hw_input_bright_reverse_gamma_corr(x, y));
 
-      // G = blended_image (Y) - 0.395f * yuv.U - 0.581f * yuv.V
-      //g_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y))); 
-      //g_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_bright(x,y))); 
-      //g_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
-      //g_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)));
-      //g_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
+      /* Func: g_channel_scale_factor 
+       * dtype: u16
+       * True range: [0, 1023] 
+       * Consumer(s): initial_g_out
+       * Notes: The [0-1023] range is used to represent the [0.f-1.f] decimal range of g_channel_scale_factor
+       * Notes: INT2F and F2INT conversion required here
+       */
       Func g_channel_scale_factor;
-      //g_channel_scale_factor(x, y) = select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 1))/cast<float>(ef_hw_input_dark(x, y)));
       g_channel_scale_factor(x, y) = u16(select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 1))/cast<float>(ef_hw_input_dark(x, y))) * 1023.f);
-      //g_channel_scale_factor(x, y) = (ef_hw_input_float(x, y, 1)/(1023.f))/ef_hw_input_dark(x, y);
-      //g_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(blended_image(x, y)), cast<uint16_t>(g_channel_scale_factor(x, y) * 256.0f));
-      //g_out_signed(x, y) = blended_image(x, y) * g_channel_scale_factor(x, y);
-      initial_g_out(x, y) = mul_1023_unsigned(blended_image(x, y), g_channel_scale_factor(x, y));
-      //g_channel_scale_factor.trace_stores();
-      //g_out_signed(x, y) = cast<int16_t>(u32(cast<uint16_t>(blended_image(x, y) * 256.0f)) - mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(0.395f * 256.0f)) - mul2_fixed_point_signed(input_v(x, y), cast<int16_t>(0.581f * 256.0f)));
-      //g_out_signed(x, y) = cast<int16_t>(blended_image(x, y));
-      //g_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_dark_reverse_gamma_corr(x,y))) +
-      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_bright_reverse_gamma_corr(x,y)));
-      //g_out_signed(x, y) = cast<int16_t>(ef_hw_input_bright_reverse_gamma_corr(x, y));
 
-      // B = blended_image (Y) + 2.033f * yuv.U
-      //b_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y))); 
-      //b_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_bright(x,y))); 
-      //b_out_signed(x, y) = cast<int16_t>(u32(ef_hw_input_dark(x,y)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
-      //b_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)));
-      //b_out_signed(x, y) = cast<int16_t>(u32(blended_image(x,y)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
+      
+      /* Func: initial_g_out 
+       * dtype: u16
+       * True range: [0, 1023] (typical case; worse case unknown...)
+       * Consumer(s): initial_ef_hw_output
+       */
+      initial_g_out(x, y) = mul_1023_unsigned(blended_image(x, y), g_channel_scale_factor(x, y));
+  
+      
+      /* Func: b_channel_scale_factor 
+       * dtype: u16
+       * True range: [0, 1023] 
+       * Consumer(s): initial_b_out
+       * Notes: The [0-1023] range is used to represent the [0.f-1.f] decimal range of b_channel_scale_factor
+       * Notes: INT2F and F2INT conversion required here
+       */
       Func b_channel_scale_factor;
       b_channel_scale_factor(x, y) = u16(select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 2))/cast<float>(ef_hw_input_dark(x, y))) * 1023.f);
-      //b_channel_scale_factor(x, y) = select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 2))/cast<float>(ef_hw_input_dark(x, y)));
-      //b_channel_scale_factor(x, y) = (ef_hw_input_float(x, y, 2)/(1023.f))/ef_hw_input_dark(x, y);
-      //b_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(blended_image(x, y)), cast<uint16_t>(b_channel_scale_factor(x, y) * 256.0f));
-      //b_out_signed(x, y) = blended_image(x, y) * b_channel_scale_factor(x, y);
+
+
+      /* Func: initial_b_out 
+       * dtype: u16
+       * True range: [0, 1023] (typical case; worst case unknown...)
+       * Consumer(s): initial_ef_hw_output
+       */
       initial_b_out(x, y) = mul_1023_unsigned(blended_image(x, y), b_channel_scale_factor(x, y));
-      //b_channel_scale_factor.trace_stores();
 
 
-      //b_out_signed(x, y) = cast<int16_t>(u32(cast<uint16_t>(blended_image(x, y) * 256.0f)) + mul2_fixed_point_signed(input_u(x, y), cast<int16_t>(2.033f * 256.0f)));
-      //b_out_signed(x, y) = cast<int16_t>(blended_image(x, y));
-      //b_out_signed(x, y) = mul2_fixed_point(cast<uint16_t>(weight_dark_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_dark_reverse_gamma_corr(x,y))) +
-      //     mul2_fixed_point(cast<uint16_t>(weight_bright_norm(x,y)/128.0f * 256.0f), cast<uint16_t>(ef_hw_input_bright_reverse_gamma_corr(x,y)));
-      //b_out_signed(x, y) = cast<int16_t>(ef_hw_input_bright_reverse_gamma_corr(x, y));
-
-
-
-      // MAYBE WITH THE NEW FORMULA, DON'T NEED TO DO THIS SIGNED CAST ANYMORE 
-      //ef_hw_output_signed(x,y,c) = cast<int16_t>(select(c == 0, r_out_signed(x, y),
-      //                           c == 1, g_out_signed(x, y),
-      //                                   b_out_signed(x, y)));
-      // ef_hw_output_signed(x,y,c) = select(c == 0, r_out_signed(x, y),
-      //                            c == 1, g_out_signed(x, y),
-      //                                    b_out_signed(x, y));
-
+      /* Func: initial_ef_hw_output
+       * dtype: u16
+       * True range: [0, 1023] (typical case; worst case unknown...)
+       * Consumer(s): ef_hw_output
+       */
       initial_ef_hw_output(x,y,c) = select(c == 0, initial_r_out(x, y),
                                  c == 1, initial_g_out(x, y),
                                          initial_b_out(x, y));
 
 
-
-      
-     
-      //ef_hw_output(x,y,c) = dark_input_lpyramid[ef_pyramid_levels-1](x,y,c);
-      //ef_hw_output(x,y,c) = dark_input_gpyramid[ef_pyramid_levels-1](x,y,c);
-
-      //ef_hw_output(x, y, c) = clamp(ef_hw_output_signed(x, y, c), u16(0), u16(255));
-
-      //ef_hw_output(x,y,c) = select(c == 0, r_out_signed(x, y),
-      //                          c == 1, g_out_signed(x, y),
-      //                                  b_out_signed(x, y));
-      //ef_hw_output(x, y, c) = clamp(ef_hw_output_signed(x, y, c), u16(0), u16(255));
-      //Func ef_hw_output_gamma;
-
+     /* Func: final_forward_gamma_corr
+      * Notes: This should be synthesized into a lookup table
+      * LUT input: [0-1023]
+      * LUT output: corresponding gamma corrected pixel in [0-255] range 
+      */ 
       forward_gamma_exponent = 1.f/2.2f;
       Func final_forward_gamma_corr;
       {
-        //final_forward_gamma_corr(x) = u16(pow(cast<float>(x)/1023.f, forward_gamma_exponent) * 1023.f);
         final_forward_gamma_corr(x) = u8(pow(cast<float>(x)/1023.f, forward_gamma_exponent) * 255.f);
       }
 
-      //ef_hw_output_gamma(x, y, c) = pow(initial_ef_hw_output(x, y, c), 1.f/2.2f);
-      //ef_hw_output_gamma(x, y, c) = pow(ef_hw_output_signed(x, y, c), 2.2f);
-      //ef_hw_output_gamma.trace_stores();
-      //ef_hw_output(x, y, c) =  clamp(((ef_hw_output_gamma(x, y, c)/1023.f) * 255.f), 0, 255.f);
 
-      //ef_hw_output(x, y, c) =  clamp(((ef_hw_output_gamma(x, y, c)) * 255.f), 0, 255.f);
+      /* Func: ef_hw_output
+       * dtype: u8
+       * True range: [0, 255]
+       * Consumer(s): output
+       */
       ef_hw_output = apply_final_forward_gamma_corr(initial_ef_hw_output, final_forward_gamma_corr);
 
-      //ef_hw_output(x, y, c) =  clamp(((ef_hw_output_gamma(x, y, c)) * 255.f), 0, 255.f);
-      //ef_hw_output.trace_stores();
 
-      // Expr minRaw = 25;
-      // Expr maxRaw = 16368;
-      // Expr invRange = 1.0f / (maxRaw - minRaw);
-
-      // END BLOCK COMMENT 
-
-  
+      /* Func: output
+       * dtype: u8
+       * True range: [0, 255]
+       */
       output(x,y,c) = ef_hw_output(x,y,c);
       // output.bound(c, 0, 3);
-
-      // NOTE: This probably isn't correct for data that is in a [0.f-1.f] range
-      //output(x,y,c) = u8(clamp(cast<float>(ef_hw_output(x,y,c) - minRaw) * invRange, 0.0f, 1.0f) * 255.f);
-
-      //USED 
-      //output(x,y,c) = u8(ef_hw_output(x,y,c));
-
-
-      //output.trace_stores();
-
-
-      // USED
-      //output.bound(c, 0, 3);
-      //output.bound(x, 0, 64-ksize+1);
-      //output.bound(y, 0, 64-ksize+1);
 
        /* 
         * END EXPOSURE FUSION 
