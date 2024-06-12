@@ -1998,27 +1998,6 @@ public:
         ef_hw_input_dark.stream_to_accelerator();
         
       } else {    // schedule to CPU
-        // //ef_hw_output.compute_root();
-        // output.compute_root();
-        // //output.tile(x, y, xo, yo, xi, yi, 64, 64).fuse(xo, yo, outer).parallel(outer);
-        // weight_dark_norm.compute_root();
-        // weight_bright_norm.compute_root();
-        // ef_hw_input_dark.compute_root();
-        // ef_hw_input_bright.compute_root();
-        // ef_hw_input_float.compute_root();
-        // for (size_t i=0; i<merged_pyramid.size(); ++i) {
-        //   merged_pyramid[i].compute_root();
-        //   dark_input_lpyramid[i].compute_root();
-        //   bright_input_lpyramid[i].compute_root();
-        //   dark_weight_gpyramid[i].compute_root();
-        //   bright_weight_gpyramid[i].compute_root();
-        // }
-        // initial_blended_image.compute_root();
-        // initial_blended_image.tile(x, y, xo, yo, xi, yi, 16, 16).fuse(xo, yo, outer).parallel(outer);
-        // //intermediate_blended_image.compute_root();
-        // //blended_image.compute_root();
-
-
         // COPYING CLOCKWORK SCHEDULE
         output.compute_root();
 
@@ -2526,20 +2505,11 @@ private:
       Expr pyramid_widths[ef_pyramid_levels];
       Expr pyramid_heights[ef_pyramid_levels];
 
-      // pyramid_widths[0] = 1248;
-      // pyramid_widths[1] = 624;
-      // pyramid_widths[2] = 312;
-      // pyramid_widths[3] = 156;
 
       pyramid_widths[0] = 1248;
       pyramid_widths[1] = 624;
       pyramid_widths[2] = 312;
       pyramid_widths[3] = 156;
-
-      // pyramid_heights[0] = 1120;
-      // pyramid_heights[1] = 560;
-      // pyramid_heights[2] = 280; 
-      // pyramid_heights[3] = 140; 
 
       pyramid_heights[0] = 1120;
       pyramid_heights[1] = 560;
