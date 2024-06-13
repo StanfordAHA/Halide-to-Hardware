@@ -681,6 +681,6 @@ pnr_result:
 	python $(HWSUPPORT)/visualize_pnr.py bin 32 16
 
 clean:
-	rm -rf $(BIN) *_debug.csv test_results .ast_tools
+	rm -rf $(BIN) *_debug.csv test_results .ast_tools *.log
 
 test: run
