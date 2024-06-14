@@ -271,8 +271,8 @@ std::vector<std::string> img_names;
 
   int im_width = 1250;
   int im_height = 1120;
-  //int im_width = 128;
-  //int im_height = 128;
+  // int im_width = 64;
+  // int im_height = 64;
   imgs = Buffer<uint16_t>(im_width, im_height, 3);
   //imgs = Buffer<float>(im_width, im_height, 3);
 
@@ -316,7 +316,14 @@ std::vector<std::string> img_names;
               // convert this to unsigned short 
               imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
               x++;
+              // if (x == im_width) {
+              //   break;
+              // }
           }
+
+          // if (y == im_height) {
+          //   break; 
+          // }
           y++;
       }
 
@@ -423,7 +430,12 @@ std::vector<std::string> img_names;
 
   //processor.output = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
   //processor.output = Buffer<uint8_t>(1250, 1120, 3);
-  processor.output = Buffer<uint8_t>(1248, 1120, 3);
+
+
+  //processor.output = Buffer<uint8_t>(1248, 1120, 3);
+  processor.output = Buffer<uint8_t>(64, 64, 3);
+
+
   //processor.output = Buffer<uint8_t>(1096, 1112, 3);
   //processor.output = Buffer<uint8_t>(128, 128, 3);
   auto cmd_output = processor.process_command(argc, argv);

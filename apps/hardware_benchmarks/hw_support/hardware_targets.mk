@@ -159,6 +159,15 @@ design-coreir-valid design-coreir_valid: $(BIN)/$(TESTNAME).generator
 $(BIN)/$(TESTNAME)_clockwork.cpp $(BIN)/$(TESTNAME)_clockwork.h \
 $(BIN)/clockwork_testscript.h $(BIN)/clockwork_testscript.cpp $(BIN)/clockwork_codegen.cpp \
 clockwork design-clockwork $(BIN)/$(TESTNAME)_memory.cpp $(BIN)/$(TESTNAME)_compute.h: $(BIN)/$(TESTNAME).generator $(BIN)/halide_gen_args
+	echo $(BIN)
+	echo $(TESTGENNAME)
+	echo $(TESTNAME)
+	echo $(HL_TARGET)
+	echo $(HALIDE_GEN_SIZE_ARGS)
+	echo $(HALIDE_GEN_ARGS)
+	echo $(HALIDE_DEBUG_REDIRECT)
+	
+
 	@-mkdir -p $(BIN)
 	$< -g $(TESTGENNAME) -f $(TESTNAME) target=$(HL_TARGET)-clockwork -e clockwork,html $(HALIDE_GEN_SIZE_ARGS) $(HALIDE_GEN_ARGS) $(HALIDE_DEBUG_REDIRECT) -o $(BIN)
 	(echo "//" `cat $(BIN)/halide_gen_args`) | cat >> $(BIN)/$(TESTNAME)_memory.cpp

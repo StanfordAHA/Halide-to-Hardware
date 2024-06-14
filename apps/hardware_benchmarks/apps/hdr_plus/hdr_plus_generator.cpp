@@ -139,10 +139,10 @@ public:
       Func denoised("denoised");
       Expr max_value = max(max(input(x-2, y), input(x+2, y)),
                            max(input(x, y-2), input(x, y+2)));
-      Expr min_value = min(min(input(x-2, y), input(x+2, y)),
+      Expr min_val_lvl_4ue = min(min(input(x-2, y), input(x+2, y)),
                            min(input(x, y-2), input(x, y+2)));
       
-      //denoised(x, y) = clamp(input(x,y), min_value, max_value);
+      //denoised(x, y) = clamp(input(x,y), min_val_lvl_4ue, max_value);
       denoised(x, y) = clamp(input(x,y), u16(0), max_value);
       //denoised(x, y) = input(x, y);
       return denoised;
@@ -519,15 +519,30 @@ public:
          */
         const int J = pyramid_levels;
 
-       Func clamped_input, clamped_input_float;
+      
 
        /* Func: clamped_input
         * dtype: u16
         * True range: [0, 1023]
+        * Consumer(s): hw_input
+        */
+        Func clamped_input;
+        clamped_input = Halide::BoundaryConditions::repeat_edge(input);
+
+
+       /* Func: hw_input
+        * dtype: u16
+        * True range: [0, 1023]
         * Consumer(s): deinterleaved, val (in merge)
         */
-        clamped_input = Halide::BoundaryConditions::repeat_edge(input);
-  
+        Func hw_input;
+        hw_input(x, y, n) = clamped_input(x, y, n);
+
+        Func hw_input_copy;
+        hw_input_copy(x, y, n) = hw_input(x, y, n) + u16(0); 
+        //hw_input(x, y, n) = clamped_input(x, y);
+        // hw_input(x, y) = clamped_input(x, y);
+
 
        /* Func: deinterleaved
         * dtype: u16
@@ -535,12 +550,15 @@ public:
         * Consumer(s): gray
         */
         Func deinterleaved;
-        deinterleaved(x, y, c, n) = select(c == 0, clamped_input(2 * x, 2 * y, n), (select(c == 1, clamped_input(2 * x + 1, 2 * y, n), 
-                                            (select(c == 2, clamped_input(2 * x, 2 * y + 1, n), clamped_input(2 * x + 1, 2 * y + 1, n))))));
+        deinterleaved(x, y, c, n) = select(c == 0, hw_input_copy(2 * x, 2 * y, n), (select(c == 1, hw_input_copy(2 * x + 1, 2 * y, n), 
+                                            (select(c == 2, hw_input_copy(2 * x, 2 * y + 1, n), hw_input_copy(2 * x + 1, 2 * y + 1, n))))));
+
+        // deinterleaved(x, y, c) = select(c == 0, hw_input(2 * x, 2 * y), (select(c == 1, hw_input(2 * x + 1, 2 * y), 
+        //                                     (select(c == 2, hw_input(2 * x, 2 * y + 1), hw_input(2 * x + 1, 2 * y + 1))))));
 
 
         //Var c;
-        //clamped_input_shuffle(x, y, c, n) = clamped_input(2*x + c/2, 2*y + c%2, n);
+        //hw_input_shuffle(x, y, c, n) = hw_input(2*x + c/2, 2*y + c%2, n);
 
 
        // STEP 1: Convert to grayscale 
@@ -552,6 +570,12 @@ public:
         */
         Func gray;   
         gray(x, y, n) = u16((deinterleaved(x, y, 1, n) + deinterleaved(x, y, 0, n) + deinterleaved(x, y, 3, n) + deinterleaved(x, y, 2, n)) >> 2); 
+        // gray(x, y, c) = u8((deinterleaved(x, y, 1) + deinterleaved(x, y, 0) + deinterleaved(x, y, 3) + deinterleaved(x, y, 2)) >> 2); 
+
+
+        //output(x, y, c) = u8(gray(x, y, c));
+        // output(x, y, c) = u8(gray(x, y, 0));
+        // output.bound(c, 0, 3);
        
         //STEP 2: Downsample to form image pyramids 
      
@@ -576,34 +600,45 @@ public:
         * True range: [0, 1023]
         * Consumer(s): dist & scores calculation (in align)
         */
-        Func gPyramid[J];
+        //Func gPyramid[J];
+        vector<Func> gPyramid(J);
         gPyramid[0](x, y, n) = gray(x, y, n);
-        for (int j = 1; j < J; j++) {
-            // In the google paper, they claim they downsample the bottom level of the pyramid by a factor of 2 and all higher levels by a factor of 4
-            Expr gauss_width = input.width()/2;
-            Expr gauss_height = input.height()/2;
-            if (j == 1)
-                //gPyramid[j](x, y, n) = downsample_float_hdr(gPyramid[j-1], 2, gauss_width, gauss_height)(x, y, n);
-                gPyramid[j](x, y, n) = downsample_u16_hdr(gPyramid[j-1], 2, initialGaussWidth[j-1], initialGaussHeight[j-1])(x, y, n);
-            else
-                //gPyramid[j](x, y, n) = downsample_float_hdr(gPyramid[j-1], 4)(x, y, n);
-                //gPyramid[j](x, y, n) = downsample_float_hdr(gPyramid[j-1], 2, gauss_width, gauss_height)(x, y, n);
-                gPyramid[j](x, y, n) = downsample_u16_hdr(gPyramid[j-1], 2, initialGaussWidth[j-1], initialGaussHeight[j-1])(x, y, n);
 
-            gauss_width = gauss_width/2;
-            gauss_height = gauss_height/2;
-        }
+        // Maybe try taking this out of the for loop 
+        // for (int j = 1; j < J; j++) {
+        //     // In the google paper, they claim they downsample the bottom level of the pyramid by a factor of 2 and all higher levels by a factor of 4
+        //     Expr gauss_width = input.width()/2;
+        //     Expr gauss_height = input.height()/2;
+           
+        //     gPyramid[j](x, y, n) = downsample_u16_hdr(gPyramid[j-1], 2, initialGaussWidth[j-1], initialGaussHeight[j-1])(x, y, n);
+     
+        //         //gPyramid[j](x, y, n) = downsample_float_hdr(gPyramid[j-1], 4)(x, y, n);
+        //         //gPyramid[j](x, y, n) = downsample_float_hdr(gPyramid[j-1], 2, gauss_width, gauss_height)(x, y, n);
+        //         //gPyramid[j](x, y, n) = downsample_u16_hdr(gPyramid[j-1], 2, initialGaussWidth[j-1], initialGaussHeight[j-1])(x, y, n);
 
-        //gPyramid[0].trace_stores();
-        //gPyramid[1].trace_stores();
-        //gPyramid[2].trace_stores();
-        //gPyramid[3].trace_stores();
-        //gPyramid[4].trace_stores();
+        //     gauss_width = gauss_width/2;
+        //     gauss_height = gauss_height/2;
+        // }
+
+        gPyramid[1](x, y, n) = downsample_u16_hdr(gPyramid[0], 2, initialGaussWidth[0], initialGaussHeight[0])(x, y, n);
+        gPyramid[2](x, y, n) = downsample_u16_hdr(gPyramid[1], 2, initialGaussWidth[1], initialGaussHeight[1])(x, y, n);
+        gPyramid[3](x, y, n) = downsample_u16_hdr(gPyramid[2], 2, initialGaussWidth[2], initialGaussHeight[2])(x, y, n);
+        gPyramid[4](x, y, n) = downsample_u16_hdr(gPyramid[3], 2, initialGaussWidth[3], initialGaussHeight[3])(x, y, n);
+
+
+
+
+      //   //gPyramid[0].trace_stores();
+      //   //gPyramid[1].trace_stores();
+      //   //gPyramid[2].trace_stores();
+      //   //gPyramid[3].trace_stores();
+      //   //gPyramid[4].trace_stores();
 
         // STEP 3: Align pyramids and upsample the alignment back to the bottom layer 
         Func initialAlign;
         initialAlign(tx, ty, xy, n) = 0;
-        Func alignPyramid[J];
+        //Func alignPyramid[J];
+        vector<Func> alignPyramid(J);
         Expr min_align[J];
         Expr max_align[J];
         Expr gauss_width[J];
@@ -667,7 +702,7 @@ public:
         Func coarse_offset_lvl_4;
         //coarse_offset_lvl_4(tx_lvl_4, ty_lvl_4, xy_lvl_4, n_lvl_4) = 2 * i32(ceil(upsample_float_size_2_for_alignment(initialAlign, upsample_flow_gauss_widths[4], upsample_flow_gauss_heights[4])(tx_lvl_4, ty_lvl_4, xy_lvl_4, n_lvl_4)));
         coarse_offset_lvl_4(tx_lvl_4, ty_lvl_4, xy_lvl_4, n_lvl_4) = i16(2 * upsample_u16_size_2_for_alignment(initialAlign, upsample_flow_gauss_widths[4], upsample_flow_gauss_heights[4])(tx_lvl_4, ty_lvl_4, xy_lvl_4, n_lvl_4));
-    
+      
         Expr x_ref_lvl_4 = clamp(tx_lvl_4 * T_SIZE + r_tile_lvl_4.x, 0, gauss_width[4]-1);
         Expr y_ref_lvl_4 = clamp(ty_lvl_4 * T_SIZE + r_tile_lvl_4.y, 0, gauss_height[4]-1);
 
@@ -683,9 +718,27 @@ public:
         */
         Func scores_lvl_4;
         scores_lvl_4(tx_lvl_4, ty_lvl_4, x_s_lvl_4, y_s_lvl_4, n_lvl_4) = sum(u32(dist_lvl_4));
+        //scores_lvl_4(tx_lvl_4, ty_lvl_4, x_s_lvl_4, y_s_lvl_4, n_lvl_4) = sum(u16(dist_lvl_4));
 
-        Tuple min_coor_lvl_4 = argmin(scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4));
 
+        //alignPyramid[4](tx_lvl_4, ty_lvl_4, xy_lvl_4, n_lvl_4) = scores_lvl_4(tx_lvl_4, ty_lvl_4, 0, 0, 0);
+
+        Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
+        min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = cast<uint>(std::numeric_limits<int>::max());
+        //min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = cast<uint16_t>(std::numeric_limits<int>::max());
+        min_x_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = 0;
+        min_y_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = 0;
+
+        // Update the minimum function and coordinates
+        Expr new_min_lvl_4 = select(scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4) < min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4), scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4), min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4));
+        Expr new_min_lvl_4_x_lvl_4 = select(scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4) < min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4), r_search_lvl_4.x, min_x_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4));
+        Expr new_min_lvl_4_y_lvl_4 = select(scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4) < min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4), r_search_lvl_4.y, min_y_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4));
+
+        min_val_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = new_min_lvl_4;
+        min_x_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = new_min_lvl_4_x_lvl_4;
+        min_y_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4) = new_min_lvl_4_y_lvl_4;
+
+        //Tuple min_coor_lvl_4 = argmin(scores_lvl_4(tx_lvl_4, ty_lvl_4, r_search_lvl_4.x, r_search_lvl_4.y, n_lvl_4));
 
        /* Func: alignPyramid[4]
         * dtype: i16
@@ -693,10 +746,12 @@ public:
         * Consumer(s): coarse_offset_lvl_3
         */
         alignPyramid[4](tx_lvl_4, ty_lvl_4, xy_lvl_4, n_lvl_4) = select(n_lvl_4 == 0, i16(0),
-                    xy_lvl_4 == 0, i16(min_coor_lvl_4[0]) + coarse_offset_lvl_4(tx_lvl_4, ty_lvl_4, 0, n_lvl_4),
-                    i16(min_coor_lvl_4[1]) + coarse_offset_lvl_4(tx_lvl_4, ty_lvl_4, 1, n_lvl_4)); 
+                    xy_lvl_4 == 0, i16(min_x_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4)) + coarse_offset_lvl_4(tx_lvl_4, ty_lvl_4, 0, n_lvl_4),
+                    i16(min_y_lvl_4(tx_lvl_4, ty_lvl_4, n_lvl_4)) + coarse_offset_lvl_4(tx_lvl_4, ty_lvl_4, 1, n_lvl_4)); 
 
 
+        // output(x, y, c) = u8(alignPyramid[4](x, y, 0, c));
+        // output.bound(c, 0, 3);
 
         //alignPyramid[4].trace_stores();
 
@@ -733,20 +788,35 @@ public:
         */
         Func scores_lvl_3;
         scores_lvl_3(tx_lvl_3, ty_lvl_3, x_s_lvl_3, y_s_lvl_3, n_lvl_3) = sum(u32(dist_lvl_3));
-        Tuple min_coor_lvl_3 = argmin(scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3));
+        //scores_lvl_3(tx_lvl_3, ty_lvl_3, x_s_lvl_3, y_s_lvl_3, n_lvl_3) = sum(u16(dist_lvl_3));
 
+        Func min_val_lvl_3, min_x_lvl_3, min_y_lvl_3;
+        min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = cast<uint>(std::numeric_limits<int>::max());
+        //min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = cast<uint16_t>(std::numeric_limits<int>::max());
+        min_x_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = 0;
+        min_y_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = 0;
+
+        // Update the minimum function and coordinates
+        Expr new_min_lvl_3 = select(scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3) < min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3), scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3), min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3));
+        Expr new_min_lvl_3_x_lvl_3 = select(scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3) < min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3), r_search_lvl_3.x, min_x_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3));
+        Expr new_min_lvl_3_y_lvl_3 = select(scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3) < min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3), r_search_lvl_3.y, min_y_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3));
+
+        min_val_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = new_min_lvl_3;
+        min_x_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = new_min_lvl_3_x_lvl_3;
+        min_y_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3) = new_min_lvl_3_y_lvl_3;
+
+        //Tuple min_coor_lvl_3 = argmin(scores_lvl_3(tx_lvl_3, ty_lvl_3, r_search_lvl_3.x, r_search_lvl_3.y, n_lvl_3));
 
        /* Func: alignPyramid[3]
         * dtype: i16
-        * True range: [-12, 12] (worst case)
+        * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_3
         */
         alignPyramid[3](tx_lvl_3, ty_lvl_3, xy_lvl_3, n_lvl_3) = select(n_lvl_3 == 0, i16(0),
-                    xy_lvl_3 == 0, i16(min_coor_lvl_3[0]) + coarse_offset_lvl_3(tx_lvl_3, ty_lvl_3, 0, n_lvl_3),
-                    i16(min_coor_lvl_3[1]) + coarse_offset_lvl_3(tx_lvl_3, ty_lvl_3, 1, n_lvl_3)); 
- 
-
+                    xy_lvl_3 == 0, i16(min_x_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3)) + coarse_offset_lvl_3(tx_lvl_3, ty_lvl_3, 0, n_lvl_3),
+                    i16(min_y_lvl_3(tx_lvl_3, ty_lvl_3, n_lvl_3)) + coarse_offset_lvl_3(tx_lvl_3, ty_lvl_3, 1, n_lvl_3));
         //alignPyramid[3].trace_stores();
+
 
         /* ALIGN PYRAMID LEVEL 2*/
         Var tx_lvl_2, ty_lvl_2, xy_lvl_2, n_lvl_2;
@@ -782,19 +852,34 @@ public:
         */
         Func scores_lvl_2;
         scores_lvl_2(tx_lvl_2, ty_lvl_2, x_s_lvl_2, y_s_lvl_2, n_lvl_2) = sum(u32(dist_lvl_2));
+        //scores_lvl_2(tx_lvl_2, ty_lvl_2, x_s_lvl_2, y_s_lvl_2, n_lvl_2) = sum(u16(dist_lvl_2));
         scores_lvl_2.trace_stores();
-        Tuple min_coor_lvl_2 = argmin(scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2));
 
+        Func min_val_lvl_2, min_x_lvl_2, min_y_lvl_2;
+        min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = cast<uint>(std::numeric_limits<int>::max());
+        //min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = cast<uint16_t>(std::numeric_limits<int>::max());
+        min_x_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = 0;
+        min_y_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = 0;
+
+        // Update the minimum function and coordinates
+        Expr new_min_lvl_2 = select(scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2) < min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2), scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2), min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2));
+        Expr new_min_lvl_2_x_lvl_2 = select(scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2) < min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2), r_search_lvl_2.x, min_x_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2));
+        Expr new_min_lvl_2_y_lvl_2 = select(scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2) < min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2), r_search_lvl_2.y, min_y_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2));
+
+        min_val_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = new_min_lvl_2;
+        min_x_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = new_min_lvl_2_x_lvl_2;
+        min_y_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2) = new_min_lvl_2_y_lvl_2;
+
+        //Tuple min_coor_lvl_2 = argmin(scores_lvl_2(tx_lvl_2, ty_lvl_2, r_search_lvl_2.x, r_search_lvl_2.y, n_lvl_2));
 
        /* Func: alignPyramid[2]
         * dtype: i16
-        * True range: [-28, 28] (worst case)
+        * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_2
         */
         alignPyramid[2](tx_lvl_2, ty_lvl_2, xy_lvl_2, n_lvl_2) = select(n_lvl_2 == 0, i16(0),
-                    xy_lvl_2 == 0, i16(min_coor_lvl_2[0]) + coarse_offset_lvl_2(tx_lvl_2, ty_lvl_2, 0, n_lvl_2),
-                    i16(min_coor_lvl_2[1]) + coarse_offset_lvl_2(tx_lvl_2, ty_lvl_2, 1, n_lvl_2)); 
-
+                    xy_lvl_2 == 0, i16(min_x_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2)) + coarse_offset_lvl_2(tx_lvl_2, ty_lvl_2, 0, n_lvl_2),
+                    i16(min_y_lvl_2(tx_lvl_2, ty_lvl_2, n_lvl_2)) + coarse_offset_lvl_2(tx_lvl_2, ty_lvl_2, 1, n_lvl_2));
         
         //alignPyramid[2].trace_stores();
 
@@ -831,18 +916,34 @@ public:
         */
         Func scores_lvl_1;
         scores_lvl_1(tx_lvl_1, ty_lvl_1, x_s_lvl_1, y_s_lvl_1, n_lvl_1) = sum(u32(dist_lvl_1));
+        //scores_lvl_1(tx_lvl_1, ty_lvl_1, x_s_lvl_1, y_s_lvl_1, n_lvl_1) = sum(u16(dist_lvl_1));
         //scores_lvl_1.trace_stores();
-        Tuple min_coor_lvl_1 = argmin(scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1));
+
+        Func min_val_lvl_1, min_x_lvl_1, min_y_lvl_1;
+        min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = cast<uint>(std::numeric_limits<int>::max());
+        //min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = cast<uint16_t>(std::numeric_limits<int>::max());
+        min_x_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = 0;
+        min_y_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = 0;
+
+        // Update the minimum function and coordinates
+        Expr new_min_lvl_1 = select(scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1) < min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1), scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1), min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1));
+        Expr new_min_lvl_1_x_lvl_1 = select(scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1) < min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1), r_search_lvl_1.x, min_x_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1));
+        Expr new_min_lvl_1_y_lvl_1 = select(scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1) < min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1), r_search_lvl_1.y, min_y_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1));
+
+        min_val_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = new_min_lvl_1;
+        min_x_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = new_min_lvl_1_x_lvl_1;
+        min_y_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1) = new_min_lvl_1_y_lvl_1;
+
+        //Tuple min_coor_lvl_1 = argmin(scores_lvl_1(tx_lvl_1, ty_lvl_1, r_search_lvl_1.x, r_search_lvl_1.y, n_lvl_1));
 
        /* Func: alignPyramid[1]
         * dtype: i16
-        * True range: [-60, 60] (worst case)
+        * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_1
         */
         alignPyramid[1](tx_lvl_1, ty_lvl_1, xy_lvl_1, n_lvl_1) = select(n_lvl_1 == 0, i16(0),
-                    xy_lvl_1 == 0, i16(min_coor_lvl_1[0]) + coarse_offset_lvl_1(tx_lvl_1, ty_lvl_1, 0, n_lvl_1),
-                    i16(min_coor_lvl_1[1]) + coarse_offset_lvl_1(tx_lvl_1, ty_lvl_1, 1, n_lvl_1)); 
-
+                    xy_lvl_1 == 0, i16(min_x_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1)) + coarse_offset_lvl_1(tx_lvl_1, ty_lvl_1, 0, n_lvl_1),
+                    i16(min_y_lvl_1(tx_lvl_1, ty_lvl_1, n_lvl_1)) + coarse_offset_lvl_1(tx_lvl_1, ty_lvl_1, 1, n_lvl_1));
         //alignPyramid[1].trace_stores();
 
         
@@ -880,18 +981,33 @@ public:
         */
         Func scores_lvl_0;
         scores_lvl_0(tx_lvl_0, ty_lvl_0, x_s_lvl_0, y_s_lvl_0, n_lvl_0) = sum(u32(dist_lvl_0));
+        //scores_lvl_0(tx_lvl_0, ty_lvl_0, x_s_lvl_0, y_s_lvl_0, n_lvl_0) = sum(u16(dist_lvl_0));
         //scores_lvl_0.trace_stores();
-        Tuple min_coor_lvl_0 = argmin(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0));
+        Func min_val_lvl_0, min_x_lvl_0, min_y_lvl_0;
+        min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = cast<uint>(std::numeric_limits<int>::max());
+        //min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = cast<uint16_t>(std::numeric_limits<int>::max());
+        min_x_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = 0;
+        min_y_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = 0;
 
+        // Update the minimum function and coordinates
+        Expr new_min_lvl_0 = select(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0) < min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0), scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0), min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0));
+        Expr new_min_lvl_0_x_lvl_0 = select(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0) < min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0), r_search_lvl_0.x, min_x_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0));
+        Expr new_min_lvl_0_y_lvl_0 = select(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0) < min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0), r_search_lvl_0.y, min_y_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0));
+
+        min_val_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = new_min_lvl_0;
+        min_x_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = new_min_lvl_0_x_lvl_0;
+        min_y_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0) = new_min_lvl_0_y_lvl_0;
+
+        //Tuple min_coor_lvl_0 = argmin(scores_lvl_0(tx_lvl_0, ty_lvl_0, r_search_lvl_0.x, r_search_lvl_0.y, n_lvl_0));
 
        /* Func: alignPyramid[0]
         * dtype: i16
-        * True range: [-124, 124] (worst case)
+        * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_0
         */
         alignPyramid[0](tx_lvl_0, ty_lvl_0, xy_lvl_0, n_lvl_0) = select(n_lvl_0 == 0, i16(0),
-                    xy_lvl_0 == 0, i16(min_coor_lvl_0[0]) + coarse_offset_lvl_0(tx_lvl_0, ty_lvl_0, 0, n_lvl_0),
-                    i16(min_coor_lvl_0[1]) + coarse_offset_lvl_0(tx_lvl_0, ty_lvl_0, 1, n_lvl_0)); 
+                    xy_lvl_0 == 0, i16(min_x_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0)) + coarse_offset_lvl_0(tx_lvl_0, ty_lvl_0, 0, n_lvl_0),
+                    i16(min_y_lvl_0(tx_lvl_0, ty_lvl_0, n_lvl_0)) + coarse_offset_lvl_0(tx_lvl_0, ty_lvl_0, 1, n_lvl_0));
 
         //alignPyramid[0].trace_stores();
         
@@ -902,10 +1018,9 @@ public:
         */
         Func align_output;
         align_output(tx, ty, xy, n) = alignPyramid[0](tx, ty, xy, n);
-        Expr max_tx = (input.width()/2)/(T_SIZE);
-        Expr max_ty = (input.height()/2)/(T_SIZE);
-  
-     
+        // Expr max_tx = (input.width()/2)/(T_SIZE);
+        // Expr max_ty = (input.height()/2)/(T_SIZE);
+        // output(x, y, c) = u8(align_output(x, y, 0, c));
         /* 
          * END ALIGN STEP
          */
@@ -930,7 +1045,7 @@ public:
 
 
         // This is for the number of images being merged 
-        RDom r_imgs(0, input.dim(2).extent());
+        RDom r_imgs(0, 3);
 
 
         // I THINK HOW TO DO OVERLAPING TILES IS DIVIDE T_SIZE BY 2 IN THIS EXPRESSION. 
@@ -1012,8 +1127,8 @@ public:
         alt_x = (tx_image*(T_SIZE/2)) + xi + (2*offset_x);
         alt_y = (ty_image*(T_SIZE/2)) + yi+ (2*offset_y);
   
-        ref_val = clamped_input(ref_x, ref_y, 0);
-        alt_val = clamped_input(alt_x, alt_y, n);
+        ref_val = hw_input_copy(ref_x, ref_y, 0);
+        alt_val = hw_input_copy(alt_x, alt_y, n);
 
         Expr x_index = select(n == 0, ref_x, alt_x);
         Expr y_index = select(n == 0, ref_y, alt_y);
@@ -1027,7 +1142,7 @@ public:
         * Consumer(s): output_tiled
         */    
         Func val;
-        val(xi, yi, tx_image, ty_image, n) = select(x_index_in_bounds && y_index_in_bounds, clamped_input(x_index, y_index, n), u16(0));
+        val(xi, yi, tx_image, ty_image, n) = select(x_index_in_bounds && y_index_in_bounds, hw_input_copy(x_index, y_index, n), u16(0));
         //val.trace_stores();
 
 
@@ -1088,454 +1203,110 @@ public:
         Func merge_output;
         merge_output(x, y) = final_merge_output(x, y);
         //merge_output.trace_stores();
-        //output(x, y, c) = u8(merge_output(x, y) * 255.f);
+
+        output(x, y, c) = u8(merge_output(x, y) * 255.f);
+
+        // TODO: bound all dimensions of the output with statements like those below
+        output.bound(c, 0, 3);
+        output.bound(x, 0, 64);
+        output.bound(y, 0, 64);
+
         /* 
          * END MERGE STEP
          */
 
 
 
-        /* 
-         * BEGIN CAMERA PIPELINE 
-         */
-         Func cp_hw_input, cp_hw_input_temp, cp_hw_input_shuffle, cp_hw_input_shift;
-        //cp_hw_input_temp(x,y) = u16(input(x+(blockSize-1)/2, y+(blockSize-1)/2));
-        //cp_hw_input_temp(x,y) = u16(input(x, y));
-        //cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y) * 1024.f);
-        //cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y) * 16383.f);
-
-        //cp_hw_input_temp(x,y) = cast<float>(merge_output(x, y));
-        cp_hw_input_temp(x,y) = merge_output(x, y);
-        
-
-        if (get_target().has_feature(Target::Clockwork)) {
-            cp_hw_input_shuffle(x, y, c) = cp_hw_input_temp(2*x + c/2, 2*y + c%2);
-
-            //cp_hw_input(x, y) = cp_hw_input_shuffle(x/4 + 622*(y%2), y/2, x%4);
-            int iWidth = (tWidth * nTiles + blockSize-1) / 4;
-            cp_hw_input_shift(x, y) = cp_hw_input_shuffle(x/4 + iWidth*(y%2), y/2, x%4);
-            cp_hw_input(x, y) = cp_hw_input_shift(x+(blockSize-1)/2, y+(blockSize-1)/2);
-        } else {
-            cp_hw_input(x, y) = cp_hw_input_temp(x+(blockSize-1)/2, y+(blockSize-1)/2);
-        }
-
-        
-        Func denoised;
-        denoised = hot_pixel_suppression(cp_hw_input);
-
-        // Give more convenient names to the four channels we know
-        Func r_r, g_gr, g_gb, b_b;
-        g_gr(x, y) = denoised(2*x, 2*y);//deinterleaved(x, y, 0);
-        r_r(x, y)  = denoised(2*x+1, 2*y);//deinterleaved(x, y, 1);
-        b_b(x, y)  = denoised(2*x, 2*y+1);//deinterleaved(x, y, 2);
-        g_gb(x, y) = denoised(2*x+1, 2*y+1);//deinterleaved(x, y, 3);
-
-        //denoised.trace_stores();
-    
-        Func demosaicked, my_demosaicked;
-        Func b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b;
-        demosaicked = demosaic(g_gr, r_r, b_b, g_gb,
-                                b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b);
-
-        my_demosaicked = my_demosaic(denoised);
-        //demosaicked = demosaic(g_gr_wb, r_r_wb, b_b_wb, g_gb_wb,
-        //                       b_r, g_r, b_gr, r_gr, b_gb, r_gb, r_b, g_b);
-
-        Func color_corrected;
-        color_corrected = color_correct(my_demosaicked, matrix);
-
-        Func curve;
-        {
-
-            // BL, WL CHANGE
-            Expr minRaw = blackLevel;
-            Expr maxRaw = whiteLevel;
-            Expr invRange = 1.0f / (maxRaw - minRaw);
-
-            // BL, WL CHANGE
-            //Expr xf = clamp(cast<float>(x)/1024.0f, 0.f, 1.f);
-
-            Expr xf = clamp(cast<float>(x - minRaw) * invRange, 0.0f, 1.0f);
-            Expr g = pow(xf, 1.0f/gamma);
-            Expr b = 2.0f - (float) pow(2.0f, contrast/100.0f);
-            Expr a = 2.0f - 2.0f*b;
-            Expr val = select(g > 0.5f,
-                            1.0f - (a*(1.0f-g)*(1.0f-g) + b*(1.0f-g)),
-                            a*g*g + b*g);
-
-            // BL, WL CHANGE
-            //curve(x) = u16(clamp(val*256.0f, 0.0f, 255.0f));
-
-            //curve(x) = select(x <= minRaw, 0, select(x > maxRaw, u16(255), u16(clamp(val*256.0f, 0.0f, 255.0f))));
-            //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 1.0f, clamp(val, 0.0f, 1.0f)));
-            //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 3072.f, clamp(val * 3072.f, 0.0f, 3072.f)));
-
-            // curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 1023.f, clamp(val * 1023.f, 0.0f, 1023.f)));
-            curve(x) = select(x <= minRaw, u16(0), select(x > maxRaw, u16(1023), u16(clamp(val * 1023.f, 0.0f, 1023.f))));
-
-            //curve(x) = select(x <= minRaw, 0.0f, select(x > maxRaw, 255.f, clamp(val*256.0f, 0.0f, 255.0f)));
-            //curve(x) = clamp(val*256.0f, 0.0f, 255.0f);
-        }
-
-        Func cp_hw_output, curve_out, output_shuffle, gamma_corr_out;
-        curve_out = apply_curve(color_corrected, curve);
-        //curve_out = apply_curve(my_demosaicked, curve);
-        //gamma_corr_out = gamma_correction(curve_out, 1.1f);
-        //curve_out = apply_curve(color_corrected, curve);
-        cp_hw_output(c, x, y) = curve_out(x, y, c);
-        //cp_hw_output(c, x, y) = demosaicked(x, y, c);
-        //cp_hw_output(c, x, y) = denoised(x, y);
-
-
-        Func cp_output;
-
-        Var k;
-        if (get_target().has_feature(Target::Clockwork)) {
-            int iWidth = tWidth * nTiles / 4;
-            output_shuffle(c, k, x, y) = u8(cp_hw_output(c, (x%iWidth)*4 + k, x/iWidth + 2*y));
-            //output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), max(x/2 - 1, 0), y/2);
-            cp_output(x, y, c) = output_shuffle(c, y%2 + 2*(x%2), x/2, y/2);
-        } else {
-            //output(x, y, c) = u8(cp_hw_output(c, x+2, y));
-
-
-            //cp_output(x, y, c) = u8(cp_hw_output(c, x, y));
-            //cp_output(x, y, c) = cp_hw_output(c, x, y)/1023.f;
-            cp_output(x, y, c) = cp_hw_output(c, x, y);
-
-        }
-
-        //output(x, y, c) = u8((cp_output(x, y, c)/3072.f) * 255.f);
-        //output(x, y, c) = u8((cp_output(x, y, c)/1023.f) * 255.f);
-        //output(x, y, c) = u8(cp_output(x, y, c) * 255.f);
-
-
-        //curve.bound(x, 0, 256);
-      
-        //cp_output.trace_stores();
-
-    
-       /* 
-        * END CAMERA PIPELINE 
-        */
-
-
-
-     /* 
-      * BEGIN EXPOSURE FUSION 
-      */
-
-     
-     /* Func: ef_hw_input
-      * dtype: u16
-      * True range: [0, 1023] 
-      * Consumer(s): ef_hw_input_dark, r_channel_scale_factor, g_channel_scale_factor, b_channel_scale_factor
-      */ 
-      Func ef_hw_input;
-      ef_hw_input(x, y, c) = cp_output(x, y, c);
-
-      // Create dark and bright versions of image 
-      Func ef_hw_input_bright, ef_hw_input_dark;
-      
-      // input dark is grayscale version of input
-      //ef_hw_input_dark(x, y) = (0.299f * ef_hw_input_float(x, y, 0)) + (0.587f * ef_hw_input_float(x, y, 1)) + (0.114f * ef_hw_input_float(x, y, 2));
-      //ef_hw_input_dark(x, y) = u16((0.299f * ef_hw_input(x, y, 0)) + (0.587f * ef_hw_input(x, y, 1)) + (0.114f * ef_hw_input(x, y, 2)));
-
-
-     /* Func: ef_hw_input_dark
-      * dtype: u16
-      * True range: [0, 1023] 
-      * Notes: intermediate values are represeted in u32 b/c u16 cannot represent the scaling factor * 1023 (max value)
-      * Consumer(s): ef_hw_input_dark_gamma_corr, ef_hw_input_bright, r_channel_scale_factor, g_channel_scale_factor, b_channel_scale_factor
-      */ 
-      ef_hw_input_dark(x, y) = u16((77 * u32(ef_hw_input(x, y, 0)) + 150 * u32(ef_hw_input(x, y, 1)) + 29 * u32(ef_hw_input(x, y, 2))) >> 8);
-      //ef_hw_input_dark.trace_stores();
-
-
-     /* Func: ef_hw_input_bright
-      * dtype: u16
-      * True range: [0, 2302] 
-      * Consumer(s): ef_hw_input_bright_gamma_corr
-      */ 
-      // input bright is input dark, multiplied by a scale factor (2.25 f)
-      //ef_hw_input_bright(x, y) = 2.25f * ef_hw_input_dark(x, y);
-      //ef_hw_input_bright(x, y) = u16(2.25f * ef_hw_input_dark(x, y));
-      ef_hw_input_bright(x, y) = (ef_hw_input_dark(x, y) << 1) + (ef_hw_input_dark(x, y) >> 2);
-
-
-      // Gamma correct the dark and bright images
-      float forward_gamma_exponent = 1.f/2.2f;
-
-     /* Func: forward_gamma_corr
-      * Notes: This should be synthesized into a lookup table
-      * LUT input: [0-2302]
-      * LUT output: corresponding gamma corrected pixel in same approximate range
-      */ 
-      Func forward_gamma_corr;
-      {
-        forward_gamma_corr(x) = u16(pow(cast<float>(x)/1023.f, forward_gamma_exponent) * 1023.f);
-
-      }
-      
-     /* Func: ef_hw_input_bright_gamma_corr
-      * dtype: u16
-      * True range: [0, 2302] 
-      * Consumer(s): bright_input_lpyramid
-      */ 
-      Func ef_hw_input_bright_gamma_corr;
-      ef_hw_input_bright_gamma_corr = apply_forward_gamma_corr(ef_hw_input_bright, forward_gamma_corr);
-
-
-     /* Func: ef_hw_input_dark_gamma_corr
-      * dtype: u16
-      * True range: [0, 1023] 
-      * Consumer(s): dark_input_lpyramid
-      */ 
-      Func ef_hw_input_dark_gamma_corr;
-      ef_hw_input_dark_gamma_corr = apply_forward_gamma_corr(ef_hw_input_dark, forward_gamma_corr);
-
-      //ef_hw_input_dark_gamma_corr.trace_stores();
-      //ef_hw_input_bright_gamma_corr.trace_stores();
-
-      // Create exposure weight
-      Func weight_dark, weight_bright, ef_weight_sum, weight_dark_norm, weight_bright_norm;
-
-
-     /* Func: weight_dark/weight_bright
-      * dtype: float
-      * True range: [0.f-1.f]
-      * Consumer(s): ef_weight_sum, weight_dark_norm
-      * Notes: Subtraction done w/ signed datatype as per usual; subtract 512 which represents the "middle" intensity
-      * Notes: divide by 1023.f to bring into [0.f-1.f] range before applying exp()
-      * Notes: this whole thing should probably just be a pre-computed LUT; LUT input: [0-2032], LUT output: weight [0.1-1.f]
-      * Notes: INT2F conversion required here 
-      */ 
-      weight_dark(x, y) = exp(-12.5f * (((i16(ef_hw_input_dark(x, y)) - i16(512))/1023.f) *  ((i16(ef_hw_input_dark(x, y)) - i16(512))/1023.f)));
-      weight_bright(x, y) = exp(-12.5f * (((i16(ef_hw_input_bright(x, y)) - i16(512))/1023.f) * ((i16(ef_hw_input_bright(x, y)) - i16(512))/1023.f)));
-      //weight_bright.trace_stores();
-
-
-
-     /* Func: ef_weight_sum
-      * dtype: float
-      * True range: [0.f-2.f]
-      * Consumer(s): weight_dark_norm, weight_bright_norm
-      * Notes: As a design decision, chose to keep this in fp, as the F2INT may not be worth it, with a required INT2F conversion coming up in the next stage (weight_norms)
-      */ 
-      ef_weight_sum(x,y) = weight_dark(x,y) + weight_bright(x,y);
-      
-      
-      //weight_dark_norm(x,y)   = weight_dark(x,y)   * 128.0f / ef_weight_sum(x,y);
-      //weight_bright_norm(x,y) = weight_bright(x,y) * 128.0f / ef_weight_sum(x,y);
-
-
-     /* Func: weight_dark_norm/weight_bright_norm
-      * dtype: u16
-      * True range: [0-1023]
-      * Consumer(s): dark/bright_weight_gpyramid 
-      * Notes: As a design decision, chose to keep this in fp, as the F2INT may not be worth it, with a required INT2F conversion coming up in the next stage (weight_norms)
-      */ 
-      weight_dark_norm(x,y)   = u16((weight_dark(x,y) / ef_weight_sum(x,y)) * 1023.f);
-      weight_bright_norm(x,y) = u16((weight_bright(x,y) / ef_weight_sum(x,y)) * 1023.f);
-
-      //weight_dark_norm.trace_stores();
-
-   
-      // Create gaussian pyramids of the weights
-      vector<Func> dark_weight_gpyramid(ef_pyramid_levels);
-      vector<Func> bright_weight_gpyramid(ef_pyramid_levels);
-
-
-     /* Func: dark/bright weight gpyramid
-      * dtype: u16
-      * True range: [0-1023]
-      * Consumer(s): merged_pyramid
-      */ 
-      dark_weight_gpyramid = gaussian_pyramid(weight_dark_norm, ef_pyramid_levels, "dweight");
-      bright_weight_gpyramid = gaussian_pyramid(weight_bright_norm, ef_pyramid_levels, "bweight");
-
-      //dark_weight_gpyramid[0].trace_stores();
-      //bright_weight_gpyramid[0].trace_stores();
-
-      // Create laplacian pyramids of the input images
-      vector<Func> dark_input_lpyramid(ef_pyramid_levels);
-      vector<Func> dark_input_gpyramid(ef_pyramid_levels);
-      vector<Func> bright_input_lpyramid(ef_pyramid_levels);
-      vector<Func> bright_input_gpyramid(ef_pyramid_levels);
-
-
-     /* Func: dark/bright_input_lpyramid
-      * dtype: i16
-      * True range: [-1023 to +1023]
-      * Consumer(s): merged_pyramid
-      */ 
-      dark_input_lpyramid =   laplacian_pyramid(ef_hw_input_dark_gamma_corr, ef_pyramid_levels,
-                                                dark_input_gpyramid, "dinput");
-      bright_input_lpyramid = laplacian_pyramid(ef_hw_input_bright_gamma_corr, ef_pyramid_levels,
-                                                bright_input_gpyramid, "binput");
-
-      //dark_input_lpyramid[0].trace_stores();    
-      //bright_input_lpyramid[3].trace_stores();          
-
-     /* Func: merged_pyramid
-      * dtype: i16
-      * True range: [-1023 to +1023]
-      * Consumer(s): initial_blended_image (flatten_pyramid)
-      */ 
-      vector<Func> merged_pyramid(ef_pyramid_levels);
-      merged_pyramid = merge_pyramids(dark_weight_gpyramid,
-                                      bright_weight_gpyramid,
-                                      dark_input_lpyramid,
-                                      bright_input_lpyramid,
-                                      "merge_pyr");
-
-
-      //merged_pyramid[0].trace_stores();
-
-      // Collapse the merged pyramid to create a single image
-      Func blended_image, initial_blended_image, intermediate_blended_image;
-      vector<Func> upsampled(ef_pyramid_levels);
-
-
-     /* Func: initial_blended_image
-      * dtype: i16
-      * True range: [-2048 to +2048] (worst case? unsure)
-      * Consumer(s): blended_image 
-      */ 
-      initial_blended_image = flatten_pyramid(merged_pyramid, upsampled);
-      //initial_blended_image.trace_stores();
-
-      // Undo the gamma correction
-      float reverse_gamma_exponent = 2.2f;
-
-
-     /* Func: reverse_gamma_corr
-      * Notes: This should be synthesized into a lookup table
-      * LUT input: data in [-2048 to +2048], worst case. For typical case, consider fact that initial_blended_image max and min are 1012.0 and -8.0 respectively for taxi
-      * LUT output: data in the [0, 1023] range. 
-      */ 
-      Func reverse_gamma_corr;
-      {
-        reverse_gamma_corr(x) = u16(pow(cast<float>(x)/1023.f, reverse_gamma_exponent) * 1023.f);
-      }
-
-
-      /* Func: blended_image
-       * dtype: u16
-       * True range: [0, 1023]
-       * Consumer(s): initial_r_out, initial_g_out, initial_b_out
-       */
-      blended_image = apply_reverse_gamma_corr(initial_blended_image, reverse_gamma_corr);
-      blended_image.trace_stores();
-
-      //blended_image(x, y) = pow(intermediate_blended_image(x, y), 1.f/2.2f);
-
-      // YUV-TO-RGB conversion
-      Func ef_hw_output, initial_ef_hw_output;
-      Func initial_r_out, initial_g_out, initial_b_out;
-  
-
-      /* Func: r_channel_scale_factor 
-       * dtype: u16
-       * True range: [0, 1023] 
-       * Consumer(s): initial_r_out
-       * Notes: The [0-1023] range is used to represent the [0.f-1.f] decimal range of r_channel_scale_factor
-       * Notes: INT2F and F2INT conversion required here
-       */
-      Func r_channel_scale_factor;
-      r_channel_scale_factor(x, y) = u16(select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 0))/cast<float>(ef_hw_input_dark(x, y))) * 1023.f);
-
-
-      /* Func: initial_r_out 
-       * dtype: u16
-       * True range: [0, 1023] (typical case; worse case unknown...)
-       * Consumer(s): initial_ef_hw_output
-       */
-      initial_r_out(x, y) = mul_1023_unsigned(blended_image(x, y), r_channel_scale_factor(x, y));
-
-
-      /* Func: g_channel_scale_factor 
-       * dtype: u16
-       * True range: [0, 1023] 
-       * Consumer(s): initial_g_out
-       * Notes: The [0-1023] range is used to represent the [0.f-1.f] decimal range of g_channel_scale_factor
-       * Notes: INT2F and F2INT conversion required here
-       */
-      Func g_channel_scale_factor;
-      g_channel_scale_factor(x, y) = u16(select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 1))/cast<float>(ef_hw_input_dark(x, y))) * 1023.f);
-
-      
-      /* Func: initial_g_out 
-       * dtype: u16
-       * True range: [0, 1023] (typical case; worse case unknown...)
-       * Consumer(s): initial_ef_hw_output
-       */
-      initial_g_out(x, y) = mul_1023_unsigned(blended_image(x, y), g_channel_scale_factor(x, y));
-  
-      
-      /* Func: b_channel_scale_factor 
-       * dtype: u16
-       * True range: [0, 1023] 
-       * Consumer(s): initial_b_out
-       * Notes: The [0-1023] range is used to represent the [0.f-1.f] decimal range of b_channel_scale_factor
-       * Notes: INT2F and F2INT conversion required here
-       */
-      Func b_channel_scale_factor;
-      b_channel_scale_factor(x, y) = u16(select(ef_hw_input_dark(x, y) == 0, 0.0f, cast<float>(ef_hw_input(x, y, 2))/cast<float>(ef_hw_input_dark(x, y))) * 1023.f);
-
-
-      /* Func: initial_b_out 
-       * dtype: u16
-       * True range: [0, 1023] (typical case; worst case unknown...)
-       * Consumer(s): initial_ef_hw_output
-       */
-      initial_b_out(x, y) = mul_1023_unsigned(blended_image(x, y), b_channel_scale_factor(x, y));
-
-
-      /* Func: initial_ef_hw_output
-       * dtype: u16
-       * True range: [0, 1023] (typical case; worst case unknown...)
-       * Consumer(s): ef_hw_output
-       */
-      initial_ef_hw_output(x,y,c) = select(c == 0, initial_r_out(x, y),
-                                 c == 1, initial_g_out(x, y),
-                                         initial_b_out(x, y));
-
-
-     /* Func: final_forward_gamma_corr
-      * Notes: This should be synthesized into a lookup table
-      * LUT input: [0-1023]
-      * LUT output: corresponding gamma corrected pixel in [0-255] range 
-      */ 
-      forward_gamma_exponent = 1.f/2.2f;
-      Func final_forward_gamma_corr;
-      {
-        final_forward_gamma_corr(x) = u8(pow(cast<float>(x)/1023.f, forward_gamma_exponent) * 255.f);
-      }
-
-
-      /* Func: ef_hw_output
-       * dtype: u8
-       * True range: [0, 255]
-       * Consumer(s): output
-       */
-      ef_hw_output = apply_final_forward_gamma_corr(initial_ef_hw_output, final_forward_gamma_corr);
-
-
-      /* Func: output
-       * dtype: u8
-       * True range: [0, 255]
-       */
-      output(x,y,c) = ef_hw_output(x,y,c);
-      // output.bound(c, 0, 3);
-
-       /* 
-        * END EXPOSURE FUSION 
-        */
-
-
         // Schedule
         //Var xo("xo"), yo("yo"), xi("xi"), yi("yi"), outer("outer");
+
+      if (get_target().has_feature(Target::CoreIR)) {
+
+      } else if (get_target().has_feature(Target::Clockwork)) {
+
+        merge_output.in().compute_root();
+
+        merge_output.in().tile(x, y, xo, yo, xi, yi, 64, 64)
+          .reorder(xi, yi, xo, yo)
+          .hw_accelerate(xi, xo);
+
+        merge_output.tile(x, y, xo, yo, xi, yi, 64, 64)
+          .reorder(xi, yi, xo, yo);
+        merge_output.compute_at(merge_output.in(), xo);
+        merge_output.store_in(MemoryType::GLB);
+
+        final_merge_output.compute_at(merge_output, xo);
+        output_tiled_normalized_cosined.compute_at(merge_output, xo);
+        output_tiled.compute_at(merge_output, xo);
+        val.compute_at(merge_output, xo);
+        sum_weight.compute_at(merge_output, xo);
+        weight.compute_at(merge_output, xo);
+        dist_tile_norm.compute_at(merge_output, xo);
+        dist_tile.compute_at(merge_output, xo);
+
+        // align_output.compute_root();
+
+       
+        // align_output.tile(tx, ty, xo, yo, xi, yi, 4, 4)
+        // .hw_accelerate(xi, xo);
+
+
+
+        
+        for (size_t j = 0; j < gPyramid.size(); ++j) {
+            //gPyramid[j].compute_at(merge_output, xo);
+            alignPyramid[j].compute_at(merge_output, xo);
+            //alignPyramid[j].compute_at(align_output, xo);
+        }
+
+
+        // alignPyramid[4].compute_root();
+        // alignPyramid[4].tile(tx_lvl_4, ty_lvl_4, xo, yo, xi, yi, 4, 4)
+        //     .hw_accelerate(xi, xo);
+
+
+
+        // gPyramid[0].compute_at(alignPyramid[4], xo);
+        // gPyramid[1].compute_at(alignPyramid[4], xo);
+        // gPyramid[2].compute_at(alignPyramid[4], xo);
+        // gPyramid[3].compute_at(alignPyramid[4], xo);
+        // gPyramid[4].compute_at(alignPyramid[4], xo);
+
+        // gPyramid[0].compute_at(gPyramid[4], xo);
+        // gPyramid[1].compute_at(gPyramid[4], xo);
+        // gPyramid[2].compute_at(gPyramid[4], xo);
+        // gPyramid[3].compute_at(gPyramid[4], xo);
+
+        // Try writing from back to front. What's difference b/w alignPyramid and gPyrmaid??
+        // Why does alignPyramid work???
+        // gPyramid[0].compute_at(align_output, xo);
+        // gPyramid[1].compute_at(align_output, xo);
+        // gPyramid[2].compute_at(align_output, xo);
+        // gPyramid[3].compute_at(align_output, xo);
+        // gPyramid[4].compute_at(align_output, xo);
+
+        gPyramid[0].compute_at(merge_output, xo);
+        gPyramid[1].compute_at(merge_output, xo);
+        gPyramid[2].compute_at(merge_output, xo);
+        gPyramid[3].compute_at(merge_output, xo);
+        gPyramid[4].compute_at(merge_output, xo);
+
+      
+        gray.compute_at(merge_output, xo); 
+        hw_input_copy.compute_at(merge_output, xo);
+        //gray.compute_at(align_output, xo); 
+        //gray.compute_at(alignPyramid[4], xo);   
+        //gray.compute_at(gPyramid[4], xo);  
+
+        hw_input.in().compute_at(merge_output.in(), xo); // represents the glb level
+        hw_input.in().store_in(MemoryType::GLB);
+
+        hw_input.compute_root();
+        hw_input.accelerator_input();
+    
+
+
+      } else {
 
         // ALIGN SCHEDULE 
         Var xo("xo"), yo("yo"), outer("outer");
@@ -1543,7 +1314,7 @@ public:
         //align_output.reorder(xy, n, tx, ty).parallel(outer);
         align_output.compute_root();
         //deinterleaved.compute_root();
-        //clamped_input_float.compute_root();
+        //hw_input_float.compute_root();
         //deinterleaved.compute_root();
         gray.compute_root().parallel(y, 32).vectorize(x, 8);
         
@@ -1594,449 +1365,6 @@ public:
         final_merge_output.store_at(merge_output, outer).compute_at(merge_output, yi);
         //my_debug_tile.store_at(merge_output, outer).compute_at(merge_output, yi);
 
-
-        // CAMERA PIPELINE SCHEDULE
-        if (get_target().has_feature(Target::CoreIR)) {
-            cp_hw_input.store_at(cp_hw_output, xo).compute_at(denoised, x);
-            cp_hw_output.compute_root();
-
-            cp_hw_output.accelerate({cp_hw_input}, xi, xo, {});
-            cp_hw_output.tile(x, y, xo, yo, xi, yi, 64-6,64-6)
-            .reorder(c,xi,yi,xo,yo);
-
-            curve_out.compute_at(cp_hw_output, xo);
-            //cp_hw_output.unroll(c).unroll(xi, 2);
-            cp_hw_output.unroll(c);
-            
-            demosaicked.linebuffer();
-            demosaicked.unroll(c);
-            //demosaicked.reorder(c, x, y);
-
-            denoised.linebuffer();
-            //.unroll(x).unroll(y);
-
-            curve.compute_at(cp_hw_output, xo).unroll(x);  // synthesize curve to a ROM
-            
-            cp_hw_input.stream_to_accelerator();
-
-        } else if (get_target().has_feature(Target::Clockwork)) {
-
-            if (schedule == 1) { // host and glb tiling
-                const int numHostTiles = 4;
-                const int numTiles = 3;
-                const int tileSize = 58;
-                const int glbSize = tileSize * numTiles;
-                const int outputSize = numHostTiles * glbSize;
-
-                cp_output.bound(x, 0, outputSize);
-                cp_output.bound(y, 0, outputSize);
-
-                cp_hw_output.in().compute_root();
-
-                cp_hw_output.in()
-                .tile(x, y, xo, yo, xi, yi, glbSize, glbSize)
-                .reorder(c, xi, yi, xo, yo)
-                .hw_accelerate(xi, xo);
-                cp_hw_output.in().unroll(c);
-
-                Var xii, yii, xio, yio;
-                cp_hw_output
-                .tile(x, y, xo, yo, xi, yi, tileSize, tileSize)
-                .reorder(c, xi, yi, xo, yo);
-                cp_hw_output.compute_at(cp_hw_output.in(), xo);
-                cp_hw_output.store_in(MemoryType::GLB);
-                cp_hw_output.unroll(c);
-
-                curve_out.compute_at(cp_hw_output, xo);
-                curve_out.unroll(c);
-            
-                color_corrected.compute_at(cp_hw_output, xo);
-                color_corrected.unroll(c);
-
-                demosaicked.compute_at(cp_hw_output, xo);
-                demosaicked
-                .reorder(c, x, y)
-                .unroll(c);
-
-                denoised.compute_at(cp_hw_output, xo);
-                //.unroll(x).unroll(y);
-
-                g_gr.compute_at(cp_hw_output, xo);
-                r_r.compute_at(cp_hw_output, xo);
-                b_b.compute_at(cp_hw_output, xo);
-                g_gb.compute_at(cp_hw_output, xo);
-            
-                curve.compute_at(cp_hw_output, xo).unroll(x);  // synthesize curve to a ROM
-                
-                cp_hw_input.in().compute_at(cp_hw_output.in(), xo); // represents the glb level
-                cp_hw_input.in().store_in(MemoryType::GLB);
-                //cp_hw_input.in().unroll(c);  // hw input bound
-                
-                cp_hw_input.compute_root()
-                .accelerator_input();
-
-            } else if (schedule == 2) { // big parrot
-                const int tileWidth = 64;
-                const int tileHeight = 56;
-                const int numHostTiles = 11;
-                const int numTiles = 3;
-                const int glbWidth = tileWidth * numTiles;
-                const int glbHeight = tileHeight * numTiles;
-                const int outputWidth = numHostTiles * glbWidth;
-                const int outputHeight = numHostTiles * glbHeight;
-
-                cp_output.bound(x, 0, outputWidth);
-                cp_output.bound(y, 0, outputHeight);
-
-                cp_hw_output.in().compute_root();
-
-                cp_hw_output.in()
-                .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-                .reorder(c, xi, yi, xo, yo)
-                .hw_accelerate(xi, xo);
-                cp_hw_output.in().unroll(c);
-
-                Var xii, yii, xio, yio;
-                cp_hw_output
-                .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-                .reorder(c, xi, yi, xo, yo);
-                cp_hw_output.compute_at(cp_hw_output.in(), xo);
-                cp_hw_output.store_in(MemoryType::GLB);
-                cp_hw_output.unroll(c);
-
-                curve_out.compute_at(cp_hw_output, xo);
-                curve_out.unroll(c);
-            
-                color_corrected.compute_at(cp_hw_output, xo);
-                color_corrected.unroll(c);
-            
-                demosaicked.compute_at(cp_hw_output, xo);
-                demosaicked
-                .reorder(c, x, y)
-                .unroll(c);
-
-                denoised.compute_at(cp_hw_output, xo);
-                //.unroll(x).unroll(y);
-
-                g_gr.compute_at(cp_hw_output, xo);
-                r_r.compute_at(cp_hw_output, xo);
-                b_b.compute_at(cp_hw_output, xo);
-                g_gb.compute_at(cp_hw_output, xo);
-            
-                curve.compute_at(cp_hw_output, xo).unroll(x);  // synthesize curve to a ROM
-                
-                cp_hw_input.in().compute_at(cp_hw_output.in(), xo); // represents the glb level
-                cp_hw_input.in().store_in(MemoryType::GLB);
-                //cp_hw_input.in().unroll(c);  // hw input bound
-                
-                cp_hw_input.compute_root()
-                .accelerator_input();
-
-            } else if (schedule == 3) { // big parrot with unroll
-                const int unrollx = 2;
-                const int unrolly = 2;
-                //const int tileWidth = 64-8;
-                const int tileWidth = tWidth;//256-8;
-                //const int tileHeight = 64-8;
-                const int tileHeight = tHeight;//192-8;
-                const int numHostTiles = nTiles;//10;
-                const int numTiles = 1; // number of tiles in the glb
-                const int glbWidth = tileWidth * numTiles;
-                const int glbHeight = tileHeight * numTiles;
-                const int outputWidth = numHostTiles * glbWidth;
-                const int outputHeight = numHostTiles * glbHeight;
-
-                cp_output.bound(x, 0, outputWidth);
-                cp_output.bound(y, 0, outputHeight);
-
-                cp_hw_output.in().compute_root();
-
-                Var xii, yii, xio, yio;
-                cp_hw_output.in()
-                .tile(x, y, xo, yo, xi, yi, glbWidth, glbHeight)
-                .split(yi, yio, yii, unrolly)
-                .reorder(c, yii, xi, yio, xo, yo)
-                .hw_accelerate(xi, xo);
-                cp_hw_output.in().unroll(c)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(xi, unrollx, TailStrategy::RoundUp);
-
-                cp_hw_output
-                .tile(x, y, xo, yo, xi, yi, tileWidth, tileHeight)
-                .split(yi, yio, yii, unrolly)
-                .reorder(c, yii, xi, yio, xo, yo);
-                cp_hw_output.compute_at(cp_hw_output.in(), xo);
-                cp_hw_output.store_in(MemoryType::GLB);
-                cp_hw_output.unroll(c)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(xi, unrollx, TailStrategy::RoundUp);
-
-                curve_out.compute_at(cp_hw_output, xo);
-                curve_out.unroll(c)
-                .split(y, yio, yii, unrolly).reorder(c, yii, x, yio)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(x, unrollx, TailStrategy::RoundUp);
-            
-                color_corrected.compute_at(cp_hw_output, xo);
-                color_corrected.unroll(c)
-                .split(y, yio, yii, unrolly).reorder(c, yii, x, yio)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(x, unrollx, TailStrategy::RoundUp);
-            
-                demosaicked.compute_at(cp_hw_output, xo);
-                demosaicked
-                .split(y, yio, yii, unrolly).reorder(c, yii, x, yio)
-                .unroll(c)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(x, unrollx, TailStrategy::RoundUp);
-
-                denoised.compute_at(cp_hw_output, xo)
-                .split(y, yio, yii, unrolly).reorder(yii, x, yio)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(x, unrollx);
-                //.unroll(x).unroll(y);
-
-                bool buffer_memories = true;
-                if (buffer_memories) {
-                b_r.compute_at(cp_hw_output, xo);
-                g_r.compute_at(cp_hw_output, xo);
-                b_gr.compute_at(cp_hw_output, xo);
-                r_gr.compute_at(cp_hw_output, xo);
-                b_gb.compute_at(cp_hw_output, xo);
-                r_gb.compute_at(cp_hw_output, xo);
-                r_b.compute_at(cp_hw_output, xo);
-                g_b.compute_at(cp_hw_output, xo);
-                }
-
-                g_gr.compute_at(cp_hw_output, xo);
-                r_r.compute_at(cp_hw_output, xo);
-                b_b.compute_at(cp_hw_output, xo);
-                g_gb.compute_at(cp_hw_output, xo);
-                
-                if (false) { // these buffers should not be unrolled
-                g_gr
-                    .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                    .unroll(x, unrollx, TailStrategy::RoundUp)
-                    .unroll(yii, unrolly, TailStrategy::RoundUp);
-                r_r
-                    .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                    .unroll(x, unrollx, TailStrategy::RoundUp)
-                    .unroll(yii, unrolly, TailStrategy::RoundUp);
-                b_b
-                    .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                    .unroll(x, unrollx, TailStrategy::RoundUp)
-                    .unroll(yii, unrolly, TailStrategy::RoundUp);
-                g_gb
-                    .split(y, yio, yii, unrolly, TailStrategy::RoundUp).reorder(yii, x, yio)
-                    .unroll(x, unrollx, TailStrategy::RoundUp)
-                    .unroll(yii, unrolly, TailStrategy::RoundUp);
-                }
-            
-                curve.compute_at(cp_hw_output, xo).unroll(x);  // synthesize curve to a ROM
-                curve.store_in(MemoryType::ROM);
-                // unroll by x?
-
-                cp_hw_input.in().in().compute_at(cp_hw_output, xo); // represents the mem tile
-                cp_hw_input.in().in()
-                .split(y, yio, yii, unrolly).reorder(yii, x, yio)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(x, unrollx, TailStrategy::RoundUp);
-                
-                cp_hw_input.in().compute_at(cp_hw_output.in(), xo); // represents the glb level
-                cp_hw_input.in().store_in(MemoryType::GLB);
-                cp_hw_input.in()
-                .split(y, yio, yii, unrolly).reorder(yii, x, yio)
-                .unroll(yii, unrolly, TailStrategy::RoundUp)
-                .unroll(x, unrollx, TailStrategy::RoundUp);
-                
-                cp_hw_input.compute_root()
-                .accelerator_input();
-                
-            } else {
-            cp_output.bound(x, 0, 64-blockSize+1);
-            cp_output.bound(y, 0, 64-blockSize+1);
-                
-            cp_hw_output.compute_root();
-
-            cp_hw_output.tile(x, y, xo, yo, xi, yi, 64-blockSize+1,64-blockSize+1)
-                .reorder(c,xi,yi,xo,yo)
-                .reorder_storage(c, x, y)
-                .hw_accelerate(xi, xo);
-            cp_hw_output.unroll(c);
-            //cp_hw_output.unroll(c).unroll(xi, 2);
-            
-            //curve_out.reorder(c, x, y).reorder_storage(c, x, y);
-            curve_out.compute_at(cp_hw_output, xo);
-            curve_out.unroll(c);
-            
-            color_corrected.compute_at(cp_hw_output, xo);
-            color_corrected.unroll(c);
-            
-            demosaicked.compute_at(cp_hw_output, xo);
-            demosaicked.unroll(c);
-            //demosaicked.reorder(c, x, y);
-
-            denoised.compute_at(cp_hw_output, xo);
-            //.unroll(x).unroll(y);
-
-            g_gr.compute_at(cp_hw_output, xo);
-            r_r.compute_at(cp_hw_output, xo);
-            b_b.compute_at(cp_hw_output, xo);
-            g_gb.compute_at(cp_hw_output, xo);
-
-            //b_r.compute_at(cp_hw_output, xo);
-            //g_r.compute_at(cp_hw_output, xo);
-            //b_gr.compute_at(cp_hw_output, xo);
-            //r_gr.compute_at(cp_hw_output, xo);
-            //b_gb.compute_at(cp_hw_output, xo);
-            //r_gb.compute_at(cp_hw_output, xo);
-            //r_b.compute_at(cp_hw_output, xo);
-            //g_b.compute_at(cp_hw_output, xo);
-            
-            curve.compute_at(cp_hw_output, xo).unroll(x);  // synthesize curve to a ROM
-            
-            //cp_hw_input_copy.compute_at(cp_hw_output, xo);
-            cp_hw_input.stream_to_accelerator();
-            //cp_hw_input.compute_root();
-            }
-            
-        } else {    // schedule to CPU
-            if (schedule == 1 || schedule == 2 || schedule == 3) {
-            Var yii;
-            const int strip_size = 2;
-            const int vec = 4;
-
-            cp_output
-                .compute_root()
-                .reorder(c, x, y)
-                .split(y, yi, yii, 2, TailStrategy::RoundUp)
-                .split(yi, yo, yi, strip_size / 2)
-                .vectorize(x, 2 * vec, TailStrategy::RoundUp)
-                //.unroll(c)
-                .parallel(yo);
-
-            denoised
-                .compute_at(cp_output, yi)
-                //.compute_at(curve_out, yi)
-                .store_at(cp_output, yo)
-                .prefetch(input, y, 2)
-                //.fold_storage(y, 4)
-                .tile(x, y, x, y, xi, yi, 2 * vec, 2)
-                .vectorize(xi)
-                .unroll(yi);
-
-            //max_g_gr.compute_at(output, yi);
-            //max_r_r.compute_at(output, yi);
-            //max_b_b.compute_at(output, yi);
-            //max_g_gb.compute_at(output, yi);
-            
-            demosaicked
-                .compute_at(cp_output, yi)
-                .store_at(cp_output, yo)
-                .fold_storage(y, 4)
-                .reorder(c, x, y)
-                .vectorize(x, 2 * vec, TailStrategy::RoundUp)
-                .unroll(c);
-
-            curve_out
-                .compute_at(cp_output, yi)
-                //.compute_at(output, yo)
-                .store_at(cp_output, yo)
-                .reorder(c, x, y)
-                .tile(x, y, x, y, xi, yi, 2 * vec, 2, TailStrategy::RoundUp)
-                .vectorize(xi)
-                .unroll(yi);
-                //.unroll(c);
-
-            color_corrected
-                .compute_at(curve_out, x)
-                .reorder(c, x, y)
-                .vectorize(x)
-                .unroll(c);
-
-            //demosaicked->intermed_compute_at.set({processed, yi});
-            //demosaicked->intermed_store_at.set({processed, yo});
-            //demosaicked->output_compute_at.set({curved, x});
-
-            // We can generate slightly better code if we know the splits divide the extent.
-            //processed
-            //.bound(c, 0, 3);
-                //.bound(x, 0, ((out_width) / (2 * vec)) * (2 * vec))
-                //.bound(y, 0, (out_height / strip_size) * strip_size);
-            }
-        }
-
-      // EXPOSURE FUSION SCHEDULE
-      if (get_target().has_feature(Target::CoreIR)) {
-
-      } else if (get_target().has_feature(Target::Clockwork)) {
-
-        // ef_hw_output.compute_root();
-
-        // ef_hw_output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-        //   .reorder(xi,yi,c,xo,yo)
-        //   .hw_accelerate(xi, xo);
-        //ef_hw_output.unroll(c);
-
-        //blended_image.compute_at(ef_hw_output, xo);
-
-        // for (size_t i=0; i<merged_pyramid.size(); ++i) {
-        //   merged_pyramid[i].compute_at(ef_hw_output, xo);
-          
-        //   dark_input_lpyramid[i].compute_at(ef_hw_output, xo);
-        //   bright_input_lpyramid[i].compute_at(ef_hw_output, xo);
-        //   dark_input_gpyramid[i].compute_at(ef_hw_output, xo);
-        //   bright_input_gpyramid[i].compute_at(ef_hw_output, xo);
-          
-        //   dark_weight_gpyramid[i].compute_at(ef_hw_output, xo);
-        //   bright_weight_gpyramid[i].compute_at(ef_hw_output, xo);
-        // }
-
-        // ef_weight_sum.compute_at(ef_hw_output, xo);
-        
-        ef_hw_input_bright.stream_to_accelerator();
-        ef_hw_input_dark.stream_to_accelerator();
-        
-      } else {    // schedule to CPU
-        // COPYING CLOCKWORK SCHEDULE
-        output.compute_root();
-
-        output.tile(x, y, xo, yo, xi, yi, 64-ksize+1,64-ksize+1)
-          .reorder(xi,yi,xo,yo);
-
-
-        initial_blended_image.compute_at(output, xo);
-        //intermediate_blended_image.compute_at(output, xo);
-        blended_image.compute_at(output, xo);
-
-        for (size_t i=0; i<merged_pyramid.size(); ++i) {
-          merged_pyramid[i].compute_at(output, xo);
-          
-          dark_input_lpyramid[i].compute_at(output, xo);
-          bright_input_lpyramid[i].compute_at(output, xo);
-          dark_input_gpyramid[i].compute_at(output, xo);
-          bright_input_gpyramid[i].compute_at(output, xo);
-          
-          dark_weight_gpyramid[i].compute_at(output, xo);
-          bright_weight_gpyramid[i].compute_at(output, xo);
-        }
-
-
-        r_channel_scale_factor.compute_at(output, xo);
-        b_channel_scale_factor.compute_at(output, xo);
-        g_channel_scale_factor.compute_at(output, xo);
-
-        ef_hw_input_dark.compute_at(output, xo);
-        ef_hw_input_bright.compute_at(output, xo);
-        weight_dark.compute_at(output, xo);
-        weight_bright.compute_at(output, xo);
-        ef_hw_input_dark_gamma_corr.compute_at(output, xo);
-        ef_hw_input_bright_gamma_corr.compute_at(output, xo);
-        weight_dark_norm.compute_at(output, xo);
-        weight_bright_norm.compute_at(output, xo);
-        ef_weight_sum.compute_at(output, xo);
-        //ef_hw_output_gamma.compute_at(output, xo);
-        ef_hw_output.compute_at(output, xo);
       }
     }
 private:
