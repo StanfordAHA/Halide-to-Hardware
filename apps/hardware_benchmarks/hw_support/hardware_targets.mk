@@ -386,7 +386,7 @@ $(BIN)/process: $(PROCESS_DEPS) $(BIN)/process_targets $(HWSUPPORT)/hardware_ima
 	@-mkdir -p $(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS) -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(BIN) -I$(HWSUPPORT) -I$(HWSUPPORT)/xilinx_hls_lib_2015_4 -Wall $(HLS_PROCESS_CXX_FLAGS) -O3 $^ -o $@ $(LDFLAGS) $(IMAGE_IO_FLAGS)
-	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $(PROCESS_DEPS) $(LDFLAGS) $(IMAGE_IO_FLAGS) -I$(LIBRAW_INCLUDE_PATH) -I$(OPENCV_INCLUDE_PATH) -L$(LIBRAW_LINK_PATH) -lraw -lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_imgcodecs -ltiff -no-pie $(PROCESS_TARGETS) -o $@
+	$(CXX) -I$(BIN) $(CXXFLAGS) -I$(HWSUPPORT) -Wall $(RDAI_PLATFORM_CXXFLAGS) $(HLS_PROCESS_CXX_FLAGS) -O3 $(PROCESS_DEPS) $(LDFLAGS) $(IMAGE_IO_FLAGS) -no-pie $(PROCESS_TARGETS) -o $@
 ifeq ($(UNAME), Darwin)
 	install_name_tool -change bin/libcoreir-lakelib.so $(FUNCBUF_DIR)/bin/libcoreir-lakelib.so $@
 endif
