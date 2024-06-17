@@ -2,8 +2,11 @@
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 #include "dirent.h"
-#include <libraw/libraw.h>
-#include <opencv4/opencv2/opencv.hpp>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+//#include <libraw/libraw.h>
+//#include <opencv4/opencv2/opencv.hpp>
 
 
 
@@ -381,30 +384,30 @@ std::vector<std::string> img_names;
   
 
   } else {
-    cv::Mat input_frame_0 = cv::imread("../hdr_plus/images/png/taxi/taxi_0.png", cv::IMREAD_UNCHANGED);
-    cv::Mat input_frame_1 = cv::imread("../hdr_plus/images/png/taxi/taxi_1.png", cv::IMREAD_UNCHANGED);
-    cv::Mat input_frame_2 = cv::imread("../hdr_plus/images/png/taxi/taxi_2.png", cv::IMREAD_UNCHANGED);
+    // cv::Mat input_frame_0 = cv::imread("../hdr_plus/images/png/taxi/taxi_0.png", cv::IMREAD_UNCHANGED);
+    // cv::Mat input_frame_1 = cv::imread("../hdr_plus/images/png/taxi/taxi_1.png", cv::IMREAD_UNCHANGED);
+    // cv::Mat input_frame_2 = cv::imread("../hdr_plus/images/png/taxi/taxi_2.png", cv::IMREAD_UNCHANGED);
 
-    if (input_frame_0.empty()) {
-          std::cerr << "Error: Could not open the image file." << std::endl;
-          return -1;
-      }
+    // if (input_frame_0.empty()) {
+    //       std::cerr << "Error: Could not open the image file." << std::endl;
+    //       return -1;
+    //   }
 
-      printf("The Input image dimensions are: (%d, %d)\n", input_frame_0.rows, input_frame_0.cols);
-      // Loop over the elements of the cv::Mat matrix
-      for (int y = 0; y < input_frame_0.rows; ++y) {
-          for (int x = 0; x < input_frame_0.cols; ++x) {
-              cv::Vec3b pixel_0 = input_frame_0.at<cv::Vec3b>(y, x);
-              imgs(x, y, 0) = pixel_0[0] * 1;
+    //   printf("The Input image dimensions are: (%d, %d)\n", input_frame_0.rows, input_frame_0.cols);
+    //   // Loop over the elements of the cv::Mat matrix
+    //   for (int y = 0; y < input_frame_0.rows; ++y) {
+    //       for (int x = 0; x < input_frame_0.cols; ++x) {
+    //           cv::Vec3b pixel_0 = input_frame_0.at<cv::Vec3b>(y, x);
+    //           imgs(x, y, 0) = pixel_0[0] * 1;
 
-              cv::Vec3b pixel_1 = input_frame_1.at<cv::Vec3b>(y, x);
-              imgs(x, y, 1) = pixel_1[0] * 1;
+    //           cv::Vec3b pixel_1 = input_frame_1.at<cv::Vec3b>(y, x);
+    //           imgs(x, y, 1) = pixel_1[0] * 1;
 
-              cv::Vec3b pixel_2 = input_frame_2.at<cv::Vec3b>(y, x);
-              imgs(x, y, 2) = pixel_2[0] * 1;
-              //std::cout << "Pixel value = " << static_cast<unsigned short>(pixel[0]) << std::endl;
-          }
-      }
+    //           cv::Vec3b pixel_2 = input_frame_2.at<cv::Vec3b>(y, x);
+    //           imgs(x, y, 2) = pixel_2[0] * 1;
+    //           //std::cout << "Pixel value = " << static_cast<unsigned short>(pixel[0]) << std::endl;
+    //       }
+    //   }
   }
 
   
@@ -432,8 +435,8 @@ std::vector<std::string> img_names;
   //processor.output = Buffer<uint8_t>(1250, 1120, 3);
 
 
-  //processor.output = Buffer<uint8_t>(1248, 1120, 3);
-  processor.output = Buffer<uint8_t>(64, 64, 3);
+  processor.output = Buffer<uint8_t>(1248, 1120, 3);
+  //processor.output = Buffer<uint8_t>(64, 64, 3);
 
 
   //processor.output = Buffer<uint8_t>(1096, 1112, 3);
