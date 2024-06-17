@@ -269,15 +269,16 @@ std::vector<std::string> img_names;
 
 
   // Load the input images (bayer raw)
-  Buffer<uint16_t> imgs;
+  //Buffer<uint16_t> imgs;
   //Buffer<float> imgs;
 
   int im_width = 1250;
   int im_height = 1120;
   // int im_width = 64;
   // int im_height = 64;
-  imgs = Buffer<uint16_t>(im_width, im_height, 3);
+  //imgs = Buffer<uint16_t>(im_width, im_height, 3);
   //imgs = Buffer<float>(im_width, im_height, 3);
+  processor.input = Buffer<uint16_t>(im_width, im_height, 3);
 
   bool use_k_10bit = true;
   bool use_k_raw = false;
@@ -295,7 +296,7 @@ std::vector<std::string> img_names;
       // Check if the file is opened successfully
       int count = 0;
       if (!taxi_10bit_file.is_open()) {
-          std::cerr << "Error: Unable to open file!" << std::endl;
+          std::cerr << "Error: Unable to open taxi file!" << std::endl;
           return 1; // Exit with error code
       }
 
@@ -317,7 +318,8 @@ std::vector<std::string> img_names;
               //std::getline(iss, token, ',');
               count++;
               // convert this to unsigned short 
-              imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
+              //imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
+              processor.input(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
               x++;
               // if (x == im_width) {
               //   break;
@@ -371,7 +373,8 @@ std::vector<std::string> img_names;
                 count++;
                 // convert this to unsigned short 
                 //imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
-                imgs(x, y, frame_num) = std::stof(token);
+                //imgs(x, y, frame_num) = std::stof(token);
+                processor.input(x, y, frame_num) = std::stof(token);
                 x++;
             }
             y++;
@@ -411,7 +414,7 @@ std::vector<std::string> img_names;
   }
 
   
-  processor.input = imgs;
+  //processor.input = imgs;
   
   /*
   printf("The load images function returned!");
@@ -435,7 +438,10 @@ std::vector<std::string> img_names;
   //processor.output = Buffer<uint8_t>(1250, 1120, 3);
 
 
-  processor.output = Buffer<uint8_t>(1248, 1120, 3);
+  //processor.output = Buffer<uint8_t>(1248, 1120, 3);
+  //processor.output = Buffer<uint8_t>(40, 35, 3);
+  processor.output = Buffer<uint8_t>(625, 560, 3);
+
   //processor.output = Buffer<uint8_t>(64, 64, 3);
 
 
