@@ -582,17 +582,29 @@ public:
         Expr initialGaussWidth[J];
         Expr initialGaussHeight[J];
 
-        initialGaussWidth[0] = input.width()/2;
-        initialGaussWidth[1] = input.width()/4;
-        initialGaussWidth[2] = input.width()/8;
-        initialGaussWidth[3] = input.width()/16;
-        initialGaussWidth[4] = input.width()/32;
+        // initialGaussWidth[0] = input.width()/2;
+        // initialGaussWidth[1] = input.width()/4;
+        // initialGaussWidth[2] = input.width()/8;
+        // initialGaussWidth[3] = input.width()/16;
+        // initialGaussWidth[4] = input.width()/32;
 
-        initialGaussHeight[0] = input.height()/2;
-        initialGaussHeight[1] = input.height()/4;
-        initialGaussHeight[2] = input.height()/8;
-        initialGaussHeight[3] = input.height()/16;
-        initialGaussHeight[4] = input.height()/32;
+        initialGaussWidth[0] = 625;
+        initialGaussWidth[1] = 312;
+        initialGaussWidth[2] = 156;
+        initialGaussWidth[3] = 78;
+        initialGaussWidth[4] = 39;
+
+        // initialGaussHeight[0] = input.height()/2;
+        // initialGaussHeight[1] = input.height()/4;
+        // initialGaussHeight[2] = input.height()/8;
+        // initialGaussHeight[3] = input.height()/16;
+        // initialGaussHeight[4] = input.height()/32;
+
+        initialGaussHeight[0] = 560;
+        initialGaussHeight[1] = 280;
+        initialGaussHeight[2] = 140;
+        initialGaussHeight[3] = 70;
+        initialGaussHeight[4] = 35;
 
 
        /* Func: gPyramid[J]
@@ -603,11 +615,6 @@ public:
         //Func gPyramid[J];
         vector<Func> gPyramid(J);
         gPyramid[0](x, y, n) = gray(x, y, n);
-
-        Func provisional_output;
-        provisional_output(x, y, c) = gray(x, y, c);
-        output(x, y, c) = u8(provisional_output(x, y, c));
-        output.bound(c, 0, 3);
 
         // Maybe try taking this out of the for loop 
         // for (int j = 1; j < J; j++) {
@@ -632,10 +639,12 @@ public:
 
 
         // Debugging line 
-        // Func provisional_output;
-        // provisional_output(x, y, c) = gPyramid[4](x, y, c);
-        // output(x, y, c) = u8(provisional_output(x, y, c));
-        // output.bound(c, 0, 3);
+        Func provisional_output;
+        provisional_output(x, y, c) = gPyramid[4](x, y, c);
+        output(x, y, c) = u8(provisional_output(x, y, c));
+        output.bound(c, 0, 3);
+        output.bound(x, 0, 39);
+        output.bound(y, 0, 35);
 
 
 
@@ -1391,11 +1400,8 @@ public:
         //     alignPyramid[j].compute_at(merge_output, xo);
         // }
 
-        // const int output_x_size = 40;
-        // const int output_y_size = 35;
-
-        const int output_x_size = 625;
-        const int output_y_size = 560;
+        const int output_x_size = 39;
+        const int output_y_size = 35;
 
 
         output.bound(x, 0, output_x_size);
@@ -1413,11 +1419,11 @@ public:
         provisional_output.compute_at(provisional_output.in(), xo);
         provisional_output.store_in(MemoryType::GLB);
 
-        // gPyramid[0].compute_at(provisional_output, xo);
-        // gPyramid[1].compute_at(provisional_output, xo);
-        // gPyramid[2].compute_at(provisional_output, xo);
-        // gPyramid[3].compute_at(provisional_output, xo);
-        // gPyramid[4].compute_at(provisional_output, xo);
+        gPyramid[0].compute_at(provisional_output, xo);
+        gPyramid[1].compute_at(provisional_output, xo);
+        gPyramid[2].compute_at(provisional_output, xo);
+        gPyramid[3].compute_at(provisional_output, xo);
+        gPyramid[4].compute_at(provisional_output, xo);
 
         gray.compute_at(provisional_output, xo); 
         hw_input_copy.compute_at(provisional_output, xo);
