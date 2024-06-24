@@ -164,6 +164,7 @@ int main( int argc, char **argv ) {
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
           hdr_plus_clockwork( proc.input, proc.output );
+          printf( "[RUN_INFO] finished running hdr_plus_clockwork\n" );
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -272,10 +273,11 @@ std::vector<std::string> img_names;
   //Buffer<uint16_t> imgs;
   //Buffer<float> imgs;
 
-  int im_width = 1250;
-  int im_height = 1120;
-  // int im_width = 64;
-  // int im_height = 64;
+  // int im_width = 1250;
+  // int im_height = 1120;
+
+  int im_width = 512;
+  int im_height = 512;
   //imgs = Buffer<uint16_t>(im_width, im_height, 3);
   //imgs = Buffer<float>(im_width, im_height, 3);
   processor.input = Buffer<uint16_t>(im_width, im_height, 3);
@@ -314,22 +316,21 @@ std::vector<std::string> img_names;
           std::string token;
           int x = 0;
           while (std::getline(iss, token, ',')) {
-          //while(x < im_width){
               //std::getline(iss, token, ',');
               count++;
               // convert this to unsigned short 
               //imgs(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
               processor.input(x, y, frame_num) = static_cast<unsigned short>(stoul(token));
               x++;
-              // if (x == im_width) {
-              //   break;
-              // }
+              if (x == im_width) {
+                break;
+              }
           }
 
-          // if (y == im_height) {
-          //   break; 
-          // }
           y++;
+          if (y == im_height) {
+            break; 
+          }
       }
 
       // Close the input file
@@ -439,7 +440,8 @@ std::vector<std::string> img_names;
 
 
   //processor.output = Buffer<uint8_t>(1248, 1120, 3);
-  processor.output = Buffer<uint8_t>(78, 70, 3);
+  //processor.output = Buffer<uint8_t>(512, 512, 3);
+  processor.output = Buffer<uint8_t>(32, 32, 3);
   //processor.output = Buffer<uint8_t>(625, 560, 3);
 
   //processor.output = Buffer<uint8_t>(64, 64, 3);
