@@ -441,7 +441,8 @@ std::vector<std::string> img_names;
 
   //processor.output = Buffer<uint8_t>(1248, 1120, 3);
   //processor.output = Buffer<uint8_t>(512, 512, 3);
-  processor.output = Buffer<uint8_t>(32, 32, 3);
+  //processor.output = Buffer<uint8_t>(32, 32, 3);
+  processor.output = Buffer<uint8_t>(1, 1, 3);
   //processor.output = Buffer<uint8_t>(625, 560, 3);
 
   //processor.output = Buffer<uint8_t>(64, 64, 3);
