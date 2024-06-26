@@ -273,11 +273,11 @@ std::vector<std::string> img_names;
   //Buffer<uint16_t> imgs;
   //Buffer<float> imgs;
 
-  // int im_width = 1250;
-  // int im_height = 1120;
+  int im_width = 1250;
+  int im_height = 1120;
 
-  int im_width = 512;
-  int im_height = 512;
+  // int im_width = 512;
+  // int im_height = 512;
   //imgs = Buffer<uint16_t>(im_width, im_height, 3);
   //imgs = Buffer<float>(im_width, im_height, 3);
   processor.input = Buffer<uint16_t>(im_width, im_height, 3);
@@ -442,7 +442,7 @@ std::vector<std::string> img_names;
   //processor.output = Buffer<uint8_t>(1248, 1120, 3);
   //processor.output = Buffer<uint8_t>(512, 512, 3);
   //processor.output = Buffer<uint8_t>(32, 32, 3);
-  processor.output = Buffer<uint8_t>(1, 1, 3);
+  processor.output = Buffer<uint8_t>(3, 3, 3);
   //processor.output = Buffer<uint8_t>(625, 560, 3);
 
   //processor.output = Buffer<uint8_t>(64, 64, 3);

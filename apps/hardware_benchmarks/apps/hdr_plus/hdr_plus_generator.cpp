@@ -107,31 +107,31 @@ public:
         Expr initialGaussWidth[J];
         Expr initialGaussHeight[J];
 
-        // initialGaussWidth[0] = 625;
-        // initialGaussWidth[1] = 312;
-        // initialGaussWidth[2] = 156;
-        // initialGaussWidth[3] = 78;
-        // initialGaussWidth[4] = 39;
+        initialGaussWidth[0] = 625;
+        initialGaussWidth[1] = 312;
+        initialGaussWidth[2] = 156;
+        initialGaussWidth[3] = 78;
+        initialGaussWidth[4] = 39;
 
 
-        initialGaussWidth[0] = 256;
-        initialGaussWidth[1] = 128;
-        initialGaussWidth[2] = 64;
-        initialGaussWidth[3] = 32;
-        initialGaussWidth[4] = 16;
+        // initialGaussWidth[0] = 256;
+        // initialGaussWidth[1] = 128;
+        // initialGaussWidth[2] = 64;
+        // initialGaussWidth[3] = 32;
+        // initialGaussWidth[4] = 16;
 
-        // initialGaussHeight[0] = 560;
-        // initialGaussHeight[1] = 280;
-        // initialGaussHeight[2] = 140;
-        // initialGaussHeight[3] = 70;
-        // initialGaussHeight[4] = 35;
+        initialGaussHeight[0] = 560;
+        initialGaussHeight[1] = 280;
+        initialGaussHeight[2] = 140;
+        initialGaussHeight[3] = 70;
+        initialGaussHeight[4] = 35;
 
 
-        initialGaussHeight[0] = 256;
-        initialGaussHeight[1] = 128;
-        initialGaussHeight[2] = 64;
-        initialGaussHeight[3] = 32;
-        initialGaussHeight[4] = 16;
+        // initialGaussHeight[0] = 256;
+        // initialGaussHeight[1] = 128;
+        // initialGaussHeight[2] = 64;
+        // initialGaussHeight[3] = 32;
+        // initialGaussHeight[4] = 16;
 
 
        /* Func: gPyramid[J]
@@ -181,45 +181,58 @@ public:
         min_align[J-1] = i16(Expr(-4));
         max_align[J-1] = i16(Expr(4));
 
-        // gauss_width[4] = 39;
-        // gauss_width[3] = 78;
-        // gauss_width[2] = 156;
-        // gauss_width[1] = 312;
-        // gauss_width[0] = 625;
+        gauss_width[4] = 39;
+        gauss_width[3] = 78;
+        gauss_width[2] = 156;
+        gauss_width[1] = 312;
+        gauss_width[0] = 625;
 
-        gauss_width[4] = 16;
-        gauss_width[3] = 32;
-        gauss_width[2] = 64;
-        gauss_width[1] = 128;
-        gauss_width[0] = 256;
+        // gauss_width[4] = 16;
+        // gauss_width[3] = 32;
+        // gauss_width[2] = 64;
+        // gauss_width[1] = 128;
+        // gauss_width[0] = 256;
 
-        // gauss_height[4] = 35;
-        // gauss_height[3] = 70;
-        // gauss_height[2] = 140;
-        // gauss_height[1] = 280;
-        // gauss_height[0] = 560;
+        gauss_height[4] = 35;
+        gauss_height[3] = 70;
+        gauss_height[2] = 140;
+        gauss_height[1] = 280;
+        gauss_height[0] = 560;
 
-        gauss_height[4] = 16;
-        gauss_height[3] = 32;
-        gauss_height[2] = 64;
-        gauss_height[1] = 128;
-        gauss_height[0] = 256;
+        // gauss_height[4] = 16;
+        // gauss_height[3] = 32;
+        // gauss_height[2] = 64;
+        // gauss_height[1] = 128;
+        // gauss_height[0] = 256;
 
 
         Expr upsample_flow_gauss_widths[J];
         Expr upsample_flow_gauss_heights[J];
 
-        upsample_flow_gauss_widths[4] = 1; 
-        upsample_flow_gauss_widths[3] = 1; 
-        upsample_flow_gauss_widths[2] = 2; 
-        upsample_flow_gauss_widths[1] = 4; 
-        upsample_flow_gauss_widths[0] = 8; 
+        // upsample_flow_gauss_widths[4] = 1; 
+        // upsample_flow_gauss_widths[3] = 1; 
+        // upsample_flow_gauss_widths[2] = 2; 
+        // upsample_flow_gauss_widths[1] = 4; 
+        // upsample_flow_gauss_widths[0] = 8; 
       
-        upsample_flow_gauss_heights[4] = 1;
-        upsample_flow_gauss_heights[3] = 1;
-        upsample_flow_gauss_heights[2] = 2;
-        upsample_flow_gauss_heights[1] = 4;
-        upsample_flow_gauss_heights[0] = 8;
+        // upsample_flow_gauss_heights[4] = 1;
+        // upsample_flow_gauss_heights[3] = 1;
+        // upsample_flow_gauss_heights[2] = 2;
+        // upsample_flow_gauss_heights[1] = 4;
+        // upsample_flow_gauss_heights[0] = 8;
+
+        upsample_flow_gauss_widths[4] = 2; 
+        upsample_flow_gauss_widths[3] = 3; 
+        upsample_flow_gauss_widths[2] = 5; 
+        upsample_flow_gauss_widths[1] = 10; 
+        upsample_flow_gauss_widths[0] = 20; 
+      
+        upsample_flow_gauss_heights[4] = 2;
+        upsample_flow_gauss_heights[3] = 3;
+        upsample_flow_gauss_heights[2] = 5;
+        upsample_flow_gauss_heights[1] = 9;
+        upsample_flow_gauss_heights[0] = 18;
+
 
    
        /* ALIGN PYRAMID LEVEL 4*/
@@ -260,16 +273,16 @@ public:
         min_x_lvl_4(tx, ty, n) = 0;
         min_y_lvl_4(tx, ty, n) = 0;
 
-        min_x_lvl_4.bound(tx, 0, 1);
-        min_x_lvl_4.bound(ty, 0, 1);
+        min_x_lvl_4.bound(tx, 0, 3);
+        min_x_lvl_4.bound(ty, 0, 3);
         min_x_lvl_4.bound(n, 0, 3);
 
-        min_y_lvl_4.bound(tx, 0, 1);
-        min_y_lvl_4.bound(ty, 0, 1);
+        min_y_lvl_4.bound(tx, 0, 3);
+        min_y_lvl_4.bound(ty, 0, 3);
         min_y_lvl_4.bound(n, 0, 3);
 
-        min_val_lvl_4.bound(tx, 0, 1);
-        min_val_lvl_4.bound(ty, 0, 1);
+        min_val_lvl_4.bound(tx, 0, 3);
+        min_val_lvl_4.bound(ty, 0, 3);
         min_val_lvl_4.bound(n, 0, 3);
 
         // Update the minimum function and coordinates
@@ -292,8 +305,8 @@ public:
                     xy == 0, i16(min_x_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n),
                     i16(min_y_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n));
 
-        alignPyramid[4].bound(tx, 0, 1);
-        alignPyramid[4].bound(ty, 0, 1);
+        alignPyramid[4].bound(tx, 0, 3);
+        alignPyramid[4].bound(ty, 0, 3);
         alignPyramid[4].bound(xy, 0, 1);
         alignPyramid[4].bound(n, 0, 3);
 
@@ -301,8 +314,8 @@ public:
         provisional_output(x, y, n) = alignPyramid[4](x, y, 0, n);
         output(x, y, c) = u8(provisional_output(x, y, c));
         output.bound(c, 0, 3);
-        output.bound(x, 0, 1);
-        output.bound(y, 0, 1);
+        output.bound(x, 0, 3);
+        output.bound(y, 0, 3);
 
 
 
@@ -313,8 +326,8 @@ public:
 
       } else if (get_target().has_feature(Target::Clockwork)) {
     
-        const int output_x_size = 1;
-        const int output_y_size = 1;
+        const int output_x_size = 3;
+        const int output_y_size = 3;
 
         output.bound(x, 0, output_x_size);
         output.bound(y, 0, output_y_size);
@@ -346,8 +359,8 @@ public:
         hw_input.in().compute_at(provisional_output.in(), xo); // represents the glb level
         hw_input.in().store_in(MemoryType::GLB);
 
-        hw_input.bound(x, 0, 512);
-        hw_input.bound(y, 0, 512);
+        hw_input.bound(x, 0, 1250);
+        hw_input.bound(y, 0, 1120);
         hw_input.bound(n, 0, 3);
         hw_input.compute_root()
           .accelerator_input();
