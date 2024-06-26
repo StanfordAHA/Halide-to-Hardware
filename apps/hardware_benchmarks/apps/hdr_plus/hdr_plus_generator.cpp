@@ -34,8 +34,9 @@ public:
     // Operate on raw bayer image: so 2 channels, plus 1 channel b/c receiving multiple images
     Input<Buffer<uint16_t>>  input{"input", 3};
 
-    // Output a single 8-bit RGB image 
-    Output<Buffer<uint8_t>> output{"output", 3};
+    // Output alignPyramid[4]. 4 channels: tx, ty, xy, n
+    //Output<Buffer<uint8_t>> output{"output", 3};
+    Output<Buffer<int16_t>> output{"output", 4};
 
     // Multiply with maximum precision and make result 8.8 p
     Expr mul1(Expr a, Expr b) {
@@ -311,11 +312,12 @@ public:
         alignPyramid[4].bound(n, 0, 3);
 
         Func provisional_output;
-        provisional_output(x, y, n) = alignPyramid[4](x, y, 0, n);
-        output(x, y, c) = u8(provisional_output(x, y, c));
-        output.bound(c, 0, 3);
-        output.bound(x, 0, 3);
-        output.bound(y, 0, 3);
+        provisional_output(tx, ty, xy, n) = alignPyramid[4](tx, ty, xy, n);
+        output(tx, ty, xy, n) = provisional_output(tx, ty, xy, n);
+        output.bound(tx, 0, 3);
+        output.bound(ty, 0, 3);
+        output.bound(xy, 0, 1);
+        output.bound(n, 0, 3);
 
 
 
@@ -329,16 +331,18 @@ public:
         const int output_x_size = 3;
         const int output_y_size = 3;
 
-        output.bound(x, 0, output_x_size);
-        output.bound(y, 0, output_y_size);
+        output.bound(tx, 0, output_x_size);
+        output.bound(ty, 0, output_y_size);
+        output.bound(xy, 0, 1);
+        output.bound(n, 0, 3);
 
         provisional_output.in().compute_root();
 
-        provisional_output.in().tile(x, y, xo, yo, xi, yi, output_x_size, output_y_size)
+        provisional_output.in().tile(tx, ty, xo, yo, xi, yi, output_x_size, output_y_size)
           .reorder(n, xi, yi, xo, yo)
           .hw_accelerate(xi, xo);
 
-        provisional_output.tile(x, y, xo, yo, xi, yi, output_x_size, output_y_size)
+        provisional_output.tile(tx, ty, xo, yo, xi, yi, output_x_size, output_y_size)
           .reorder(n, xi, yi, xo, yo);
         provisional_output.compute_at(provisional_output.in(), xo);
         provisional_output.store_in(MemoryType::GLB);

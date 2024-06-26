@@ -142,7 +142,8 @@ int main( int argc, char **argv ) {
   //FIXME: FOR NOW, outputing int16_t. Once outputting RGB images, should send out uint8_t.
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
-  OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
+  // OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
+  OneInOneOut_ProcessController<uint16_t, int16_t> processor("hdr_plus");
   //OneInOneOut_ProcessController<float, uint8_t> processor("hdr_plus");
 
   #if defined(WITH_CPU)
@@ -435,36 +436,26 @@ std::vector<std::string> img_names;
   printf("Successfully load input images!\n");
 
 
-  //processor.output = Buffer<uint16_t>(processor.input.dim(0).extent(), processor.input.dim(1).extent());
-  //processor.output = Buffer<uint8_t>(1250, 1120, 3);
 
 
-  //processor.output = Buffer<uint8_t>(1248, 1120, 3);
-  //processor.output = Buffer<uint8_t>(512, 512, 3);
-  //processor.output = Buffer<uint8_t>(32, 32, 3);
-  processor.output = Buffer<uint8_t>(3, 3, 3);
-  //processor.output = Buffer<uint8_t>(625, 560, 3);
+  //processor.output = Buffer<uint8_t>(3, 3, 3);
+  processor.output = Buffer<int16_t>(3, 3, 1, 3);
 
-  //processor.output = Buffer<uint8_t>(64, 64, 3);
-
-
-  //processor.output = Buffer<uint8_t>(1096, 1112, 3);
-  //processor.output = Buffer<uint8_t>(128, 128, 3);
   auto cmd_output = processor.process_command(argc, argv);
   printf("Ran process command!");
 
-  //auto boosted_output = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
-  //auto output_2 = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
-  auto boosted_output = Buffer<uint8_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent(), processor.output.dim(2).extent());
-  auto output_2 = Buffer<uint8_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent(), processor.output.dim(2).extent());
-    for (int y = 0; y < processor.output.dim(1).extent(); y++) {
-      for (int x = 0; x < processor.output.dim(0).extent(); x++) {
-        boosted_output(x, y) = processor.output(x, y) * 64;
-        output_2(x, y) = processor.output(x, y);
-      }
-    }
-    //save_image(boosted_output, "boosted_output.png");
-    //save_image(output_2, "output_2.png");
+  // //auto boosted_output = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
+  // //auto output_2 = Buffer<uint16_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent());
+  // auto boosted_output = Buffer<uint8_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent(), processor.output.dim(2).extent());
+  // auto output_2 = Buffer<uint8_t>(processor.output.dim(0).extent(), processor.output.dim(1).extent(), processor.output.dim(2).extent());
+  //   for (int y = 0; y < processor.output.dim(1).extent(); y++) {
+  //     for (int x = 0; x < processor.output.dim(0).extent(); x++) {
+  //       boosted_output(x, y) = processor.output(x, y) * 64;
+  //       output_2(x, y) = processor.output(x, y);
+  //     }
+  //   }
+  //   //save_image(boosted_output, "boosted_output.png");
+  //   //save_image(output_2, "output_2.png");
 
 
   

@@ -571,6 +571,11 @@ template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_compare_def(
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_test_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<uint16_t, uint8_t>::make_eval_def(std::vector<std::string> args);
 
+template int OneInOneOut_ProcessController<uint16_t, int16_t>::make_image_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, int16_t>::make_run_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, int16_t>::make_compare_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, int16_t>::make_test_def(std::vector<std::string> args);
+template int OneInOneOut_ProcessController<uint16_t, int16_t>::make_eval_def(std::vector<std::string> args);
 
 template int OneInOneOut_ProcessController<float, uint8_t>::make_image_def(std::vector<std::string> args);
 template int OneInOneOut_ProcessController<float, uint8_t>::make_run_def(std::vector<std::string> args);
