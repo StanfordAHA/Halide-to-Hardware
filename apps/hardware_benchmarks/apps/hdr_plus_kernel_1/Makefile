@@ -33,7 +33,7 @@ include ../../hw_support/Makefile.inc
 # RDAI_PLATFORM_RUNTIME         : RDAI platform runtime to use 
 ###############################################################################
 
-TESTNAME                        = hdr_plus
+TESTNAME                        = hdr_plus_kernel_1
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
