@@ -33,8 +33,7 @@ public:
     GeneratorParam<int>     total_downsample_factor{"total_downsample_factor", 16}; // 2^ pyramid_levels-1
   
     // Receive alignPyramid[4] as input, so 4 channels: tx, ty, xy, n
-    //Input<Buffer<int16_t>>  input{"input", 4};
-    Input<Buffer<int16_t>>  input{"input", 3};
+    Input<Buffer<int16_t>>  input{"input", 4};
 
     // Output a single 8-bit RGB image 
     Output<Buffer<uint8_t>> output{"output", 3};
@@ -61,12 +60,10 @@ public:
         * Consumer(s): coarse_offset_lvl_3
         */
         Func hw_input;
-        // hw_input(x, y, xy, n) = clamped_input(x, y, xy, n);
-        hw_input(x, y, n) = clamped_input(x, y, n);
+        hw_input(x, y, xy, n) = clamped_input(x, y, xy, n);
 
         Func hw_input_copy;
-        // hw_input_copy(x, y, xy, n) = hw_input(x, y, xy, n) + i16(0); 
-        hw_input_copy(x, y, n) = hw_input(x, y, n) + i16(0); 
+        hw_input_copy(x, y, xy, n) = hw_input(x, y, xy, n) + i16(0); 
 
 
 
@@ -98,8 +95,7 @@ public:
         gPyramid0_LUT.bound(n, 0, 3);
 
 
-        vector<Func> alignPyramid_y(J);
-        vector<Func> alignPyramid_x(J);
+        vector<Func> alignPyramid(J);
         Expr min_align[J];
         Expr max_align[J];
         Expr gauss_width[J];
@@ -114,42 +110,14 @@ public:
         gauss_width[1] = 312;
         gauss_width[0] = 625;
 
-        // gauss_width[4] = 16;
-        // gauss_width[3] = 32;
-        // gauss_width[2] = 64;
-        // gauss_width[1] = 128;
-        // gauss_width[0] = 256;
-
-
-
         gauss_height[4] = 35;
         gauss_height[3] = 70;
         gauss_height[2] = 140;
         gauss_height[1] = 280;
         gauss_height[0] = 560;
 
-
-        // gauss_height[4] = 16;
-        // gauss_height[3] = 32;
-        // gauss_height[2] = 64;
-        // gauss_height[1] = 128;
-        // gauss_height[0] = 256;
-
-
         Expr upsample_flow_gauss_widths[J];
         Expr upsample_flow_gauss_heights[J];
-
-        // upsample_flow_gauss_widths[4] = 1; 
-        // upsample_flow_gauss_widths[3] = 1; 
-        // upsample_flow_gauss_widths[2] = 2; 
-        // upsample_flow_gauss_widths[1] = 4; 
-        // upsample_flow_gauss_widths[0] = 8; 
-      
-        // upsample_flow_gauss_heights[4] = 1;
-        // upsample_flow_gauss_heights[3] = 1;
-        // upsample_flow_gauss_heights[2] = 2;
-        // upsample_flow_gauss_heights[1] = 4;
-        // upsample_flow_gauss_heights[0] = 8;
 
         upsample_flow_gauss_widths[4] = 2; 
         upsample_flow_gauss_widths[3] = 3; 
@@ -177,29 +145,22 @@ public:
         * True range: [-8, 8]
         * Consumer(s): alignPyramid[3]
         */
-        Func coarse_offset_lvl_3_y, coarse_offset_lvl_3_x;
-        // coarse_offset_lvl_3_x(tx, ty, n) = i16(2 * combined_upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_widths[3], upsample_flow_gauss_heights[3])(tx, ty, 0, n));
-        // coarse_offset_lvl_3_y(tx, ty, n) = i16(2 * combined_upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_widths[3], upsample_flow_gauss_heights[3])(tx, ty, 1, n));
-
-        coarse_offset_lvl_3_x(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_widths[3], upsample_flow_gauss_heights[3])(tx, ty, n));
-        coarse_offset_lvl_3_y(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_widths[3], upsample_flow_gauss_heights[3])(tx, ty, n));
-
-        coarse_offset_lvl_3_x.bound(tx, 0, 5);
-        coarse_offset_lvl_3_x.bound(ty, 0, 5);
-        coarse_offset_lvl_3_x.bound(n, 0, 3);
-
-        coarse_offset_lvl_3_y.bound(tx, 0, 5);
-        coarse_offset_lvl_3_y.bound(ty, 0, 5);
-        coarse_offset_lvl_3_y.bound(n, 0, 3);
+        Func coarse_offset_lvl_3;
+        coarse_offset_lvl_3(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_widths[3], upsample_flow_gauss_heights[3])(tx, tx, xy, n));
+        coarse_offset_lvl_3.bound(tx, 0, 5);
+        coarse_offset_lvl_3.bound(ty, 0, 5);
+        // coarse_offset_lvl_3.bound(xy, 0, 1);
+        coarse_offset_lvl_3.bound(n, 0, 3);
 
         Expr x_ref_lvl_3 = clamp(tx * T_SIZE + r_tile_lvl_3.x, 0, gauss_width[3]-1);
         Expr y_ref_lvl_3 = clamp(ty * T_SIZE + r_tile_lvl_3.y, 0, gauss_height[3]-1);
 
 
+
         // Figure out if clamping is supported: I think clockwork figures this out b/c it pre-computes the address and schedule
         // Figure out how to pass data to another mem tile as the base address 
-        Expr x_cmp_lvl_3 = clamp(tx * T_SIZE + r_tile_lvl_3.x + coarse_offset_lvl_3_x(tx, ty, n) + x_s_lvl_3, 0, gauss_width[3]-1);
-        Expr y_cmp_lvl_3 = clamp(ty * T_SIZE + r_tile_lvl_3.y + coarse_offset_lvl_3_y(tx, ty, n) + y_s_lvl_3, 0, gauss_height[3]-1);
+        Expr x_cmp_lvl_3 = clamp(tx * T_SIZE + r_tile_lvl_3.x + coarse_offset_lvl_3(tx, ty, 0, n) + x_s_lvl_3, 0, gauss_width[3]-1);
+        Expr y_cmp_lvl_3 = clamp(ty * T_SIZE + r_tile_lvl_3.y + coarse_offset_lvl_3(tx, ty, 1, n) + y_s_lvl_3, 0, gauss_height[3]-1);
 
         // Expr x_cmp_lvl_3 = clamp(tx * T_SIZE + r_tile_lvl_3.x + x_s_lvl_3, 0, gauss_width[3]-1);
         // Expr y_cmp_lvl_3 = clamp(ty * T_SIZE + r_tile_lvl_3.y + y_s_lvl_3, 0, gauss_height[3]-1);
@@ -256,29 +217,24 @@ public:
         * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_3
         */
-        alignPyramid_y[3](tx, ty, n) = select(n == 0, i16(0), i16(min_y_lvl_3(tx, ty, n)) + coarse_offset_lvl_3_y(tx, ty, n));
-        alignPyramid_x[3](tx, ty, n) = select(n == 0, i16(0), i16(min_x_lvl_3(tx, ty, n)) + coarse_offset_lvl_3_x(tx, ty, n));
-
-        // alignPyramid[3](tx, ty, xy, n) = select(n == 0, i16(0),
-        //             xy == 0, i16(min_x_lvl_3(tx, ty, n)) + coarse_offset_lvl_3_x(tx, ty, n),
-        //             i16(min_y_lvl_3(tx, ty, n)) + coarse_offset_lvl_3_y(tx, ty, n));
+        alignPyramid[3](tx, ty, xy, n) = select(n == 0, i16(0),
+                    xy == 0, i16(min_x_lvl_3(tx, ty, n)) + coarse_offset_lvl_3(tx, ty, 0, n),
+                    i16(min_y_lvl_3(tx, ty, n)) + coarse_offset_lvl_3(tx, ty, 1, n));
 
 
-        alignPyramid_y[3].bound(tx, 0, 5);
-        alignPyramid_y[3].bound(ty, 0, 5);
-        alignPyramid_y[3].bound(n, 0, 3);
-
-        alignPyramid_x[3].bound(tx, 0, 5);
-        alignPyramid_x[3].bound(ty, 0, 5);
-        alignPyramid_x[3].bound(n, 0, 3);
-
-
-        // alignPyramid[3].bound(tx, 0, 5);
-        // alignPyramid[3].bound(ty, 0, 5);
-        // // alignPyramid[3].bound(xy, 0, 1);
-        // alignPyramid[3].bound(n, 0, 3);
-
+        alignPyramid[3].bound(tx, 0, 5);
+        alignPyramid[3].bound(ty, 0, 5);
+        // alignPyramid[3].bound(xy, 0, 1);
+        alignPyramid[3].bound(n, 0, 3);
         //alignPyramid[3].trace_stores();
+
+        Func provisional_output;
+        provisional_output(x, y, n) = alignPyramid[3](x, y, 0, n);
+        output(x, y, c) = u8(provisional_output(x, y, c));
+        output.bound(c, 0, 3);
+        output.bound(x, 0, 5);
+        output.bound(y, 0, 5);
+
 
 
         /* ALIGN PYRAMID LEVEL 2*/
@@ -295,23 +251,15 @@ public:
         * True range: [-24, 24]
         * Consumer(s): alignPyramid[2]
         */
-        Func coarse_offset_lvl_2_y, coarse_offset_lvl_2_x;
-        coarse_offset_lvl_2_x(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid_x[3], upsample_flow_gauss_widths[2], upsample_flow_gauss_heights[2])(tx, ty, n));
-        coarse_offset_lvl_2_y(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid_y[3], upsample_flow_gauss_widths[2], upsample_flow_gauss_heights[2])(tx, ty, n));
-
-        coarse_offset_lvl_2_x.bound(tx, 0, 10);
-        coarse_offset_lvl_2_x.bound(ty, 0, 9);
-        coarse_offset_lvl_2_x.bound(n, 0, 3);
-
-        coarse_offset_lvl_2_y.bound(tx, 0, 10);
-        coarse_offset_lvl_2_y.bound(ty, 0, 9);
-        coarse_offset_lvl_2_y.bound(n, 0, 3);
+        Func coarse_offset_lvl_2;
+        coarse_offset_lvl_2(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid[3], upsample_flow_gauss_widths[2], upsample_flow_gauss_heights[2])(tx, ty, xy, n));
+        coarse_offset_lvl_2.trace_stores();
 
         Expr x_ref_lvl_2 = clamp(tx * T_SIZE + r_tile_lvl_2.x, 0, gauss_width[2]-1);
         Expr y_ref_lvl_2 = clamp(ty * T_SIZE + r_tile_lvl_2.y, 0, gauss_height[2]-1);
 
-        Expr x_cmp_lvl_2 = clamp(tx * T_SIZE + r_tile_lvl_2.x + coarse_offset_lvl_2_x(tx, ty, n) + x_s_lvl_2, 0, gauss_width[2]-1);
-        Expr y_cmp_lvl_2 = clamp(ty * T_SIZE + r_tile_lvl_2.y + coarse_offset_lvl_2_y(tx, ty, n) + y_s_lvl_2, 0, gauss_height[2]-1);
+        Expr x_cmp_lvl_2 = clamp(tx * T_SIZE + r_tile_lvl_2.x + coarse_offset_lvl_2(tx, ty, 0, n) + x_s_lvl_2, 0, gauss_width[2]-1);
+        Expr y_cmp_lvl_2 = clamp(ty * T_SIZE + r_tile_lvl_2.y + coarse_offset_lvl_2(tx, ty, 1, n) + y_s_lvl_2, 0, gauss_height[2]-1);
 
         // Expr x_cmp_lvl_2 = clamp(tx * T_SIZE + r_tile_lvl_2.x + x_s_lvl_2, 0, gauss_width[2]-1);
         // Expr y_cmp_lvl_2 = clamp(ty * T_SIZE + r_tile_lvl_2.y + y_s_lvl_2, 0, gauss_height[2]-1);   
@@ -328,9 +276,7 @@ public:
         Func scores_lvl_2;
         scores_lvl_2(tx, ty, x_s_lvl_2, y_s_lvl_2, n) = sum(u32(dist_lvl_2));
         //scores_lvl_2(tx, ty, x_s_lvl_2, y_s_lvl_2, n) = sum(u16(dist_lvl_2));
-        scores_lvl_3.bound(tx, 0, 10);
-        scores_lvl_3.bound(ty, 0, 9);
-        scores_lvl_3.bound(n, 0, 3);
+        scores_lvl_2.trace_stores();
 
         Func min_val_lvl_2, min_x_lvl_2, min_y_lvl_2;
         min_val_lvl_2(tx, ty, n) = cast<uint>(std::numeric_limits<int>::max());
@@ -366,36 +312,16 @@ public:
         * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_2
         */
-        alignPyramid_y[2](tx, ty, n) = select(n == 0, i16(0), i16(min_y_lvl_2(tx, ty, n)) + coarse_offset_lvl_2_y(tx, ty, n));
-        alignPyramid_x[2](tx, ty, n) = select(n == 0, i16(0), i16(min_x_lvl_2(tx, ty, n)) + coarse_offset_lvl_2_x(tx, ty, n));
+        alignPyramid[2](tx, ty, xy, n) = select(n == 0, i16(0),
+                    xy == 0, i16(min_x_lvl_2(tx, ty, n)) + coarse_offset_lvl_2(tx, ty, 0, n),
+                    i16(min_y_lvl_2(tx, ty, n)) + coarse_offset_lvl_2(tx, ty, 1, n));
 
-
-        alignPyramid_y[2].bound(tx, 0, 10);
-        alignPyramid_y[2].bound(ty, 0, 9);
-        alignPyramid_y[2].bound(n, 0, 3);
-
-        alignPyramid_x[2].bound(tx, 0, 10);
-        alignPyramid_x[2].bound(ty, 0, 9);
-        alignPyramid_x[2].bound(n, 0, 3);
-
-        // alignPyramid[2](tx, ty, xy, n) = select(n == 0, i16(0),
-        //             xy == 0, i16(min_x_lvl_2(tx, ty, n)) + coarse_offset_lvl_2_x(tx, ty, n),
-        //             i16(min_y_lvl_2(tx, ty, n)) + coarse_offset_lvl_2_y(tx, ty, n));
-
-        // alignPyramid[2].bound(tx, 0, 10);
-        // alignPyramid[2].bound(ty, 0, 9);
-        // // alignPyramid[2].bound(xy, 0, 1);
-        // alignPyramid[2].bound(n, 0, 3);
+        alignPyramid[2].bound(tx, 0, 10);
+        alignPyramid[2].bound(ty, 0, 9);
+        // alignPyramid[2].bound(xy, 0, 1);
+        alignPyramid[2].bound(n, 0, 3);
         
         //alignPyramid[2].trace_stores();
-
-        Func provisional_output;
-        provisional_output(x, y, n) = alignPyramid_x[2](x, y, n);
-        output(x, y, c) = u8(provisional_output(x, y, c));
-        output.bound(c, 0, 3);
-        output.bound(x, 0, 10);
-        output.bound(y, 0, 9);
-
 
         /* ALIGN PYRAMID LEVEL 1*/
         //Var tx, ty, xy, n;
@@ -411,15 +337,15 @@ public:
         * True range: [-56, 56]
         * Consumer(s): alignPyramid[1]
         */
-        Func coarse_offset_lvl_1_y, coarse_offset_lvl_1_x;
-        coarse_offset_lvl_1_x(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid_x[2], upsample_flow_gauss_widths[1], upsample_flow_gauss_heights[1])(tx, ty, n));
-        coarse_offset_lvl_1_y(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid_y[2], upsample_flow_gauss_widths[1], upsample_flow_gauss_heights[1])(tx, ty, n));
+        Func coarse_offset_lvl_1;
+        coarse_offset_lvl_1(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid[2], upsample_flow_gauss_widths[1], upsample_flow_gauss_heights[1])(tx, ty, xy, n));
+        //coarse_offset_lvl_1.trace_stores();
 
         Expr x_ref_lvl_1 = clamp(tx * T_SIZE + r_tile_lvl_1.x, 0, gauss_width[1]-1);
         Expr y_ref_lvl_1 = clamp(ty * T_SIZE + r_tile_lvl_1.y, 0, gauss_height[1]-1);
 
-        Expr x_cmp_lvl_1 = clamp(tx * T_SIZE + r_tile_lvl_1.x + coarse_offset_lvl_1_x(tx, ty, n) + x_s_lvl_1, 0, gauss_width[1]-1);
-        Expr y_cmp_lvl_1 = clamp(ty * T_SIZE + r_tile_lvl_1.y + coarse_offset_lvl_1_y(tx, ty, n) + y_s_lvl_1, 0, gauss_height[1]-1);
+        Expr x_cmp_lvl_1 = clamp(tx * T_SIZE + r_tile_lvl_1.x + coarse_offset_lvl_1(tx, ty, 0, n) + x_s_lvl_1, 0, gauss_width[1]-1);
+        Expr y_cmp_lvl_1 = clamp(ty * T_SIZE + r_tile_lvl_1.y + coarse_offset_lvl_1(tx, ty, 1, n) + y_s_lvl_1, 0, gauss_height[1]-1);
 
         // Expr x_cmp_lvl_1 = clamp(tx * T_SIZE + r_tile_lvl_1.x + x_s_lvl_1, 0, gauss_width[1]-1);
         // Expr y_cmp_lvl_1 = clamp(ty * T_SIZE + r_tile_lvl_1.y + y_s_lvl_1, 0, gauss_height[1]-1);
@@ -471,19 +397,17 @@ public:
         * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_1
         */
-        alignPyramid_y[1](tx, ty, n) = select(n == 0, i16(0), i16(min_y_lvl_1(tx, ty, n)) + coarse_offset_lvl_1_y(tx, ty, n));
-        alignPyramid_x[1](tx, ty, n) = select(n == 0, i16(0), i16(min_x_lvl_1(tx, ty, n)) + coarse_offset_lvl_1_x(tx, ty, n));
+        alignPyramid[1](tx, ty, xy, n) = select(n == 0, i16(0),
+                    xy == 0, i16(min_x_lvl_1(tx, ty, n)) + coarse_offset_lvl_1(tx, ty, 0, n),
+                    i16(min_y_lvl_1(tx, ty, n)) + coarse_offset_lvl_1(tx, ty, 1, n));
+        //alignPyramid[1].trace_stores();
 
 
-        alignPyramid_y[1].bound(tx, 0, 20);
-        alignPyramid_y[1].bound(ty, 0, 18);
-        alignPyramid_y[1].bound(n, 0, 3);
-
-        alignPyramid_x[1].bound(tx, 0, 20);
-        alignPyramid_x[1].bound(ty, 0, 18);
-        alignPyramid_x[1].bound(n, 0, 3);
-
-
+        alignPyramid[1].bound(tx, 0, 20);
+        alignPyramid[1].bound(ty, 0, 18);
+        // alignPyramid[1].bound(xy, 0, 1);
+        alignPyramid[1].bound(n, 0, 3);
+        
          /* ALIGN PYRAMID LEVEL 0*/
         //Var tx, ty, xy, n;
         Var x_s_lvl_0, y_s_lvl_0;
@@ -498,16 +422,15 @@ public:
         * True range: [-120, 120]
         * Consumer(s): alignPyramid[0]
         */
-
-        Func coarse_offset_lvl_0_y, coarse_offset_lvl_0_x;
-        coarse_offset_lvl_0_x(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid_x[1], upsample_flow_gauss_widths[0], upsample_flow_gauss_heights[0])(tx, ty, n));
-        coarse_offset_lvl_0_y(tx, ty, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid_y[1], upsample_flow_gauss_widths[0], upsample_flow_gauss_heights[0])(tx, ty, n));
+        Func coarse_offset_lvl_0;
+        coarse_offset_lvl_0(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(alignPyramid[1], upsample_flow_gauss_widths[0], upsample_flow_gauss_heights[0])(tx, ty, xy, n));
+        //coarse_offset_lvl_0.trace_stores();
 
         Expr x_ref_lvl_0 = clamp(tx * T_SIZE + r_tile_lvl_0.x, 0, gauss_width[0]-1);
         Expr y_ref_lvl_0 = clamp(ty * T_SIZE + r_tile_lvl_0.y, 0, gauss_height[0]-1);
 
-        Expr x_cmp_lvl_0 = clamp(tx * T_SIZE + r_tile_lvl_0.x + coarse_offset_lvl_0_x(tx, ty, n) + x_s_lvl_0, 0, gauss_width[0]-1);
-        Expr y_cmp_lvl_0 = clamp(ty * T_SIZE + r_tile_lvl_0.y + coarse_offset_lvl_0_y(tx, ty, n) + y_s_lvl_0, 0, gauss_height[0]-1);
+        Expr x_cmp_lvl_0 = clamp(tx * T_SIZE + r_tile_lvl_0.x + coarse_offset_lvl_0(tx, ty, 0, n) + x_s_lvl_0, 0, gauss_width[0]-1);
+        Expr y_cmp_lvl_0 = clamp(ty * T_SIZE + r_tile_lvl_0.y + coarse_offset_lvl_0(tx, ty, 1, n) + y_s_lvl_0, 0, gauss_height[0]-1);
 
         // Expr x_cmp_lvl_0 = clamp(tx * T_SIZE + r_tile_lvl_0.x + x_s_lvl_0, 0, gauss_width[0]-1);
         // Expr y_cmp_lvl_0 = clamp(ty * T_SIZE + r_tile_lvl_0.y + y_s_lvl_0, 0, gauss_height[0]-1);
@@ -558,27 +481,25 @@ public:
         * True range: [-4, 4] (worst case)
         * Consumer(s): coarse_offset_lvl_0
         */
-        alignPyramid_y[0](tx, ty, n) = select(n == 0, i16(0), i16(min_y_lvl_0(tx, ty, n)) + coarse_offset_lvl_0_y(tx, ty, n));
-        alignPyramid_x[0](tx, ty, n) = select(n == 0, i16(0), i16(min_x_lvl_0(tx, ty, n)) + coarse_offset_lvl_0_x(tx, ty, n));
+        alignPyramid[0](tx, ty, xy, n) = select(n == 0, i16(0),
+                    xy == 0, i16(min_x_lvl_0(tx, ty, n)) + coarse_offset_lvl_0(tx, ty, 0, n),
+                    i16(min_y_lvl_0(tx, ty, n)) + coarse_offset_lvl_0(tx, ty, 1, n));
 
 
-        alignPyramid_y[0].bound(tx, 0, 39);
-        alignPyramid_y[0].bound(ty, 0, 35);
-        alignPyramid_y[0].bound(n, 0, 3);
-
-        alignPyramid_x[0].bound(tx, 0, 39);
-        alignPyramid_x[0].bound(ty, 0, 35);
-        alignPyramid_x[0].bound(n, 0, 3);
+        alignPyramid[0].bound(tx, 0, 39);
+        alignPyramid[0].bound(ty, 0, 35);
+        // alignPyramid[0].bound(xy, 0, 1);
+        alignPyramid[0].bound(n, 0, 3);
 
         //alignPyramid[0].trace_stores();
         
-      //  /* Func: align_output
-      //   * dtype: i16
-      //   * True range: [-124, 124] (worst case)
-      //   * Consumer(s): dist calculation (in merge)
-      //   */
-      //   Func align_output;
-      //   align_output(tx, ty, xy, n) = alignPyramid[0](tx, ty, xy, n);
+       /* Func: align_output
+        * dtype: i16
+        * True range: [-124, 124] (worst case)
+        * Consumer(s): dist calculation (in merge)
+        */
+        Func align_output;
+        align_output(tx, ty, xy, n) = alignPyramid[0](tx, ty, xy, n);
 
 
         // Func provisional_output;
@@ -587,15 +508,6 @@ public:
         // output.bound(c, 0, 3);
         // output.bound(x, 0, 39);
         // output.bound(y, 0, 35);
-
-
-        // Func provisional_output;
-        // provisional_output(x, y, n) = alignPyramid_x[0](x, y, n);
-        // output(x, y, c) = u8(provisional_output(x, y, c));
-        // output.bound(c, 0, 3);
-        // output.bound(x, 0, 39);
-        // output.bound(y, 0, 35);
-
 
      
 
@@ -619,8 +531,8 @@ public:
 
       } else if (get_target().has_feature(Target::Clockwork)) {
     
-        const int output_x_size = 10;
-        const int output_y_size = 9;
+        const int output_x_size = 5;
+        const int output_y_size = 5;
 
 
         output.bound(x, 0, output_x_size);
@@ -648,23 +560,8 @@ public:
 
         // alignPyramid[0].compute_at(provisional_output, xo);
         // alignPyramid[1].compute_at(provisional_output, xo);
-        //alignPyramid[2].compute_at(provisional_output, xo);
-        //alignPyramid[3].compute_at(provisional_output, xo);
-
-
-        // alignPyramid_x[0].compute_at(provisional_output, xo);
-        // alignPyramid_y[0].compute_at(provisional_output, xo);
-
-        // alignPyramid_x[1].compute_at(provisional_output, xo);
-        // alignPyramid_y[1].compute_at(provisional_output, xo);
-
-        alignPyramid_x[2].compute_at(provisional_output, xo);
-        alignPyramid_y[2].compute_at(provisional_output, xo);
-
-        alignPyramid_x[3].compute_at(provisional_output, xo);
-        alignPyramid_y[3].compute_at(provisional_output, xo);
-        
-
+        // alignPyramid[2].compute_at(provisional_output, xo);
+        alignPyramid[3].compute_at(provisional_output, xo);
     
         hw_input_copy.compute_at(provisional_output, xo);
   
@@ -675,7 +572,7 @@ public:
 
         hw_input.bound(x, 0, 3);
         hw_input.bound(y, 0, 3);
-        //hw_input.bound(xy, 0, 2);
+        hw_input.bound(xy, 0, 2);
         hw_input.bound(n, 0, 3);
         hw_input.compute_root()
           .accelerator_input();
@@ -728,55 +625,6 @@ private:
 
 
     Func upsample_u16_size_2_for_alignment(Func f_in, Expr gauss_width, Expr gauss_height) {
-      Var tx, ty, n;
-      using Halide::_;
-      Func up, up_pre_shift, f_in_shift;
-
-
-     /* Func: up_pre_shift
-      * dtype: u16
-      * True range: [0, 16368] (worst case)
-      * Consumer(s): up
-      */
-
-      // Expr ty_mod_2 = select((ty & 1) == 0, 0, 1);
-      // Expr tx_mod_2 = select((tx & 1) == 0, 0, 1);
-      // //Expr tx_is_even = ((tx & 1) != 0);
-      // // up_pre_shift(tx, ty, xy, n) = (9) * f_in(tx/2, ty/2, xy, n) 
-      // // + (3) * f_in(tx/2, clamp((ty/2) - 1 + 2*(ty % 2), 0, gauss_height-1), xy, n)
-      // // + (3) * f_in(clamp((tx/2) - 1 + 2*(tx % 2), 0, gauss_width-1), ty/2, xy, n) 
-      // // + (1) * f_in(clamp((tx/2) - 1 + 2*(tx % 2), 0, gauss_width-1), clamp((ty/2) - 1 + 2*(ty % 2), 0, gauss_height-1), xy, n);
-
-      // up_pre_shift(tx, ty, xy, n) = (9) * f_in(tx/2, ty/2, xy, n) 
-      // + (3) * f_in(tx/2, clamp((ty/2) - 1 + 2*(ty_mod_2), 0, gauss_height-1), xy, n)
-      // + (3) * f_in(clamp((tx/2) - 1 + 2*(tx_mod_2), 0, gauss_width-1), ty/2, xy, n) 
-      // + (1) * f_in(clamp((tx/2) - 1 + 2*(tx_mod_2), 0, gauss_width-1), clamp((ty/2) - 1 + 2*(ty_mod_2), 0, gauss_height-1), xy, n);
-
-
-      // // up_pre_shift(tx, ty, xy, n) = (9) * f_in(tx/2, ty/2, xy, n) 
-      // // + (3) * f_in(tx/2, (ty/2) - 1 + 2*(ty % 2), xy, n)
-      // // + (3) * f_in((tx/2) - 1 + 2*(tx % 2), ty/2, xy, n) 
-      // // + (1) * f_in((tx/2) - 1 + 2*(tx % 2), (ty/2) - 1 + 2*(ty % 2), xy, n);
-
-      
-      //  /* Func: up
-      //   * dtype: u16
-      //   * True range: [0, 1023] 
-      //   * Consumer(s): returned by upsample_u16_size_2_for_alignment
-      //   */
-      // up(tx, ty, xy, n) = up_pre_shift(tx, ty, xy, n) >> 4;
-      // //up.bound(tx, 0, gauss_width);
-      // // up.bound(ty, 0, gauss_height);
-      // // up.bound(xy, 0, 1);
-      // // up.bound(n, 0, 3);
-
-      up(tx, ty, n) = f_in(tx/2, ty/2, n);
-
-
-      return up;
-    }
-
-    Func combined_upsample_u16_size_2_for_alignment(Func f_in, Expr gauss_width, Expr gauss_height) {
       Var tx, ty, xy, n;
       using Halide::_;
       Func up, up_pre_shift, f_in_shift;
