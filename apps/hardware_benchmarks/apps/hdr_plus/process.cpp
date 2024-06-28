@@ -142,8 +142,8 @@ int main( int argc, char **argv ) {
   //FIXME: FOR NOW, outputing int16_t. Once outputting RGB images, should send out uint8_t.
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
   //OneInOneOut_ProcessController<uint16_t, uint16_t> processor("hdr_plus");
-  // OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
-  OneInOneOut_ProcessController<uint16_t, int16_t> processor("hdr_plus");
+   OneInOneOut_ProcessController<uint16_t, uint8_t> processor("hdr_plus");
+  //OneInOneOut_ProcessController<uint16_t, int16_t> processor("hdr_plus");
   //OneInOneOut_ProcessController<float, uint8_t> processor("hdr_plus");
 
   #if defined(WITH_CPU)
@@ -438,8 +438,11 @@ std::vector<std::string> img_names;
 
 
 
-  //processor.output = Buffer<uint8_t>(3, 3, 3);
-  processor.output = Buffer<int16_t>(3, 3, 1, 3);
+  // processor.output = Buffer<uint8_t>(39, 35, 3);
+  //processor.output = Buffer<uint8_t>(256, 256, 3);
+  processor.output = Buffer<uint8_t>(39, 35);
+  // processor.output = Buffer<uint8_t>(256, 256);
+ // processor.output = Buffer<int16_t>(3, 3, 2, 3);
 
   auto cmd_output = processor.process_command(argc, argv);
   printf("Ran process command!");

@@ -35,8 +35,9 @@ public:
     Input<Buffer<uint16_t>>  input{"input", 3};
 
     // Output alignPyramid[4]. 4 channels: tx, ty, xy, n
+    Output<Buffer<uint8_t>> output{"output", 2};
     //Output<Buffer<uint8_t>> output{"output", 3};
-    Output<Buffer<int16_t>> output{"output", 4};
+    //Output<Buffer<int16_t>> output{"output", 4};
 
     // Multiply with maximum precision and make result 8.8 p
     Expr mul1(Expr a, Expr b) {
@@ -104,7 +105,6 @@ public:
 
        
         //STEP 2: Downsample to form image pyramids 
-    
         Expr initialGaussWidth[J];
         Expr initialGaussHeight[J];
 
@@ -114,26 +114,11 @@ public:
         initialGaussWidth[3] = 78;
         initialGaussWidth[4] = 39;
 
-
-        // initialGaussWidth[0] = 256;
-        // initialGaussWidth[1] = 128;
-        // initialGaussWidth[2] = 64;
-        // initialGaussWidth[3] = 32;
-        // initialGaussWidth[4] = 16;
-
         initialGaussHeight[0] = 560;
         initialGaussHeight[1] = 280;
         initialGaussHeight[2] = 140;
         initialGaussHeight[3] = 70;
         initialGaussHeight[4] = 35;
-
-
-        // initialGaussHeight[0] = 256;
-        // initialGaussHeight[1] = 128;
-        // initialGaussHeight[2] = 64;
-        // initialGaussHeight[3] = 32;
-        // initialGaussHeight[4] = 16;
-
 
        /* Func: gPyramid[J]
         * dtype: u16
@@ -148,206 +133,38 @@ public:
         gPyramid[2](x, y, n) = downsample_u16_hdr(gPyramid[1], 2, initialGaussWidth[1], initialGaussHeight[1])(x, y, n);
         gPyramid[3](x, y, n) = downsample_u16_hdr(gPyramid[2], 2, initialGaussWidth[2], initialGaussHeight[2])(x, y, n);
         gPyramid[4](x, y, n) = downsample_u16_hdr(gPyramid[3], 2, initialGaussWidth[3], initialGaussHeight[3])(x, y, n);
-
-
-        // gPyramid[4].bound(x, 0, 16);
-        // gPyramid[4].bound(y, 0, 16);
-        // gPyramid[4].bound(n, 0, 3);
-
-        // gPyramid[3].bound(x, 0, 32);
-        // gPyramid[3].bound(y, 0, 32);
-        // gPyramid[3].bound(n, 0, 3);
     
-        // Func provisional_output;
-        // provisional_output(x, y, n) = gPyramid[4](x, y, n);
-        // output(x, y, c) = u8(provisional_output(x, y, c));
-        // output.bound(c, 0, 3);
-        // output.bound(x, 0, 16);
-        // output.bound(y, 0, 16);
-
-        // STEP 3: Align pyramids and upsample the alignment back to the bottom layer 
-        Func initialAlign;
-        
-        initialAlign(tx, ty, xy, n) = 0;
-        // initialAlign.bound(tx, 0, 16);
-        // initialAlign.bound(tx, 0, 16);
-        // initialAlign.bound(xy, 0, 1);
-        // initialAlign.bound(n, 0, 3);
-
-        vector<Func> alignPyramid(J);
-        Expr min_align[J];
-        Expr max_align[J];
-        Expr gauss_width[J];
-        Expr gauss_height[J];
-        min_align[J-1] = i16(Expr(-4));
-        max_align[J-1] = i16(Expr(4));
-
-        gauss_width[4] = 39;
-        gauss_width[3] = 78;
-        gauss_width[2] = 156;
-        gauss_width[1] = 312;
-        gauss_width[0] = 625;
-
-        // gauss_width[4] = 16;
-        // gauss_width[3] = 32;
-        // gauss_width[2] = 64;
-        // gauss_width[1] = 128;
-        // gauss_width[0] = 256;
-
-        gauss_height[4] = 35;
-        gauss_height[3] = 70;
-        gauss_height[2] = 140;
-        gauss_height[1] = 280;
-        gauss_height[0] = 560;
-
-        // gauss_height[4] = 16;
-        // gauss_height[3] = 32;
-        // gauss_height[2] = 64;
-        // gauss_height[1] = 128;
-        // gauss_height[0] = 256;
-
-
-        Expr upsample_flow_gauss_widths[J];
-        Expr upsample_flow_gauss_heights[J];
-
-        // upsample_flow_gauss_widths[4] = 1; 
-        // upsample_flow_gauss_widths[3] = 1; 
-        // upsample_flow_gauss_widths[2] = 2; 
-        // upsample_flow_gauss_widths[1] = 4; 
-        // upsample_flow_gauss_widths[0] = 8; 
-      
-        // upsample_flow_gauss_heights[4] = 1;
-        // upsample_flow_gauss_heights[3] = 1;
-        // upsample_flow_gauss_heights[2] = 2;
-        // upsample_flow_gauss_heights[1] = 4;
-        // upsample_flow_gauss_heights[0] = 8;
-
-        upsample_flow_gauss_widths[4] = 2; 
-        upsample_flow_gauss_widths[3] = 3; 
-        upsample_flow_gauss_widths[2] = 5; 
-        upsample_flow_gauss_widths[1] = 10; 
-        upsample_flow_gauss_widths[0] = 20; 
-      
-        upsample_flow_gauss_heights[4] = 2;
-        upsample_flow_gauss_heights[3] = 3;
-        upsample_flow_gauss_heights[2] = 5;
-        upsample_flow_gauss_heights[1] = 9;
-        upsample_flow_gauss_heights[0] = 18;
-
-
-   
-       /* ALIGN PYRAMID LEVEL 4*/
-        //Var tx, ty, xy, n;
-        Var x_s_lvl_4, y_s_lvl_4;
-
-        RDom r_tile_lvl_4(0, T_SIZE, 0, T_SIZE);
-        RDom r_search_lvl_4(-4, 9, -4, 9);
-        
-
-       /* Func: coarse_offset_lvl_4
-        * dtype: i16
-        * True range: [0]
-        * Consumer(s): alignPyramid[4]
-        */
-        Func coarse_offset_lvl_4;
-        coarse_offset_lvl_4(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(initialAlign, upsample_flow_gauss_widths[4], upsample_flow_gauss_heights[4])(tx, ty, xy, n));
-
-        Expr x_ref_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x, 0, gauss_width[4]-1);
-        Expr y_ref_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y, 0, gauss_height[4]-1);
-
-        Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width[4]-1);
-        Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n) + y_s_lvl_4, 0, gauss_height[4]-1);
-
-        Expr dist_lvl_4 = abs(i16(gPyramid[4](x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid[4](x_cmp_lvl_4, y_cmp_lvl_4, n))); 
-
-       /* Func: scores_lvl_4
-        * dtype: u32
-        * True range: [0, 261888] (worst case)
-        * Consumer(s): alignPyramid[4]
-        */
-        Func scores_lvl_4;
-        scores_lvl_4(tx, ty, x_s_lvl_4, y_s_lvl_4, n) = sum(u32(dist_lvl_4));
-
-        Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
-        min_val_lvl_4(tx, ty, n) = cast<uint>(std::numeric_limits<int>::max());
-        //min_val_lvl_4(tx, ty, n) = cast<uint16_t>(std::numeric_limits<int>::max());
-        min_x_lvl_4(tx, ty, n) = 0;
-        min_y_lvl_4(tx, ty, n) = 0;
-
-        min_x_lvl_4.bound(tx, 0, 3);
-        min_x_lvl_4.bound(ty, 0, 3);
-        min_x_lvl_4.bound(n, 0, 3);
-
-        min_y_lvl_4.bound(tx, 0, 3);
-        min_y_lvl_4.bound(ty, 0, 3);
-        min_y_lvl_4.bound(n, 0, 3);
-
-        min_val_lvl_4.bound(tx, 0, 3);
-        min_val_lvl_4.bound(ty, 0, 3);
-        min_val_lvl_4.bound(n, 0, 3);
-
-        // Update the minimum function and coordinates
-        Expr condition = scores_lvl_4(tx, ty, r_search_lvl_4.x, r_search_lvl_4.y, n) < min_val_lvl_4(tx, ty, n);
-        Expr new_min_lvl_4 = select(condition, scores_lvl_4(tx, ty, r_search_lvl_4.x, r_search_lvl_4.y, n), min_val_lvl_4(tx, ty, n));
-        Expr new_min_x_lvl_4 = select(condition, r_search_lvl_4.x, min_x_lvl_4(tx, ty, n));
-        Expr new_min_y_lvl_4 = select(condition, r_search_lvl_4.y, min_y_lvl_4(tx, ty, n));
-
-        min_val_lvl_4(tx, ty, n) = new_min_lvl_4;
-        min_x_lvl_4(tx, ty, n) = new_min_x_lvl_4;
-        min_y_lvl_4(tx, ty, n) = new_min_y_lvl_4;
-
-
-       /* Func: alignPyramid[4]
-        * dtype: i16
-        * True range: [-4, 4] (worst case)
-        * Consumer(s): coarse_offset_lvl_3
-        */
-        alignPyramid[4](tx, ty, xy, n) = select(n == 0, i16(0),
-                    xy == 0, i16(min_x_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n),
-                    i16(min_y_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n));
-
-        alignPyramid[4].bound(tx, 0, 3);
-        alignPyramid[4].bound(ty, 0, 3);
-        alignPyramid[4].bound(xy, 0, 1);
-        alignPyramid[4].bound(n, 0, 3);
-
         Func provisional_output;
-        provisional_output(tx, ty, xy, n) = alignPyramid[4](tx, ty, xy, n);
-        output(tx, ty, xy, n) = provisional_output(tx, ty, xy, n);
-        output.bound(tx, 0, 3);
-        output.bound(ty, 0, 3);
-        output.bound(xy, 0, 1);
-        output.bound(n, 0, 3);
+        provisional_output(x, y, n) = gPyramid[4](x, y, n);
+        //output(x, y, n) = u8(provisional_output(x, y, n));
+        output(x, y) = u8(provisional_output(x, y, 0));
+        //output.bound(n, 0, 3);
+        output.bound(x, 0, 39);
+        output.bound(y, 0, 35);
 
-
-
-        // Schedule
-        //Var xo("xo"), yo("yo"), xi("xi"), yi("yi"), outer("outer");
-
+      // Schedule
       if (get_target().has_feature(Target::CoreIR)) {
 
       } else if (get_target().has_feature(Target::Clockwork)) {
     
-        const int output_x_size = 3;
-        const int output_y_size = 3;
+        const int output_x_size = 39;
+        const int output_y_size = 35;
 
-        output.bound(tx, 0, output_x_size);
-        output.bound(ty, 0, output_y_size);
-        output.bound(xy, 0, 1);
-        output.bound(n, 0, 3);
-
+        output.bound(x, 0, output_x_size);
+        output.bound(y, 0, output_y_size);
+  
         provisional_output.in().compute_root();
 
-        provisional_output.in().tile(tx, ty, xo, yo, xi, yi, output_x_size, output_y_size)
-          .reorder(n, xi, yi, xo, yo)
+        provisional_output.in().tile(x, y, xo, yo, xi, yi, output_x_size, output_y_size)
+          .reorder(xi, yi, xo, yo)
           .hw_accelerate(xi, xo);
 
-        provisional_output.tile(tx, ty, xo, yo, xi, yi, output_x_size, output_y_size)
-          .reorder(n, xi, yi, xo, yo);
+        provisional_output.tile(x, y, xo, yo, xi, yi, output_x_size, output_y_size)
+            .reorder(xi, yi, xo, yo);
         provisional_output.compute_at(provisional_output.in(), xo);
         provisional_output.store_in(MemoryType::GLB);
 
-        alignPyramid[4].compute_at(provisional_output, xo);
+        // alignPyramid[4].compute_at(provisional_output, xo);
 
         gPyramid[0].compute_at(provisional_output, xo);
         gPyramid[1].compute_at(provisional_output, xo);
@@ -369,46 +186,10 @@ public:
         hw_input.compute_root()
           .accelerator_input();
 
+
+      // SCHEDULE TO CPU
       } else {
 
-        // // ALIGN SCHEDULE 
-        // Var xo("xo"), yo("yo"), outer("outer");
-        // align_output.reorder(xy, n, tx, ty).tile(tx, ty, xo, yo, xi, yi, 4, 4).fuse(xo, yo, outer).parallel(outer);
-        // //align_output.reorder(xy, n, tx, ty).parallel(outer);
-        // align_output.compute_root();
-        // //deinterleaved.compute_root();
-        // //hw_input_float.compute_root();
-        // //deinterleaved.compute_root();
-        // gray.compute_root().parallel(y, 32).vectorize(x, 8);
-        
-        // for (int j = 1; j < J; j++) {
-        //     gPyramid[j]
-        //         .compute_root().parallel(y, 8).vectorize(x, 8);
-
-
-        //     // USE THIS FOR PRINTING COARSE OFFSET
-        //     // if (j <= 0)
-        //     //    alignPyramid[j]
-        //     //   .store_at(align_output, outer).compute_at(align_output, yi);
-        //     // else
-        //     //   //alignPyramid[j]
-        //     //   //.store_at(align_output, outer).compute_at(align_output, yi);
-        //     //   alignPyramid[j].compute_at(coarse_offset_lvl_0, n);
-            
-
-        //     // USE THIS FOR PRINTING SCORES
-        //     alignPyramid[j].compute_root();
-        // }
-        // //coarse_offset_lvl_4.compute_root();
-        // //coarse_offset_lvl_3.compute_root();
-        // //coarse_offset_lvl_2.compute_root();
-        // //coarse_offset_lvl_1.compute_root();
-        // //coarse_offset_lvl_0.compute_root();
-
-        // scores_lvl_0.compute_root();
-
-        // // alignPyramid[0-].compute_root()
-        // alignPyramid[0].compute_at(align_output, yi);
       }
     }
 private:
@@ -449,6 +230,10 @@ private:
                         + (3) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y-1, 0, gauss_height-1), n) + (9) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y, 0, gauss_height-1), n) + (9) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y+1, 0, gauss_height-1), n) + (3) * f(clamp(size*x+1, 0, gauss_width-1), clamp(size*y+2, 0, gauss_height-1), n) 
                         + (1) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y-1, 0, gauss_height-1), n) + (3) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y, 0, gauss_height-1), n) + (3) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y+1, 0, gauss_height-1), n) + (1) * f(clamp(size*x+2, 0, gauss_width-1), clamp(size*y+2, 0, gauss_height-1), n);
         
+      // down_pre_shift(x, y, n) = (1) * f(size*x-1, size*y-1, n) + (3) * f(size*x-1, size*y, n) + (3) * f(size*x-1, size*y+1, n) + (1) * f(size*x-1, size*y+2, n) 
+      //                   + (3) * f(size*x, size*y-1, n) + (9) * f(size*x, size*y, n) + (9) * f(size*x, size*y+1, n) + (3) * f(size*x, size*y+2, n) 
+      //                   + (3) * f(size*x+1, size*y-1, n) + (9) * f(size*x+1, size*y, n) + (9) * f(size*x+1, size*y+1, n) + (3) * f(size*x+1, size*y+2, n) 
+      //                   + (1) * f(size*x+2, size*y-1, n) + (3) * f(size*x+2, size*y, n) + (3) * f(size*x+2, size*y+1, n) + (1) * f(size*x+2, size*y+2, n);
 
        /* Func: down
         * dtype: u16
