@@ -66,24 +66,24 @@ int main( int argc, char **argv ) {
   processor.run_calls = functions;
 
 
-  // Input is alignPyramid[4]
-  int im_width = 3;
-  int im_height = 3;
+  // Input is gPyramid[4]
+  int im_width = 2;
+  int im_height = 2;
   int num_frames = 3; 
 
   // Dims are tx, ty, xy, n
-  //processor.input = Buffer<int16_t>(im_width, im_height, 2, num_frames);
-  processor.input = Buffer<int16_t>(im_width, im_height, num_frames);
+  processor.input = Buffer<int16_t>(im_width, im_height, 2, num_frames);
+  //processor.input = Buffer<int16_t>(im_width, im_height, num_frames);
 
 
   for (int x = 0; x < im_width; x++) {
     for (int y = 0; y < im_height; y++){
-      //for (int xy = 0; xy < 2; xy++){
+      for (int xy = 0; xy < 2; xy++){
         for (int n = 0; n < num_frames; n++){
-          //processor.input(x, y, xy, n) = int16_t(0);
-          processor.input(x, y, n) = int16_t(0);
+          processor.input(x, y, xy, n) = int16_t(0);
+          //processor.input(x, y, n) = int16_t(0);
         }
-      //}
+      }
     }
   }
 
@@ -91,7 +91,7 @@ int main( int argc, char **argv ) {
   processor.inputs_preset = true;
   printf("Successfully load input images!\n");
 
-   processor.output = Buffer<uint8_t>(5, 5, 3);
+   processor.output = Buffer<uint8_t>(3, 3, 3);
   //processor.output = Buffer<uint8_t>(32, 32, 3);
 
 
