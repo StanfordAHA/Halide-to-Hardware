@@ -295,13 +295,9 @@ std::vector<std::string> img_names;
 
 
 
-  // processor.output = Buffer<uint8_t>(39, 35, 3);
-  //processor.output = Buffer<uint8_t>(256, 256, 3);
-  //processor.output = Buffer<uint8_t>(32, 32);
+  //processor.output = Buffer<uint8_t>(4, 4);
   processor.output = Buffer<uint8_t>(16, 16);
-  //processor.output = Buffer<uint8_t>(3, 3, 3);
-  // processor.output = Buffer<uint8_t>(256, 256);
- // processor.output = Buffer<int16_t>(3, 3, 2, 3);
+
 
   auto cmd_output = processor.process_command(argc, argv);
   printf("Ran process command!");

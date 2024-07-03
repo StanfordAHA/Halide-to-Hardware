@@ -84,12 +84,21 @@ public:
         Func hw_input_copy;
         hw_input_copy(x, y, xy, n) = hw_input(x, y, xy, n) + i16(0); 
   
+        const int input_x_size = 8;
+        const int input_y_size = 8;
 
-        Expr gauss_width = 39;
-        Expr gauss_height = 35;
+        const int output_x_size = 16;
+        const int output_y_size = 16;
+
+        Expr gauss_width = 512;
+        Expr gauss_height = 512;
+
+
+        // Expr gauss_width = 39;
+        // Expr gauss_height = 35;
 
         Func gPyramid4_LUT;
-        gPyramid4_LUT(x, y, n) = u16(x * 2 + y * 3 + n); 
+        gPyramid4_LUT(x, y, n) = i16(x * 2 + y * 3 + n); 
         gPyramid4_LUT.bound(x, 0, gauss_width);
         gPyramid4_LUT.bound(y, 0, gauss_height);
         gPyramid4_LUT.bound(n, 0, 3);
@@ -103,8 +112,8 @@ public:
         RDom r_search_lvl_4(-4, 9, -4, 9);
 
 
-        Expr upsample_flow_gauss_width = 8;
-        Expr upsample_flow_gauss_height = 8; 
+        Expr upsample_flow_gauss_width = input_x_size;
+        Expr upsample_flow_gauss_height = input_y_size; 
 
       
         
@@ -117,16 +126,31 @@ public:
         Func coarse_offset_lvl_4;
         coarse_offset_lvl_4(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_width, upsample_flow_gauss_height)(tx, ty, xy, n));
 
-        Expr x_ref_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x, 0, gauss_width-1);
-        Expr y_ref_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y, 0, gauss_height-1);
+        // Expr x_ref_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x, 0, gauss_width-1);
+        // Expr y_ref_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y, 0, gauss_height-1);
 
-        Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width-1);
-        Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n) + y_s_lvl_4, 0, gauss_height-1);
+        // Expr x_ref_lvl_4 = tx * T_SIZE;
+        // Expr y_ref_lvl_4 = ty * T_SIZE;
+
+
+        Expr x_ref_lvl_4 = (tx * T_SIZE) + r_tile_lvl_4.x;
+        Expr y_ref_lvl_4 = (ty * T_SIZE)+ r_tile_lvl_4.y;
+
+        // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width-1);
+        // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n) + y_s_lvl_4, 0, gauss_height-1);
+
+        Expr x_cmp_lvl_4 = tx * T_SIZE + coarse_offset_lvl_4(tx, ty, 0, n);
+        Expr y_cmp_lvl_4 = ty * T_SIZE + coarse_offset_lvl_4(tx, ty, 1, n);
+
+
+        // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n), 0, gauss_width-1);
+        // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n), 0, gauss_height-1);
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + x_s_lvl_4, 0, gauss_width[4]-1);
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + y_s_lvl_4, 0, gauss_height[4]-1);
 
-        Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n))); 
+        //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n))); 
+        Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(coarse_offset_lvl_4(tx, ty, 0, n), coarse_offset_lvl_4(tx, ty, 1, n), n))); 
 
 
        /* Func: scores_lvl_4
@@ -135,28 +159,39 @@ public:
         * Consumer(s): alignPyramid[4]
         */
         Func scores_lvl_4;
-        scores_lvl_4(tx, ty, x_s_lvl_4, y_s_lvl_4, n) = sum(u32(dist_lvl_4));
+        //scores_lvl_4(tx, ty, x_s_lvl_4, y_s_lvl_4, n) = sum(u32(dist_lvl_4));
+        //scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
+        //scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
+        scores_lvl_4(tx, ty, n) = u16(0);
+        scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
+
+        //scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
 
 
-        Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
-        min_val_lvl_4(tx, ty, n) = cast<uint>(std::numeric_limits<int>::max());
-        //min_val_lvl_4(tx, ty, n) = cast<uint16_t>(std::numeric_limits<int>::max());
-        min_x_lvl_4(tx, ty, n) = 0;
-        min_y_lvl_4(tx, ty, n) = 0;
+        // Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
+        // min_val_lvl_4(tx, ty, n) = cast<uint>(std::numeric_limits<int>::max());
+        // //min_val_lvl_4(tx, ty, n) = cast<uint16_t>(std::numeric_limits<int>::max());
+        // min_x_lvl_4(tx, ty, n) = 0;
+        // min_y_lvl_4(tx, ty, n) = 0;
 
-        // Update the minimum function and coordinates
-        Expr condition = scores_lvl_4(tx, ty, r_search_lvl_4.x, r_search_lvl_4.y, n) < min_val_lvl_4(tx, ty, n);
-        Expr new_min_lvl_4 = select(condition, scores_lvl_4(tx, ty, r_search_lvl_4.x, r_search_lvl_4.y, n), min_val_lvl_4(tx, ty, n));
-        Expr new_min_x_lvl_4 = select(condition, r_search_lvl_4.x, min_x_lvl_4(tx, ty, n));
-        Expr new_min_y_lvl_4 = select(condition, r_search_lvl_4.y, min_y_lvl_4(tx, ty, n));
+        // // Update the minimum function and coordinates
+        // Expr condition = scores_lvl_4(tx, ty, r_search_lvl_4.x, r_search_lvl_4.y, n) < min_val_lvl_4(tx, ty, n);
+        // Expr new_min_lvl_4 = select(condition, scores_lvl_4(tx, ty, r_search_lvl_4.x, r_search_lvl_4.y, n), min_val_lvl_4(tx, ty, n));
+        // Expr new_min_x_lvl_4 = select(condition, r_search_lvl_4.x, min_x_lvl_4(tx, ty, n));
+        // Expr new_min_y_lvl_4 = select(condition, r_search_lvl_4.y, min_y_lvl_4(tx, ty, n));
 
-        min_val_lvl_4(tx, ty, n) = new_min_lvl_4;
-        min_x_lvl_4(tx, ty, n) = new_min_x_lvl_4;
-        min_y_lvl_4(tx, ty, n) = new_min_y_lvl_4;
+        // min_val_lvl_4(tx, ty, n) = new_min_lvl_4;
+        // min_x_lvl_4(tx, ty, n) = new_min_x_lvl_4;
+        // min_y_lvl_4(tx, ty, n) = new_min_y_lvl_4;
 
         Func alignPyramid_4_x, alignPyramid_4_y;
-        alignPyramid_4_x(tx, ty, n) = i16(min_x_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
-        alignPyramid_4_y(tx, ty, n) = i16(min_y_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+        // alignPyramid_4_x(tx, ty, n) = i16(min_x_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
+        // alignPyramid_4_y(tx, ty, n) = i16(min_y_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+
+        alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
+        alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+
+
 
 
        /* Func: alignPyramid_4
@@ -168,21 +203,18 @@ public:
         alignPyramid_4(tx, ty, xy, n) = select(xy == 0, alignPyramid_4_x(tx, ty, n), alignPyramid_4_y(tx, ty, n));
 
 
-    
+        // CHANGE THESE BOUNDS 
         Func provisional_output;
         provisional_output(x, y) = alignPyramid_4(x, y, 0, 0);
         output(x, y) = u8(provisional_output(x, y));
         //output.bound(n, 0, 3);
-        output.bound(x, 0, 16);
-        output.bound(y, 0, 16);
+        output.bound(x, 0, output_x_size);
+        output.bound(y, 0, output_y_size);
 
       // Schedule
       if (get_target().has_feature(Target::CoreIR)) {
 
       } else if (get_target().has_feature(Target::Clockwork)) {
-    
-        const int output_x_size = 16;
-        const int output_y_size = 16;
 
         output.bound(x, 0, output_x_size);
         output.bound(y, 0, output_y_size);
@@ -198,6 +230,8 @@ public:
         provisional_output.store_in(MemoryType::GLB);
 
         alignPyramid_4.compute_at(provisional_output, xo);
+        alignPyramid_4_y.compute_at(provisional_output, xo);
+        alignPyramid_4_x.compute_at(provisional_output, xo);
         scores_lvl_4.compute_at(provisional_output, xo);
         coarse_offset_lvl_4.compute_at(provisional_output, xo);
    
@@ -209,8 +243,8 @@ public:
         hw_input.in().compute_at(provisional_output.in(), xo); // represents the glb level
         hw_input.in().store_in(MemoryType::GLB);
 
-        hw_input.bound(x, 0, 8);
-        hw_input.bound(y, 0, 8);
+        hw_input.bound(x, 0, input_x_size);
+        hw_input.bound(y, 0, input_y_size);
         hw_input.bound(n, 0, 3);
         hw_input.compute_root()
           .accelerator_input();
