@@ -540,6 +540,10 @@ CoreIR::Wireable* CreateCoreIRModule::get_wire(string name, Expr e, std::vector<
   } else if (is_fconst(e)) {
     // Create a constant with floating point value
     float fconst_value = id_fconst_value(e);
+    if (fconst_value == -65536.0) {
+      printf("WARNING: hardcoded -65536.0 to the min negative bfloat16 number for maximum op comparison\n");
+      fconst_value = -338953138925153547590470800371487866880.0;
+    }
     string const_name = unique_name("fconst" + std::to_string((int)fconst_value) + "_" + name);
     CoreIR::Wireable* const_inst;
 

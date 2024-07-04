@@ -33,12 +33,11 @@ include ../../hw_support/Makefile.inc
 # RDAI_PLATFORM_RUNTIME         : RDAI platform runtime to use 
 ###############################################################################
 
-TESTNAME                        = fp_comp
+TESTNAME                        = conv2D_fp
 USE_COREIR_VALID                = 1
-HL_TARGET                       = host-x86-64-bfloat_hardware
+HL_TARGET                       = host-x86-64-bfloat_hardware-enable_ponds
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
-
-
+EXT                             = mat
 
 ###############################################################################
 # MODIFICATION : NONE
@@ -48,5 +47,3 @@ RDAI_PLATFORM_RUNTIME           = clockwork_sim
 ###############################################################################
 
 include ../../hw_support/hardware_targets.mk
-
-

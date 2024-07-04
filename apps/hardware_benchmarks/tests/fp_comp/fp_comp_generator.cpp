@@ -20,17 +20,16 @@ public:
         hw_input(x, y) = cast<bfloat16_t>(input(x, y));
 
         Func lt, gt, le, ge, eq, ne;
-        lt(x,y) = hw_input(x,y) <  Expr(bfloat16_t(100.3f));
-        ge(x,y) = hw_input(x,y) >= Expr(bfloat16_t(80.2f));
-        le(x,y) = hw_input(x,y) <= Expr(bfloat16_t(42.42f));
-        gt(x,y) = hw_input(x,y) >  Expr(bfloat16_t(3.6f));
-        ne(x,y)= hw_input(x,y) != bfloat16_t(6.f);
-        eq(x,y) = hw_input(x,y) == bfloat16_t(66.f);
+        lt(x,y) = hw_input(x,y) <  Expr(bfloat16_t(6.6f));
+        gt(x,y) = hw_input(x,y) > Expr(bfloat16_t(3.3f));
+
+        le(x,y) = hw_input(x,y) <=  Expr(bfloat16_t(16.6f));
+        ge(x,y) = hw_input(x,y) >= Expr(bfloat16_t(13.3f));
+
+        eq(x,y) = hw_input(x,y) == bfloat16_t(66.0f);
 
         Func hw_output("hw_output");
-        hw_output(x, y) = u16(select((lt(x,y) || ge(x,y)) && 
-                                     (le(x,y) || gt(x,y)) && 
-                                     (eq(x,y) || ne(x,y)), 200.0f, 0.0f));
+        hw_output(x, y) = u16(select((lt(x,y) && gt(x,y)) || (le(x,y) && ge(x,y)) || eq(x,y), u16(0), u16(1)));
         output(x, y) = u8(hw_output(x,y));
 
         /* THE SCHEDULE */
@@ -47,13 +46,6 @@ public:
               .tile(x,y, xo,yo, xi,yi, imgsize, imgsize)
               .hw_accelerate(xi, xo);
           
-          // lt.compute_at(hw_output, xo);
-          // ge.compute_at(hw_output, xo);
-          // le.compute_at(hw_output, xo);
-          // gt.compute_at(hw_output, xo);
-          // ne.compute_at(hw_output, xo);
-          // eq.compute_at(hw_output, xo);
-
           hw_input.stream_to_accelerator();
           
         } else {  // schedule to CPU

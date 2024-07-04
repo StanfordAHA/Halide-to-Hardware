@@ -158,6 +158,79 @@ def parseDesignPlace(meta, filename: str):
                 setOrCheck(tileOut, "y_pos", int(words[2]))
                 tileOut["valid_name"] = validName
 
+# Hacky functions to tile xy loop when flattened and add padding to extents
+def parseLoopExtentforPadding(meta, halide_gen_args):
+    # Get pad_o values
+    args = halide_gen_args.split()
+    args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
+    pad_o_left = args_dict.get('pad_o_left', 0)
+    pad_o_right = args_dict.get('pad_o_right', 0)
+
+    # Get X_dim
+    out_shape_list = meta['IOs']['outputs'][0]['shape']
+    assert out_shape_list[-1] == out_shape_list[-2], "Only square output supported for output padding"
+    X_dim = out_shape_list[-1]
+
+    # Change extent for all io tiles
+    assert len(meta['IOs']['outputs']) == 1, "Only one output supported for output padding"
+    io_tiles_list = meta['IOs']['outputs'][0]['io_tiles']
+    for io_tile in io_tiles_list:
+        addr_dict = io_tile['addr']
+        found_X_cnt = 0
+        # add dimension if X_dim or Y_dim are flattened
+        for i, ext in enumerate(addr_dict['extent']):
+            if ext == X_dim:
+                found_X_cnt += 1
+                addr_dict['extent'][i] += (pad_o_left + pad_o_right)
+            elif ext == X_dim * X_dim:
+                found_X_cnt += 2
+                addr_dict['dimensionality'] += 1
+                addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
+                addr_dict['extent'].insert(i+1, X_dim + (pad_o_left + pad_o_right))
+                addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+                break
+            elif ext % X_dim == 0:
+                found_X_cnt += 1
+                addr_dict['dimensionality'] += 1
+                addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
+                addr_dict['extent'].insert(i+1, ext // X_dim)
+                addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+        assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
+
+    # Add HALIDE_GEN_ARGS to meta file
+    if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
+
+def addGLBBankConfig(meta):
+    with open("bin/glb_bank_config.json", "r") as f:
+        glb_json = json.load(f)
+    meta["GLB_BANK_CONFIG"] = glb_json
+    for input_index, input_dict in enumerate(meta["IOs"]["inputs"]):
+        assert "io_tiles" in input_dict, "io_tiles must be key of input_dict"
+        for tile_index, io_tile in enumerate(input_dict["io_tiles"]):
+            # Check if 'x_pos' of this io_tile is in 'glb_inputs' of the GLB_BANK_CONFIG
+            if io_tile["x_pos"] in meta["GLB_BANK_CONFIG"].get("glb_inputs", []):
+                meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 1
+            else:
+                meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
+
+# Function to change extent for glb tiling or add dimensions
+def parseLoopExtentforTiling(meta, halide_gen_args):
+    # Get unroll values
+    args = halide_gen_args.split()
+    args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
+    unroll = args_dict.get('unroll', 0)
+    n_ic = args_dict.get('n_ic', 0)
+    assert len(meta['IOs']['outputs']) == 1, "Only one output supported for output padding"
+    io_tiles_list = meta['IOs']['outputs'][0]['io_tiles']
+    for io_tile in io_tiles_list:
+        addr_dict = io_tile['addr']
+        assert addr_dict['dimensionality'] == 2, "Implement fully unrolled first"
+    # Add HALIDE_GEN_ARGS to meta file
+    if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
+    if meta.get("NUM_GLB_TILING") is None: meta["NUM_GLB_TILING"] = os.getenv("NUM_GLB_TILING")
+
 def main():
     args = parseArguments()
 
@@ -194,6 +267,15 @@ def main():
 
     outputName = 'bin/design_meta.json'
     with open(outputName, 'w', encoding='utf-8') as fileout:
+        halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
+        if halide_gen_args is not None:
+            # If pad_o in args call padding functions to modify extents
+            if "pad_o_left" in halide_gen_args or "pad_o_right" in halide_gen_args: parseLoopExtentforPadding(meta, halide_gen_args)
+            # If NUM_GLB_TILING is set then edit extent if necessary
+            if os.getenv("NUM_GLB_TILING") is not None and atoi(os.getenv("NUM_GLB_TILING")) > 0: parseLoopExtentforTiling(meta, halide_gen_args)
+
+        if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
+
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
