@@ -108,7 +108,8 @@ public:
         //Var tx, ty, xy, n;
         Var x_s_lvl_4, y_s_lvl_4;
 
-        RDom r_tile_lvl_4(0, T_SIZE, 0, T_SIZE);
+        //RDom r_tile_lvl_4(0, T_SIZE, 0, T_SIZE);
+        RDom r_tile_lvl_4(0, 2, 0, 2);
         RDom r_search_lvl_4(-4, 9, -4, 9);
 
 
@@ -140,6 +141,7 @@ public:
         Expr x_ref_lvl_4 = tx*T_SIZE + r_tile_lvl_4.x;
         Expr y_ref_lvl_4 = ty*T_SIZE + r_tile_lvl_4.y;
 
+
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width-1);
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n) + y_s_lvl_4, 0, gauss_height-1);
 
@@ -158,6 +160,7 @@ public:
 
         //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, n))); 
         Expr dist_lvl_4 = abs(i16(hw_input(x_ref_lvl_4, y_ref_lvl_4, 0, n))); 
+        //Expr dist_lvl_4 = i16(hw_input(x_ref_lvl_4, y_ref_lvl_4, 0, n)); 
 
 
        /* Func: scores_lvl_4
@@ -168,7 +171,8 @@ public:
         Func scores_lvl_4;
         //scores_lvl_4(tx, ty, x_s_lvl_4, y_s_lvl_4, n) = sum(u32(dist_lvl_4));
         //scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
-        //scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
+
+        // scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
         scores_lvl_4(tx, ty, n) = u16(0);
         scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
 
