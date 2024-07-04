@@ -131,15 +131,14 @@ public:
         // Expr x_ref_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x, 0, gauss_width-1);
         // Expr y_ref_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y, 0, gauss_height-1);
 
+
+        //  WORKS 
         // Expr x_ref_lvl_4 = tx * T_SIZE;
         // Expr y_ref_lvl_4 = ty * T_SIZE;
 
-
-        // Expr x_ref_lvl_4 = (tx * T_SIZE) + r_tile_lvl_4.x;
-        // Expr y_ref_lvl_4 = (ty * T_SIZE) + r_tile_lvl_4.y;
-
-        Expr x_ref_lvl_4 = tx*T_SIZE + r_tile_lvl_4.x;
-        Expr y_ref_lvl_4 = ty*T_SIZE + r_tile_lvl_4.y;
+        // DOESN'T WORK
+        Expr x_ref_lvl_4 = (tx*T_SIZE) + r_tile_lvl_4.x;
+        Expr y_ref_lvl_4 = (ty*T_SIZE) + r_tile_lvl_4.y;
 
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width-1);
@@ -172,11 +171,13 @@ public:
         //scores_lvl_4(tx, ty, x_s_lvl_4, y_s_lvl_4, n) = sum(u32(dist_lvl_4));
         //scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
 
+        // WORKS
         // scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
-        scores_lvl_4(tx, ty, n) = u16(0);
-        scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
 
-        //scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
+
+        // DOESN'T WORK
+        scores_lvl_4(tx, ty, n) = u16(0);
+        scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
 
 
         // Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
