@@ -108,8 +108,8 @@ public:
         //Var tx, ty, xy, n;
         Var x_s_lvl_4, y_s_lvl_4;
 
-        //RDom r_tile_lvl_4(0, T_SIZE, 0, T_SIZE);
-        RDom r_tile_lvl_4(0, 2, 0, 2);
+        RDom r_tile_lvl_4(0, T_SIZE, 0, T_SIZE);
+        //RDom r_tile_lvl_4(0, 2, 0, 2);
         RDom r_search_lvl_4(-4, 9, -4, 9);
 
 
