@@ -269,8 +269,8 @@ std::vector<std::string> img_names;
   //Buffer<float> imgs;
 
   // Input is gPyramid[4]
-  int im_width = 8;
-  int im_height = 8;
+  int im_width = 256;
+  int im_height = 256;
   int num_frames = 3; 
 
   // Dims are tx, ty, xy, n

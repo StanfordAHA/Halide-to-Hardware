@@ -84,8 +84,8 @@ public:
         Func hw_input_copy;
         hw_input_copy(x, y, xy, n) = hw_input(x, y, xy, n) + i16(0); 
   
-        const int input_x_size = 8;
-        const int input_y_size = 8;
+        const int input_x_size = 256;
+        const int input_y_size = 256;
 
         const int output_x_size = 16;
         const int output_y_size = 16;
@@ -124,7 +124,8 @@ public:
         * Consumer(s): alignPyramid[4]
         */
         Func coarse_offset_lvl_4;
-        coarse_offset_lvl_4(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_width, upsample_flow_gauss_height)(tx, ty, xy, n));
+        //coarse_offset_lvl_4(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_width, upsample_flow_gauss_height)(tx, ty, xy, n));
+        //coarse_offset_lvl_4(tx, ty, xy, n) = i16(0);
 
         // Expr x_ref_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x, 0, gauss_width-1);
         // Expr y_ref_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y, 0, gauss_height-1);
@@ -133,14 +134,17 @@ public:
         // Expr y_ref_lvl_4 = ty * T_SIZE;
 
 
-        Expr x_ref_lvl_4 = (tx * T_SIZE) + r_tile_lvl_4.x;
-        Expr y_ref_lvl_4 = (ty * T_SIZE)+ r_tile_lvl_4.y;
+        // Expr x_ref_lvl_4 = (tx * T_SIZE) + r_tile_lvl_4.x;
+        // Expr y_ref_lvl_4 = (ty * T_SIZE) + r_tile_lvl_4.y;
+
+        Expr x_ref_lvl_4 = tx*T_SIZE + r_tile_lvl_4.x;
+        Expr y_ref_lvl_4 = ty*T_SIZE + r_tile_lvl_4.y;
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width-1);
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n) + y_s_lvl_4, 0, gauss_height-1);
 
-        Expr x_cmp_lvl_4 = tx * T_SIZE + coarse_offset_lvl_4(tx, ty, 0, n);
-        Expr y_cmp_lvl_4 = ty * T_SIZE + coarse_offset_lvl_4(tx, ty, 1, n);
+        // Expr x_cmp_lvl_4 = tx * T_SIZE + coarse_offset_lvl_4(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = ty * T_SIZE + coarse_offset_lvl_4(tx, ty, 1, n);
 
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n), 0, gauss_width-1);
@@ -150,7 +154,10 @@ public:
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + y_s_lvl_4, 0, gauss_height[4]-1);
 
         //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n))); 
-        Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(coarse_offset_lvl_4(tx, ty, 0, n), coarse_offset_lvl_4(tx, ty, 1, n), n))); 
+        //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(coarse_offset_lvl_4(tx, ty, 0, n), coarse_offset_lvl_4(tx, ty, 1, n), n))); 
+
+        //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, n))); 
+        Expr dist_lvl_4 = abs(i16(hw_input(x_ref_lvl_4, y_ref_lvl_4, 0, n))); 
 
 
        /* Func: scores_lvl_4
@@ -188,8 +195,11 @@ public:
         // alignPyramid_4_x(tx, ty, n) = i16(min_x_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
         // alignPyramid_4_y(tx, ty, n) = i16(min_y_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
 
-        alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
-        alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+        // alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
+        // alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+
+        alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n));
+        alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n));
 
 
 
@@ -233,7 +243,7 @@ public:
         alignPyramid_4_y.compute_at(provisional_output, xo);
         alignPyramid_4_x.compute_at(provisional_output, xo);
         scores_lvl_4.compute_at(provisional_output, xo);
-        coarse_offset_lvl_4.compute_at(provisional_output, xo);
+        //coarse_offset_lvl_4.compute_at(provisional_output, xo);
    
 
         hw_input_copy.compute_at(provisional_output, xo);
