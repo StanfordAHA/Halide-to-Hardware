@@ -153,6 +153,17 @@ public:
       
         
 
+      Expr x_cmp_lvl_4_pos1 = max(min(r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 1, gauss_width), 0);
+      Expr y_cmp_lvl_4_pos1 = max(min(r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 1, gauss_height), 0);
+
+      Expr x_cmp_lvl_4_pos2 = max(min(r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 2, gauss_width), 0);
+      Expr y_cmp_lvl_4_pos2 = max(min(r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 2, gauss_height), 0);
+
+      Expr x_cmp_lvl_4_pos3 = max(min(r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 3, gauss_width), 0);
+      Expr y_cmp_lvl_4_pos3 = max(min(r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 3, gauss_height), 0);
+
+
+
        /* Func: coarse_offset_lvl_4
         * dtype: i16
         * True range: [0]
@@ -164,10 +175,7 @@ public:
 
         Expr x_ref_lvl_4 = r_tile_lvl_4.x;
         Expr y_ref_lvl_4 = r_tile_lvl_4.y;
-
-        Expr x_cmp_lvl_4_pos1 = r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 1;
-        Expr y_cmp_lvl_4_pos1 = r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 1;
-
+        
         Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4_pos1, y_cmp_lvl_4_pos1, n)));  
       
        /* Func: scores_lvl_4
@@ -179,12 +187,6 @@ public:
         scores_lvl_4_pos1_pos1(tx, ty, n) = u16(0);
         scores_lvl_4_pos1_pos1(tx, ty, n) += u16(dist_lvl_4_pos1_pos1);
 
-
-
-
-        Expr x_cmp_lvl_4_pos2 = r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 2;
-        Expr y_cmp_lvl_4_pos2 = r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 2;
-
         Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4_pos2, y_cmp_lvl_4_pos2, n)));  
       
         Func scores_lvl_4_pos2_pos2;
@@ -193,13 +195,11 @@ public:
 
         Func min_x_0, min_y_0, min_score_0;
 
-        min_x_0(tx, ty, n) = select(scores_lvl_4_pos1_pos1(tx, ty, n) < scores_lvl_4_pos2_pos2(tx, ty, n), 1, 2);
-        min_y_0(tx, ty, n) = select(scores_lvl_4_pos1_pos1(tx, ty, n) < scores_lvl_4_pos2_pos2(tx, ty, n), 1, 2);
-        min_score_0(tx, ty, n) = select(scores_lvl_4_pos1_pos1(tx, ty, n) < scores_lvl_4_pos2_pos2(tx, ty, n), scores_lvl_4_pos1_pos1(tx, ty, n), scores_lvl_4_pos2_pos2(tx, ty, n));
-        
-        
-        Expr x_cmp_lvl_4_pos3 = r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 3;
-        Expr y_cmp_lvl_4_pos3 = r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 3;
+
+        Expr condition_0 = scores_lvl_4_pos1_pos1(tx, ty, n) < scores_lvl_4_pos2_pos2(tx, ty, n);
+        min_x_0(tx, ty, n) = select(condition_0, 1, 2);
+        min_y_0(tx, ty, n) = select(condition_0 < scores_lvl_4_pos2_pos2(tx, ty, n), 1, 2);
+        min_score_0(tx, ty, n) = select(condition_0, scores_lvl_4_pos1_pos1(tx, ty, n), scores_lvl_4_pos2_pos2(tx, ty, n));
 
         Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4_pos3, y_cmp_lvl_4_pos3, n)));  
       
@@ -209,9 +209,10 @@ public:
 
         Func min_x_1, min_y_1, min_score_1;
 
-        min_x_1(tx, ty, n) = select(min_score_0(tx, ty, n) < scores_lvl_4_pos3_pos3(tx, ty, n), min_x_0(tx, ty, n), 3);
-        min_y_1(tx, ty, n) = select(min_score_0(tx, ty, n) < scores_lvl_4_pos3_pos3(tx, ty, n), min_y_0(tx, ty, n), 3);
-        min_score_1(tx, ty, n) = select(min_score_0(tx, ty, n) < scores_lvl_4_pos3_pos3(tx, ty, n), min_score_0(tx, ty, n), scores_lvl_4_pos3_pos3(tx, ty, n));
+        Expr condition_1 = min_score_0(tx, ty, n) < scores_lvl_4_pos3_pos3(tx, ty, n);
+        min_x_1(tx, ty, n) = select(condition_1, min_x_0(tx, ty, n), 3);
+        min_y_1(tx, ty, n) = select(condition_1, min_y_0(tx, ty, n), 3);
+        min_score_1(tx, ty, n) = select(condition_1, min_score_0(tx, ty, n), scores_lvl_4_pos3_pos3(tx, ty, n));
         
         
         // Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
