@@ -84,30 +84,37 @@ public:
         Func hw_input_copy;
         hw_input_copy(x, y, xy, n) = hw_input(x, y, xy, n) + i16(0); 
   
-        const int input_x_size = 256;
-        const int input_y_size = 256;
+        const int input_x_size = 32;
+        const int input_y_size = 32;
 
         // const int output_x_size = 16;
         // const int output_y_size = 16;
 
-        const int output_x_size = 64;
-        const int output_y_size = 64;
+        // OUTPUT IS 256X256. SINCE I'M UPSAMPLING, PROBABLY NEED TO CHANGE SOME DIMENSIONS...
 
-        Expr gauss_width = 512;
-        Expr gauss_height = 512;
+        // const int output_x_size = 256;
+        // const int output_y_size = 256;
+
+        const int output_x_size = 32;
+        const int output_y_size = 32;
+
+        Expr gauss_width = 256;
+        Expr gauss_height = 256;
 
 
         // Expr gauss_width = 39;
         // Expr gauss_height = 35;
 
         Func gPyramid4_LUT;
-        gPyramid4_LUT(x, y, n) = i16(0);
-        gPyramid4_LUT(0, 0, 0) = i16(4);
-        gPyramid4_LUT(0, 0, 1) = i16(4);
-        //gPyramid4_LUT(x, y, n) = i16(x * 2 + y * 3 + n); 
-        gPyramid4_LUT.bound(x, 0, gauss_width);
-        gPyramid4_LUT.bound(y, 0, gauss_height);
-        gPyramid4_LUT.bound(n, 0, 3);
+        //gPyramid4_LUT(x, y, n) = i16(0);
+        // gPyramid4_LUT(0, 0, 0) = i16(4);
+        // gPyramid4_LUT(0, 0, 1) = i16(4);
+        gPyramid4_LUT(x, y, n) = i16(x * 2 + y * 3 + n); 
+        //gPyramid4_LUT(x) = u16( u32(256) * u32(x));
+        //gPyramid4_LUT(x, y, n) = i16(x); 
+        // gPyramid4_LUT.bound(x, 0, gauss_width);
+        // gPyramid4_LUT.bound(y, 0, gauss_height);
+        // gPyramid4_LUT.bound(n, 0, 3);
 
 
         /* ALIGN PYRAMID LEVEL 4*/
@@ -123,6 +130,26 @@ public:
         Expr upsample_flow_gauss_width = input_x_size;
         Expr upsample_flow_gauss_height = input_y_size; 
 
+
+
+        Func rom_div_lookup;
+        rom_div_lookup(x) = u16( u32(1 << 8) * (u32(x) + 1));
+
+
+      
+        Func divisor;
+        //ratio(x, y) = cast<uint16_t>(clamp(cast<uint16_t>(sharpen(x, y)) * 32 / max(gray(x, y), 1), 0, 255));
+        divisor(x,y,n) = max(hw_input_copy(x, y, 0, n), u16(1)); // take max so no div by 0
+
+        // Func coarse_offset_lvl_4;
+        // coarse_offset_lvl_4(x, y, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_width, upsample_flow_gauss_height)(x, y, xy, n));
+
+        // WORKS 
+        Func reciprocal;
+        //reciprocal(x, y, n) = gPyramid4_LUT(divisor(x, y, n), divisor(x, y, n), n);
+
+         // DOESN'T WORK  
+        reciprocal(x, y, n) = gPyramid4_LUT(hw_input_copy(x, y, 0, n), hw_input_copy(x, y, 1, n), n);
       
         
 
@@ -131,9 +158,9 @@ public:
         * True range: [0]
         * Consumer(s): alignPyramid[4]
         */
-        Func coarse_offset_lvl_4;
-        coarse_offset_lvl_4(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_width, upsample_flow_gauss_height)(tx, ty, xy, n));
-        //coarse_offset_lvl_4(tx, ty, xy, n) = i16(0);
+      Func coarse_offset_lvl_4;
+      coarse_offset_lvl_4(tx, ty, xy, n) = i16(2 * upsample_u16_size_2_for_alignment(hw_input_copy, upsample_flow_gauss_width, upsample_flow_gauss_height)(tx, ty, xy, n));
+      //coarse_offset_lvl_4(tx, ty, xy, n) = i16(0);
 
         // Expr x_ref_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x, 0, gauss_width-1);
         // Expr y_ref_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y, 0, gauss_height-1);
@@ -151,14 +178,35 @@ public:
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n), 0, gauss_height-1);
 
         // Need to figure out how to clamp this
-        Expr x_cmp_lvl_4 = tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n);
-        Expr y_cmp_lvl_4 = ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n);
+        // Expr x_cmp_lvl_4 = tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n);
+
+        // Expr x_cmp_lvl_4 = tx * T_SIZE + coarse_offset_lvl_4(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = ty * T_SIZE + coarse_offset_lvl_4(tx, ty, 1, n);
+
+        // Once I add an iteration domain to this it breaks 
+        // Expr x_cmp_lvl_4 = r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n);
+
+        // Expr x_cmp_lvl_4 = tx * T_SIZE + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = ty * T_SIZE + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n);
+
+        // Expr x_cmp_lvl_4 = tx * T_SIZE + hw_input_copy(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = ty * T_SIZE + hw_input_copy(tx, ty, 1, n);
+
+        Expr x_cmp_lvl_4 = hw_input_copy(tx, ty, 0, n);
+        Expr y_cmp_lvl_4 = hw_input_copy(tx, ty, 1, n);
 
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + x_s_lvl_4, 0, gauss_width[4]-1);
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + y_s_lvl_4, 0, gauss_height[4]-1);
 
         Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n)));  
+        
+        //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4)));  
+      
+
+
         //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n))); 
         //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(coarse_offset_lvl_4(tx, ty, 0, n), coarse_offset_lvl_4(tx, ty, 1, n), n))); 
 
@@ -178,12 +226,13 @@ public:
         //scores_lvl_4(tx, ty, n) = sum(u16(dist_lvl_4));
 
         // WORKS
-        // scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
+        //scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
+        scores_lvl_4(x, y, n) = gPyramid4_LUT(hw_input_copy(x, y, 0, n), hw_input_copy(x, y, 1, n), n);
 
 
         // DOESN'T WORK
-        scores_lvl_4(tx, ty, n) = u16(0);
-        scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
+        // scores_lvl_4(tx, ty, n) = u16(0);
+        // scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
 
 
         // Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
@@ -206,8 +255,13 @@ public:
         // alignPyramid_4_x(tx, ty, n) = i16(min_x_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
         // alignPyramid_4_y(tx, ty, n) = i16(min_y_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
 
-        alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
-        alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+        // alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 0, n);
+        // alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + coarse_offset_lvl_4(tx, ty, 1, n);
+
+
+        // USED 
+        alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + hw_input_copy(tx, ty, 0, n);
+        alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n)) + hw_input_copy(tx, ty, 1, n);
 
         // alignPyramid_4_x(tx, ty, n) = i16(scores_lvl_4(tx, ty, n));
         // alignPyramid_4_y(tx, ty, n) = i16(scores_lvl_4(tx, ty, n));
@@ -226,7 +280,9 @@ public:
 
         // CHANGE THESE BOUNDS 
         Func provisional_output;
-        provisional_output(x, y) = alignPyramid_4(x, y, 0, 0);
+        //provisional_output(x, y) = alignPyramid_4(x, y, 0, 0);
+        provisional_output(x, y) = scores_lvl_4(x, y, 0);
+        //provisional_output(x, y) = reciprocal(x, y, 0);
         output(x, y) = u8(provisional_output(x, y));
         //output.bound(n, 0, 3);
         output.bound(x, 0, output_x_size);
@@ -254,18 +310,22 @@ public:
         alignPyramid_4_y.compute_at(provisional_output, xo);
         alignPyramid_4_x.compute_at(provisional_output, xo);
 
-        scores_lvl_4.bound(tx, 0, output_x_size);
-        scores_lvl_4.bound(ty, 0, output_y_size);
-        scores_lvl_4.bound(n, 0, 3);
+        // scores_lvl_4.bound(tx, 0, output_x_size);
+        // scores_lvl_4.bound(ty, 0, output_y_size);
+        // scores_lvl_4.bound(n, 0, 3);
         scores_lvl_4.compute_at(provisional_output, xo);
-        scores_lvl_4.update()
-        // .unroll(r_tile_lvl_4.x, T_SIZE)
-        // .unroll(r_tile_lvl_4.y, T_SIZE);
-        .unroll(r_tile_lvl_4.x, 2)
-        .unroll(r_tile_lvl_4.y, 2);
+        //scores_lvl_4.update();
+        // // .unroll(r_tile_lvl_4.x, T_SIZE)
+        // // .unroll(r_tile_lvl_4.y, T_SIZE);
+        // .unroll(r_tile_lvl_4.x, 2)
+        // .unroll(r_tile_lvl_4.y, 2);
+
+        //gPyramid4_LUT.compute_at(provisional_output, xo).unroll(x).unroll(y).unroll(n);
+        //reciprocal.compute_at(provisional_output, xo).unroll(x).unroll(y).unroll(n);
+        //reciprocal.compute_at(provisional_output, xo).unroll(x);
 
 
-        //coarse_offset_lvl_4.compute_at(provisional_output, xo);
+        coarse_offset_lvl_4.compute_at(provisional_output, xo);
    
 
         hw_input_copy.compute_at(provisional_output, xo);

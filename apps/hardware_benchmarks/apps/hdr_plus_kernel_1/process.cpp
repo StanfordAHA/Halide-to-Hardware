@@ -269,8 +269,10 @@ std::vector<std::string> img_names;
   //Buffer<float> imgs;
 
   // Input is gPyramid[4]
-  int im_width = 256;
-  int im_height = 256;
+  // int im_width = 256;
+  // int im_height = 256;
+  int im_width = 32;
+  int im_height = 32;
   int num_frames = 3; 
 
   // Dims are tx, ty, xy, n
@@ -298,7 +300,8 @@ std::vector<std::string> img_names;
   //processor.output = Buffer<uint8_t>(4, 4);
   //processor.output = Buffer<uint8_t>(16, 16);
   //processor.output = Buffer<uint8_t>(32, 32);
-  processor.output = Buffer<uint8_t>(64, 64);
+  processor.output = Buffer<uint8_t>(32, 32);
+  //processor.output = Buffer<uint8_t>(256, 256);
 
 
   auto cmd_output = processor.process_command(argc, argv);
