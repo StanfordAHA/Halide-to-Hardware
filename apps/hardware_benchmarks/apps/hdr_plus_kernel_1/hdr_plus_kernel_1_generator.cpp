@@ -98,8 +98,8 @@ public:
         const int output_x_size = 32;
         const int output_y_size = 32;
 
-        Expr gauss_width = 256;
-        Expr gauss_height = 256;
+        Expr gauss_width = 8;
+        Expr gauss_height = 8;
 
 
         // Expr gauss_width = 39;
@@ -112,9 +112,9 @@ public:
         gPyramid4_LUT(x, y, n) = i16(x * 2 + y * 3 + n); 
         //gPyramid4_LUT(x) = u16( u32(256) * u32(x));
         //gPyramid4_LUT(x, y, n) = i16(x); 
-        // gPyramid4_LUT.bound(x, 0, gauss_width);
-        // gPyramid4_LUT.bound(y, 0, gauss_height);
-        // gPyramid4_LUT.bound(n, 0, 3);
+        gPyramid4_LUT.bound(x, 0, gauss_width);
+        gPyramid4_LUT.bound(y, 0, gauss_height);
+        gPyramid4_LUT.bound(n, 0, 3);
 
 
         /* ALIGN PYRAMID LEVEL 4*/
@@ -167,8 +167,11 @@ public:
 
 
         // DOESN'T WORK
-        Expr x_ref_lvl_4 = (tx*T_SIZE) + r_tile_lvl_4.x;
-        Expr y_ref_lvl_4 = (ty*T_SIZE) + r_tile_lvl_4.y;
+        // Expr x_ref_lvl_4 = (tx*T_SIZE) + r_tile_lvl_4.x;
+        // Expr y_ref_lvl_4 = (ty*T_SIZE) + r_tile_lvl_4.y;
+
+        Expr x_ref_lvl_4 = r_tile_lvl_4.x;
+        Expr y_ref_lvl_4 = r_tile_lvl_4.y;
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + coarse_offset_lvl_4(tx, ty, 0, n) + x_s_lvl_4, 0, gauss_width-1);
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + coarse_offset_lvl_4(tx, ty, 1, n) + y_s_lvl_4, 0, gauss_height-1);
@@ -201,7 +204,7 @@ public:
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + x_s_lvl_4, 0, gauss_width[4]-1);
         // Expr y_cmp_lvl_4 = clamp(ty * T_SIZE + r_tile_lvl_4.y + y_s_lvl_4, 0, gauss_height[4]-1);
 
-        Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n)));  
+        Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_ref_lvl_4, y_ref_lvl_4, 0)) - i16(gPyramid4_LUT(x_cmp_lvl_4, y_cmp_lvl_4, n)));  
         
         //Expr dist_lvl_4 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4)));  
       
@@ -280,8 +283,8 @@ public:
 
         // CHANGE THESE BOUNDS 
         Func provisional_output;
-        //provisional_output(x, y) = alignPyramid_4(x, y, 0, 0);
-        provisional_output(x, y) = scores_lvl_4(x, y, 0);
+        provisional_output(x, y) = alignPyramid_4(x, y, 0, 0);
+        //provisional_output(x, y) = scores_lvl_4(x, y, 0);
         //provisional_output(x, y) = reciprocal(x, y, 0);
         output(x, y) = u8(provisional_output(x, y));
         //output.bound(n, 0, 3);
