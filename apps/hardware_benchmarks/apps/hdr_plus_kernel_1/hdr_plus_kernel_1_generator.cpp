@@ -185,8 +185,8 @@ public:
         // Expr y_cmp_lvl_4 = ty * T_SIZE + coarse_offset_lvl_4(tx, ty, 1, n);
 
         // Once I add an iteration domain to this it breaks 
-        // Expr x_cmp_lvl_4 = r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n);
-        // Expr y_cmp_lvl_4 = r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n);
+        Expr x_cmp_lvl_4 = r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n);
+        Expr y_cmp_lvl_4 = r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n);
 
         // Expr x_cmp_lvl_4 = tx * T_SIZE + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n);
         // Expr y_cmp_lvl_4 = ty * T_SIZE + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n);
@@ -194,8 +194,8 @@ public:
         // Expr x_cmp_lvl_4 = tx * T_SIZE + hw_input_copy(tx, ty, 0, n);
         // Expr y_cmp_lvl_4 = ty * T_SIZE + hw_input_copy(tx, ty, 1, n);
 
-        Expr x_cmp_lvl_4 = hw_input_copy(tx, ty, 0, n);
-        Expr y_cmp_lvl_4 = hw_input_copy(tx, ty, 1, n);
+        // Expr x_cmp_lvl_4 = hw_input_copy(tx, ty, 0, n);
+        // Expr y_cmp_lvl_4 = hw_input_copy(tx, ty, 1, n);
 
 
         // Expr x_cmp_lvl_4 = clamp(tx * T_SIZE + r_tile_lvl_4.x + x_s_lvl_4, 0, gauss_width[4]-1);
@@ -227,12 +227,12 @@ public:
 
         // WORKS
         //scores_lvl_4(tx, ty, n) = u16(dist_lvl_4);
-        scores_lvl_4(x, y, n) = gPyramid4_LUT(hw_input_copy(x, y, 0, n), hw_input_copy(x, y, 1, n), n);
+        //scores_lvl_4(x, y, n) = gPyramid4_LUT(hw_input_copy(x, y, 0, n), hw_input_copy(x, y, 1, n), n);
 
 
         // DOESN'T WORK
-        // scores_lvl_4(tx, ty, n) = u16(0);
-        // scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
+        scores_lvl_4(tx, ty, n) = u16(0);
+        scores_lvl_4(tx, ty, n) += u16(dist_lvl_4);
 
 
         // Func min_val_lvl_4, min_x_lvl_4, min_y_lvl_4;
@@ -314,11 +314,11 @@ public:
         // scores_lvl_4.bound(ty, 0, output_y_size);
         // scores_lvl_4.bound(n, 0, 3);
         scores_lvl_4.compute_at(provisional_output, xo);
-        //scores_lvl_4.update();
-        // // .unroll(r_tile_lvl_4.x, T_SIZE)
-        // // .unroll(r_tile_lvl_4.y, T_SIZE);
-        // .unroll(r_tile_lvl_4.x, 2)
-        // .unroll(r_tile_lvl_4.y, 2);
+        scores_lvl_4.update()
+        // .unroll(r_tile_lvl_4.x, T_SIZE)
+        // .unroll(r_tile_lvl_4.y, T_SIZE);
+        .unroll(r_tile_lvl_4.x, 2)
+        .unroll(r_tile_lvl_4.y, 2);
 
         //gPyramid4_LUT.compute_at(provisional_output, xo).unroll(x).unroll(y).unroll(n);
         //reciprocal.compute_at(provisional_output, xo).unroll(x).unroll(y).unroll(n);
