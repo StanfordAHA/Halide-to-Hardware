@@ -197,13 +197,13 @@ public:
 
 
         // WORKS
-        Expr x_ref_lvl_4 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n), gauss_width-1), 0);
-        Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n), gauss_height-1), 0);
+        // Expr x_ref_lvl_4 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n), gauss_width-1), 0);
+        // Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n), gauss_height-1), 0);
 
 
         // TROUBLESOME CODE 
-        // Expr x_ref_lvl_4 = max(min((tx * T_SIZE) + r_tile_lvl_4.x, gauss_width-1), 0);
-        // Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y, gauss_height-1), 0);
+        Expr x_ref_lvl_4 = max(min((tx * T_SIZE) + r_tile_lvl_4.x, gauss_width-1), 0);
+        Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y, gauss_height-1), 0);
 
 
         // WORKS
