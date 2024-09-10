@@ -90,7 +90,7 @@ int main( int argc, char **argv ) {
     //output_tile_height = 66-0;
     //host_tiling_x = 12;  host_tiling_y = 10;
     //output_tile_width = 126-0;
-    output_tile_height = 256-6;
+    output_tile_height = 128-6; // [opal] 256->128
     break;
   default:
     processor.inputs_preset = false;

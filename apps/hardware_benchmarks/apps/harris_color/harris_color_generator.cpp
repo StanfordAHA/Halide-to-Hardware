@@ -326,7 +326,7 @@ public:
             //const int tileWidth = 128-6; // for unroll=2
             const int tileWidth = mywidth;
             //const int tileHeight = 255;
-            const int tileHeight = 255;
+            const int tileHeight = 127; // [opal] 255->127
             //const int tileHeight = 66;
             const int numHostTilesX = 5; //12;
             const int numHostTilesY = 10; //10;
