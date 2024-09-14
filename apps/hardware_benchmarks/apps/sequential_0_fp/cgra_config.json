@@ -1,0 +1,36 @@
+{
+	"IOs": {
+		"inputs": [{
+				"name": "hw_input",
+				"bitwidth": 16,
+  			"shape": [16, 58, 58],
+				"pixels_per_cycle": 1,
+				"datafile": "bin/input_host_stencil.raw"
+			},
+			{
+				"name": "hw_kernel",
+				"bitwidth": 16,
+				"shape": [16, 16, 3, 3],
+				"pixels_per_cycle": 1,
+				"datafile": "bin/kernel_host_stencil.raw"
+			},
+			{
+				"name": "hw_bias",
+				"bitwidth": 16,
+				"shape": [16],
+				"pixels_per_cycle": 1,
+				"datafile": "bin/bias_host_stencil.raw"
+			}
+    ],
+		"output": {
+			"name": "hw_output",
+			"bitwidth": 16,
+	    "shape": [16, 28, 28],
+			"pixels_per_cycle": 1,
+      "datafile": "bin/hw_output_stencil.raw"
+		}
+	},
+	"testing": {
+		"total_cycles": 40000
+	}
+}
