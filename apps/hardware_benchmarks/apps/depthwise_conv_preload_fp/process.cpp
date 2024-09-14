@@ -235,6 +235,8 @@ int main( int argc, char **argv ) {
     int K_X = ksize;
     int K_Y = K_X;
     int C = n_ic;
+
+    int num_glb_tiling = getenv("NUM_GLB_TILING") ? atoi(getenv("NUM_GLB_TILING")) : 1;
   
     // input image
     processor.inputs["input_host_stencil.mat"] = Buffer<uint16_t>(C, X, Y);
@@ -252,10 +254,29 @@ int main( int argc, char **argv ) {
               << processor.inputs["input_host_stencil.mat"].dim(1).extent() << "x"
               << processor.inputs["input_host_stencil.mat"].dim(2).extent() << "\n";
 
+    // Full inputs
+    auto input_host_stencil_full = Buffer<uint16_t>(num_glb_tiling * C, X, Y);
+    for (int y = 0; y < input_host_stencil_full.dim(2).extent(); y++) {
+      for (int x = 0; x < input_host_stencil_full.dim(1).extent(); x++) {
+        for (int c = 0; c < input_host_stencil_full.dim(0).extent(); c++) {
+          input_host_stencil_full(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
+        }
+      }
+    }
+    std::cout << "full input has dims: " << input_host_stencil_full.dim(0).extent() << "x"
+              << input_host_stencil_full.dim(1).extent() << "x"
+              << input_host_stencil_full.dim(2).extent() << "\n";
+
 
     int imgsize_x = std::floor( (X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y - K_Y) / stride ) + 1;
     processor.output = Buffer<uint16_t>(C, imgsize_x, imgsize_y);
+
+    // Full output
+    auto output_host_stencil_full = Buffer<uint16_t>(num_glb_tiling * C, imgsize_x, imgsize_y);
+    std::cout << "full output has dims: " << output_host_stencil_full.dim(0).extent() << "x"
+              << output_host_stencil_full.dim(1).extent() << "x"
+              << output_host_stencil_full.dim(2).extent() << "\n";
 
     // Kernel generation similar to the preload kernel in the Halide generator
     int block_size = ksize;
@@ -271,8 +292,22 @@ int main( int argc, char **argv ) {
             }
         }
     }
+
+    // Full kernels
+    auto kernel_host_stencil_full = Buffer<uint16_t>(num_glb_tiling * C, K_X, K_Y);
+    for (int y = 0; y < K_Y; y++) {
+        for (int x = 0; x < K_X; x++) {
+            for (int c = 0; c < num_glb_tiling * C; c++) {
+                // Compute which channel in the original kernel to use
+                int channel_index = c % C;
+                // Copy value from the original kernel_stencil
+                kernel_host_stencil_full(c, x, y) = kernel_stencil(channel_index, x, y);
+            }
+        }
+    }
+
     // Depthwise Convolution Operation using the generated kernel
-    for (int c = 0; c < C; ++c) {
+    for (int c = 0; c < num_glb_tiling * C; ++c) {
         for (int y = 0; y < imgsize_y; ++y) {
             for (int x = 0; x < imgsize_x; ++x) {
                 float sum = 0.0f;
@@ -281,13 +316,13 @@ int main( int argc, char **argv ) {
                         int ix = x * stride + kx;
                         int iy = y * stride + ky;
                         if (ix < X && iy < Y) {
-                            float input_val = bfloat16_to_float_process(input_copy_stencil(c, ix, iy));
-                            float kernel_val = bfloat16_to_float_process(kernel_stencil(c, kx, ky)); // Use the generated kernel
+                            float input_val = bfloat16_to_float_process(input_host_stencil_full(c, ix, iy));
+                            float kernel_val = bfloat16_to_float_process(kernel_host_stencil_full(c, kx, ky)); // Use the generated kernel
                             sum += input_val * kernel_val;
                         }
                     }
                 }
-                processor.output(c, x, y) = float_to_bfloat16_process(sum);
+                output_host_stencil_full(c, x, y) = float_to_bfloat16_process(sum);
             }
         }
     }
@@ -300,8 +335,8 @@ int main( int argc, char **argv ) {
     if (write_mat) {
       std::cout << "Writing input_host_stencil.mat to bin folder" << std::endl;
       std::cout << "Writing hw_output.mat to bin folder" << std::endl;
-      save_image(processor.inputs["input_host_stencil.mat"], "bin/input_host_stencil.mat");
-      save_image(processor.output, "bin/hw_output.mat");
+      save_image(input_host_stencil_full, "bin/input_host_stencil.mat");
+      save_image(output_host_stencil_full, "bin/hw_output.mat");
     }
 
     // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
@@ -312,6 +347,7 @@ int main( int argc, char **argv ) {
       std::vector<int> kernel_host_stencil = parse_glb_bank_config_env_var("KERNEL_HOST_STENCIL_POS");
       std::vector<int> hw_output_stencil = parse_glb_bank_config_env_var("HW_OUTPUT_STENCIL_POS");
       std::vector<int> glb_inputs = parse_glb_bank_config_env_var("GLB_INPUTS");
+      std::vector<int> num_glb_tiling_vec = parse_glb_bank_config_env_var("NUM_GLB_TILING");
 
       // Create the glb_bank_config.json structure
       json config = {
@@ -322,7 +358,8 @@ int main( int argc, char **argv ) {
           {"outputs", {
               {"hw_output", hw_output_stencil}
           }},
-          {"glb_inputs", glb_inputs}
+          {"glb_inputs", glb_inputs},
+          {"num_glb_tiling", num_glb_tiling_vec}
       };
 
       std::ofstream file("bin/glb_bank_config.json");
