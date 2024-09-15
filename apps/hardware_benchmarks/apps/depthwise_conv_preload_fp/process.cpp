@@ -245,7 +245,7 @@ int main( int argc, char **argv ) {
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
         for (int c = 0; c < input_copy_stencil.dim(0).extent(); c++) {
-          input_copy_stencil(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
+          input_copy_stencil(c, x, y) = float_to_bfloat16_process(((static_cast<float>(rand()) / RAND_MAX) * 4.0f) - 2.0f);
         }
       }
     }
@@ -259,7 +259,7 @@ int main( int argc, char **argv ) {
     for (int y = 0; y < input_host_stencil_full.dim(2).extent(); y++) {
       for (int x = 0; x < input_host_stencil_full.dim(1).extent(); x++) {
         for (int c = 0; c < input_host_stencil_full.dim(0).extent(); c++) {
-          input_host_stencil_full(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
+          input_host_stencil_full(c, x, y) = float_to_bfloat16_process(((static_cast<float>(rand()) / RAND_MAX) * 4.0f) - 2.0f);
         }
       }
     }

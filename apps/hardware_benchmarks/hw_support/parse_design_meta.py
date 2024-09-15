@@ -159,6 +159,40 @@ def parseDesignPlace(meta, filename: str):
                 tileOut["valid_name"] = validName
 
 # Hacky functions to tile xy loop when flattened and add padding to extents
+def unflatten_extent(addr_dict, X_dim, pad_o_left=0, pad_o_right=0):
+    found_X_cnt = 0
+    # add dimension if X_dim or Y_dim are flattened
+    for i, ext in enumerate(addr_dict['extent']):
+        if ext == X_dim:
+            found_X_cnt += 1
+            addr_dict['extent'][i] += (pad_o_left + pad_o_right)
+        elif ext == X_dim * X_dim:
+            found_X_cnt += 2
+            addr_dict['dimensionality'] += 1
+            addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
+            addr_dict['extent'].insert(i+1, X_dim + (pad_o_left + pad_o_right))
+            addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+            if 'write_data_stride' in addr_dict:
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+            elif 'read_data_stride' in addr_dict:
+                addr_dict['read_data_stride'].insert(i+1, addr_dict['read_data_stride'][i] * X_dim)
+            else:
+                raise ValueError("write_data_stride or read_data_stride not found in addr_dict")
+            break
+        elif ext % X_dim == 0:
+            found_X_cnt += 1
+            addr_dict['dimensionality'] += 1
+            addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
+            addr_dict['extent'].insert(i+1, ext // X_dim)
+            addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+            if 'write_data_stride' in addr_dict:
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+            elif 'read_data_stride' in addr_dict:
+                addr_dict['read_data_stride'].insert(i+1, addr_dict['read_data_stride'][i] * X_dim)
+            else:
+                raise ValueError("write_data_stride or read_data_stride not found in addr_dict")
+    assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
+
 def parseLoopExtentforPadding(meta, halide_gen_args):
     # Get pad_o values
     args = halide_gen_args.split()
@@ -176,28 +210,7 @@ def parseLoopExtentforPadding(meta, halide_gen_args):
     io_tiles_list = meta['IOs']['outputs'][0]['io_tiles']
     for io_tile in io_tiles_list:
         addr_dict = io_tile['addr']
-        found_X_cnt = 0
-        # add dimension if X_dim or Y_dim are flattened
-        for i, ext in enumerate(addr_dict['extent']):
-            if ext == X_dim:
-                found_X_cnt += 1
-                addr_dict['extent'][i] += (pad_o_left + pad_o_right)
-            elif ext == X_dim * X_dim:
-                found_X_cnt += 2
-                addr_dict['dimensionality'] += 1
-                addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
-                addr_dict['extent'].insert(i+1, X_dim + (pad_o_left + pad_o_right))
-                addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
-                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
-                break
-            elif ext % X_dim == 0:
-                found_X_cnt += 1
-                addr_dict['dimensionality'] += 1
-                addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
-                addr_dict['extent'].insert(i+1, ext // X_dim)
-                addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
-                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
-        assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
+        unflatten_extent(addr_dict, X_dim, pad_o_left, pad_o_right)
 
     # Add HALIDE_GEN_ARGS to meta file
     if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
@@ -222,11 +235,29 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
     args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
     unroll = args_dict.get('unroll', 0)
     n_ic = args_dict.get('n_ic', 0)
-    assert len(meta['IOs']['outputs']) == 1, "Only one output supported for output padding"
-    io_tiles_list = meta['IOs']['outputs'][0]['io_tiles']
-    for io_tile in io_tiles_list:
-        addr_dict = io_tile['addr']
-        assert addr_dict['dimensionality'] == 2, "Implement fully unrolled first"
+
+    # Unflatten extent for all io tiles and check dimensionality
+    for input in meta['IOs']['inputs']:
+        io_tiles_list = input['io_tiles']
+        # Get X_dim
+        shape_list = input['shape']
+        assert shape_list[-1] == shape_list[-2], "Only square shape supported for glb tiling."
+        X_dim = shape_list[-1]
+        for io_tile in io_tiles_list:
+            addr_dict = io_tile['addr']
+            unflatten_extent(addr_dict, X_dim)
+            assert addr_dict['dimensionality'] == 2, "Implement fully unrolling along channel first"
+    for output in meta['IOs']['outputs']:
+        io_tile_list = output['io_tiles']
+        # Get X_dim
+        shape_list = output['shape']
+        assert shape_list[-1] == shape_list[-2], "Only square shape supported for glb tiling."
+        X_dim = shape_list[-1]
+        for io_tile in io_tile_list:
+            addr_dict = io_tile['addr']
+            unflatten_extent(addr_dict, X_dim)
+            assert addr_dict['dimensionality'] == 2, "Implement fully unrolling along channel first"
+
     # Add HALIDE_GEN_ARGS to meta file
     if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
     if meta.get("NUM_GLB_TILING") is None: meta["NUM_GLB_TILING"] = os.getenv("NUM_GLB_TILING")
