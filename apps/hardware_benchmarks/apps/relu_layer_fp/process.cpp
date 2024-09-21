@@ -219,16 +219,29 @@ int main( int argc, char **argv ) {
 
   auto OX = getenv("out_img");
   auto OC = getenv("n_oc");
+  auto PO_L = getenv("pad_o_left");
+  auto PO_R = getenv("pad_o_right");
+  auto TRUNC_SIZE = getenv("trunc_size");
 
   auto out_img = OX ? atoi(OX) : 56;
   auto n_oc = OC ? atoi(OC) : 32;
+  int pad_o_left = PO_L ? atoi(PO_L) : 0;
+  int pad_o_right = PO_R ? atoi(PO_R) : 0;
+  int trunc_size = TRUNC_SIZE ? atoi(TRUNC_SIZE) : 0;
+
+  int imgsize_x = out_img;
+  int imgsize_y = out_img;
+  int imgsize_x_padded = imgsize_x + pad_o_left + pad_o_right;
+  int imgsize_y_padded = imgsize_y + pad_o_left + pad_o_right;
       
   // Add all defined functions
   processor.run_calls = functions;
 
-  processor.inputs["hw_input_stencil.mat"]        = Buffer<uint16_t>(n_oc, out_img, out_img);
-  processor.inputs["hw_bias_stencil.raw" ]        = Buffer<uint16_t>(n_oc, out_img, out_img);
-  processor.output                                = Buffer<uint16_t>(n_oc, out_img, out_img);
+  processor.inputs["hw_input_stencil.mat"]        = Buffer<uint16_t>(n_oc, imgsize_x, imgsize_y);
+  processor.inputs["hw_bias_stencil.raw" ]        = Buffer<uint16_t>(n_oc, imgsize_x, imgsize_y);
+  processor.output                                = Buffer<uint16_t>(n_oc, imgsize_x, imgsize_y);
+  auto output_gold_tensor = Buffer<uint16_t>(n_oc, imgsize_x_padded, imgsize_y_padded);
+  output_gold_tensor.fill(0);
 
   processor.inputs_preset = true;
   
@@ -237,29 +250,46 @@ int main( int argc, char **argv ) {
       for (int w = 0; w < processor.inputs["hw_input_stencil.mat"].dim(0).extent(); w++) {
         processor.inputs["hw_input_stencil.mat"](w, x, y) = float_to_bfloat16_process(
           // [-7, 7]
-          ((float)rand() / RAND_MAX) * 14.0 - 7.0
+          // ((float)rand() / RAND_MAX) * 14.0 - 7.0
+          1234.0
         );
       }
     }
   }
 
-  for (int y = 0; y < processor.inputs["hw_bias_stencil.raw"].dim(2).extent(); y++) {
-    for (int x = 0; x < processor.inputs["hw_bias_stencil.raw"].dim(1).extent(); x++) {
-      for (int w = 0; w < processor.inputs["hw_bias_stencil.raw"].dim(0).extent(); w++) {
+  for (int w = 0; w < n_oc; w++) {
+    for (int x = 0; x < imgsize_x; x++) {
+      for (int y = 0; y < imgsize_y; y++) {
         processor.inputs["hw_bias_stencil.raw"](w, x, y) = float_to_bfloat16_process(
-          0.0
+          // [-7, 7]
+          // ((float)rand() / RAND_MAX) * 14.0 - 7.0
+          1234.0
         );
       }
     }
   }
 
   // Gold output
-  for (int w = 0; w < processor.output.dim(0).extent(); w++) {
-    for (int x = 0; x < processor.output.dim(1).extent(); x++) {
-      for (int y = 0; y < processor.output.dim(2).extent(); y++) {
-        float sum = bfloat16_to_float_process(processor.inputs["hw_input_stencil.mat"](w, x, y)) + bfloat16_to_float_process(processor.inputs["hw_bias_stencil.raw"](w));
-        float result = std::min(std::max(sum, 0.0f), 6.0f);
-        processor.output(w, x, y) = float_to_bfloat16_process(result);
+  for (int w = 0; w < n_oc; w++) {
+    for (int x_padded = 0; x_padded < imgsize_x_padded; x_padded++) {
+      for (int y_padded = 0; y_padded < imgsize_y_padded; y_padded++) {
+        // Check if the current position is within the truncation area
+        if (x_padded >= imgsize_x_padded - trunc_size || y_padded >= imgsize_y_padded - trunc_size) {
+          // Set output to zero
+          output_gold_tensor(w, x_padded, y_padded) = float_to_bfloat16_process(0.0f);
+        } else if (x_padded < pad_o_left || x_padded >= pad_o_left + imgsize_x ||
+                   y_padded < pad_o_left || y_padded >= pad_o_left + imgsize_y) {
+          // Positions in padding area, set them to zero
+          output_gold_tensor(w, x_padded, y_padded) = float_to_bfloat16_process(0.0f);
+        } else {
+          int x = x_padded - pad_o_left;
+          int y = y_padded - pad_o_left;
+          float input_val = bfloat16_to_float_process(processor.inputs["hw_input_stencil.mat"](w, x, y));
+          float bias_val = bfloat16_to_float_process(processor.inputs["hw_bias_stencil.raw"](w, x, y));
+          float sum = input_val + bias_val;
+          float result = std::min(std::max(sum, 0.0f), 6.0f);
+          output_gold_tensor(w, x_padded, y_padded) = float_to_bfloat16_process(result);
+        }
       }
     }
   }
@@ -271,7 +301,7 @@ int main( int argc, char **argv ) {
   saveHalideBufferToRawBigEndian(processor.inputs["hw_bias_stencil.raw"], "bin/hw_bias_stencil.raw");
   
   std::cout << "Writing output to bin folder" << std::endl;
-  save_image(processor.output, "bin/hw_output.mat");
+  save_image(output_gold_tensor, "bin/hw_output.mat");
 
   // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
   std::cout << "Checking for GLB bank configuration..." << std::endl;

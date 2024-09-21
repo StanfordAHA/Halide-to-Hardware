@@ -17,6 +17,12 @@ public:
     GeneratorParam<int> n_oc{"n_oc", 32};
   
     GeneratorParam<int> unroll{"unroll", 8};
+
+    // pad_o determines the output padding
+    GeneratorParam<int> pad_o_left{"pad_o_left", 0};    // default: 0
+    GeneratorParam<int> pad_o_right{"pad_o_right", 0};    // default: 0
+    // trunc_size determines the number of rows & cols to write zeros
+    GeneratorParam<int> trunc_size{"trunc_size", 0};    // default: 0
   
     void generate() {
         /* THE ALGORITHM */
