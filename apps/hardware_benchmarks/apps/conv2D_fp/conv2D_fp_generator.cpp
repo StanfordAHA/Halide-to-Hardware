@@ -57,6 +57,9 @@ public:
 
     // relu6 determines whether to use ReLU6 activation
     GeneratorParam<int> relu6{"relu6", 1};    // default: 1
+
+    // trunc_size determines the number of rows & cols to write zeros
+    GeneratorParam<int> trunc_size{"trunc_size", 0};    // default: 0
   
     // schedule to be used
     GeneratorParam<int> schedule{"schedule", 0};    // default: 0

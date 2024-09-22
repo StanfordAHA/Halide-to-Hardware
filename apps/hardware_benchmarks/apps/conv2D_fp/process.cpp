@@ -390,17 +390,17 @@ int main( int argc, char **argv ) {
       save_image(output_gold_tensor, "bin/hw_output.mat");
     } else {
       std::cout << "Reading input_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/input_host_stencil.mat", "./input_host_stencil.mat");
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/input_host_stencil.mat", "./bin/input_host_stencil.mat");
 
       std::cout << "Reading kernel_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/kernel_host_stencil.mat", "./kernel_host_stencil.mat");
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/kernel_host_stencil.mat", "./bin/kernel_host_stencil.mat");
 
       // Have to use raw for bias since Halide mat2raw has issues with 1D array
       std::cout << "Reading bias_host_stencil.raw from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/bias_host_stencil.raw", "./bias_host_stencil.raw");
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/bias_host_stencil.raw", "./bin/bias_host_stencil.raw");
 
       std::cout << "Reading hw_output.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./hw_output.mat");
+      copyFile("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./bin/hw_output.mat");
     }
 
     // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1

@@ -250,8 +250,7 @@ int main( int argc, char **argv ) {
       for (int w = 0; w < processor.inputs["hw_input_stencil.mat"].dim(0).extent(); w++) {
         processor.inputs["hw_input_stencil.mat"](w, x, y) = float_to_bfloat16_process(
           // [-7, 7]
-          // ((float)rand() / RAND_MAX) * 14.0 - 7.0
-          1234.0
+          ((float)rand() / RAND_MAX) * 14.0 - 7.0
         );
       }
     }
@@ -262,8 +261,7 @@ int main( int argc, char **argv ) {
       for (int y = 0; y < imgsize_y; y++) {
         processor.inputs["hw_bias_stencil.raw"](w, x, y) = float_to_bfloat16_process(
           // [-7, 7]
-          // ((float)rand() / RAND_MAX) * 14.0 - 7.0
-          1234.0
+          ((float)rand() / RAND_MAX) * 14.0 - 7.0
         );
       }
     }
