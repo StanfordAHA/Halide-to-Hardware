@@ -179,6 +179,19 @@ def unflatten_extent(addr_dict, X_dim, pad_o_left=0, pad_o_right=0):
             else:
                 raise ValueError("write_data_stride or read_data_stride not found in addr_dict")
             break
+        elif ext % (X_dim * X_dim) == 0:
+            # for relu layer fully flattened
+            assert addr_dict['dimensionality'] == 1, "Should be fully flattened in this case"
+            found_X_cnt += 2
+            addr_dict['dimensionality'] += 2
+            addr_dict['extent'][i] = X_dim + (pad_o_left + pad_o_right)
+            addr_dict['extent'].insert(i+1, ext // (X_dim * X_dim))
+            addr_dict['extent'].insert(i+2, X_dim + (pad_o_left + pad_o_right))
+            addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * (X_dim))
+            addr_dict['cycle_stride'].insert(i+2, addr_dict['cycle_stride'][i+1] * addr_dict['extent'][i+1])
+            if 'write_data_stride' in addr_dict:
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * (X_dim))
+                addr_dict['write_data_stride'].insert(i+2, addr_dict['write_data_stride'][i+1] * addr_dict['extent'][i+1])
         elif ext % X_dim == 0:
             found_X_cnt += 1
             addr_dict['dimensionality'] += 1
