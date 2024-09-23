@@ -222,12 +222,14 @@ int main( int argc, char **argv ) {
   auto PO_L = getenv("pad_o_left");
   auto PO_R = getenv("pad_o_right");
   auto TRUNC_SIZE = getenv("trunc_size");
+  auto USE_RELU6 = getenv("use_relu6");
 
   auto out_img = OX ? atoi(OX) : 56;
   auto n_oc = OC ? atoi(OC) : 32;
   int pad_o_left = PO_L ? atoi(PO_L) : 0;
   int pad_o_right = PO_R ? atoi(PO_R) : 0;
   int trunc_size = TRUNC_SIZE ? atoi(TRUNC_SIZE) : 0;
+  auto use_relu6 = USE_RELU6 ? atoi(USE_RELU6) : 1;
 
   int imgsize_x = out_img;
   int imgsize_y = out_img;
@@ -285,7 +287,8 @@ int main( int argc, char **argv ) {
           float input_val = bfloat16_to_float_process(processor.inputs["hw_input_stencil.mat"](w, x, y));
           float bias_val = bfloat16_to_float_process(processor.inputs["hw_bias_stencil.raw"](w, x, y));
           float sum = input_val + bias_val;
-          float result = std::min(std::max(sum, 0.0f), 6.0f);
+          if (use_relu6) sum = std::min(std::max(sum, 0.0f), 6.0f);
+          float result = sum;
           output_gold_tensor(w, x_padded, y_padded) = float_to_bfloat16_process(result);
         }
       }

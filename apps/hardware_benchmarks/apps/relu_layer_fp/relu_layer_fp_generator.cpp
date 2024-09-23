@@ -18,6 +18,9 @@ public:
   
     GeneratorParam<int> unroll{"unroll", 8};
 
+    // relu6 determines whether to use ReLU6 activation
+    GeneratorParam<int> use_relu6{"use_relu6", 1};    // default: 1
+
     // pad_o determines the output padding
     GeneratorParam<int> pad_o_left{"pad_o_left", 0};    // default: 0
     GeneratorParam<int> pad_o_right{"pad_o_right", 0};    // default: 0
@@ -36,7 +39,11 @@ public:
       hw_input(w, x, y) = cast<bfloat16_t>(input(w, x, y));
       hw_bias(w, x, y) = cast<bfloat16_t>(bias(w, x, y));
 
-      relu6(w, x, y) = min(max(hw_input(w, x, y) + hw_bias(w, x, y), cast<bfloat16_t>(0.0f)), cast<bfloat16_t>(6.0f));
+      if (use_relu6 == 1) {
+        relu6(w, x, y) = min(max(hw_input(w, x, y) + hw_bias(w, x, y), cast<bfloat16_t>(0.0f)), cast<bfloat16_t>(6.0f));
+      } else {
+        relu6(w, x, y) = hw_input(w, x, y) + hw_bias(w, x, y);
+      }
       
       hw_output(w, x, y) = relu6(w, x, y);
       output(w, x, y) = cast<uint16_t>(hw_output(w, x, y));

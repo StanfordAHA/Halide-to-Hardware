@@ -192,6 +192,7 @@ def unflatten_extent(addr_dict, X_dim, pad_o_left=0, pad_o_right=0):
             if 'write_data_stride' in addr_dict:
                 addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * (X_dim))
                 addr_dict['write_data_stride'].insert(i+2, addr_dict['write_data_stride'][i+1] * addr_dict['extent'][i+1])
+            break
         elif ext % X_dim == 0:
             found_X_cnt += 1
             addr_dict['dimensionality'] += 1

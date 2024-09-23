@@ -424,6 +424,7 @@ def main():
     parser = argparse.ArgumentParser(description='Generate json for depthwise conv with kernel streaming')
     parser.add_argument('--preload', type=str, help='Preload depthwise conv app name', required=True)
     parser.add_argument('--stream', type=str, help='Stream depthwise conv app name', required=True)
+    parser.add_argument('--clean', action='store_true', help='Clean the build directories')
     args = parser.parse_args()
 
     # first define halide_gen_args in application_parameter.json and get shapes
@@ -438,12 +439,12 @@ def main():
     unroll = args_dict.get('unroll')
 
     # run preload weight and stream weight dw conv
-    if os.path.exists(f'{halide_path}/{preload_app}/bin'):
+    if os.path.exists(f'{halide_path}/{preload_app}/bin') and not args.clean:
         print("preload bin already exists")
     else:
         run_app(preload_app)
 
-    if os.path.exists(f'{halide_path}/{stream_app}/bin'):
+    if os.path.exists(f'{halide_path}/{stream_app}/bin') and not args.clean:
         print("stream bin already exists")
     else:
         run_app(stream_app, run_test=False)
