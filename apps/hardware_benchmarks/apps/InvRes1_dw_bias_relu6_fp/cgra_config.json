@@ -1,0 +1,29 @@
+{
+	"IOs": {
+		"inputs": [
+        {
+			"name": "hw_input",
+			"bitwidth": 16,
+			"shape": [32, 56, 56],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_input_stencil.raw"
+        },
+        {
+			"name": "hw_bias",
+			"bitwidth": 16,
+			"shape": [32, 56, 56],
+			"pixels_per_cycle": 1,
+			"datafile": "bin/hw_bias_stencil.raw"
+        }
+        ],
+		"output": {
+			"name": "hw_output",
+			"bitwidth": 16,
+			"pixels_per_cycle": 1,
+      "datafile": "bin/hw_output.raw"
+		}
+	},
+	"testing": {
+		"total_cycles": -1
+	}
+}

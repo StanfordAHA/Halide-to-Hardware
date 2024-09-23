@@ -8,7 +8,7 @@
 #include "coreir.h"
 
 #if defined(WITH_CPU)
-   #include "conv2D_fp.h"
+   #include "depthwise_conv.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -18,7 +18,7 @@
 #if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-    #include "conv2D_fp_clockwork.h"
+    #include "depthwise_conv_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -163,12 +163,12 @@ bool file_exists(const std::string& name) {
 std::vector<int> parse_glb_bank_config_env_var(const std::string& env_var_name) {
     std::vector<int> values;
     const char* env_var_value = std::getenv(env_var_name.c_str());
-
+    
     if (env_var_value) {
         std::string value_str = env_var_value;
         std::istringstream iss(value_str);
         std::string token;
-
+        
         // Split the string by commas and convert to integers
         while (std::getline(iss, token, ',')) {
             // Trim potential whitespace
@@ -179,17 +179,17 @@ std::vector<int> parse_glb_bank_config_env_var(const std::string& env_var_name) 
     } else {
         std::cerr << "Environment variable " << env_var_name << " not found." << std::endl;
     }
-
+    
     return values;
 }
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  ManyInOneOut_ProcessController<uint16_t> processor("conv2D_fp", {"input_host_stencil.mat", "kernel_host_stencil.mat"});
+  ManyInOneOut_ProcessController<uint16_t> processor("depthwise_conv", {"input_host_stencil.raw", "kernel_host_stencil.raw"});
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        conv2D_fp(proc.inputs["input_host_stencil.mat"], proc.inputs["kernel_host_stencil.mat"], proc.output);
+        depthwise_conv(proc.inputs["input_host_stencil.raw"], proc.inputs["kernel_host_stencil.raw"], proc.output);
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -197,8 +197,10 @@ int main( int argc, char **argv ) {
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
-                                       proc.inputs["input_host_stencil.mat"], proc.output,
-                                       "self.in_arg_0_0_0", "self.out_0_0" );
+                                      proc.inputs["input_host_stencil.raw"],
+                                      proc.inputs["kernel_host_stencil.raw"],
+                                      proc.output,
+                                      "self.in_arg_0_0_0", "self.out_0_0" );
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
   #endif
@@ -208,7 +210,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          conv2D_fp_clockwork(proc.inputs["input_host_stencil.mat"], proc.inputs["kernel_host_stencil.mat"], proc.output);
+          depthwise_conv_clockwork(proc.inputs["input_host_stencil.raw"], proc.inputs["kernel_host_stencil.raw"], proc.output);
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -221,158 +223,121 @@ int main( int argc, char **argv ) {
     processor.run_calls = functions;
 
     auto OX = getenv("in_img");
-    auto K = getenv("ksize");
+    auto KX = getenv("ksize");
     auto S = getenv("stride");
     auto IC = getenv("n_ic");
-    auto OC = getenv("n_oc");
-    auto PO_L = getenv("pad_o_left");
-    auto PO_R = getenv("pad_o_right");
-    auto use_torch_gold = getenv("TORCH_GOLD_LAYER");
 
-    auto in_img = OX ? atoi(OX) : 56;
-    auto ksize = K ? atoi(K) : 3;
-    auto stride = S ? atoi(S) : 1;
-    auto n_ic = IC ? atoi(IC) : 16;
-    auto n_oc = OC ? atoi(OC) : 8;
-    auto pad_o_left = PO_L ? atoi(PO_L) : 0;
-    auto pad_o_right = PO_R ? atoi(PO_R) : 0;
-    std::string use_torch_gold_str = use_torch_gold ? use_torch_gold : "";
+    auto in_img = OX ? atoi(OX) : 40;
+    auto ksize = KX ? atoi(KX) : 5;
+    auto stride = S ? atoi(S) : 2;
+    auto n_ic = IC ? atoi(IC) : 24;
 
     int X = in_img;
-    int Y = X;
+    int Y = in_img;
     int K_X = ksize;
     int K_Y = K_X;
-    int Z = n_ic; // input channel 
-    int W = n_oc; // output channel
-    int PO_LEFT = pad_o_left;
-    int PO_RIGHT = pad_o_right;
+    int C = n_ic;
 
-    if (true) {//OX || P || K || S || IC || OC) {
-      std::cout << "using inputs set within process.cpp" << std::endl;
-      processor.inputs_preset = true;
-    } else {
-      std::cout << "reading input_host_stencil.mat and kernel_host_stencil.mat" << std::endl;
-      processor.inputs_preset = false;
-    }
-    
-    ///// INPUT IMAGE /////
-    processor.inputs["input_host_stencil.mat"] = Halide::Runtime::Buffer<uint16_t>(Z, X, Y);
-    auto input_copy_stencil = processor.inputs["input_host_stencil.mat"];
-    int in_sparsity = 0;
+    int num_glb_tiling = getenv("NUM_GLB_TILING") ? atoi(getenv("NUM_GLB_TILING")) : 0;
+  
+    // Inputs tile
+    processor.inputs["input_host_stencil.raw"] = Buffer<uint16_t>(C, X, Y);
+    processor.inputs_preset = true;
+    auto input_copy_stencil = processor.inputs["input_host_stencil.raw"];
     for (int y = 0; y < input_copy_stencil.dim(2).extent(); y++) {
       for (int x = 0; x < input_copy_stencil.dim(1).extent(); x++) {
-        for (int z = 0; z < input_copy_stencil.dim(0).extent(); z++) {
-          if (rand() % 100 < in_sparsity) {
-            input_copy_stencil(z, x, y) = float_to_bfloat16_process(0.0f);
-          } else {
-            input_copy_stencil(z, x, y) = float_to_bfloat16_process(
-              // [-3.0, 3.0]
-              ((float)rand() / RAND_MAX) * 6.0 - 3.0
-            );
-          }
-          // std::cout << "input: " << " z: " << z << " x: " << x << " y: " << y << " val: " << bfloat16_to_float_process(input_copy_stencil(z, x, y)) << std::endl;
+        for (int c = 0; c < input_copy_stencil.dim(0).extent(); c++) {
+          input_copy_stencil(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
         }
       }
     }
+    std::cout << "input tile has dims: " << processor.inputs["input_host_stencil.raw"].dim(0).extent() << "x"
+              << processor.inputs["input_host_stencil.raw"].dim(1).extent() << "x"
+              << processor.inputs["input_host_stencil.raw"].dim(2).extent() << "\n";
 
-    std::cout << "input has dims: " << processor.inputs["input_host_stencil.mat"].dim(0).extent() << "x"
-              << processor.inputs["input_host_stencil.mat"].dim(1).extent() << "x"
-              << processor.inputs["input_host_stencil.mat"].dim(2).extent() << "\n";
-
-    ///// KERNEL WEIGHTS /////  
-    processor.inputs["kernel_host_stencil.mat"] = Halide::Runtime::Buffer<uint16_t>(W, Z, K_X, K_Y);
-    auto kernel_copy_stencil = processor.inputs["kernel_host_stencil.mat"];
-    int kernel_sparsity = 0;
-    for (int y = 0; y < kernel_copy_stencil.dim(3).extent(); y++) {
-      for (int x = 0; x < kernel_copy_stencil.dim(2).extent(); x++) {
-        for (int z = 0; z < kernel_copy_stencil.dim(1).extent(); z++) {
-          for (int w = 0; w < kernel_copy_stencil.dim(0).extent(); w++) {
-            if (rand() % 100 < kernel_sparsity) {
-              kernel_copy_stencil(w, z, x, y) = float_to_bfloat16_process(0.0f);
-            } else {
-              kernel_copy_stencil(w, z, x, y) = float_to_bfloat16_process(
-                // [-3.0, 3.0]
-                ((float)rand() / RAND_MAX) * 6.0 - 3.0
-              );
-            }
-            // std::cout << "kernel: " << " w: " << w << " z: " << z << " x: " << x << " y: " << y << " val: " << bfloat16_to_float_process(kernel_copy_stencil(w, z, x, y)) << std::endl;
-          } 
-        } 
-      } 
+    // Kernels
+    processor.inputs["kernel_host_stencil.raw"] = Buffer<uint16_t>(C, K_X, K_Y);
+    auto kernel_copy_stencil = processor.inputs["kernel_host_stencil.raw"];
+    for (int y = 0; y < kernel_copy_stencil.dim(2).extent(); y++) {
+      for (int x = 0; x < kernel_copy_stencil.dim(1).extent(); x++) {
+        for (int c = 0; c < kernel_copy_stencil.dim(0).extent(); c++) {
+          kernel_copy_stencil(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX));
+        }
+      }
     }
+    std::cout << "kernel tile has dims: " << processor.inputs["kernel_host_stencil.raw"].dim(0).extent() << "x"
+              << processor.inputs["kernel_host_stencil.raw"].dim(1).extent() << "x"
+              << processor.inputs["kernel_host_stencil.raw"].dim(2).extent() << "\n";
 
-    std::cout << "kernel has dims: " << processor.inputs["kernel_host_stencil.mat"].dim(0).extent() << "x"
-              << processor.inputs["kernel_host_stencil.mat"].dim(1).extent() << "x"
-              << processor.inputs["kernel_host_stencil.mat"].dim(2).extent() << "x"
-              << processor.inputs["kernel_host_stencil.mat"].dim(3).extent() << "\n";
-
-    ///// GOLD OUTPUTS /////
+    // Outputs
     int imgsize_x = std::floor( (X - K_X) / stride ) + 1;
     int imgsize_y = std::floor( (Y - K_Y) / stride ) + 1;
-    int imgsize_x_padded = imgsize_x + PO_LEFT + PO_RIGHT;
-    int imgsize_y_padded = imgsize_y + PO_LEFT + PO_RIGHT;
-    processor.output = Halide::Runtime::Buffer<uint16_t>(W, imgsize_x, imgsize_y);
-    auto output_gold_tensor = Halide::Runtime::Buffer<uint16_t>(W, imgsize_x_padded, imgsize_y_padded);
-    output_gold_tensor.fill(0);
+    processor.output = Buffer<uint16_t>(C, imgsize_x, imgsize_y);
+    std::cout << "output tile has dims: " << processor.output.dim(0).extent() << "x"
+              << processor.output.dim(1).extent() << "x"
+              << processor.output.dim(2).extent() << "\n";
 
-    // Conv2D operation
-    for (int w = 0; w < W; w++) { // For each output channel
-      for (int x = 0; x < imgsize_x; x++) {
-        for (int y = 0; y < imgsize_y; y++) {
-          float sum = 0.0f;
-          for (int z = 0; z < Z; z++) { // For each input channel
-            for (int kx = 0; kx < K_X; kx++) { // Kernel height
-              for (int ky = 0; ky < K_Y; ky++) { // Kernel width
-                int src_x = x * stride + kx;
-                int src_y = y * stride + ky;
-                if (src_x >= 0 && src_x < X && src_y >= 0 && src_y < Y) {
-                    float val = bfloat16_to_float_process(input_copy_stencil(z, src_x, src_y));
-                    float kernel_val = bfloat16_to_float_process(kernel_copy_stencil(w, z, kx, ky));
-                    sum += val * kernel_val;
-                }
-              }
-            }
-          }
-          output_gold_tensor(w, x + PO_LEFT, y + PO_LEFT) = float_to_bfloat16_process(sum);
+    // Full inputs
+    auto input_host_stencil_full = Buffer<uint16_t>(num_glb_tiling * C, X, Y);
+    for (int y = 0; y < input_host_stencil_full.dim(2).extent(); y++) {
+      for (int x = 0; x < input_host_stencil_full.dim(1).extent(); x++) {
+        for (int c = 0; c < input_host_stencil_full.dim(0).extent(); c++) {
+          input_host_stencil_full(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f);
         }
       }
     }
-
-    std::cout << "output has dims: " << output_gold_tensor.dim(0).extent() << "x"
-              << output_gold_tensor.dim(1).extent() << "x"
-              << output_gold_tensor.dim(2).extent() << "\n";
-
-    // use provided inputs first: convert .mat to bin/.raw or copy .raw to bin/.raw
-    if (use_torch_gold_str == "") {
-      if (file_exists("input_host_stencil.mat")) {
-        std::cout << "Removing existing input_host_stencil.mat" << std::endl;
-        remove("input_host_stencil.mat");
+    std::cout << "full input has dims: " << input_host_stencil_full.dim(0).extent() << "x"
+              << input_host_stencil_full.dim(1).extent() << "x"
+              << input_host_stencil_full.dim(2).extent() << "\n";
+    
+    // Full kernels
+    auto kernel_host_stencil_full = Buffer<uint16_t>(num_glb_tiling * C, K_X, K_Y);
+    for (int y = 0; y < kernel_host_stencil_full.dim(2).extent(); y++) {
+      for (int x = 0; x < kernel_host_stencil_full.dim(1).extent(); x++) {
+        for (int c = 0; c < kernel_host_stencil_full.dim(0).extent(); c++) {
+          kernel_host_stencil_full(c, x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX));
+        }
       }
-      std::cout << "Writing input_host_stencil.mat to bin folder" << std::endl;
-      save_image(processor.inputs["input_host_stencil.mat"], "bin/input_host_stencil.mat");
+    }
+    std::cout << "full kernel has dims: " << kernel_host_stencil_full.dim(0).extent() << "x"
+              << kernel_host_stencil_full.dim(1).extent() << "x"
+              << kernel_host_stencil_full.dim(2).extent() << "\n";
+    
+    // Full output
+    auto output_host_stencil_full = Buffer<uint16_t>(num_glb_tiling * C, imgsize_x, imgsize_y);
+    std::cout << "full output has dims: " << output_host_stencil_full.dim(0).extent() << "x"
+              << output_host_stencil_full.dim(1).extent() << "x"
+              << output_host_stencil_full.dim(2).extent() << "\n";
 
-      if (file_exists("kernel_host_stencil.mat")) {
-        std::cout << "Removing existing kernel_host_stencil.mat" << std::endl;
-        remove("kernel_host_stencil.mat");
-      }
-      std::cout << "Writing kernel_host_stencil.mat to bin folder" << std::endl;
-      save_image(processor.inputs["kernel_host_stencil.mat"], "bin/kernel_host_stencil.mat");
-
-      if (file_exists("hw_output.mat")) {
-        std::cout << "Removing existing hw_output.mat" << std::endl;
-        remove("hw_output.mat");
-      }
-      std::cout << "Writing hw_output.mat to bin folder" << std::endl;
-      save_image(output_gold_tensor, "bin/hw_output.mat");
-    } else {
-      std::cout << "Reading input_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/input_host_stencil.mat", "./bin/input_host_stencil.mat");
-
-      std::cout << "Reading kernel_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/kernel_host_stencil.mat", "./bin/kernel_host_stencil.mat");
-
-      std::cout << "Reading hw_output.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./bin/hw_output.mat");
+    // Depthwise Convolution Operation for full inputs
+    for (int c = 0; c < num_glb_tiling * C; ++c) {
+        for (int y = 0; y < imgsize_y; ++y) {
+            for (int x = 0; x < imgsize_x; ++x) {
+                float sum = 0.0f;
+                for (int ky = 0; ky < K_Y; ++ky) {
+                    for (int kx = 0; kx < K_X; ++kx) {
+                        int ix = x * stride + kx;
+                        int iy = y * stride + ky;
+                        if (ix < X && iy < Y) {
+                            float input_val = bfloat16_to_float_process(input_host_stencil_full(c, ix, iy));
+                            float kernel_val = bfloat16_to_float_process(kernel_host_stencil_full(c, kx, ky));
+                            sum += input_val * kernel_val;
+                        }
+                    }
+                }
+                output_host_stencil_full(c, x, y) = float_to_bfloat16_process(sum);
+            }
+        }
+    }
+    
+    bool write_mat = true;
+    if (write_mat) {
+      std::cout << "Writing input_host_stencil.raw to bin folder" << std::endl;
+      std::cout << "Writing kernel_host_stencil.raw to bin folder" << std::endl;
+      std::cout << "Writing hw_output.raw to bin folder" << std::endl;
+      saveHalideBufferToRawBigEndian(input_host_stencil_full, "bin/input_host_stencil.raw");
+      saveHalideBufferToRawBigEndian(kernel_host_stencil_full, "bin/kernel_host_stencil.raw");
+      saveHalideBufferToRawBigEndian(output_host_stencil_full, "bin/hw_output.raw");
     }
 
     // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
@@ -383,6 +348,7 @@ int main( int argc, char **argv ) {
       std::vector<int> kernel_host_stencil = parse_glb_bank_config_env_var("KERNEL_HOST_STENCIL_POS");
       std::vector<int> hw_output_stencil = parse_glb_bank_config_env_var("HW_OUTPUT_STENCIL_POS");
       std::vector<int> glb_inputs = parse_glb_bank_config_env_var("GLB_INPUTS");
+      std::vector<int> num_glb_tiling_vec = parse_glb_bank_config_env_var("NUM_GLB_TILING");
 
       // Create the glb_bank_config.json structure
       json config = {
@@ -393,7 +359,8 @@ int main( int argc, char **argv ) {
           {"outputs", {
               {"hw_output_stencil", hw_output_stencil}
           }},
-          {"glb_inputs", glb_inputs}
+          {"glb_inputs", glb_inputs},
+          {"num_glb_tiling", num_glb_tiling_vec}
       };
 
       std::ofstream file("bin/glb_bank_config.json");

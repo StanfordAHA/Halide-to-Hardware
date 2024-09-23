@@ -9,7 +9,6 @@ class ResnetLayer : public Halide::Generator<ResnetLayer> {
 public:
     Input<Buffer<uint16_t>>  input{"input", 3};
     Input<Buffer<uint16_t>>  kernel{"kernel", 4};
-    Input<Buffer<uint16_t>>  bias{"bias", 1};
     Output<Buffer<uint16_t>> output{"output", 3};
 
     // in_img determines the input image size
@@ -49,9 +48,6 @@ public:
     // glb_k determines the kernel glb unrolling
     GeneratorParam<int> glb_k{"glb_k", 1};    // default: 32
 
-    // glb_b determines the bias glb unrolling
-    GeneratorParam<int> glb_b{"glb_b", 1};    // default: 32
-
     // glb_o determines the output glb unrolling
     GeneratorParam<int> glb_o{"glb_o", 1};    // default: 32
 
@@ -82,16 +78,14 @@ public:
                0, ksize,
                0, n_ic);
 
-        Func hw_input("hw_input"), hw_kernel("hw_kernel"), hw_bias("hw_bias");
+        Func hw_input("hw_input"), hw_kernel("hw_kernel");
         Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");        
         Func kernel_host("kernel_host"), kernel_glb("kernel_glb"), kernel_cgra("kernel_cgra");
-        Func bias_host("bias_host"), bias_glb("bias_glb"), bias_cgra("bias_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         //Func hw_input("hw_input"), hw_kernel("hw_kernel");
         hw_input(z, x, y) = cast<bfloat16_t>(input(z, x, y));
         hw_kernel(w, z, x, y) = cast<bfloat16_t>(kernel(w, z, x, y));
-        hw_bias(w) = cast<bfloat16_t>(bias(w));
 
         //Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
         input_host(z, x, y) = hw_input(z, x, y);
@@ -102,23 +96,13 @@ public:
         kernel_host(w, z, x, y) = hw_kernel(w, z, x, y);
         kernel_glb(w, z, x, y) = kernel_host(w, z, x, y);
         kernel_cgra(w, z, x, y) = kernel_glb(w, z, x, y);
-
-        //Func bias_host("bias_host"), bias_glb("bias_glb"), bias_cgra("bias_cgra");
-        bias_host(w) = hw_bias(w);
-        bias_glb(w) = bias_host(w);
-        bias_cgra(w, x, y) = bias_glb(w);
       
         //Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
-        output_cgra(w, x, y) = cast<bfloat16_t>(bias_cgra(w, x, y));
         output_cgra(w, x, y) +=
           cast<bfloat16_t>(kernel_cgra(w, r.z, r.x, r.y)) *
           cast<bfloat16_t>(input_cgra(r.z, stride*x + r.x, stride*y + r.y));
 
-        if (relu6 == 0) {
-          output_glb(w, x, y) = cast<bfloat16_t>(output_cgra(w, x, y));
-        } else {
-          output_glb(w, x, y) = min(max(cast<bfloat16_t>(output_cgra(w, x, y)), bfloat16_t(0.0f)), bfloat16_t(6.0f));
-        }
+        output_glb(w, x, y) = cast<bfloat16_t>(output_cgra(w, x, y));
 
         hw_output(w, x, y) = output_glb(w, x, y);
         output(w, x, y) = cast<uint16_t>(hw_output(w, x, y));
@@ -143,11 +127,6 @@ public:
           kernel_cgra.bound_extent(z, mem_ic);
           kernel_cgra.bound_extent(z, k_ic);
           kernel_cgra.bound_extent(w, k_oc);
-
-          hw_bias.bound(w, 0, n_oc);
-          bias_glb.bound(w, 0, n_oc);
-          bias_cgra.bound_extent(w, mem_oc);
-          bias_cgra.bound_extent(w, k_oc);
 
           output.bound(x, 0, imgsize);
           output.bound(y, 0, imgsize);
@@ -241,18 +220,6 @@ public:
           kernel_glb.compute_at(hw_output, x_host); // global buffer
           kernel_cgra.compute_at(output_cgra, rz_glb);   // mem tile
 
-          // bias buffer
-          // hw_bias.compute_root();
-          bias_host.compute_root(); // host buffer
-          bias_host.accelerator_input();
-          bias_glb.compute_at(hw_output, x_host); // global buffer
-
-          if (pad_o_left == 0 && pad_o_right == 0 || imgsize <= 26) {
-            bias_cgra.compute_at(output_glb, w_glb);   // mem tile
-          } else {
-            bias_cgra.compute_at(output_glb, y_cgra);   // mem tile
-          }
-
           input_cgra
             .split(z, z_glb, z_cgra, mem_ic)
             .reorder(z_cgra, x, y, z_glb);
@@ -261,18 +228,12 @@ public:
             .split(z, z_glb, z_cgra, mem_ic)
             .split(w, w_glb, w_cgra, mem_oc)
             .reorder(w_cgra, z_cgra, x, y, w_glb, z_glb);
-          
-          bias_cgra
-            .split(w, w_glb, w_cgra, mem_oc)
-            .reorder(w_cgra, x, y, w_glb);
 
           // Unroll input and kernel over glb (default 1)
           kernel_glb.unroll(w, glb_k); // unroll glb input for small images
           kernel_cgra.unroll(w_cgra, glb_k); // unroll glb->cgra channels for small images
           input_glb.unroll(z, glb_i); // unroll glb input for small images
           input_cgra.unroll(z_cgra, glb_i); // unroll glb->cgra channels for small images
-          bias_glb.unroll(w, glb_b); // unroll glb bias for small images
-          bias_cgra.unroll(w_cgra, glb_b); // unroll glb->cgra bias for small images
 
         } else if (get_target().has_feature(Target::Clockwork) && schedule == 1) {
           // loop order: r.z, r.x, r.y, xi, yi, xo, yo
