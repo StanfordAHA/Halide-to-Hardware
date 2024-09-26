@@ -320,10 +320,11 @@ def main():
             if os.getenv("NUM_GLB_TILING") is not None and atoi(os.getenv("NUM_GLB_TILING")) > 0: parseLoopExtentforTiling(meta, halide_gen_args)
 
         if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
-        if "trunc_size" in halide_gen_args and meta.get("HALIDE_GEN_ARGS") is None: 
-            args = halide_gen_args.split()
-            args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
-            meta["HALIDE_GEN_ARGS"] = args_dict
+        if halide_gen_args is not None:
+            if "trunc_size" in halide_gen_args and meta.get("HALIDE_GEN_ARGS") is None: 
+                args = halide_gen_args.split()
+                args_dict = {key: int(value) for key, value in (item.split('=') for item in halide_gen_args.split())}
+                meta["HALIDE_GEN_ARGS"] = args_dict
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         print("writing to", outputName)
