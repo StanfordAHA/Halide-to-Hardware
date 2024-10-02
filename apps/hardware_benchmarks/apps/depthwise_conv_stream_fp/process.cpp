@@ -238,7 +238,7 @@ int main( int argc, char **argv ) {
     int K_Y = K_X;
     int C = n_ic;
 
-    int num_glb_tiling = getenv("NUM_GLB_TILING") ? atoi(getenv("NUM_GLB_TILING")) : 0;
+    int num_glb_tiling = getenv("NUM_GLB_TILING") ? atoi(getenv("NUM_GLB_TILING")) : 1;
   
     // Inputs tile
     processor.inputs["input_host_stencil.raw"] = Buffer<uint16_t>(C, X, Y);

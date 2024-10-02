@@ -28,6 +28,8 @@ def run_app(app_name, run_test=True):
         map_commands.append(f"aha test apps/{app_name} --dense-fp")
     try:
         for command in map_commands:
+            # if "test" in command:
+            #     breakpoint()
             result = subprocess.run(command, shell=True, check=True, cwd=app_path)
             if result.returncode != 0:
                 print(f"Command failed: {command}")
