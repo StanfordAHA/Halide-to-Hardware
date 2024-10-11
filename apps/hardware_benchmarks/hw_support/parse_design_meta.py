@@ -207,6 +207,45 @@ def unflatten_extent(addr_dict, X_dim, pad_o_left=0, pad_o_right=0):
                 raise ValueError("write_data_stride or read_data_stride not found in addr_dict")
     assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
 
+def unflatten_extent_glb_tiling(addr_dict, X_dim):
+
+    found_X_cnt = 0
+    # add dimension if X_dim or Y_dim are flattened
+    for i, ext in enumerate(addr_dict['extent']):
+        if ext == X_dim:
+            found_X_cnt += 1
+            if found_X_cnt == 2:
+                break
+        elif ext == X_dim * X_dim:
+            found_X_cnt += 2
+            addr_dict['dimensionality'] += 1
+            addr_dict['extent'][i] = X_dim
+            addr_dict['extent'].insert(i+1, X_dim)
+            addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * X_dim)
+            if 'write_data_stride' in addr_dict:
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * X_dim)
+            elif 'read_data_stride' in addr_dict:
+                addr_dict['read_data_stride'].insert(i+1, addr_dict['read_data_stride'][i] * X_dim)
+            break
+        elif ext % (X_dim * X_dim) == 0:
+            assert addr_dict['dimensionality'] == 1, "Should be fully flattened in this case"
+            found_X_cnt += 2
+            addr_dict['dimensionality'] += 2
+            addr_dict['extent'][i] = ext // (X_dim * X_dim)
+            addr_dict['extent'].insert(i+1, X_dim)
+            addr_dict['extent'].insert(i+2, X_dim)
+            addr_dict['cycle_stride'].insert(i+1, addr_dict['cycle_stride'][i] * (ext // (X_dim * X_dim)))
+            addr_dict['cycle_stride'].insert(i+2, addr_dict['cycle_stride'][i+1] * addr_dict['extent'][i+1])
+            if 'write_data_stride' in addr_dict:
+                addr_dict['write_data_stride'].insert(i+1, addr_dict['write_data_stride'][i] * (ext // (X_dim * X_dim)))
+                addr_dict['write_data_stride'].insert(i+2, addr_dict['write_data_stride'][i+1] * addr_dict['extent'][i+1])
+            elif 'read_data_stride' in addr_dict:
+                addr_dict['read_data_stride'].insert(i+1, addr_dict['read_data_stride'][i] * (ext // (X_dim * X_dim)))
+                addr_dict['read_data_stride'].insert(i+2, addr_dict['read_data_stride'][i+1] * addr_dict['extent'][i+1])
+            break
+
+    assert found_X_cnt == 2, "X_dim and Y_dim not found in addr_dict['extent']"
+
 def parseLoopExtentforPadding(meta, halide_gen_args):
     # Get pad_o values
     args = halide_gen_args.split()
@@ -259,8 +298,10 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
         X_dim = shape_list[-1]
         for io_tile in io_tiles_list:
             addr_dict = io_tile['addr']
-            unflatten_extent(addr_dict, X_dim)
-            assert addr_dict['dimensionality'] == 2, "Implement fully unrolling along channel first"
+            if X_dim != 1:
+                print("Unflattening extent of input for GLB tiling\n", addr_dict)
+                unflatten_extent_glb_tiling(addr_dict, X_dim)
+            # assert addr_dict['dimensionality'] == 2, "Implement fully unrolling along channel first"
     for output in meta['IOs']['outputs']:
         io_tile_list = output['io_tiles']
         # Get X_dim
@@ -269,8 +310,10 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
         X_dim = shape_list[-1]
         for io_tile in io_tile_list:
             addr_dict = io_tile['addr']
-            unflatten_extent(addr_dict, X_dim)
-            assert addr_dict['dimensionality'] == 2, "Implement fully unrolling along channel first"
+            if X_dim != 1:
+                print("Unflattening extent of output for GLB tiling\n", addr_dict)
+                unflatten_extent_glb_tiling(addr_dict, X_dim)
+            # assert addr_dict['dimensionality'] == 2, "Implement fully unrolling along channel first"
 
     # Add HALIDE_GEN_ARGS to meta file
     if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
