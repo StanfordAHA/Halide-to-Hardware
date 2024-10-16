@@ -260,6 +260,8 @@ private:
         // Try emulating clamping using conditionals? So if we're at the boundaries, use a smaller or different window than if
         // we are in the middle.
 
+        // Note: If doing padding, turn the window into a sliding kernel and treat this operation like a convolution. 
+
       //  /* Func: down_pre_shift
       //   * dtype: u16
       //   * True range: [0, 65472] (worst case)
@@ -276,10 +278,10 @@ private:
         // This produces negative indices. Need to find out what happens when you have negative indices???
         // Maybe do make run-cpu and trace stores?
         // Do make run-cpu and compare it to Kayvon's output 
-        down_pre_shift(x, y, n) = (1) * f(x_index_0, y_index_0, n) + (3) * f(x_index_0, y_index_1, n) + (3) * f(x_index_0, y_index_2, n) + (1) * f(x_index_0, y_index_3, n) 
-                        + (3) * f(x_index_1, y_index_0, n) + (9) * f(x_index_1, y_index_1, n) + (9) * f(x_index_1, y_index_2, n) + (3) * f(x_index_1, y_index_3, n) 
-                        + (3) * f(x_index_2, y_index_0, n) + (9) * f(x_index_2, y_index_1, n) + (9) * f(x_index_2, y_index_2, n) + (3) * f(x_index_2, y_index_3, n) 
-                        + (1) * f(x_index_3, y_index_0, n) + (3) * f(x_index_3, y_index_1, n) + (3) * f(x_index_3, y_index_2, n) + (1) * f(x_index_3, y_index_3, n);
+        // down_pre_shift(x, y, n) = (1) * f(x_index_0, y_index_0, n) + (3) * f(x_index_0, y_index_1, n) + (3) * f(x_index_0, y_index_2, n) + (1) * f(x_index_0, y_index_3, n) 
+        //                 + (3) * f(x_index_1, y_index_0, n) + (9) * f(x_index_1, y_index_1, n) + (9) * f(x_index_1, y_index_2, n) + (3) * f(x_index_1, y_index_3, n) 
+        //                 + (3) * f(x_index_2, y_index_0, n) + (9) * f(x_index_2, y_index_1, n) + (9) * f(x_index_2, y_index_2, n) + (3) * f(x_index_2, y_index_3, n) 
+        //                 + (1) * f(x_index_3, y_index_0, n) + (3) * f(x_index_3, y_index_1, n) + (3) * f(x_index_3, y_index_2, n) + (1) * f(x_index_3, y_index_3, n);
 
 
         // Expr is_edge_pixel = (x == 0 || x == 1 || x == 2 || y == 0 || y == 1 || y == 2 || x == (gauss_width-1) || x == (gauss_width-2) || x == (gauss_width-3) || y == (gauss_height-1) || y == (gauss_height-2) || y == (gauss_height=3));
@@ -300,9 +302,9 @@ private:
       //   * True range: [0, 1023] 
       //   * Consumer(s): returned by downsample_u16_hdr
       //   */
-        down(x, y, n) = down_pre_shift(x, y, n) >> 6;
+        //down(x, y, n) = down_pre_shift(x, y, n) >> 6;
 
-        //down(x,y,n) = f(x*2, y*2, n);
+        down(x,y,n) = f(x*2, y*2, n);
 
         return down;
     }

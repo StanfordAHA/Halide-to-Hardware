@@ -165,7 +165,7 @@ public:
         // reciprocal(x, y, n) = gPyramid4_LUT(hw_input_copy(x, y, 0, n), hw_input_copy(x, y, 1, n), n);
       
         
-
+      // USED
       Expr x_cmp_lvl_4_pos1 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 1, gauss_width-1), 0);
       Expr y_cmp_lvl_4_pos1 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 1, gauss_height-1), 0);
 
@@ -174,6 +174,26 @@ public:
 
       Expr x_cmp_lvl_4_pos3 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 3, gauss_width-1), 0);
       Expr y_cmp_lvl_4_pos3 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 3, gauss_height-1), 0);
+
+      // Expr x_cmp_lvl_4_pos1 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + 1, gauss_width-1), 0);
+      // Expr y_cmp_lvl_4_pos1 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + 1, gauss_height-1), 0);
+
+      // Expr x_cmp_lvl_4_pos2 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + 2, gauss_width-1), 0);
+      // Expr y_cmp_lvl_4_pos2 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + 2, gauss_height-1), 0);
+
+      // Expr x_cmp_lvl_4_pos3 = max(min((tx * T_SIZE) + r_tile_lvl_4.x + 3, gauss_width-1), 0);
+      // Expr y_cmp_lvl_4_pos3 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + 3, gauss_height-1), 0);
+
+      // NEW 
+      // Expr x_cmp_lvl_4_pos1 = (tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 1;
+      // Expr y_cmp_lvl_4_pos1 = (ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 1;
+
+      // Expr x_cmp_lvl_4_pos2 = (tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 2;
+      // Expr y_cmp_lvl_4_pos2 = (ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 2;
+
+      // Expr x_cmp_lvl_4_pos3 = (tx * T_SIZE) + r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 3;
+      // Expr y_cmp_lvl_4_pos3 = (ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 3;
+
 
       // Expr x_cmp_lvl_4_pos1 = max(min(r_tile_lvl_4.x + hw_input_copy(tx, ty, 0, n) + 1, gauss_width-1), 0);
       // Expr y_cmp_lvl_4_pos1 = max(min(r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n) + 1, gauss_height-1), 0);
@@ -201,9 +221,12 @@ public:
         // Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y + hw_input_copy(tx, ty, 1, n), gauss_height-1), 0);
 
 
-        // TROUBLESOME CODE 
-        Expr x_ref_lvl_4 = max(min((tx * T_SIZE) + r_tile_lvl_4.x, gauss_width-1), 0);
-        Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y, gauss_height-1), 0);
+        // TROUBLESOME CODE but works now?: Just used 
+        // Expr x_ref_lvl_4 = max(min((tx * T_SIZE) + r_tile_lvl_4.x, gauss_width-1), 0);
+        // Expr y_ref_lvl_4 = max(min((ty * T_SIZE) + r_tile_lvl_4.y, gauss_height-1), 0);
+
+        Expr x_ref_lvl_4 = (tx * T_SIZE) + r_tile_lvl_4.x;
+        Expr y_ref_lvl_4 = (ty * T_SIZE) + r_tile_lvl_4.y;
 
 
         // WORKS
@@ -222,7 +245,10 @@ public:
         //Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4_pos1)));  
         //Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(cmp_lvl_4_pos1_index)));
         // Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(ref_lvl_4_pos1_index)));    
+
         Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(ref_lvl_4_index)) - i16(gPyramid4_LUT_copy(cmp_lvl_4_pos1_index)));    
+        // Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(ref_lvl_4_index)));    
+
         //Expr dist_lvl_4_pos1_pos1 = abs(i16(gPyramid4_LUT(ref_lvl_4_pos1_index)));  
       
        /* Func: scores_lvl_4
@@ -240,7 +266,10 @@ public:
         //Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4_pos2)));   
        // Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(ref_lvl_4_pos1_index))); 
         // Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(ref_lvl_4_pos1_index))); 
+
         Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(ref_lvl_4_index)) - i16(gPyramid4_LUT_copy(cmp_lvl_4_pos2_index))); 
+        // Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(ref_lvl_4_index))); 
+
         //Expr dist_lvl_4_pos2_pos2 = abs(i16(gPyramid4_LUT(cmp_lvl_4_pos1_index)));   
       
         Func scores_lvl_4_pos2_pos2;
@@ -261,7 +290,10 @@ public:
         // Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(x_cmp_lvl_4_pos3)));  
         //Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(cmp_lvl_4_pos1_index)));  
         // Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(ref_lvl_4_pos1_index))); 
+
         Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(ref_lvl_4_index)) - i16(gPyramid4_LUT_copy(cmp_lvl_4_pos3_index)));  
+        // Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(ref_lvl_4_index)));  
+
         //Expr dist_lvl_4_pos3_pos3 = abs(i16(gPyramid4_LUT(ref_lvl_4_pos1_index)));  
       
         Func scores_lvl_4_pos3_pos3;
