@@ -52,7 +52,8 @@ def replace_const_instr(preload_d, stream_d):
             isinstance(d, dict) and
             d.get("genref") == "coreir.const" and
             "genargs" in d and
-            "modargs" in d
+            "modargs" in d and
+            d.get("genargs").get("width")[1] == 84
         )
 
     def find_const_dicts(d, path=()):
@@ -90,6 +91,7 @@ def replace_const_instr(preload_d, stream_d):
     print(f"Number of const dicts in stream_d: {num_stream_consts}")
 
     if num_preload_consts != num_stream_consts:
+        diff_consts = [const for const in preload_consts if const not in stream_consts]
         raise ValueError("Number of const dicts do not match. Aborting replacement.")
 
     # Replace 'const' dicts in preload_d with those from stream_d, in order
@@ -421,6 +423,185 @@ def update_pond_flush_latency(instance_dict, flush_latency_dict):
                     mem_data["metadata"]["config"] = metadata_config
     print("Pond flush latency updated successfully.")
     
+def delay_inputs_to_wait_for_kernel(d, delay):
+    # Function to delay inputs to wait for kernel streaming, used when n_ic > unroll
+    instances_dict = d['namespaces']['global']['modules']['depthwise_conv_preload_fp']['instances']
+
+    for inst_name, inst_data in instances_dict.items():
+        if "io16in_input_host_stencil_clkwrk_" in inst_name or "io16_hw_output_global_wrapper_glb_stencil_clkwrk_" in inst_name:
+            assert "metadata" in inst_data, f"metadata not found in instance {inst_name}"
+            metadata_entry = inst_data["metadata"]
+            assert len(metadata_entry) == 1, f"Expected only one metadata entry for {inst_name}"
+            if "glb2out_0" in metadata_entry:
+                metadata_entry['glb2out_0']['cycle_starting_addr'][0] += delay
+                print(f"[INFO] Delaying {inst_name} cycle_starting_addr by {delay}")
+            elif "in2glb_0" in metadata_entry:
+                metadata_entry['in2glb_0']['cycle_starting_addr'][0] += delay
+                print(f"[INFO] Delaying {inst_name} cycle_starting_addr by {delay}")
+            else:
+                raise ValueError(f"Invalid metadata entry for {inst_name}")
+        elif "_port_controller_garnet" in inst_name or \
+             "input_host_global_wrapper_global_wrapper_stencil$ub_input_host_global_wrapper_global_wrapper_stencil" in inst_name and "clk_en_const" not in inst_name:
+            assert "metadata" in inst_data, f"metadata not found in instance {inst_name}"
+            metadata_config = inst_data["metadata"]["config"]
+            for key, metadata_entry in metadata_config.items():
+                assert "cycle_starting_addr" in metadata_entry, f"cycle_starting_addr not found in {inst_name}['metadata']['config'][{key}]"
+                metadata_entry["cycle_starting_addr"][0] += delay
+                print(f"[INFO] Delaying {inst_name}['metadata']['config'][{key}]['cycle_starting_addr'] by {delay}")
+
+def fix_pond_output_extent(d, in_img, n_ic, unroll):
+    # Fix the output extent of pond to match input shape instead of output shape
+    instances_dict = d['namespaces']['global']['modules']['depthwise_conv_preload_fp']['instances']
+    for inst_name, inst_data in instances_dict.items():
+        if "kernel_host_global_wrapper_stencil$ub_kernel_host_global_wrapper_stencil" in inst_name and "clk_en_const" not in inst_name:
+            assert "metadata" in inst_data, f"metadata not found in instance {inst_name}"
+            metadata_entry = inst_data["metadata"]
+            assert len(metadata_entry) == 2, f"Expected only two metadata entry for {inst_name}: config and mode"
+            assert "config" in metadata_entry, f"config not found in {inst_name}['metadata']"
+            metadata_config = metadata_entry["config"]
+            assert "regfile2out_0" in metadata_config, f"regfile2out_0 not found in {inst_name}['metadata']['config']"
+            metadata_config["regfile2out_0"]["cycle_stride"] = [1, int(n_ic)//int(unroll)]
+            print(f"[INFO] Setting {inst_name}['metadata']['config']['regfile2out_0']['cycle_stride'] to [1, {int(n_ic)//int(unroll)}]")
+            metadata_config["regfile2out_0"]["dimensionality"] = 2
+            print(f"[INFO] Setting {inst_name}['metadata']['config']['regfile2out_0']['dimensionality'] to 2")
+            metadata_config["regfile2out_0"]["extent"] = [int(n_ic)//int(unroll), int(in_img)*int(in_img)]
+            print(f"[INFO] Setting {inst_name}['metadata']['config']['regfile2out_0']['extent'] to [{int(n_ic)//int(unroll)}, {int(in_img)*int(in_img)}]")
+            metadata_config["regfile2out_0"]["read_data_stride"] = [1, 0]
+            print(f"[INFO] Setting {inst_name}['metadata']['config']['regfile2out_0']['read_data_stride'] to [1, 0]")
+
+def align_kernel_with_input(d, flush_latency_dict, n_ic, unroll, ksize):
+    # Two cases:
+    # 1. input comes from IO directly, start addr is int(n_ic)//int(unroll)*int(ksize)*int(ksize) + num_regs_to_IO + Pond flush_latency + 3 (3 is hardcoded input broadcast pipelining latency)
+    # 2. input comes from MEM tile, two cases:
+    #    a. input comes from MEM tile port 0, start addr is MEM's tb2out_0's cycle_starting_addr + num_regs_to_MEM + Pond flush latency - MEM flush latency
+    #    b. input comes from MEM tile port 1, start addr is MEM's tb2out_1's cycle_starting_addr + num_regs_to_MEM + Pond flush latency - MEM flush latency
+    instances_dict = d['namespaces']['global']['modules']['depthwise_conv_preload_fp']['instances']
+    connections_list = d['namespaces']['global']['modules']['depthwise_conv_preload_fp']['connections']
+    for inst_name, inst_data in instances_dict.items():
+        if "kernel_host_global_wrapper_stencil$ub_kernel_host_global_wrapper_stencil" in inst_name and "clk_en_const" not in inst_name:
+            # operate on each pond
+            source_node_type = None
+            source_node_name = None
+            source_node_port = None
+
+            # find packed PEs
+            for conn in connections_list:
+                if f"{inst_name}.data_out_pond_0" in conn[1]:
+                    pe_name = conn[0].split('.')[0]
+                    pond_to_pe_port = conn[0].split('.')[-1]
+            assert pe_name, f"PE name not found for {inst_name}"
+            
+            # trace back to find the source node and count num regs
+            assert pond_to_pe_port == "data1", f"Invalid pond_to_pe_port: {pond_to_pe_port}"
+            input_to_pe_port = "data0"
+
+            pe_node = f"{pe_name}.{input_to_pe_port}"
+            reg_count = 0
+
+            for conn in connections_list:
+                if pe_node in conn[0]:
+                    prev_node = conn[1]
+                    prev_node_name = prev_node.split('.')[0]
+                    prev_node_port = prev_node.split('.')[-1]
+                    break
+            
+            assert prev_node_name, f"Source node not found for {pe_node}, it might be in conn[1]"
+            if "reg" not in prev_node_name:
+                # source node found
+                if "input_host_global_wrapper_global_wrapper_stencil$" in prev_node_name:
+                    source_node_type = "mem"
+                    source_node_name = prev_node_name
+                    source_node_port = prev_node_port
+                    assert source_node_port == "data_out_1" or source_node_port == "data_out_0", f"Invalid mem node port: {source_node_port}"
+                    if source_node_port == "data_out_1":
+                        mem_cycle_starting_addr = instances_dict[source_node_name]["metadata"]["config"]["tb2out_1"]["cycle_starting_addr"][0]
+                        pond_updated_cycle_starting_addr = mem_cycle_starting_addr + reg_count + flush_latency_dict[inst_name] - flush_latency_dict[source_node_name]
+                    else:
+                        mem_cycle_starting_addr = instances_dict[source_node_name]["metadata"]["config"]["tb2out_0"]["cycle_starting_addr"][0]
+                        pond_updated_cycle_starting_addr = mem_cycle_starting_addr + reg_count + flush_latency_dict[inst_name] - flush_latency_dict[source_node_name]
+                elif "io16in_input_host_stencil" in prev_node_name:
+                    source_node_type = "io"
+                    print(f"[WARNING] Input from IO, adding 3 to cycle starting address, and 3 is hardcoded for input pipelining needing double check")
+                    pond_updated_cycle_starting_addr = int(n_ic)//int(unroll)*int(ksize)*int(ksize) + reg_count + flush_latency_dict[inst_name] + 3
+                else:
+                    raise ValueError(f"Invalid source node name: {prev_node_name}")
+                    
+            else:
+                reg_count += 1
+                assert prev_node_port == "out", f"Invalid reg port: {prev_node_port}"
+                prev_node = f"{prev_node_name}.in"
+                while True:
+                    found_prev_node = False
+                    for conn in connections_list:
+                        if prev_node in conn[0]:
+                            found_prev_node = True
+                            prev_node = conn[1]
+                            prev_node_name = prev_node.split('.')[0]
+                            prev_node_port = prev_node.split('.')[-1]
+                            if "reg" not in prev_node_name:
+                                # source node found
+                                if "input_host_global_wrapper_global_wrapper_stencil$" in prev_node_name:
+                                    source_node_type = "mem"
+                                    source_node_name = prev_node_name
+                                    source_node_port = prev_node_port
+                                    assert source_node_port == "data_out_1" or source_node_port == "data_out_0", f"Invalid mem node port: {source_node_port}"
+                                    if source_node_port == "data_out_1":
+                                        mem_cycle_starting_addr = instances_dict[source_node_name]["metadata"]["config"]["tb2out_1"]["cycle_starting_addr"][0]
+                                        pond_updated_cycle_starting_addr = mem_cycle_starting_addr + reg_count + flush_latency_dict[inst_name] - flush_latency_dict[source_node_name]
+                                    else:
+                                        mem_cycle_starting_addr = instances_dict[source_node_name]["metadata"]["config"]["tb2out_0"]["cycle_starting_addr"][0]
+                                        pond_updated_cycle_starting_addr = mem_cycle_starting_addr + reg_count + flush_latency_dict[inst_name] - flush_latency_dict[source_node_name]
+                                elif "io16in_input_host_stencil" in prev_node_name:
+                                    source_node_type = "io"
+                                    print(f"[WARNING] Input from IO, adding 3 to cycle starting address, and 3 is hardcoded for input pipelining needing double check")
+                                    pond_updated_cycle_starting_addr = int(n_ic)//int(unroll)*int(ksize)*int(ksize) + reg_count + flush_latency_dict[inst_name] + 3
+                                else:
+                                    raise ValueError(f"Invalid source node name: {prev_node_name}")
+                                break
+                            else:
+                                reg_count += 1
+                                prev_node = f"{prev_node_name}.in"
+                                break
+                        elif prev_node in conn[1]:
+                            found_prev_node = True
+                            prev_node = conn[0]
+                            prev_node_name = prev_node.split('.')[0]
+                            prev_node_port = prev_node.split('.')[-1]
+                            if "reg" not in prev_node_name:
+                                # source node found
+                                if "input_host_global_wrapper_global_wrapper_stencil$" in prev_node_name:
+                                    source_node_type = "mem"
+                                    source_node_name = prev_node_name
+                                    source_node_port = prev_node_port
+                                    assert source_node_port == "data_out_1" or source_node_port == "data_out_0", f"Invalid mem node port: {source_node_port}"
+                                    if source_node_port == "data_out_1":
+                                        mem_cycle_starting_addr = instances_dict[source_node_name]["metadata"]["config"]["tb2out_1"]["cycle_starting_addr"][0]
+                                        pond_updated_cycle_starting_addr = mem_cycle_starting_addr + reg_count + flush_latency_dict[inst_name] - flush_latency_dict[source_node_name]
+                                    else:
+                                        mem_cycle_starting_addr = instances_dict[source_node_name]["metadata"]["config"]["tb2out_0"]["cycle_starting_addr"][0]
+                                        pond_updated_cycle_starting_addr = mem_cycle_starting_addr + reg_count + flush_latency_dict[inst_name] - flush_latency_dict[source_node_name]
+                                elif "io16in_input_host_stencil" in prev_node_name:
+                                    source_node_type = "io"
+                                    print(f"[WARNING] Input from IO, adding 3 to cycle starting address, and 3 is hardcoded for input pipelining needing double check")
+                                    pond_updated_cycle_starting_addr = int(n_ic)//int(unroll)*int(ksize)*int(ksize) + reg_count + flush_latency_dict[inst_name] + 3
+                                else:
+                                    raise ValueError(f"Invalid source node name: {prev_node_name}")
+                                break
+                            else:
+                                reg_count += 1
+                                prev_node = f"{prev_node_name}.in"
+                                break
+                            
+                    assert found_prev_node, f"Source node not found for {prev_node}"
+                    if source_node_type == "mem" or source_node_type == "io":
+                        break
+
+            assert pond_updated_cycle_starting_addr, f"Pond updated cycle starting address not found for {inst_name}"
+
+            # Update the updated cycle starting address to metadata for this pond
+            instances_dict[inst_name]["metadata"]["config"]["regfile2out_0"]["cycle_starting_addr"][0] = pond_updated_cycle_starting_addr
+            print(f"[INFO] Setting {inst_name}['metadata']['config']['regfile2out_0']['cycle_starting_addr'] to {pond_updated_cycle_starting_addr}")
+
 def main():
 
     parser = argparse.ArgumentParser(description='Generate json for depthwise conv with kernel streaming')
@@ -516,7 +697,16 @@ def main():
     with open(f'{halide_path}/{preload_app}/design_top_final.json','r') as file:
         design_top_preload = json.load(file)
     update_pond_flush_latency(design_top_preload['namespaces']['global']['modules']['depthwise_conv_preload_fp']['instances'], flush_latency_dict)
-    print(f"Writing {halide_path}/{preload_app}/design_top_final.json with updated pond flush latency")
+
+    # extra fix when channel is not fully unrolled
+    if int(n_ic) > int(unroll):
+        # delay inputs to wait for kernel streaming if n_ic > unroll
+        delay_inputs_to_wait_for_kernel(design_top_preload, int(n_ic)//int(unroll)*int(ksize)*int(ksize))
+        fix_pond_output_extent(design_top_preload, int(in_img), int(n_ic), int(unroll))
+        align_kernel_with_input(design_top_preload, flush_latency_dict, int(n_ic), int(unroll), int(ksize))
+
+    # Write final design_top.json
+    print(f"Writing {halide_path}/{preload_app}/design_top_final.json")
     with open(f'{halide_path}/{preload_app}/design_top_final.json', 'w') as file:
         json.dump(design_top_preload, file, indent=2)
 
