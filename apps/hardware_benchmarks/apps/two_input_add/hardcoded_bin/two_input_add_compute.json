@@ -1,0 +1,53 @@
+{
+"namespaces":{
+  "global":{
+    "modules":{
+      "hcompute_add_stencil":{
+        "type":["Record",[
+          ["out_add_stencil",["Array",16,"Bit"]],
+          ["in0_hw_input_b_global_wrapper_stencil",["Array",1,["Array",16,"BitIn"]]],
+          ["in1_hw_input_global_wrapper_stencil",["Array",1,["Array",16,"BitIn"]]]
+        ]],
+        "instances":{
+          "add_hw_input_global_wrapper_stencil_1_hw_input_b_global_wrapper_stencil_1_393":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          }
+        },
+        "connections":[
+          ["self.in1_hw_input_global_wrapper_stencil.0","add_hw_input_global_wrapper_stencil_1_hw_input_b_global_wrapper_stencil_1_393.in0"],
+          ["self.in0_hw_input_b_global_wrapper_stencil.0","add_hw_input_global_wrapper_stencil_1_hw_input_b_global_wrapper_stencil_1_393.in1"],
+          ["self.out_add_stencil","add_hw_input_global_wrapper_stencil_1_hw_input_b_global_wrapper_stencil_1_393.out"]
+        ]
+      },
+      "hcompute_hw_input_b_global_wrapper_stencil":{
+        "type":["Record",[
+          ["out_hw_input_b_global_wrapper_stencil",["Array",16,"Bit"]],
+          ["in0_hw_input_b_stencil",["Array",1,["Array",16,"BitIn"]]]
+        ]],
+        "connections":[
+          ["self.out_hw_input_b_global_wrapper_stencil","self.in0_hw_input_b_stencil.0"]
+        ]
+      },
+      "hcompute_hw_input_global_wrapper_stencil":{
+        "type":["Record",[
+          ["out_hw_input_global_wrapper_stencil",["Array",16,"Bit"]],
+          ["in0_hw_input_stencil",["Array",1,["Array",16,"BitIn"]]]
+        ]],
+        "connections":[
+          ["self.out_hw_input_global_wrapper_stencil","self.in0_hw_input_stencil.0"]
+        ]
+      },
+      "hcompute_hw_output_stencil":{
+        "type":["Record",[
+          ["out_hw_output_stencil",["Array",16,"Bit"]],
+          ["in0_add_stencil",["Array",1,["Array",16,"BitIn"]]]
+        ]],
+        "connections":[
+          ["self.out_hw_output_stencil","self.in0_add_stencil.0"]
+        ]
+      }
+    }
+  }
+}
+}

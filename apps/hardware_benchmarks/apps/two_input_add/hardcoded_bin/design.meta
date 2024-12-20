@@ -1,0 +1,4 @@
+placement=design.place
+bitstream=two_input_add.bs
+input=input.pgm
+output=gold.pgm
