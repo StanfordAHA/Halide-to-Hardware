@@ -62,8 +62,7 @@ def parseDesignTop(meta, filename: str):
 
         coreirInstances = designTop["namespaces"]["global"]["modules"][designName]["instances"]
 
-        # MO: Temporary DRV HACK 
-        dense_ready_valid = True 
+        dense_ready_valid = "DENSE_READY_VALID" in os.environ and os.environ.get("DENSE_READY_VALID") == "1" 
         for inst in coreirInstances:
             if inst.startswith("io16in_"):
                 # this is a data input
