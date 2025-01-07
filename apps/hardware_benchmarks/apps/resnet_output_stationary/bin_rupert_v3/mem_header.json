@@ -1,0 +1,35 @@
+{"namespaces":{
+  "global":{
+    "modules":{
+      "MEM":{
+        "type":["Record",[
+          ["configs",["Array",2413,"BitIn"]],
+          ["clk_en","BitIn"],
+          ["config_write","BitIn"],
+          ["flush","BitIn"],
+          ["input_width_16_num_3",["Array",16,"BitIn"]],
+          ["input_width_16_num_0",["Array",16,"BitIn"]],
+          ["config_en",["Array",2,"BitIn"]],
+          ["config_read","BitIn"],
+          ["input_width_1_num_1","BitIn"],
+          ["input_width_16_num_2",["Array",16,"BitIn"]],
+          ["input_width_16_num_1",["Array",16,"BitIn"]],
+          ["config_addr_in",["Array",8,"BitIn"]],
+          ["config_data_in",["Array",32,"BitIn"]],
+          ["input_width_1_num_0","BitIn"],
+          ["O0",["Array",16,"Bit"]],
+          ["O1",["Array",16,"Bit"]],
+          ["O2","Bit"],
+          ["O3","Bit"],
+          ["O4","Bit"],
+          ["O5",["Array",32,"Bit"]],
+          ["O6",["Array",32,"Bit"]],
+          ["O7","Bit"],
+          ["CLK",["Named","coreir.clkIn"]],
+          ["ASYNCRESET",["Named","coreir.arstIn"]]
+        ]]
+      }
+    }
+  }
+}
+}

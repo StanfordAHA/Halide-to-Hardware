@@ -1,0 +1,1094 @@
+{
+    "input_cgra_stencil": {
+        "0": {
+            "bank": 0,
+            "latency": 5
+        },
+        "10": {
+            "bank": 10,
+            "latency": 7
+        },
+        "11": {
+            "bank": 11,
+            "latency": 7
+        },
+        "12": {
+            "bank": 12,
+            "latency": 7
+        },
+        "13": {
+            "bank": 13,
+            "latency": 7
+        },
+        "14": {
+            "bank": 14,
+            "latency": 7
+        },
+        "15": {
+            "bank": 15,
+            "latency": 7
+        },
+        "1": {
+            "bank": 1,
+            "latency": 5
+        },
+        "2": {
+            "bank": 2,
+            "latency": 5
+        },
+        "3": {
+            "bank": 3,
+            "latency": 5
+        },
+        "4": {
+            "bank": 4,
+            "latency": 5
+        },
+        "5": {
+            "bank": 5,
+            "latency": 5
+        },
+        "6": {
+            "bank": 6,
+            "latency": 5
+        },
+        "7": {
+            "bank": 7,
+            "latency": 5
+        },
+        "8": {
+            "bank": 8,
+            "latency": 7
+        },
+        "9": {
+            "bank": 9,
+            "latency": 7
+        }
+    },
+    "kernel_cgra_stencil": {
+        "0": {
+            "bank": 0,
+            "latency": 16
+        },
+        "1": {
+            "bank": 1,
+            "latency": 16
+        },
+        "100": {
+            "bank": 100,
+            "latency": 30
+        },
+        "101": {
+            "bank": 101,
+            "latency": 30
+        },
+        "102": {
+            "bank": 102,
+            "latency": 29
+        },
+        "103": {
+            "bank": 103,
+            "latency": 29
+        },
+        "104": {
+            "bank": 104,
+            "latency": 28
+        },
+        "105": {
+            "bank": 105,
+            "latency": 28
+        },
+        "106": {
+            "bank": 106,
+            "latency": 27
+        },
+        "107": {
+            "bank": 107,
+            "latency": 27
+        },
+        "108": {
+            "bank": 108,
+            "latency": 26
+        },
+        "109": {
+            "bank": 109,
+            "latency": 26
+        },
+        "10": {
+            "bank": 10,
+            "latency": 11
+        },
+        "11": {
+            "bank": 11,
+            "latency": 11
+        },
+        "110": {
+            "bank": 110,
+            "latency": 25
+        },
+        "111": {
+            "bank": 111,
+            "latency": 25
+        },
+        "112": {
+            "bank": 112,
+            "latency": 32
+        },
+        "113": {
+            "bank": 113,
+            "latency": 32
+        },
+        "114": {
+            "bank": 114,
+            "latency": 31
+        },
+        "115": {
+            "bank": 115,
+            "latency": 31
+        },
+        "116": {
+            "bank": 116,
+            "latency": 30
+        },
+        "117": {
+            "bank": 117,
+            "latency": 30
+        },
+        "118": {
+            "bank": 118,
+            "latency": 29
+        },
+        "119": {
+            "bank": 119,
+            "latency": 29
+        },
+        "120": {
+            "bank": 120,
+            "latency": 28
+        },
+        "121": {
+            "bank": 121,
+            "latency": 28
+        },
+        "122": {
+            "bank": 122,
+            "latency": 27
+        },
+        "123": {
+            "bank": 123,
+            "latency": 27
+        },
+        "124": {
+            "bank": 124,
+            "latency": 26
+        },
+        "125": {
+            "bank": 125,
+            "latency": 26
+        },
+        "126": {
+            "bank": 126,
+            "latency": 25
+        },
+        "127": {
+            "bank": 127,
+            "latency": 25
+        },
+        "128": {
+            "bank": 128,
+            "latency": 1
+        },
+        "129": {
+            "bank": 129,
+            "latency": 1
+        },
+        "12": {
+            "bank": 12,
+            "latency": 10
+        },
+        "13": {
+            "bank": 13,
+            "latency": 10
+        },
+        "130": {
+            "bank": 130,
+            "latency": 2
+        },
+        "131": {
+            "bank": 131,
+            "latency": 2
+        },
+        "132": {
+            "bank": 132,
+            "latency": 3
+        },
+        "133": {
+            "bank": 133,
+            "latency": 3
+        },
+        "134": {
+            "bank": 134,
+            "latency": 4
+        },
+        "135": {
+            "bank": 135,
+            "latency": 4
+        },
+        "136": {
+            "bank": 136,
+            "latency": 5
+        },
+        "137": {
+            "bank": 137,
+            "latency": 5
+        },
+        "138": {
+            "bank": 138,
+            "latency": 6
+        },
+        "139": {
+            "bank": 139,
+            "latency": 6
+        },
+        "140": {
+            "bank": 140,
+            "latency": 7
+        },
+        "141": {
+            "bank": 141,
+            "latency": 7
+        },
+        "142": {
+            "bank": 142,
+            "latency": 8
+        },
+        "143": {
+            "bank": 143,
+            "latency": 8
+        },
+        "144": {
+            "bank": 144,
+            "latency": 1
+        },
+        "145": {
+            "bank": 145,
+            "latency": 1
+        },
+        "146": {
+            "bank": 146,
+            "latency": 2
+        },
+        "147": {
+            "bank": 147,
+            "latency": 2
+        },
+        "148": {
+            "bank": 148,
+            "latency": 3
+        },
+        "149": {
+            "bank": 149,
+            "latency": 3
+        },
+        "14": {
+            "bank": 14,
+            "latency": 9
+        },
+        "15": {
+            "bank": 15,
+            "latency": 9
+        },
+        "150": {
+            "bank": 150,
+            "latency": 4
+        },
+        "151": {
+            "bank": 151,
+            "latency": 4
+        },
+        "152": {
+            "bank": 152,
+            "latency": 5
+        },
+        "153": {
+            "bank": 153,
+            "latency": 5
+        },
+        "154": {
+            "bank": 154,
+            "latency": 6
+        },
+        "155": {
+            "bank": 155,
+            "latency": 6
+        },
+        "156": {
+            "bank": 156,
+            "latency": 7
+        },
+        "157": {
+            "bank": 157,
+            "latency": 7
+        },
+        "158": {
+            "bank": 158,
+            "latency": 8
+        },
+        "159": {
+            "bank": 159,
+            "latency": 8
+        },
+        "160": {
+            "bank": 160,
+            "latency": 1
+        },
+        "161": {
+            "bank": 161,
+            "latency": 1
+        },
+        "162": {
+            "bank": 162,
+            "latency": 2
+        },
+        "163": {
+            "bank": 163,
+            "latency": 2
+        },
+        "164": {
+            "bank": 164,
+            "latency": 3
+        },
+        "165": {
+            "bank": 165,
+            "latency": 3
+        },
+        "166": {
+            "bank": 166,
+            "latency": 4
+        },
+        "167": {
+            "bank": 167,
+            "latency": 4
+        },
+        "168": {
+            "bank": 168,
+            "latency": 5
+        },
+        "169": {
+            "bank": 169,
+            "latency": 5
+        },
+        "16": {
+            "bank": 16,
+            "latency": 16
+        },
+        "17": {
+            "bank": 17,
+            "latency": 16
+        },
+        "170": {
+            "bank": 170,
+            "latency": 6
+        },
+        "171": {
+            "bank": 171,
+            "latency": 6
+        },
+        "172": {
+            "bank": 172,
+            "latency": 7
+        },
+        "173": {
+            "bank": 173,
+            "latency": 7
+        },
+        "174": {
+            "bank": 174,
+            "latency": 8
+        },
+        "175": {
+            "bank": 175,
+            "latency": 8
+        },
+        "176": {
+            "bank": 176,
+            "latency": 1
+        },
+        "177": {
+            "bank": 177,
+            "latency": 1
+        },
+        "178": {
+            "bank": 178,
+            "latency": 2
+        },
+        "179": {
+            "bank": 179,
+            "latency": 2
+        },
+        "180": {
+            "bank": 180,
+            "latency": 3
+        },
+        "181": {
+            "bank": 181,
+            "latency": 3
+        },
+        "182": {
+            "bank": 182,
+            "latency": 4
+        },
+        "183": {
+            "bank": 183,
+            "latency": 4
+        },
+        "184": {
+            "bank": 184,
+            "latency": 5
+        },
+        "185": {
+            "bank": 185,
+            "latency": 5
+        },
+        "186": {
+            "bank": 186,
+            "latency": 6
+        },
+        "187": {
+            "bank": 187,
+            "latency": 6
+        },
+        "188": {
+            "bank": 188,
+            "latency": 7
+        },
+        "189": {
+            "bank": 189,
+            "latency": 7
+        },
+        "18": {
+            "bank": 18,
+            "latency": 15
+        },
+        "19": {
+            "bank": 19,
+            "latency": 15
+        },
+        "190": {
+            "bank": 190,
+            "latency": 8
+        },
+        "191": {
+            "bank": 191,
+            "latency": 8
+        },
+        "192": {
+            "bank": 192,
+            "latency": 17
+        },
+        "193": {
+            "bank": 193,
+            "latency": 17
+        },
+        "194": {
+            "bank": 194,
+            "latency": 18
+        },
+        "195": {
+            "bank": 195,
+            "latency": 18
+        },
+        "196": {
+            "bank": 196,
+            "latency": 19
+        },
+        "197": {
+            "bank": 197,
+            "latency": 19
+        },
+        "198": {
+            "bank": 198,
+            "latency": 20
+        },
+        "199": {
+            "bank": 199,
+            "latency": 20
+        },
+        "200": {
+            "bank": 200,
+            "latency": 21
+        },
+        "201": {
+            "bank": 201,
+            "latency": 21
+        },
+        "202": {
+            "bank": 202,
+            "latency": 22
+        },
+        "203": {
+            "bank": 203,
+            "latency": 22
+        },
+        "204": {
+            "bank": 204,
+            "latency": 23
+        },
+        "205": {
+            "bank": 205,
+            "latency": 23
+        },
+        "206": {
+            "bank": 206,
+            "latency": 24
+        },
+        "207": {
+            "bank": 207,
+            "latency": 24
+        },
+        "208": {
+            "bank": 208,
+            "latency": 17
+        },
+        "209": {
+            "bank": 209,
+            "latency": 17
+        },
+        "20": {
+            "bank": 20,
+            "latency": 14
+        },
+        "21": {
+            "bank": 21,
+            "latency": 14
+        },
+        "210": {
+            "bank": 210,
+            "latency": 18
+        },
+        "211": {
+            "bank": 211,
+            "latency": 18
+        },
+        "212": {
+            "bank": 212,
+            "latency": 19
+        },
+        "213": {
+            "bank": 213,
+            "latency": 19
+        },
+        "214": {
+            "bank": 214,
+            "latency": 20
+        },
+        "215": {
+            "bank": 215,
+            "latency": 20
+        },
+        "216": {
+            "bank": 216,
+            "latency": 21
+        },
+        "217": {
+            "bank": 217,
+            "latency": 21
+        },
+        "218": {
+            "bank": 218,
+            "latency": 22
+        },
+        "219": {
+            "bank": 219,
+            "latency": 22
+        },
+        "220": {
+            "bank": 220,
+            "latency": 23
+        },
+        "221": {
+            "bank": 221,
+            "latency": 23
+        },
+        "222": {
+            "bank": 222,
+            "latency": 24
+        },
+        "223": {
+            "bank": 223,
+            "latency": 24
+        },
+        "224": {
+            "bank": 224,
+            "latency": 17
+        },
+        "225": {
+            "bank": 225,
+            "latency": 17
+        },
+        "226": {
+            "bank": 226,
+            "latency": 18
+        },
+        "227": {
+            "bank": 227,
+            "latency": 18
+        },
+        "228": {
+            "bank": 228,
+            "latency": 19
+        },
+        "229": {
+            "bank": 229,
+            "latency": 19
+        },
+        "22": {
+            "bank": 22,
+            "latency": 13
+        },
+        "23": {
+            "bank": 23,
+            "latency": 13
+        },
+        "230": {
+            "bank": 230,
+            "latency": 20
+        },
+        "231": {
+            "bank": 231,
+            "latency": 20
+        },
+        "232": {
+            "bank": 232,
+            "latency": 21
+        },
+        "233": {
+            "bank": 233,
+            "latency": 21
+        },
+        "234": {
+            "bank": 234,
+            "latency": 22
+        },
+        "235": {
+            "bank": 235,
+            "latency": 22
+        },
+        "236": {
+            "bank": 236,
+            "latency": 23
+        },
+        "237": {
+            "bank": 237,
+            "latency": 23
+        },
+        "238": {
+            "bank": 238,
+            "latency": 24
+        },
+        "239": {
+            "bank": 239,
+            "latency": 24
+        },
+        "240": {
+            "bank": 240,
+            "latency": 17
+        },
+        "241": {
+            "bank": 241,
+            "latency": 17
+        },
+        "242": {
+            "bank": 242,
+            "latency": 18
+        },
+        "243": {
+            "bank": 243,
+            "latency": 18
+        },
+        "244": {
+            "bank": 244,
+            "latency": 19
+        },
+        "245": {
+            "bank": 245,
+            "latency": 19
+        },
+        "246": {
+            "bank": 246,
+            "latency": 20
+        },
+        "247": {
+            "bank": 247,
+            "latency": 20
+        },
+        "248": {
+            "bank": 248,
+            "latency": 21
+        },
+        "249": {
+            "bank": 249,
+            "latency": 21
+        },
+        "24": {
+            "bank": 24,
+            "latency": 12
+        },
+        "25": {
+            "bank": 25,
+            "latency": 12
+        },
+        "250": {
+            "bank": 250,
+            "latency": 22
+        },
+        "251": {
+            "bank": 251,
+            "latency": 22
+        },
+        "252": {
+            "bank": 252,
+            "latency": 23
+        },
+        "253": {
+            "bank": 253,
+            "latency": 23
+        },
+        "254": {
+            "bank": 254,
+            "latency": 24
+        },
+        "255": {
+            "bank": 255,
+            "latency": 24
+        },
+        "26": {
+            "bank": 26,
+            "latency": 11
+        },
+        "27": {
+            "bank": 27,
+            "latency": 11
+        },
+        "28": {
+            "bank": 28,
+            "latency": 10
+        },
+        "29": {
+            "bank": 29,
+            "latency": 10
+        },
+        "2": {
+            "bank": 2,
+            "latency": 15
+        },
+        "3": {
+            "bank": 3,
+            "latency": 15
+        },
+        "30": {
+            "bank": 30,
+            "latency": 9
+        },
+        "31": {
+            "bank": 31,
+            "latency": 9
+        },
+        "32": {
+            "bank": 32,
+            "latency": 16
+        },
+        "33": {
+            "bank": 33,
+            "latency": 16
+        },
+        "34": {
+            "bank": 34,
+            "latency": 15
+        },
+        "35": {
+            "bank": 35,
+            "latency": 15
+        },
+        "36": {
+            "bank": 36,
+            "latency": 14
+        },
+        "37": {
+            "bank": 37,
+            "latency": 14
+        },
+        "38": {
+            "bank": 38,
+            "latency": 13
+        },
+        "39": {
+            "bank": 39,
+            "latency": 13
+        },
+        "40": {
+            "bank": 40,
+            "latency": 12
+        },
+        "41": {
+            "bank": 41,
+            "latency": 12
+        },
+        "42": {
+            "bank": 42,
+            "latency": 11
+        },
+        "43": {
+            "bank": 43,
+            "latency": 11
+        },
+        "44": {
+            "bank": 44,
+            "latency": 10
+        },
+        "45": {
+            "bank": 45,
+            "latency": 10
+        },
+        "46": {
+            "bank": 46,
+            "latency": 9
+        },
+        "47": {
+            "bank": 47,
+            "latency": 9
+        },
+        "48": {
+            "bank": 48,
+            "latency": 16
+        },
+        "49": {
+            "bank": 49,
+            "latency": 16
+        },
+        "4": {
+            "bank": 4,
+            "latency": 14
+        },
+        "5": {
+            "bank": 5,
+            "latency": 14
+        },
+        "50": {
+            "bank": 50,
+            "latency": 15
+        },
+        "51": {
+            "bank": 51,
+            "latency": 15
+        },
+        "52": {
+            "bank": 52,
+            "latency": 14
+        },
+        "53": {
+            "bank": 53,
+            "latency": 14
+        },
+        "54": {
+            "bank": 54,
+            "latency": 13
+        },
+        "55": {
+            "bank": 55,
+            "latency": 13
+        },
+        "56": {
+            "bank": 56,
+            "latency": 12
+        },
+        "57": {
+            "bank": 57,
+            "latency": 12
+        },
+        "58": {
+            "bank": 58,
+            "latency": 11
+        },
+        "59": {
+            "bank": 59,
+            "latency": 11
+        },
+        "60": {
+            "bank": 60,
+            "latency": 10
+        },
+        "61": {
+            "bank": 61,
+            "latency": 10
+        },
+        "62": {
+            "bank": 62,
+            "latency": 9
+        },
+        "63": {
+            "bank": 63,
+            "latency": 9
+        },
+        "64": {
+            "bank": 64,
+            "latency": 32
+        },
+        "65": {
+            "bank": 65,
+            "latency": 32
+        },
+        "66": {
+            "bank": 66,
+            "latency": 31
+        },
+        "67": {
+            "bank": 67,
+            "latency": 31
+        },
+        "68": {
+            "bank": 68,
+            "latency": 30
+        },
+        "69": {
+            "bank": 69,
+            "latency": 30
+        },
+        "6": {
+            "bank": 6,
+            "latency": 13
+        },
+        "7": {
+            "bank": 7,
+            "latency": 13
+        },
+        "70": {
+            "bank": 70,
+            "latency": 29
+        },
+        "71": {
+            "bank": 71,
+            "latency": 29
+        },
+        "72": {
+            "bank": 72,
+            "latency": 28
+        },
+        "73": {
+            "bank": 73,
+            "latency": 28
+        },
+        "74": {
+            "bank": 74,
+            "latency": 27
+        },
+        "75": {
+            "bank": 75,
+            "latency": 27
+        },
+        "76": {
+            "bank": 76,
+            "latency": 26
+        },
+        "77": {
+            "bank": 77,
+            "latency": 26
+        },
+        "78": {
+            "bank": 78,
+            "latency": 25
+        },
+        "79": {
+            "bank": 79,
+            "latency": 25
+        },
+        "80": {
+            "bank": 80,
+            "latency": 32
+        },
+        "81": {
+            "bank": 81,
+            "latency": 32
+        },
+        "82": {
+            "bank": 82,
+            "latency": 31
+        },
+        "83": {
+            "bank": 83,
+            "latency": 31
+        },
+        "84": {
+            "bank": 84,
+            "latency": 30
+        },
+        "85": {
+            "bank": 85,
+            "latency": 30
+        },
+        "86": {
+            "bank": 86,
+            "latency": 29
+        },
+        "87": {
+            "bank": 87,
+            "latency": 29
+        },
+        "88": {
+            "bank": 88,
+            "latency": 28
+        },
+        "89": {
+            "bank": 89,
+            "latency": 28
+        },
+        "8": {
+            "bank": 8,
+            "latency": 12
+        },
+        "9": {
+            "bank": 9,
+            "latency": 12
+        },
+        "90": {
+            "bank": 90,
+            "latency": 27
+        },
+        "91": {
+            "bank": 91,
+            "latency": 27
+        },
+        "92": {
+            "bank": 92,
+            "latency": 26
+        },
+        "93": {
+            "bank": 93,
+            "latency": 26
+        },
+        "94": {
+            "bank": 94,
+            "latency": 25
+        },
+        "95": {
+            "bank": 95,
+            "latency": 25
+        },
+        "96": {
+            "bank": 96,
+            "latency": 32
+        },
+        "97": {
+            "bank": 97,
+            "latency": 32
+        },
+        "98": {
+            "bank": 98,
+            "latency": 31
+        },
+        "99": {
+            "bank": 99,
+            "latency": 31
+        }
+    }
+}

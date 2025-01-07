@@ -1,0 +1,10 @@
+{
+    "op_hcompute_hw_output_stencil_1_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_2_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_3_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_4_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_5_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_6_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_7_port_controller_garnet": 0,
+    "op_hcompute_hw_output_stencil_port_controller_garnet": 0
+}

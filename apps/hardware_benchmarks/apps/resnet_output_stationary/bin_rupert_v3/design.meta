@@ -1,0 +1,4 @@
+placement=design.place
+bitstream=resnet_output_stationary.bs
+input=input.pgm
+output=gold.pgm

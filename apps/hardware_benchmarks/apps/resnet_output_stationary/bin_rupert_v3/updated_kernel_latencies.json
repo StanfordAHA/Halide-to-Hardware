@@ -1,0 +1,5218 @@
+{
+    "hcompute_hw_output_stencil": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_1": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_2": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_3": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_4": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_5": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_6": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_hw_output_stencil_7": {
+        "in0_output_glb_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_1": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_2": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_3": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_4": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_5": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_6": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_cgra_stencil_7": {
+        "in0_input_glb_stencil": {
+            "0": {
+                "latency": 5,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_1": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_2": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_3": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_4": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_5": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_6": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_input_glb_stencil_7": {
+        "in0_input_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_cgra_stencil": {
+        "in0_kernel_glb_stencil": {
+            "0": {
+                "latency": 1,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_cgra_stencil_1": {
+        "in0_kernel_glb_stencil": {
+            "0": {
+                "latency": 1,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_cgra_stencil_2": {
+        "in0_kernel_glb_stencil": {
+            "0": {
+                "latency": 1,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_cgra_stencil_3": {
+        "in0_kernel_glb_stencil": {
+            "0": {
+                "latency": 1,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_glb_stencil": {
+        "in0_kernel_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_glb_stencil_1": {
+        "in0_kernel_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_glb_stencil_2": {
+        "in0_kernel_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_kernel_glb_stencil_3": {
+        "in0_kernel_host_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil": {},
+    "hcompute_output_cgra_stencil_1": {},
+    "hcompute_output_cgra_stencil_10": {},
+    "hcompute_output_cgra_stencil_11": {},
+    "hcompute_output_cgra_stencil_12": {},
+    "hcompute_output_cgra_stencil_13": {},
+    "hcompute_output_cgra_stencil_14": {},
+    "hcompute_output_cgra_stencil_15": {},
+    "hcompute_output_cgra_stencil_16": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i2803_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "6": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i2785_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i2789_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2790_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2791_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2792_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2793_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2794_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2795_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "14": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2796_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2797_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2798_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2799_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2800_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2801_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2802_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2804_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "6": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i2785_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i2789_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2790_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2791_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2792_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2793_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2794_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2795_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "14": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2796_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2797_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2798_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2799_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2800_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2801_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2802_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i2804_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_17": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i3145_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i3127_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i3131_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3132_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3133_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3134_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3135_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3136_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3137_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3138_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3139_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3140_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3141_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3142_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3143_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3144_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3146_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i3127_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i3131_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3132_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3133_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3134_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3135_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3136_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3137_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3138_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3139_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3140_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3141_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3142_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3143_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3144_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3146_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_18": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i3487_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 21,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i3469_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i3473_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3474_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3475_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3476_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3477_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3478_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3479_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3480_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3481_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3482_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3483_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3484_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3485_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3486_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3488_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i3469_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i3473_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3474_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3475_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3476_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3477_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3478_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3479_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3480_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3481_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3482_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3483_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3484_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3485_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3486_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3488_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_19": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i3829_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i3811_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i3815_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3816_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3817_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3818_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3819_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3820_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3821_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3822_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3823_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3824_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3825_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3826_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3827_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3828_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3830_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i3811_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i3815_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3816_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3817_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3818_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3819_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3820_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3821_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3822_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3823_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3824_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3825_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3826_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3827_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3828_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i3830_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_2": {},
+    "hcompute_output_cgra_stencil_20": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i4176_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i4158_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i4162_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4163_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4164_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4165_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4166_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4167_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4168_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4169_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4170_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4171_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4172_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4173_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4174_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4175_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4177_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i4158_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i4162_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4163_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4164_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4165_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4166_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4167_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4168_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4169_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4170_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4171_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4172_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4173_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4174_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4175_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4177_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_21": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i4518_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 21,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i4500_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i4504_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4505_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4506_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4507_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4508_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4509_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4510_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4511_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4512_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4513_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4514_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4515_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4516_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4517_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4519_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i4500_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i4504_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4505_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4506_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4507_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4508_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4509_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4510_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4511_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4512_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4513_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4514_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4515_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4516_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4517_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4519_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_22": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i4860_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "11": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i4842_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i4846_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4847_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4848_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4849_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4850_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4851_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4852_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4853_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4854_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4855_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4856_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4857_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4858_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "14": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4859_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4861_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "11": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i4842_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i4846_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4847_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4848_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4849_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4850_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4851_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4852_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4853_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4854_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4855_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4856_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4857_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4858_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "14": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4859_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i4861_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_23": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i5202_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i5184_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i5188_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5189_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5190_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5191_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5192_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5193_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5194_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5195_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5196_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5197_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5198_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5199_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5200_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5201_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5203_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i5184_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i5188_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5189_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5190_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5191_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5192_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5193_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5194_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5195_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5196_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5197_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5198_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5199_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5200_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5201_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5203_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_24": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i5544_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i5526_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i5530_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5531_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5532_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5533_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5534_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5535_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5536_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5537_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5538_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5539_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5540_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5541_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5542_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5543_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5545_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i5526_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i5530_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5531_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5532_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5533_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5534_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5535_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5536_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5537_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5538_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5539_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5540_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5541_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5542_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5543_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5545_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_25": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i5886_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i5868_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i5872_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5873_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5874_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5875_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5876_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5877_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5878_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5879_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5880_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5881_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5882_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5883_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5884_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5885_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5887_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i5868_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i5872_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5873_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5874_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5875_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5876_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5877_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5878_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5879_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5880_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5881_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5882_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5883_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5884_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5885_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i5887_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_26": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i6228_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 21,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i6210_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i6214_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6215_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6216_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6217_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6218_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6219_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6220_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6221_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6222_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6223_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6224_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6225_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6226_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6227_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6229_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i6210_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i6214_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6215_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6216_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6217_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6218_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6219_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6220_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6221_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6222_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6223_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6224_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6225_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6226_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6227_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6229_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_27": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i6570_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i6552_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i6556_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6557_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6558_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6559_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6560_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6561_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6562_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6563_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6564_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6565_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6566_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6567_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6568_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6569_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6571_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i6552_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i6556_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6557_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6558_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6559_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6560_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6561_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6562_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6563_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6564_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6565_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6566_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6567_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6568_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6569_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6571_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_28": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i6912_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i6894_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i6898_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6899_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6900_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6901_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6902_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6903_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6904_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6905_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6906_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6907_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6908_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6909_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6910_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6911_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6913_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i6894_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i6898_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6899_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6900_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6901_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6902_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6903_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6904_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6905_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6906_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6907_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6908_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6909_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6910_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6911_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i6913_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_29": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i7254_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 21,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i7236_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i7240_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7241_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7242_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7243_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7244_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7245_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7246_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7247_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7248_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7249_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7250_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7251_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7252_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7253_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7255_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i7236_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i7240_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7241_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7242_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7243_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7244_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7245_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7246_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7247_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7248_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7249_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7250_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7251_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7252_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7253_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7255_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_3": {},
+    "hcompute_output_cgra_stencil_30": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i7601_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 20,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i7583_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 19,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i7587_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7588_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7589_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7590_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7591_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7592_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7593_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7594_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7595_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7596_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7597_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7598_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7599_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7600_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7602_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i7583_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i7587_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7588_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7589_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7590_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7591_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7592_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7593_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7594_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7595_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7596_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7597_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7598_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7599_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7600_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7602_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_31": {
+        "in2_output_cgra_stencil": {
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "add_pipelined_i7943_i133",
+                        "data2"
+                    ]
+                ]
+            }
+        },
+        "in0_input_cgra_stencil": {
+            "14": {
+                "latency": 18,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i7925_i1176",
+                        "data1"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i7929_i1258",
+                        "data1"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7930_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7931_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7932_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7933_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7934_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7935_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7936_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7937_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7938_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7939_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7940_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7941_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7942_i1217",
+                        "data0"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 2,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7944_i1217",
+                        "data0"
+                    ]
+                ]
+            }
+        },
+        "in1_kernel_cgra_stencil": {
+            "14": {
+                "latency": 17,
+                "pe_port": [
+                    [
+                        "mul_pipelined_i7925_i1176",
+                        "data0"
+                    ]
+                ]
+            },
+            "15": {
+                "latency": 16,
+                "pe_port": [
+                    [
+                        "muladd_s1_pipelined_i7929_i1258",
+                        "data0"
+                    ]
+                ]
+            },
+            "13": {
+                "latency": 15,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7930_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "12": {
+                "latency": 14,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7931_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "11": {
+                "latency": 13,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7932_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "10": {
+                "latency": 12,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7933_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "9": {
+                "latency": 11,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7934_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "8": {
+                "latency": 10,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7935_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "7": {
+                "latency": 9,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7936_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "6": {
+                "latency": 8,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7937_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "5": {
+                "latency": 7,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7938_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "4": {
+                "latency": 6,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7939_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "3": {
+                "latency": 5,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7940_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "2": {
+                "latency": 4,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7941_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "1": {
+                "latency": 3,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7942_i1217",
+                        "data1"
+                    ]
+                ]
+            },
+            "0": {
+                "latency": 1,
+                "pe_port": [
+                    [
+                        "muladd_s0_pipelined_i7944_i1217",
+                        "data1"
+                    ]
+                ]
+            }
+        }
+    },
+    "hcompute_output_cgra_stencil_4": {},
+    "hcompute_output_cgra_stencil_5": {},
+    "hcompute_output_cgra_stencil_6": {},
+    "hcompute_output_cgra_stencil_7": {},
+    "hcompute_output_cgra_stencil_8": {},
+    "hcompute_output_cgra_stencil_9": {},
+    "hcompute_output_glb_stencil": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_1": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_2": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_3": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_4": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_5": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_6": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    },
+    "hcompute_output_glb_stencil_7": {
+        "in0_output_cgra_stencil": {
+            "0": {
+                "latency": 0,
+                "pe_port": []
+            }
+        }
+    }
+}
