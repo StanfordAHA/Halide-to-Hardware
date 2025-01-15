@@ -1,23 +1,23 @@
 Netlists:
-e1: (r1, reg)	(I0, f2io_17)
-e2: (r3, reg)	(i0, f2io_1)
-e3: (I1, io2f_17)	(p0, PE_input_width_17_num_0)
-e5: (I2, io2f_17)	(p0, PE_input_width_17_num_2)
+e1: (r1, reg)	(I0, f2io_17_0)
+e2: (r3, reg)	(i0, f2io_1_0)
+e3: (I1, io2f_17_0)	(p0, PE_input_width_17_num_0)
+e5: (I2, io2f_17_0)	(p0, PE_input_width_17_num_2)
 e7: (p0, PE_output_width_17_num_1)	(r0, reg)
 e12: (r0, reg)	(r1, reg)
 e15: (m0, MEM_output_width_1_num_2)	(r2, reg)
 e16: (r2, reg)	(r3, reg)
 
 ID to Names:
-p0: op_hcompute_add_stencil$inner_compute$add_i2752_i489
+i0: io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid
+I0: io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0
 m0: op_hcompute_hw_output_stencil_port_controller_garnet
 r0: io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0$reg0
-I0: io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0
-i0: io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid
-I1: io16in_hw_input_b_stencil_op_hcompute_hw_input_b_global_wrapper_stencil_read_0
+p0: op_hcompute_add_stencil$inner_compute$add_i2752_i126
 r1: io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0$reg1
-r2: io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg2
+I1: io16in_hw_input_b_stencil_op_hcompute_hw_input_b_global_wrapper_stencil_read_0
 I2: io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0
+r2: io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg2
 r3: io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg3
 r4: pnr_pipelining4
 r5: pnr_pipelining5

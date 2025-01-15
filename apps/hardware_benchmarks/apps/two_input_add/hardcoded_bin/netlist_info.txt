@@ -1,26 +1,26 @@
 pes with packed ponds
 id to instance name
   m0  op_hcompute_hw_output_stencil_port_controller_garnet
+  i0  io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid
   r0  io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0$reg0
   r1  io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0$reg1
   r2  io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg2
   r3  io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg3
-  p0  op_hcompute_add_stencil$inner_compute$add_i2752_i489
   I0  io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0
   I1  io16in_hw_input_b_stencil_op_hcompute_hw_input_b_global_wrapper_stencil_read_0
   I2  io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0
-  i0  io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid
+  p0  op_hcompute_add_stencil$inner_compute$add_i2752_i126
 id_to_Instrs
   m0, <class 'peak.mapper.utils.Unbound'>
+  i0, (1, {'ready_valid_mode': 1})
   r0, 0
   r1, 0
   r2, 0
   r3, 0
-  p0, 157286451574951303971008
   I0, (1, {'ready_valid_mode': 1})
   I1, (1, {'ready_valid_mode': 1})
   I2, (1, {'ready_valid_mode': 1})
-  i0, (1, {'ready_valid_mode': 1})
+  p0, 157286451574951303971008
 id_to_metadata
   m0, {'config': {'stencil_valid': {'cycle_starting_addr': [0], 'cycle_stride': [1, 64], 'dimensionality': 2, 'extent': [64, 64]}}, 'init': None, 'mode': 'lake'}
 buses
@@ -35,15 +35,15 @@ buses
 netlist
   e1
     ('r1', 'reg')
-    ('I0', 'f2io_17')
+    ('I0', 'f2io_17_0')
   e2
     ('r3', 'reg')
-    ('i0', 'f2io_1')
+    ('i0', 'f2io_1_0')
   e3
-    ('I1', 'io2f_17')
+    ('I1', 'io2f_17_0')
     ('p0', 'PE_input_width_17_num_0')
   e5
-    ('I2', 'io2f_17')
+    ('I2', 'io2f_17_0')
     ('p0', 'PE_input_width_17_num_2')
   e7
     ('p0', 'PE_output_width_17_num_1')

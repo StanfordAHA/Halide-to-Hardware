@@ -65,7 +65,7 @@
           ["out_add_stencil",["Array",16,"Bit"]]
         ]],
         "instances":{
-          "add_i2752_i489":{
+          "add_i2752_i126":{
             "modref":"global.PE"
           },
           "c0":{
@@ -79,11 +79,11 @@
           }
         },
         "connections":[
-          ["self.out_add_stencil","add_i2752_i489.O0"],
-          ["c1.out","add_i2752_i489.clk_en"],
-          ["self.in0_hw_input_b_global_wrapper_stencil.0","add_i2752_i489.data0"],
-          ["self.in1_hw_input_global_wrapper_stencil.0","add_i2752_i489.data2"],
-          ["c0.out","add_i2752_i489.inst"]
+          ["self.out_add_stencil","add_i2752_i126.O0"],
+          ["c1.out","add_i2752_i126.clk_en"],
+          ["self.in0_hw_input_b_global_wrapper_stencil.0","add_i2752_i126.data0"],
+          ["self.in1_hw_input_global_wrapper_stencil.0","add_i2752_i126.data2"],
+          ["c0.out","add_i2752_i126.inst"]
         ]
       },
       "hcompute_hw_input_b_global_wrapper_stencil":{

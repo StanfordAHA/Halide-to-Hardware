@@ -2190,13 +2190,13 @@ Module: global.two_input_add
       op_hcompute_hw_output_stencil_read_start : op_hcompute_hw_output_stencil_read_start_pt__U1
       op_hcompute_hw_output_stencil_write_start : op_hcompute_hw_output_stencil_write_start_pt__U3
     Connections:
-      op_hcompute_hw_output_stencil.hw_output_stencil_op_hcompute_hw_output_stencil_write <=> self.hw_output_stencil_op_hcompute_hw_output_stencil_write
-      hw_input_b_global_wrapper_stencil.reset <=> self.reset
-      add_stencil.reset <=> self.reset
       hw_input_global_wrapper_stencil.reset <=> self.reset
+      add_stencil.reset <=> self.reset
+      hw_input_b_global_wrapper_stencil.reset <=> self.reset
       op_hcompute_hw_output_stencil_port_controller.flush <=> self.reset
       op_hcompute_hw_input_global_wrapper_stencil_port_controller.flush <=> self.reset
       op_hcompute_hw_input_b_global_wrapper_stencil_port_controller.flush <=> self.reset
+      op_hcompute_hw_output_stencil.hw_output_stencil_op_hcompute_hw_output_stencil_write <=> self.hw_output_stencil_op_hcompute_hw_output_stencil_write
       op_hcompute_hw_output_stencil_port_controller.clk <=> self.clk
       op_hcompute_hw_input_global_wrapper_stencil_port_controller.clk <=> self.clk
       op_hcompute_hw_input_b_global_wrapper_stencil_port_controller.clk <=> self.clk
@@ -2211,11 +2211,11 @@ Module: global.two_input_add
       hw_input_b_global_wrapper_stencil.op_hcompute_add_stencil_read <=> op_hcompute_add_stencil.hw_input_b_global_wrapper_stencil_op_hcompute_add_stencil_read
       hw_input_global_wrapper_stencil.op_hcompute_add_stencil_read <=> op_hcompute_add_stencil.hw_input_global_wrapper_stencil_op_hcompute_add_stencil_read
       hw_input_global_wrapper_stencil.op_hcompute_hw_input_global_wrapper_stencil_write <=> op_hcompute_hw_input_global_wrapper_stencil.hw_input_global_wrapper_stencil_op_hcompute_hw_input_global_wrapper_stencil_write
+      op_hcompute_hw_input_global_wrapper_stencil_port_controller.clk_en <=> op_hcompute_hw_input_global_wrapper_stencil_port_controller_clk_en_const.out
+      op_hcompute_hw_input_global_wrapper_stencil_port_controller.rst_n <=> op_hcompute_hw_input_global_wrapper_stencil_port_controller_clk_en_const.out
       op_hcompute_hw_input_global_wrapper_stencil_port_controller.stencil_valid <=> op_hcompute_hw_input_global_wrapper_stencil_read_start.in
       op_hcompute_hw_input_global_wrapper_stencil_exe_start.in <=> op_hcompute_hw_input_global_wrapper_stencil_port_controller.stencil_valid
       op_hcompute_hw_input_global_wrapper_stencil_port_controller.stencil_valid <=> op_hcompute_hw_input_global_wrapper_stencil_write_start.in
-      op_hcompute_hw_input_global_wrapper_stencil_port_controller.clk_en <=> op_hcompute_hw_input_global_wrapper_stencil_port_controller_clk_en_const.out
-      op_hcompute_hw_input_global_wrapper_stencil_port_controller.rst_n <=> op_hcompute_hw_input_global_wrapper_stencil_port_controller_clk_en_const.out
       op_hcompute_hw_input_global_wrapper_stencil_read_start.out <=> self.hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_en
       op_hcompute_hw_input_global_wrapper_stencil.hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read <=> self.hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read
       _U8.in <=> self.hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read[0]
@@ -2285,8 +2285,8 @@ inlining op_hcompute_hw_input_b_global_wrapper_stencil_port_controller
 inlining op_hcompute_hw_input_global_wrapper_stencil_port_controller
 inlining op_hcompute_hw_output_stencil_port_controller
 inlining add_stencil
-inlining inner_compute$add_i2752_i489
-inlining add_i2752_i489
+inlining inner_compute$add_i2752_i126
+inlining add_i2752_i126
 inlining op_hcompute_add_stencil
     new memory syntax transformation!
     op_hcompute_hw_output_stencil_port_controller(ID:_U0, ctrl_width:16, has_chain_en:False, has_external_addrgen:False, has_flush:True, has_read_valid:False, has_reset:False, has_stencil_valid:True, has_valid:False, is_rom:False, num_inputs:1, num_outputs:1, use_prebuilt_mem:True, width:16)() : cgralib.Mem_amber

@@ -67,7 +67,7 @@ END
 TILE (4, 0, 1, 0)
   SB (0, 4, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (0, 4, 0, 3, 1, 1)
@@ -77,7 +77,7 @@ TILE (4, 0, 1, 0)
   END
   SB (0, 4, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (0, 4, 0, 1, 1, 1)
@@ -87,7 +87,7 @@ TILE (4, 0, 1, 0)
   END
   SB (0, 4, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (0, 4, 0, 0, 1, 1)
@@ -97,7 +97,7 @@ TILE (4, 0, 1, 0)
   END
   SB (0, 4, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (0, 4, 0, 2, 1, 1)
@@ -107,7 +107,7 @@ TILE (4, 0, 1, 0)
   END
   SB (1, 4, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (1, 4, 0, 3, 1, 1)
@@ -117,7 +117,7 @@ TILE (4, 0, 1, 0)
   END
   SB (1, 4, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (1, 4, 0, 1, 1, 1)
@@ -127,7 +127,7 @@ TILE (4, 0, 1, 0)
   END
   SB (1, 4, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (1, 4, 0, 0, 1, 1)
@@ -137,7 +137,7 @@ TILE (4, 0, 1, 0)
   END
   SB (1, 4, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (1, 4, 0, 2, 1, 1)
@@ -147,7 +147,7 @@ TILE (4, 0, 1, 0)
   END
   SB (2, 4, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (2, 4, 0, 3, 1, 1)
@@ -157,7 +157,7 @@ TILE (4, 0, 1, 0)
   END
   SB (2, 4, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (2, 4, 0, 1, 1, 1)
@@ -167,7 +167,7 @@ TILE (4, 0, 1, 0)
   END
   SB (2, 4, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (2, 4, 0, 0, 1, 1)
@@ -177,7 +177,7 @@ TILE (4, 0, 1, 0)
   END
   SB (2, 4, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (2, 4, 0, 2, 1, 1)
@@ -187,7 +187,7 @@ TILE (4, 0, 1, 0)
   END
   SB (3, 4, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (3, 4, 0, 3, 1, 1)
@@ -197,7 +197,7 @@ TILE (4, 0, 1, 0)
   END
   SB (3, 4, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (3, 4, 0, 1, 1, 1)
@@ -207,7 +207,7 @@ TILE (4, 0, 1, 0)
   END
   SB (3, 4, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (3, 4, 0, 0, 1, 1)
@@ -217,7 +217,7 @@ TILE (4, 0, 1, 0)
   END
   SB (3, 4, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (3, 4, 0, 2, 1, 1)
@@ -227,7 +227,7 @@ TILE (4, 0, 1, 0)
   END
   SB (4, 4, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (4, 4, 0, 3, 1, 1)
@@ -237,7 +237,7 @@ TILE (4, 0, 1, 0)
   END
   SB (4, 4, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (4, 4, 0, 1, 1, 1)
@@ -247,7 +247,7 @@ TILE (4, 0, 1, 0)
   END
   SB (4, 4, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (4, 4, 0, 0, 1, 1)
@@ -257,7 +257,7 @@ TILE (4, 0, 1, 0)
   END
   SB (4, 4, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (4, 0, 1)
+      PORT f2io_1_0 (4, 0, 1)
       PORT flush (4, 0, 1)
   END
   SB (4, 4, 0, 2, 1, 1)
@@ -265,7 +265,7 @@ TILE (4, 0, 1, 0)
       REG T4_WEST (4, 4, 0, 1)
       RMUX (4, 4, 0, 2, 1)
   END
-  PORT io2f_1 (4, 0, 1)
+  PORT io2f_1_0 (4, 0, 1)
   BEGIN
       SB (0, 4, 0, 3, 1, 1)
       SB (0, 4, 0, 1, 1, 1)
@@ -4019,7 +4019,7 @@ TILE (4, 8, 1, 0)
 TILE (5, 0, 1, 0)
   SB (0, 5, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (0, 5, 0, 3, 1, 1)
@@ -4029,7 +4029,7 @@ TILE (5, 0, 1, 0)
   END
   SB (0, 5, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (0, 5, 0, 1, 1, 1)
@@ -4039,7 +4039,7 @@ TILE (5, 0, 1, 0)
   END
   SB (0, 5, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (0, 5, 0, 0, 1, 1)
@@ -4049,7 +4049,7 @@ TILE (5, 0, 1, 0)
   END
   SB (0, 5, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (0, 5, 0, 2, 1, 1)
@@ -4059,7 +4059,7 @@ TILE (5, 0, 1, 0)
   END
   SB (1, 5, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (1, 5, 0, 3, 1, 1)
@@ -4069,7 +4069,7 @@ TILE (5, 0, 1, 0)
   END
   SB (1, 5, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (1, 5, 0, 1, 1, 1)
@@ -4079,7 +4079,7 @@ TILE (5, 0, 1, 0)
   END
   SB (1, 5, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (1, 5, 0, 0, 1, 1)
@@ -4089,7 +4089,7 @@ TILE (5, 0, 1, 0)
   END
   SB (1, 5, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (1, 5, 0, 2, 1, 1)
@@ -4099,7 +4099,7 @@ TILE (5, 0, 1, 0)
   END
   SB (2, 5, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (2, 5, 0, 3, 1, 1)
@@ -4109,7 +4109,7 @@ TILE (5, 0, 1, 0)
   END
   SB (2, 5, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (2, 5, 0, 1, 1, 1)
@@ -4119,7 +4119,7 @@ TILE (5, 0, 1, 0)
   END
   SB (2, 5, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (2, 5, 0, 0, 1, 1)
@@ -4129,7 +4129,7 @@ TILE (5, 0, 1, 0)
   END
   SB (2, 5, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (2, 5, 0, 2, 1, 1)
@@ -4139,7 +4139,7 @@ TILE (5, 0, 1, 0)
   END
   SB (3, 5, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (3, 5, 0, 3, 1, 1)
@@ -4149,7 +4149,7 @@ TILE (5, 0, 1, 0)
   END
   SB (3, 5, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (3, 5, 0, 1, 1, 1)
@@ -4159,7 +4159,7 @@ TILE (5, 0, 1, 0)
   END
   SB (3, 5, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (3, 5, 0, 0, 1, 1)
@@ -4169,7 +4169,7 @@ TILE (5, 0, 1, 0)
   END
   SB (3, 5, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (3, 5, 0, 2, 1, 1)
@@ -4179,7 +4179,7 @@ TILE (5, 0, 1, 0)
   END
   SB (4, 5, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (4, 5, 0, 3, 1, 1)
@@ -4189,7 +4189,7 @@ TILE (5, 0, 1, 0)
   END
   SB (4, 5, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (4, 5, 0, 1, 1, 1)
@@ -4199,7 +4199,7 @@ TILE (5, 0, 1, 0)
   END
   SB (4, 5, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (4, 5, 0, 0, 1, 1)
@@ -4209,7 +4209,7 @@ TILE (5, 0, 1, 0)
   END
   SB (4, 5, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (5, 0, 1)
+      PORT f2io_1_0 (5, 0, 1)
       PORT flush (5, 0, 1)
   END
   SB (4, 5, 0, 2, 1, 1)
@@ -4217,7 +4217,7 @@ TILE (5, 0, 1, 0)
       REG T4_WEST (4, 5, 0, 1)
       RMUX (4, 5, 0, 2, 1)
   END
-  PORT io2f_1 (5, 0, 1)
+  PORT io2f_1_0 (5, 0, 1)
   BEGIN
       SB (0, 5, 0, 3, 1, 1)
       SB (0, 5, 0, 1, 1, 1)
@@ -8131,7 +8131,7 @@ TILE (5, 8, 1, 0)
 TILE (6, 0, 1, 0)
   SB (0, 6, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (0, 6, 0, 3, 1, 1)
@@ -8141,7 +8141,7 @@ TILE (6, 0, 1, 0)
   END
   SB (0, 6, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (0, 6, 0, 1, 1, 1)
@@ -8151,7 +8151,7 @@ TILE (6, 0, 1, 0)
   END
   SB (0, 6, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (0, 6, 0, 0, 1, 1)
@@ -8161,7 +8161,7 @@ TILE (6, 0, 1, 0)
   END
   SB (0, 6, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (0, 6, 0, 2, 1, 1)
@@ -8171,7 +8171,7 @@ TILE (6, 0, 1, 0)
   END
   SB (1, 6, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (1, 6, 0, 3, 1, 1)
@@ -8181,7 +8181,7 @@ TILE (6, 0, 1, 0)
   END
   SB (1, 6, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (1, 6, 0, 1, 1, 1)
@@ -8191,7 +8191,7 @@ TILE (6, 0, 1, 0)
   END
   SB (1, 6, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (1, 6, 0, 0, 1, 1)
@@ -8201,7 +8201,7 @@ TILE (6, 0, 1, 0)
   END
   SB (1, 6, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (1, 6, 0, 2, 1, 1)
@@ -8211,7 +8211,7 @@ TILE (6, 0, 1, 0)
   END
   SB (2, 6, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (2, 6, 0, 3, 1, 1)
@@ -8221,7 +8221,7 @@ TILE (6, 0, 1, 0)
   END
   SB (2, 6, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (2, 6, 0, 1, 1, 1)
@@ -8231,7 +8231,7 @@ TILE (6, 0, 1, 0)
   END
   SB (2, 6, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (2, 6, 0, 0, 1, 1)
@@ -8241,7 +8241,7 @@ TILE (6, 0, 1, 0)
   END
   SB (2, 6, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (2, 6, 0, 2, 1, 1)
@@ -8251,7 +8251,7 @@ TILE (6, 0, 1, 0)
   END
   SB (3, 6, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (3, 6, 0, 3, 1, 1)
@@ -8261,7 +8261,7 @@ TILE (6, 0, 1, 0)
   END
   SB (3, 6, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (3, 6, 0, 1, 1, 1)
@@ -8271,7 +8271,7 @@ TILE (6, 0, 1, 0)
   END
   SB (3, 6, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (3, 6, 0, 0, 1, 1)
@@ -8281,7 +8281,7 @@ TILE (6, 0, 1, 0)
   END
   SB (3, 6, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (3, 6, 0, 2, 1, 1)
@@ -8291,7 +8291,7 @@ TILE (6, 0, 1, 0)
   END
   SB (4, 6, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (4, 6, 0, 3, 1, 1)
@@ -8301,7 +8301,7 @@ TILE (6, 0, 1, 0)
   END
   SB (4, 6, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (4, 6, 0, 1, 1, 1)
@@ -8311,7 +8311,7 @@ TILE (6, 0, 1, 0)
   END
   SB (4, 6, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (4, 6, 0, 0, 1, 1)
@@ -8321,7 +8321,7 @@ TILE (6, 0, 1, 0)
   END
   SB (4, 6, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (6, 0, 1)
+      PORT f2io_1_0 (6, 0, 1)
       PORT flush (6, 0, 1)
   END
   SB (4, 6, 0, 2, 1, 1)
@@ -8329,7 +8329,7 @@ TILE (6, 0, 1, 0)
       REG T4_WEST (4, 6, 0, 1)
       RMUX (4, 6, 0, 2, 1)
   END
-  PORT io2f_1 (6, 0, 1)
+  PORT io2f_1_0 (6, 0, 1)
   BEGIN
       SB (0, 6, 0, 3, 1, 1)
       SB (0, 6, 0, 1, 1, 1)
@@ -12243,7 +12243,7 @@ TILE (6, 8, 1, 0)
 TILE (7, 0, 1, 0)
   SB (0, 7, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (0, 7, 0, 3, 1, 1)
@@ -12253,7 +12253,7 @@ TILE (7, 0, 1, 0)
   END
   SB (0, 7, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (0, 7, 0, 1, 1, 1)
@@ -12263,7 +12263,7 @@ TILE (7, 0, 1, 0)
   END
   SB (0, 7, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (0, 7, 0, 0, 1, 1)
@@ -12273,7 +12273,7 @@ TILE (7, 0, 1, 0)
   END
   SB (0, 7, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (0, 7, 0, 2, 1, 1)
@@ -12283,7 +12283,7 @@ TILE (7, 0, 1, 0)
   END
   SB (1, 7, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (1, 7, 0, 3, 1, 1)
@@ -12293,7 +12293,7 @@ TILE (7, 0, 1, 0)
   END
   SB (1, 7, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (1, 7, 0, 1, 1, 1)
@@ -12303,7 +12303,7 @@ TILE (7, 0, 1, 0)
   END
   SB (1, 7, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (1, 7, 0, 0, 1, 1)
@@ -12313,7 +12313,7 @@ TILE (7, 0, 1, 0)
   END
   SB (1, 7, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (1, 7, 0, 2, 1, 1)
@@ -12323,7 +12323,7 @@ TILE (7, 0, 1, 0)
   END
   SB (2, 7, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (2, 7, 0, 3, 1, 1)
@@ -12333,7 +12333,7 @@ TILE (7, 0, 1, 0)
   END
   SB (2, 7, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (2, 7, 0, 1, 1, 1)
@@ -12343,7 +12343,7 @@ TILE (7, 0, 1, 0)
   END
   SB (2, 7, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (2, 7, 0, 0, 1, 1)
@@ -12353,7 +12353,7 @@ TILE (7, 0, 1, 0)
   END
   SB (2, 7, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (2, 7, 0, 2, 1, 1)
@@ -12363,7 +12363,7 @@ TILE (7, 0, 1, 0)
   END
   SB (3, 7, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (3, 7, 0, 3, 1, 1)
@@ -12373,7 +12373,7 @@ TILE (7, 0, 1, 0)
   END
   SB (3, 7, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (3, 7, 0, 1, 1, 1)
@@ -12383,7 +12383,7 @@ TILE (7, 0, 1, 0)
   END
   SB (3, 7, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (3, 7, 0, 0, 1, 1)
@@ -12393,7 +12393,7 @@ TILE (7, 0, 1, 0)
   END
   SB (3, 7, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (3, 7, 0, 2, 1, 1)
@@ -12403,7 +12403,7 @@ TILE (7, 0, 1, 0)
   END
   SB (4, 7, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (4, 7, 0, 3, 1, 1)
@@ -12413,7 +12413,7 @@ TILE (7, 0, 1, 0)
   END
   SB (4, 7, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (4, 7, 0, 1, 1, 1)
@@ -12423,7 +12423,7 @@ TILE (7, 0, 1, 0)
   END
   SB (4, 7, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (4, 7, 0, 0, 1, 1)
@@ -12433,7 +12433,7 @@ TILE (7, 0, 1, 0)
   END
   SB (4, 7, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (7, 0, 1)
+      PORT f2io_1_0 (7, 0, 1)
       PORT flush (7, 0, 1)
   END
   SB (4, 7, 0, 2, 1, 1)
@@ -12441,7 +12441,7 @@ TILE (7, 0, 1, 0)
       REG T4_WEST (4, 7, 0, 1)
       RMUX (4, 7, 0, 2, 1)
   END
-  PORT io2f_1 (7, 0, 1)
+  PORT io2f_1_0 (7, 0, 1)
   BEGIN
       SB (0, 7, 0, 3, 1, 1)
       SB (0, 7, 0, 1, 1, 1)
@@ -16007,7 +16007,7 @@ TILE (7, 8, 1, 0)
 TILE (0, 0, 1, 0)
   SB (0, 0, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (0, 0, 0, 3, 1, 1)
@@ -16017,7 +16017,7 @@ TILE (0, 0, 1, 0)
   END
   SB (0, 0, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (0, 0, 0, 1, 1, 1)
@@ -16027,7 +16027,7 @@ TILE (0, 0, 1, 0)
   END
   SB (0, 0, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (0, 0, 0, 0, 1, 1)
@@ -16037,7 +16037,7 @@ TILE (0, 0, 1, 0)
   END
   SB (0, 0, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (0, 0, 0, 2, 1, 1)
@@ -16047,7 +16047,7 @@ TILE (0, 0, 1, 0)
   END
   SB (1, 0, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (1, 0, 0, 3, 1, 1)
@@ -16057,7 +16057,7 @@ TILE (0, 0, 1, 0)
   END
   SB (1, 0, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (1, 0, 0, 1, 1, 1)
@@ -16067,7 +16067,7 @@ TILE (0, 0, 1, 0)
   END
   SB (1, 0, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (1, 0, 0, 0, 1, 1)
@@ -16077,7 +16077,7 @@ TILE (0, 0, 1, 0)
   END
   SB (1, 0, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (1, 0, 0, 2, 1, 1)
@@ -16087,7 +16087,7 @@ TILE (0, 0, 1, 0)
   END
   SB (2, 0, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (2, 0, 0, 3, 1, 1)
@@ -16097,7 +16097,7 @@ TILE (0, 0, 1, 0)
   END
   SB (2, 0, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (2, 0, 0, 1, 1, 1)
@@ -16107,7 +16107,7 @@ TILE (0, 0, 1, 0)
   END
   SB (2, 0, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (2, 0, 0, 0, 1, 1)
@@ -16117,7 +16117,7 @@ TILE (0, 0, 1, 0)
   END
   SB (2, 0, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (2, 0, 0, 2, 1, 1)
@@ -16127,7 +16127,7 @@ TILE (0, 0, 1, 0)
   END
   SB (3, 0, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (3, 0, 0, 3, 1, 1)
@@ -16137,7 +16137,7 @@ TILE (0, 0, 1, 0)
   END
   SB (3, 0, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (3, 0, 0, 1, 1, 1)
@@ -16147,7 +16147,7 @@ TILE (0, 0, 1, 0)
   END
   SB (3, 0, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (3, 0, 0, 0, 1, 1)
@@ -16157,7 +16157,7 @@ TILE (0, 0, 1, 0)
   END
   SB (3, 0, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (3, 0, 0, 2, 1, 1)
@@ -16167,7 +16167,7 @@ TILE (0, 0, 1, 0)
   END
   SB (4, 0, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (4, 0, 0, 3, 1, 1)
@@ -16177,7 +16177,7 @@ TILE (0, 0, 1, 0)
   END
   SB (4, 0, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (4, 0, 0, 1, 1, 1)
@@ -16187,7 +16187,7 @@ TILE (0, 0, 1, 0)
   END
   SB (4, 0, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (4, 0, 0, 0, 1, 1)
@@ -16197,7 +16197,7 @@ TILE (0, 0, 1, 0)
   END
   SB (4, 0, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (0, 0, 1)
+      PORT f2io_1_0 (0, 0, 1)
       PORT flush (0, 0, 1)
   END
   SB (4, 0, 0, 2, 1, 1)
@@ -16205,7 +16205,7 @@ TILE (0, 0, 1, 0)
       REG T4_WEST (4, 0, 0, 1)
       RMUX (4, 0, 0, 2, 1)
   END
-  PORT io2f_1 (0, 0, 1)
+  PORT io2f_1_0 (0, 0, 1)
   BEGIN
       SB (0, 0, 0, 3, 1, 1)
       SB (0, 0, 0, 1, 1, 1)
@@ -16331,7 +16331,7 @@ TILE (0, 0, 1, 0)
 TILE (1, 0, 1, 0)
   SB (0, 1, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (0, 1, 0, 3, 1, 1)
@@ -16341,7 +16341,7 @@ TILE (1, 0, 1, 0)
   END
   SB (0, 1, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (0, 1, 0, 1, 1, 1)
@@ -16351,7 +16351,7 @@ TILE (1, 0, 1, 0)
   END
   SB (0, 1, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (0, 1, 0, 0, 1, 1)
@@ -16361,7 +16361,7 @@ TILE (1, 0, 1, 0)
   END
   SB (0, 1, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (0, 1, 0, 2, 1, 1)
@@ -16371,7 +16371,7 @@ TILE (1, 0, 1, 0)
   END
   SB (1, 1, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (1, 1, 0, 3, 1, 1)
@@ -16381,7 +16381,7 @@ TILE (1, 0, 1, 0)
   END
   SB (1, 1, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (1, 1, 0, 1, 1, 1)
@@ -16391,7 +16391,7 @@ TILE (1, 0, 1, 0)
   END
   SB (1, 1, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (1, 1, 0, 0, 1, 1)
@@ -16401,7 +16401,7 @@ TILE (1, 0, 1, 0)
   END
   SB (1, 1, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (1, 1, 0, 2, 1, 1)
@@ -16411,7 +16411,7 @@ TILE (1, 0, 1, 0)
   END
   SB (2, 1, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (2, 1, 0, 3, 1, 1)
@@ -16421,7 +16421,7 @@ TILE (1, 0, 1, 0)
   END
   SB (2, 1, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (2, 1, 0, 1, 1, 1)
@@ -16431,7 +16431,7 @@ TILE (1, 0, 1, 0)
   END
   SB (2, 1, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (2, 1, 0, 0, 1, 1)
@@ -16441,7 +16441,7 @@ TILE (1, 0, 1, 0)
   END
   SB (2, 1, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (2, 1, 0, 2, 1, 1)
@@ -16451,7 +16451,7 @@ TILE (1, 0, 1, 0)
   END
   SB (3, 1, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (3, 1, 0, 3, 1, 1)
@@ -16461,7 +16461,7 @@ TILE (1, 0, 1, 0)
   END
   SB (3, 1, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (3, 1, 0, 1, 1, 1)
@@ -16471,7 +16471,7 @@ TILE (1, 0, 1, 0)
   END
   SB (3, 1, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (3, 1, 0, 0, 1, 1)
@@ -16481,7 +16481,7 @@ TILE (1, 0, 1, 0)
   END
   SB (3, 1, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (3, 1, 0, 2, 1, 1)
@@ -16491,7 +16491,7 @@ TILE (1, 0, 1, 0)
   END
   SB (4, 1, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (4, 1, 0, 3, 1, 1)
@@ -16501,7 +16501,7 @@ TILE (1, 0, 1, 0)
   END
   SB (4, 1, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (4, 1, 0, 1, 1, 1)
@@ -16511,7 +16511,7 @@ TILE (1, 0, 1, 0)
   END
   SB (4, 1, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (4, 1, 0, 0, 1, 1)
@@ -16521,7 +16521,7 @@ TILE (1, 0, 1, 0)
   END
   SB (4, 1, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (1, 0, 1)
+      PORT f2io_1_0 (1, 0, 1)
       PORT flush (1, 0, 1)
   END
   SB (4, 1, 0, 2, 1, 1)
@@ -16529,7 +16529,7 @@ TILE (1, 0, 1, 0)
       REG T4_WEST (4, 1, 0, 1)
       RMUX (4, 1, 0, 2, 1)
   END
-  PORT io2f_1 (1, 0, 1)
+  PORT io2f_1_0 (1, 0, 1)
   BEGIN
       SB (0, 1, 0, 3, 1, 1)
       SB (0, 1, 0, 1, 1, 1)
@@ -16675,7 +16675,7 @@ TILE (1, 0, 1, 0)
 TILE (2, 0, 1, 0)
   SB (0, 2, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (0, 2, 0, 3, 1, 1)
@@ -16685,7 +16685,7 @@ TILE (2, 0, 1, 0)
   END
   SB (0, 2, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (0, 2, 0, 1, 1, 1)
@@ -16695,7 +16695,7 @@ TILE (2, 0, 1, 0)
   END
   SB (0, 2, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (0, 2, 0, 0, 1, 1)
@@ -16705,7 +16705,7 @@ TILE (2, 0, 1, 0)
   END
   SB (0, 2, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (0, 2, 0, 2, 1, 1)
@@ -16715,7 +16715,7 @@ TILE (2, 0, 1, 0)
   END
   SB (1, 2, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (1, 2, 0, 3, 1, 1)
@@ -16725,7 +16725,7 @@ TILE (2, 0, 1, 0)
   END
   SB (1, 2, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (1, 2, 0, 1, 1, 1)
@@ -16735,7 +16735,7 @@ TILE (2, 0, 1, 0)
   END
   SB (1, 2, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (1, 2, 0, 0, 1, 1)
@@ -16745,7 +16745,7 @@ TILE (2, 0, 1, 0)
   END
   SB (1, 2, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (1, 2, 0, 2, 1, 1)
@@ -16755,7 +16755,7 @@ TILE (2, 0, 1, 0)
   END
   SB (2, 2, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (2, 2, 0, 3, 1, 1)
@@ -16765,7 +16765,7 @@ TILE (2, 0, 1, 0)
   END
   SB (2, 2, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (2, 2, 0, 1, 1, 1)
@@ -16775,7 +16775,7 @@ TILE (2, 0, 1, 0)
   END
   SB (2, 2, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (2, 2, 0, 0, 1, 1)
@@ -16785,7 +16785,7 @@ TILE (2, 0, 1, 0)
   END
   SB (2, 2, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (2, 2, 0, 2, 1, 1)
@@ -16795,7 +16795,7 @@ TILE (2, 0, 1, 0)
   END
   SB (3, 2, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (3, 2, 0, 3, 1, 1)
@@ -16805,7 +16805,7 @@ TILE (2, 0, 1, 0)
   END
   SB (3, 2, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (3, 2, 0, 1, 1, 1)
@@ -16815,7 +16815,7 @@ TILE (2, 0, 1, 0)
   END
   SB (3, 2, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (3, 2, 0, 0, 1, 1)
@@ -16825,7 +16825,7 @@ TILE (2, 0, 1, 0)
   END
   SB (3, 2, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (3, 2, 0, 2, 1, 1)
@@ -16835,7 +16835,7 @@ TILE (2, 0, 1, 0)
   END
   SB (4, 2, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (4, 2, 0, 3, 1, 1)
@@ -16845,7 +16845,7 @@ TILE (2, 0, 1, 0)
   END
   SB (4, 2, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (4, 2, 0, 1, 1, 1)
@@ -16855,7 +16855,7 @@ TILE (2, 0, 1, 0)
   END
   SB (4, 2, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (4, 2, 0, 0, 1, 1)
@@ -16865,7 +16865,7 @@ TILE (2, 0, 1, 0)
   END
   SB (4, 2, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (2, 0, 1)
+      PORT f2io_1_0 (2, 0, 1)
       PORT flush (2, 0, 1)
   END
   SB (4, 2, 0, 2, 1, 1)
@@ -16873,7 +16873,7 @@ TILE (2, 0, 1, 0)
       REG T4_WEST (4, 2, 0, 1)
       RMUX (4, 2, 0, 2, 1)
   END
-  PORT io2f_1 (2, 0, 1)
+  PORT io2f_1_0 (2, 0, 1)
   BEGIN
       SB (0, 2, 0, 3, 1, 1)
       SB (0, 2, 0, 1, 1, 1)
@@ -17019,7 +17019,7 @@ TILE (2, 0, 1, 0)
 TILE (3, 0, 1, 0)
   SB (0, 3, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (0, 3, 0, 3, 1, 1)
@@ -17029,7 +17029,7 @@ TILE (3, 0, 1, 0)
   END
   SB (0, 3, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (0, 3, 0, 1, 1, 1)
@@ -17039,7 +17039,7 @@ TILE (3, 0, 1, 0)
   END
   SB (0, 3, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (0, 3, 0, 0, 1, 1)
@@ -17049,7 +17049,7 @@ TILE (3, 0, 1, 0)
   END
   SB (0, 3, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (0, 3, 0, 2, 1, 1)
@@ -17059,7 +17059,7 @@ TILE (3, 0, 1, 0)
   END
   SB (1, 3, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (1, 3, 0, 3, 1, 1)
@@ -17069,7 +17069,7 @@ TILE (3, 0, 1, 0)
   END
   SB (1, 3, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (1, 3, 0, 1, 1, 1)
@@ -17079,7 +17079,7 @@ TILE (3, 0, 1, 0)
   END
   SB (1, 3, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (1, 3, 0, 0, 1, 1)
@@ -17089,7 +17089,7 @@ TILE (3, 0, 1, 0)
   END
   SB (1, 3, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (1, 3, 0, 2, 1, 1)
@@ -17099,7 +17099,7 @@ TILE (3, 0, 1, 0)
   END
   SB (2, 3, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (2, 3, 0, 3, 1, 1)
@@ -17109,7 +17109,7 @@ TILE (3, 0, 1, 0)
   END
   SB (2, 3, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (2, 3, 0, 1, 1, 1)
@@ -17119,7 +17119,7 @@ TILE (3, 0, 1, 0)
   END
   SB (2, 3, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (2, 3, 0, 0, 1, 1)
@@ -17129,7 +17129,7 @@ TILE (3, 0, 1, 0)
   END
   SB (2, 3, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (2, 3, 0, 2, 1, 1)
@@ -17139,7 +17139,7 @@ TILE (3, 0, 1, 0)
   END
   SB (3, 3, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (3, 3, 0, 3, 1, 1)
@@ -17149,7 +17149,7 @@ TILE (3, 0, 1, 0)
   END
   SB (3, 3, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (3, 3, 0, 1, 1, 1)
@@ -17159,7 +17159,7 @@ TILE (3, 0, 1, 0)
   END
   SB (3, 3, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (3, 3, 0, 0, 1, 1)
@@ -17169,7 +17169,7 @@ TILE (3, 0, 1, 0)
   END
   SB (3, 3, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (3, 3, 0, 2, 1, 1)
@@ -17179,7 +17179,7 @@ TILE (3, 0, 1, 0)
   END
   SB (4, 3, 0, 3, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (4, 3, 0, 3, 1, 1)
@@ -17189,7 +17189,7 @@ TILE (3, 0, 1, 0)
   END
   SB (4, 3, 0, 1, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (4, 3, 0, 1, 1, 1)
@@ -17199,7 +17199,7 @@ TILE (3, 0, 1, 0)
   END
   SB (4, 3, 0, 0, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (4, 3, 0, 0, 1, 1)
@@ -17209,7 +17209,7 @@ TILE (3, 0, 1, 0)
   END
   SB (4, 3, 0, 2, 0, 1)
   BEGIN
-      PORT f2io_1 (3, 0, 1)
+      PORT f2io_1_0 (3, 0, 1)
       PORT flush (3, 0, 1)
   END
   SB (4, 3, 0, 2, 1, 1)
@@ -17217,7 +17217,7 @@ TILE (3, 0, 1, 0)
       REG T4_WEST (4, 3, 0, 1)
       RMUX (4, 3, 0, 2, 1)
   END
-  PORT io2f_1 (3, 0, 1)
+  PORT io2f_1_0 (3, 0, 1)
   BEGIN
       SB (0, 3, 0, 3, 1, 1)
       SB (0, 3, 0, 1, 1, 1)
