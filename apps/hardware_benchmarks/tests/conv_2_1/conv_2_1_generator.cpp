@@ -21,14 +21,17 @@ public:
                0, 2);
 
         kernel(x,y) = 0;
-        kernel(0,0) = 1;
-        kernel(0,1) = 1;
-
-        conv(x, y) = u16(0);
+        kernel(0,0) = 2;
+        kernel(0,1) = 3;
 
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));
-        conv(x, y)  += u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y);
+        conv(x, y) = undef<uint16_t>();  // temporary placeholder, halide will skip initialization internally
+        conv(x, y) = select(
+          r.x == 0 && r.y == 0,
+          u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y),
+          conv(x, y) + u16(kernel(r.x, r.y)) * hw_input(x + r.x, y + r.y)
+        );
 
         Func hw_output("hw_output");
 
