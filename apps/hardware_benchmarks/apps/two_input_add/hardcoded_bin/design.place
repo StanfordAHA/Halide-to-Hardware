@@ -1,0 +1,12 @@
+Block Name			X	Y		#Block ID
+---------------------------
+io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0		1	0		#I0
+io16in_hw_input_b_stencil_op_hcompute_hw_input_b_global_wrapper_stencil_read_0		0	0		#I1
+io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0		2	0		#I2
+io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid		1	0		#i0
+op_hcompute_hw_output_stencil_port_controller_garnet		7	8		#m0
+op_hcompute_add_stencil$inner_compute$add_i2752_i126		4	1		#p0
+io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0$reg0		1	0		#r0
+io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0$reg1		0	0		#r1
+io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg2		1	0		#r2
+io1_hw_output_stencil_op_hcompute_hw_output_stencil_write_valid$reg3		0	0		#r3

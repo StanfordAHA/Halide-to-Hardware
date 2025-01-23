@@ -1,0 +1,43 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "bitwidth": 16,
+        "datafile": "hw_input_stencil.raw",
+        "name": "hw_input_stencil",
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "bitwidth": 16,
+        "datafile": "hw_input_b_stencil.raw",
+        "name": "hw_input_b_stencil",
+        "shape": [
+          64,
+          64
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "bitwidth": 16,
+        "datafile": "hw_output.raw",
+        "name": "hw_output_stencil",
+        "shape": [
+          64,
+          64
+        ]
+      }
+    ]
+  },
+  "testing": {
+    "interleaved_input": [
+      "input.pgm"
+    ],
+    "interleaved_output": [
+      "gold.pgm"
+    ]
+  }
+}

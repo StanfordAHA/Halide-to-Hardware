@@ -61,16 +61,21 @@ def parseDesignTop(meta, filename: str):
         print("parsing design top:", designName)
 
         coreirInstances = designTop["namespaces"]["global"]["modules"][designName]["instances"]
+
+        dense_ready_valid = "DENSE_READY_VALID" in os.environ and os.environ.get("DENSE_READY_VALID") == "1" 
         for inst in coreirInstances:
             if inst.startswith("io16in_"):
                 # this is a data input
                 ioName = findBetween(inst, "io16in_", "_clkwrk")
                 addr = coreirInstances[inst]["metadata"]["glb2out_0"]
                 metaIn = findIO(meta["IOs"]["inputs"], ioName)
+
+                mode_string = "RV" if dense_ready_valid else "STATIC"
+
                 if "io_tiles" in metaIn:
-                    metaIn["io_tiles"].append({"name":inst, "addr":addr, "mode":"STATIC"})
+                    metaIn["io_tiles"].append({"name":inst, "addr":addr, "mode":mode_string})
                 else:
-                    metaIn["io_tiles"] = [{"name":inst, "addr":addr, "mode":"STATIC"}]
+                    metaIn["io_tiles"] = [{"name":inst, "addr":addr, "mode":mode_string}]
 
                 # change read_data_stride based on the number of input tiles
                 metaIn["io_tiles"]
@@ -81,10 +86,15 @@ def parseDesignTop(meta, filename: str):
                 ioName = findBetween(inst, "io16_", "_clkwrk")
                 addr = coreirInstances[inst]["metadata"]["in2glb_0"]
                 metaOut = findIO(meta["IOs"]["outputs"], ioName)
+
+                mode_string = "RV" if dense_ready_valid else "VALID"
+
                 if "io_tiles" in metaOut:
-                    metaOut["io_tiles"].append({"name":inst, "addr":addr, "mode":"VALID"})
+                    #metaOut["io_tiles"].append({"name":inst, "addr":addr, "mode":"VALID"})
+                    metaOut["io_tiles"].append({"name":inst, "addr":addr, "mode":mode_string})
                 else:
-                    metaOut["io_tiles"] = [{"name":inst, "addr":addr, "mode":"VALID"}]
+                    #metaOut["io_tiles"] = [{"name":inst, "addr":addr, "mode":"VALID"}]
+                    metaOut["io_tiles"] = [{"name":inst, "addr":addr, "mode":mode_string}]
 
         # alter the shape and data stride
         for input_struct in meta["IOs"]["inputs"]:
