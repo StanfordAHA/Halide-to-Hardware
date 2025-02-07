@@ -273,9 +273,12 @@ def E64_packing(json_data):
             if new_io_tiles:
                 entry["io_tiles"] = new_io_tiles
                 
-                # Modify shape by multiplying element 0 and 1 and preserving other elements
+                # Modify shape to reflect packing 
                 if "shape" in entry and len(entry["shape"]) >= 2:
-                    entry["shape"] = [entry["shape"][0] * entry["shape"][1]] + entry["shape"][2:]
+                    entry["shape"][0] = int(entry["shape"][0] / 4)
+                    entry["shape"][1] = entry["shape"][1] * 4
+                    if entry["shape"][0] == 1:
+                        entry["shape"] = [entry["shape"][1]] + entry["shape"][2:]
                 else:
                     print("ERROR: shape not found or incorrectly formatted. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
                     sys.exit(1)
