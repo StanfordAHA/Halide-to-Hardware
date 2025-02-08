@@ -3,7 +3,7 @@ HALIDE_DEBUG_REDIRECT ?= &>/dev/null
 
 default: all
 
-TRAVIS_APPS := pointwise gaussian cascade harris_color unsharp camera_pipeline_2x2 resnet_output_stationary
+TRAVIS_APPS := pointwise gaussian cascade harris_color unsharp camera_pipeline_2x2 resnet_output_stationary matrix_multiplication
 travis := $(TRAVIS_APPS)
 travis: $(TRAVIS_APPS)
 
