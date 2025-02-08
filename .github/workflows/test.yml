@@ -71,7 +71,7 @@ jobs:
           make -j2 libcoreir-cgralib.so && make -j2 libclkwrk.so && cd ..
         
           # compile BufferMapping
-          git clone -b new_config https://github.com/joyliu37/BufferMapping
+          git clone https://github.com/joyliu37/BufferMapping
           cd BufferMapping/cfunc && make lib -j2 && cd ../..
         
           # clone RDAI
