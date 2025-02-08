@@ -9,7 +9,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'skip ci')"
 
     env:
-       LLVM_VERSION: 7.0.1
+       LLVM_VERSION: 7.0.0
        BUILD_SYSTEM: MAKE
        CXX_: g++-7
        CC_: gcc-7
@@ -51,9 +51,9 @@ jobs:
       shell: bash
       run: |
           LLVM_VERSION_NUM=`echo $LLVM_VERSION | cut -b 1`
-          wget -q http://releases.llvm.org/${LLVM_VERSION}/clang+llvm-${LLVM_VERSION}-x86_64-linux-gnu-ubuntu-20.04.tar.xz
-          tar xf clang+llvm-${LLVM_VERSION}-x86_64-linux-gnu-ubuntu-20.04.tar.xz
-          mv clang+llvm-${LLVM_VERSION}-x86_64-linux-gnu-ubuntu-20.04 ${TRAVIS_BUILD_DIR}/llvm
+          wget -q http://releases.llvm.org/${LLVM_VERSION}/clang+llvm-${LLVM_VERSION}-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+          tar xf clang+llvm-${LLVM_VERSION}-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+          mv clang+llvm-${LLVM_VERSION}-x86_64-linux-gnu-ubuntu-16.04 ${TRAVIS_BUILD_DIR}/llvm
 
     - name: Install dependencies 🖥️
       shell: bash
@@ -71,7 +71,7 @@ jobs:
           make -j2 libcoreir-cgralib.so && make -j2 libclkwrk.so && cd ..
         
           # compile BufferMapping
-          git clone -b master https://github.com/joyliu37/BufferMapping
+          git clone https://github.com/joyliu37/BufferMapping
           cd BufferMapping/cfunc && make lib -j2 && cd ../..
         
           # clone RDAI
