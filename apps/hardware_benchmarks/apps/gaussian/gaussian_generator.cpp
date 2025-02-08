@@ -18,8 +18,8 @@ public:
     Output<Buffer<uint8_t>> output{"output", 2};
   
     GeneratorParam<uint16_t> schedule{"schedule", 3};    // default: 3
-    GeneratorParam<uint16_t> mywidth{"mywidth", 368};    // default: 368
-    GeneratorParam<uint16_t> myunroll{"myunroll", 16};   // default: 16
+    GeneratorParam<uint16_t> mywidth{"mywidth", 62};    // default: 368
+    GeneratorParam<uint16_t> myunroll{"myunroll", 2};   // default: 16
 
   //Input<int32_t> tilesize{"tilesize", 64, 8, 128}; // default 64. bounded between 8 and 128
   //int tilesize = imgSize / 2;

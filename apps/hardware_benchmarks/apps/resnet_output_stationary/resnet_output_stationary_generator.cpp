@@ -24,10 +24,10 @@ public:
     GeneratorParam<int>  stride{"stride", 1};  // default: 1
 
     // k_ic determines the number of input channels
-    GeneratorParam<int> k_ic{"k_ic", 16};    // default: 16
+    GeneratorParam<int> k_ic{"k_ic", 14};    // default: 16
   
     // k_oc determines the number of output channels
-    GeneratorParam<int> k_oc{"k_oc", 8};    // default: 8
+    GeneratorParam<int> k_oc{"k_oc", 14};    // default: 8
 
     // m_ic determines the multiples of input channels in memory (m_ic * k_ic total)
     GeneratorParam<int> m_ic{"m_ic", 1};    // default: 1
@@ -36,19 +36,19 @@ public:
     GeneratorParam<int> m_oc{"m_oc", 1};    // default: 1
 
     // n_ic determines the total number of input channels
-    GeneratorParam<int> n_ic{"n_ic", 32};    // default: 32
+    GeneratorParam<int> n_ic{"n_ic", 28};    // default: 32
   
     // n_oc determines the total number of output channels
-    GeneratorParam<int> n_oc{"n_oc", 32};    // default: 32
+    GeneratorParam<int> n_oc{"n_oc", 28};    // default: 32
 
     // glb_i determines the input glb unrolling
-    GeneratorParam<int> glb_i{"glb_i", 1};    // default: 32
+    GeneratorParam<int> glb_i{"glb_i", 7};    // default: 32
 
     // glb_k determines the kernel glb unrolling
-    GeneratorParam<int> glb_k{"glb_k", 1};    // default: 32
+    GeneratorParam<int> glb_k{"glb_k", 7};    // default: 32
 
     // glb_o determines the output glb unrolling
-    GeneratorParam<int> glb_o{"glb_o", 1};    // default: 32
+    GeneratorParam<int> glb_o{"glb_o", 7};    // default: 32
   
     // schedule to be used
     GeneratorParam<int> schedule{"schedule", 0};    // default: 0
