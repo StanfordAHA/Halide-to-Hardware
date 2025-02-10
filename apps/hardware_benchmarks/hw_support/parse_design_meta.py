@@ -337,7 +337,7 @@ def main():
         if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
-        # MO: E64 HACK 
+        # MO: E64 MODE
         exchange_64_mode = "E64_MODE_ON" in os.environ and os.environ.get("E64_MODE_ON") == "1"
         if exchange_64_mode:
             meta = E64_packing(meta)
