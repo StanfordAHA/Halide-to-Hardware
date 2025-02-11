@@ -241,6 +241,56 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
     if meta.get("HALIDE_GEN_ARGS") is None: meta["HALIDE_GEN_ARGS"] = args_dict
     if meta.get("NUM_GLB_TILING") is None: meta["NUM_GLB_TILING"] = os.getenv("NUM_GLB_TILING")
 
+def E64_packing(json_data):
+    print("INFO: Modifying design meta for E64 packing")
+    unique_input_positions = set()
+    unique_output_positions = set()
+    trimmed_inputs = []
+    trimmed_outputs = []
+    
+    # Assert that the number of inputs and outputs are multiples of 4
+    assert len(json_data["IOs"]["inputs"][0]["io_tiles"]) % 4 == 0, "Number of inputs must be a multiple of 4 for E64 mode"
+    assert len(json_data["IOs"]["outputs"][0]["io_tiles"]) % 4 == 0, "Number of outputs must be a multiple of 4 for E64 mode"
+    
+    def process_io(io_entries, unique_positions):
+        trimmed_entries = []
+        for entry in io_entries:
+            new_io_tiles = []
+            for tile in entry["io_tiles"]:
+                position = (tile["x_pos"], tile["y_pos"])
+                if position not in unique_positions:
+                    unique_positions.add(position)
+                    
+                    # Multiply each element in extent by 4
+                    if "addr" in tile and "extent" in tile["addr"]:
+                        tile["addr"]["extent"] = [x * 4 for x in tile["addr"]["extent"]]
+                    else:
+                        print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
+                        sys.exit(1)
+                    
+                    new_io_tiles.append(tile)
+            
+            if new_io_tiles:
+                entry["io_tiles"] = new_io_tiles
+                
+                # Modify shape to reflect packing 
+                if "shape" in entry and len(entry["shape"]) >= 2:
+                    entry["shape"][0] = int(entry["shape"][0] / 4)
+                    entry["shape"][1] = entry["shape"][1] * 4
+                    if entry["shape"][0] == 1:
+                        entry["shape"] = [entry["shape"][1]] + entry["shape"][2:]
+                else:
+                    print("ERROR: shape not found or incorrectly formatted. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
+                    sys.exit(1)
+                
+                trimmed_entries.append(entry)
+        return trimmed_entries
+    
+    json_data["IOs"]["inputs"] = process_io(json_data["IOs"]["inputs"], unique_input_positions)
+    json_data["IOs"]["outputs"] = process_io(json_data["IOs"]["outputs"], unique_output_positions)
+    
+    return json_data
+
 def main():
     args = parseArguments()
 
@@ -287,8 +337,15 @@ def main():
         if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
+        # MO: E64 MODE
+        exchange_64_mode = "E64_MODE_ON" in os.environ and os.environ.get("E64_MODE_ON") == "1"
+        if exchange_64_mode:
+            meta = E64_packing(meta)
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
+  
+
+        
 
 if __name__ == "__main__":
     main()
