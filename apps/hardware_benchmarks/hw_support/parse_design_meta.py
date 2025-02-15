@@ -282,6 +282,7 @@ def E64_packing(json_data):
     # Assert that the number of inputs and outputs are multiples of 4
     # FIXME: Fix this for multiple inputs and outputs
     # FIXME: I believe thhis check should be done inside the process_io function. Instead, check that len(entry[io_tiles]) % 4 == 0
+    # FIXME: Also this should not look for inputs for a mu2cgra-only app 
     assert len(json_data["IOs"]["inputs"][0]["io_tiles"]) % 4 == 0, "Number of inputs must be a multiple of 4 for E64 mode"
     assert len(json_data["IOs"]["outputs"][0]["io_tiles"]) % 4 == 0, "Number of outputs must be a multiple of 4 for E64 mode"
     
