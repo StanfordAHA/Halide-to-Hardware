@@ -1349,6 +1349,9 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       }
       design_meta["IOs"]["inputs"] = inputs;
 
+      // MO: A hack for now. Add empty list. Need a systematic way of doing this 
+      design_meta["IOs"]["mu_inputs"] = json::array();
+
       HW_Arg output_stencil_arg = closure_args[num_buffers-1];
       string output_name = printname(output_stencil_arg.name);
       int bitwidth = 16;
