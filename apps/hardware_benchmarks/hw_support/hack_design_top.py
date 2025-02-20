@@ -1,13 +1,68 @@
 #!/usr/bin/env python3
 
-import json
-import argparse
-import os
+import os, re, argparse, json
 
 APPS_NEEDING_HACKS = ["scalar_reduction"]
 
 
-class DesignHacker:
+def pretty_format_json(obj, indent=0, indent_step=2, inline_threshold=200):
+    """
+    Recursively format a JSON object with pretty printing similar to PrettyWriter.
+
+    Parameters:
+    obj: The JSON-serializable Python object (dict, list, etc.)
+    indent: Current indentation level (number of spaces).
+    indent_step: Number of spaces to add for each nesting level.
+    inline_threshold: If a list of primitives formatted inline is shorter than this,
+                        it will be output on a single line.
+
+    Returns:
+    A formatted JSON string.
+    """
+    spacing = " " * indent
+
+    if isinstance(obj, dict):
+        if not obj:
+            return "{}"
+        result = "{\n"
+        inner_items = []
+        for key, value in obj.items():
+            formatted_value = pretty_format_json(
+                value, indent + indent_step, indent_step, inline_threshold
+            )
+            inner_items.append(
+                " " * (indent + indent_step) + json.dumps(key) + ": " + formatted_value
+            )
+        result += ",\n".join(inner_items)
+        result += "\n" + spacing + "}"
+        return result
+
+    elif isinstance(obj, list):
+        if not obj:
+            return "[]"
+        # If all items are primitive (no dicts or lists), try to inline them.
+        if all(not isinstance(item, (dict, list)) for item in obj):
+            inline = json.dumps(obj)
+            if len(inline) <= inline_threshold:
+                return inline
+        # Otherwise, format each item on its own line.
+        result = "[\n"
+        inner_items = []
+        for item in obj:
+            formatted_item = pretty_format_json(
+                item, indent + indent_step, indent_step, inline_threshold
+            )
+            inner_items.append(" " * (indent + indent_step) + formatted_item)
+        result += ",\n".join(inner_items)
+        result += "\n" + spacing + "]"
+        return result
+
+    else:
+        # For primitive types, use the standard json.dumps formatting.
+        return json.dumps(obj)
+
+
+class SelectedDesignHacker:
     """
     A class to handle design JSON modifications (aka 'hacks') for specific apps.
     """
@@ -27,7 +82,9 @@ class DesignHacker:
         :param json_path: Path to the JSON file (input & output in-place)
         """
         if testname not in self.hack_apps:
-            print(f"Skipping hack for '{testname}', not in hack list: {self.hack_apps}")
+            print(
+                f"Skipping selected hack for '{testname}', not in hack list: {self.hack_apps}"
+            )
             return
 
         print(f"Applying hack for '{testname}'...")
@@ -38,65 +95,6 @@ class DesignHacker:
                 f"Error: Method '{hack_method_name}' does not exist for test '{testname}'."
             )
         hack_method(json_path)
-
-    def pretty_format_json(self, obj, indent=0, indent_step=2, inline_threshold=200):
-        """
-        Recursively format a JSON object with pretty printing similar to PrettyWriter.
-
-        Parameters:
-        obj: The JSON-serializable Python object (dict, list, etc.)
-        indent: Current indentation level (number of spaces).
-        indent_step: Number of spaces to add for each nesting level.
-        inline_threshold: If a list of primitives formatted inline is shorter than this,
-                            it will be output on a single line.
-
-        Returns:
-        A formatted JSON string.
-        """
-        spacing = " " * indent
-
-        if isinstance(obj, dict):
-            if not obj:
-                return "{}"
-            result = "{\n"
-            inner_items = []
-            for key, value in obj.items():
-                formatted_value = self.pretty_format_json(
-                    value, indent + indent_step, indent_step, inline_threshold
-                )
-                inner_items.append(
-                    " " * (indent + indent_step)
-                    + json.dumps(key)
-                    + ": "
-                    + formatted_value
-                )
-            result += ",\n".join(inner_items)
-            result += "\n" + spacing + "}"
-            return result
-
-        elif isinstance(obj, list):
-            if not obj:
-                return "[]"
-            # If all items are primitive (no dicts or lists), try to inline them.
-            if all(not isinstance(item, (dict, list)) for item in obj):
-                inline = json.dumps(obj)
-                if len(inline) <= inline_threshold:
-                    return inline
-            # Otherwise, format each item on its own line.
-            result = "[\n"
-            inner_items = []
-            for item in obj:
-                formatted_item = self.pretty_format_json(
-                    item, indent + indent_step, indent_step, inline_threshold
-                )
-                inner_items.append(" " * (indent + indent_step) + formatted_item)
-            result += ",\n".join(inner_items)
-            result += "\n" + spacing + "]"
-            return result
-
-        else:
-            # For primitive types, use the standard json.dumps formatting.
-            return json.dumps(obj)
 
     def hack_for_scalar_reduction(self, json_path):
 
@@ -150,7 +148,7 @@ class DesignHacker:
 
             # If referencing the tile, skip it but see if it's data_in or data_out
             if tree_out_pond in left:
-                if  ".data_in_pond_" in left or ".data_in_" in left:
+                if ".data_in_pond_" in left or ".data_in_" in left:
                     old_input = right
             elif tree_out_pond in right:
                 if ".data_in_pond_" in right or ".data_in_" in right:
@@ -280,18 +278,179 @@ class DesignHacker:
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
-            f.write(self.pretty_format_json(design))
+            f.write(pretty_format_json(design))
+
+
+class GlobalDesignHacker:
+    """
+    A class to handle design JSON modifications (aka 'hacks') for all apps.
+    """
+
+    def __init__(self):
+        # No filtering by apps
+        pass
+
+    def remove_stencil_mem_rv(self, json_path):
+        """
+        Remove "port_controller" instances and "hw_output_*_write_valid" instances
+        (and all their connections) from the design JSON.
+        Should only be used for dense RV apps by checking DENSE_READY_VALID
+        """
+        # Load the JSON file
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        # For each module, remove the targeted instances and their connections
+        modules = design["namespaces"]["global"]["modules"]
+        for mod_name, mod_def in modules.items():
+            # Skip modules that do not have 'instances' or 'connections'
+            if "instances" not in mod_def or "connections" not in mod_def:
+                continue
+
+            # Prepare to remove any instance whose name contains:
+            #  - "port_controller"
+            #  - or matches "hw_output_.*_write_valid"
+            instances_dict = mod_def["instances"]
+            to_remove = []
+
+            # Collect all instance names we want to remove
+            for inst_name in instances_dict.keys():
+                if "port_controller" in inst_name:
+                    to_remove.append(inst_name)
+                # Matches "hw_output_<anything>_write_valid"
+                elif re.search(r"hw_output_.*_write_valid", inst_name):
+                    to_remove.append(inst_name)
+
+            # Remove them from the instance dictionary
+            for inst_name in to_remove:
+                del instances_dict[inst_name]
+
+            # Also remove connections referencing any of those instance names
+            new_connections = []
+            for conn in mod_def["connections"]:
+                lhs, rhs = conn
+                # If the left or right side references a removed instance, skip
+                if any(inst_name in lhs or inst_name in rhs for inst_name in to_remove):
+                    continue
+                new_connections.append(conn)
+
+            mod_def["connections"] = new_connections
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def add_mu_prefix_to_io(self, json_path):
+        """
+        Detect any instance name containing 'io16in' AND '_mu_' in the same name;
+        rename that instance with a 'MU_' prefix, and also fix up all references
+        in that module's connections.
+        """
+        # Load the JSON
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        # Access the global modules
+        modules = design["namespaces"]["global"]["modules"]
+
+        # For each module, find instances to rename
+        for mod_name, mod_def in modules.items():
+            if "instances" not in mod_def or "connections" not in mod_def:
+                continue  # Skip modules without instances or connections
+
+            instances_dict = mod_def["instances"]
+            connections_list = mod_def["connections"]
+
+            # Build a rename map: old_name -> new_name
+            rename_map = {}
+            for inst_name in list(instances_dict.keys()):
+                # Condition: "io16in" in name AND "_mu_" in name
+                if "io16in" in inst_name and "_mu_" in inst_name:
+                    print(f"Renaming instance: {inst_name} with prefix 'MU_'")
+                    new_name = "MU_" + inst_name
+                    rename_map[inst_name] = new_name
+
+            # Apply renaming to the instances themselves
+            for old_name, new_name in rename_map.items():
+                instances_dict[new_name] = instances_dict.pop(old_name)
+
+            # Update connections referencing these old instance names
+            new_connections = []
+            for conn in connections_list:
+                lhs, rhs = conn
+                for old_name, new_name in rename_map.items():
+                    if old_name in lhs:
+                        lhs = lhs.replace(old_name, new_name)
+                    if old_name in rhs:
+                        rhs = rhs.replace(old_name, new_name)
+                new_connections.append([lhs, rhs])
+
+            mod_def["connections"] = new_connections
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+
+class GlobalDesignMetaHakcer:
+    """
+    A class to handle design_meta_halide JSON modifications (aka 'hacks') for all apps.
+    """
+
+    def __init__(self):
+        pass
+
+    def hack_mu_inputs(self, json_path):
+        """
+        For each element in "inputs", if the name contains "mu_", then move that entry
+        to a new "mu_inputs" list under "IOs".
+        """
+        with open(json_path, "r") as f:
+            config = json.load(f)
+
+        inputs_list = config["IOs"]["inputs"]
+
+        # Collect mu_ inputs
+        mu_inputs_list = []
+        # If the file already have "mu_inputs", keep them
+        if "mu_inputs" not in config["IOs"]:
+            config["IOs"]["mu_inputs"] = []
+        else:
+            mu_inputs_list = config["IOs"]["mu_inputs"]
+
+        # We build a new inputs list that excludes the mu_ items
+        new_inputs_list = []
+        for inp in inputs_list:
+            if "mu_" in inp["name"]:
+                print(f"Moving 'mu_' input to 'mu_inputs' list...")
+                mu_inputs_list.append(inp)
+            else:
+                new_inputs_list.append(inp)
+
+        # Update the original lists
+        config["IOs"]["inputs"] = new_inputs_list
+        config["IOs"]["mu_inputs"] = mu_inputs_list
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(config))
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Optionally hack a JSON file (design_top.json) for certain tests/apps."
+        description="Optionally hack a JSON file (design_top.json or design_meta_halide.json) for certain tests/apps."
     )
     parser.add_argument("--testname", type=str, required=True, help="Name of the test")
     parser.add_argument(
-        "--json_to_hack",
+        "--design_top_json",
         type=str,
-        help="JSON file to hack in-place (will be overwritten)",
+        help="design top JSON file to hack in-place (will be overwritten)",
+        required=True,
+    )
+    parser.add_argument(
+        "--design_meta_halide_json",
+        type=str,
+        help="design meta halide JSON file to hack in-place (will be overwritten)",
         required=True,
     )
     args = parser.parse_args()
@@ -299,11 +458,29 @@ def main():
     # We can expand this list if more apps need hacking
     apps_needing_hacks = APPS_NEEDING_HACKS
 
-    # Create our class instance
-    hacker = DesignHacker(hack_apps=apps_needing_hacks)
+    # ----------------- Perform selected hacks -----------------
+    selected_design_top_hacker = SelectedDesignHacker(hack_apps=apps_needing_hacks)
 
     # Perform hack if testname is in that list, otherwise skip
-    hacker.hack_design_if_needed(args.testname, args.json_to_hack)
+    selected_design_top_hacker.hack_design_if_needed(
+        args.testname, args.design_top_json
+    )
+
+    # ----------------- Perform global hacks -----------------
+    ## Hack design_top.json
+    # Perform global hack of design_top.json to remove stencil mem in RV mode
+    global_design_top_hacker = GlobalDesignHacker()
+    use_rv = os.getenv("DENSE_READY_VALID", "0") != "0"
+    if use_rv:
+        print("Removing stencil memory instances for RV mode...")
+        global_design_top_hacker.remove_stencil_mem_rv(args.design_top_json)
+
+    # Perform global hack of design_top.json to add MU prefix for MU IOs
+    global_design_top_hacker.add_mu_prefix_to_io(args.design_top_json)
+
+    ## Hack design_meta_halide.json
+    global_design_meta_hacker = GlobalDesignMetaHakcer()
+    global_design_meta_hacker.hack_mu_inputs(args.design_meta_halide_json)
 
 
 if __name__ == "__main__":
