@@ -293,7 +293,8 @@ def E64_packing(json_data):
                     
                     # Multiply each element in extent by 4
                     if "addr" in tile and "extent" in tile["addr"]:
-                        tile["addr"]["extent"] = [x * 4 for x in tile["addr"]["extent"]]
+                        # tile["addr"]["extent"] = [x * 4 for x in tile["addr"]["extent"]]
+                        tile["addr"]["extent"][0] = tile["addr"]["extent"][0] * 4
                     else:
                         print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
                         sys.exit(1)
