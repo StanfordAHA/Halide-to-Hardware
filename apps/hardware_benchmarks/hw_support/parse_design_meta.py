@@ -191,7 +191,7 @@ def parseDesignPlace(meta, filename: str):
                 tileOut["valid_name"] = validName
 
 
-            elif ("\t#U" in line) and name.startswith("MU_io16in_"):
+            elif ("\t#U" in line or "\t#V" in line) and name.startswith("MU_io16in_"):
                 assert len(words) == 4
                 ioName = findBetween(name, "MU_io16in_", "_clkwrk")
                 metaOut = findIO(meta["IOs"]["mu_inputs"], ioName)
