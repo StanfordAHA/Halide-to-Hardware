@@ -144,11 +144,11 @@ void loadRawDataToBuffer(const std::string &filename, Halide::Runtime::Buffer<ui
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("stable_softmax_pass2_fp", { "input.mat" });
+    ManyInOneOut_ProcessController<uint16_t> processor("stable_softmax_pass2_fp", { "input.mat", "vec_max.mat" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        stable_softmax_pass2_fp(proc.inputs["input.mat"], proc.output);
+        stable_softmax_pass2_fp(proc.inputs["input.mat"], proc.inputs["vec_max.mat"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            stable_softmax_pass2_fp_clockwork(proc.inputs["input.mat"], proc.output);
+            stable_softmax_pass2_fp_clockwork(proc.inputs["input.mat"], proc.inputs["vec_max.mat"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -203,18 +203,24 @@ int main(int argc, char **argv) {
     }
     const float max_in = 7.0f;
 
+    // Vec max input
+    processor.inputs["vec_max.mat"] = Buffer<uint16_t>(vec_width, vec_height);
+    auto vec_max = Buffer<uint16_t>(1);
+    vec_max(0) = float_to_bfloat16_process(7.0f);
+
     // Gold output
     processor.output = Buffer<uint16_t>(vec_height);
     auto real_output = Buffer<uint16_t>(1);
     float sum = 0.0f;
     for (int y = 0; y < processor.inputs["input.mat"].dim(1).extent(); y++) {
         for (int x = 0; x < processor.inputs["input.mat"].dim(0).extent(); x++) {
-            sum += exp(bfloat16_to_float_process(processor.inputs["input.mat"](x, y)) - max_in);
+            sum += exp(bfloat16_to_float_process(processor.inputs["input.mat"](x, y)) - bfloat16_to_float_process(vec_max(0)));
         }
     }
     real_output(0) = float_to_bfloat16_process(sum);
 
     saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
+    saveHalideBufferToRawBigEndian(vec_max, "bin/vec_max_host_stencil.raw");
     saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);

@@ -7,6 +7,13 @@
         "shape": [16, 58, 58],
         "pixels_per_cycle": 1,
         "datafile": "bin/input_host_stencil.raw"
+      },
+      {
+        "name": "hw_vec_max",
+        "bitwidth": 16,
+        "shape": [1],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/vec_max_host_stencil.raw"
       }
     ],
     "output": {
