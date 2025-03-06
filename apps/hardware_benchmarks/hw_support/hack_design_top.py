@@ -724,7 +724,9 @@ class SelectedDesignHacker:
                 "in2regfile_0" in config
             ), "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
-            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
+            # Set reduction tree delay
+            reduction_tree_delay = 1 # It's one because we have fp.exp
+            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs + reduction_tree_delay]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
             assert (
@@ -871,6 +873,12 @@ class SelectedDesignHacker:
                 final_dedup.append(c)
 
         stable_softmax_pass2_fp["connections"] = final_dedup
+
+        # Configure the IO to read the same addr of GLB repeatedly
+        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
+        for inst_name, inst_config in instance_dict.items():
+            if "io16in_vec_max" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
