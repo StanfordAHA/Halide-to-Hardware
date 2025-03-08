@@ -8,6 +8,7 @@ APPS_NEEDING_HACKS = [
     "scalar_reduction_fp",
     "scalar_max_fp",
     "stable_softmax_pass2_fp",
+    "stable_softmax_pass3_fp",
 ]
 
 
@@ -179,7 +180,7 @@ class SelectedDesignHacker:
         psum_cycles = (
             halide_args_dict["vec_width"]
             * halide_args_dict["vec_height"]
-            / pow(2, halide_args_dict["tree_stages"])
+            // pow(2, halide_args_dict["tree_stages"])
         )
         assert (
             io_out_name in instance_dict
@@ -320,6 +321,13 @@ class SelectedDesignHacker:
         # Update the final connection list
         scalar_reduction_fp["connections"] = final_connections
 
+        # Get Halide generator arguments
+        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
+        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
+        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
+        # Convert values to integers where applicable
+        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
+
         # Modify psum pond schedule
         psum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
         if psum_pond_name in instance_dict:
@@ -348,22 +356,21 @@ class SelectedDesignHacker:
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
 
+            # Set write/read data stride to 0 as we always write/read to the same addr
+            config["in2regfile_0"]["write_data_stride"] = [0, 0]
+            config["regfile2out_0"]["read_data_stride"] = [0, 0]
+
             metadata["config"] = config
             tile_inst["metadata"] = metadata
 
         # Update output IO tile
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
-        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
-        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
-        # Convert values to integers where applicable
-        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
 
         # Calculate cycles computing partial sum
         psum_cycles = (
             halide_args_dict["vec_width"]
             * halide_args_dict["vec_height"]
-            / pow(2, halide_args_dict["tree_stages"])
+            // pow(2, halide_args_dict["tree_stages"])
         )
         assert (
             io_out_name in instance_dict
@@ -504,6 +511,13 @@ class SelectedDesignHacker:
         # Update the final connection list
         scalar_max_fp["connections"] = final_connections
 
+        # Get Halide generator arguments
+        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
+        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
+        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
+        # Convert values to integers where applicable
+        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
+
         # Modify psum pond schedule
         psum_pond_name = "max_output_cgra_inner_stencil$ub_max_output_cgra_inner_stencil_BANK_0_garnet"
         if psum_pond_name in instance_dict:
@@ -532,22 +546,20 @@ class SelectedDesignHacker:
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
 
+            # Set write/read data stride to 0 as we always write/read to the same addr
+            config["in2regfile_0"]["write_data_stride"] = [0, 0]
+            config["regfile2out_0"]["read_data_stride"] = [0, 0]
+
             metadata["config"] = config
             tile_inst["metadata"] = metadata
 
         # Update output IO tile
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
-        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
-        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
-        # Convert values to integers where applicable
-        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
-
         # Calculate cycles computing partial sum
         psum_cycles = (
             halide_args_dict["vec_width"]
             * halide_args_dict["vec_height"]
-            / pow(2, halide_args_dict["tree_stages"])
+            // pow(2, halide_args_dict["tree_stages"])
         )
         assert (
             io_out_name in instance_dict
@@ -596,7 +608,7 @@ class SelectedDesignHacker:
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
-    
+
     def hack_for_stable_softmax_pass2_fp(self, json_path):
 
         # TODO: Hardcode input pipelining regs for now
@@ -688,6 +700,13 @@ class SelectedDesignHacker:
         # Update the final connection list
         stable_softmax_pass2_fp["connections"] = final_connections
 
+        # Get Halide generator arguments
+        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
+        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
+        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
+        # Convert values to integers where applicable
+        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
+
         # Modify psum pond schedule
         psum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
         if psum_pond_name in instance_dict:
@@ -706,7 +725,9 @@ class SelectedDesignHacker:
                 "in2regfile_0" in config
             ), "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
-            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
+            # Set reduction tree delay
+            reduction_tree_delay = 1 # It's one because we have fp.exp
+            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs + reduction_tree_delay]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
             assert (
@@ -716,22 +737,21 @@ class SelectedDesignHacker:
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
 
+            # Set write/read data stride to 0 as we always write/read to the same addr
+            config["in2regfile_0"]["write_data_stride"] = [0, 0]
+            config["regfile2out_0"]["read_data_stride"] = [0, 0]
+
             metadata["config"] = config
             tile_inst["metadata"] = metadata
 
         # Update output IO tile
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
-        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
-        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
-        # Convert values to integers where applicable
-        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
 
         # Calculate cycles computing partial sum
         psum_cycles = (
             halide_args_dict["vec_width"]
             * halide_args_dict["vec_height"]
-            / pow(2, halide_args_dict["tree_stages"])
+            // pow(2, halide_args_dict["tree_stages"])
         )
         assert (
             io_out_name in instance_dict
@@ -753,7 +773,7 @@ class SelectedDesignHacker:
         io16_meta["in2glb_0"] = in2glb_0
         io16_inst["metadata"] = io16_meta
 
-        # Update stencil MEM to be the same as output IO tile
+        # Update stencil MEM config to be the same as output IO tile
         hw_portctrl_garnet = "op_hcompute_hw_output_stencil_port_controller_garnet"
         if hw_portctrl_garnet in instance_dict and io_out_name in instance_dict:
             hw_inst = instance_dict[hw_portctrl_garnet]
@@ -776,6 +796,193 @@ class SelectedDesignHacker:
             hw_conf["stencil_valid"] = stencil_valid
             hw_meta["config"] = hw_conf
             hw_inst["metadata"] = hw_meta
+
+        # Remove replicated IOs to stream vec max and only keep one for broadcasting to subtraction PEs
+        max_io_prefix = "io16in_vec_max_host_stencil_clkwrk_"
+        all_inst = list(instance_dict.keys())
+        vecmax_insts = [inst for inst in all_inst if inst.startswith(max_io_prefix)]
+        if len(vecmax_insts) > 1:
+            # Sort them and keep the first
+            vecmax_insts.sort()
+            keep_inst = vecmax_insts[0]
+            remove_insts = vecmax_insts[1:]
+
+            # Remove from instance_dict
+            for r in remove_insts:
+                del instance_dict[r]
+
+            # The module "type" is stable_softmax_pass2_fp["type"] = ["Record",[...]]
+            type_list = stable_softmax_pass2_fp["type"][1]
+
+            # Convert instance name -> the corresponding type prefix
+            # e.g. "io16in_vec_max_host_stencil_clkwrk_8_op_hcompute_vec_max_glb_stencil_2_read_0"
+            # -> "vec_max_host_stencil_clkwrk_8_op_hcompute_vec_max_glb_stencil_2_read_0"
+            def inst_to_field_prefix(name):
+                if name.startswith("io16in_"):
+                    return name[len("io16in_"):]
+                return name
+
+            keep_prefix = inst_to_field_prefix(keep_inst)
+            remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
+
+            # Update the type record, removing fields for the removed instances
+            new_type_list = []
+            for field_pair in type_list:
+                field_name, field_type = field_pair
+                if "vec_max_host_stencil_clkwrk_" not in field_name:
+                    # Not a vecmax field => keep
+                    new_type_list.append(field_pair)
+                    continue
+                # It's a vecmax field => keep only if it belongs to keep_prefix
+                # (i.e. starts with keep_prefix)
+                if field_name.startswith(keep_prefix):
+                    new_type_list.append(field_pair)
+                # else skip
+            stable_softmax_pass2_fp["type"][1] = new_type_list
+
+            # Fix up connections: if referencing removed inst or fields, unify to keep inst
+            new_conn = []
+            for left, right in stable_softmax_pass2_fp["connections"]:
+                new_left, new_right = left, right
+
+                # If the removed instance name is in the path, unify to keep_inst
+                for rinst in remove_insts:
+                    if rinst in new_left:
+                        new_left = new_left.replace(rinst, keep_inst)
+                    if rinst in new_right:
+                        new_right = new_right.replace(rinst, keep_inst)
+
+                # If the removed field prefix is in the path, unify it to keep_prefix
+                for rpref in remove_prefixes:
+                    if rpref in new_left:
+                        new_left = new_left.replace(rpref, keep_prefix)
+                    if rpref in new_right:
+                        new_right = new_right.replace(rpref, keep_prefix)
+
+                new_conn.append([new_left, new_right])
+
+            stable_softmax_pass2_fp["connections"] = new_conn
+
+        # Deduplicate final connections: remove exact duplicates
+        final_dedup = []
+        seen = set()
+        for c in stable_softmax_pass2_fp["connections"]:
+            # Represent connection as tuple (left, right)
+            t = tuple(c)
+            if t not in seen:
+                seen.add(t)
+                final_dedup.append(c)
+
+        stable_softmax_pass2_fp["connections"] = final_dedup
+
+        # Configure the IO to read the same addr of GLB repeatedly
+        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
+        for inst_name, inst_config in instance_dict.items():
+            if "io16in_vec_max" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_stable_softmax_pass3_fp(self, json_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "stable_softmax_pass3_fp"
+
+        # Locate "stable_softmax_pass2_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        stable_softmax_pass3_fp = global_modules[top_module]
+        instance_dict = stable_softmax_pass3_fp.get("instances", {})
+
+        # Remove replicated IOs to stream pass2_sum and only keep one for broadcasting to divison PEs
+        max_io_prefix = "io16in_pass2_sum_host_stencil_"
+        all_inst = list(instance_dict.keys())
+        pass3_sum_insts = [inst for inst in all_inst if inst.startswith(max_io_prefix)]
+        if len(pass3_sum_insts) > 1:
+            # Sort them and keep the first
+            pass3_sum_insts.sort()
+            keep_inst = pass3_sum_insts[0]
+            remove_insts = pass3_sum_insts[1:]
+
+            # Remove from instance_dict
+            for r in remove_insts:
+                del instance_dict[r]
+
+            # The module "type" is stable_softmax_pass3_fp["type"] = ["Record",[...]]
+            type_list = stable_softmax_pass3_fp["type"][1]
+
+            # Convert instance name -> the corresponding type prefix
+            def inst_to_field_prefix(name):
+                if name.startswith("io16in_"):
+                    return name[len("io16in_"):]
+                return name
+
+            keep_prefix = inst_to_field_prefix(keep_inst)
+            remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
+
+            # Update the type record, removing fields for the removed instances
+            new_type_list = []
+            for field_pair in type_list:
+                field_name, field_type = field_pair
+                if "io16in_pass2_sum_host_stencil_" not in field_name:
+                    # Not a vecmax field => keep
+                    new_type_list.append(field_pair)
+                    continue
+                # It's a vecmax field => keep only if it belongs to keep_prefix
+                # (i.e. starts with keep_prefix)
+                if field_name.startswith(keep_prefix):
+                    new_type_list.append(field_pair)
+                # else skip
+            stable_softmax_pass3_fp["type"][1] = new_type_list
+
+            # Fix up connections: if referencing removed inst or fields, unify to keep inst
+            new_conn = []
+            for left, right in stable_softmax_pass3_fp["connections"]:
+                new_left, new_right = left, right
+
+                # If the removed instance name is in the path, unify to keep_inst
+                for rinst in remove_insts:
+                    if rinst in new_left:
+                        new_left = new_left.replace(rinst, keep_inst)
+                    if rinst in new_right:
+                        new_right = new_right.replace(rinst, keep_inst)
+
+                # If the removed field prefix is in the path, unify it to keep_prefix
+                for rpref in remove_prefixes:
+                    if rpref in new_left:
+                        new_left = new_left.replace(rpref, keep_prefix)
+                    if rpref in new_right:
+                        new_right = new_right.replace(rpref, keep_prefix)
+
+                new_conn.append([new_left, new_right])
+
+            stable_softmax_pass3_fp["connections"] = new_conn
+
+        # Deduplicate final connections: remove exact duplicates
+        final_dedup = []
+        seen = set()
+        for c in stable_softmax_pass3_fp["connections"]:
+            # Represent connection as tuple (left, right)
+            t = tuple(c)
+            if t not in seen:
+                seen.add(t)
+                final_dedup.append(c)
+
+        stable_softmax_pass3_fp["connections"] = final_dedup
+
+        # Configure the IO to read the same addr of GLB repeatedly
+        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
+        for inst_name, inst_config in instance_dict.items():
+            if "io16in_pass2_sum_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
         with open(json_path, "w") as f:

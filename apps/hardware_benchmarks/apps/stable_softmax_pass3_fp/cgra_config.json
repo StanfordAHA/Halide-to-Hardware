@@ -9,11 +9,11 @@
         "datafile": "bin/input_host_stencil.raw"
       },
       {
-        "name": "hw_vec_max",
+        "name": "hw_pass2_sum",
         "bitwidth": 16,
         "shape": [1],
         "pixels_per_cycle": 1,
-        "datafile": "bin/vec_max_host_stencil.raw"
+        "datafile": "bin/pass2_sum_host_stencil.raw"
       }
     ],
     "output": {

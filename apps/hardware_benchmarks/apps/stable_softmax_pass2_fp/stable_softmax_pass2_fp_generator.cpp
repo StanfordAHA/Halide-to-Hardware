@@ -9,6 +9,7 @@ using namespace Halide::ConciseCasts;
 class StableSoftmaxPass2 : public Halide::Generator<StableSoftmaxPass2> {
 public:
     Input<Buffer<uint16_t>> input{ "input", 2 };
+    Input<Buffer<uint16_t>> vec_max{ "vec_max", 2 };
     Output<Buffer<uint16_t>> output{ "output", 1 };
 
     // After hacking, the scheduling actually does reduction across the entire vec_height x vec_width array
@@ -26,10 +27,12 @@ public:
 
     void generate() {
         /* THE ALGORITHM */
-        Expr max_in = bf16(7.0f);
+        // Expr max_in = bf16(7.0f);
         Var x("x"), y("y");
         Func hw_input("hw_input");
         Func input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
+        Func hw_vec_max("hw_vec_max");
+        Func vec_max_host("vec_max_host"), vec_max_glb("vec_max_glb"), vec_max_cgra("vec_max_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         hw_input(x, y) = bf16(input(x, y));
@@ -37,12 +40,17 @@ public:
         input_glb(x, y) = input_host(x, y);
         input_cgra(x, y) = input_glb(x, y);
 
+        hw_vec_max(x, y) = bf16(vec_max(x, y));
+        vec_max_host(x, y) = hw_vec_max(x, y);
+        vec_max_glb(x, y) = vec_max_host(x, y);
+        vec_max_cgra(x, y) = vec_max_glb(x, y);
+
         const int tile_size = 1 << int(tree_stages);
         Expr num_tiles = vec_width / tile_size;
         Var tile("tile"), xi("xi");
         Func tile_input("tile_input");
         // x = tile * tile_size + xi, 0 <= xi < tile_size
-        tile_input(tile, xi, y) = exp(input_cgra(tile * tile_size + xi, y) - max_in);
+        tile_input(tile, xi, y) = exp(input_cgra(tile * tile_size + xi, y) - vec_max_cgra(tile * tile_size + xi, y));
 
         // Compute the number of stages needed
         const int total_stages = int(tree_stages);
@@ -84,6 +92,12 @@ public:
             input_glb.bound(x, 0, vec_width)
                 .bound(y, 0, vec_height);
             input_cgra.bound_extent(x, mem_vec_width);
+
+            vec_max_host.bound(x, 0, vec_width)
+                .bound(y, 0, vec_height);
+            vec_max_glb.bound(x, 0, vec_width)
+                .bound(y, 0, vec_height);
+            vec_max_cgra.bound_extent(x, mem_vec_width);
 
             output.bound(y, 0, vec_height);
             hw_output.bound(y, 0, vec_height);
@@ -131,6 +145,9 @@ public:
             // input_cgra.compute_at(output_glb, y_glb);
             tile_input.compute_at(output_glb, y_glb);
 
+            vec_max_host.compute_root().accelerator_input();
+            vec_max_glb.compute_at(hw_output, y_host);
+
             // input_cgra
             //     .split(x, x_glb, x_cgra, tile_size)
             //     .reorder(x_cgra, y, x_glb);
@@ -138,6 +155,7 @@ public:
 
             // Unroll input and kernel over glb (default 1)
             input_glb.unroll(x, glb_i);  // unroll glb input for small images
+            vec_max_glb.unroll(x, glb_i);  // unroll glb input for small images
             // input_cgra.unroll(x_cgra, glb_i); // unroll glb input for small images
             tile_input.unroll(xi, glb_i); // unroll glb input for small images
 

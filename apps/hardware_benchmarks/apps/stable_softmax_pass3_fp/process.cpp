@@ -8,7 +8,7 @@
 #include <vector>
 
 #if defined(WITH_CPU)
-#include "stable_softmax_pass2_fp.h"
+#include "stable_softmax_pass3_fp.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -18,7 +18,7 @@
 #if defined(WITH_CLOCKWORK)
 #include "clockwork_sim_platform.h"
 #include "rdai_api.h"
-#include "stable_softmax_pass2_fp_clockwork.h"
+#include "stable_softmax_pass3_fp_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -144,11 +144,11 @@ void loadRawDataToBuffer(const std::string &filename, Halide::Runtime::Buffer<ui
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("stable_softmax_pass2_fp", { "input.mat", "vec_max.mat" });
+    ManyInOneOut_ProcessController<uint16_t> processor("stable_softmax_pass3_fp", { "input.mat", "pass2_sum.mat" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        stable_softmax_pass2_fp(proc.inputs["input.mat"], proc.inputs["vec_max.mat"], proc.output);
+        stable_softmax_pass3_fp(proc.inputs["input.mat"], proc.inputs["pass2_sum.mat"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            stable_softmax_pass2_fp_clockwork(proc.inputs["input.mat"], proc.inputs["vec_max.mat"], proc.output);
+            stable_softmax_pass3_fp_clockwork(proc.inputs["input.mat"], proc.inputs["pass2_sum.mat"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -184,44 +184,34 @@ int main(int argc, char **argv) {
 
     processor.run_calls = functions;
 
-    auto vec_height_env = getenv("vec_height");
-    auto vec_width_env = getenv("vec_width");
+    auto vec_len_env = getenv("vec_len");
 
-    auto vec_height = vec_height_env ? atoi(vec_height_env) : 2;
-    auto vec_width = vec_width_env ? atoi(vec_width_env) : 80;
+    auto vec_len = vec_len_env ? atoi(vec_len_env) : 512;
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
     // Input
-    processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width, vec_height);
+    processor.inputs["input.mat"] = Buffer<uint16_t>(vec_len);
     auto input_copy_stencil = processor.inputs["input.mat"];
-    for (int y = 0; y < input_copy_stencil.dim(1).extent(); y++) {
-        for (int x = 0; x < input_copy_stencil.dim(0).extent(); x++) {
-            input_copy_stencil(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 14.0f - 7.0f);
-        }
+    for (int x = 0; x < input_copy_stencil.dim(0).extent(); x++) {
+        input_copy_stencil(x) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 14.0f - 7.0f);
     }
-    const float max_in = 7.0f;
 
-    // Vec max input
-    processor.inputs["vec_max.mat"] = Buffer<uint16_t>(vec_width, vec_height);
-    auto vec_max = Buffer<uint16_t>(1);
-    vec_max(0) = float_to_bfloat16_process(7.0f);
+    // Pass2 sum input
+    processor.inputs["pass2_sum.mat"] = Buffer<uint16_t>(vec_len);
+    auto pass2_sum = Buffer<uint16_t>(1);
+    pass2_sum(0) = float_to_bfloat16_process(7.0f);
 
     // Gold output
-    processor.output = Buffer<uint16_t>(vec_height);
-    auto real_output = Buffer<uint16_t>(1);
-    float sum = 0.0f;
-    for (int y = 0; y < processor.inputs["input.mat"].dim(1).extent(); y++) {
-        for (int x = 0; x < processor.inputs["input.mat"].dim(0).extent(); x++) {
-            sum += exp(bfloat16_to_float_process(processor.inputs["input.mat"](x, y)) - bfloat16_to_float_process(vec_max(0)));
-        }
+    processor.output = Buffer<uint16_t>(vec_len);
+    for (int x = 0; x < processor.inputs["input.mat"].dim(0).extent(); x++) {
+        processor.output(x) = float_to_bfloat16_process(bfloat16_to_float_process(processor.inputs["input.mat"](x)) / bfloat16_to_float_process(pass2_sum(0)));
     }
-    real_output(0) = float_to_bfloat16_process(sum);
 
     saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(vec_max, "bin/vec_max_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    saveHalideBufferToRawBigEndian(pass2_sum, "bin/pass2_sum_host_stencil.raw");
+    saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 
