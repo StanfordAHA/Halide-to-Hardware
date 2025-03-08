@@ -8,6 +8,7 @@ APPS_NEEDING_HACKS = [
     "scalar_reduction_fp",
     "scalar_max_fp",
     "stable_softmax_pass2_fp",
+    "stable_softmax_pass3_fp",
 ]
 
 
@@ -878,6 +879,109 @@ class SelectedDesignHacker:
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
             if "io16in_vec_max" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_stable_softmax_pass3_fp(self, json_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "stable_softmax_pass3_fp"
+
+        # Locate "stable_softmax_pass2_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        stable_softmax_pass3_fp = global_modules[top_module]
+        instance_dict = stable_softmax_pass3_fp.get("instances", {})
+
+        # Remove replicated IOs to stream pass2_sum and only keep one for broadcasting to divison PEs
+        max_io_prefix = "io16in_pass2_sum_host_stencil_"
+        all_inst = list(instance_dict.keys())
+        pass3_sum_insts = [inst for inst in all_inst if inst.startswith(max_io_prefix)]
+        if len(pass3_sum_insts) > 1:
+            # Sort them and keep the first
+            pass3_sum_insts.sort()
+            keep_inst = pass3_sum_insts[0]
+            remove_insts = pass3_sum_insts[1:]
+
+            # Remove from instance_dict
+            for r in remove_insts:
+                del instance_dict[r]
+
+            # The module "type" is stable_softmax_pass3_fp["type"] = ["Record",[...]]
+            type_list = stable_softmax_pass3_fp["type"][1]
+
+            # Convert instance name -> the corresponding type prefix
+            def inst_to_field_prefix(name):
+                if name.startswith("io16in_"):
+                    return name[len("io16in_"):]
+                return name
+
+            keep_prefix = inst_to_field_prefix(keep_inst)
+            remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
+
+            # Update the type record, removing fields for the removed instances
+            new_type_list = []
+            for field_pair in type_list:
+                field_name, field_type = field_pair
+                if "io16in_pass2_sum_host_stencil_" not in field_name:
+                    # Not a vecmax field => keep
+                    new_type_list.append(field_pair)
+                    continue
+                # It's a vecmax field => keep only if it belongs to keep_prefix
+                # (i.e. starts with keep_prefix)
+                if field_name.startswith(keep_prefix):
+                    new_type_list.append(field_pair)
+                # else skip
+            stable_softmax_pass3_fp["type"][1] = new_type_list
+
+            # Fix up connections: if referencing removed inst or fields, unify to keep inst
+            new_conn = []
+            for left, right in stable_softmax_pass3_fp["connections"]:
+                new_left, new_right = left, right
+
+                # If the removed instance name is in the path, unify to keep_inst
+                for rinst in remove_insts:
+                    if rinst in new_left:
+                        new_left = new_left.replace(rinst, keep_inst)
+                    if rinst in new_right:
+                        new_right = new_right.replace(rinst, keep_inst)
+
+                # If the removed field prefix is in the path, unify it to keep_prefix
+                for rpref in remove_prefixes:
+                    if rpref in new_left:
+                        new_left = new_left.replace(rpref, keep_prefix)
+                    if rpref in new_right:
+                        new_right = new_right.replace(rpref, keep_prefix)
+
+                new_conn.append([new_left, new_right])
+
+            stable_softmax_pass3_fp["connections"] = new_conn
+
+        # Deduplicate final connections: remove exact duplicates
+        final_dedup = []
+        seen = set()
+        for c in stable_softmax_pass3_fp["connections"]:
+            # Represent connection as tuple (left, right)
+            t = tuple(c)
+            if t not in seen:
+                seen.add(t)
+                final_dedup.append(c)
+
+        stable_softmax_pass3_fp["connections"] = final_dedup
+
+        # Configure the IO to read the same addr of GLB repeatedly
+        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
+        for inst_name, inst_config in instance_dict.items():
+            if "io16in_pass2_sum_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
