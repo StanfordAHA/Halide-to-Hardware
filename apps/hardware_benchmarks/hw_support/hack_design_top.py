@@ -9,6 +9,7 @@ APPS_NEEDING_HACKS = [
     "scalar_max_fp",
     "stable_softmax_pass2_fp",
     "stable_softmax_pass3_fp",
+    "scalar_avg_fp",
 ]
 
 
@@ -983,6 +984,196 @@ class SelectedDesignHacker:
         for inst_name, inst_config in instance_dict.items():
             if "io16in_pass2_sum_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_scalar_avg_fp(self, json_path):
+
+        # TODO: Hardcode input pipelining regs for now
+        INPUT_PIPELINING_REGS = 3
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "scalar_avg_fp"
+        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
+        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
+
+        # Const PE instance to remove
+        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+
+        # Locate "scalar_avg_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        scalar_avg_fp = global_modules[top_module]
+
+        # Remove the tile instance and its clk_en_const
+        instance_dict = scalar_avg_fp.get("instances", {})
+        if tree_out_pond in instance_dict:
+            del instance_dict[tree_out_pond]
+        if tree_out_pond_clk in instance_dict:
+            del instance_dict[tree_out_pond_clk]
+
+        # Remove references to the tile from connections,
+        #    capturing upstream => old_input, downstream => old_output
+        old_input = None
+        old_output = None
+        new_connections = []
+
+        connection_list = scalar_avg_fp.get("connections", [])
+        for conn in connection_list:
+            left, right = conn[0], conn[1]
+
+            # Check references to tile or its clk const
+            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
+            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
+
+            if not (refs_tile_left or refs_tile_right):
+                # If no reference to tile, keep it for now
+                new_connections.append(conn)
+                continue
+
+            # If referencing the tile, skip it but see if it's data_in or data_out
+            if tree_out_pond in left:
+                if ".data_in_pond_" in left or ".data_in_" in left:
+                    old_input = right
+            elif tree_out_pond in right:
+                if ".data_in_pond_" in right or ".data_in_" in right:
+                    old_input = left
+
+            if tree_out_pond in left:
+                if ".data_out_pond_" in left or ".data_out_" in left:
+                    old_output = right
+            elif tree_out_pond in right:
+                if ".data_out_pond_" in right or ".data_out_" in right:
+                    old_output = left
+
+        # Reconnect old_input -> old_output if both exist
+        if old_input and old_output:
+            new_connections.append([old_input, old_output])
+        else:
+            print(
+                f"WARNING: Could not find both data_in and data_out references for "
+                f"tile '{tree_out_pond}'. No direct reconnection added."
+            )
+
+        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
+        #    from the instance dictionary (if present)
+        if pe_to_remove in instance_dict:
+            del instance_dict[pe_to_remove]
+
+        # Filter out any connections referencing const PE instance
+        final_connections = []
+        for conn in new_connections:
+            left, right = conn[0], conn[1]
+            if pe_to_remove in left or pe_to_remove in right:
+                # skip any references to that PE
+                continue
+            final_connections.append(conn)
+
+        # Update the final connection list
+        scalar_avg_fp["connections"] = final_connections
+
+        # Get Halide generator arguments
+        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
+        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
+        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
+        # Convert values to integers where applicable
+        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
+
+        # Modify psum pond schedule
+        psum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
+        if psum_pond_name in instance_dict:
+            tile_inst = instance_dict[psum_pond_name]
+            metadata = tile_inst.get("metadata", {})
+            config = metadata.get("config", {})
+
+            # Remove 'in2regfile_1' and 'regfile2out_1' if present
+            if "in2regfile_1" in config:
+                del config["in2regfile_1"]
+            if "regfile2out_1" in config:
+                del config["regfile2out_1"]
+
+            # Adjust cycle_starting_addr for inputs
+            assert (
+                "in2regfile_0" in config
+            ), "Error: 'in2regfile_0' not found in config."
+            input_pipelining_regs = INPUT_PIPELINING_REGS
+            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
+
+            # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
+            assert (
+                "regfile2out_0" in config
+            ), "Error: 'regfile2out_0' not found in config."
+            config["regfile2out_0"]["cycle_starting_addr"] = [
+                config["in2regfile_0"]["cycle_starting_addr"][0] + 1
+            ]
+
+            # Set write/read data stride to 0 as we always write/read to the same addr
+            config["in2regfile_0"]["write_data_stride"] = [0, 0]
+            config["regfile2out_0"]["read_data_stride"] = [0, 0]
+
+            metadata["config"] = config
+            tile_inst["metadata"] = metadata
+
+        # Update output IO tile
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+
+        # Calculate cycles computing partial sum
+        psum_cycles = (
+            halide_args_dict["vec_width"]
+            * halide_args_dict["vec_height"]
+            // pow(2, halide_args_dict["tree_stages"])
+        )
+        assert (
+            io_out_name in instance_dict
+        ), f"Error: '{io_out_name}' not found in instance_dict."
+        io16_inst = instance_dict[io_out_name]
+        io16_meta = io16_inst.get("metadata", {})
+        in2glb_0 = io16_meta.get("in2glb_0", {})
+
+        # Output cycle = psum pond's in2regfile_0 cycle_starting_addr + tot_elems / tree_width
+        tile_inst = instance_dict[psum_pond_name]
+        tile_meta = tile_inst.get("metadata", {})
+        tile_conf = tile_meta.get("config", {})
+
+        base_addr = tile_conf["in2regfile_0"]["cycle_starting_addr"][0]
+        in2glb_0["cycle_starting_addr"] = [base_addr + psum_cycles]
+        # TODO: Set extent to 2 (should set this to 1 since we only have 1 output, but then can't get f2g interrupt)
+        in2glb_0["extent"] = [2]
+
+        io16_meta["in2glb_0"] = in2glb_0
+        io16_inst["metadata"] = io16_meta
+
+        # Update stencil MEM to be the same as output IO tile
+        hw_portctrl_garnet = "op_hcompute_hw_output_stencil_port_controller_garnet"
+        if hw_portctrl_garnet in instance_dict and io_out_name in instance_dict:
+            hw_inst = instance_dict[hw_portctrl_garnet]
+            hw_meta = hw_inst.get("metadata", {})
+            hw_conf = hw_meta.get("config", {})
+            if "stencil_valid" not in hw_conf:
+                hw_conf["stencil_valid"] = {}
+
+            stencil_valid = hw_conf["stencil_valid"]
+
+            # Copy from io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0 -> in2glb_0
+            io16_inst = instance_dict[io_out_name]
+            io16_meta = io16_inst.get("metadata", {})
+            in2glb_0 = io16_meta.get("in2glb_0", {})
+
+            stencil_valid["cycle_starting_addr"] = in2glb_0["cycle_starting_addr"]
+            stencil_valid["cycle_stride"] = in2glb_0["cycle_stride"]
+            stencil_valid["extent"] = in2glb_0["extent"]
+
+            hw_conf["stencil_valid"] = stencil_valid
+            hw_meta["config"] = hw_conf
+            hw_inst["metadata"] = hw_meta
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
