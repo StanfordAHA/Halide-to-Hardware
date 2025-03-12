@@ -168,7 +168,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   std::vector<string> commonlib_gen_names = {"umin", "smin", "umax", "smax",
                                              "mult_middle", "mult_high",
                                              "counter", //"linebuffer",
-                                             "muxn", "abs", "absd", 
+                                             "muxn", "abs", "absd",
                                              "reg_array", "reshape", "transpose_reshape"
   };
   for (auto gen_name : commonlib_gen_names) {
@@ -209,7 +209,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
     internal_assert(context->hasGenerator(gens[gen_name]))
       << "could not find " << gen_name << "\n";
   }
-  
+
   // add all modules from corebit
   context->getNamespace("corebit");
   std::vector<string> corebitlib_mod_names = {"bitand", "bitor", "bitxor", "bitnot",
@@ -249,7 +249,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   //gens["lake"] = "cgralib.Mem";
   //gens["Mem"] = "cgralib.Mem";
   //internal_assert(context->hasGenerator(gens["lake"])) << "could not find " << "cwlib.Mem" << "\n";
-  
+
   // passthrough is now just a mantle wire
   gens["passthrough"] = "mantle.wire";
   assert(context->hasGenerator(gens["passthrough"]));
@@ -295,7 +295,7 @@ struct Storage_Def {
 
 class CreateCoreIRModule : public CodeGen_C {
   using CodeGen_C::visit;
-  
+
   CoreIR::ModuleDef* def;
   CoreIR::Context* context;
   std::map<std::string,std::string> gens;
@@ -320,7 +320,7 @@ class CreateCoreIRModule : public CodeGen_C {
   CoreIR::Wireable* get_wire(std::string name, Expr e, std::vector<uint> indices={});
   void rename_wire(std::string new_name, std::string in_name, Expr in_expr, std::vector<uint> indices={});
   void add_wire(std::string name, CoreIR::Wireable* wire, std::vector<uint> indices={});
-  
+
   // coreir operators
   void visit_unaryop(Type t, Expr a, const char* op_sym, std::string op_name);
   void visit(const Not *op);
@@ -345,7 +345,7 @@ class CreateCoreIRModule : public CodeGen_C {
   void visit(const Select *op);
   void visit(const Call *op);
   void visit(const Load *op);
-  
+
 public:
   CreateCoreIRModule(ostream& stream, CoreIR::ModuleDef* def, CoreIR_Interface iface, CoreIR::Context* context) :
     CodeGen_C(stream, Target(), CPlusPlusImplementation, ""), def(def), context(context), self(def->sel("self")) {
@@ -365,14 +365,14 @@ public:
     stream << "// adding coreir inst " << coreir_inst.ref_name << std::endl;
     hw_def_set[coreir_inst.ref_name] = std::make_shared<CoreIR_Inst_Args>(coreir_inst);
   }
-  
+
 };
 
 void add_coreir_compute(Expr e, CoreIR::ModuleDef* def, CoreIR_Interface iface,
                         vector<CoreIR_Inst_Args> coreir_insts, CoreIR::Context* context) {
   //ofstream compute_debug_file("bin/compute_debug_" + iface.name + ".cpp");
   ostringstream compute_debug_str;
-  
+
   CreateCoreIRModule ccm(compute_debug_str, def, iface, context);
   //CreateCoreIRModule ccm(std::cout, def, iface, context);
   compute_debug_str.str("");
@@ -420,7 +420,7 @@ void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
     //                              {"lo", CoreIR::Const::make(context, bit_start)},
     //                              {"hi", CoreIR::Const::make(context, bit_end)}};
     //  auto slice = def->addInstance(input.name + "_slice","coreir.slice",sliceArgs);
-    //  
+    //
     //  def->connect(bundle_wire, slice->sel("in"));
     //  hw_input_set[print_name(input.name)] = slice->sel("out");
     //  stream << "// recording input " << print_name(input.name) << std::endl;
@@ -433,7 +433,7 @@ void CreateCoreIRModule::record_inputs(CoreIR_Interface iface) {
       hw_input_set[print_name(input.name)] = bundle_wire->sel(j);
       stream << "// recording input " << print_name(input.name) << std::endl;
     }
-    
+
   }
 
   for (auto index : iface.indices) {
@@ -891,7 +891,7 @@ void CreateCoreIRModule::visit_binop(Type t, Expr a, Expr b, const char*  op_sym
     string in0_name = "in0";
     string in1_name = "in1";
     string out_name = "out";
-    
+
     // properly cast to generator or module
     internal_assert(gens.count(op_name) > 0) << op_name << " is not one of the names Halide recognizes\n";
     if (context->getNamespace("float")->hasGenerator(gens[op_name].substr(6))) {
@@ -1008,13 +1008,13 @@ void CreateCoreIRModule::visit(const Add *op) {
       visit_binop(op->type, addvar->a, addvar->b, "+1+", "adc");
     }
   }
-  
+
   if (op->a.type().is_float()) {
     visit_binop(op->type, op->a, op->b, "f+", "dwfp_add");
   } else {
     visit_binop(op->type, op->a, op->b, "+", "add");
   }
-  
+
   // check if we can instantiate a MAD instead
   /*
     if (const Mul* mul = op->a.as<Mul>()) {
@@ -1064,7 +1064,7 @@ void CreateCoreIRModule::visit(const Div *op) {
       internal_assert(!op->b.type().is_uint());
       visit_binop(op->type, op->a, shift_expr, ">>", "ashr");
     }
-    
+
   } else {
     // Not a constant shift by power of two, so can't use shifter
     if (op->a.type().is_float()) {
@@ -1289,7 +1289,7 @@ void CreateCoreIRModule::visit(const Load *op) {
   } else {
     id_index = print_expr(op->index);
   }
-  
+
   string name = print_name(op->name);
   ostringstream rhs;
   if (type_cast_needed) {
@@ -1315,7 +1315,7 @@ void CreateCoreIRModule::visit(const Load *op) {
   } else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["rom2"]) {
     //} else if (is_defined(op->name) && hw_def_set[op->name]->gen==gens["lake"]) {
     stream << "// loading from rom " << op->name << " with gen " << hw_def_set[op->name]->gen << std::endl;
-    
+
     std::shared_ptr<CoreIR_Inst_Args> inst_args = hw_def_set[op->name];
     //if (def->getInstances().count(inst_args->name) > 0) { stream << "// rom already created\n"; return; } // if already has been created, we are done
     if (is_wire(out_var)) { return; } // if already has been created, we are done
@@ -1389,9 +1389,9 @@ void CreateCoreIRModule::visit(const Cast *op) {
   stream << "[cast]";
   string in_var = print_expr(op->value);
   string out_var = print_assignment(op->type, "(" + print_type(op->type) + ")(" + in_var + ")");
-  
+
   //if (is_wire(out_var)) { return; }
-  
+
   // casting from 1 to 16 bits
   int lhs_bits = op->type.bits();
   int rhs_bits = op->value.type().bits();
@@ -1445,7 +1445,7 @@ void CreateCoreIRModule::visit(const Cast *op) {
                                         {{"width", CoreIR::Const::make(context,rhs_bits)},
                                          {"lo", CoreIR::Const::make(context,rhs_bits-1)},
                                          {"hi", CoreIR::Const::make(context,rhs_bits)}});
-      
+
       string dataslice_name = "dataslice" + convert_str + in_var;
       auto dataslice = def->addInstance(dataslice_name, gens["slice"],
                                         {{"width", CoreIR::Const::make(context,rhs_bits)},
@@ -1461,7 +1461,7 @@ void CreateCoreIRModule::visit(const Cast *op) {
       def->connect(signslice->sel("out"), coreir_inst->sel("in0"));
       def->connect(dataslice->sel("out"), coreir_inst->sel("in1"));
       add_wire(out_var, coreir_inst->sel("out"));
-      
+
     } else {
       // select just the bottom bits
       string unaryop_name = "slice" + convert_str + in_var;
@@ -1472,7 +1472,7 @@ void CreateCoreIRModule::visit(const Cast *op) {
       def->connect(a_wire, coreir_inst->sel("in"));
       add_wire(out_var, coreir_inst->sel("out"));
     }
-    */    
+    */
   } else if (!is_iconst(in_var)) {
     // only add to list, don't duplicate constants
     stream << "// renaming " << in_var << " to " << out_var << std::endl;
@@ -1575,7 +1575,7 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     visit_unaryop(op->type, a, "ceil", "fceil");
 
-    
+
   } else if (op->name == "exp_f32") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
@@ -1595,6 +1595,11 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     visit_unaryop(op->type, a, "ln", "fln");
 
+  } else if (op->name == "log_bf16") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "ln", "fln");
+
   } else if (op->name == "pow_f32") {
     internal_assert(op->args.size() == 2);
     Expr a = op->args[0];
@@ -1605,7 +1610,7 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "pow", "fpower");
-    
+
   } else if (op->name == "sin_f32") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
@@ -1647,7 +1652,7 @@ void CreateCoreIRModule::visit(const Call *op) {
   } else if (op->name == "linebuffer") {
     stream << "shouldn't be seeing " << op->name << endl;
     cout << "shouldn't be seeing " << op->name << endl;
-    
+
   } else if (op->name == "hwbuffer") {
     stream << "shouldn't be seeing " << op->name << endl;
     cout << "shouldn't be seeing " << op->name << endl;
@@ -1668,7 +1673,7 @@ void CreateCoreIRModule::visit(const Call *op) {
       string id_index = print_expr(op->args[0]);
       auto name = op->name;
       ostringstream rhs;
-      
+
       rhs << name;
       rhs << "["
           << id_index
@@ -1690,7 +1695,7 @@ void CreateCoreIRModule::visit(const Call *op) {
       // attach a read enable
       CoreIR::Wireable* rom_ren = def->addInstance(inst_name + "_ren", gens["bitconst"], {{"value", CoreIR::Const::make(context,true)}});
       def->connect(rom_ren->sel("out"), inst->sel("ren"));
-      
+
     } else {
       stream << "shouldn't be seeing " << op->name << endl;
       cout << "shouldn't be seeing " << op->name << endl;
@@ -1759,7 +1764,7 @@ class ROMInit : public IRVisitor {
         internal_assert(is_const(op->args[i]));
         index += id_const_value(op->args[i]) * strides[i];
       }
-      
+
       //cout << "store: " << Stmt(op) << std::endl;
       //internal_assert(is_const(value_expr) && is_const(index_expr));
       internal_assert(is_const(value_expr));
@@ -1813,7 +1818,7 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
 
     int n = 4;
     int aligned_total_size = ((total_size + n-1) / n) * n;
-    
+
     for (int i=total_size; i<aligned_total_size; ++i) {
       jdata[i] = 0x99;
     }
@@ -1839,7 +1844,7 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
     CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
     rom_args.selname = "rdata";
     rom_args.genargs = modparams;
-    
+
     return rom_args;
 }
 
@@ -1855,7 +1860,7 @@ CoreIR::Type* interface_to_type(CoreIR_Interface iface, CoreIR::Context* context
   // add each input
   for (size_t i=0; i<iface.inputs.size(); ++i) {
     auto input_bundle = iface.inputs[i];
-    
+
     // calculate the bundle bitwidth
     //uint bundle_bitwidth = 0;
     //for (auto input : input_bundle.ports) {

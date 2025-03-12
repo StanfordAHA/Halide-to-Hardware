@@ -1297,7 +1297,7 @@ class SelectedDesignHacker:
             ), "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             # Set reduction tree delay
-            reduction_tree_delay = 1 # It's one because we have fp.exp
+            reduction_tree_delay = 0
             config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs + reduction_tree_delay]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
@@ -1323,7 +1323,7 @@ class SelectedDesignHacker:
             halide_args_dict["vec_width"]
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
-        )
+        ) + 2 # Add 2 for the sqrt (log + exp)
         assert (
             io_out_name in instance_dict
         ), f"Error: '{io_out_name}' not found in instance_dict."

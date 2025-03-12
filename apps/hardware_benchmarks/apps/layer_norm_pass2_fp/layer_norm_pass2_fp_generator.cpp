@@ -5,7 +5,7 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// This app does sum((x - E(x))^2)*(1/N), where E(x) is loaded from GLB. (i.e. variance)
+// This app does sqrt(sum((x - E(x))^2)*(1/N)), where E(x) is loaded from GLB. (i.e. std)
 class LayerNormPass2 : public Halide::Generator<LayerNormPass2> {
 public:
     Input<Buffer<uint16_t>> input{ "input", 2 };
@@ -81,7 +81,7 @@ public:
         output_cgra(y) += tile_sum(r.x, y);
 
         Expr vec_size = bf16(float(vec_height) * float(vec_width));
-        output_glb(y) = output_cgra(y) / vec_size;
+        output_glb(y) = exp(bf16(0.5f) * log(output_cgra(y) / vec_size)); // i.e. sqrt(output_cgra(y) / vec_size)
         hw_output(y) = output_glb(y);
         output(y) = u16(hw_output(y));
 
