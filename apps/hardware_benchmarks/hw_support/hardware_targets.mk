@@ -36,8 +36,8 @@ PIPELINED ?= 0
 META_TARGET ?= app
 
 # set this for Halide generator arguments
-HALIDE_GEN_ARGS ?= 
-HALIDE_GEN_SIZE_ARGS ?= 
+HALIDE_GEN_ARGS ?=
+HALIDE_GEN_SIZE_ARGS ?=
 
 # =========================== RDAI Configuration  ===================================
 
@@ -90,7 +90,7 @@ $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_hel
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
-	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@ 
+	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
 
 $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o: $(HWSUPPORT)/coreir_sim_plugins.cpp $(HWSUPPORT)/coreir_sim_plugins.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
@@ -120,14 +120,14 @@ coreir design-coreir: $(BIN)/$(TESTNAME).generator
 
 coreir_to_dot $(HWSUPPORT)/$(BIN)/coreir_to_dot: $(HWSUPPORT)/coreir_to_dot.cpp $(HWSUPPORT)/coreir_to_dot.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 
 coreir_tree_reduction $(HWSUPPORT)/$(BIN)/coreir_tree_reduction: $(HWSUPPORT)/coreir_tree_reduction.cpp
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
-	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS) 
+	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< -o $@ $(LDFLAGS)
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	@#$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $(CLOCKWORK_PATH)/coreir_backend.o $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_to_dot
 	$(CXX) $(CXXFLAGS) -I$(HWSUPPORT) $< $(LDFLAGS) -Wno-sign-compare -I$(CLOCKWORK_PATH) -L$(CLOCKWORK_PATH)/lib $(CLOCKWORK_CXX_FLAGS) $(CLOCKWORK_LD_FLAGS) -lcoreir-cgralib -o $(HWSUPPORT)/$(BIN)/coreir_tree_reduction
@@ -226,9 +226,9 @@ mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTN
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_garnet.json $(BIN)/design_top.json
 
 map: $(BIN)/clockwork_codegen
-	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json 
+	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
-	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/ 
+	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -301,7 +301,7 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #$(HWSUPPORT)/hardware_image_helpers.h
 
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o 
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
@@ -333,7 +333,7 @@ ifneq ("$(wildcard $(BIN)/design_top.json)","")
   WITH_COREIR = 1
 endif
 ifeq ($(WITH_COREIR),1)
-  PROCESS_DEPS += $(HWSUPPORT)/$(BIN)/coreir_interpret.o 
+  PROCESS_DEPS += $(HWSUPPORT)/$(BIN)/coreir_interpret.o
   PROCESS_TARGETS += -DWITH_COREIR
 endif
 
@@ -400,15 +400,15 @@ FORCE:
 
 image image-cpu: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image $(HALIDE_GEN_ARGS) 
+	$(BIN)/process image $(HALIDE_GEN_ARGS)
 
 image-ascending: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image 1 $(HALIDE_GEN_ARGS) 
+	$(BIN)/process image 1 $(HALIDE_GEN_ARGS)
 
 image-float: $(BIN)/process
 	@-mkdir -p $(BIN)
-	$(BIN)/process image 3 $(HALIDE_GEN_ARGS) 
+	$(BIN)/process image 3 $(HALIDE_GEN_ARGS)
 
 $(BIN)/input.$(EXT): input.$(EXT)
 	@-mkdir -p $(BIN)
@@ -430,7 +430,7 @@ $(BIN)/input.pgm: input.png
 
 $(BIN)/input_nn.pgm: input_padded.mat kernel.mat
 	@-mkdir -p $(BIN)
-	python $(HWSUPPORT)/interleave_input.py $(BIN)/input_nn.pgm; 
+	python $(HWSUPPORT)/interleave_input.py $(BIN)/input_nn.pgm;
 
 # use provided inputs first: copy .raw to bin/.raw or convert .mat to bin/.raw
 $(BIN)/%.raw: %.raw
@@ -491,7 +491,7 @@ $(BIN)/%.pgm: $(BIN)/%.png
 
 #$(BIN)/output_cpu.pgm : $(BIN)/output_cpu.mat
 #	@-mkdir -p $(BIN)
-#	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm; 
+#	python $(HWSUPPORT)/mat2pgm.py $(BIN)/output_cpu.mat $(BIN)/output_cpu.pgm;
 
 run run-cpu $(BIN)/output_cpu.$(EXT): $(BIN)/$(TESTNAME).a $(BIN)/process
 	@-mkdir -p $(BIN)
@@ -555,7 +555,7 @@ compare-rewrite compare-rewrite-cpu compare-cpu-rewrite:
 compare compare-clockwork compare-cpu-clockwork compare-clockwork-cpu output.$(EXT): $(BIN)/output_clockwork.$(EXT) $(BIN)/output_cpu.$(EXT) $(BIN)/process
 #compare-clockwork compare-cpu-clockwork compare-clockwork-cpu:
 #	$(MAKE) $(BIN)/output_cpu.$(EXT)
-#	$(MAKE) $(BIN)/output_clockwork.$(EXT) 
+#	$(MAKE) $(BIN)/output_clockwork.$(EXT)
 	$(HALIDE_GEN_ARGS) $(BIN)/process compare $(BIN)/output_cpu.$(EXT) $(BIN)/output_clockwork.$(EXT); \
 	EXIT_CODE=$$?; \
 	echo $$EXIT_CODE; \
@@ -679,10 +679,10 @@ newgraph new_graph:
 copy_design:
 	docker cp setter-tender_lovelace:/aha/Halide-to-Hardware/apps/hardware_benchmarks/$(TESTORAPP)/$(TESTNAME)/bin/design.place bin/
 	docker cp setter-tender_lovelace:/aha/Halide-to-Hardware/apps/hardware_benchmarks/$(TESTORAPP)/$(TESTNAME)/bin/design.route bin/
-pnr_result: 
+pnr_result:
 	python $(HWSUPPORT)/visualize_pnr.py bin 32 16
 
 clean:
-	rm -rf $(BIN) *_debug.csv test_results .ast_tools *.log
+	rm -rf $(BIN) *_debug.csv test_results .ast_tools __pycache__
 
 test: run
