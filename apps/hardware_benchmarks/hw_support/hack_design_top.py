@@ -11,6 +11,7 @@ APPS_NEEDING_HACKS = [
     "stable_softmax_pass3_fp",
     "scalar_avg_fp",
     "layer_norm_pass2_fp",
+    "layer_norm_pass3_fp",
 ]
 
 
@@ -1450,6 +1451,105 @@ class SelectedDesignHacker:
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
             if "io16in_vec_avg" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_layer_norm_pass3_fp(self, json_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "layer_norm_pass3_fp"
+
+        # Locate "stable_softmax_pass2_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        layer_norm_pass3_fp = global_modules[top_module]
+        instance_dict = layer_norm_pass3_fp.get("instances", {})
+
+        # Remove replicated IOs to stream pass1_avg and only keep one for broadcasting to divison PEs
+        def remove_duplicate_ios(io_prefix, instance_dict, layer_norm_pass3_fp):
+            # Find all instances that start with the given prefix
+            all_inst = list(instance_dict.keys())
+            io_insts = [inst for inst in all_inst if inst.startswith(io_prefix)]
+
+            if len(io_insts) > 1:
+                # Sort instances and select the first one to keep
+                io_insts.sort()
+                keep_inst = io_insts[0]
+                remove_insts = io_insts[1:]
+
+                # Remove extra instances from instance_dict
+                for r in remove_insts:
+                    del instance_dict[r]
+
+                # Update the type record: layer_norm_pass3_fp["type"] = ["Record", [ ... ]]
+                type_list = layer_norm_pass3_fp["type"][1]
+
+                # Convert instance name to field prefix by stripping the "io16in_" part
+                def inst_to_field_prefix(name):
+                    if name.startswith("io16in_"):
+                        return name[len("io16in_"):]
+                    return name
+
+                keep_prefix = inst_to_field_prefix(keep_inst)
+                remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
+
+                new_type_list = []
+                for field_pair in type_list:
+                    field_name, field_type = field_pair
+                    # If the field does not belong to the current IO prefix, keep it
+                    if io_prefix not in field_name:
+                        new_type_list.append(field_pair)
+                    # If it belongs to the IO prefix, keep it only if it matches the kept instance
+                    elif field_name.startswith(keep_prefix):
+                        new_type_list.append(field_pair)
+                layer_norm_pass3_fp["type"][1] = new_type_list
+
+                # Update connections so that references to removed instances or fields are unified to the kept ones
+                new_conn = []
+                for left, right in layer_norm_pass3_fp["connections"]:
+                    new_left, new_right = left, right
+                    # Replace any removed instance names with the kept instance name
+                    for rinst in remove_insts:
+                        if rinst in new_left:
+                            new_left = new_left.replace(rinst, keep_inst)
+                        if rinst in new_right:
+                            new_right = new_right.replace(rinst, keep_inst)
+                    # Replace any removed field prefixes with the kept prefix
+                    for rpref in remove_prefixes:
+                        if rpref in new_left:
+                            new_left = new_left.replace(rpref, keep_prefix)
+                        if rpref in new_right:
+                            new_right = new_right.replace(rpref, keep_prefix)
+                    new_conn.append([new_left, new_right])
+                layer_norm_pass3_fp["connections"] = new_conn
+        remove_duplicate_ios("io16in_pass1_avg_host_stencil_", instance_dict, layer_norm_pass3_fp)
+        remove_duplicate_ios("io16in_pass2_std_host_stencil_", instance_dict, layer_norm_pass3_fp)
+
+        # Deduplicate final connections: remove exact duplicates
+        final_dedup = []
+        seen = set()
+        for c in layer_norm_pass3_fp["connections"]:
+            # Represent connection as tuple (left, right)
+            t = tuple(c)
+            if t not in seen:
+                seen.add(t)
+                final_dedup.append(c)
+
+        layer_norm_pass3_fp["connections"] = final_dedup
+
+        # Configure the IO to read the same addr of GLB repeatedly
+        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
+        for inst_name, inst_config in instance_dict.items():
+            if ("io16in_pass1_avg_host_stencil" in inst_name or "io16in_pass2_std_host_stencil" in inst_name) and inst_config["modref"] == "global.IO":
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
