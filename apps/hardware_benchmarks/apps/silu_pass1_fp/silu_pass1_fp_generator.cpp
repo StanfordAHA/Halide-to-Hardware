@@ -30,7 +30,7 @@ public:
         input_glb(x) = input_host(x);
         input_cgra(x) = input_glb(x);
 
-        output_cgra(x) = bf16(1.0f) + exp(input_cgra(x));
+        output_cgra(x) = bf16(1.0f) + exp(bf16(-1.0f) * input_cgra(x));
 
         output_glb(x) = output_cgra(x);
         hw_output(x) = output_glb(x);

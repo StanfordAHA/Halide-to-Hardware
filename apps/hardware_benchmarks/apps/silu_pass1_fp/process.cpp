@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
     processor.output = Buffer<uint16_t>(vec_len);
     for (int x = 0; x < processor.inputs["input"].dim(0).extent(); x++) {
         processor.output(x) = float_to_bfloat16_process(
-            1.0f + expf(bfloat16_to_float_process(processor.inputs["input"](x)))
+            1.0f + expf(-1.0f * bfloat16_to_float_process(processor.inputs["input"](x)))
         );
     }
 
