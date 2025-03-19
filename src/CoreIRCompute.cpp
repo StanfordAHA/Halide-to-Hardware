@@ -187,7 +187,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
                                          "frnd", "fflr", "fceil",
                                          "fsqrt", "fsqr", "fpower", "fexp", "fln",
                                          "fsin", "fcos", "ftan", "ftanh",
-                                         "fasin", "facos", "fatan", "fatan2",
+                                         "fasin", "facos", "fatan", "fatan2", "fbf16toint8_pack"
 
   };
 
@@ -1641,6 +1641,11 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "atan2", "fatan2");
+  } else if (op->name == "bf16toint8_pack") {
+    internal_assert(op->args.size() == 2);
+    Expr a = op->args[0];
+    Expr b = op->args[1];
+    visit_binop(op->type, a, b, "bf16toint8_pack", "fbf16toint8_pack");
 
 
 // This intrisic was removed:

@@ -1,0 +1,37 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "hw_input",
+        "bitwidth": 16,
+        "shape": [16, 58, 58],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/input_host_stencil.raw"
+      },
+      {
+        "name": "hw_pass1_out",
+        "bitwidth": 16,
+        "shape": [16, 58, 58],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/pass1_out_host_stencil.raw"
+      },
+      {
+        "name": "hw_up_tensor",
+        "bitwidth": 16,
+        "shape": [16, 28, 28],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/up_tensor_host_stencil.raw"
+      }
+    ],
+    "output": {
+      "name": "hw_output",
+      "bitwidth": 16,
+      "shape": [16, 28, 28],
+      "pixels_per_cycle": 1,
+      "datafile": "bin/hw_output_stencil.raw"
+    }
+  },
+  "testing": {
+    "total_cycles": 40000
+  }
+}
