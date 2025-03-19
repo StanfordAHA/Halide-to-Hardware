@@ -62,7 +62,7 @@ jobs:
           alias gcc="gcc-7"
 
           # compile coreir
-          git clone -b master https://github.com/rdaly525/coreir.git
+          git clone -b master https://github.com/stanfordaha/coreir.git
           cd coreir/build && cmake .. && make -j2 && cd ../..
 
           # compile clockwork
