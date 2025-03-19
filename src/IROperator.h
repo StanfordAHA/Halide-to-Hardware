@@ -1249,6 +1249,12 @@ inline Expr pow(Expr x, Expr y) {
     }
 }
 
+// Convert two bfloat16_t to int8_t and pack them into a single int16_t
+inline Expr f2int_pack(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "f2int_pack of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "bf16toint8_pack", {std::move(a), std::move(b)}, Internal::Call::Extern);
+}
+
 /** Evaluate the error function erf. Only available for
  * Float(32). Accurate up to the last three bits of the
  * mantissa. Vectorizes cleanly. */

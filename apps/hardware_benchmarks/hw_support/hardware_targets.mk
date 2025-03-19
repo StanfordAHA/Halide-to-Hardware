@@ -87,6 +87,10 @@ $(HWSUPPORT)/$(BIN)/hardware_process_helper.o: $(HWSUPPORT)/hardware_process_hel
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(HWSUPPORT)/$(BIN)/hw_support_utils.o: $(HWSUPPORT)/hw_support_utils.cpp $(HWSUPPORT)/hw_support_utils.h
+	@-mkdir -p $(HWSUPPORT)/$(BIN)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
@@ -301,7 +305,7 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #$(HWSUPPORT)/hardware_image_helpers.h
 
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o $(HWSUPPORT)/$(BIN)/hw_support_utils.o
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
