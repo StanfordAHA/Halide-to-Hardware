@@ -25,7 +25,7 @@ jobs:
           sudo apt install -y g++-7
           sudo apt install -y libedit-dev
           sudo apt install -y libpng-dev
-          
+
     - name: Set environment variables
       run: |
           echo "TRAVIS_BUILD_DIR=${{ github.workspace }}" >> $GITHUB_ENV
@@ -60,20 +60,20 @@ jobs:
       run: |
           alias g++="g++-7"
           alias gcc="gcc-7"
-      
+
           # compile coreir
           git clone -b master https://github.com/rdaly525/coreir.git
           cd coreir/build && cmake .. && make -j2 && cd ../..
-          
+
           # compile clockwork
-          git clone https://github.com/dillonhuff/clockwork.git -b compute-kernel-latency-naming
+          git clone https://github.com/dillonhuff/clockwork.git
           cd clockwork && ./misc/install_deps_linux.sh
           make -j2 libcoreir-cgralib.so && make -j2 libclkwrk.so && cd ..
-        
+
           # compile BufferMapping
           git clone https://github.com/joyliu37/BufferMapping
           cd BufferMapping/cfunc && make lib -j2 && cd ../..
-        
+
           # clone RDAI
           git clone https://github.com/thenextged/rdai.git
 
@@ -90,12 +90,12 @@ jobs:
       shell: bash
       run: |
           make -C apps/hardware_benchmarks/tests        testtravis || exit;
-          
+
     - name: Run handcrafted ⚙️
       shell: bash
       run: |
           make -C apps/hardware_benchmarks/handcrafted  testtravis || exit;
-          
+
     - name: Run apps ⚙️
       shell: bash
       run: |
