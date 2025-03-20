@@ -3,6 +3,7 @@
 #include <cstdio>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
+#include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
 #include "matrix_multiplication_fp.h"
@@ -20,53 +21,6 @@
 
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
-
-union {
-  uint32_t val;
-  float f;
-} union_var;
-
-uint16_t round_to_even_process(float a) {
-  //uint32_t e = reinterpret_cast<uint32_t&>(a);
-  union_var.f = a;
-  uint32_t e = union_var.val;
-  
-  // round float to even, comment out this codeblock for truncation
-  uint32_t half = 0x00008000;
-  uint32_t sum = e + half;
-  
-  // check if bottom bits are all zero
-  uint32_t mantissa_mask = 0x0000ffff;
-  bool is_zeroed = (sum & mantissa_mask) == 0;
-  
-  // clear last bit (round even) on tie
-  uint32_t clear_mask = ~( ((uint32_t)is_zeroed) << 16);
-  e = sum & clear_mask;
-
-  // clear bottom bits
-  e = e >> 16;
-
-  //return bfloat16_t::make_from_bits(float_to_bfloat16( expf(bfloat16_to_float(a.to_bits())) ));
-  //return bfloat16_t::make_from_bits( (uint16_t)e );
-  return (uint16_t)e;
-}
-
-// Similar routines for bfloat. It's somewhat simpler.
-uint16_t float_to_bfloat16_process(float f) {
-//    uint16_t ret[2];
-//    memcpy(ret, &f, sizeof(float));
-//    // Assume little-endian floats
-//    return ret[1];
-  return round_to_even_process(f);
-}
-
-float bfloat16_to_float_process(uint16_t b) {
-    // Assume little-endian floats
-    uint16_t bits[2] = {0, b};
-    float ret;
-    memcpy(&ret, bits, sizeof(float));
-    return ret;
-}
 
 int main(int argc, char ** argv) {
     std::map < std::string, std:: function < void() >> functions;
@@ -138,7 +92,7 @@ int main(int argc, char ** argv) {
               << processor.inputs["input_host_stencil.mat"].dim(1).extent() << "\n";
 
 
-    ///// KERNEL WEIGHTS /////  
+    ///// KERNEL WEIGHTS /////
     processor.inputs["kernel_host_stencil.mat"] = Buffer < uint16_t > (kernel_width, input_width);
     auto kernel_copy_stencil = processor.inputs["kernel_host_stencil.mat"];
     for (int z = 0; z < kernel_copy_stencil.dim(1).extent(); z++) {
