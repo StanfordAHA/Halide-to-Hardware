@@ -5,6 +5,7 @@
 #include <vector>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
+#include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
    #include "conv2D_fp.h"
@@ -23,124 +24,6 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-union {
-  uint32_t val;
-  float f;
-} union_var;
-
-uint16_t round_to_even_process(float a) {
-  //uint32_t e = reinterpret_cast<uint32_t&>(a);
-  union_var.f = a;
-  uint32_t e = union_var.val;
-  
-  // round float to even, comment out this codeblock for truncation
-  uint32_t half = 0x00008000;
-  uint32_t sum = e + half;
-  
-  // check if bottom bits are all zero
-  uint32_t mantissa_mask = 0x0000ffff;
-  bool is_zeroed = (sum & mantissa_mask) == 0;
-  
-  // clear last bit (round even) on tie
-  uint32_t clear_mask = ~( ((uint32_t)is_zeroed) << 16);
-  e = sum & clear_mask;
-
-  // clear bottom bits
-  e = e >> 16;
-
-  //return bfloat16_t::make_from_bits(float_to_bfloat16( expf(bfloat16_to_float(a.to_bits())) ));
-  //return bfloat16_t::make_from_bits( (uint16_t)e );
-  return (uint16_t)e;
-}
-
-// Similar routines for bfloat. It's somewhat simpler.
-uint16_t float_to_bfloat16_process(float f) {
-//    uint16_t ret[2];
-//    memcpy(ret, &f, sizeof(float));
-//    // Assume little-endian floats
-//    return ret[1];
-  return round_to_even_process(f);
-}
-
-float bfloat16_to_float_process(uint16_t b) {
-    // Assume little-endian floats
-    uint16_t bits[2] = {0, b};
-    float ret;
-    memcpy(&ret, bits, sizeof(float));
-    return ret;
-}
-
-void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
-    std::ofstream out(filename, std::ios::binary);
-    if (!out.is_open()) {
-        std::cerr << "Failed to open file for writing: " << filename << std::endl;
-        return;
-    }
-
-    // Iterate through each element of the buffer and write in big-endian order
-    for (int i = 0; i < buffer.number_of_elements(); ++i) {
-        uint16_t val = buffer(i);
-        // Swap bytes if the system is little-endian
-        uint16_t big_endian_val = (val << 8) | (val >> 8); // Swap bytes to convert to big-endian
-        out.write(reinterpret_cast<const char*>(&big_endian_val), sizeof(big_endian_val));
-    }
-
-    out.close();
-}
-
-void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
-    std::ifstream inFile(filename, std::ios::binary);
-    if (!inFile) {
-        std::cerr << "Failed to open file for reading: " << filename << std::endl;
-        return;
-    }
-
-    // Get the extents of each dimension in the buffer
-    std::vector<int> extents(buffer.dimensions());
-    for (int i = 0; i < buffer.dimensions(); i++) {
-        extents[i] = buffer.dim(i).extent();
-    }
-
-    // Initialize indices to zero for all dimensions
-    std::vector<int> indices(buffer.dimensions(), 0);
-
-    // Function to recursively fill the buffer, with column-major order
-    std::function<void(int)> fillBuffer = [&](int dim) {
-        if (dim == -1) { // All dimensions are set
-            uint16_t value;
-            inFile.read(reinterpret_cast<char*>(&value), sizeof(value));
-            if (!inFile) {
-                std::cerr << "Error reading data for indices ";
-                for (int i = 0; i < indices.size(); ++i) {
-                    std::cerr << indices[i] << (i < indices.size() - 1 ? ", " : "");
-                }
-                std::cerr << std::endl;
-                throw std::runtime_error("Failed to read data from file");
-            }
-            // Perform byte swap if necessary (for big-endian files)
-            value = (value >> 8) | (value << 8);
-            buffer(indices.data()) = value;
-        } else { // Set the current dimension and recurse
-            for (int i = 0; i < extents[dim]; ++i) {
-                indices[dim] = i;
-                fillBuffer(dim - 1);
-            }
-            indices[dim] = 0;
-        }
-    };
-
-    try {
-        // From the last dimension down to 0; reverse order for column-major)
-        fillBuffer(buffer.dimensions() - 1);
-    } catch (const std::exception& e) {
-        std::cerr << "An exception occurred: " << e.what() << std::endl;
-        inFile.close();
-        return;
-    }
-
-    inFile.close();
-}
-
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
   ManyInOneOut_ProcessController<uint16_t> processor("conv2D_fp", {"input", "kernel", "bias"});
@@ -151,7 +34,7 @@ int main( int argc, char **argv ) {
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
-  
+
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
@@ -160,7 +43,7 @@ int main( int argc, char **argv ) {
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
   #endif
-  
+
   #if defined(WITH_CLOCKWORK)
       auto clockwork_process = [&]( auto &proc ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
@@ -194,12 +77,12 @@ int main( int argc, char **argv ) {
     int Y = X;
     int K_X = ksize;
     int K_Y = K_X;
-    int Z = n_ic; // input channel 
+    int Z = n_ic; // input channel
     int W = n_oc; // output channel
 
     processor.inputs_preset = true;
     std::cout << "using inputs set within process.cpp" << std::endl;
-    
+
     ///// INPUT IMAGE /////
     processor.inputs["input"] = Halide::Runtime::Buffer<uint16_t>(Z, X, Y);
     auto input_copy = processor.inputs["input"];
@@ -211,7 +94,7 @@ int main( int argc, char **argv ) {
     // print first element of input
     std::cout << "input(0,0,0) = " << input_copy(0,0,0) << "\n";
 
-    ///// KERNEL WEIGHTS /////  
+    ///// KERNEL WEIGHTS /////
     processor.inputs["kernel"] = Halide::Runtime::Buffer<uint16_t>(W, Z, K_X, K_Y);
     auto kernel_copy = processor.inputs["kernel"];
     loadRawDataToBuffer("kernel_host_stencil.raw", kernel_copy);
@@ -271,4 +154,4 @@ int main( int argc, char **argv ) {
 
     // use provided inputs first: convert .mat to bin/.raw or copy .raw to bin/.raw
     return processor.process_command(argc, argv);
-}  
+}
