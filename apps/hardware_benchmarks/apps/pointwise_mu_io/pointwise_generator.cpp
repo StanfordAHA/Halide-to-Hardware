@@ -16,7 +16,7 @@ public:
 
     GeneratorParam<int32_t> myunroll{"myunroll", 1};
     GeneratorParam<int32_t> myunroll_E64{"myunroll_E64", 16};
-  
+    GeneratorParam<int32_t> myunroll_E64_MB{"myunroll_E64_MB", 16};
   
     void generate() {
         /* THE ALGORITHM */
@@ -58,7 +58,13 @@ public:
           Var xi,yi, xo,yo;
 
           const char* e64_mode_env = getenv("E64_MODE_ON");
-          const int unroll = (e64_mode_env && std::stoi(e64_mode_env) == 1) ? myunroll_E64 : myunroll;
+          const char* e64_multi_bank_mode_env = getenv("E64_MULTI_BANK_MODE_ON");
+          int unroll = myunroll;
+          if (e64_multi_bank_mode_env && std::stoi(e64_multi_bank_mode_env) == 1) {
+            unroll = myunroll_E64_MB;
+          } else if (e64_mode_env && std::stoi(e64_mode_env) == 1) {
+            unroll = myunroll_E64;
+          }
 
           output.bound(x, 0, outImgSize);
           output.bound(y, 0, outImgSize);
