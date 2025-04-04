@@ -35,4 +35,10 @@ extern "C" {
     uint16_t bf16toint8_pack(uint16_t in0, uint16_t in1);
 }
 
+extern "C" {
+    // CPU implementation that unpacks two bf16 values (stored as uint16_t) from one 16-bit value.
+    uint16_t int8tobf16_unpack_high(uint16_t in0);
+    uint16_t int8tobf16_unpack_low(uint16_t in0);
+}
+
 #endif // HW_SUPPORT_UTILS_H
