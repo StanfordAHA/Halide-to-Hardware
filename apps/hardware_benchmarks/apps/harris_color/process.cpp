@@ -29,7 +29,7 @@ int main( int argc, char **argv ) {
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
-  
+
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
@@ -38,7 +38,7 @@ int main( int argc, char **argv ) {
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
   #endif
-  
+
   #if defined(WITH_CLOCKWORK)
       auto clockwork_process = [&]( auto &proc ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
@@ -65,7 +65,7 @@ int main( int argc, char **argv ) {
 
   int output_tile_width  = 58;
   int output_tile_height = output_tile_width;
-  
+
   int host_tiling_x, host_tiling_y, glb_tiling;
   switch (schedule) {
   case 1:
@@ -110,21 +110,11 @@ int main( int argc, char **argv ) {
   std::cout << "Running with output size: " << output_width << "x" << output_height << std::endl;
   processor.input  = Buffer<uint8_t>(output_width+blockSize-1, output_height+blockSize-1, 3);
   processor.output = Buffer<uint8_t>(output_width, output_height);
-  
-  if (schedule == 2 || schedule == 3) {
-    // load this 1536x2560 image
-    std::cout << "Using a big parrot image" << std::endl;
-    processor.input = load_and_convert_image("../../../images/rgb.png");
-    
-  } else {
-    for (int y = 0; y < processor.input.dim(1).extent(); y++) {
-      for (int x = 0; x < processor.input.dim(0).extent(); x++) {
-        for (int c = 0; c < processor.input.dim(2).extent(); c++) {
-          processor.input(x, y, c) = x + y + 30*c;
-        }
-      }
-    }
-  }
-  
+
+  // We should always use the real rgb.png image
+  // load this 1536x2560 image
+  std::cout << "Using a big parrot image" << std::endl;
+  processor.input = load_and_convert_image("../../../images/rgb.png");
+
   return processor.process_command(argc, argv);
 }
