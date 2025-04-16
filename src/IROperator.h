@@ -1255,6 +1255,12 @@ inline Expr f2int_pack(Expr a, Expr b) {
     return Internal::Call::make(UInt(16), "bf16toint8_pack", {std::move(a), std::move(b)}, Internal::Call::Extern);
 }
 
+// Convert two {8'b0, 8'b(data_i)} into one {data1, data0}
+inline Expr bit8_pack(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "bit8_pack of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "bit8_pack", {std::move(a), std::move(b)}, Internal::Call::Extern);
+}
+
 // Convert one packed 16-bit value to two bfloat16_t as a tuple
 inline Tuple int2f_unpack(Expr a) {
     user_assert(a.defined()) << "int2f_unpack of undefined Expr\n";

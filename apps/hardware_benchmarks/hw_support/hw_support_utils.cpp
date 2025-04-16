@@ -263,3 +263,10 @@ extern "C" {
         return bfloat16_val;
     }
 }
+
+extern "C" {
+    uint16_t bit8_pack(uint16_t in0, uint16_t in1) {
+        uint16_t out = ((in0 & 0xFF) << 8) | (in1 & 0xFF);
+        return out;
+    }
+}

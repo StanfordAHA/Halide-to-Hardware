@@ -41,4 +41,9 @@ extern "C" {
     uint16_t int8tobf16_unpack_low(uint16_t in0);
 }
 
+extern "C" {
+    // CPU implementation that packs two 16-bit data's lower 8 bits into one 16-bit data
+    uint16_t bit8_pack(uint16_t in0, uint16_t in1);
+}
+
 #endif // HW_SUPPORT_UTILS_H
