@@ -187,8 +187,8 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
                                          "frnd", "fflr", "fceil",
                                          "fsqrt", "fsqr", "fpower", "fexp", "fln",
                                          "fsin", "fcos", "ftan", "ftanh",
-                                         "fasin", "facos", "fatan", "fatan2", "fbf16toint8_pack",
-                                         "fint8tobf16_unpack_high", "fint8tobf16_unpack_low", "fbit8_pack"
+                                         "fasin", "facos", "fatan", "fatan2",
+                                         "fbit8_unpack_high", "fbit8_unpack_low", "fbit8_pack"
 
   };
 
@@ -1642,19 +1642,14 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "atan2", "fatan2");
-  } else if (op->name == "bf16toint8_pack") {
-    internal_assert(op->args.size() == 2);
-    Expr a = op->args[0];
-    Expr b = op->args[1];
-    visit_binop(op->type, a, b, "bf16toint8_pack", "fbf16toint8_pack");
-  } else if (op->name == "int8tobf16_unpack_high") {
+  } else if (op->name == "bit8_unpack_high") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
-    visit_unaryop(op->type, a, "int8tobf16_unpack_high", "fint8tobf16_unpack_high");
-  } else if (op->name == "int8tobf16_unpack_low") {
+    visit_unaryop(op->type, a, "bit8_unpack_high", "fbit8_unpack_high");
+  } else if (op->name == "bit8_unpack_low") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
-    visit_unaryop(op->type, a, "int8tobf16_unpack_low", "fint8tobf16_unpack_low");
+    visit_unaryop(op->type, a, "bit8_unpack_low", "fbit8_unpack_low");
   } else if (op->name == "bit8_pack") {
     internal_assert(op->args.size() == 2);
     Expr a = op->args[0];
