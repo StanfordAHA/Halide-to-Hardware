@@ -1261,6 +1261,12 @@ inline Expr bit8_pack(Expr a, Expr b) {
     return Internal::Call::make(UInt(16), "bit8_pack", {std::move(a), std::move(b)}, Internal::Call::Extern);
 }
 
+// Absolute maximum of two expressions' absolute values
+inline Expr abs_max_bf16(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "abs_max_bf16 of undefined Expr\n";
+    return Internal::Call::make(BFloat(16), "abs_max", {std::move(a), std::move(b)}, Internal::Call::Extern);
+}
+
 // Convert one packed 16-bit value to two bfloat16_t as a tuple
 inline Tuple int2f_unpack(Expr a) {
     user_assert(a.defined()) << "int2f_unpack of undefined Expr\n";

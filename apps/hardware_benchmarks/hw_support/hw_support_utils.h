@@ -46,4 +46,8 @@ extern "C" {
     uint16_t bit8_pack(uint16_t in0, uint16_t in1);
 }
 
+extern "C" {
+    uint16_t abs_max(uint16_t in0, uint16_t in1);
+}
+
 #endif // HW_SUPPORT_UTILS_H

@@ -1,4 +1,5 @@
 #include "hw_support_utils.h"
+#include <cmath>
 
 #include <fstream>
 #include <iostream>
@@ -268,5 +269,16 @@ extern "C" {
     uint16_t bit8_pack(uint16_t in0, uint16_t in1) {
         uint16_t out = ((in0 & 0xFF) << 8) | (in1 & 0xFF);
         return out;
+    }
+}
+
+extern "C" {
+    uint16_t abs_max(uint16_t in0, uint16_t in1) {
+        float in0_float = bfloat16_to_float_process(in0);
+        float in1_float = bfloat16_to_float_process(in1);
+        float abs_in0 = fabsf(in0_float);
+        float abs_in1 = fabsf(in1_float);
+        float abs_max = (abs_in0 > abs_in1) ? abs_in0 : abs_in1;
+        return float_to_bfloat16_process(abs_max);
     }
 }

@@ -182,7 +182,7 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv",
                                          "fneg", "frem",
                                          "fabs", "fmin", "fmax", "fmux",
-                                         "feq", "fneq",
+                                         "feq", "fneq", "fabs_max",
                                          "flt", "fgt", "fle", "fge",
                                          "frnd", "fflr", "fceil",
                                          "fsqrt", "fsqr", "fpower", "fexp", "fln",
@@ -1660,6 +1660,11 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "bit8_pack", "fbit8_pack");
+  } else if (op->name == "abs_max") {
+    internal_assert(op->args.size() == 2);
+    Expr a = op->args[0];
+    Expr b = op->args[1];
+    visit_binop(op->type, a, b, "abs_max", "fabs_max");
 
 
 // This intrisic was removed:
