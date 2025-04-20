@@ -1269,6 +1269,12 @@ inline Tuple bit8_unpack(Expr a) {
     return Tuple(v0, v1);
 }
 
+// Get shared exponent (biased) give bf16 data
+inline Expr get_shared_exp(Expr a) {
+    user_assert(a.defined()) << "get_shared_exp of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "get_shared_exp", {std::move(a)}, Internal::Call::Extern);
+}
+
 /** Evaluate the error function erf. Only available for
  * Float(32). Accurate up to the last three bits of the
  * mantissa. Vectorizes cleanly. */

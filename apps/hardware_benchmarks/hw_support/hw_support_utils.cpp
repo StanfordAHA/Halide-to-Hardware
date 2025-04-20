@@ -140,6 +140,9 @@ bool file_exists(const std::string& name) {
 }
 
 extern "C" {
+    // CPU implementations for custom instructions
+
+    // Converts bf16 to int8 and pack
     uint16_t bf16toint8_pack(uint16_t in0, uint16_t in1) {
         // Process first bf16 value (in0 to int8 conversion)
         uint16_t a = in0;
@@ -167,9 +170,7 @@ extern "C" {
         uint16_t packed = (static_cast<uint16_t>(static_cast<uint8_t>(int8_a)) << 8) | (static_cast<uint8_t>(int8_b));
         return packed;
     }
-}
 
-extern "C" {
     // Extract the upper 8 bits of a 16-bit word and zero-extend to 16 bits
     uint16_t bit8_unpack_high(uint16_t in0) {
         return (in0 >> 8) & 0xFF;
@@ -179,16 +180,14 @@ extern "C" {
     uint16_t bit8_unpack_low(uint16_t in0) {
         return in0 & 0xFF;
     }
-}
 
-extern "C" {
+    // Pack the lower 8 bits of two 16-bit inputs into a single 16-bit output
     uint16_t bit8_pack(uint16_t in0, uint16_t in1) {
         uint16_t out = ((in0 & 0xFF) << 8) | (in1 & 0xFF);
         return out;
     }
-}
 
-extern "C" {
+    // Max of two bf16's absolute values
     uint16_t abs_max(uint16_t in0, uint16_t in1) {
         float in0_float = bfloat16_to_float_process(in0);
         float in1_float = bfloat16_to_float_process(in1);
@@ -197,4 +196,17 @@ extern "C" {
         float abs_max = (abs_in0 > abs_in1) ? abs_in0 : abs_in1;
         return float_to_bfloat16_process(abs_max);
     }
+
+    // E8M0 biased shared exp calculation from bf16
+    uint16_t get_shared_exp(uint16_t in0) {
+        uint16_t shared_exp;
+        uint8_t exp_field = (in0 >> 7) & 0xFF;
+        if (exp_field == 0) {
+            shared_exp = 127;
+        } else {
+            shared_exp = uint16_t(static_cast<uint8_t>(exp_field) - 6);
+        }
+        return shared_exp;
+    }
+
 }

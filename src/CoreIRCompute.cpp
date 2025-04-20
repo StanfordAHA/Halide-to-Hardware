@@ -188,7 +188,8 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
                                          "fsqrt", "fsqr", "fpower", "fexp", "fln",
                                          "fsin", "fcos", "ftan", "ftanh",
                                          "fasin", "facos", "fatan", "fatan2",
-                                         "fbit8_unpack_high", "fbit8_unpack_low", "fbit8_pack"
+                                         "fbit8_unpack_high", "fbit8_unpack_low", "fbit8_pack",
+                                         "fget_shared_exp"
 
   };
 
@@ -1660,6 +1661,10 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "abs_max", "fabs_max");
+  } else if (op->name == "get_shared_exp") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "get_shared_exp", "fget_shared_exp");
 
 
 // This intrisic was removed:
