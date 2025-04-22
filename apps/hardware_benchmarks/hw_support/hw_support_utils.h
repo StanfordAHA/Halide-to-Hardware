@@ -48,6 +48,9 @@ extern "C" {
 
     // E8M0 biased shared exp calculation from bf16
     uint16_t get_shared_exp(uint16_t in0);
+
+    // E8M0 quantization division
+    uint16_t e8m0_quant(uint16_t in0, uint16_t in1);
 }
 
 #endif // HW_SUPPORT_UTILS_H

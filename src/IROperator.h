@@ -1275,6 +1275,12 @@ inline Expr get_shared_exp(Expr a) {
     return Internal::Call::make(UInt(16), "get_shared_exp", {std::move(a)}, Internal::Call::Extern);
 }
 
+// E8M0 quantization
+inline Expr e8m0_quant(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "e8m0_quant of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "e8m0_quant", {std::move(a), std::move(b)}, Internal::Call::Extern);
+}
+
 /** Evaluate the error function erf. Only available for
  * Float(32). Accurate up to the last three bits of the
  * mantissa. Vectorizes cleanly. */
