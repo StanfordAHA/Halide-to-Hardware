@@ -5,9 +5,10 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-class UnitTestFPArith : public Halide::Generator<UnitTestFPArith> {
+class E8M0QuantTest : public Halide::Generator<E8M0QuantTest> {
 public:
     Input<Buffer<uint16_t>>  input{"input", 2};
+    Input<Buffer<uint16_t>>  e8m0{"e8m0", 2};
     Output<Buffer<uint16_t>> output{"output", 2};
 
     int imgsize = 64;
@@ -20,28 +21,18 @@ public:
         hw_input(x, y) = bf16(input(x, y));
         hw_input_bfloat(x, y) = hw_input(x, y);
 
-        Func mult("mult"), sub("sub"), expo("expo");
-        mult(x, y) = hw_input_bfloat(x, y) * bfloat16_t(0.02f);
-        sub(x, y)  = mult(x, y) - bfloat16_t(1.0f);
-        expo(x, y)  = exp(sub(x, y));
+        Func hw_e8m0("hw_e8m0");
+        hw_e8m0(x, y) = e8m0(x, y);
 
-        // A simple mult2ear path to compare against expo:
-        Func mult2("mult2");
-        mult2(x, y) = hw_input_bfloat(x, y) * bfloat16_t(0.1f);
-
-        // abs_max to flip branches many times
-        Func absolute_max("absolute_max");
-        absolute_max(x, y) = abs_max_bf16(expo(x, y), mult2(x, y));
-
-        // A simple add/div/sub path to compare against abs_max:
-        Func add("add"), div("div"), sub2("sub2"), mult3("mult3");
-        add(x, y) = absolute_max(x, y) + bfloat16_t(3.0f);
-        div(x, y) = bfloat16_t(20.0f) / add(x, y);
-        sub2(x, y) = div(x, y) - add(x, y);
-        mult3(x, y) = sub2(x, y) * bfloat16_t(5.0f);
+        Func quant("quant");
+        if (get_target().has_feature(Target::Clockwork)) {
+          quant(x, y) = e8m0_quant(hw_input_bfloat(x, y), bf16(hw_e8m0(x, y)));
+        } else {
+          quant(x, y) = e8m0_quant(hw_input(x, y), hw_e8m0(x, y));
+        }
 
         Func hw_output("hw_output");
-        hw_output(x, y) = mult3(x, y);
+        hw_output(x, y) = u16(quant(x, y));
         output(x, y)    = u16(hw_output(x, y));
 
         /* THE SCHEDULE */
@@ -60,6 +51,7 @@ public:
               .hw_accelerate(xi, xo);
 
           hw_input.stream_to_accelerator();
+          hw_e8m0.stream_to_accelerator();
 
         } else {  // schedule to CPU
           // CPU schedule must be similar for bfloat16 for outputs to be bit exact
@@ -76,4 +68,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(UnitTestFPArith, fp_arith)
+HALIDE_REGISTER_GENERATOR(E8M0QuantTest, fp_e8m0_quant_test)

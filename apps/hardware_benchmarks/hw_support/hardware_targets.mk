@@ -233,6 +233,7 @@ map: $(BIN)/clockwork_codegen
 	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/
+	python $(HWSUPPORT)/raw2txt.py $(BIN)
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \

@@ -1,4 +1,5 @@
 #include "hw_support_utils.h"
+#include <cmath>
 
 #include <fstream>
 #include <iostream>
@@ -139,6 +140,9 @@ bool file_exists(const std::string& name) {
 }
 
 extern "C" {
+    // CPU implementations for custom instructions
+
+    // Converts bf16 to int8 and pack
     uint16_t bf16toint8_pack(uint16_t in0, uint16_t in1) {
         // Process first bf16 value (in0 to int8 conversion)
         uint16_t a = in0;
@@ -166,100 +170,51 @@ extern "C" {
         uint16_t packed = (static_cast<uint16_t>(static_cast<uint8_t>(int8_a)) << 8) | (static_cast<uint8_t>(int8_b));
         return packed;
     }
-}
 
-extern "C" {
-    uint16_t int8tobf16_unpack_high(uint16_t in0) {
-        // Extract upper 8 bits as int8
-        int8_t int8_val = (in0 >> 8) & 0xFF;
-
-        // Convert int8 to bfloat16
-        uint16_t sign = 0;
-        uint16_t abs_input;
-        if (int8_val < 0) {
-            sign = 0x8000;
-            abs_input = -int8_val;
-        } else {
-            abs_input = int8_val;
-        }
-        int16_t scale = -127;
-        if (abs_input & 0x01) scale = 0;
-        if (abs_input & 0x02) scale = 1;
-        if (abs_input & 0x04) scale = 2;
-        if (abs_input & 0x08) scale = 3;
-        if (abs_input & 0x10) scale = 4;
-        if (abs_input & 0x20) scale = 5;
-        if (abs_input & 0x40) scale = 6;
-        if (abs_input & 0x80) scale = 7;
-        if (abs_input & 0x100) scale = 8;
-        if (abs_input & 0x200) scale = 9;
-        if (abs_input & 0x400) scale = 10;
-        if (abs_input & 0x800) scale = 11;
-        if (abs_input & 0x1000) scale = 12;
-        if (abs_input & 0x2000) scale = 13;
-        if (abs_input & 0x4000) scale = 14;
-        if (abs_input & 0x8000) scale = 15;
-
-        uint16_t normmant_mul_left = abs_input;
-        uint16_t normmant_mul_right = 15 - scale;
-        uint16_t normmant_mask = 0x7F00;
-        uint16_t normmant;
-        if (scale >= 0) {
-            normmant = ((normmant_mul_left << normmant_mul_right) & normmant_mask);
-        } else {
-            normmant = 0;
-        }
-        normmant = normmant >> 8;
-        uint16_t biased_scale = scale + 127;
-        uint16_t bfloat16_val = (sign | ((biased_scale << 7) & (0xFF << 7)) | normmant);
-
-        return bfloat16_val;
+    // Extract the upper 8 bits of a 16-bit word and zero-extend to 16 bits
+    uint16_t bit8_unpack_high(uint16_t in0) {
+        return (in0 >> 8) & 0xFF;
     }
 
-    uint16_t int8tobf16_unpack_low(uint16_t in0) {
-        // Extract lower 8 bits as int8
-        int8_t int8_val = in0 & 0xFF;
-
-        // Convert int8 to bfloat16
-        uint16_t sign = 0;
-        uint16_t abs_input;
-        if (int8_val < 0) {
-            sign = 0x8000;
-            abs_input = -int8_val;
-        } else {
-            abs_input = int8_val;
-        }
-        int16_t scale = -127;
-        if (abs_input & 0x01) scale = 0;
-        if (abs_input & 0x02) scale = 1;
-        if (abs_input & 0x04) scale = 2;
-        if (abs_input & 0x08) scale = 3;
-        if (abs_input & 0x10) scale = 4;
-        if (abs_input & 0x20) scale = 5;
-        if (abs_input & 0x40) scale = 6;
-        if (abs_input & 0x80) scale = 7;
-        if (abs_input & 0x100) scale = 8;
-        if (abs_input & 0x200) scale = 9;
-        if (abs_input & 0x400) scale = 10;
-        if (abs_input & 0x800) scale = 11;
-        if (abs_input & 0x1000) scale = 12;
-        if (abs_input & 0x2000) scale = 13;
-        if (abs_input & 0x4000) scale = 14;
-        if (abs_input & 0x8000) scale = 15;
-
-        uint16_t normmant_mul_left = abs_input;
-        uint16_t normmant_mul_right = 15 - scale;
-        uint16_t normmant_mask = 0x7F00;
-        uint16_t normmant;
-        if (scale >= 0) {
-            normmant = ((normmant_mul_left << normmant_mul_right) & normmant_mask);
-        } else {
-            normmant = 0;
-        }
-        normmant = normmant >> 8;
-        uint16_t biased_scale = scale + 127;
-        uint16_t bfloat16_val = (sign | ((biased_scale << 7) & (0xFF << 7)) | normmant);
-
-        return bfloat16_val;
+    // Extract the lower 8 bits of a 16-bit word and zero-extend to 16 bits
+    uint16_t bit8_unpack_low(uint16_t in0) {
+        return in0 & 0xFF;
     }
+
+    // Pack the lower 8 bits of two 16-bit inputs into a single 16-bit output
+    uint16_t bit8_pack(uint16_t in0, uint16_t in1) {
+        uint16_t out = ((in0 & 0xFF) << 8) | (in1 & 0xFF);
+        return out;
+    }
+
+    // Max of two bf16's absolute values
+    uint16_t abs_max(uint16_t in0, uint16_t in1) {
+        float in0_float = bfloat16_to_float_process(in0);
+        float in1_float = bfloat16_to_float_process(in1);
+        float abs_in0 = fabsf(in0_float);
+        float abs_in1 = fabsf(in1_float);
+        float abs_max = (abs_in0 > abs_in1) ? abs_in0 : abs_in1;
+        return float_to_bfloat16_process(abs_max);
+    }
+
+    // E8M0 biased shared exp calculation from bf16
+    uint16_t get_shared_exp(uint16_t in0) {
+        uint16_t shared_exp;
+        uint8_t exp_field = (in0 >> 7) & 0xFF;
+        if (exp_field == 0) {
+            shared_exp = 127;
+        } else {
+            shared_exp = uint16_t(static_cast<uint8_t>(exp_field) - 6);
+        }
+        return shared_exp;
+    }
+
+    // E8M0 quantization division where in0 is bf16 and in1 is biased e8m0
+    uint16_t e8m0_quant(uint16_t in0, uint16_t in1) {
+        float in0_float = bfloat16_to_float_process(in0);
+        float scale = powf(2.0f, static_cast<float>(in1 - 127));
+        int8_t quantized_value = static_cast<int8_t>(roundf(in0_float / scale));
+        return static_cast<uint16_t>(quantized_value);
+    }
+
 }
