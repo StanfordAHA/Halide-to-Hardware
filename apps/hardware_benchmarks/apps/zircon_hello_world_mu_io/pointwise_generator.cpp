@@ -29,7 +29,8 @@ public:
         //mu_hw_input(x, y) = input_copy(x, y);
         mu_hw_input(x, y) = cast<uint16_t>(input(x, y));
 
-        mult(x, y) = mu_hw_input(x,y) * 2;
+        // mult(x, y) = mu_hw_input(x,y) * 2;
+        mult(x, y) = mu_hw_input(x,y);
         hw_output(x, y) = mult(x, y);
         output(x, y) = cast<uint8_t>(hw_output(x, y));
 
