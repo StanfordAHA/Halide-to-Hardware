@@ -182,13 +182,14 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
   std::vector<string> fplib_gen_names = {"fmul", "fadd", "fsub", "fdiv",
                                          "fneg", "frem",
                                          "fabs", "fmin", "fmax", "fmux",
-                                         "feq", "fneq",
+                                         "feq", "fneq", "fabs_max",
                                          "flt", "fgt", "fle", "fge",
                                          "frnd", "fflr", "fceil",
                                          "fsqrt", "fsqr", "fpower", "fexp", "fln",
                                          "fsin", "fcos", "ftan", "ftanh",
-                                         "fasin", "facos", "fatan", "fatan2", "fbf16toint8_pack",
-                                         "fint8tobf16_unpack_high", "fint8tobf16_unpack_low"
+                                         "fasin", "facos", "fatan", "fatan2",
+                                         "fbit8_unpack_high", "fbit8_unpack_low", "fbit8_pack",
+                                         "fget_shared_exp", "fe8m0_quant"
 
   };
 
@@ -1642,19 +1643,33 @@ void CreateCoreIRModule::visit(const Call *op) {
     Expr a = op->args[0];
     Expr b = op->args[1];
     visit_binop(op->type, a, b, "atan2", "fatan2");
-  } else if (op->name == "bf16toint8_pack") {
+  } else if (op->name == "bit8_unpack_high") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "bit8_unpack_high", "fbit8_unpack_high");
+  } else if (op->name == "bit8_unpack_low") {
+    internal_assert(op->args.size() == 1);
+    Expr a = op->args[0];
+    visit_unaryop(op->type, a, "bit8_unpack_low", "fbit8_unpack_low");
+  } else if (op->name == "bit8_pack") {
     internal_assert(op->args.size() == 2);
     Expr a = op->args[0];
     Expr b = op->args[1];
-    visit_binop(op->type, a, b, "bf16toint8_pack", "fbf16toint8_pack");
-  } else if (op->name == "int8tobf16_unpack_high") {
+    visit_binop(op->type, a, b, "bit8_pack", "fbit8_pack");
+  } else if (op->name == "abs_max") {
+    internal_assert(op->args.size() == 2);
+    Expr a = op->args[0];
+    Expr b = op->args[1];
+    visit_binop(op->type, a, b, "abs_max", "fabs_max");
+  } else if (op->name == "get_shared_exp") {
     internal_assert(op->args.size() == 1);
     Expr a = op->args[0];
-    visit_unaryop(op->type, a, "int8tobf16_unpack_high", "fint8tobf16_unpack_high");
-  } else if (op->name == "int8tobf16_unpack_low") {
-    internal_assert(op->args.size() == 1);
+    visit_unaryop(op->type, a, "get_shared_exp", "fget_shared_exp");
+  } else if (op->name == "e8m0_quant") {
+    internal_assert(op->args.size() == 2);
     Expr a = op->args[0];
-    visit_unaryop(op->type, a, "int8tobf16_unpack_low", "fint8tobf16_unpack_low");
+    Expr b = op->args[1];
+    visit_binop(op->type, a, b, "e8m0_quant", "fe8m0_quant");
 
 
 // This intrisic was removed:

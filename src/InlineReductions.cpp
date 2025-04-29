@@ -161,6 +161,25 @@ Expr maximum(const RDom &r, Expr e, const Func &f) {
     return f(v.call_args);
 }
 
+Expr abs_maximum_bf16(const RDom &r, Expr e, const std::string &name) {
+    return abs_maximum_bf16(r, std::move(e), Func(name));
+}
+
+Expr abs_maximum_bf16(const RDom &r, Expr e, const Func &f) {
+    user_assert(!f.defined())
+        << "Func " << f.name()
+        << " passed to maximum already has a definition";
+
+    Internal::FindFreeVars v(r, f.name());
+    e = v.mutate(common_subexpression_elimination(e));
+
+    user_assert(v.rdom.defined()) << "Expression passed to maximum must reference a reduction domain";
+
+    f(v.free_vars) = e.type().min();
+    f(v.free_vars) = abs_max_bf16(f(v.free_vars), e);
+    return f(v.call_args);
+}
+
 Expr minimum(Expr e, const std::string &name) {
     return minimum(RDom(), e, name);
 }

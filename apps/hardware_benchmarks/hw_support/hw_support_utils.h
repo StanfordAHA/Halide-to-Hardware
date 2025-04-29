@@ -31,14 +31,26 @@ void copyFile(const std::string &srcPath, const std::string &dstPath);
 bool file_exists(const std::string& name);
 
 extern "C" {
-    // CPU implementation that packs two bf16 values (stored as uint16_t) into one uint16_t.
-    uint16_t bf16toint8_pack(uint16_t in0, uint16_t in1);
-}
+    // CPU implementations for custom instructions
 
-extern "C" {
-    // CPU implementation that unpacks two bf16 values (stored as uint16_t) from one 16-bit value.
-    uint16_t int8tobf16_unpack_high(uint16_t in0);
-    uint16_t int8tobf16_unpack_low(uint16_t in0);
+    // Converts bf16 to int8 and pack
+    uint16_t bf16toint8_pack(uint16_t in0, uint16_t in1);
+
+    // Pack lower 8bits of two 16bit inputs
+    uint16_t bit8_pack(uint16_t in0, uint16_t in1);
+
+    // Max of two bf16's absolute values
+    uint16_t abs_max(uint16_t in0, uint16_t in1);
+
+    // Unpack high and low 8bits of a 16bit input
+    uint16_t bit8_unpack_high(uint16_t in0);
+    uint16_t bit8_unpack_low(uint16_t in0);
+
+    // E8M0 biased shared exp calculation from bf16
+    uint16_t get_shared_exp(uint16_t in0);
+
+    // E8M0 quantization division
+    uint16_t e8m0_quant(uint16_t in0, uint16_t in1);
 }
 
 #endif // HW_SUPPORT_UTILS_H

@@ -5,7 +5,7 @@
 #include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
-   #include "fp_arith.h"
+   #include "fp_get_shared_exp_test.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -15,7 +15,7 @@
 #if defined(WITH_CLOCKWORK)
     #include "rdai_api.h"
     #include "clockwork_sim_platform.h"
-    #include "fp_arith_clockwork.h"
+    #include "fp_get_shared_exp_test_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -23,11 +23,11 @@ using namespace Halide::Runtime;
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
-  OneInOneOut_ProcessController<uint16_t> processor("fp_arith");
+  OneInOneOut_ProcessController<uint16_t> processor("fp_get_shared_exp_test");
 
   #if defined(WITH_CPU)
       auto cpu_process = [&]( auto &proc ) {
-        fp_arith( proc.input, proc.output );
+        fp_get_shared_exp_test( proc.input, proc.output );
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
@@ -46,7 +46,7 @@ int main( int argc, char **argv ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
         if ( rdai_platform ) {
           printf( "[RUN_INFO] found an RDAI platform\n" );
-          fp_arith_clockwork( proc.input, proc.output );
+          fp_get_shared_exp_test_clockwork( proc.input, proc.output );
           RDAI_unregister_platform( rdai_platform );
         } else {
           printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -62,38 +62,29 @@ int main( int argc, char **argv ) {
   processor.input   = Buffer<uint16_t>(64, 64);
   processor.output  = Buffer<uint16_t>(64, 64);
 
-  // Initialize input buffer with random values in range [-255.0, 255.0]
+  // Initialize input buffer
   auto input_copy = processor.input;
   for (int y = 0; y < 64; y++) {
     for (int x = 0; x < 64; x++) {
-      float random_val = (static_cast<float>(rand()) / RAND_MAX) * 510.0f - 255.0f;
-      input_copy(x, y) = float_to_bfloat16_process(random_val);
+      if (rand() % 100 < 10) {
+        // Set some values to zero for corner cases
+        input_copy(x, y) = 0;
+      } else {
+        float random_val = (static_cast<float>(rand()) / RAND_MAX) * 50.0f - 25.0f;
+        input_copy(x, y) = float_to_bfloat16_process(random_val);
+      }
     }
   }
 
 
-  // Generate reference output based on the algorithm in fp_arith_generator.cpp
+  // Generate reference output based on the algorithm in fp_get_shared_exp_test_generator.cpp
   for (int y = 0; y < 64; y++) {
     for (int x = 0; x < 64; x++) {
       // Convert input to float for calculations
-      float input_val = bfloat16_to_float_process(input_copy(x, y));
-
-      // Apply the algorithm operations
-      float mult = input_val * 0.02f;
-      float sub = mult - 1.0f;
-      float expo = expf(sub);
-
-      float mult2 = input_val * 0.1f;
-
-      float absolute_max = (fabsf(expo) > fabsf(mult2)) ? fabsf(expo) : fabsf(mult2);
-
-      float add = absolute_max + 3.0f;
-      float div = 20.0f / add;
-      float sub2 = div - add;
-      float mult3 = sub2 * 5.0f;
+      uint16_t shared_exp = get_shared_exp(input_copy(x, y));
 
       // Store the result in output buffer
-      processor.output(x, y) = float_to_bfloat16_process(mult3);
+      processor.output(x, y) = shared_exp;
     }
   }
 

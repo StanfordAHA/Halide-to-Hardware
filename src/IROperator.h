@@ -1249,18 +1249,36 @@ inline Expr pow(Expr x, Expr y) {
     }
 }
 
-// Convert two bfloat16_t to int8_t and pack them into a single int16_t
-inline Expr f2int_pack(Expr a, Expr b) {
-    user_assert(a.defined() && b.defined()) << "f2int_pack of undefined Expr\n";
-    return Internal::Call::make(UInt(16), "bf16toint8_pack", {std::move(a), std::move(b)}, Internal::Call::Extern);
+// Convert two {8'b0, 8'b(data_i)} into one {data1, data0}
+inline Expr bit8_pack(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "bit8_pack of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "bit8_pack", {std::move(a), std::move(b)}, Internal::Call::Extern);
 }
 
-// Convert one packed 16-bit value to two bfloat16_t as a tuple
-inline Tuple int2f_unpack(Expr a) {
-    user_assert(a.defined()) << "int2f_unpack of undefined Expr\n";
-    Expr v0 = Internal::Call::make(BFloat(16), "int8tobf16_unpack_high", {a}, Internal::Call::Extern, Internal::FunctionPtr(), 0);
-    Expr v1 = Internal::Call::make(BFloat(16), "int8tobf16_unpack_low", {a}, Internal::Call::Extern, Internal::FunctionPtr(), 1);
+// Absolute maximum of two expressions' absolute values
+inline Expr abs_max_bf16(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "abs_max_bf16 of undefined Expr\n";
+    return Internal::Call::make(BFloat(16), "abs_max", {std::move(a), std::move(b)}, Internal::Call::Extern);
+}
+
+// Unpack 16bits into 2x8bits
+inline Tuple bit8_unpack(Expr a) {
+    user_assert(a.defined()) << "bit8_unpack of undefined Expr\n";
+    Expr v0 = Internal::Call::make(UInt(16), "bit8_unpack_high", {a}, Internal::Call::Extern, Internal::FunctionPtr(), 0);
+    Expr v1 = Internal::Call::make(UInt(16), "bit8_unpack_low", {a}, Internal::Call::Extern, Internal::FunctionPtr(), 1);
     return Tuple(v0, v1);
+}
+
+// Get shared exponent (biased) give bf16 data
+inline Expr get_shared_exp(Expr a) {
+    user_assert(a.defined()) << "get_shared_exp of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "get_shared_exp", {std::move(a)}, Internal::Call::Extern);
+}
+
+// E8M0 quantization
+inline Expr e8m0_quant(Expr a, Expr b) {
+    user_assert(a.defined() && b.defined()) << "e8m0_quant of undefined Expr\n";
+    return Internal::Call::make(UInt(16), "e8m0_quant", {std::move(a), std::move(b)}, Internal::Call::Extern);
 }
 
 /** Evaluate the error function erf. Only available for
