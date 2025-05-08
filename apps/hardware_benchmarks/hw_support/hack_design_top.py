@@ -29,7 +29,7 @@ class SelectedDesignHacker:
         """
         self.hack_apps = hack_apps
 
-    def hack_design_if_needed(self, testname, json_path):
+    def hack_design_if_needed(self, testname, json_path, bin_path):
         """
         Only apply hacks if `testname` is in self.hack_apps.
         Otherwise, do nothing.
@@ -44,15 +44,22 @@ class SelectedDesignHacker:
             return
 
         print(f"\033[94mApplying hack for '{testname}'...\033[0m")
-        hack_method_name = f"hack_for_{testname}"
+
+        # Apply different hacks based on whether using rv or static
+        use_rv = os.getenv("DENSE_READY_VALID", "0") != "0"
+        if use_rv:
+            hack_method_name = f"hack_for_{testname}_rv"
+        else:
+            hack_method_name = f"hack_for_{testname}_static"
+
         hack_method = getattr(self, hack_method_name, None)
         if hack_method is None:
             raise AttributeError(
                 f"\033[91mError: Method '{hack_method_name}' does not exist for test '{testname}'.\033[0m"
             )
-        hack_method(json_path)
+        hack_method(json_path, bin_path)
 
-    def hack_for_scalar_reduction(self, json_path):
+    def hack_for_scalar_reduction_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
         INPUT_PIPELINING_REGS = 3
@@ -236,7 +243,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_scalar_reduction_fp(self, json_path):
+    def hack_for_scalar_reduction_fp_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
         INPUT_PIPELINING_REGS = 3
@@ -426,7 +433,120 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_scalar_max_fp(self, json_path):
+    def hack_for_scalar_reduction_fp_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "scalar_reduction_fp"
+        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
+        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
+
+        # Const PE instance to remove
+        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+
+        # Locate "scalar_reduction_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        scalar_reduction_fp = global_modules[top_module]
+
+        # Remove the tile instance and its clk_en_const
+        instance_dict = scalar_reduction_fp.get("instances", {})
+        if tree_out_pond in instance_dict:
+            del instance_dict[tree_out_pond]
+        if tree_out_pond_clk in instance_dict:
+            del instance_dict[tree_out_pond_clk]
+
+        # Remove references to the tile from connections,
+        #    capturing upstream => old_input, downstream => old_output
+        old_input = None
+        old_output = None
+        new_connections = []
+
+        connection_list = scalar_reduction_fp.get("connections", [])
+        for conn in connection_list:
+            left, right = conn[0], conn[1]
+
+            # Check references to tile or its clk const
+            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
+            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
+
+            if not (refs_tile_left or refs_tile_right):
+                # If no reference to tile, keep it for now
+                new_connections.append(conn)
+                continue
+
+            # If referencing the tile, skip it but see if it's data_in or data_out
+            if tree_out_pond in left:
+                if ".data_in_pond_" in left or ".data_in_" in left:
+                    old_input = right
+            elif tree_out_pond in right:
+                if ".data_in_pond_" in right or ".data_in_" in right:
+                    old_input = left
+
+            if tree_out_pond in left:
+                if ".data_out_pond_" in left or ".data_out_" in left:
+                    old_output = right
+            elif tree_out_pond in right:
+                if ".data_out_pond_" in right or ".data_out_" in right:
+                    old_output = left
+
+        # Reconnect old_input -> old_output if both exist
+        if old_input and old_output:
+            new_connections.append([old_input, old_output])
+        else:
+            print(
+                f"WARNING: Could not find both data_in and data_out references for "
+                f"tile '{tree_out_pond}'. No direct reconnection added."
+            )
+
+        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
+        #    from the instance dictionary (if present)
+        if pe_to_remove in instance_dict:
+            del instance_dict[pe_to_remove]
+
+        # Filter out any connections referencing const PE instance
+        final_connections = []
+        for conn in new_connections:
+            left, right = conn[0], conn[1]
+            if pe_to_remove in left or pe_to_remove in right:
+                # skip any references to that PE
+                continue
+            final_connections.append(conn)
+
+        # Update the final connection list
+        scalar_reduction_fp["connections"] = final_connections
+
+        # Identify psum PE with Pond and generate fifo bypass config
+        # Write bypass config to design_top at the top level
+        psum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
+        PE_fifos_bypass_config = {
+            psum_pe_name: {
+                # HACK: Assuming the PE input port connected to Pond is "data_in_0"
+                # We bypass the input and output fifos on the feedback path
+                "input_fifo_bypass": [1, 0, 0],
+                "output_fifo_bypass": 1
+            }
+        }
+        PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        print(f"Writing PE_fifos_bypass_config to {PE_fifos_bypass_config_path}")
+        with open(PE_fifos_bypass_config_path, "w") as f:
+            json.dump(PE_fifos_bypass_config, f, indent=2)
+
+        # Update output IO tile extent
+        # HACK: Set extent to 2 (should set this to 1 since we only have 1 output, but then can't get f2g interrupt)
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [2]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_scalar_max_fp_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
         INPUT_PIPELINING_REGS = 3
@@ -615,7 +735,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_stable_softmax_pass2_fp(self, json_path):
+    def hack_for_stable_softmax_pass2_fp_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
         INPUT_PIPELINING_REGS = 3
@@ -891,7 +1011,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_stable_softmax_pass3_fp(self, json_path):
+    def hack_for_stable_softmax_pass3_fp_static(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -994,7 +1114,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_scalar_avg_fp(self, json_path):
+    def hack_for_scalar_avg_fp_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
         INPUT_PIPELINING_REGS = 3
@@ -1184,7 +1304,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_layer_norm_pass2_fp(self, json_path):
+    def hack_for_layer_norm_pass2_fp_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
         INPUT_PIPELINING_REGS = 3
@@ -1460,7 +1580,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_layer_norm_pass3_fp(self, json_path):
+    def hack_for_layer_norm_pass3_fp_static(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -1559,7 +1679,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_gelu_pass2_fp(self, json_path):
+    def hack_for_gelu_pass2_fp_static(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -1662,7 +1782,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_silu_pass2_fp(self, json_path):
+    def hack_for_silu_pass2_fp_static(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -1765,7 +1885,7 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_swiglu_pass2_fp(self, json_path):
+    def hack_for_swiglu_pass2_fp_static(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -2041,6 +2161,12 @@ def main():
         help="design meta halide JSON file to hack in-place (will be overwritten)",
         required=True,
     )
+    parser.add_argument(
+        "--bin_dir",
+        type=str,
+        help="app bin directory for storing other config files",
+        required=True,
+    )
     args = parser.parse_args()
 
     # We can expand this list if more apps need hacking
@@ -2051,7 +2177,7 @@ def main():
 
     # Perform hack if testname is in that list, otherwise skip
     selected_design_top_hacker.hack_design_if_needed(
-        args.testname, args.design_top_json
+        args.testname, args.design_top_json, args.bin_dir
     )
 
     # ----------------- Perform global hacks -----------------
