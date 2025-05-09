@@ -6,7 +6,7 @@ using namespace std;
 
 using namespace Halide;
 
-int inImgSize = 128;
+int inImgSize = 64;
 int outImgSize = inImgSize;
 
 class PointwiseMultiplication : public Halide::Generator<PointwiseMultiplication> {
