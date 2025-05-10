@@ -78,6 +78,11 @@ Tuple argmin(RDom, Expr, const std::string &s = "argmin");
 Expr maximum(Expr, const Func &);
 Expr maximum(const RDom &, Expr, const Func &);
 
+/** Return the abs maximum value of a bf16 expression over a given domain using the absolute value. The
+ * second argument specifies a Func or a name for the intermediate Func. */
+Expr abs_maximum_bf16(const RDom &r, Expr e, const Func &f);
+Expr abs_maximum_bf16(const RDom &r, Expr e, const std::string &name = "");
+
 }  // namespace Halide
 
 #endif

@@ -13,11 +13,11 @@ public:
     Input<Buffer<uint16_t>>  bias{"bias", 3};
     Output<Buffer<uint16_t>> output{"output", 3};
 
-    GeneratorParam<int> out_img{"out_img", 56};
-    GeneratorParam<int> n_oc{"n_oc", 32};
-  
-    GeneratorParam<int> unroll{"unroll", 8};
-  
+    GeneratorParam<int> out_img{"out_img", 28};
+    GeneratorParam<int> n_oc{"n_oc", 8};
+
+    GeneratorParam<int> unroll{"unroll", 4};
+
     void generate() {
         /* THE ALGORITHM */
 
@@ -30,8 +30,8 @@ public:
       hw_input(w, x, y) = cast<bfloat16_t>(input(w, x, y));
       hw_bias(w, x, y) = cast<bfloat16_t>(bias(w, x, y));
 
-      relu6(w, x, y) = min(max(hw_input(w, x, y) + hw_bias(w, x, y), cast<bfloat16_t>(0.0f)), cast<bfloat16_t>(6.0f));
-      
+      relu6(w, x, y) = max(hw_input(w, x, y) + hw_bias(w, x, y), cast<bfloat16_t>(0.0f));
+
       hw_output(w, x, y) = relu6(w, x, y);
       output(w, x, y) = cast<uint16_t>(hw_output(w, x, y));
 
@@ -45,7 +45,7 @@ public:
           output.bound(x, 0, out_img);
           output.bound(y, 0, out_img);
           output.bound(w, 0, n_oc);
-          
+
           //hw_input.compute_root();
           hw_output.compute_root();
           hw_output
@@ -55,13 +55,13 @@ public:
           hw_output.unroll(w, unroll);
 
           relu6.compute_at(hw_output, xo).unroll(w, unroll);
-          
+
           hw_input.stream_to_accelerator();
           hw_input.in().unroll(w, unroll);
 
           hw_bias.stream_to_accelerator();
           hw_bias.in().unroll(w, unroll);
-          
+
         } else {
 
         }
