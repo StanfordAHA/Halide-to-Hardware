@@ -91,6 +91,14 @@ $(HWSUPPORT)/$(BIN)/hw_support_utils.o: $(HWSUPPORT)/hw_support_utils.cpp $(HWSU
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(HWSUPPORT)/$(BIN)/bf16_op.o: $(HWSUPPORT)/bf16_op.cpp $(HWSUPPORT)/bf16_op.h
+	@-mkdir -p $(HWSUPPORT)/$(BIN)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(HWSUPPORT)/$(BIN)/gen_lut.o: $(HWSUPPORT)/gen_lut.cpp $(HWSUPPORT)/gen_lut.h
+	@-mkdir -p $(HWSUPPORT)/$(BIN)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(HWSUPPORT)/$(BIN)/coreir_interpret.o: $(HWSUPPORT)/coreir_interpret.cpp $(HWSUPPORT)/coreir_interpret.h
 	@-mkdir -p $(HWSUPPORT)/$(BIN)
 	@#env LD_LIBRARY_PATH=$(COREIR_DIR)/lib $(CXX) $(CXXFLAGS) -I$(HWSUPPORT) -c $< $(LDFLAGS) -o $@
@@ -223,7 +231,7 @@ reschedule_mem:
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
-	python $(HWSUPPORT)/hack_design_top.py --testname $(TESTNAME) --design_top_json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json --design_meta_halide_json $(BIN)/design_meta_halide.json
+	python $(HWSUPPORT)/hack_design_top.py --testname $(TESTNAME) --design_top_json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json --design_meta_halide_json $(BIN)/design_meta_halide.json --bin_dir $(BIN)
 	python $(HWSUPPORT)/copy_clockwork_schedules.py $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json $(BIN)/$(TESTNAME)_flush_latencies.json $(BIN)/$(TESTNAME)_pond_latencies.json $(BIN)/$(TESTNAME)_stencil_valid_latencies.json
 
 mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTNAME)/$(TESTNAME).json
@@ -238,7 +246,7 @@ map: $(BIN)/clockwork_codegen
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
 	EXIT_CODE=$$?; rm unoptimized_$(TESTNAME)*; cd ..; exit $$EXIT_CODE
-	python $(HWSUPPORT)/hack_design_top.py --testname $(TESTNAME) --design_top_json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json --design_meta_halide_json $(BIN)/design_meta_halide.json
+	python $(HWSUPPORT)/hack_design_top.py --testname $(TESTNAME) --design_top_json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json --design_meta_halide_json $(BIN)/design_meta_halide.json --bin_dir $(BIN)
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
 
 #FIXME: $(BIN)/unoptimized_$(TESTNAME).o
@@ -306,7 +314,7 @@ design-vhls $(BIN)/vhls_target.cpp $(BIN)/$(TESTNAME)_vhls.cpp: $(BIN)/$(TESTNAM
 #$(HWSUPPORT)/hardware_image_helpers.h
 
 # Note: these are all set in the first pass of the makefile
-PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o $(HWSUPPORT)/$(BIN)/hw_support_utils.o
+PROCESS_DEPS = process.cpp $(HWSUPPORT)/$(BIN)/hardware_process_helper.o $(HWSUPPORT)/$(BIN)/coreir_sim_plugins.o $(HWSUPPORT)/$(BIN)/hw_support_utils.o $(HWSUPPORT)/$(BIN)/bf16_op.o $(HWSUPPORT)/$(BIN)/gen_lut.o
 PROCESS_TARGETS =
 
 # conditionally add CPU implementation to process
