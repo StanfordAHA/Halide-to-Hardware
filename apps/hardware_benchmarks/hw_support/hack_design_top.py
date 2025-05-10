@@ -15,6 +15,7 @@ APPS_NEEDING_HACKS = [
     "gelu_pass2_fp",
     "silu_pass2_fp",
     "swiglu_pass2_fp",
+    "vector_reduction_fp",
 ]
 
 
@@ -28,6 +29,11 @@ class SelectedDesignHacker:
         :param hack_apps: A list of test/app names that require hacking
         """
         self.hack_apps = hack_apps
+
+        # Extract halide_gen_args dict for config
+        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS", None)
+        assert HALIDE_GEN_ARGS is not None, f"HALIDE_GEN_ARGS has to be set for hack_design_top"
+        self.halide_gen_args_dict = dict(item.split('=') for item in HALIDE_GEN_ARGS.strip().split())
 
     def hack_design_if_needed(self, testname, json_path, bin_path):
         """
@@ -428,119 +434,6 @@ class SelectedDesignHacker:
             hw_conf["stencil_valid"] = stencil_valid
             hw_meta["config"] = hw_conf
             hw_inst["metadata"] = hw_meta
-
-        # Overwrite the JSON
-        with open(json_path, "w") as f:
-            f.write(pretty_format_json(design))
-
-    def hack_for_scalar_reduction_fp_rv(self, json_path, bin_path):
-
-        with open(json_path, "r") as f:
-            design = json.load(f)
-
-        top_module = "scalar_reduction_fp"
-        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
-        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
-
-        # Const PE instance to remove
-        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
-
-        # Locate "scalar_reduction_fp" module
-        global_modules = design["namespaces"]["global"]["modules"]
-        if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
-            return
-        scalar_reduction_fp = global_modules[top_module]
-
-        # Remove the tile instance and its clk_en_const
-        instance_dict = scalar_reduction_fp.get("instances", {})
-        if tree_out_pond in instance_dict:
-            del instance_dict[tree_out_pond]
-        if tree_out_pond_clk in instance_dict:
-            del instance_dict[tree_out_pond_clk]
-
-        # Remove references to the tile from connections,
-        #    capturing upstream => old_input, downstream => old_output
-        old_input = None
-        old_output = None
-        new_connections = []
-
-        connection_list = scalar_reduction_fp.get("connections", [])
-        for conn in connection_list:
-            left, right = conn[0], conn[1]
-
-            # Check references to tile or its clk const
-            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
-            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
-
-            if not (refs_tile_left or refs_tile_right):
-                # If no reference to tile, keep it for now
-                new_connections.append(conn)
-                continue
-
-            # If referencing the tile, skip it but see if it's data_in or data_out
-            if tree_out_pond in left:
-                if ".data_in_pond_" in left or ".data_in_" in left:
-                    old_input = right
-            elif tree_out_pond in right:
-                if ".data_in_pond_" in right or ".data_in_" in right:
-                    old_input = left
-
-            if tree_out_pond in left:
-                if ".data_out_pond_" in left or ".data_out_" in left:
-                    old_output = right
-            elif tree_out_pond in right:
-                if ".data_out_pond_" in right or ".data_out_" in right:
-                    old_output = left
-
-        # Reconnect old_input -> old_output if both exist
-        if old_input and old_output:
-            new_connections.append([old_input, old_output])
-        else:
-            print(
-                f"WARNING: Could not find both data_in and data_out references for "
-                f"tile '{tree_out_pond}'. No direct reconnection added."
-            )
-
-        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
-        #    from the instance dictionary (if present)
-        if pe_to_remove in instance_dict:
-            del instance_dict[pe_to_remove]
-
-        # Filter out any connections referencing const PE instance
-        final_connections = []
-        for conn in new_connections:
-            left, right = conn[0], conn[1]
-            if pe_to_remove in left or pe_to_remove in right:
-                # skip any references to that PE
-                continue
-            final_connections.append(conn)
-
-        # Update the final connection list
-        scalar_reduction_fp["connections"] = final_connections
-
-        # Identify psum PE with Pond and generate fifo bypass config
-        # Write bypass config to design_top at the top level
-        psum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
-        PE_fifos_bypass_config = {
-            psum_pe_name: {
-                # HACK: Assuming the PE input port connected to Pond is "data_in_0"
-                # We bypass the input and output fifos on the feedback path
-                "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
-            }
-        }
-        PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
-        print(f"Writing PE_fifos_bypass_config to {PE_fifos_bypass_config_path}")
-        with open(PE_fifos_bypass_config_path, "w") as f:
-            json.dump(PE_fifos_bypass_config, f, indent=2)
-
-        # Update output IO tile extent
-        # HACK: Set extent to 2 (should set this to 1 since we only have 1 output, but then can't get f2g interrupt)
-        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [2]
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
@@ -1988,6 +1881,238 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+    def hack_for_scalar_reduction_fp_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "scalar_reduction_fp"
+        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
+        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
+
+        # Const PE instance to remove
+        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+
+        # Locate "scalar_reduction_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        scalar_reduction_fp = global_modules[top_module]
+
+        # Remove the tile instance and its clk_en_const
+        instance_dict = scalar_reduction_fp.get("instances", {})
+        if tree_out_pond in instance_dict:
+            del instance_dict[tree_out_pond]
+        if tree_out_pond_clk in instance_dict:
+            del instance_dict[tree_out_pond_clk]
+
+        # Remove references to the tile from connections,
+        #    capturing upstream => old_input, downstream => old_output
+        old_input = None
+        old_output = None
+        new_connections = []
+
+        connection_list = scalar_reduction_fp.get("connections", [])
+        for conn in connection_list:
+            left, right = conn[0], conn[1]
+
+            # Check references to tile or its clk const
+            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
+            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
+
+            if not (refs_tile_left or refs_tile_right):
+                # If no reference to tile, keep it for now
+                new_connections.append(conn)
+                continue
+
+            # If referencing the tile, skip it but see if it's data_in or data_out
+            if tree_out_pond in left:
+                if ".data_in_pond_" in left or ".data_in_" in left:
+                    old_input = right
+            elif tree_out_pond in right:
+                if ".data_in_pond_" in right or ".data_in_" in right:
+                    old_input = left
+
+            if tree_out_pond in left:
+                if ".data_out_pond_" in left or ".data_out_" in left:
+                    old_output = right
+            elif tree_out_pond in right:
+                if ".data_out_pond_" in right or ".data_out_" in right:
+                    old_output = left
+
+        # Reconnect old_input -> old_output if both exist
+        if old_input and old_output:
+            new_connections.append([old_input, old_output])
+        else:
+            print(
+                f"WARNING: Could not find both data_in and data_out references for "
+                f"tile '{tree_out_pond}'. No direct reconnection added."
+            )
+
+        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
+        #    from the instance dictionary (if present)
+        if pe_to_remove in instance_dict:
+            del instance_dict[pe_to_remove]
+
+        # Filter out any connections referencing const PE instance
+        final_connections = []
+        for conn in new_connections:
+            left, right = conn[0], conn[1]
+            if pe_to_remove in left or pe_to_remove in right:
+                # skip any references to that PE
+                continue
+            final_connections.append(conn)
+
+        # Update the final connection list
+        scalar_reduction_fp["connections"] = final_connections
+
+        # Identify psum PE with Pond and generate fifo bypass config
+        # Write bypass config to design_top at the top level
+        psum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
+        PE_fifos_bypass_config = {
+            psum_pe_name: {
+                # HACK: Assuming the PE input port connected to Pond is "data_in_0"
+                # We bypass the input and output fifos on the feedback path
+                "input_fifo_bypass": [1, 0, 0],
+                "output_fifo_bypass": 1
+            }
+        }
+        PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        print(f"Writing PE_fifos_bypass_config to {PE_fifos_bypass_config_path}")
+        with open(PE_fifos_bypass_config_path, "w") as f:
+            json.dump(PE_fifos_bypass_config, f, indent=2)
+
+        # Update output IO tile extent
+        # HACK: Set extent to 2 (should set this to 1 since we only have 1 output, but then can't get f2g interrupt)
+        # Also have to update cycle_start_addr and stride, as it means handshake rather than cycles in dense rv scenario
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [2]
+        # We want to accept every valid handshake starting from the first one
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_vector_reduction_fp_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "vector_reduction_fp"
+        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
+        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
+
+        # Const PE instance to remove
+        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+
+        # Locate "vector_reduction_fp" module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(
+                f"WARNING: Module '{top_module}' not found in design. No hack applied."
+            )
+            return
+        vector_reduction_fp = global_modules[top_module]
+
+        # Remove the tile instance and its clk_en_const
+        instance_dict = vector_reduction_fp.get("instances", {})
+        if tree_out_pond in instance_dict:
+            del instance_dict[tree_out_pond]
+        if tree_out_pond_clk in instance_dict:
+            del instance_dict[tree_out_pond_clk]
+
+        # Remove references to the tile from connections,
+        #    capturing upstream => old_input, downstream => old_output
+        old_input = None
+        old_output = None
+        new_connections = []
+
+        connection_list = vector_reduction_fp.get("connections", [])
+        for conn in connection_list:
+            left, right = conn[0], conn[1]
+
+            # Check references to tile or its clk const
+            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
+            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
+
+            if not (refs_tile_left or refs_tile_right):
+                # If no reference to tile, keep it for now
+                new_connections.append(conn)
+                continue
+
+            # If referencing the tile, skip it but see if it's data_in or data_out
+            if tree_out_pond in left:
+                if ".data_in_pond_" in left or ".data_in_" in left:
+                    old_input = right
+            elif tree_out_pond in right:
+                if ".data_in_pond_" in right or ".data_in_" in right:
+                    old_input = left
+
+            if tree_out_pond in left:
+                if ".data_out_pond_" in left or ".data_out_" in left:
+                    old_output = right
+            elif tree_out_pond in right:
+                if ".data_out_pond_" in right or ".data_out_" in right:
+                    old_output = left
+
+        # Reconnect old_input -> old_output if both exist
+        if old_input and old_output:
+            new_connections.append([old_input, old_output])
+        else:
+            print(
+                f"WARNING: Could not find both data_in and data_out references for "
+                f"tile '{tree_out_pond}'. No direct reconnection added."
+            )
+
+        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
+        #    from the instance dictionary (if present)
+        if pe_to_remove in instance_dict:
+            del instance_dict[pe_to_remove]
+
+        # Filter out any connections referencing const PE instance
+        final_connections = []
+        for conn in new_connections:
+            left, right = conn[0], conn[1]
+            if pe_to_remove in left or pe_to_remove in right:
+                # skip any references to that PE
+                continue
+            final_connections.append(conn)
+
+        # Update the final connection list
+        vector_reduction_fp["connections"] = final_connections
+
+        # Identify psum PE with Pond and generate fifo bypass config
+        # Write bypass config to design_top at the top level
+        psum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
+        PE_fifos_bypass_config = {
+            psum_pe_name: {
+                # HACK: Assuming the PE input port connected to Pond is "data_in_0"
+                # We bypass the input and output fifos on the feedback path
+                "input_fifo_bypass": [1, 0, 0],
+                "output_fifo_bypass": 1
+            }
+        }
+        PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        print(f"Writing PE_fifos_bypass_config to {PE_fifos_bypass_config_path}")
+        with open(PE_fifos_bypass_config_path, "w") as f:
+            json.dump(PE_fifos_bypass_config, f, indent=2)
+
+        # Update output IO tile extent to match the number of output pixels
+        # Also have to update cycle_start_addr and stride, as it means handshake rather than cycles in dense rv scenario
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["vec_height"])]
+        # We want to accept every valid handshake starting from the first one
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
 
 class GlobalDesignHacker:
     """
