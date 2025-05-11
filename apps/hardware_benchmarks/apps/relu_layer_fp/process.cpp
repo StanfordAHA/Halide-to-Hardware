@@ -100,7 +100,7 @@ int main( int argc, char **argv ) {
     for (int x = 0; x < processor.output.dim(1).extent(); x++) {
       for (int y = 0; y < processor.output.dim(2).extent(); y++) {
         float sum = bfloat16_to_float_process(processor.inputs["hw_input_stencil.mat"](w, x, y)) + bfloat16_to_float_process(processor.inputs["hw_bias_stencil.raw"](w));
-        float result = std::min(std::max(sum, 0.0f), 6.0f);
+        float result =std::max(sum, 0.0f);
         processor.output(w, x, y) = float_to_bfloat16_process(result);
       }
     }
