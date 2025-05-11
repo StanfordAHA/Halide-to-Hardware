@@ -32,8 +32,9 @@ class SelectedDesignHacker:
 
         # Extract halide_gen_args dict for config
         HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS", None)
-        assert HALIDE_GEN_ARGS is not None, f"HALIDE_GEN_ARGS has to be set for hack_design_top"
-        self.halide_gen_args_dict = dict(item.split('=') for item in HALIDE_GEN_ARGS.strip().split())
+        self.halide_gen_args_dict = dict(
+            item.split('=') for item in (HALIDE_GEN_ARGS or '').strip().split()
+        )
 
     def hack_design_if_needed(self, testname, json_path, bin_path):
         """
