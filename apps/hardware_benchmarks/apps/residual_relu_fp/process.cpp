@@ -7,6 +7,7 @@
 #include "halide_image_io.h"
 #include "coreir.h"
 #include "hw_support_utils.h"
+#include "cstdlib"
 
 #if defined(WITH_CPU)
    #include "residual_relu_fp.h"
@@ -26,6 +27,7 @@ using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
 nlohmann::json output_starting_json;
+
 
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
@@ -61,11 +63,12 @@ int main( int argc, char **argv ) {
       functions["clockwork"] = [&](){ clockwork_process( processor ); };
   #endif
 
-  auto OX = getenv("out_img");
-  auto OC = getenv("n_oc");
+  // auto OX = getenv("out_img");
+  // auto OC = getenv("n_oc");
 
-  auto out_img = OX ? atoi(OX) : 56;
-  auto n_oc = OC ? atoi(OC) : 32;
+  // auto out_img = OX ? atoi(OX) : 56;
+  // auto n_oc = OC ? atoi(OC) : 32;
+  auto out_img = 448;
 
   // Add all defined functions
   processor.run_calls = functions;
@@ -76,7 +79,6 @@ int main( int argc, char **argv ) {
 
   processor.inputs_preset = true;
 
-  // for (int y = 0; y < processor.inputs["mu_hw_input_stencil.mat"].dim(2).extent(); y++) {
     for (int y = 0; y < processor.inputs["mu_hw_input_stencil.mat"].dim(1).extent(); y++) {
       for (int x = 0; x < processor.inputs["mu_hw_input_stencil.mat"].dim(0).extent(); x++) {
         processor.inputs["mu_hw_input_stencil.mat"](x, y) = float_to_bfloat16_process(
@@ -85,19 +87,20 @@ int main( int argc, char **argv ) {
         );
       }
     }
-  // }
 
-  for (int y = 0; y < processor.inputs["hw_residual_input_stencil.raw"].dim(1).extent(); y++) {
-    for (int x = 0; x < processor.inputs["hw_residual_input_stencil.raw"].dim(0).extent(); x++) {
+    for (int y = 0; y < processor.inputs["hw_residual_input_stencil.raw"].dim(1).extent(); y++) {
+      for (int x = 0; x < processor.inputs["hw_residual_input_stencil.raw"].dim(0).extent(); x++) {
         processor.inputs["hw_residual_input_stencil.raw"](x, y) = float_to_bfloat16_process(
-          0.0
+          // [-7, 7]
+          // ((float)rand() / RAND_MAX) * 14.0 - 7.0
+          0.0f
         );
       }
     }
 
   // Gold output
-    for (int y = 0; y < processor.output.dim(1).extent(); y++) {
-      for (int x = 0; x< processor.output.dim(0).extent(); x++) {
+  for (int y = 0; y < processor.output.dim(1).extent(); y++) {
+    for (int x = 0; x < processor.output.dim(0).extent(); x++) {
         float sum = bfloat16_to_float_process(processor.inputs["mu_hw_input_stencil.mat"](x, y)) + bfloat16_to_float_process(processor.inputs["hw_residual_input_stencil.raw"](x, y));
         float result = std::max(sum, 0.0f);
         processor.output(x, y) = float_to_bfloat16_process(result);
@@ -107,8 +110,12 @@ int main( int argc, char **argv ) {
   std::cout << "Writing mu_hw_input_stencil.mat to bin folder" << std::endl;
   save_image(processor.inputs["mu_hw_input_stencil.mat"], "bin/mu_hw_input_stencil.mat");
 
-  std::cout << "Writing hw_residual_input_stencil.raw to bin folder" << std::endl;
-  saveHalideBufferToRawBigEndian(processor.inputs["hw_residual_input_stencil.raw"], "bin/hw_residual_input_stencil.raw");
+  // std::cout << "Writing hw_residual_input_stencil.raw to bin folder" << std::endl;
+  // saveHalideBufferToRawBigEndian(processor.inputs["hw_residual_input_stencil.raw"], "bin/hw_residual_input_stencil.raw");
+
+  // FIXME: Hack to copy the pre-existing raw file into the bin folder for now
+  system("cp hw_residual_input_stencil.raw bin/hw_residual_input_stencil.raw");
+  std::cout << "Copying pre-existing hw_residual_input_stencil.raw to bin folder" << std::endl;
 
   std::cout << "Writing output to bin folder" << std::endl;
   save_image(processor.output, "bin/hw_output.mat");
