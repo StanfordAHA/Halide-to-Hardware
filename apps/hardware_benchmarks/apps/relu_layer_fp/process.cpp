@@ -25,31 +25,6 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-nlohmann::json output_starting_json;
-
-std::vector<int> parse_glb_bank_config_env_var(const std::string& env_var_name) {
-    std::vector<int> values;
-    const char* env_var_value = std::getenv(env_var_name.c_str());
-
-    if (env_var_value) {
-        std::string value_str = env_var_value;
-        std::istringstream iss(value_str);
-        std::string token;
-
-        // Split the string by commas and convert to integers
-        while (std::getline(iss, token, ',')) {
-            // Trim potential whitespace
-            token.erase(0, token.find_first_not_of(" \t\n\r\f\v"));
-            token.erase(token.find_last_not_of(" \t\n\r\f\v") + 1);
-            values.push_back(std::stoi(token));
-        }
-    } else {
-        std::cerr << "Environment variable " << env_var_name << " not found." << std::endl;
-    }
-
-    return values;
-}
-
 int main( int argc, char **argv ) {
   std::map<std::string, std::function<void()>> functions;
   ManyInOneOut_ProcessController<uint16_t> processor("relu_layer_fp", {"hw_input_stencil.mat", "hw_bias_stencil.raw"});
@@ -87,8 +62,8 @@ int main( int argc, char **argv ) {
   auto OX = getenv("out_img");
   auto OC = getenv("n_oc");
 
-  auto out_img = OX ? atoi(OX) : 56;
-  auto n_oc = OC ? atoi(OC) : 32;
+  auto out_img = OX ? atoi(OX) : 28;
+  auto n_oc = OC ? atoi(OC) : 8;
 
   // Add all defined functions
   processor.run_calls = functions;
@@ -125,7 +100,7 @@ int main( int argc, char **argv ) {
     for (int x = 0; x < processor.output.dim(1).extent(); x++) {
       for (int y = 0; y < processor.output.dim(2).extent(); y++) {
         float sum = bfloat16_to_float_process(processor.inputs["hw_input_stencil.mat"](w, x, y)) + bfloat16_to_float_process(processor.inputs["hw_bias_stencil.raw"](w));
-        float result = std::min(std::max(sum, 0.0f), 6.0f);
+        float result =std::max(sum, 0.0f);
         processor.output(w, x, y) = float_to_bfloat16_process(result);
       }
     }
@@ -139,38 +114,6 @@ int main( int argc, char **argv ) {
 
   std::cout << "Writing output to bin folder" << std::endl;
   save_image(processor.output, "bin/hw_output.mat");
-
-  // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
-  std::cout << "Checking for GLB bank configuration..." << std::endl;
-  std::cout << "USE_GLB_BANK_CONFIG = " << getenv("USE_GLB_BANK_CONFIG") << std::endl;
-  if (getenv("USE_GLB_BANK_CONFIG") && std::stoi(getenv("USE_GLB_BANK_CONFIG"))) {
-    std::vector<int> hw_input_stencil = parse_glb_bank_config_env_var("HW_INPUT_STENCIL_POS");
-    std::vector<int> hw_bias_stencil = parse_glb_bank_config_env_var("HW_BIAS_STENCIL_POS");
-    std::vector<int> hw_output_stencil = parse_glb_bank_config_env_var("HW_OUTPUT_STENCIL_POS");
-    std::vector<int> glb_inputs = parse_glb_bank_config_env_var("GLB_INPUTS");
-
-    // Create the glb_bank_config.json structure
-    json config = {
-        {"inputs", {
-            {"hw_input_stencil", hw_input_stencil},
-            {"hw_bias_stencil", hw_bias_stencil}
-        }},
-        {"outputs", {
-            {"hw_output_stencil", hw_output_stencil}
-        }},
-        {"glb_inputs", glb_inputs}
-    };
-
-    std::ofstream file("bin/glb_bank_config.json");
-    if (file.is_open()) {
-        file << config.dump(4) << std::endl;
-        file.close();
-        std::cout << "Successfully wrote to bin/glb_bank_config.json" << std::endl;
-    } else {
-        std::cerr << "Unable to open file for writing." << std::endl;
-        return 1;
-    }
-  }
 
   return processor.process_command(argc, argv);
 
