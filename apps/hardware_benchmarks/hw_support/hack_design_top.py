@@ -16,6 +16,7 @@ APPS_NEEDING_HACKS = [
     "silu_pass2_fp",
     "swiglu_pass2_fp",
     "vector_reduction_fp",
+    "mem_reshape_test",
 ]
 
 
@@ -2769,6 +2770,60 @@ class SelectedDesignHacker:
     def hack_for_swiglu_pass2_fp_rv(self, json_path, bin_path):
         return self.hack_for_swiglu_pass2_fp_static(json_path, bin_path)
 
+    def hack_for_mem_reshape_test_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top = design["namespaces"]["global"]["modules"]["mem_reshape_test"]
+        insts = top["instances"]
+        conns = top["connections"]
+
+        # Identify and remove the two PE instances and their const drivers
+        to_remove = []
+        for name, info in insts.items():
+            if info.get("modref") == "global.PE":
+                to_remove.append(name)
+            if name.startswith("op_hcompute_conv_stencil") and ("inner_compute$" in name):
+                to_remove.append(name)
+
+        for name in set(to_remove):
+            insts.pop(name, None)
+
+        # Filter out any connections that reference the removed instances
+        kept_conns = []
+        for src, dst in conns:
+            src_inst = src.split(".", 1)[0]
+            dst_inst = dst.split(".", 1)[0]
+            if src_inst in to_remove or dst_inst in to_remove:
+                continue
+            kept_conns.append([src, dst])
+
+        # Connect the MEM tile to the output IO
+        kept_conns.append([
+            "hw_input_global_wrapper_stencil$ub_hw_input_global_wrapper_stencil_BANK_0_garnet.data_out_0",
+            "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0.in"
+        ])
+
+        # Update IO tile config
+        io_in_name = "io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0"
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        # Input config
+        insts[io_in_name]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+        insts[io_in_name]["metadata"]["glb2out_0"]["cycle_stride"] = [1]
+        insts[io_in_name]["metadata"]["glb2out_0"]["dimensionality"] = 1
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img"]) * int(self.halide_gen_args_dict["in_img"])]
+        # Output config
+        insts[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+        insts[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+        insts[io_out_name]["metadata"]["in2glb_0"]["dimensionality"] = 1
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img"]) * int(self.halide_gen_args_dict["in_img"])]
+
+        top["connections"] = kept_conns
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
 
 class GlobalDesignHacker:
     """
