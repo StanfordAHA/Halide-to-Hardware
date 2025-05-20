@@ -33,7 +33,7 @@ include ../../hw_support/Makefile.inc
 # RDAI_PLATFORM_RUNTIME         : RDAI platform runtime to use
 ###############################################################################
 
-TESTNAME                        = mem_reshape_test
+TESTNAME                        = mem_transpose_test
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim

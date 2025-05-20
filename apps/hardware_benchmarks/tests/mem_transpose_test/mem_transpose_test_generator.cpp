@@ -5,12 +5,16 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-class MEMReshapeTest : public Halide::Generator<MEMReshapeTest> {
+class MEMTransposeTest : public Halide::Generator<MEMTransposeTest> {
 public:
     Input<Buffer<uint16_t>>  input{"input", 2};
     Output<Buffer<uint16_t>> output{"output", 2};
 
-    GeneratorParam<int> in_img{"in_img", 64};    // default: 64
+    GeneratorParam<int> in_img_x_fake{"in_img_x_fake", 64};    // default: 64
+    GeneratorParam<int> in_img_y_fake{"in_img_y_fake", 32};    // default: 32
+
+    GeneratorParam<int> in_img_x{"in_img_x", 64};    // default: 64
+    GeneratorParam<int> in_img_y{"in_img_y", 32};    // default: 32
 
     void generate() {
         /* THE ALGORITHM */
@@ -43,12 +47,12 @@ public:
 
           hw_output.compute_root();
 
-          output.bound(x, 0, in_img);
-          output.bound(y, 0, in_img-1);
-          conv.bound(x, 0, in_img);
-          conv.bound(y, 0, in_img-1);
+          output.bound(x, 0, in_img_x_fake);
+          output.bound(y, 0, in_img_y_fake-1);
+          conv.bound(x, 0, in_img_x_fake);
+          conv.bound(y, 0, in_img_y_fake-1);
 
-          hw_output.tile(x,y, xo,yo, xi,yi, in_img, in_img-1)
+          hw_output.tile(x,y, xo,yo, xi,yi, in_img_x_fake, in_img_y_fake-1)
             .hw_accelerate(xi, xo);
 
           conv.update()
@@ -62,12 +66,12 @@ public:
         } else if (get_target().has_feature(Target::Clockwork)) {
           Var xi,yi, xo,yo;
 
-          output.bound(x, 0, in_img);
-          output.bound(y, 0, in_img-1);
+          output.bound(x, 0, in_img_x_fake);
+          output.bound(y, 0, in_img_y_fake-1);
 
           hw_output.compute_root();
           hw_output
-              .tile(x,y, xo,yo, xi,yi, in_img, in_img-1)
+              .tile(x,y, xo,yo, xi,yi, in_img_x_fake, in_img_y_fake-1)
               .hw_accelerate(xi, xo);
 
           conv.update()
@@ -93,4 +97,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(MEMReshapeTest, mem_reshape_test)
+HALIDE_REGISTER_GENERATOR(MEMTransposeTest, mem_transpose_test)

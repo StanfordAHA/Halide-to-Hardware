@@ -16,7 +16,7 @@ APPS_NEEDING_HACKS = [
     "silu_pass2_fp",
     "swiglu_pass2_fp",
     "vector_reduction_fp",
-    "mem_reshape_test",
+    "mem_transpose_test",
 ]
 
 
@@ -2770,12 +2770,12 @@ class SelectedDesignHacker:
     def hack_for_swiglu_pass2_fp_rv(self, json_path, bin_path):
         return self.hack_for_swiglu_pass2_fp_static(json_path, bin_path)
 
-    def hack_for_mem_reshape_test_rv(self, json_path, bin_path):
+    def hack_for_mem_transpose_test_rv(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top = design["namespaces"]["global"]["modules"]["mem_reshape_test"]
+        top = design["namespaces"]["global"]["modules"]["mem_transpose_test"]
         insts = top["instances"]
         conns = top["connections"]
 
@@ -2812,12 +2812,12 @@ class SelectedDesignHacker:
         insts[io_in_name]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
         insts[io_in_name]["metadata"]["glb2out_0"]["cycle_stride"] = [1]
         insts[io_in_name]["metadata"]["glb2out_0"]["dimensionality"] = 1
-        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img"]) * int(self.halide_gen_args_dict["in_img"])]
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
         # Output config
         insts[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
         insts[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
         insts[io_out_name]["metadata"]["in2glb_0"]["dimensionality"] = 1
-        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img"]) * int(self.halide_gen_args_dict["in_img"])]
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
 
         top["connections"] = kept_conns
 
