@@ -17,6 +17,7 @@ APPS_NEEDING_HACKS = [
     "swiglu_pass2_fp",
     "vector_reduction_fp",
     "mem_transpose_test",
+    "mem_slice_test",
 ]
 
 
@@ -2770,12 +2771,12 @@ class SelectedDesignHacker:
     def hack_for_swiglu_pass2_fp_rv(self, json_path, bin_path):
         return self.hack_for_swiglu_pass2_fp_static(json_path, bin_path)
 
-    def hack_for_mem_transpose_test_rv(self, json_path, bin_path):
+    def hack_for_mem_transpose_test_rv(self, json_path, bin_path, module_name="mem_transpose_test"):
 
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top = design["namespaces"]["global"]["modules"]["mem_transpose_test"]
+        top = design["namespaces"]["global"]["modules"][module_name]
         insts = top["instances"]
         conns = top["connections"]
 
@@ -2824,6 +2825,26 @@ class SelectedDesignHacker:
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+    def hack_for_mem_slice_test_rv(self, json_path, bin_path):
+        # Apply the same hack as mem_transpose_test
+        self.hack_for_mem_transpose_test_rv(json_path, bin_path, module_name="mem_slice_test")
+
+        # Adjust IO tile config
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        insts = design["namespaces"]["global"]["modules"]["mem_slice_test"]["instances"]
+        io_in_name = "io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0"
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"]) // 2]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
 
 class GlobalDesignHacker:
     """
