@@ -1,0 +1,684 @@
+Netlists:
+e1: (r40, reg)	(I0, f2io_17_0)
+e2: (r42, reg)	(I1, f2io_17_0)
+e3: (r44, reg)	(I2, f2io_17_0)
+e4: (r38, reg)	(r0, reg)	(p6, PE_input_width_17_num_1)
+e5: (r0, reg)	(r1, reg)	(p7, PE_input_width_17_num_1)
+e6: (r1, reg)	(r2, reg)	(p8, PE_input_width_17_num_1)
+e7: (r2, reg)	(r3, reg)	(p9, PE_input_width_17_num_1)
+e8: (m2, MEM_output_width_17_num_0)	(r4, reg)	(p10, PE_input_width_17_num_1)
+e9: (m2, MEM_output_width_17_num_1)	(r37, reg)	(p40, PE_input_width_17_num_1)
+e11: (r4, reg)	(r5, reg)	(p11, PE_input_width_17_num_1)
+e12: (r5, reg)	(r6, reg)	(p12, PE_input_width_17_num_1)
+e13: (r6, reg)	(r7, reg)	(p13, PE_input_width_17_num_1)
+e14: (r7, reg)	(r8, reg)	(p14, PE_input_width_17_num_1)
+e15: (r8, reg)	(r9, reg)	(p15, PE_input_width_17_num_1)
+e16: (m1, MEM_output_width_17_num_0)	(r16, reg)	(p24, PE_input_width_17_num_1)
+e17: (m1, MEM_output_width_17_num_1)	(r10, reg)	(p17, PE_input_width_17_num_1)
+e19: (r10, reg)	(r11, reg)	(p18, PE_input_width_17_num_1)
+e20: (r11, reg)	(r12, reg)	(p19, PE_input_width_17_num_1)
+e21: (r12, reg)	(r13, reg)	(p20, PE_input_width_17_num_1)	(p55, PE_input_width_17_num_0)
+e22: (r13, reg)	(r14, reg)	(p21, PE_input_width_17_num_1)
+e23: (r14, reg)	(r15, reg)	(p22, PE_input_width_17_num_1)
+e24: (r16, reg)	(r17, reg)	(p25, PE_input_width_17_num_1)
+e25: (r17, reg)	(r18, reg)	(p26, PE_input_width_17_num_1)
+e26: (r18, reg)	(r19, reg)	(p27, PE_input_width_17_num_1)
+e28: (I4, io2f_17_0)	(p45, PE_input_width_17_num_1)	(m3, MEM_input_width_17_num_0)
+e39: (I3, io2f_17_0)	(p46, PE_input_width_17_num_0)	(m4, MEM_input_width_17_num_0)
+e50: (I5, io2f_17_0)	(p44, PE_input_width_17_num_0)	(m5, MEM_input_width_17_num_0)
+e60: (p44, PE_output_width_17_num_1)	(p46, PE_input_width_17_num_2)
+e65: (p46, PE_output_width_17_num_1)	(p45, PE_input_width_17_num_2)
+e70: (p45, PE_output_width_17_num_1)	(p43, PE_input_width_17_num_0)
+e75: (p43, PE_output_width_17_num_1)	(r20, reg)	(m0, MEM_input_width_17_num_0)	(m1, MEM_input_width_17_num_0)	(m2, MEM_input_width_17_num_0)	(p53, PE_input_width_17_num_2)
+e80: (r19, reg)	(r21, reg)	(p28, PE_input_width_17_num_1)
+e81: (r21, reg)	(r22, reg)	(p29, PE_input_width_17_num_1)
+e82: (m0, MEM_output_width_17_num_0)	(r23, reg)	(p2, PE_input_width_17_num_2)
+e83: (m0, MEM_output_width_17_num_1)	(r29, reg)	(p41, PE_input_width_17_num_1)
+e85: (r23, reg)	(r24, reg)	(p31, PE_input_width_17_num_1)
+e86: (r24, reg)	(r25, reg)	(p32, PE_input_width_17_num_1)
+e87: (r25, reg)	(r26, reg)	(p33, PE_input_width_17_num_1)
+e88: (r26, reg)	(r27, reg)	(p34, PE_input_width_17_num_1)
+e89: (r27, reg)	(r28, reg)	(p35, PE_input_width_17_num_1)
+e90: (r29, reg)	(r30, reg)	(p36, PE_input_width_17_num_1)
+e91: (r20, reg)	(r31, reg)	(p39, PE_input_width_17_num_2)
+e92: (r30, reg)	(r32, reg)	(p37, PE_input_width_17_num_1)
+e93: (r32, reg)	(r33, reg)	(p38, PE_input_width_17_num_1)
+e94: (r31, reg)	(r34, reg)	(p39, PE_input_width_17_num_0)
+e95: (r34, reg)	(r35, reg)	(p3, PE_input_width_17_num_1)
+e96: (r35, reg)	(r36, reg)	(p4, PE_input_width_17_num_1)
+e97: (r37, reg)	(r38, reg)	(p5, PE_input_width_17_num_1)
+e99: (p52, PE_output_width_1_num_0)	(m6, MEM_input_width_1_num_0)
+e103: (p53, PE_output_width_17_num_1)	(p51, PE_input_width_17_num_2)
+e108: (p51, PE_output_width_17_num_1)	(m6, MEM_input_width_17_num_0)
+e113: (m6, MEM_output_width_17_num_0)	(m7, MEM_input_width_17_num_0)
+e116: (m4, MEM_output_width_17_num_0)	(p47, PE_input_width_17_num_0)
+e119: (p0, PE_output_width_17_num_1)	(p42, PE_input_width_17_num_0)
+e124: (r33, reg)	(p42, PE_input_width_17_num_1)
+e125: (r28, reg)	(p41, PE_input_width_17_num_0)
+e126: (r22, reg)	(p30, PE_input_width_17_num_1)
+e127: (r15, reg)	(p23, PE_input_width_17_num_1)
+e128: (r9, reg)	(p16, PE_input_width_17_num_1)
+e129: (r36, reg)	(p40, PE_input_width_17_num_0)
+e130: (p39, PE_output_width_17_num_1)	(p3, PE_input_width_17_num_2)
+e135: (p3, PE_output_width_17_num_1)	(p4, PE_input_width_17_num_2)
+e140: (p4, PE_output_width_17_num_1)	(p40, PE_input_width_17_num_2)
+e145: (p40, PE_output_width_17_num_1)	(p5, PE_input_width_17_num_2)
+e150: (p5, PE_output_width_17_num_1)	(p6, PE_input_width_17_num_2)
+e155: (p6, PE_output_width_17_num_1)	(p7, PE_input_width_17_num_2)
+e160: (p7, PE_output_width_17_num_1)	(p8, PE_input_width_17_num_2)
+e165: (p8, PE_output_width_17_num_1)	(p9, PE_input_width_17_num_2)
+e170: (p9, PE_output_width_17_num_1)	(p1, PE_input_width_17_num_0)
+e175: (r3, reg)	(p1, PE_input_width_17_num_2)
+e176: (p1, PE_output_width_17_num_1)	(p10, PE_input_width_17_num_2)
+e181: (p10, PE_output_width_17_num_1)	(p11, PE_input_width_17_num_2)
+e186: (p11, PE_output_width_17_num_1)	(p12, PE_input_width_17_num_2)
+e191: (p12, PE_output_width_17_num_1)	(p13, PE_input_width_17_num_2)
+e196: (p13, PE_output_width_17_num_1)	(p14, PE_input_width_17_num_2)
+e201: (p14, PE_output_width_17_num_1)	(p15, PE_input_width_17_num_2)
+e206: (p15, PE_output_width_17_num_1)	(p16, PE_input_width_17_num_2)
+e211: (p16, PE_output_width_17_num_1)	(p17, PE_input_width_17_num_2)
+e216: (p17, PE_output_width_17_num_1)	(p18, PE_input_width_17_num_2)
+e221: (p18, PE_output_width_17_num_1)	(p19, PE_input_width_17_num_2)
+e226: (p19, PE_output_width_17_num_1)	(p20, PE_input_width_17_num_2)
+e231: (p20, PE_output_width_17_num_1)	(p21, PE_input_width_17_num_2)
+e236: (p21, PE_output_width_17_num_1)	(p22, PE_input_width_17_num_2)
+e241: (p22, PE_output_width_17_num_1)	(p23, PE_input_width_17_num_2)
+e246: (p23, PE_output_width_17_num_1)	(p24, PE_input_width_17_num_2)
+e251: (p24, PE_output_width_17_num_1)	(p25, PE_input_width_17_num_2)
+e256: (p25, PE_output_width_17_num_1)	(p26, PE_input_width_17_num_2)
+e261: (p26, PE_output_width_17_num_1)	(p27, PE_input_width_17_num_2)
+e266: (p27, PE_output_width_17_num_1)	(p28, PE_input_width_17_num_2)
+e271: (p28, PE_output_width_17_num_1)	(p29, PE_input_width_17_num_2)
+e276: (p29, PE_output_width_17_num_1)	(p30, PE_input_width_17_num_2)
+e281: (p30, PE_output_width_17_num_1)	(p2, PE_input_width_17_num_0)
+e286: (p2, PE_output_width_17_num_1)	(p31, PE_input_width_17_num_2)
+e291: (p31, PE_output_width_17_num_1)	(p32, PE_input_width_17_num_2)
+e296: (p32, PE_output_width_17_num_1)	(p33, PE_input_width_17_num_2)
+e301: (p33, PE_output_width_17_num_1)	(p34, PE_input_width_17_num_2)
+e306: (p34, PE_output_width_17_num_1)	(p35, PE_input_width_17_num_2)
+e311: (p35, PE_output_width_17_num_1)	(p41, PE_input_width_17_num_2)
+e316: (p41, PE_output_width_17_num_1)	(p36, PE_input_width_17_num_2)
+e321: (p36, PE_output_width_17_num_1)	(p37, PE_input_width_17_num_2)
+e326: (p37, PE_output_width_17_num_1)	(p38, PE_input_width_17_num_2)
+e331: (p38, PE_output_width_17_num_1)	(p42, PE_input_width_17_num_2)
+e336: (p42, PE_output_width_17_num_1)	(p54, PE_input_width_17_num_0)
+e341: (p54, PE_output_width_17_num_1)	(p55, PE_input_width_17_num_2)
+e346: (p55, PE_output_width_17_num_1)	(p56, PE_input_width_17_num_1)
+e351: (p56, PE_output_width_17_num_1)	(p50, PE_input_width_17_num_0)
+e356: (m7, MEM_output_width_17_num_0)	(p50, PE_input_width_17_num_1)
+e359: (p50, PE_output_width_17_num_1)	(p47, PE_input_width_17_num_1)	(p48, PE_input_width_17_num_1)	(p49, PE_input_width_17_num_1)
+e364: (p47, PE_output_width_17_num_1)	(r39, reg)
+e369: (r39, reg)	(r40, reg)
+e370: (m3, MEM_output_width_17_num_0)	(p48, PE_input_width_17_num_0)
+e373: (p48, PE_output_width_17_num_1)	(r41, reg)
+e378: (r41, reg)	(r42, reg)
+e379: (m5, MEM_output_width_17_num_0)	(p49, PE_input_width_17_num_0)
+e382: (p49, PE_output_width_17_num_1)	(r43, reg)
+e387: (r43, reg)	(r44, reg)
+
+ID to Names:
+p0: op_hcompute_blur_unnormalized_stencil$inner_compute$const_i2750_i436
+m0: gray_stencil$ub_gray_stencil_bank_6_garnet
+r0: gray_stencil$d_reg__U10$reg0@T3_NORTH
+I0: io16_hw_output_global_wrapper_stencil_clkwrk_3_op_hcompute_hw_output_global_wrapper_stencil_write_0
+r1: gray_stencil$d_reg__U11$reg0@T0_EAST
+p1: op_hcompute_blur_unnormalized_stencil_1$inner_compute$add_i2885_i126
+I1: io16_hw_output_global_wrapper_stencil_clkwrk_4_op_hcompute_hw_output_global_wrapper_stencil_1_write_0
+m1: gray_stencil$ub_gray_stencil_bank_7_garnet
+m2: gray_stencil$ub_gray_stencil_bank_8_garnet
+I2: io16_hw_output_global_wrapper_stencil_clkwrk_5_op_hcompute_hw_output_global_wrapper_stencil_2_write_0
+r2: gray_stencil$d_reg__U12$reg0@T2_SOUTH
+p2: op_hcompute_blur_unnormalized_stencil_1$inner_compute$add_i2907_i126
+p3: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2876_i1332
+m3: hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_0_garnet
+I3: io16in_hw_input_stencil_clkwrk_0_op_hcompute_hw_input_global_wrapper_glb_stencil_read_0
+r3: gray_stencil$d_reg__U13$reg0@T3_WEST
+p4: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2877_i1332
+I4: io16in_hw_input_stencil_clkwrk_1_op_hcompute_hw_input_global_wrapper_glb_stencil_1_read_0
+r4: gray_stencil$d_reg__U14$reg0@T4_WEST
+m4: hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_1_garnet
+p5: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2880_i1332
+I5: io16in_hw_input_stencil_clkwrk_2_op_hcompute_hw_input_global_wrapper_glb_stencil_2_read_0
+r5: gray_stencil$d_reg__U15$reg0@T2_SOUTH
+m5: hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_2_garnet
+m6: op_hcompute_reciprocal_stencil$inner_compute$rom_rom_div_lookupa0_garnet
+r6: gray_stencil$d_reg__U16$reg0@T3_EAST
+p6: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2881_i1332
+m7: reciprocal_stencil$ub_reciprocal_stencil_BANK_0_garnet
+p7: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2882_i1332
+r7: gray_stencil$d_reg__U17$reg0@T1_EAST
+p8: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2883_i1332
+r8: gray_stencil$d_reg__U18$reg0@T4_NORTH
+r9: gray_stencil$d_reg__U19$reg0@T3_SOUTH
+p9: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2884_i1332
+p10: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2886_i1332
+r10: gray_stencil$d_reg__U20$reg0@T2_NORTH
+p11: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2887_i1332
+r11: gray_stencil$d_reg__U21$reg0@T0_WEST
+r12: gray_stencil$d_reg__U22$reg0@T4_EAST
+p12: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2888_i1332
+p13: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2889_i1332
+r13: gray_stencil$d_reg__U23$reg0@T4_EAST
+p14: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2890_i1332
+r14: gray_stencil$d_reg__U24$reg0@T1_NORTH
+p15: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2891_i1332
+r15: gray_stencil$d_reg__U25$reg0@T1_SOUTH
+r16: gray_stencil$d_reg__U26$reg0@T2_SOUTH
+p16: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2892_i1332
+r17: gray_stencil$d_reg__U27$reg0@T3_WEST
+p17: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2893_i1332
+r18: gray_stencil$d_reg__U28$reg0@T2_NORTH
+p18: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2894_i1332
+p19: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2895_i1332
+r19: gray_stencil$d_reg__U29$reg0@T1_EAST
+r20: gray_stencil$d_reg__U3$reg0@T0_EAST
+p20: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2896_i1332
+p21: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2897_i1332
+r21: gray_stencil$d_reg__U30$reg0@T1_EAST
+p22: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2898_i1332
+r22: gray_stencil$d_reg__U31$reg0@T1_EAST
+r23: gray_stencil$d_reg__U32$reg0@T4_NORTH
+p23: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2899_i1332
+r24: gray_stencil$d_reg__U33$reg0@T4_NORTH
+p24: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2900_i1332
+r25: gray_stencil$d_reg__U34$reg0@T0_WEST
+p25: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2901_i1332
+p26: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2902_i1332
+r26: gray_stencil$d_reg__U35$reg0@T4_NORTH
+r27: gray_stencil$d_reg__U36$reg0@T0_WEST
+p27: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2903_i1332
+r28: gray_stencil$d_reg__U37$reg0@T3_SOUTH
+p28: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2904_i1332
+r29: gray_stencil$d_reg__U38$reg0@T0_SOUTH
+p29: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2905_i1332
+p30: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2906_i1332
+r30: gray_stencil$d_reg__U39$reg0@T0_SOUTH
+p31: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2908_i1332
+r31: gray_stencil$d_reg__U4$reg0@T4_SOUTH
+r32: gray_stencil$d_reg__U40$reg0@T1_EAST
+p32: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2909_i1332
+p33: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2910_i1332
+r33: gray_stencil$d_reg__U41$reg0@T0_SOUTH
+p34: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2911_i1332
+r34: gray_stencil$d_reg__U5$reg0@T3_EAST
+p35: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2912_i1332
+r35: gray_stencil$d_reg__U6$reg0@T3_WEST
+r36: gray_stencil$d_reg__U7$reg0@T3_WEST
+p36: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2915_i1332
+r37: gray_stencil$d_reg__U8$reg0@T3_NORTH
+p37: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2916_i1332
+p38: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s0_i2917_i1332
+r38: gray_stencil$d_reg__U9$reg0@T4_WEST
+r39: io16_hw_output_global_wrapper_stencil_clkwrk_3_op_hcompute_hw_output_global_wrapper_stencil_write_0$reg0@T3_WEST
+p39: op_hcompute_blur_unnormalized_stencil_1$inner_compute$muladd_s1_i2875_i1373
+r40: io16_hw_output_global_wrapper_stencil_clkwrk_3_op_hcompute_hw_output_global_wrapper_stencil_write_0$reg1@T8_WEST
+p40: op_hcompute_blur_unnormalized_stencil_1$inner_compute$staa_s1_i2879_i2015
+p41: op_hcompute_blur_unnormalized_stencil_1$inner_compute$staa_s1_i2914_i2015
+r41: io16_hw_output_global_wrapper_stencil_clkwrk_4_op_hcompute_hw_output_global_wrapper_stencil_1_write_0$reg2@T0_NORTH
+r42: io16_hw_output_global_wrapper_stencil_clkwrk_4_op_hcompute_hw_output_global_wrapper_stencil_1_write_0$reg3@T6_WEST
+p42: op_hcompute_blur_unnormalized_stencil_1$inner_compute$staa_s1_i2919_i2015
+p43: op_hcompute_gray_stencil$inner_compute$lshr_i3086_i1211
+r43: io16_hw_output_global_wrapper_stencil_clkwrk_5_op_hcompute_hw_output_global_wrapper_stencil_2_write_0$reg4@T4_WEST
+r44: io16_hw_output_global_wrapper_stencil_clkwrk_5_op_hcompute_hw_output_global_wrapper_stencil_2_write_0$reg5@T9_WEST
+p44: op_hcompute_gray_stencil$inner_compute$mul_i3079_i1291
+p45: op_hcompute_gray_stencil$inner_compute$muladd_s0_i3084_i1332
+p46: op_hcompute_gray_stencil$inner_compute$muladd_s1_i3083_i1373
+p47: op_hcompute_hw_output_glb_stencil$inner_compute$commonlib_mult_middle_i3119_i1455
+p48: op_hcompute_hw_output_glb_stencil_1$inner_compute$commonlib_mult_middle_i3125_i1455
+p49: op_hcompute_hw_output_glb_stencil_2$inner_compute$commonlib_mult_middle_i3131_i1455
+p50: op_hcompute_ratio_stencil$inner_compute$mul_i3143_i1291
+p51: op_hcompute_reciprocal_stencil$inner_compute$add_i3151_i126
+p52: op_hcompute_reciprocal_stencil$inner_compute$bit_const_i3159_i282
+p53: op_hcompute_reciprocal_stencil$inner_compute$umax_i3149_i2457
+p54: op_hcompute_sharpen_stencil$inner_compute$lshr_i3176_i1211
+p55: op_hcompute_sharpen_stencil$inner_compute$mulsub_s0_i3177_i1414
+p56: op_hcompute_sharpen_stencil$inner_compute$scrop_i3181_i1617
+r57: pnr_pipelining_57@T4_WEST
+r58: pnr_pipelining_58@T2_SOUTH
+r59: pnr_pipelining_59@T3_EAST
+r60: pnr_pipelining_60@T0_SOUTH
+r61: pnr_pipelining_61@T3_SOUTH
+r62: pnr_pipelining_62@T1_EAST
+r63: pnr_pipelining_63@T1_SOUTH
+r64: pnr_pipelining_64@T3_SOUTH
+r65: pnr_pipelining_65@T3_WEST
+r66: pnr_pipelining_66@T1_EAST
+r67: pnr_pipelining_67@T4_NORTH
+r68: pnr_pipelining_68@T2_SOUTH
+r69: pnr_pipelining_69@T2_NORTH
+r70: pnr_pipelining_70@T3_WEST
+r71: pnr_pipelining_71@T0_WEST
+r72: pnr_pipelining_72@T4_EAST
+r73: pnr_pipelining_73@T4_EAST
+r74: pnr_pipelining_74@T1_NORTH
+r75: pnr_pipelining_75@T3_WEST
+r76: pnr_pipelining_76@T2_NORTH
+r77: pnr_pipelining_77@T1_EAST
+r78: pnr_pipelining_78@T3_WEST
+r79: pnr_pipelining_79@T8_WEST
+r80: pnr_pipelining_80@T0_NORTH
+r81: pnr_pipelining_81@T6_WEST
+r82: pnr_pipelining_82@T4_WEST
+r83: pnr_pipelining_83@T9_WEST
+r84: pnr_pipelining_84@T4_WEST
+r85: pnr_pipelining_85@T3_NORTH
+r86: pnr_pipelining_86@T0_EAST
+r87: pnr_pipelining_87@T2_SOUTH
+r88: pnr_pipelining_88@T0_EAST
+r89: pnr_pipelining_89@T1_EAST
+r90: pnr_pipelining_90@T4_NORTH
+r91: pnr_pipelining_91@T0_SOUTH
+r92: pnr_pipelining_92@T4_NORTH
+r93: pnr_pipelining_93@T0_WEST
+r94: pnr_pipelining_94@T4_NORTH
+r95: pnr_pipelining_95@T0_WEST
+r96: pnr_pipelining_96@T3_NORTH
+r97: pnr_pipelining_97@T0_SOUTH
+r98: pnr_pipelining_98@T4_SOUTH
+r99: pnr_pipelining_99@T1_EAST
+r100: pnr_pipelining_100@T3_EAST
+r101: pnr_pipelining_101@T3_WEST
+r102: pnr_pipelining_103@T5_EAST
+r103: pnr_pipelining_104@T5_EAST
+r104: pnr_pipelining_105@T5_EAST
+r105: pnr_pipelining_106@T5_EAST
+r106: pnr_pipelining_107@T5_EAST
+r107: pnr_pipelining_108@T5_EAST
+r108: pnr_pipelining_109@T5_EAST
+r109: pnr_pipelining_110@T5_EAST
+r110: pnr_pipelining_111@T5_EAST
+r111: pnr_pipelining_112@T5_EAST
+r112: pnr_pipelining_113@T5_EAST
+r113: pnr_pipelining_114@T5_EAST
+r114: pnr_pipelining_115@T5_EAST
+r115: pnr_pipelining_116@T5_EAST
+r116: pnr_pipelining_117@T9_EAST
+r117: pnr_pipelining_118@T9_EAST
+r118: pnr_pipelining_119@T9_EAST
+r119: pnr_pipelining_120@T9_EAST
+r120: pnr_pipelining_121@T9_EAST
+r121: pnr_pipelining_122@T9_EAST
+r122: pnr_pipelining_123@T9_EAST
+r123: pnr_pipelining_124@T9_EAST
+r124: pnr_pipelining_125@T9_EAST
+r125: pnr_pipelining_126@T9_EAST
+r126: pnr_pipelining_127@T9_EAST
+r127: pnr_pipelining_128@T9_EAST
+r128: pnr_pipelining_129@T3_SOUTH
+r129: pnr_pipelining_130@T3_SOUTH
+r130: pnr_pipelining_131@T8_EAST
+r131: pnr_pipelining_132@T8_EAST
+r132: pnr_pipelining_133@T8_EAST
+r133: pnr_pipelining_134@T8_EAST
+r134: pnr_pipelining_135@T8_EAST
+r135: pnr_pipelining_136@T8_EAST
+r136: pnr_pipelining_137@T8_EAST
+r137: pnr_pipelining_138@T8_EAST
+r138: pnr_pipelining_139@T2_SOUTH
+r139: pnr_pipelining_140@T3_EAST
+r140: pnr_pipelining_141@T1_EAST
+r141: pnr_pipelining_142@T1_EAST
+r142: pnr_pipelining_143@T3_WEST
+r143: pnr_pipelining_144@T2_NORTH
+r144: pnr_pipelining_145@T2_NORTH
+r145: pnr_pipelining_146@T2_NORTH
+r146: pnr_pipelining_147@T3_WEST
+r147: pnr_pipelining_148@T3_WEST
+r148: pnr_pipelining_149@T2_NORTH
+r149: pnr_pipelining_150@T2_NORTH
+r150: pnr_pipelining_151@T3_NORTH
+r151: pnr_pipelining_152@T3_NORTH
+r152: pnr_pipelining_153@T1_SOUTH
+r153: pnr_pipelining_154@T2_EAST
+r154: pnr_pipelining_155@T2_EAST
+r155: pnr_pipelining_156@T2_EAST
+r156: pnr_pipelining_157@T0_NORTH
+r157: pnr_pipelining_158@T0_NORTH
+r158: pnr_pipelining_159@T0_NORTH
+r159: pnr_pipelining_160@T0_NORTH
+r160: pnr_pipelining_161@T6_WEST
+r161: pnr_pipelining_162@T6_WEST
+r162: pnr_pipelining_163@T6_WEST
+r163: pnr_pipelining_164@T6_WEST
+r164: pnr_pipelining_165@T6_WEST
+r165: pnr_pipelining_166@T6_WEST
+r166: pnr_pipelining_167@T6_WEST
+r167: pnr_pipelining_168@T6_WEST
+r168: pnr_pipelining_169@T6_WEST
+r169: pnr_pipelining_170@T6_WEST
+r170: pnr_pipelining_171@T6_WEST
+r171: pnr_pipelining_172@T6_WEST
+r172: pnr_pipelining_173@T3_SOUTH
+r173: pnr_pipelining_174@T3_SOUTH
+r174: pnr_pipelining_175@T3_SOUTH
+r175: pnr_pipelining_176@T3_SOUTH
+r176: pnr_pipelining_177@T3_WEST
+r177: pnr_pipelining_178@T2_NORTH
+r178: pnr_pipelining_179@T2_NORTH
+r179: pnr_pipelining_180@T2_NORTH
+r180: pnr_pipelining_181@T2_NORTH
+r181: pnr_pipelining_182@T2_NORTH
+r182: pnr_pipelining_183@T3_WEST
+r183: pnr_pipelining_184@T2_NORTH
+r184: pnr_pipelining_185@T8_WEST
+r185: pnr_pipelining_186@T8_WEST
+r186: pnr_pipelining_187@T8_WEST
+r187: pnr_pipelining_188@T8_WEST
+r188: pnr_pipelining_189@T8_WEST
+r189: pnr_pipelining_190@T8_WEST
+r190: pnr_pipelining_191@T8_WEST
+r191: pnr_pipelining_192@T8_WEST
+r192: pnr_pipelining_193@T3_EAST
+r193: pnr_pipelining_194@T2_SOUTH
+r194: pnr_pipelining_195@T3_NORTH
+r195: pnr_pipelining_196@T3_NORTH
+r196: pnr_pipelining_197@T4_WEST
+r197: pnr_pipelining_198@T4_WEST
+r198: pnr_pipelining_199@T3_NORTH
+r199: pnr_pipelining_200@T9_WEST
+r200: pnr_pipelining_201@T9_WEST
+r201: pnr_pipelining_202@T9_WEST
+r202: pnr_pipelining_203@T9_WEST
+r203: pnr_pipelining_204@T9_WEST
+r204: pnr_pipelining_205@T2_WEST
+r205: pnr_pipelining_206@T2_WEST
+r206: pnr_pipelining_207@T2_WEST
+r207: pnr_pipelining_208@T2_WEST
+r208: pnr_pipelining_209@T2_WEST
+r209: pnr_pipelining_210@T2_WEST
+r210: pnr_pipelining_211@T2_WEST
+r211: pnr_pipelining_212@T1_NORTH
+r212: pnr_pipelining_213@T2_WEST
+r213: pnr_pipelining_214@T2_WEST
+r214: pnr_pipelining_215@T3_SOUTH
+r215: pnr_pipelining_216@T2_WEST
+r216: pnr_pipelining_217@T1_EAST
+r217: pnr_pipelining_218@T1_EAST
+r218: pnr_pipelining_219@T2_NORTH
+r219: pnr_pipelining_220@T2_NORTH
+r220: pnr_pipelining_221@T3_WEST
+r221: pnr_pipelining_222@T3_WEST
+r222: pnr_pipelining_223@T3_WEST
+r223: pnr_pipelining_224@T0_SOUTH
+r224: pnr_pipelining_225@T3_SOUTH
+r225: pnr_pipelining_226@T3_SOUTH
+r226: pnr_pipelining_227@T0_EAST
+r227: pnr_pipelining_228@T0_EAST
+r228: pnr_pipelining_229@T1_EAST
+r229: pnr_pipelining_230@T4_NORTH
+r230: pnr_pipelining_231@T4_SOUTH
+r231: pnr_pipelining_232@T4_SOUTH
+r232: pnr_pipelining_233@T3_SOUTH
+r233: pnr_pipelining_234@T2_WEST
+r234: pnr_pipelining_235@T0_NORTH
+r235: pnr_pipelining_236@T3_EAST
+r236: pnr_pipelining_237@T4_SOUTH
+r237: pnr_pipelining_238@T4_SOUTH
+r238: pnr_pipelining_239@T0_SOUTH
+r239: pnr_pipelining_240@T0_SOUTH
+r240: pnr_pipelining_241@T0_NORTH
+r241: pnr_pipelining_242@T1_WEST
+r242: pnr_pipelining_243@T0_SOUTH
+r243: pnr_pipelining_244@T0_SOUTH
+r244: pnr_pipelining_245@T2_WEST
+r245: pnr_pipelining_246@T2_WEST
+r246: pnr_pipelining_247@T0_NORTH
+r247: pnr_pipelining_248@T0_NORTH
+r248: pnr_pipelining_249@T4_EAST
+r249: pnr_pipelining_250@T4_EAST
+r250: pnr_pipelining_251@T4_EAST
+r251: pnr_pipelining_252@T1_NORTH
+r252: pnr_pipelining_253@T2_EAST
+r253: pnr_pipelining_254@T2_EAST
+r254: pnr_pipelining_255@T4_EAST
+r255: pnr_pipelining_256@T4_EAST
+r256: pnr_pipelining_257@T4_EAST
+r257: pnr_pipelining_258@T4_EAST
+r258: pnr_pipelining_259@T0_NORTH
+r259: pnr_pipelining_260@T0_NORTH
+r260: pnr_pipelining_261@T0_NORTH
+r261: pnr_pipelining_262@T0_NORTH
+r262: pnr_pipelining_263@T0_NORTH
+r263: pnr_pipelining_264@T0_NORTH
+r264: pnr_pipelining_265@T1_NORTH
+r265: pnr_pipelining_266@T2_EAST
+r266: pnr_pipelining_267@T3_NORTH
+r267: pnr_pipelining_268@T3_NORTH
+r268: pnr_pipelining_269@T1_WEST
+r269: pnr_pipelining_270@T0_NORTH
+r270: pnr_pipelining_271@T4_NORTH
+r271: pnr_pipelining_272@T0_WEST
+r272: pnr_pipelining_273@T3_WEST
+r273: pnr_pipelining_274@T3_WEST
+r274: pnr_pipelining_275@T1_WEST
+r275: pnr_pipelining_276@T1_WEST
+r276: pnr_pipelining_277@T3_SOUTH
+r277: pnr_pipelining_278@T3_SOUTH
+r278: pnr_pipelining_279@T2_SOUTH
+r279: pnr_pipelining_280@T2_SOUTH
+r280: pnr_pipelining_281@T3_SOUTH
+r281: pnr_pipelining_282@T4_EAST
+r282: pnr_pipelining_283@T3_EAST
+r283: pnr_pipelining_284@T2_SOUTH
+r284: pnr_pipelining_285@T3_NORTH
+r285: pnr_pipelining_286@T4_WEST
+r286: pnr_pipelining_287@T2_WEST
+r287: pnr_pipelining_288@T2_WEST
+r288: pnr_pipelining_289@T4_NORTH
+r289: pnr_pipelining_290@T4_NORTH
+r290: pnr_pipelining_291@T3_EAST
+r291: pnr_pipelining_292@T2_NORTH
+r292: pnr_pipelining_293@T4_SOUTH
+r293: pnr_pipelining_294@T4_SOUTH
+r294: pnr_pipelining_295@T3_NORTH
+r295: pnr_pipelining_296@T3_NORTH
+r296: pnr_pipelining_297@T3_NORTH
+r297: pnr_pipelining_298@T0_EAST
+r298: pnr_pipelining_299@T0_EAST
+r299: pnr_pipelining_300@T0_EAST
+r300: pnr_pipelining_301@T4_SOUTH
+r301: pnr_pipelining_302@T0_EAST
+r302: pnr_pipelining_303@T0_NORTH
+r303: pnr_pipelining_304@T3_EAST
+r304: pnr_pipelining_305@T3_WEST
+r305: pnr_pipelining_306@T2_NORTH
+r306: pnr_pipelining_307@T0_SOUTH
+r307: pnr_pipelining_308@T0_WEST
+r308: pnr_pipelining_309@T4_EAST
+r309: pnr_pipelining_310@T3_SOUTH
+r310: pnr_pipelining_311@T1_EAST
+r311: pnr_pipelining_312@T0_SOUTH
+r312: pnr_pipelining_313@T1_EAST
+r313: pnr_pipelining_314@T1_EAST
+r314: pnr_pipelining_315@T2_NORTH
+r315: pnr_pipelining_316@T1_EAST
+r316: pnr_pipelining_317@T3_SOUTH
+r317: pnr_pipelining_318@T4_EAST
+r318: pnr_pipelining_319@T4_EAST
+r319: pnr_pipelining_320@T4_EAST
+r320: pnr_pipelining_321@T1_NORTH
+r321: pnr_pipelining_322@T2_EAST
+r322: pnr_pipelining_323@T3_NORTH
+r323: pnr_pipelining_324@T0_EAST
+r324: pnr_pipelining_325@T2_WEST
+r325: pnr_pipelining_326@T1_SOUTH
+r326: pnr_pipelining_327@T3_SOUTH
+r327: pnr_pipelining_328@T2_WEST
+r328: pnr_pipelining_329@T1_SOUTH
+r329: pnr_pipelining_330@T1_SOUTH
+r330: pnr_pipelining_331@T2_NORTH
+r331: pnr_pipelining_332@T1_EAST
+r332: pnr_pipelining_333@T1_EAST
+r333: pnr_pipelining_334@T1_EAST
+r334: pnr_pipelining_335@T3_SOUTH
+r335: pnr_pipelining_336@T3_SOUTH
+r336: pnr_pipelining_337@T3_SOUTH
+r337: pnr_pipelining_338@T4_EAST
+r338: pnr_pipelining_339@T1_NORTH
+r339: pnr_pipelining_340@T1_NORTH
+r340: pnr_pipelining_341@T4_SOUTH
+r341: pnr_pipelining_342@T0_EAST
+r342: pnr_pipelining_343@T0_NORTH
+r343: pnr_pipelining_344@T1_WEST
+r344: pnr_pipelining_345@T3_EAST
+r345: pnr_pipelining_346@T3_EAST
+r346: pnr_pipelining_347@T0_NORTH
+r347: pnr_pipelining_348@T1_WEST
+r348: pnr_pipelining_349@T3_EAST
+r349: pnr_pipelining_350@T2_NORTH
+r350: pnr_pipelining_351@T0_EAST
+r351: pnr_pipelining_352@T0_EAST
+r352: pnr_pipelining_353@T0_EAST
+r353: pnr_pipelining_354@T0_EAST
+r354: pnr_pipelining_355@T0_EAST
+r355: pnr_pipelining_356@T0_EAST
+r356: pnr_pipelining_357@T0_EAST
+r357: pnr_pipelining_358@T0_EAST
+r358: pnr_pipelining_359@T0_EAST
+r359: pnr_pipelining_360@T0_EAST
+r360: pnr_pipelining_361@T0_EAST
+r361: pnr_pipelining_362@T0_EAST
+r362: pnr_pipelining_363@T4_SOUTH
+r363: pnr_pipelining_364@T4_SOUTH
+r364: pnr_pipelining_365@T0_EAST
+r365: pnr_pipelining_366@T4_SOUTH
+r366: pnr_pipelining_367@T4_SOUTH
+r367: pnr_pipelining_368@T4_SOUTH
+r368: pnr_pipelining_369@T4_SOUTH
+r369: pnr_pipelining_370@T0_EAST
+r370: pnr_pipelining_371@T4_SOUTH
+r371: pnr_pipelining_372@T4_SOUTH
+r372: pnr_pipelining_373@T4_SOUTH
+r373: pnr_pipelining_374@T4_SOUTH
+r374: pnr_pipelining_375@T1_EAST
+r375: pnr_pipelining_376@T1_EAST
+r376: pnr_pipelining_377@T1_EAST
+r377: pnr_pipelining_378@T1_EAST
+r378: pnr_pipelining_379@T2_NORTH
+r379: pnr_pipelining_380@T2_NORTH
+r380: pnr_pipelining_381@T4_NORTH
+r381: pnr_pipelining_382@T10_WEST
+r382: pnr_pipelining_383@T2_EAST
+r383: pnr_pipelining_384@T1_SOUTH
+r384: pnr_pipelining_385@T1_WEST
+r385: pnr_pipelining_386@T0_NORTH
+r386: pnr_pipelining_387@T0_EAST
+r387: pnr_pipelining_388@T4_SOUTH
+
+Netlist Bus:
+e1: 17
+e2: 17
+e3: 17
+e4: 17
+e5: 17
+e6: 17
+e7: 17
+e8: 17
+e9: 17
+e11: 17
+e12: 17
+e13: 17
+e14: 17
+e15: 17
+e16: 17
+e17: 17
+e19: 17
+e20: 17
+e21: 17
+e22: 17
+e23: 17
+e24: 17
+e25: 17
+e26: 17
+e28: 17
+e39: 17
+e50: 17
+e60: 17
+e65: 17
+e70: 17
+e75: 17
+e80: 17
+e81: 17
+e82: 17
+e83: 17
+e85: 17
+e86: 17
+e87: 17
+e88: 17
+e89: 17
+e90: 17
+e91: 17
+e92: 17
+e93: 17
+e94: 17
+e95: 17
+e96: 17
+e97: 17
+e99: 1
+e103: 17
+e108: 17
+e113: 17
+e116: 17
+e119: 17
+e124: 17
+e125: 17
+e126: 17
+e127: 17
+e128: 17
+e129: 17
+e130: 17
+e135: 17
+e140: 17
+e145: 17
+e150: 17
+e155: 17
+e160: 17
+e165: 17
+e170: 17
+e175: 17
+e176: 17
+e181: 17
+e186: 17
+e191: 17
+e196: 17
+e201: 17
+e206: 17
+e211: 17
+e216: 17
+e221: 17
+e226: 17
+e231: 17
+e236: 17
+e241: 17
+e246: 17
+e251: 17
+e256: 17
+e261: 17
+e266: 17
+e271: 17
+e276: 17
+e281: 17
+e286: 17
+e291: 17
+e296: 17
+e301: 17
+e306: 17
+e311: 17
+e316: 17
+e321: 17
+e326: 17
+e331: 17
+e336: 17
+e341: 17
+e346: 17
+e351: 17
+e356: 17
+e359: 17
+e364: 17
+e369: 17
+e370: 17
+e373: 17
+e378: 17
+e379: 17
+e382: 17
+e387: 17

@@ -1,0 +1,197 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "bitwidth": 16,
+        "datafile": "hw_input_stencil.raw",
+        "name": "hw_input_stencil",
+        "shape": [
+          3,
+          68,
+          256
+        ],
+        "io_tiles": [
+          {
+            "name": "io16in_hw_input_stencil_clkwrk_0_op_hcompute_hw_input_global_wrapper_glb_stencil_read_0",
+            "addr": {
+              "cycle_starting_addr": [
+                0
+              ],
+              "cycle_stride": [
+                1
+              ],
+              "dimensionality": 1,
+              "extent": [
+                17408
+              ],
+              "read_data_starting_addr": [
+                0
+              ],
+              "read_data_stride": [
+                1
+              ]
+            },
+            "mode": "RV",
+            "x_pos": 0,
+            "y_pos": 0
+          },
+          {
+            "name": "io16in_hw_input_stencil_clkwrk_1_op_hcompute_hw_input_global_wrapper_glb_stencil_1_read_0",
+            "addr": {
+              "cycle_starting_addr": [
+                0
+              ],
+              "cycle_stride": [
+                1
+              ],
+              "dimensionality": 1,
+              "extent": [
+                17408
+              ],
+              "read_data_starting_addr": [
+                0
+              ],
+              "read_data_stride": [
+                1
+              ]
+            },
+            "mode": "RV",
+            "x_pos": 2,
+            "y_pos": 0
+          },
+          {
+            "name": "io16in_hw_input_stencil_clkwrk_2_op_hcompute_hw_input_global_wrapper_glb_stencil_2_read_0",
+            "addr": {
+              "cycle_starting_addr": [
+                0
+              ],
+              "cycle_stride": [
+                1
+              ],
+              "dimensionality": 1,
+              "extent": [
+                17408
+              ],
+              "read_data_starting_addr": [
+                0
+              ],
+              "read_data_stride": [
+                1
+              ]
+            },
+            "mode": "RV",
+            "x_pos": 4,
+            "y_pos": 0
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "bitwidth": 16,
+        "datafile": "hw_output.raw",
+        "name": "hw_output_global_wrapper_stencil",
+        "shape": [
+          3,
+          62,
+          250
+        ],
+        "io_tiles": [
+          {
+            "name": "io16_hw_output_global_wrapper_stencil_clkwrk_3_op_hcompute_hw_output_global_wrapper_stencil_write_0",
+            "addr": {
+              "cycle_starting_addr": [
+                414
+              ],
+              "cycle_stride": [
+                1,
+                68
+              ],
+              "dimensionality": 2,
+              "extent": [
+                62,
+                250
+              ],
+              "write_data_starting_addr": [
+                0
+              ],
+              "write_data_stride": [
+                1,
+                62
+              ]
+            },
+            "mode": "RV",
+            "x_pos": 1,
+            "y_pos": 0
+          },
+          {
+            "name": "io16_hw_output_global_wrapper_stencil_clkwrk_4_op_hcompute_hw_output_global_wrapper_stencil_1_write_0",
+            "addr": {
+              "cycle_starting_addr": [
+                414
+              ],
+              "cycle_stride": [
+                1,
+                68
+              ],
+              "dimensionality": 2,
+              "extent": [
+                62,
+                250
+              ],
+              "write_data_starting_addr": [
+                0
+              ],
+              "write_data_stride": [
+                1,
+                62
+              ]
+            },
+            "mode": "RV",
+            "x_pos": 3,
+            "y_pos": 0
+          },
+          {
+            "name": "io16_hw_output_global_wrapper_stencil_clkwrk_5_op_hcompute_hw_output_global_wrapper_stencil_2_write_0",
+            "addr": {
+              "cycle_starting_addr": [
+                414
+              ],
+              "cycle_stride": [
+                1,
+                68
+              ],
+              "dimensionality": 2,
+              "extent": [
+                62,
+                250
+              ],
+              "write_data_starting_addr": [
+                0
+              ],
+              "write_data_stride": [
+                1,
+                62
+              ]
+            },
+            "mode": "RV",
+            "x_pos": 5,
+            "y_pos": 0
+          }
+        ]
+      }
+    ],
+    "mu_inputs": []
+  },
+  "testing": {
+    "interleaved_input": [
+      "input.pgm"
+    ],
+    "interleaved_output": [
+      "gold.pgm"
+    ],
+    "bitstream": "unsharp.bs",
+    "coreir": "design_top.json",
+    "placement": "design.place"
+  }
+}
