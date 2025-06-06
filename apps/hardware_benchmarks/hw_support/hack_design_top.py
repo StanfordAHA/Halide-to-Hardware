@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, re, argparse, json
+import os, re, argparse, json, copy
 from pretty_format_json import pretty_format_json
 
 APPS_NEEDING_HACKS = [
@@ -18,6 +18,8 @@ APPS_NEEDING_HACKS = [
     "vector_reduction_fp",
     "mem_transpose_test",
     "mem_slice_test",
+    "mem_filter_test",
+    "avgpool_layer_fp",
 ]
 
 
@@ -2842,6 +2844,124 @@ class SelectedDesignHacker:
         insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"]) // 2]
 
         # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_mem_filter_test_rv(self, json_path, bin_path):
+        # Apply the same hack as mem_transpose_test
+        self.hack_for_mem_transpose_test_rv(json_path, bin_path, module_name="mem_filter_test")
+
+        # Adjust IO tile config
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        insts = design["namespaces"]["global"]["modules"]["mem_filter_test"]["instances"]
+        io_in_name = "io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0"
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"]) // 4]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_avgpool_layer_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "avgpool_layer_fp"
+        const_prefix = "op_hcompute_output_cgra_stencil$inner_compute$const"
+        modules = design["namespaces"]["global"]["modules"]
+        if top_module not in modules:
+            print(f"WARNING: Module '{top_module}' not found. No hack applied.")
+            return
+
+        avg = modules[top_module]
+        instances = avg["instances"]
+        conns = avg["connections"]
+
+        # 1. Remove constant PEs
+        for inst in list(instances):
+            if inst.startswith(const_prefix):
+                del instances[inst]
+        filtered = [c for c in conns if const_prefix not in c[0] and const_prefix not in c[1]]
+
+        # 2. Insert Pond: intercept PE->Mem writes, fork back to PE and forward to Mem
+        mems = {n for n, i in instances.items() if i.get("genref") == "cgralib.Mem"}
+        pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {"ID":["String",""], "has_stencil_valid":["Bool",True],
+                        "num_inputs":["Int",2], "num_outputs":["Int",2], "width":["Int",16]},
+            "modargs":{"config":["Json",{}], "mode":["String","pond"]},
+            "metadata":{"config":{}, "mode":"pond"}
+        }
+
+        new_conns = []
+        counts = {}
+
+        for a, b in filtered:
+            # remove original Mem->PE reads
+            m_out = re.match(r"^(.+)\.data_out_(\d+)$", a)
+            if m_out and b.endswith(".data0") and m_out.group(1) in mems:
+                continue
+            m_out = re.match(r"^(.+)\.data_out_(\d+)$", b)
+            if m_out and a.endswith(".data0") and m_out.group(1) in mems:
+                continue
+
+            # detect PE->Mem write: src PE.O0, dst mem.data_in_i
+            m_in = re.match(r"^(.+)\.data_in_(\d+)$", b)
+            if m_in and a.endswith(".O0") and m_in.group(1) in mems:
+                pe_src = a; mem, idx = m_in.group(1), m_in.group(2)
+            else:
+                m_in = re.match(r"^(.+)\.data_in_(\d+)$", a)
+                if m_in and b.endswith(".O0") and m_in.group(1) in mems:
+                    pe_src = b; mem, idx = m_in.group(1), m_in.group(2)
+                else:
+                    new_conns.append((a, b))
+                    continue
+
+            # create pond
+            key = (mem, idx)
+            cnt = counts.get(key, 0)
+            p = f"{mem}$pond_{idx}_{cnt}"
+            counts[key] = cnt + 1
+            inst = copy.deepcopy(pond_tpl)
+            inst["genargs"]["ID"][1] = p
+            instances[p] = inst
+
+            # fork: PE->pond input
+            new_conns.append((pe_src, f"{p}.data_in_pond_0"))
+            # fork output0: back to PE input port (replace .O0 with .data0)
+            pe_input = pe_src.rsplit('.O0', 1)[0] + '.data0'
+            new_conns.append((f"{p}.data_out_pond_0", pe_input))
+            # fork output1: to mem write port
+            new_conns.append((f"{p}.data_out_pond_1", f"{mem}.data_in_{idx}"))
+
+        avg["connections"] = new_conns
+
+        # Configure input IO with stride to read pixels from the same channel
+        for inst_name, inst_config in instances.items():
+            if "io16in_input_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                inst_config["metadata"]["glb2out_0"]["cycle_stride"] = [1, 1]
+                inst_config["metadata"]["glb2out_0"]["dimensionality"] = 2
+                inst_config["metadata"]["glb2out_0"]["extent"] = [
+                    int(self.halide_gen_args_dict["in_img"]) * int(self.halide_gen_args_dict["in_img"]),
+                    int(self.halide_gen_args_dict["n_ic"]) // int(self.halide_gen_args_dict["glb_i"])
+                ]
+                inst_config["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [
+                    int(self.halide_gen_args_dict["n_ic"]) // int(self.halide_gen_args_dict["glb_i"]),
+                    1
+                ]
+
+        # Configure output IO to remove static cycle offset
+        for inst_name, inst_config in instances.items():
+            if "io16_hw_output_stencil" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+
+        # write back JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
