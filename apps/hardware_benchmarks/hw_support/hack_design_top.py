@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, re, argparse, json
+import os, re, argparse, json, copy
 from pretty_format_json import pretty_format_json
 
 APPS_NEEDING_HACKS = [
@@ -18,6 +18,9 @@ APPS_NEEDING_HACKS = [
     "vector_reduction_fp",
     "mem_transpose_test",
     "mem_slice_test",
+    "mem_filter_test",
+    "avgpool_layer_fp",
+    "mat_vec_mul_fp",
 ]
 
 
@@ -35,7 +38,7 @@ class SelectedDesignHacker:
         # Extract halide_gen_args dict for config
         HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS", None)
         self.halide_gen_args_dict = dict(
-            item.split('=') for item in (HALIDE_GEN_ARGS or '').strip().split()
+            item.split("=") for item in (HALIDE_GEN_ARGS or "").strip().split()
         )
 
     def hack_design_if_needed(self, testname, json_path, bin_path):
@@ -86,9 +89,7 @@ class SelectedDesignHacker:
         # Locate "scalar_reduction" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_reduction = global_modules[top_module]
 
@@ -173,16 +174,12 @@ class SelectedDesignHacker:
                 del config["regfile2out_1"]
 
             # Adjust cycle_starting_addr for inputs
-            assert (
-                "in2regfile_0" in config
-            ), "Error: 'in2regfile_0' not found in config."
+            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert (
-                "regfile2out_0" in config
-            ), "Error: 'regfile2out_0' not found in config."
+            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
             config["regfile2out_0"]["cycle_starting_addr"] = [
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
@@ -204,9 +201,7 @@ class SelectedDesignHacker:
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
         )
-        assert (
-            io_out_name in instance_dict
-        ), f"Error: '{io_out_name}' not found in instance_dict."
+        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
         io16_inst = instance_dict[io_out_name]
         io16_meta = io16_inst.get("metadata", {})
         in2glb_0 = io16_meta.get("in2glb_0", {})
@@ -270,9 +265,7 @@ class SelectedDesignHacker:
         # Locate "scalar_reduction_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_reduction_fp = global_modules[top_module]
 
@@ -364,16 +357,12 @@ class SelectedDesignHacker:
                 del config["regfile2out_1"]
 
             # Adjust cycle_starting_addr for inputs
-            assert (
-                "in2regfile_0" in config
-            ), "Error: 'in2regfile_0' not found in config."
+            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert (
-                "regfile2out_0" in config
-            ), "Error: 'regfile2out_0' not found in config."
+            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
             config["regfile2out_0"]["cycle_starting_addr"] = [
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
@@ -394,9 +383,7 @@ class SelectedDesignHacker:
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
         )
-        assert (
-            io_out_name in instance_dict
-        ), f"Error: '{io_out_name}' not found in instance_dict."
+        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
         io16_inst = instance_dict[io_out_name]
         io16_meta = io16_inst.get("metadata", {})
         in2glb_0 = io16_meta.get("in2glb_0", {})
@@ -460,9 +447,7 @@ class SelectedDesignHacker:
         # Locate "scalar_max_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_max_fp = global_modules[top_module]
 
@@ -541,7 +526,9 @@ class SelectedDesignHacker:
         halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
 
         # Modify psum pond schedule
-        psum_pond_name = "max_output_cgra_inner_stencil$ub_max_output_cgra_inner_stencil_BANK_0_garnet"
+        psum_pond_name = (
+            "max_output_cgra_inner_stencil$ub_max_output_cgra_inner_stencil_BANK_0_garnet"
+        )
         if psum_pond_name in instance_dict:
             tile_inst = instance_dict[psum_pond_name]
             metadata = tile_inst.get("metadata", {})
@@ -554,16 +541,12 @@ class SelectedDesignHacker:
                 del config["regfile2out_1"]
 
             # Adjust cycle_starting_addr for inputs
-            assert (
-                "in2regfile_0" in config
-            ), "Error: 'in2regfile_0' not found in config."
+            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert (
-                "regfile2out_0" in config
-            ), "Error: 'regfile2out_0' not found in config."
+            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
             config["regfile2out_0"]["cycle_starting_addr"] = [
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
@@ -583,9 +566,7 @@ class SelectedDesignHacker:
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
         )
-        assert (
-            io_out_name in instance_dict
-        ), f"Error: '{io_out_name}' not found in instance_dict."
+        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
         io16_inst = instance_dict[io_out_name]
         io16_meta = io16_inst.get("metadata", {})
         in2glb_0 = io16_meta.get("in2glb_0", {})
@@ -649,9 +630,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         stable_softmax_pass2_fp = global_modules[top_module]
 
@@ -743,18 +722,16 @@ class SelectedDesignHacker:
                 del config["regfile2out_1"]
 
             # Adjust cycle_starting_addr for inputs
-            assert (
-                "in2regfile_0" in config
-            ), "Error: 'in2regfile_0' not found in config."
+            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             # Set reduction tree delay
-            reduction_tree_delay = 1 # It's one because we have fp.exp
-            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs + reduction_tree_delay]
+            reduction_tree_delay = 1  # It's one because we have fp.exp
+            config["in2regfile_0"]["cycle_starting_addr"] = [
+                input_pipelining_regs + reduction_tree_delay
+            ]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert (
-                "regfile2out_0" in config
-            ), "Error: 'regfile2out_0' not found in config."
+            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
             config["regfile2out_0"]["cycle_starting_addr"] = [
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
@@ -775,9 +752,7 @@ class SelectedDesignHacker:
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
         )
-        assert (
-            io_out_name in instance_dict
-        ), f"Error: '{io_out_name}' not found in instance_dict."
+        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
         io16_inst = instance_dict[io_out_name]
         io16_meta = io16_inst.get("metadata", {})
         in2glb_0 = io16_meta.get("in2glb_0", {})
@@ -841,7 +816,7 @@ class SelectedDesignHacker:
             # -> "vec_max_host_stencil_clkwrk_8_op_hcompute_vec_max_glb_stencil_2_read_0"
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -917,9 +892,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         stable_softmax_pass3_fp = global_modules[top_module]
         instance_dict = stable_softmax_pass3_fp.get("instances", {})
@@ -944,7 +917,7 @@ class SelectedDesignHacker:
             # Convert instance name -> the corresponding type prefix
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -1003,7 +976,10 @@ class SelectedDesignHacker:
         # Configure the IO to read the same addr of GLB repeatedly
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
-            if "io16in_pass2_sum_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+            if (
+                "io16in_pass2_sum_host_stencil" in inst_name
+                and inst_config["modref"] == "global.IO"
+            ):
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
@@ -1028,9 +1004,7 @@ class SelectedDesignHacker:
         # Locate "scalar_avg_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_avg_fp = global_modules[top_module]
 
@@ -1122,16 +1096,12 @@ class SelectedDesignHacker:
                 del config["regfile2out_1"]
 
             # Adjust cycle_starting_addr for inputs
-            assert (
-                "in2regfile_0" in config
-            ), "Error: 'in2regfile_0' not found in config."
+            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert (
-                "regfile2out_0" in config
-            ), "Error: 'regfile2out_0' not found in config."
+            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
             config["regfile2out_0"]["cycle_starting_addr"] = [
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
@@ -1152,9 +1122,7 @@ class SelectedDesignHacker:
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
         )
-        assert (
-            io_out_name in instance_dict
-        ), f"Error: '{io_out_name}' not found in instance_dict."
+        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
         io16_inst = instance_dict[io_out_name]
         io16_meta = io16_inst.get("metadata", {})
         in2glb_0 = io16_meta.get("in2glb_0", {})
@@ -1218,9 +1186,7 @@ class SelectedDesignHacker:
         # Locate "layer_norm_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         layer_norm_pass2_fp = global_modules[top_module]
 
@@ -1312,18 +1278,16 @@ class SelectedDesignHacker:
                 del config["regfile2out_1"]
 
             # Adjust cycle_starting_addr for inputs
-            assert (
-                "in2regfile_0" in config
-            ), "Error: 'in2regfile_0' not found in config."
+            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
             input_pipelining_regs = INPUT_PIPELINING_REGS
             # Set reduction tree delay
             reduction_tree_delay = 0
-            config["in2regfile_0"]["cycle_starting_addr"] = [input_pipelining_regs + reduction_tree_delay]
+            config["in2regfile_0"]["cycle_starting_addr"] = [
+                input_pipelining_regs + reduction_tree_delay
+            ]
 
             # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert (
-                "regfile2out_0" in config
-            ), "Error: 'regfile2out_0' not found in config."
+            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
             config["regfile2out_0"]["cycle_starting_addr"] = [
                 config["in2regfile_0"]["cycle_starting_addr"][0] + 1
             ]
@@ -1343,10 +1307,8 @@ class SelectedDesignHacker:
             halide_args_dict["vec_width"]
             * halide_args_dict["vec_height"]
             // pow(2, halide_args_dict["tree_stages"])
-        ) + 2 # Add 2 for the sqrt (log + exp)
-        assert (
-            io_out_name in instance_dict
-        ), f"Error: '{io_out_name}' not found in instance_dict."
+        ) + 2  # Add 2 for the sqrt (log + exp)
+        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
         io16_inst = instance_dict[io_out_name]
         io16_meta = io16_inst.get("metadata", {})
         in2glb_0 = io16_meta.get("in2glb_0", {})
@@ -1410,7 +1372,7 @@ class SelectedDesignHacker:
             # -> "vec_avg_host_stencil_clkwrk_8_op_hcompute_vec_avg_glb_stencil_2_read_0"
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -1486,9 +1448,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         layer_norm_pass3_fp = global_modules[top_module]
         instance_dict = layer_norm_pass3_fp.get("instances", {})
@@ -1515,7 +1475,7 @@ class SelectedDesignHacker:
                 # Convert instance name to field prefix by stripping the "io16in_" part
                 def inst_to_field_prefix(name):
                     if name.startswith("io16in_"):
-                        return name[len("io16in_"):]
+                        return name[len("io16in_") :]
                     return name
 
                 keep_prefix = inst_to_field_prefix(keep_inst)
@@ -1550,6 +1510,7 @@ class SelectedDesignHacker:
                             new_right = new_right.replace(rpref, keep_prefix)
                     new_conn.append([new_left, new_right])
                 layer_norm_pass3_fp["connections"] = new_conn
+
         remove_duplicate_ios("io16in_pass1_avg_host_stencil_", instance_dict, layer_norm_pass3_fp)
         remove_duplicate_ios("io16in_pass2_std_host_stencil_", instance_dict, layer_norm_pass3_fp)
 
@@ -1568,7 +1529,10 @@ class SelectedDesignHacker:
         # Configure the IO to read the same addr of GLB repeatedly
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
-            if ("io16in_pass1_avg_host_stencil" in inst_name or "io16in_pass2_std_host_stencil" in inst_name) and inst_config["modref"] == "global.IO":
+            if (
+                "io16in_pass1_avg_host_stencil" in inst_name
+                or "io16in_pass2_std_host_stencil" in inst_name
+            ) and inst_config["modref"] == "global.IO":
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
@@ -1585,9 +1549,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         gelu_pass2_fp = global_modules[top_module]
         instance_dict = gelu_pass2_fp.get("instances", {})
@@ -1612,7 +1574,7 @@ class SelectedDesignHacker:
             # Convert instance name -> the corresponding type prefix
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -1671,7 +1633,10 @@ class SelectedDesignHacker:
         # Configure the IO to read the same addr of GLB repeatedly
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
-            if "io16in_pass1_out_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+            if (
+                "io16in_pass1_out_host_stencil" in inst_name
+                and inst_config["modref"] == "global.IO"
+            ):
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
@@ -1688,9 +1653,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         silu_pass2_fp = global_modules[top_module]
         instance_dict = silu_pass2_fp.get("instances", {})
@@ -1715,7 +1678,7 @@ class SelectedDesignHacker:
             # Convert instance name -> the corresponding type prefix
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -1774,7 +1737,10 @@ class SelectedDesignHacker:
         # Configure the IO to read the same addr of GLB repeatedly
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
-            if "io16in_pass1_out_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+            if (
+                "io16in_pass1_out_host_stencil" in inst_name
+                and inst_config["modref"] == "global.IO"
+            ):
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
@@ -1791,9 +1757,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         swiglu_pass2_fp = global_modules[top_module]
         instance_dict = swiglu_pass2_fp.get("instances", {})
@@ -1818,7 +1782,7 @@ class SelectedDesignHacker:
             # Convert instance name -> the corresponding type prefix
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -1877,7 +1841,10 @@ class SelectedDesignHacker:
         # Configure the IO to read the same addr of GLB repeatedly
         # TODO: this should be replaced by reading from MEM tile instead for power efficiency
         for inst_name, inst_config in instance_dict.items():
-            if "io16in_pass1_out_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+            if (
+                "io16in_pass1_out_host_stencil" in inst_name
+                and inst_config["modref"] == "global.IO"
+            ):
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
@@ -1899,9 +1866,7 @@ class SelectedDesignHacker:
         # Locate "scalar_reduction_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_reduction_fp = global_modules[top_module]
 
@@ -1980,7 +1945,7 @@ class SelectedDesignHacker:
                 # HACK: Assuming the PE input port connected to Pond is "data_in_0"
                 # We bypass the input and output fifos on the feedback path
                 "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
+                "output_fifo_bypass": 1,
             }
         }
         PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
@@ -2016,9 +1981,7 @@ class SelectedDesignHacker:
         # Locate "vector_reduction_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         vector_reduction_fp = global_modules[top_module]
 
@@ -2097,7 +2060,7 @@ class SelectedDesignHacker:
                 # HACK: Assuming the PE input port connected to Pond is "data_in_0"
                 # We bypass the input and output fifos on the feedback path
                 "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
+                "output_fifo_bypass": 1,
             }
         }
         PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
@@ -2108,7 +2071,9 @@ class SelectedDesignHacker:
         # Update output IO tile extent to match the number of output pixels
         # Also have to update cycle_start_addr and stride, as it means handshake rather than cycles in dense rv scenario
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["vec_height"])]
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [
+            int(self.halide_gen_args_dict["vec_height"])
+        ]
         # We want to accept every valid handshake starting from the first one
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
@@ -2116,6 +2081,192 @@ class SelectedDesignHacker:
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+    def hack_for_mat_vec_mul_fp_rv(self, json_path, bin_path):
+        # Load the design JSON
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "mat_vec_mul_fp"
+        tree_out_pond_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_garnet$"
+        tree_out_pond_clk_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_clk_en_const$"
+        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+
+        # Locate the mat_vec_mul_fp module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        mat = global_modules[top_module]
+        instance_dict = mat.get("instances", {})
+        connection_list = mat.get("connections", [])
+
+        # Remove unncessary reduction tree pond/mem before accum PE
+        # Delete instance first
+        ponds = [k for k in instance_dict if re.match(tree_out_pond_pattern, k)]
+        clks = [k for k in instance_dict if re.match(tree_out_pond_clk_pattern, k)]
+        for k in ponds + clks:
+            del instance_dict[k]
+        # Hook up connection
+        old_input = old_output = None
+        new_connections = []
+        for left, right in connection_list:
+            match_left = re.match(tree_out_pond_pattern, left.split(".")[0]) or re.match(
+                tree_out_pond_clk_pattern, left.split(".")[0]
+            )
+            match_right = re.match(tree_out_pond_pattern, right.split(".")[0]) or re.match(
+                tree_out_pond_clk_pattern, right.split(".")[0]
+            )
+            if not (match_left or match_right):
+                new_connections.append([left, right])
+                continue
+            if match_left:
+                if ".data_in" in left:
+                    old_input = right
+                if ".data_out" in left:
+                    old_output = right
+            if match_right:
+                if ".data_in" in right:
+                    old_input = left
+                if ".data_out" in right:
+                    old_output = left
+        if old_input and old_output:
+            new_connections.append([old_input, old_output])
+        else:
+            assert False, "[ERROR] Could not find data_in and data_out for pond tile."
+
+        # Remove const PE instance and its connections
+        if pe_to_remove in instance_dict:
+            del instance_dict[pe_to_remove]
+        filtered_conns = [
+            c for c in new_connections if pe_to_remove not in c[0] and pe_to_remove not in c[1]
+        ]
+        mat["connections"] = filtered_conns
+
+        # Generate FIFO bypass config for the psum PE
+        psum_pe = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
+        bypass_cfg = {psum_pe: {"input_fifo_bypass": [1, 0, 0], "output_fifo_bypass": 1}}
+        bypass_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        print(f"Writing PE_fifos_bypass_config to {bypass_path}")
+        with open(bypass_path, "w") as f:
+            json.dump(bypass_cfg, f, indent=2)
+
+        # Update the output-IO tile’s metadata to match matrix_height size
+        out_io = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        md = instance_dict[out_io]["metadata"]["in2glb_0"]
+        md["extent"] = [int(self.halide_gen_args_dict["matrix_height"])]
+        md["cycle_starting_addr"] = [0]
+        md["cycle_stride"] = [1]
+
+        # Update the input-IO tile’s metadata to match matrix size
+        in_io_pattern = "io16in_matrix_host_stencil"
+        for in_io_instance in instance_dict:
+            if in_io_pattern in in_io_instance:
+                md = instance_dict[in_io_instance]["metadata"]["glb2out_0"]
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [
+                    int(self.halide_gen_args_dict["matrix_width"])
+                    * int(self.halide_gen_args_dict["matrix_height"])
+                    // int(self.halide_gen_args_dict["glb_i"])
+                ]
+                md["read_data_starting_addr"] = [0]
+                md["read_data_stride"] = [1]
+
+        # Insert new vector-host IO instances & connections
+        vector_meta = {
+            "glb2out_0": {
+                "cycle_starting_addr": [0, 0],
+                "cycle_stride": [1, 1],
+                "dimensionality": 2,
+                "extent": [
+                    int(self.halide_gen_args_dict["matrix_width"])
+                    // int(self.halide_gen_args_dict["glb_i"]),
+                    int(self.halide_gen_args_dict["matrix_height"]),
+                ],
+                "read_data_starting_addr": [0, 0],
+                "read_data_stride": [1, 0],
+            }
+        }
+        mul_re = re.compile(
+            r"op_hcompute_tile_input_stencil(?:_(\d+))?" r"\$inner_compute\$float_DW_fp_mul"
+        )
+        mul_list = sorted(
+            (int(m.group(1) or 0), name)
+            for name in instance_dict
+            for m in [mul_re.match(name)]
+            if m
+        )
+        for idx, pe_name in mul_list:
+            io_name = (
+                f"io16in_vector_host_stencil_clkwrk_{idx}"
+                f"_op_hcompute_vector_glb_stencil_{idx}_read_0"
+            )
+            # Add the IO instance
+            instance_dict[io_name] = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "in"]},
+                "metadata": vector_meta,
+            }
+            # Connect self.vector_host_stencil* to io.in
+            mat["connections"].append(
+                [
+                    f"self.vector_host_stencil_clkwrk_{idx}"
+                    f"_op_hcompute_vector_glb_stencil_{idx}_read_0",
+                    f"{io_name}.in",
+                ]
+            )
+            # Connect pe.data1 to io.out
+            mat["connections"].append([f"{pe_name}.data1", f"{io_name}.out"])
+        # Update the module’s type record to include vector_host_stencil fields
+        type_fields = mat["type"][1]
+        for idx, _ in mul_list:
+            type_fields.append(
+                [
+                    f"vector_host_stencil_clkwrk_{idx}"
+                    f"_op_hcompute_vector_glb_stencil_{idx}_read_0",
+                    ["Array", 16, "BitIn"],
+                ]
+            )
+
+        # Update mul PE instruction
+        # Change constant multiplier for tile_input PEs from a fixed value
+        # to use two input operands.
+        const_re = re.compile(r"^op_hcompute_tile_input_stencil(?:_(\d+))?" r"\$inner_compute\$c0$")
+        for inst_name, inst in instance_dict.items():
+            if const_re.match(inst_name):
+                # ensure this is a CoreIR const instance
+                if inst.get("genref") == "coreir.const":
+                    # inst["modargs"]["value"] is a 2-element list:
+                    # [ ["BitVector", width], hexstring ]
+                    # update the hexstring to multiply two inputs instead of constant
+                    inst["modargs"]["value"][1] = "84'h00000420009004040000e"
+                else:
+                    raise RuntimeError(f"Instance {inst_name} is not a coreir.const")
+
+        # Write the patched design back out
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Also update design_meta_halide.json to add vector input
+        # TODO: This applies hack to design_meta as well. Do we want to create a new class?
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        design_meta["IOs"]["inputs"].append(
+            {
+                "bitwidth": 16,
+                "datafile": "vector_host_stencil.raw",
+                "name": "vector_host_stencil",
+                "shape": [
+                    int(self.halide_gen_args_dict["matrix_width"]),
+                    int(self.halide_gen_args_dict["matrix_height"]),
+                ],
+            }
+        )
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
 
     def hack_for_scalar_max_fp_rv(self, json_path, bin_path):
 
@@ -2132,9 +2283,7 @@ class SelectedDesignHacker:
         # Locate "scalar_max_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_max_fp = global_modules[top_module]
 
@@ -2213,7 +2362,7 @@ class SelectedDesignHacker:
                 # HACK: Assuming the PE input port connected to Pond is "data_in_0"
                 # We bypass the input and output fifos on the feedback path
                 "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
+                "output_fifo_bypass": 1,
             }
         }
         PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
@@ -2249,9 +2398,7 @@ class SelectedDesignHacker:
         # Locate "stable_softmax_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         stable_softmax_pass2_fp = global_modules[top_module]
 
@@ -2330,7 +2477,7 @@ class SelectedDesignHacker:
                 # HACK: Assuming the PE input port connected to Pond is "data_in_0"
                 # We bypass the input and output fifos on the feedback path
                 "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
+                "output_fifo_bypass": 1,
             }
         }
         PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
@@ -2369,7 +2516,7 @@ class SelectedDesignHacker:
             # -> "vec_max_host_stencil_clkwrk_8_op_hcompute_vec_max_glb_stencil_2_read_0"
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -2456,9 +2603,7 @@ class SelectedDesignHacker:
         # Locate "scalar_avg_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         scalar_avg_fp = global_modules[top_module]
 
@@ -2537,7 +2682,7 @@ class SelectedDesignHacker:
                 # HACK: Assuming the PE input port connected to Pond is "data_in_0"
                 # We bypass the input and output fifos on the feedback path
                 "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
+                "output_fifo_bypass": 1,
             }
         }
         PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
@@ -2573,9 +2718,7 @@ class SelectedDesignHacker:
         # Locate "layer_norm_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(
-                f"WARNING: Module '{top_module}' not found in design. No hack applied."
-            )
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
         layer_norm_pass2_fp = global_modules[top_module]
 
@@ -2654,7 +2797,7 @@ class SelectedDesignHacker:
                 # HACK: Assuming the PE input port connected to Pond is "data_in_0"
                 # We bypass the input and output fifos on the feedback path
                 "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1
+                "output_fifo_bypass": 1,
             }
         }
         PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
@@ -2693,7 +2836,7 @@ class SelectedDesignHacker:
             # -> "vec_avg_host_stencil_clkwrk_8_op_hcompute_vec_avg_glb_stencil_2_read_0"
             def inst_to_field_prefix(name):
                 if name.startswith("io16in_"):
-                    return name[len("io16in_"):]
+                    return name[len("io16in_") :]
                 return name
 
             keep_prefix = inst_to_field_prefix(keep_inst)
@@ -2801,10 +2944,12 @@ class SelectedDesignHacker:
             kept_conns.append([src, dst])
 
         # Connect the MEM tile to the output IO
-        kept_conns.append([
-            "hw_input_global_wrapper_stencil$ub_hw_input_global_wrapper_stencil_BANK_0_garnet.data_out_0",
-            "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0.in"
-        ])
+        kept_conns.append(
+            [
+                "hw_input_global_wrapper_stencil$ub_hw_input_global_wrapper_stencil_BANK_0_garnet.data_out_0",
+                "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0.in",
+            ]
+        )
 
         # Update IO tile config
         io_in_name = "io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0"
@@ -2813,12 +2958,16 @@ class SelectedDesignHacker:
         insts[io_in_name]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
         insts[io_in_name]["metadata"]["glb2out_0"]["cycle_stride"] = [1]
         insts[io_in_name]["metadata"]["glb2out_0"]["dimensionality"] = 1
-        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [
+            int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])
+        ]
         # Output config
         insts[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
         insts[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
         insts[io_out_name]["metadata"]["in2glb_0"]["dimensionality"] = 1
-        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [
+            int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])
+        ]
 
         top["connections"] = kept_conns
 
@@ -2838,10 +2987,250 @@ class SelectedDesignHacker:
         io_in_name = "io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0"
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
 
-        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])]
-        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"]) // 2]
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [
+            int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])
+        ]
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [
+            int(self.halide_gen_args_dict["in_img_x"])
+            * int(self.halide_gen_args_dict["in_img_y"])
+            // 2
+        ]
 
         # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_mem_filter_test_rv(self, json_path, bin_path):
+        # Apply the same hack as mem_transpose_test
+        self.hack_for_mem_transpose_test_rv(json_path, bin_path, module_name="mem_filter_test")
+
+        # Adjust IO tile config
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        insts = design["namespaces"]["global"]["modules"]["mem_filter_test"]["instances"]
+        io_in_name = "io16in_hw_input_stencil_op_hcompute_hw_input_global_wrapper_stencil_read_0"
+        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+
+        insts[io_in_name]["metadata"]["glb2out_0"]["extent"] = [
+            int(self.halide_gen_args_dict["in_img_x"]) * int(self.halide_gen_args_dict["in_img_y"])
+        ]
+        insts[io_out_name]["metadata"]["in2glb_0"]["extent"] = [
+            int(self.halide_gen_args_dict["in_img_x"])
+            * int(self.halide_gen_args_dict["in_img_y"])
+            // 4
+        ]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_avgpool_layer_fp_rv_with_output_mem(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "avgpool_layer_fp"
+        const_prefix = "op_hcompute_output_cgra_stencil$inner_compute$const"
+        modules = design["namespaces"]["global"]["modules"]
+        if top_module not in modules:
+            print(f"WARNING: Module '{top_module}' not found. No hack applied.")
+            return
+
+        avg = modules[top_module]
+        instances = avg["instances"]
+        conns = avg["connections"]
+
+        # 1. Remove constant PEs
+        for inst in list(instances):
+            if inst.startswith(const_prefix):
+                del instances[inst]
+        filtered = [c for c in conns if const_prefix not in c[0] and const_prefix not in c[1]]
+
+        # 2. Insert Pond: intercept PE->Mem writes, fork back to PE and forward to Mem
+        mems = {n for n, i in instances.items() if i.get("genref") == "cgralib.Mem"}
+        pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {
+                "ID": ["String", ""],
+                "has_stencil_valid": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "width": ["Int", 16],
+            },
+            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+            "metadata": {"config": {}, "mode": "pond"},
+        }
+
+        new_conns = []
+        counts = {}
+
+        for a, b in filtered:
+            # remove original Mem->PE reads
+            m_out = re.match(r"^(.+)\.data_out_(\d+)$", a)
+            if m_out and b.endswith(".data0") and m_out.group(1) in mems:
+                continue
+            m_out = re.match(r"^(.+)\.data_out_(\d+)$", b)
+            if m_out and a.endswith(".data0") and m_out.group(1) in mems:
+                continue
+
+            # detect PE->Mem write: src PE.O0, dst mem.data_in_i
+            m_in = re.match(r"^(.+)\.data_in_(\d+)$", b)
+            if m_in and a.endswith(".O0") and m_in.group(1) in mems:
+                pe_src = a
+                mem, idx = m_in.group(1), m_in.group(2)
+            else:
+                m_in = re.match(r"^(.+)\.data_in_(\d+)$", a)
+                if m_in and b.endswith(".O0") and m_in.group(1) in mems:
+                    pe_src = b
+                    mem, idx = m_in.group(1), m_in.group(2)
+                else:
+                    new_conns.append((a, b))
+                    continue
+
+            # create pond
+            key = (mem, idx)
+            cnt = counts.get(key, 0)
+            p = f"{mem}$pond_{idx}_{cnt}"
+            counts[key] = cnt + 1
+            inst = copy.deepcopy(pond_tpl)
+            inst["genargs"]["ID"][1] = p
+            instances[p] = inst
+
+            # fork: PE->pond input
+            new_conns.append((pe_src, f"{p}.data_in_pond_0"))
+            # fork output0: back to PE input port (replace .O0 with .data0)
+            pe_input = pe_src.rsplit(".O0", 1)[0] + ".data0"
+            new_conns.append((f"{p}.data_out_pond_0", pe_input))
+            # fork output1: to mem write port
+            new_conns.append((f"{p}.data_out_pond_1", f"{mem}.data_in_{idx}"))
+
+        avg["connections"] = new_conns
+
+        # Configure input IO with stride to read pixels from the same channel
+        for inst_name, inst_config in instances.items():
+            if "io16in_input_host_stencil" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                inst_config["metadata"]["glb2out_0"]["cycle_stride"] = [
+                    1,
+                    int(self.halide_gen_args_dict["in_img"])
+                    * int(self.halide_gen_args_dict["in_img"]),
+                ]
+                inst_config["metadata"]["glb2out_0"]["dimensionality"] = 2
+                inst_config["metadata"]["glb2out_0"]["extent"] = [
+                    int(self.halide_gen_args_dict["in_img"])
+                    * int(self.halide_gen_args_dict["in_img"]),
+                    int(self.halide_gen_args_dict["n_ic"])
+                    // int(self.halide_gen_args_dict["glb_i"]),
+                ]
+                inst_config["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [
+                    int(self.halide_gen_args_dict["n_ic"])
+                    // int(self.halide_gen_args_dict["glb_i"]),
+                    1,
+                ]
+
+        # Configure output IO to remove static cycle offset
+        for inst_name, inst_config in instances.items():
+            if "io16_hw_output_stencil" in inst_name and inst_config["modref"] == "global.IO":
+                inst_config["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+
+        # write back JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_avgpool_layer_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "avgpool_layer_fp"
+        const_prefix = "op_hcompute_output_cgra_stencil$inner_compute$const"
+        modules = design["namespaces"]["global"]["modules"]
+        if top_module not in modules:
+            print(f"WARNING: Module '{top_module}' not found. No hack applied.")
+            return
+
+        avg = modules[top_module]
+        instances = avg["instances"]
+        conns = avg["connections"]
+
+        # Remove constant PEs
+        for inst in list(instances):
+            if inst.startswith(const_prefix):
+                del instances[inst]
+        filtered = [c for c in conns if const_prefix not in c[0] and const_prefix not in c[1]]
+
+        # Replace each Mem tile with a Pond instance named "<mem>$pond"
+        pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {
+                "ID": ["String", ""],
+                "has_stencil_valid": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "width": ["Int", 16],
+            },
+            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+            "metadata": {"config": {}, "mode": "pond"},
+        }
+
+        mem_to_pond = {}
+        for name, inst in list(instances.items()):
+            if inst.get("genref") == "cgralib.Mem":
+                pond_name = f"{name}$pond"
+                mem_to_pond[name] = pond_name
+                new_inst = copy.deepcopy(pond_tpl)
+                new_inst["genargs"]["ID"][1] = pond_name
+                instances[pond_name] = new_inst
+                del instances[name]
+
+        # Rename all connections: data_in_* -> data_in_pond_0, data_out_i -> data_out_pond_i
+        def rename_port(tok):
+            m = re.match(r"^(.+)\.(data_(?:in|out))_(\d+)$", tok)
+            if m and m.group(1) in mem_to_pond:
+                old, dtype, idx = m.group(1), m.group(2), m.group(3)
+                new_name = mem_to_pond[old]
+                if dtype == "data_in":
+                    new_idx = "0"
+                else:
+                    new_idx = idx
+                return f"{new_name}.{dtype}_pond_{new_idx}"
+            for old, new in mem_to_pond.items():
+                if tok.startswith(old + "."):
+                    return tok.replace(old + ".", new + ".", 1)
+            return tok
+
+        avg["connections"] = [(rename_port(a), rename_port(b)) for (a, b) in filtered]
+
+        # Configure input IO with stride to read pixels from the same channel
+        for inst_name, inst_conf in instances.items():
+            if "io16in_input_host_stencil" in inst_name and inst_conf.get("modref") == "global.IO":
+                md = inst_conf["metadata"]["glb2out_0"]
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [
+                    1,
+                    int(self.halide_gen_args_dict["in_img"])
+                    * int(self.halide_gen_args_dict["in_img"]),
+                ]
+                md["dimensionality"] = 2
+                md["extent"] = [
+                    int(self.halide_gen_args_dict["in_img"])
+                    * int(self.halide_gen_args_dict["in_img"]),
+                    int(self.halide_gen_args_dict["n_ic"])
+                    // int(self.halide_gen_args_dict["glb_i"]),
+                ]
+                md["read_data_starting_addr"] = [0]
+                md["read_data_stride"] = [
+                    int(self.halide_gen_args_dict["n_ic"])
+                    // int(self.halide_gen_args_dict["glb_i"]),
+                    1,
+                ]
+
+        # Configure output IO to remove static cycle offset
+        for inst_name, inst_conf in instances.items():
+            if "io16_hw_output_stencil" in inst_name and inst_conf.get("modref") == "global.IO":
+                inst_conf["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+
+        # Write back the modified design
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
