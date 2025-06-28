@@ -309,6 +309,13 @@ def E64_packing(json_data):
                     if flag == 1:
                         pack_set.add(x)
 
+    # If GLB_BANK_CONFIG is empty, treat all io_tiles as packed
+    if not json_data.get("GLB_BANK_CONFIG"):
+        for entry in json_data["IOs"]["inputs"]:
+            input_pack_x.update(t["x_pos"] for t in entry["io_tiles"])
+        for entry in json_data["IOs"]["outputs"]:
+            output_pack_x.update(t["x_pos"] for t in entry["io_tiles"])
+
     unique_input_positions = set()
     unique_output_positions = set()
     trimmed_inputs = []
