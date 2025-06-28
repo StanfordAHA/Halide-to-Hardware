@@ -11,7 +11,9 @@ public:
     Input<Buffer<uint16_t>> input_2{ "input_2", 2 };
     Output<Buffer<uint16_t>> output{ "output", 1 };
 
+    // 56x56 image input
     GeneratorParam<int> vec_height{ "vec_height", 3136 };
+    // 32 channel
     GeneratorParam<int> vec_width{ "vec_width", 32 };
 
     // glb_i determines the input glb unrolling
@@ -28,7 +30,7 @@ public:
         Var x("x"), y("y");
         Func mu_hw_input("mu_hw_input"), hw_glb_input("hw_glb_input");
         Func mu_input_host("mu_input_host"), mu_input_glb("mu_input_glb"), mu_input_cgra("mu_input_cgra");
-        Func glb_input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
+        Func glb_input_host("glb_input_host"), glb_input_glb("glb_input_glb"), glb_input_cgra("glb_input_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         mu_hw_input(x, y) = bf16(input(x, y));
@@ -38,8 +40,8 @@ public:
 
         hw_glb_input(x, y) = bf16(input_2(x, y));
         glb_input_host(x, y) = hw_glb_input(x, y);
-        input_glb(x, y) = glb_input_host(x, y);
-        input_cgra(x, y) = input_glb(x, y);
+        glb_input_glb(x, y) = glb_input_host(x, y);
+        glb_input_cgra(x, y) = glb_input_glb(x, y);
 
         const int tile_size = 1 << int(tree_stages);
 
@@ -49,7 +51,7 @@ public:
         std::vector<Func> tree_mu(total_stages + 1);
         std::vector<Func> tree_glb_in(total_stages + 1);
         tree_mu[0](x, y) = mu_input_cgra(x, y);
-        tree_glb_in[0](x, y) = input_cgra(x, y);
+        tree_glb_in[0](x, y) = glb_input_cgra(x, y);
 
         // For each stage s, we reduce pairs of elements along xi.
         for (int s = 1; s <= total_stages; s++) {
@@ -90,9 +92,9 @@ public:
 
             glb_input_host.bound(x, 0, int(vec_width))
                 .bound(y, 0, vec_height);
-            input_glb.bound(x, 0, int(vec_width))
+            glb_input_glb.bound(x, 0, int(vec_width))
                 .bound(y, 0, vec_height);
-            input_cgra.bound_extent(x, int(mem_vec_width));
+            glb_input_cgra.bound_extent(x, int(mem_vec_width));
 
             output.bound(y, 0, vec_height);
             hw_output.bound(y, 0, vec_height);
@@ -136,9 +138,9 @@ public:
                 .reorder(x_cgra, y, x_glb);
 
             glb_input_host.compute_root().accelerator_input();
-            input_glb.compute_at(hw_output, y_host);
-            input_cgra.compute_at(output_glb, y_glb);
-            input_cgra
+            glb_input_glb.compute_at(hw_output, y_host);
+            glb_input_cgra.compute_at(output_glb, y_glb);
+            glb_input_cgra
                 .split(x, x_glb, x_cgra, tile_size)
                 .reorder(x_cgra, y, x_glb);
 
@@ -146,8 +148,8 @@ public:
             mu_input_glb.unroll(x, glb_i);  // unroll glb input for small images
             mu_input_cgra.unroll(x_cgra, glb_i); // unroll glb input for small images
 
-            input_glb.unroll(x, glb_i);  // unroll glb input for small images
-            input_cgra.unroll(x_cgra, glb_i); // unroll glb input for small images
+            glb_input_glb.unroll(x, glb_i);  // unroll glb input for small images
+            glb_input_cgra.unroll(x_cgra, glb_i); // unroll glb input for small images
 
         } else {  // schedule to CPU
             output_cgra.compute_root();

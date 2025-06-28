@@ -54,7 +54,7 @@ def parseDesignTop(meta, filename: str):
     meta["testing"]["coreir"] = os.path.basename(filename)
 
     metaIn = []
-    metaMU_in = [] 
+    metaMU_in = []
     metaOut = []
     with open(filename, "r") as readFile:
         designTop = json.load(readFile)
@@ -65,9 +65,9 @@ def parseDesignTop(meta, filename: str):
 
         coreirInstances = designTop["namespaces"]["global"]["modules"][designName]["instances"]
 
-        dense_ready_valid = "DENSE_READY_VALID" in os.environ and os.environ.get("DENSE_READY_VALID") == "1" 
+        dense_ready_valid = "DENSE_READY_VALID" in os.environ and os.environ.get("DENSE_READY_VALID") == "1"
         for inst in coreirInstances:
-            if inst.startswith("MU"):    
+            if inst.startswith("MU"):
                 # this is a MU input
                 ioName = findBetween(inst, "MU_io16in_", "_clkwrk")
                 metaMU_in = findIO(meta["IOs"]["mu_inputs"], ioName)
@@ -80,7 +80,7 @@ def parseDesignTop(meta, filename: str):
 
                 # # change read_data_stride based on the number of input tiles
                 # metaIn["io_tiles"]
-            
+
             elif inst.startswith("io16in_"):
                 # this is a data input
                 ioName = findBetween(inst, "io16in_", "_clkwrk")
@@ -197,7 +197,7 @@ def parseDesignPlace(meta, filename: str):
                 metaOut = findIO(meta["IOs"]["mu_inputs"], ioName)
                 tileOut = findIO(metaOut["mu_io_tiles"], name)
                 setOrCheck(tileOut, "x_pos", int(words[1]))
-                setOrCheck(tileOut, "y_pos", int(words[2])) 
+                setOrCheck(tileOut, "y_pos", int(words[2]))
 
 # Hacky functions to tile xy loop when flattened and add padding to extents
 def parseLoopExtentforPadding(meta, halide_gen_args):
@@ -247,6 +247,19 @@ def addGLBBankConfig(meta):
     with open("bin/glb_bank_config.json", "r") as f:
         glb_json = json.load(f)
     meta["GLB_BANK_CONFIG"] = glb_json
+
+    # Build {x_pos: E64_packed} map
+    input_pack_map = {}
+    for blk in glb_json.get("inputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                input_pack_map[x] = flag
+    output_pack_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                output_pack_map[x] = flag
+
     for input_index, input_dict in enumerate(meta["IOs"]["inputs"]):
         assert "io_tiles" in input_dict, "io_tiles must be key of input_dict"
         for tile_index, io_tile in enumerate(input_dict["io_tiles"]):
@@ -255,6 +268,16 @@ def addGLBBankConfig(meta):
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 1
             else:
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
+
+            # Add E64_packed flag for input tiles
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 0)
+
+    # Add E64_packed flag for output tiles
+    for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
+        assert "io_tiles" in output_dict, "io_tiles must be key of output_dict"
+        for tile_index, io_tile in enumerate(output_dict["io_tiles"]):
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
+
 
 # Function to change extent for glb tiling or add dimensions
 def parseLoopExtentforTiling(meta, halide_gen_args):
@@ -274,52 +297,68 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
 
 def E64_packing(json_data):
     print("INFO: Modifying design meta for E64 packing")
+
+    # Collect x-positions that need E64 packing from GLB_BANK_CONFIG
+    input_pack_x, output_pack_x = set(), set()
+    for section, pack_set in [("inputs", input_pack_x), ("outputs", output_pack_x)]:
+        for blk in json_data.get("GLB_BANK_CONFIG", {}).get(section, []):
+            for _, cfg in blk.items():
+                for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                    if flag == 1:
+                        pack_set.add(x)
+
     unique_input_positions = set()
     unique_output_positions = set()
     trimmed_inputs = []
     trimmed_outputs = []
-    
+
     # Assert that the number of inputs and outputs are multiples of 4
-    # FIXME: Potentially fix this for apps with two loop levels 
-    def process_io(io_entries, unique_positions):
+    # FIXME: Potentially fix this for apps with two loop levels
+    def process_io(io_entries, unique_positions, pack_x_set):
         trimmed_entries = []
         for entry in io_entries:
-            assert len(entry["io_tiles"]) % 4 == 0, "Number of io_tiles must be a multiple of 4 for E64 mode"
+            # Enforce assertion only if packing is used
+            if pack_x_set and (len(entry["io_tiles"]) % 4 != 0):
+                raise AssertionError("Number of io_tiles must be a multiple of 4 for E64 mode")
+
             new_io_tiles = []
+            shape_updated = False
             for tile in entry["io_tiles"]:
                 position = (tile["x_pos"], tile["y_pos"])
                 if position not in unique_positions:
                     unique_positions.add(position)
-                    
-                    # Multiply each element in extent by 4
-                    if "addr" in tile and "extent" in tile["addr"]:
-                        # tile["addr"]["extent"] = [x * 4 for x in tile["addr"]["extent"]]
-                        tile["addr"]["extent"][0] = tile["addr"]["extent"][0] * 4
-                    else:
-                        print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
-                        sys.exit(1)
-                    
+
+                    # Apply extent scaling only for packed x-positions
+                    if tile["x_pos"] in pack_x_set:
+                        if "addr" in tile and "extent" in tile["addr"]:
+                            tile["addr"]["extent"][0] *= 4
+                            shape_updated = True
+                        else:
+                            print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
+                            sys.exit(1)
+
                     new_io_tiles.append(tile)
-            
+
             if new_io_tiles:
                 entry["io_tiles"] = new_io_tiles
-                
-                # Modify shape to reflect packing 
-                if "shape" in entry and len(entry["shape"]) >= 2:
-                    entry["shape"][0] = int(entry["shape"][0] / 4)
-                    entry["shape"][1] = entry["shape"][1] * 4
-                    if entry["shape"][0] == 1:
-                        entry["shape"] = [entry["shape"][1]] + entry["shape"][2:]
-                else:
-                    print("ERROR: shape not found or incorrectly formatted. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
-                    sys.exit(1)
-                
+
+                # Adjust shape only when packing happened
+                if shape_updated:
+                    if "shape" in entry and len(entry["shape"]) >= 2:
+                        entry["shape"][0] = int(entry["shape"][0] / 4)
+                        entry["shape"][1] = entry["shape"][1] * 4
+                        if entry["shape"][0] == 1:
+                            entry["shape"] = [entry["shape"][1]] + entry["shape"][2:]
+                    else:
+                        print("ERROR: shape not found or incorrectly formatted. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
+                        sys.exit(1)
+
                 trimmed_entries.append(entry)
         return trimmed_entries
-    
-    json_data["IOs"]["inputs"] = process_io(json_data["IOs"]["inputs"], unique_input_positions)
-    json_data["IOs"]["outputs"] = process_io(json_data["IOs"]["outputs"], unique_output_positions)
-    
+
+    json_data["IOs"]["inputs"] = process_io(json_data["IOs"]["inputs"], unique_input_positions, input_pack_x)
+    json_data["IOs"]["outputs"] = process_io(json_data["IOs"]["outputs"], unique_output_positions, output_pack_x)
+
     return json_data
 
 def main():
@@ -374,9 +413,7 @@ def main():
             meta = E64_packing(meta)
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
-  
 
-        
 
 if __name__ == "__main__":
     main()
