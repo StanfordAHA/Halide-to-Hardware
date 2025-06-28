@@ -4,6 +4,7 @@ import os
 import pprint
 import sys
 import re
+from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -23,6 +24,7 @@ def parseArguments():
     parser.add_argument("--top", help="design_top.json: parse out address sequence", type=str, default=None)
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
     parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
+    parser.add_argument("--mu_tiling", default="", type=str, help="specify the output tiling used by the matrix unit. Need thiss to modify design_meta with the address gen config, based on the tiling information.")
     # Parse arguments
     args = parser.parse_args()
 
@@ -296,7 +298,7 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
     if meta.get("NUM_GLB_TILING") is None: meta["NUM_GLB_TILING"] = os.getenv("NUM_GLB_TILING")
 
 def E64_packing(json_data):
-    print("INFO: Modifying design meta for E64 packing")
+    print(f"\033[94m INFO: Modifying design meta for E64 packing...\033[0m")
 
     # Collect x-positions that need E64 packing from GLB_BANK_CONFIG
     input_pack_x, output_pack_x = set(), set()
@@ -361,6 +363,40 @@ def E64_packing(json_data):
 
     return json_data
 
+
+
+def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
+    """
+    Hack the address generator config based on the matrix unit tiling.
+    This function reads the tiling file and modifies the address generator config in the design meta.
+    """
+    # Read the tiling file
+    if not os.path.isfile(mu_tiling_file):
+        print(f"\033[91m ERROR: Tiling file {mu_tiling_file} does not exist. Cannot modify address generator config.\033[0m")
+        sys.exit(1)
+
+    # Get the GLB DMA config
+    dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file)
+    # Update the address generator config in the design meta
+    for io_type in ["inputs", "outputs"]:
+        # TODO: This really shouldn't be applied to ALL inputs and outputs. In future, need some sort of metadata to specify which inputs and outputs are influenced by the matrix unit tiling
+        for io in meta["IOs"][io_type]:
+            if "io_tiles" in io:
+                for tile in io["io_tiles"]:
+                    addr = tile.get("addr", {})
+                    if addr:
+                        # Update the strides, extents, and dimensionality based on MU tiling
+                        addr["cycle_stride"] = [1] * dimensionality # reading/writing on every RV handshake, so cycle stride is all 1
+                        addr["dimensionality"] = dimensionality
+                        addr["extent"] = extents
+                        if io_type == "inputs":
+                            addr["read_data_stride"] = strides
+                        elif io_type == "outputs":
+                            addr["write_data_stride"] = strides
+                    # Add a new key to indicate that this is modified for MU tiling
+                    tile["hacked_for_mu_tiling"] = True
+    return meta
+
 def main():
     args = parseArguments()
 
@@ -411,6 +447,14 @@ def main():
         exchange_64_mode = "E64_MODE_ON" in os.environ and os.environ.get("E64_MODE_ON") == "1"
         if exchange_64_mode:
             meta = E64_packing(meta)
+
+        # Modify controller config to account for matrix unit tiling, if needed
+        # TODO: Currently applying the addr gen config to all inputs and outputs. Need some sort of metadata to specify which inputs and outputs are influenced by the matrix unit tiling
+        # TODO: When quantization is mapped, the scale factors are stored using a different scheme (bank toggle mode). Need to apply a different hacking strategy in that case
+        if args.mu_tiling != "":
+            print(f"\033[94m INFO: Modifying address generator config based on MU tiling from {args.mu_tiling}. This change will be applied to all inputs and outputs...\033[0m")
+            meta = hack_addr_gen_for_mu_tiling(meta, args.mu_tiling)
+
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
 
