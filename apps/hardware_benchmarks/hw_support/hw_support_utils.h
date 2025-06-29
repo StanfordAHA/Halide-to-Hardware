@@ -30,6 +30,9 @@ void copyFile(const std::string &srcPath, const std::string &dstPath);
 // Check if a file exists
 bool file_exists(const std::string& name);
 
+// Parse a GLB bank configuration to extract x-coordinates for all software IOs
+std::vector<int> parse_glb_bank_config_num_list(const std::string& env_var_name);
+
 extern "C" {
     // CPU implementations for custom instructions
 

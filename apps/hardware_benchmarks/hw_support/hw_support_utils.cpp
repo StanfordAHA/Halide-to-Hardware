@@ -4,7 +4,9 @@
 #include <fstream>
 #include <iostream>
 #include <cstring>
+#include <cstdio>
 #include <functional>
+#include <sstream>
 #include <vector>
 #include <stdexcept>
 
@@ -137,6 +139,29 @@ void copyFile(const std::string &srcPath, const std::string &dstPath) {
 bool file_exists(const std::string& name) {
     std::ifstream f(name.c_str());
     return f.good();
+}
+
+std::vector<int> parse_glb_bank_config_num_list(const std::string& env_var_name) {
+    std::vector<int> values;
+    const char* env_var_value = std::getenv(env_var_name.c_str());
+
+    if (env_var_value) {
+        std::string value_str = env_var_value;
+        std::istringstream iss(value_str);
+        std::string token;
+
+        // Split the string by commas and convert to integers
+        while (std::getline(iss, token, ',')) {
+            // Trim potential whitespace
+            token.erase(0, token.find_first_not_of(" \t\n\r\f\v"));
+            token.erase(token.find_last_not_of(" \t\n\r\f\v") + 1);
+            values.push_back(std::stoi(token));
+        }
+    } else {
+        std::cerr << "Environment variable " << env_var_name << " not found." << std::endl;
+    }
+
+    return values;
 }
 
 extern "C" {
