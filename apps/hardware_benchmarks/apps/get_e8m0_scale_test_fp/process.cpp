@@ -73,6 +73,9 @@ int main(int argc, char **argv) {
     auto vec_height = vec_height_env ? atoi(vec_height_env) : 3136;
     auto vec_width = vec_width_env ? atoi(vec_width_env) : 32;
 
+    // Assert that vec_height is even for proper bit packing
+    assert((vec_height % 2 == 0) && "vec_height must be even for proper bit packing");
+
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
@@ -81,7 +84,7 @@ int main(int argc, char **argv) {
     auto input_copy_stencil = processor.inputs["input.mat"];
     for (int y = 0; y < input_copy_stencil.dim(1).extent(); y++) {
         for (int x = 0; x < input_copy_stencil.dim(0).extent(); x++) {
-            input_copy_stencil(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f - 3.0f);
+            input_copy_stencil(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 128.0f - 64.0f);
         }
     }
 
@@ -89,13 +92,13 @@ int main(int argc, char **argv) {
     auto input_2_copy_stencil = processor.inputs["input_2.mat"];
     for (int y = 0; y < input_2_copy_stencil.dim(1).extent(); y++) {
         for (int x = 0; x < input_2_copy_stencil.dim(0).extent(); x++) {
-            input_2_copy_stencil(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 6.0f - 3.0f);
+            input_2_copy_stencil(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 128.0f - 64.0f);
         }
     }
 
     // Gold output
-    processor.output = Buffer<uint16_t>(vec_height);
-    auto real_output = Buffer<uint16_t>(vec_height);
+    processor.output = Buffer<uint16_t>(int(vec_height / 2));
+    auto real_output = Buffer<uint16_t>(int(vec_height / 2));
 
     for (int y = 0; y < processor.inputs["input.mat"].dim(1).extent(); y++) {
         float max_val = 0.0f;
@@ -106,7 +109,8 @@ int main(int argc, char **argv) {
             }
             max_val_bf16 = abs_max(max_val_bf16, processor.inputs["input.mat"](x, y));
         }
-        real_output(y) = get_shared_exp(max_val_bf16);
+        // Pack every two 8-bit scale into one 16-bit word.
+        real_output(int(y / 2)) = (y & 1) ? bit8_pack(get_shared_exp(max_val_bf16), real_output(int(y / 2))) : get_shared_exp(max_val_bf16);
     }
 
     saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/mu_input_host_stencil.raw");
