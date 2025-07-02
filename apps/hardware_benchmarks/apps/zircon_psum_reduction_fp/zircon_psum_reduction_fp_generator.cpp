@@ -9,11 +9,11 @@ using namespace Halide::ConciseCasts;
 
 
 
-// Residual additon fused with ReLU
-class ResidualRelu : public Halide::Generator<ResidualRelu> {
+// Partial sum reduction
+class PSUM_reduction : public Halide::Generator<PSUM_reduction> {
 public:
     Input<Buffer<uint16_t>>  input{"input", 3};
-    Input<Buffer<uint16_t>>  residual_input{"residual_input", 3};
+    Input<Buffer<uint16_t>>  partial_sum_input{"partial_sum_input", 3};
     Output<Buffer<uint16_t>> output{"output", 3};
 
     GeneratorParam<int> out_img{"out_img", 56};
@@ -28,14 +28,14 @@ public:
 
       Var x("x"), y("y"), c("c");
       Func mu_hw_input("mu_hw_input");
-      Func hw_residual_input("hw_residual_input");
+      Func hw_partial_sum_input("hw_partial_sum_input");
       Func hw_output("hw_output");
       Func result;
 
       mu_hw_input(c, x, y) = cast<bfloat16_t>(input(c, x, y));
-      hw_residual_input(c, x, y) = cast<bfloat16_t>(residual_input(c, x, y));
+      hw_partial_sum_input(c, x, y) = cast<bfloat16_t>(partial_sum_input(c, x, y));
 
-      result(c, x, y) = max(mu_hw_input(c, x, y) + hw_residual_input(c, x, y), cast<bfloat16_t>(0.0f));
+      result(c, x, y) = mu_hw_input(c, x, y) + hw_partial_sum_input(c, x, y);
 
       hw_output(c, x, y) = result(c, x, y);
       output(c, x, y) = cast<uint16_t>(hw_output(c, x, y));
@@ -72,8 +72,8 @@ public:
           mu_hw_input.stream_to_accelerator();
           mu_hw_input.in().unroll(c, unroll);
 
-          hw_residual_input.stream_to_accelerator();
-          hw_residual_input.in().unroll(c, unroll);
+          hw_partial_sum_input.stream_to_accelerator();
+          hw_partial_sum_input.in().unroll(c, unroll);
 
         } else {
 
@@ -83,4 +83,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(ResidualRelu, zircon_residual_relu_fp)
+HALIDE_REGISTER_GENERATOR(PSUM_reduction, zircon_psum_reduction_fp)
