@@ -404,6 +404,30 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                     tile["hacked_for_mu_tiling"] = True
     return meta
 
+
+def hack_addr_gen_for_bank_toggle_mode(meta):
+    for io in meta["IOs"]["outputs"]:
+
+        # HACK: In the future, this should be applied only to outputs that are bank toggle mode. Need some sort of metadata to specify which outputs are bank toggle mode
+        is_bank_toggle_output = True
+        if is_bank_toggle_output:
+            print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output {io['name']}...\033[0m")
+            if "io_tiles" in io:
+                for tile in io["io_tiles"]:
+                    addr = tile.get("addr", {})
+                    if addr:
+                        # Update the strides, extents, and dimensionality for bank toggle mode
+                        addr["cycle_stride"] = [1, 1, 9]
+                        addr["dimensionality"] = 3
+                        assert addr["extent"][0] % 8 == 0, "Extent must be divisible by 8 for bank toggle mode"
+                        addr["extent"] = [4, 2, addr["extent"][0]//8]  # Assuming the extent is divisible by 8
+                        addr["write_data_stride"] = [1, -3, 1]
+                    # Add a new key to indicate that this is modified for bank toggle mode
+                    tile["bank_toggle_mode"] = 1
+
+    return meta
+
+
 def main():
     args = parseArguments()
 
@@ -461,6 +485,9 @@ def main():
         if args.mu_tiling != "":
             print(f"\033[94m INFO: Modifying address generator config based on MU tiling from {args.mu_tiling}. This change will be applied to all inputs and outputs...\033[0m")
             meta = hack_addr_gen_for_mu_tiling(meta, args.mu_tiling)
+
+        # Bank toggle mode
+        meta = hack_addr_gen_for_bank_toggle_mode(meta)
 
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
