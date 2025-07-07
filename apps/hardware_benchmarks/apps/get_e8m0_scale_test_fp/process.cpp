@@ -128,6 +128,7 @@ int main(int argc, char **argv) {
 
         std::vector<int> glb_input_host_stencil_packed = parse_glb_bank_config_num_list("GLB_INPUT_HOST_STENCIL_PACKED");
         std::vector<int> hw_output_stencil_packed = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_PACKED");
+        std::vector<int> hw_output_stencil_bank_toggle_mode = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_BANK_TOGGLE_MODE");
 
         // Create the glb_bank_config.json structure
         json config = {
@@ -150,7 +151,8 @@ int main(int argc, char **argv) {
                 {
                     {"hw_output_stencil", {
                         {"x_coord", hw_output_stencil_pos},
-                        {"E64_packed", hw_output_stencil_packed}
+                        {"E64_packed", hw_output_stencil_packed},
+                        {"bank_toggle_mode", hw_output_stencil_bank_toggle_mode}
                     }}
                 }
             }}

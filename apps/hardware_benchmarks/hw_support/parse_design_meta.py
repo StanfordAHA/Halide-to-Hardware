@@ -4,6 +4,7 @@ import os
 import pprint
 import sys
 import re
+import copy
 from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
 
 def atoi(text):
@@ -261,6 +262,11 @@ def addGLBBankConfig(meta):
         for _, cfg in blk.items():
             for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
                 output_pack_map[x] = flag
+    bank_toggle_mode_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("bank_toggle_mode", []), cfg.get("x_coord", [])):
+                bank_toggle_mode_map[x] = flag
 
     for input_index, input_dict in enumerate(meta["IOs"]["inputs"]):
         assert "io_tiles" in input_dict, "io_tiles must be key of input_dict"
@@ -274,12 +280,14 @@ def addGLBBankConfig(meta):
             # Add E64_packed flag for input tiles
             meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 0)
 
-    # Add E64_packed flag for output tiles
+    # Add E64_packed, bank_toggle_mode, and is_fake_io flags for output tiles
     for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
         assert "io_tiles" in output_dict, "io_tiles must be key of output_dict"
         for tile_index, io_tile in enumerate(output_dict["io_tiles"]):
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["bank_toggle_mode"] = bank_toggle_mode_map.get(io_tile["x_pos"], 0)
 
+    return meta
 
 # Function to change extent for glb tiling or add dimensions
 def parseLoopExtentforTiling(meta, halide_gen_args):
@@ -371,7 +379,6 @@ def E64_packing(json_data):
     return json_data
 
 
-
 def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     """
     Hack the address generator config based on the matrix unit tiling.
@@ -405,26 +412,62 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     return meta
 
 
-def hack_addr_gen_for_bank_toggle_mode(meta):
-    for io in meta["IOs"]["outputs"]:
+def hack_config_for_bank_toggle_mode(meta):
+    BANK_DATA_WIDTH = 64
+    CGRA_DATA_WIDTH = 16
 
-        # HACK: In the future, this should be applied only to outputs that are bank toggle mode. Need some sort of metadata to specify which outputs are bank toggle mode
-        is_bank_toggle_output = True
-        if is_bank_toggle_output:
-            print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output {io['name']}...\033[0m")
-            if "io_tiles" in io:
-                for tile in io["io_tiles"]:
+    # Duplicate output tile info for bank toggle mode as fake IO tiles, and attach real output tile number to outputs
+    for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
+        real_tile_cnt = len(output_dict["io_tiles"])
+        assert output_dict["shape"][0] == real_tile_cnt, (
+            f"outputs[{output_index}] shape[0] ({output_dict['shape'][0]}) does not match number of real io_tiles ({real_tile_cnt})"
+        )
+
+        extra_tiles = []
+        for tile in output_dict["io_tiles"]:
+            if tile.get("bank_toggle_mode", 0) == 1:
+                dup_tile = copy.deepcopy(tile)
+                if "name" in dup_tile:
+                    dup_tile["name"] = f"{dup_tile['name']}_dup"
+                if "x_pos" in dup_tile:
+                    assert isinstance(dup_tile["x_pos"], int), "x_pos must be an integer"
+                    dup_tile["x_pos"] = (dup_tile["x_pos"] + 1 if dup_tile["x_pos"] % 2 == 0 else dup_tile["x_pos"] - 1)
+                dup_tile["is_fake_io"] = 1
+                extra_tiles.append(dup_tile)
+            tile["is_fake_io"] = 0
+        if extra_tiles:
+            output_dict["io_tiles"].extend(extra_tiles)
+            # Make sure shape [0] still matches the number of io_tiles
+            output_dict["shape"][0] *= 2
+            output_dict["shape"][1] //= 2
+
+        output_dict["io_tiles"].sort(key=lambda t: t["x_pos"])
+        output_dict["num_real_tiles"] = real_tile_cnt
+        assert real_tile_cnt % 2 == 0, "Number of real output IO tiles must be even for bank toggle mode"
+
+    # Modify address gen for IO tiles in bank toggle mode
+    for io in meta["IOs"]["outputs"]:
+        if "io_tiles" in io:
+            for tile in io["io_tiles"]:
+                if tile["bank_toggle_mode"] == 1:
+                    print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output tile {tile['name']}...\033[0m")
                     addr = tile.get("addr", {})
                     if addr:
+                        assert addr["dimensionality"] == 1, "Bank toggle mode only supports 1D addr_dict for now"
+                        cycle_stride_per_bank = addr["cycle_stride"][0] // real_tile_cnt
+                        if addr["cycle_starting_addr"][0] > 1:
+                            # If cycle_starting_addr is > 1, then it probably means it's skipping pixels for interleaving across another GLB tile
+                            # So we need to adjust it for data stored in another GLB tile for bank toggle mode
+                            addr["cycle_starting_addr"][0] = 1 + (addr["cycle_starting_addr"][0] - 1) * (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)
                         # Update the strides, extents, and dimensionality for bank toggle mode
-                        addr["cycle_stride"] = [1, 1, 9]
+                        # We skip (BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) pixels for inter-GLB tile skipping
+                        addr["cycle_stride"] = [1 * cycle_stride_per_bank, 1 * cycle_stride_per_bank, (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) * cycle_stride_per_bank]
                         addr["dimensionality"] = 3
-                        assert addr["extent"][0] % 8 == 0, "Extent must be divisible by 8 for bank toggle mode"
-                        addr["extent"] = [4, 2, addr["extent"][0]//8]  # Assuming the extent is divisible by 8
-                        addr["write_data_stride"] = [1, -3, 1]
-                    # Add a new key to indicate that this is modified for bank toggle mode
-                    tile["bank_toggle_mode"] = 1
-
+                        assert addr["extent"][0] % (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
+                        # 2 is the number of banks per GLB tile
+                        addr["extent"] = [BANK_DATA_WIDTH // CGRA_DATA_WIDTH, 2, addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)]
+                        # We have to backtrack the address when interleaving across banks
+                        addr["write_data_stride"] = [1, 1 - (BANK_DATA_WIDTH // CGRA_DATA_WIDTH), 1]
     return meta
 
 
@@ -471,7 +514,10 @@ def main():
             # If NUM_GLB_TILING is set then edit extent if necessary
             if os.getenv("NUM_GLB_TILING") is not None and atoi(os.getenv("NUM_GLB_TILING")) > 0: parseLoopExtentforTiling(meta, halide_gen_args)
 
-        if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
+        if os.path.isfile("bin/glb_bank_config.json"):
+            print(f"\033[94m INFO: Modifying design meta for custom GLB bank config...\033[0m")
+            meta = addGLBBankConfig(meta)
+            meta = hack_config_for_bank_toggle_mode(meta)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         # MO: E64 MODE
@@ -485,9 +531,6 @@ def main():
         if args.mu_tiling != "":
             print(f"\033[94m INFO: Modifying address generator config based on MU tiling from {args.mu_tiling}. This change will be applied to all inputs and outputs...\033[0m")
             meta = hack_addr_gen_for_mu_tiling(meta, args.mu_tiling)
-
-        # Bank toggle mode
-        meta = hack_addr_gen_for_bank_toggle_mode(meta)
 
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
