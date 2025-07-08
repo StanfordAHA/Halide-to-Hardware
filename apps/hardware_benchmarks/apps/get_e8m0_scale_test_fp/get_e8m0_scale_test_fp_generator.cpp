@@ -76,13 +76,18 @@ public:
 
         output_cgra(y) = get_shared_exp(abs_max_bf16(tree_mu[total_stages](0, y), tree_glb_in[total_stages](0, y)));
 
-        output_glb(y) = output_cgra(y);
-        hw_output(y) = output_glb(y);
-        output(y) = u16(hw_output(y));
+        Func pack_out("pack_out");
+        Var y_pack("y_pack");
+        pack_out(y_pack) = bit8_pack(output_cgra(2 * y_pack + 1), output_cgra(2 * y_pack));
+
+        output_glb(y_pack) = pack_out(y_pack);
+        hw_output(y_pack) = output_glb(y_pack);
+        output(y_pack) = u16(hw_output(y_pack));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::Clockwork)) {
             int mem_vec_width = tile_size;
+            int packed_height = int(vec_height / 2);
 
             mu_input_host.bound(x, 0, int(vec_width))
                 .bound(y, 0, vec_height);
@@ -96,26 +101,28 @@ public:
                 .bound(y, 0, vec_height);
             glb_input_cgra.bound_extent(x, int(mem_vec_width));
 
-            output.bound(y, 0, vec_height);
-            hw_output.bound(y, 0, vec_height);
+            pack_out.bound_extent(y_pack, packed_height);
             output_cgra.bound_extent(y, vec_height);
+            output.bound(y_pack, 0, packed_height);
+            hw_output.bound(y_pack, 0, packed_height);
+            output_glb.bound_extent( y_pack, packed_height);
 
             Var y_host, y_glb, y_cgra;
             Var x_host, x_glb, x_cgra;
 
             // Produce loop levels: host, global buffer, cgra
             // Host loop level
-            hw_output.compute_root();
-            hw_output
-                .split(y, y_host, y_glb, vec_height)
+            hw_output.compute_root()
+                .split(y_pack, y_host, y_glb, packed_height)
                 .reorder(y_glb, y_host)
                 .hw_accelerate(y_glb, y_host);
 
             // GLB loop level
-            output_glb.compute_at(hw_output, y_host);  // global buffer
-            output_glb
-                .split(y, y_glb, y_cgra, vec_height)
+            output_glb.compute_at(hw_output, y_host)
+                .split(y_pack, y_glb, y_cgra, packed_height)
                 .reorder(y_cgra, y_glb);
+
+            pack_out.compute_at(output_glb, y_glb);
 
             // Unroll output over glb (default 1)
             hw_output.unroll(y_glb, glb_o);

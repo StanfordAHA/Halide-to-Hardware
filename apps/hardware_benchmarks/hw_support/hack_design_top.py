@@ -21,6 +21,7 @@ APPS_NEEDING_HACKS = [
     "mem_filter_test",
     "avgpool_layer_fp",
     "mat_vec_mul_fp",
+    "get_e8m0_scale_test_fp",
 ]
 
 
@@ -3234,6 +3235,24 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+    def hack_for_get_e8m0_scale_test_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "get_e8m0_scale_test_fp"
+        instances = design["namespaces"]["global"]["modules"][top_module]["instances"]
+
+        # Add extra_data metadata to all shift registers for bogus data init
+        for inst_name, inst_conf in instances.items():
+            if "$d_reg" in inst_name:
+                assert inst_conf.get("genref") == "coreir.reg", f"Instance {inst_name} is not a shift register."
+                if "metadata" not in inst_conf:
+                    inst_conf["metadata"] = {}
+                inst_conf["metadata"]["extra_data"] = 1
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
 
 class GlobalDesignHacker:
     """
