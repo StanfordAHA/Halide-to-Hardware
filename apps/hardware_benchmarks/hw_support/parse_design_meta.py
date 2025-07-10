@@ -356,21 +356,21 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
         print(f"\033[91m ERROR: Tiling file {mu_tiling_file} does not exist. Cannot modify address generator config.\033[0m")
         sys.exit(1)
 
-    kernel_and_stride_hack = "KERNEL_AND_STRIDE_HACK" in os.environ and os.environ["KERNEL_AND_STRIDE_HACK"] == "1"
+    zircon_fx_fy_stride_workaround = "ZIRCON_FX_FY_STRIDE_WORKAROUND" in os.environ and os.environ["ZIRCON_FX_FY_STRIDE_WORKAROUND"] == "1"
 
     # Update the address generator config in the design meta
     # TODO: This really shouldn't be applied to ALL inputs and outputs. In future, need some sort of metadata to specify which inputs and outputs are influenced by the matrix unit tiling
     for io_type in ["inputs", "outputs"]:
-        apply_kernel_and_stride_hack = kernel_and_stride_hack and io_type == "outputs"
+        apply_zircon_fx_fy_stride_workaround = zircon_fx_fy_stride_workaround and io_type == "outputs"
         # Get the GLB DMA config
-        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, kernel_and_stride_hack=apply_kernel_and_stride_hack)
+        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround)
         for io in meta["IOs"][io_type]:
             if "io_tiles" in io:
                 for tile in io["io_tiles"]:
                     addr = tile.get("addr", {})
                     if addr:
                         # Update the strides, extents, and dimensionality based on MU tiling
-                        if apply_kernel_and_stride_hack:
+                        if apply_zircon_fx_fy_stride_workaround:
                             cycle_starting_addr, cycle_stride = hack_cycle_stride_k_y_x_tiling(extents)
                             addr["cycle_starting_addr"] = cycle_starting_addr
                             addr["cycle_stride"] = cycle_stride
