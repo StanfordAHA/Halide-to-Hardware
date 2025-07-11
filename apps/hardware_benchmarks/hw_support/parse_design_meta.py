@@ -4,6 +4,7 @@ import os
 import pprint
 import sys
 import re
+import copy
 from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
 
 def atoi(text):
@@ -249,6 +250,24 @@ def addGLBBankConfig(meta):
     with open("bin/glb_bank_config.json", "r") as f:
         glb_json = json.load(f)
     meta["GLB_BANK_CONFIG"] = glb_json
+
+    # Build {x_pos: E64_packed} map
+    input_pack_map = {}
+    for blk in glb_json.get("inputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                input_pack_map[x] = flag
+    output_pack_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                output_pack_map[x] = flag
+    bank_toggle_mode_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("bank_toggle_mode", []), cfg.get("x_coord", [])):
+                bank_toggle_mode_map[x] = flag
+
     for input_index, input_dict in enumerate(meta["IOs"]["inputs"]):
         assert "io_tiles" in input_dict, "io_tiles must be key of input_dict"
         for tile_index, io_tile in enumerate(input_dict["io_tiles"]):
@@ -257,6 +276,18 @@ def addGLBBankConfig(meta):
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 1
             else:
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
+
+            # Add E64_packed flag for input tiles
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 0)
+
+    # Add E64_packed, bank_toggle_mode, and is_fake_io flags for output tiles
+    for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
+        assert "io_tiles" in output_dict, "io_tiles must be key of output_dict"
+        for tile_index, io_tile in enumerate(output_dict["io_tiles"]):
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["bank_toggle_mode"] = bank_toggle_mode_map.get(io_tile["x_pos"], 0)
+
+    return meta
 
 # Function to change extent for glb tiling or add dimensions
 def parseLoopExtentforTiling(meta, halide_gen_args):
@@ -276,6 +307,23 @@ def parseLoopExtentforTiling(meta, halide_gen_args):
 
 def E64_packing(json_data):
     print(f"\033[94m INFO: Modifying design meta for E64 packing...\033[0m")
+
+    # Collect x-positions that need E64 packing from GLB_BANK_CONFIG
+    input_pack_x, output_pack_x = set(), set()
+    for section, pack_set in [("inputs", input_pack_x), ("outputs", output_pack_x)]:
+        for blk in json_data.get("GLB_BANK_CONFIG", {}).get(section, []):
+            for _, cfg in blk.items():
+                for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                    if flag == 1:
+                        pack_set.add(x)
+
+    # If GLB_BANK_CONFIG is empty, treat all io_tiles as packed
+    if not json_data.get("GLB_BANK_CONFIG"):
+        for entry in json_data["IOs"]["inputs"]:
+            input_pack_x.update(t["x_pos"] for t in entry["io_tiles"])
+        for entry in json_data["IOs"]["outputs"]:
+            output_pack_x.update(t["x_pos"] for t in entry["io_tiles"])
+
     unique_input_positions = set()
     unique_output_positions = set()
     trimmed_inputs = []
@@ -283,44 +331,50 @@ def E64_packing(json_data):
 
     # Assert that the number of inputs and outputs are multiples of 4
     # FIXME: Potentially fix this for apps with two loop levels
-    def process_io(io_entries, unique_positions):
+    def process_io(io_entries, unique_positions, pack_x_set):
         trimmed_entries = []
         for entry in io_entries:
-            assert len(entry["io_tiles"]) % 4 == 0, "Number of io_tiles must be a multiple of 4 for E64 mode"
+            # Enforce assertion only if packing is used
+            if pack_x_set and (len(entry["io_tiles"]) % 4 != 0):
+                raise AssertionError("Number of io_tiles must be a multiple of 4 for E64 mode")
+
             new_io_tiles = []
+            shape_updated = False
             for tile in entry["io_tiles"]:
                 position = (tile["x_pos"], tile["y_pos"])
                 if position not in unique_positions:
                     unique_positions.add(position)
 
-                    # Multiply innermost extent by 4
-                    if "addr" in tile and "extent" in tile["addr"]:
-                        # tile["addr"]["extent"] = [x * 4 for x in tile["addr"]["extent"]]
-                        tile["addr"]["extent"][0] = tile["addr"]["extent"][0] * 4
-                    else:
-                        print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
-                        sys.exit(1)
+                    # Apply extent scaling only for packed x-positions
+                    if tile["x_pos"] in pack_x_set:
+                        if "addr" in tile and "extent" in tile["addr"]:
+                            tile["addr"]["extent"][0] *= 4
+                            shape_updated = True
+                        else:
+                            print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
+                            sys.exit(1)
 
                     new_io_tiles.append(tile)
 
             if new_io_tiles:
                 entry["io_tiles"] = new_io_tiles
 
-                # Modify shape to reflect packing
-                if "shape" in entry and len(entry["shape"]) >= 2:
-                    entry["shape"][0] = int(entry["shape"][0] / 4)
-                    entry["shape"][1] = entry["shape"][1] * 4
-                    if entry["shape"][0] == 1:
-                        entry["shape"] = [entry["shape"][1]] + entry["shape"][2:]
-                else:
-                    print("ERROR: shape not found or incorrectly formatted. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
-                    sys.exit(1)
+                # Adjust shape only when packing happened
+                if shape_updated:
+                    if "shape" in entry and len(entry["shape"]) >= 2:
+                        entry["shape"][0] = int(entry["shape"][0] / 4)
+                        entry["shape"][1] = entry["shape"][1] * 4
+                        if entry["shape"][0] == 1:
+                            entry["shape"] = [entry["shape"][1]] + entry["shape"][2:]
+                    else:
+                        print("ERROR: shape not found or incorrectly formatted. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
+                        sys.exit(1)
 
                 trimmed_entries.append(entry)
         return trimmed_entries
 
-    json_data["IOs"]["inputs"] = process_io(json_data["IOs"]["inputs"], unique_input_positions)
-    json_data["IOs"]["outputs"] = process_io(json_data["IOs"]["outputs"], unique_output_positions)
+    json_data["IOs"]["inputs"] = process_io(json_data["IOs"]["inputs"], unique_input_positions, input_pack_x)
+    json_data["IOs"]["outputs"] = process_io(json_data["IOs"]["outputs"], unique_output_positions, output_pack_x)
 
     return json_data
 
@@ -386,6 +440,66 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                     tile["hacked_for_mu_tiling"] = True
     return meta
 
+
+def hack_config_for_bank_toggle_mode(meta):
+    BANK_DATA_WIDTH = 64
+    CGRA_DATA_WIDTH = 16
+
+    # Duplicate output tile info for bank toggle mode as fake IO tiles, and attach real output tile number to outputs
+    for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
+        real_tile_cnt = len(output_dict["io_tiles"])
+        assert output_dict["shape"][0] == real_tile_cnt, (
+            f"outputs[{output_index}] shape[0] ({output_dict['shape'][0]}) does not match number of real io_tiles ({real_tile_cnt})"
+        )
+
+        extra_tiles = []
+        for tile in output_dict["io_tiles"]:
+            if tile.get("bank_toggle_mode", 0) == 1:
+                dup_tile = copy.deepcopy(tile)
+                if "name" in dup_tile:
+                    dup_tile["name"] = f"{dup_tile['name']}_dup"
+                if "x_pos" in dup_tile:
+                    assert isinstance(dup_tile["x_pos"], int), "x_pos must be an integer"
+                    dup_tile["x_pos"] = (dup_tile["x_pos"] + 1 if dup_tile["x_pos"] % 2 == 0 else dup_tile["x_pos"] - 1)
+                dup_tile["is_fake_io"] = 1
+                extra_tiles.append(dup_tile)
+            tile["is_fake_io"] = 0
+        if extra_tiles:
+            output_dict["io_tiles"].extend(extra_tiles)
+            # Make sure shape [0] still matches the number of io_tiles
+            output_dict["shape"][0] *= 2
+            output_dict["shape"][1] //= 2
+
+        output_dict["io_tiles"].sort(key=lambda t: t["x_pos"])
+        output_dict["num_real_tiles"] = real_tile_cnt
+        assert real_tile_cnt % 2 == 0, "Number of real output IO tiles must be even for bank toggle mode"
+
+    # Modify address gen for IO tiles in bank toggle mode
+    for io in meta["IOs"]["outputs"]:
+        if "io_tiles" in io:
+            for tile in io["io_tiles"]:
+                if tile["bank_toggle_mode"] == 1:
+                    print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output tile {tile['name']}...\033[0m")
+                    addr = tile.get("addr", {})
+                    if addr:
+                        assert addr["dimensionality"] == 1, "Bank toggle mode only supports 1D addr_dict for now"
+                        cycle_stride_per_bank = addr["cycle_stride"][0] // real_tile_cnt
+                        if addr["cycle_starting_addr"][0] > 1:
+                            # If cycle_starting_addr is > 1, then it probably means it's skipping pixels for interleaving across another GLB tile
+                            # So we need to adjust it for data stored in another GLB tile for bank toggle mode
+                            addr["cycle_starting_addr"][0] = 1 + (addr["cycle_starting_addr"][0] - 1) * (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)
+                        # Update the strides, extents, and dimensionality for bank toggle mode
+                        # We skip (BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) pixels for inter-GLB tile skipping
+                        addr["cycle_stride"] = [1 * cycle_stride_per_bank, 1 * cycle_stride_per_bank, (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) * cycle_stride_per_bank]
+                        addr["dimensionality"] = 3
+                        assert addr["extent"][0] % (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
+                        # 2 is the number of banks per GLB tile
+                        addr["extent"] = [BANK_DATA_WIDTH // CGRA_DATA_WIDTH, 2, addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)]
+                        # We have to backtrack the address when interleaving across banks
+                        addr["write_data_stride"] = [1, 1 - (BANK_DATA_WIDTH // CGRA_DATA_WIDTH), 1]
+    return meta
+
+
 def main():
     args = parseArguments()
 
@@ -429,7 +543,10 @@ def main():
             # If NUM_GLB_TILING is set then edit extent if necessary
             if os.getenv("NUM_GLB_TILING") is not None and atoi(os.getenv("NUM_GLB_TILING")) > 0: parseLoopExtentforTiling(meta, halide_gen_args)
 
-        if os.path.isfile("bin/glb_bank_config.json"): addGLBBankConfig(meta)
+        if os.path.isfile("bin/glb_bank_config.json"):
+            print(f"\033[94m INFO: Modifying design meta for custom GLB bank config...\033[0m")
+            meta = addGLBBankConfig(meta)
+            meta = hack_config_for_bank_toggle_mode(meta)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         # MO: E64 MODE
@@ -446,8 +563,6 @@ def main():
 
         print("writing to", outputName)
         json.dump(meta, fileout, indent=2)
-
-
 
 
 if __name__ == "__main__":

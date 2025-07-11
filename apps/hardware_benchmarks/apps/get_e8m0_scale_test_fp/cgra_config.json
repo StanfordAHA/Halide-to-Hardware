@@ -1,0 +1,30 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "mu_hw_input",
+        "bitwidth": 16,
+        "shape": [32, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/mu_input_host_stencil.raw"
+      },
+      {
+        "name": "hw_glb_input",
+        "bitwidth": 16,
+        "shape": [32, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/glb_input_host_stencil.raw"
+      }
+    ],
+    "output": {
+      "name": "hw_output",
+      "bitwidth": 16,
+      "shape": [1, 56, 56],
+      "pixels_per_cycle": 1,
+      "datafile": "bin/hw_output_stencil.raw"
+    }
+  },
+  "testing": {
+    "total_cycles": 40000
+  }
+}
