@@ -347,12 +347,11 @@ def E64_packing(json_data):
 
                     # Apply extent scaling only for packed x-positions
                     if tile["x_pos"] in pack_x_set:
-                        if "addr" in tile and "extent" in tile["addr"]:
-                            tile["addr"]["extent"][0] *= 4
-                            shape_updated = True
+                        if "extent_multiplier" in tile:
+                            tile["extent_multiplier"] *= 4
                         else:
-                            print("ERROR: addr or extent not found in tile. Confirm that deisgn_top.json and design.place are correct for E64 mode. (Hint: Is unroll a multiple of 4?)")
-                            sys.exit(1)
+                            tile["extent_multiplier"] = 4
+                        shape_updated = True
 
                     new_io_tiles.append(tile)
 
@@ -390,11 +389,11 @@ def zircon_fx_fy_stride_workaround_hack_cycle_stride_k_y_x_tiling(extents):
 
     assert len(extents) == 3, "Tiling must have EXACTLY 3 dimensions (K1, Y0, X0) for this workaround. Alternate tiling will need a different modification to cycle starting addr and stride."
 
-    cycle_starting_addr = [extents[0]//4 * 2 + 1] # X0 * 2 + 1. Skip the entire first row of padding, plus on to account for first column of padding on row 1
+    cycle_starting_addr = [extents[0] * 2 + 1] # X0 * 2 + 1. Skip the entire first row of padding, plus on to account for first column of padding on row 1
 
     cycle_strides = [1] * 3
     cycle_strides[0] = 2 # X0: Skip every other pixel in the X0 dimension
-    cycle_strides[1] = extents[0]//4 * 2 + 2  # Y0: Skip every other row in the Y0 dimension, plus the first column of padding. + 1 b/c cycle stride 1 = no skip
+    cycle_strides[1] = extents[0] * 2 + 2  # Y0: Skip every other row in the Y0 dimension, plus the first column of padding. + 1 b/c cycle stride 1 = no skip
     cycle_strides[2] = cycle_starting_addr[0] + 1 # K1: Whenever k is incremented, we want to skip the entire row of padding, plus the first column of padding on row 1
 
     return cycle_starting_addr, cycle_strides
@@ -414,7 +413,7 @@ def zircon_input_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, zirc
     # Y0: Skip "padding size" number of columns. + 1 b/c cycle stride 1 = no skip
     cycle_strides[1] = zircon_input_padding_workaround_size + 1
     # K2: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
-    cycle_strides[2] = zircon_input_padding_workaround_size + (zircon_input_padding_workaround_size * (extents[0]//4 + zircon_input_padding_workaround_size)) + 1 #FIXME: fix the division by 4
+    cycle_strides[2] = zircon_input_padding_workaround_size + (zircon_input_padding_workaround_size * (extents[0] + zircon_input_padding_workaround_size)) + 1 
 
     return cycle_strides
 
