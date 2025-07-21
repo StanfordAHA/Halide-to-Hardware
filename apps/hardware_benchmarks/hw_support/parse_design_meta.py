@@ -451,7 +451,7 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     # TODO: This really shouldn't be applied to ALL inputs and outputs. In future, need some sort of metadata to specify which inputs and outputs are influenced by the matrix unit tiling
     for io_type in ["inputs", "outputs"]:
         apply_zircon_fx_fy_stride_workaround = zircon_fx_fy_stride_workaround and io_type == "outputs"
-        apply_zircon_input_padding_workaround = zircon_input_padding_workaround # TODO: May need to add "and io_type == 'outputs'" here when running kernels with residual
+        apply_zircon_input_padding_workaround = zircon_input_padding_workaround and io_type == "outputs" # TODO: May need to add "and io_type == 'outputs'" here when running kernels with residual
         # Get the GLB DMA config
         dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_padding_workaround=apply_zircon_input_padding_workaround)
         for io in meta["IOs"][io_type]:
@@ -479,21 +479,25 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                     tile["hacked_for_mu_tiling"] = True
 
                     # zircon k dim tiling
-                    # TODO: think about if this should be applied for residuals (inputs)
+                    # TODO: think about if (and how) this should be applied for residuals (inputs)
                     if k_dim_host_tiling:
+                        assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
+                        HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
+                        n_oc_match = re.search(r'n_oc=(\d+)', HALIDE_GEN_ARGS)
+                        assert n_oc_match, "No n_oc in HALIDE_GEN_ARGS!"
+                        n_oc = int(n_oc_match.group(1))
+
                         if io_type == "outputs":
-                            assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
-                            HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
-                            n_oc_match = re.search(r'n_oc=(\d+)', HALIDE_GEN_ARGS)
-                            assert n_oc_match, "No n_oc in HALIDE_GEN_ARGS!"
-                            n_oc = int(n_oc_match.group(1))
                             orig_start_addr = addr["write_data_starting_addr"]
                             addr["gold_check_starting_addr"] = orig_start_addr
                             addr["write_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
-                        if "extent_multiplier" in tile:
-                            tile["extent_multiplier"] *= num_k_host_tiling_kernels
-                        else:
-                            tile["extent_multiplier"] = num_k_host_tiling_kernels
+                            if "extent_multiplier" in tile:
+                                tile["extent_multiplier"] *= num_k_host_tiling_kernels
+                            else:
+                                tile["extent_multiplier"] = num_k_host_tiling_kernels
+                        elif io_type == "inputs":
+                            orig_start_addr = addr["read_data_starting_addr"]
+                            addr["read_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
     return meta
 
 
