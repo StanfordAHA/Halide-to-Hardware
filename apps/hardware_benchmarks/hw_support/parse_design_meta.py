@@ -399,7 +399,7 @@ def zircon_fx_fy_stride_workaround_hack_cycle_stride_k_y_x_tiling(extents):
     return cycle_starting_addr, cycle_strides
 
 
-def zircon_input_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, zircon_input_padding_workaround_size):
+def zircon_input_act_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, zircon_input_act_padding_workaround_size):
     """ This is a hack to modify the cycle stride for the
     input padding workaround used to work around the MU bug on conv5 layers.
     This logic assumes K1, Y0, X0 tiling on the MU, which is the case for the
@@ -411,9 +411,9 @@ def zircon_input_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, zirc
 
     cycle_strides = [1] * 3 # X0
     # Y0: Skip "padding size" number of columns. + 1 b/c cycle stride 1 = no skip
-    cycle_strides[1] = zircon_input_padding_workaround_size + 1
+    cycle_strides[1] = zircon_input_act_padding_workaround_size + 1
     # K2: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
-    cycle_strides[2] = zircon_input_padding_workaround_size + (zircon_input_padding_workaround_size * (extents[0] + zircon_input_padding_workaround_size)) + 1 
+    cycle_strides[2] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
 
     return cycle_strides
 
@@ -433,10 +433,10 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
         sys.exit(1)
 
     zircon_fx_fy_stride_workaround = "ZIRCON_FX_FY_STRIDE_WORKAROUND" in os.environ and os.environ["ZIRCON_FX_FY_STRIDE_WORKAROUND"] == "1"
-    zircon_input_padding_workaround = "ZIRCON_INPUT_PADDING_WORKAROUND" in os.environ and os.environ["ZIRCON_INPUT_PADDING_WORKAROUND"] == "1"
-    if zircon_input_padding_workaround:
-        assert "ZIRCON_INPUT_PADDING_WORKAROUND_SIZE" in os.environ, "ZIRCON_INPUT_PADDING_WORKAROUND_SIZE environment variable must be set for ZIRCON_INPUT_PADDING_WORKAROUND"
-        zircon_input_padding_workaround_size = int(os.environ.get("ZIRCON_INPUT_PADDING_WORKAROUND_SIZE", 0))
+    zircon_input_act_padding_workaround = "ZIRCON_INPUT_ACT_PADDING_WORKAROUND" in os.environ and os.environ["ZIRCON_INPUT_ACT_PADDING_WORKAROUND"] == "1"
+    if zircon_input_act_padding_workaround:
+        assert "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE" in os.environ, "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE environment variable must be set for ZIRCON_INPUT_ACT_PADDING_WORKAROUND"
+        zircon_input_act_padding_workaround_size = int(os.environ.get("ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE", 0))
     # K dimension host tiling: used in resnet18 conv5 in Zircon
     k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
     if k_dim_host_tiling:
@@ -450,9 +450,9 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     # TODO: This really shouldn't be applied to ALL inputs and outputs. In future, need some sort of metadata to specify which inputs and outputs are influenced by the matrix unit tiling
     for io_type in ["inputs", "outputs"]:
         apply_zircon_fx_fy_stride_workaround = zircon_fx_fy_stride_workaround and io_type == "outputs"
-        apply_zircon_input_padding_workaround = zircon_input_padding_workaround and io_type == "outputs" # TODO: May need to add "and io_type == 'outputs'" here when running kernels with residual
+        apply_zircon_input_act_padding_workaround = zircon_input_act_padding_workaround and io_type == "outputs"
         # Get the GLB DMA config
-        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_padding_workaround=apply_zircon_input_padding_workaround)
+        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround)
         for io in meta["IOs"][io_type]:
             if "io_tiles" in io:
                 for tile in io["io_tiles"]:
@@ -463,8 +463,8 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                             cycle_starting_addr, cycle_stride = zircon_fx_fy_stride_workaround_hack_cycle_stride_k_y_x_tiling(extents)
                             addr["cycle_starting_addr"] = cycle_starting_addr
                             addr["cycle_stride"] = cycle_stride
-                        elif apply_zircon_input_padding_workaround:
-                            cycle_stride = zircon_input_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, zircon_input_padding_workaround_size)
+                        elif apply_zircon_input_act_padding_workaround:
+                            cycle_stride = zircon_input_act_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, zircon_input_act_padding_workaround_size)
                             addr["cycle_stride"] = cycle_stride
                         else:
                             addr["cycle_stride"] = [1] * dimensionality # reading/writing on every RV handshake, so cycle stride is all 1
@@ -478,7 +478,6 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                     tile["hacked_for_mu_tiling"] = True
 
                     # zircon k dim tiling
-                    # TODO: think about if (and how) this should be applied for residuals (inputs)
                     if k_dim_host_tiling:
                         assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
                         HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
