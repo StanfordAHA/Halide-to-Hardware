@@ -22,6 +22,7 @@ APPS_NEEDING_HACKS = [
     "avgpool_layer_fp",
     "mat_vec_mul_fp",
     "get_e8m0_scale_test_fp",
+    "get_apply_e8m0_scale_fp",
 ]
 
 
@@ -3254,6 +3255,98 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+    def hack_for_get_apply_e8m0_scale_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "get_apply_e8m0_scale_fp"
+        instances = design["namespaces"]["global"]["modules"][top_module_name]["instances"]
+        top_module = design["namespaces"]["global"]["modules"][top_module_name]
+        connections = top_module["connections"]
+
+        # Insert MEM tiles between MU IOs and tree_mem PEs
+        mem_tpl = {
+            "genref": "cgralib.Mem",
+            "genargs": {
+                "ID": ["String", ""],
+                "ctrl_width": ["Int", 16],
+                "has_chain_en": ["Bool", False],
+                "has_external_addrgen": ["Bool", False],
+                "has_flush": ["Bool", True],
+                "has_read_valid": ["Bool", False],
+                "has_reset": ["Bool", False],
+                "has_stencil_valid": ["Bool", True],
+                "has_valid": ["Bool", False],
+                "is_rom": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "use_prebuilt_mem": ["Bool", True],
+                "width": ["Int", 16]
+            },
+            "modargs": {"config": ["Json", {}], "init": ["Json", None], "mode": ["String", "lake"]},
+            "metadata": {"config": {}, "init": None, "mode": "lake"},
+        }
+        new_instances = {}
+        new_conns = []
+        mem_count = 0
+        for a, b in list(connections):
+            is_mu_a = a.startswith("io16in_mu_")
+            is_mu_b = b.startswith("io16in_mu_")
+            is_tree_a = "op_hcompute_tree_mem" in a and ".data" in a
+            is_tree_b = "op_hcompute_tree_mem" in b and ".data" in b
+            if is_mu_a and is_tree_b:
+                mu_port, tree_port = a, b
+            elif is_mu_b and is_tree_a:
+                mu_port, tree_port = b, a
+            else:
+                continue
+            mem_name = f"mem_mu2tree_{mem_count}"
+            tpl = copy.deepcopy(mem_tpl)
+            new_instances[mem_name] = tpl
+            new_conns.append([mu_port, f"{mem_name}.data_in_0"])
+            new_conns.append([f"{mem_name}.data_out_0", tree_port])
+            mem_count += 1
+        def is_direct_mu2tree(edge):
+            x, y = edge
+            mu_x = x.startswith("io16in_mu_")
+            mu_y = y.startswith("io16in_mu_")
+            tree_x = "op_hcompute_tree_mem" in x and ".data" in x
+            tree_y = "op_hcompute_tree_mem" in y and ".data" in y
+            return (mu_x and tree_y) or (mu_y and tree_x)
+        connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
+        instances.update(new_instances)
+        connections.extend(new_conns)
+
+        # Add bogus data init to all shift registers
+        for inst_name, inst_conf in instances.items():
+            if "$d_reg" in inst_name:
+                assert inst_conf.get("genref") == "coreir.reg", f"Instance {inst_name} is not a shift register."
+                if "metadata" not in inst_conf:
+                    inst_conf["metadata"] = {}
+                inst_conf["metadata"]["extra_data"] = 1
+
+        # Output needs to skip first half as they are results from bogus data
+        for instance_name, instance_conf in instances.items():
+            if re.match(r"io16_.*_output", instance_name):
+                instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(self.halide_gen_args_dict["vec_height"])
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Also update design_meta_halide.json to update mu_inputs shape
+        # TODO: This applies hack to design_meta as well. Do we want to create a new class?
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input which is mu input"
+        # Real input shape should match vec_width instead of vec_width_fake
+        design_meta["IOs"]["inputs"][0]["shape"][0] = int(self.halide_gen_args_dict["vec_width"])
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+
 class GlobalDesignHacker:
     """
     A class to handle design JSON modifications (aka 'hacks') for all apps.
@@ -3265,7 +3358,7 @@ class GlobalDesignHacker:
 
     def remove_stencil_mem_rv(self, json_path):
         """
-        Remove "port_controller" instances and "hw_output_*_write_valid" instances
+        Remove "port_controller" instances and "io1_*_write_valid" instances
         (and all their connections) from the design JSON.
         Should only be used for dense RV apps by checking DENSE_READY_VALID
         """
@@ -3282,7 +3375,7 @@ class GlobalDesignHacker:
 
             # Prepare to remove any instance whose name contains:
             #  - "port_controller"
-            #  - or matches "hw_output_.*_write_valid"
+            #  - or matches "io1_.*_write_valid"
             instances_dict = mod_def["instances"]
             to_remove = []
 
@@ -3290,8 +3383,8 @@ class GlobalDesignHacker:
             for inst_name in instances_dict.keys():
                 if "port_controller" in inst_name:
                     to_remove.append(inst_name)
-                # Matches "hw_output_<anything>_write_valid"
-                elif re.search(r"hw_output_.*_write_valid", inst_name):
+                # Matches "io1_<anything>_write_valid"
+                elif re.search(r"io1_.*_write_valid", inst_name):
                     to_remove.append(inst_name)
 
             # Remove them from the instance dictionary

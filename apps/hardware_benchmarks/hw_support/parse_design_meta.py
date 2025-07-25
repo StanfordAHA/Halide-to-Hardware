@@ -287,6 +287,10 @@ def addGLBBankConfig(meta):
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["bank_toggle_mode"] = bank_toggle_mode_map.get(io_tile["x_pos"], 0)
 
+    # Hack bank toggle config only if bank_toggle_mode_map is not empty
+    if bank_toggle_mode_map:
+        meta = hack_config_for_bank_toggle_mode(meta)
+
     return meta
 
 # Function to change extent for glb tiling or add dimensions
@@ -517,7 +521,6 @@ def main():
         if os.path.isfile("bin/glb_bank_config.json"):
             print(f"\033[94m INFO: Modifying design meta for custom GLB bank config...\033[0m")
             meta = addGLBBankConfig(meta)
-            meta = hack_config_for_bank_toggle_mode(meta)
 
         # pprint.pprint(meta, fileout, indent=2, compact=True)
         # MO: E64 MODE
