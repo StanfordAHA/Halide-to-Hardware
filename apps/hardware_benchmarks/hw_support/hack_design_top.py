@@ -3326,10 +3326,44 @@ class SelectedDesignHacker:
                     inst_conf["metadata"] = {}
                 inst_conf["metadata"]["extra_data"] = 1
 
-        # Output needs to skip first half as they are results from bogus data
+        # Configure GLB store DMA to extract valid data
         for instance_name, instance_conf in instances.items():
             if re.match(r"io16_.*_output", instance_name):
-                instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(self.halide_gen_args_dict["vec_height"])
+                # Two cases:
+                # 1. vec_width is 64, meaning we only skip at the very beginning
+                # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
+                assert (
+                    int(self.halide_gen_args_dict["vec_width"]) >= 64
+                    and int(self.halide_gen_args_dict["vec_width"]) % 64 == 0
+                ), f"vec_width must be >= 64 and divisible by 64 as mx block size is 64"
+                if int(self.halide_gen_args_dict["vec_width"]) == 64:
+                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(
+                        self.halide_gen_args_dict["vec_height"]
+                    )
+                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+                    instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 1
+                    instance_conf["metadata"]["in2glb_0"]["extent"] = [
+                        int(self.halide_gen_args_dict["vec_height"])
+                    ]
+                    instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1]
+                else:
+                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(
+                        self.halide_gen_args_dict["vec_height"]
+                    )
+                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [
+                        1,
+                        int(self.halide_gen_args_dict["vec_height"]) + 1,
+                    ]
+                    instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 2
+                    instance_conf["metadata"]["in2glb_0"]["extent"] = [
+                        int(self.halide_gen_args_dict["vec_height"]),
+                        int(self.halide_gen_args_dict["vec_width"])
+                        # The actual reduction tree width is double the size of mu_i
+                        // (int(self.halide_gen_args_dict["mu_i"]) * 2),
+                    ]
+                    instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1, 1]
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
