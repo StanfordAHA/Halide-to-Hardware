@@ -76,6 +76,7 @@ int main(int argc, char **argv) {
     auto vec_width_fake = vec_width_fake_env ? atoi(vec_width_fake_env) : 32;
     auto vec_width = vec_width_env ? atoi(vec_width_env) : 64;
     auto mu_i = mu_i_env ? atoi(mu_i_env) : 32;
+    const int block_size = 64;
 
     // Assert that vec_height is even for proper bit packing
     assert((vec_height % 2 == 0) && "vec_height must be even for proper bit packing");
@@ -98,21 +99,30 @@ int main(int argc, char **argv) {
     // processor.output = Buffer<uint16_t>(int(vec_height / 2));
     // auto real_output = Buffer<uint16_t>(int(vec_height / 2));
 
-    processor.output = Buffer<uint16_t>(int(vec_height));
-    auto real_output = Buffer<uint16_t>(int(vec_height));
+    processor.output = Buffer<uint16_t>(vec_height);
+    auto real_output = Buffer<uint16_t>(vec_height, int(vec_width / block_size));
 
     for (int y = 0; y < real_mu_input.dim(1).extent(); y++) {
-        float max_val = 0.0f;
-        uint16_t max_val_bf16 = float_to_bfloat16_process(max_val);
-        for (int z = 0; z < real_mu_input.dim(2).extent(); z++) {
-            for (int x = 0; x < real_mu_input.dim(0).extent(); x++) {
-                max_val_bf16 = abs_max(max_val_bf16, real_mu_input(x, y, z));
+        // For each block along width (e.g., block_size=64, vec_width=128 -> 2 blocks)
+        for (int b = 0; b < int(vec_width / block_size); b++) {
+            float max_val = 0.0f;
+            uint16_t max_val_bf16 = float_to_bfloat16_process(max_val);
+
+            // For channels in the block (e.g., 64 channels)
+            for (int ch = 0; ch < block_size; ch++) {
+                int channel_idx = b * block_size + ch;
+                int x = channel_idx % mu_i;
+                int z = channel_idx / mu_i;
+                if (z < real_mu_input.dim(2).extent() && x < real_mu_input.dim(0).extent()) {
+                    max_val_bf16 = abs_max(max_val_bf16, real_mu_input(x, y, z));
+                }
             }
-        }
+
+            real_output(y, b) = get_shared_exp(max_val_bf16);
+
         // // Pack every two 8-bit scale into one 16-bit word.
         // real_output(int(y / 2)) = (y & 1) ? bit8_pack(get_shared_exp(max_val_bf16), real_output(int(y / 2))) : get_shared_exp(max_val_bf16);
-
-        real_output(y) = get_shared_exp(max_val_bf16);
+        }
     }
 
     saveHalideBufferToRawBigEndian(real_mu_input, "bin/mu_input_host_stencil.raw");
