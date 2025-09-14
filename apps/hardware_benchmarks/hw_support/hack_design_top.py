@@ -23,6 +23,7 @@ APPS_NEEDING_HACKS = [
     "mat_vec_mul_fp",
     "get_e8m0_scale_test_fp",
     "get_apply_e8m0_scale_fp",
+    "relu_layer_multiout_fp",
 ]
 
 
@@ -3343,6 +3344,143 @@ class SelectedDesignHacker:
         # Real input shape should match vec_width instead of vec_width_fake
         design_meta["IOs"]["inputs"][0]["shape"][0] = int(self.halide_gen_args_dict["vec_width"])
 
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_relu_layer_multiout_fp_rv(self, json_path, bin_path):
+        """
+        We hardcoded the unroll to 4 as this is only a unit test for multi-output CGRA call.
+        """
+        ADD_3_INSTRUCTION = "84'h000008080800002480082"
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "relu_layer_multiout_fp"
+        ns = design["namespaces"]["global"]["modules"]
+        top_module = ns[top_module_name]
+        instances = top_module["instances"]
+        connections = top_module["connections"]
+
+        # Find a template of output IO for copying
+        out_meta_template = None
+        for inst_name, inst in instances.items():
+            if inst.get("modref") == "global.IO" and inst.get("modargs", {}).get("mode", [""])[-1] == "out":
+                meta = inst.get("metadata", {}).get("in2glb_0")
+                if meta:
+                    out_meta_template = copy.deepcopy(meta)
+                    break
+        if out_meta_template is None:
+            # Otherwise use common pattern
+            out_meta_template = {
+                "cycle_starting_addr": [0],
+                "cycle_stride": [1],
+                "dimensionality": 1,
+                "extent": [1568],
+                "write_data_starting_addr": [0],
+                "write_data_stride": [1],
+            }
+
+        # Hardcoded the unroll to 4
+        base_out_clkwrk = 12
+        lane_suffix = ["", "_1", "_2", "_3"]
+
+        # Top-level port list
+        record_fields = top_module["type"][1]
+
+        # Helper to add a top-level port pair (data, valid)
+        def add_top_ports(port_base_name):
+            record_fields.append([port_base_name, ["Array", 16, "Bit"]])
+            valid_name = port_base_name.rsplit("_write_0", 1)[0] + "_write_valid"
+            record_fields.append([valid_name, "Bit"])
+
+        # Create per-lane instances and connections
+        for i in range(4):
+            clkwrk_id = base_out_clkwrk + i
+            suf = lane_suffix[i]
+
+            # New adder PEs
+            adder_inst = (
+                "op_hcompute_add_3_stencil"
+                f"{('_' + str(i)) if i > 0 else ''}$inner_compute$float_DW_fp_add_add3_{i}"
+            )
+            const_inst = (
+                "op_hcompute_add_3_stencil"
+                f"{('_' + str(i)) if i > 0 else ''}$inner_compute$c_add3_{i}"
+            )
+            in_inst = f"io16in_hw_input_stencil_clkwrk_{4+i}_op_hcompute_hw_input_global_wrapper_stencil{suf}_read_0"
+            out_io_inst = f"io16_add_3_output_stencil_clkwrk_{clkwrk_id}_op_hcompute_add_3_stencil{suf}_write_0"
+            # New top-level port names (data + valid)
+            tl_data_port = f"add_3_output_stencil_clkwrk_{clkwrk_id}_op_hcompute_add_3_stencil{suf}_write_0"
+
+            if const_inst not in instances:
+                instances[const_inst] = {
+                    "genref": "coreir.const",
+                    "genargs": {"width": ["Int", 84]},
+                    "modargs": {"value": [["BitVector", 84], ADD_3_INSTRUCTION]},
+                }
+
+            if adder_inst not in instances:
+                instances[adder_inst] = {"modref": "global.PE"}
+
+            if out_io_inst not in instances:
+                instances[out_io_inst] = {
+                    "modref": "global.IO",
+                    "modargs": {"mode": ["String", "out"]},
+                    "metadata": {"in2glb_0": copy.deepcopy(out_meta_template)},
+                }
+
+            existing_port_names = {p[0] for p in record_fields}
+            if tl_data_port not in existing_port_names:
+                add_top_ports(tl_data_port)
+
+            def add_conn_once(src, dst):
+                pair = [src, dst]
+                if pair not in connections:
+                    connections.append(pair)
+
+            add_conn_once(f"{adder_inst}.data0", f"{in_inst}.out")
+            add_conn_once(f"{adder_inst}.inst", f"{const_inst}.out")
+            add_conn_once(f"{adder_inst}.O0", f"{out_io_inst}.in")
+            add_conn_once(f"self.{tl_data_port}", f"{out_io_inst}.out")
+
+        # Reorder IO out instances by clkwrk index
+        from collections import OrderedDict
+
+        inst_items = list(instances.items())
+        io_out_group = []
+        others = []
+        for idx, (iname, inst) in enumerate(inst_items):
+            if inst.get("modref") == "global.IO" and inst.get("modargs", {}).get("mode", [""])[-1] == "out":
+                m = re.search(r"io16.*output.*clkwrk_(\d+)_", iname, flags=re.IGNORECASE)
+                if m:
+                    io_out_group.append((int(m.group(1)), idx, iname, inst))
+                    continue
+            others.append((idx, iname, inst))
+
+        if io_out_group:
+            io_out_group.sort(key=lambda t: (t[0], t[1]))
+            new_instances = OrderedDict()
+            for _, name, inst in others:
+                new_instances[name] = inst
+            for _, _, name, inst in io_out_group:
+                new_instances[name] = inst
+            top_module["instances"] = new_instances
+
+        # Write back json
+        with open(json_path, "w") as f:
+            json.dump(design, f, indent=2)
+
+        # Also update design_meta_halide.json to update mu_inputs shape
+        # TODO: This applies hack to design_meta as well. Do we want to create a new class?
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        if len(design_meta["IOs"]["outputs"]) == 1:
+            # copy this output but rename with new name
+            add_3_output = copy.deepcopy(design_meta["IOs"]["outputs"][0])
+            add_3_output["name"] = "add_3_output_stencil"
+            add_3_output["datafile"] = "hw_add_3.raw"
+            design_meta["IOs"]["outputs"].append(add_3_output)
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
