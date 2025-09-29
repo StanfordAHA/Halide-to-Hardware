@@ -24,6 +24,9 @@ APPS_NEEDING_HACKS = [
     "get_e8m0_scale_test_fp",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
+
+    # FIXME: Change this to path balance pond test
+    "pointwise",
 ]
 
 
@@ -73,6 +76,57 @@ class SelectedDesignHacker:
                 f"\033[91mError: Method '{hack_method_name}' does not exist for test '{testname}'.\033[0m"
             )
         hack_method(json_path, bin_path)
+
+
+    def hack_for_pointwise_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "pointwise"
+        modules = design["namespaces"]["global"]["modules"]
+        if top_module not in modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+
+        pointwise = modules[top_module]
+        instances = pointwise["instances"]
+
+        # Manually insert a pond instance on each path to be balanced
+        pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {
+                "ID": ["String", ""],
+                "has_stencil_valid": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "width": ["Int", 16],
+            },
+            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+            "metadata": {"config": {}, "mode": "pond"},
+        }
+
+        pond_name = "p3_path_balance_pond"
+        pond_instance = copy.deepcopy(pond_tpl)
+        pond_instance["genargs"]["ID"][1] = pond_name
+        instances[pond_name] = pond_instance
+
+        # Add connections to/from the pond
+        connections = pointwise["connections"]
+        PE_output_name = "op_hcompute_mult_stencil_3$inner_compute$mul_i3108_i1608.O0"
+        for edge in connections:
+            left, right = edge[0], edge[1]
+            if PE_output_name in left:
+                # Found the PE output, insert pond here
+                connections.remove(edge)
+                connections.append([left, f"{pond_name}.data_in_pond_0"])
+                connections.append([f"{pond_name}.data_out_pond_1", right])
+                print(f"Inserted pond '{pond_name}' between '{left}' and '{right}'")
+                break
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
 
     def hack_for_scalar_reduction_static(self, json_path, bin_path):
 
