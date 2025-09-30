@@ -24,9 +24,6 @@ APPS_NEEDING_HACKS = [
     "get_e8m0_scale_test_fp",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
-
-    # FIXME: Change this to path balance pond test
-    "pointwise",
 ]
 
 
@@ -78,54 +75,6 @@ class SelectedDesignHacker:
         hack_method(json_path, bin_path)
 
 
-    def hack_for_pointwise_rv(self, json_path, bin_path):
-        with open(json_path, "r") as f:
-            design = json.load(f)
-
-        top_module = "pointwise"
-        modules = design["namespaces"]["global"]["modules"]
-        if top_module not in modules:
-            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
-            return
-
-        pointwise = modules[top_module]
-        instances = pointwise["instances"]
-
-        # Manually insert a pond instance on each path to be balanced
-        pond_tpl = {
-            "genref": "cgralib.Pond",
-            "genargs": {
-                "ID": ["String", ""],
-                "has_stencil_valid": ["Bool", True],
-                "num_inputs": ["Int", 2],
-                "num_outputs": ["Int", 2],
-                "width": ["Int", 16],
-            },
-            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
-            "metadata": {"config": {}, "mode": "pond"},
-        }
-
-        pond_name = "p3_path_balance_pond"
-        pond_instance = copy.deepcopy(pond_tpl)
-        pond_instance["genargs"]["ID"][1] = pond_name
-        instances[pond_name] = pond_instance
-
-        # Add connections to/from the pond
-        connections = pointwise["connections"]
-        PE_output_name = "op_hcompute_mult_stencil_3$inner_compute$mul_i3108_i1608.O0"
-        for edge in connections:
-            left, right = edge[0], edge[1]
-            if PE_output_name in left:
-                # Found the PE output, insert pond here
-                connections.remove(edge)
-                connections.append([left, f"{pond_name}.data_in_pond_0"])
-                connections.append([f"{pond_name}.data_out_pond_1", right])
-                print(f"Inserted pond '{pond_name}' between '{left}' and '{right}'")
-                break
-
-        # Overwrite the JSON
-        with open(json_path, "w") as f:
-            f.write(pretty_format_json(design))
 
 
     def hack_for_scalar_reduction_static(self, json_path, bin_path):
@@ -3649,6 +3598,69 @@ class GlobalDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+    def hack_for_pond_path_balancing(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        modules = design["namespaces"]["global"]["modules"]
+
+        for mod_name, mod_def in modules.items():
+            if "instances" not in mod_def or "connections" not in mod_def:
+                continue  # Skip modules without instances or connections
+
+            instances = mod_def["instances"]
+
+            # Manually insert a pond instance on each path to be balanced
+            pond_tpl = {
+                "genref": "cgralib.Pond",
+                "genargs": {
+                    "ID": ["String", ""],
+                    "has_stencil_valid": ["Bool", True],
+                    "num_inputs": ["Int", 2],
+                    "num_outputs": ["Int", 2],
+                    "width": ["Int", 16],
+                },
+                "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+                "metadata": {"config": {}, "mode": "pond"},
+            }
+
+            # For all path_balancing PEs, create a path balancing pond instance and modify the corresponding connections
+            path_balancing_json = f"{bin_path}/path_balancing.json"
+            assert os.path.exists(path_balancing_json), f"Expected path_balancing.json at {path_balancing_json}"
+            with open(path_balancing_json, "r") as f:
+                path_balancing_info = json.load(f)
+
+            balance_lengths = path_balancing_info["balance_lengths"]
+            name_to_id = path_balancing_info["name_to_id"]
+            num_balance_pes = len(balance_lengths)
+            pes_balanced = 0
+
+            connections = mod_def["connections"]
+            for edge in connections:
+                left, right = edge[0], edge[1]
+                left_instance_name = left.split(".")[0]
+                left_port = left.split(".")[1] if "." in left else ""
+
+                if left_port == "O0" and left_instance_name in name_to_id:
+                    pes_balanced += 1
+                    pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                    pond_instance = copy.deepcopy(pond_tpl)
+                    pond_instance["genargs"]["ID"][1] = pond_name
+                    instances[pond_name] = pond_instance
+
+                    # Found the PE output, insert pond here
+                    connections.remove(edge)
+                    connections.append([left, f"{pond_name}.data_in_pond_0"])
+                    connections.append([f"{pond_name}.data_out_pond_1", right])
+                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing\033[0m")
+
+                if pes_balanced >= num_balance_pes:
+                    break
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
 
 class GlobalDesignMetaHakcer:
     """
@@ -3741,6 +3753,12 @@ def main():
 
     # Perform global hack of design_top.json to add MU prefix for MU IOs
     global_design_top_hacker.add_mu_prefix_to_io(args.design_top_json)
+
+    # Perform global hack of design_top.json to insert ponds for path balancing
+    # TODO: This should NOT be set in application_parameters. It should be set by the flow on the 2nd pass
+    use_pond_path_balancing = os.getenv("POND_PATH_BALANCING", "0") != "0"
+    if use_pond_path_balancing:
+        global_design_top_hacker.hack_for_pond_path_balancing(args.design_top_json, args.bin_dir)
 
     ## Hack design_meta_halide.json
     global_design_meta_hacker = GlobalDesignMetaHakcer()
