@@ -338,9 +338,17 @@ def E64_packing(json_data):
     def process_io(io_entries, unique_positions, pack_x_set):
         trimmed_entries = []
         for entry in io_entries:
+            # Check per-entry if packing is actually used (any tile at a packed x)
+            entry_uses_packing = any(tile["x_pos"] in pack_x_set for tile in entry["io_tiles"])
+
             # Enforce assertion only if packing is used
-            if pack_x_set and (len(entry["io_tiles"]) % 4 != 0):
+            if entry_uses_packing and (len(entry["io_tiles"]) % 4 != 0):
                 raise AssertionError("Number of io_tiles must be a multiple of 4 for E64 mode")
+
+            # If this entry doesn't use packing at all, leave it untouched
+            if not entry_uses_packing:
+                trimmed_entries.append(entry)
+                continue
 
             new_io_tiles = []
             shape_updated = False

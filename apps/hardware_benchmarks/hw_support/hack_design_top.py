@@ -3257,6 +3257,12 @@ class SelectedDesignHacker:
             f.write(pretty_format_json(design))
 
     def hack_for_get_apply_e8m0_scale_fp_rv(self, json_path, bin_path):
+        '''
+        This hack inserts MEM tiles between MU IOs and tree_mem / tree_mu PEs.
+        MEM tile output port 0 goes to tree_mem PEs, with a delay of image size.
+        MEM tile output port 1 goes to tree_mu PEs, without delay.
+        It also inserts apply-scale pipeline and scale broadcast for fused quantization.
+        '''
         with open(json_path, "r") as f:
             design = json.load(f)
 
@@ -3265,7 +3271,7 @@ class SelectedDesignHacker:
         top_module = design["namespaces"]["global"]["modules"][top_module_name]
         connections = top_module["connections"]
 
-        # Insert MEM tiles between MU IOs and tree_mem PEs
+        # Insert MEM tiles between MU IOs and tree_mem / tree_mu PEs
         mem_tpl = {
             "genref": "cgralib.Mem",
             "genargs": {
@@ -3287,44 +3293,66 @@ class SelectedDesignHacker:
             "modargs": {"config": ["Json", {}], "init": ["Json", None], "mode": ["String", "lake"]},
             "metadata": {"config": {}, "init": None, "mode": "lake"},
         }
-        new_instances = {}
-        new_conns = []
-        mem_count = 0
+
+        def clkwrk_idx_from_port(p):
+            # Helper function to extract MU IO clkwrk index from port name
+            m = re.search(r"_clkwrk_(\d+)_op_hcompute_mu_input_io_stencil", p)
+            return int(m.group(1)) if m else None
+
+        # Helper function to add a connection only if it doesn't already exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Collect original MU->tree connections and ports
         for a, b in list(connections):
             is_mu_a = a.startswith("io16in_mu_")
             is_mu_b = b.startswith("io16in_mu_")
-            is_tree_a = "op_hcompute_tree_mem" in a and ".data" in a
-            is_tree_b = "op_hcompute_tree_mem" in b and ".data" in b
-            if is_mu_a and is_tree_b:
+            is_tree_mem_a = "op_hcompute_tree_mem" in a and ".data" in a
+            is_tree_mem_b = "op_hcompute_tree_mem" in b and ".data" in b
+            is_tree_mu_a  = "op_hcompute_tree_mu"  in a and ".data" in a
+            is_tree_mu_b  = "op_hcompute_tree_mu"  in b and ".data" in b
+
+            if is_mu_a and (is_tree_mem_b or is_tree_mu_b):
                 mu_port, tree_port = a, b
-            elif is_mu_b and is_tree_a:
+            elif is_mu_b and (is_tree_mem_a or is_tree_mu_a):
                 mu_port, tree_port = b, a
             else:
                 continue
-            mem_name = f"mem_mu2tree_{mem_count}"
-            tpl = copy.deepcopy(mem_tpl)
-            new_instances[mem_name] = tpl
-            new_conns.append([mu_port, f"{mem_name}.data_in_0"])
-            new_conns.append([f"{mem_name}.data_out_0", tree_port])
-            mem_count += 1
+
+            # Instantiate MEMs buffering activations with matching index to MU IOs
+            mu_idx = clkwrk_idx_from_port(mu_port)
+            assert mu_idx is not None, f"Cannot parse clkwrk index from MU port: {mu_port}"
+            mem_name = f"mem_mu2tree_{mu_idx}"
+            if mem_name not in instances:
+                tpl = copy.deepcopy(mem_tpl)
+                instances[mem_name] = tpl
+
+            # Connect MU->MEM.in0
+            add_conn_once(mu_port, f"{mem_name}.data_in_0")
+
+            # Connect MEM.out0->tree_mem and MEM.out1->tree_mu
+            if "op_hcompute_tree_mem" in tree_port:
+                add_conn_once(f"{mem_name}.data_out_0", tree_port)
+            else:
+                assert "op_hcompute_tree_mu" in tree_port, f"Tree PE port {tree_port} is not a tree_mem or tree_mu port"
+                add_conn_once(f"{mem_name}.data_out_1", tree_port)
+
         def is_direct_mu2tree(edge):
+            # Helper function to check if an edge is a direct MU->tree edge in original connections
             x, y = edge
             mu_x = x.startswith("io16in_mu_")
             mu_y = y.startswith("io16in_mu_")
-            tree_x = "op_hcompute_tree_mem" in x and ".data" in x
-            tree_y = "op_hcompute_tree_mem" in y and ".data" in y
-            return (mu_x and tree_y) or (mu_y and tree_x)
-        connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
-        instances.update(new_instances)
-        connections.extend(new_conns)
+            tree_mem_x = "op_hcompute_tree_mem" in x and ".data" in x
+            tree_mem_y = "op_hcompute_tree_mem" in y and ".data" in y
+            tree_mu_x  = "op_hcompute_tree_mu"  in x and ".data" in x
+            tree_mu_y  = "op_hcompute_tree_mu"  in y and ".data" in y
+            return ((mu_x and (tree_mem_y or tree_mu_y)) or
+                    (mu_y and (tree_mem_x or tree_mu_x)))
 
-        # Add bogus data init to all shift registers
-        for inst_name, inst_conf in instances.items():
-            if "$d_reg" in inst_name:
-                assert inst_conf.get("genref") == "coreir.reg", f"Instance {inst_name} is not a shift register."
-                if "metadata" not in inst_conf:
-                    inst_conf["metadata"] = {}
-                inst_conf["metadata"]["extra_data"] = 1
+        # Remove original direct MU->tree edges
+        connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
 
         # Configure GLB store DMA to extract valid data
         for instance_name, instance_conf in instances.items():
@@ -3365,18 +3393,223 @@ class SelectedDesignHacker:
                     instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
                     instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1, 1]
 
+        # Apply-scale pipeline + scale broadcast + output IOs
+        SCALE_PE_SRC = "op_hcompute_scale_output_glb_stencil$inner_compute$get_shared_exp_i3200i78_i1489.O0"
+        APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
+        DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
+
+        shift_reg_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {
+                "clk_posedge": ["Bool", True],
+                "init": [["BitVector", 16], "16'h0000"],
+            },
+            "metadata": {"extra_data": 2},
+        }
+        pe_tpl = {
+            "modref": "global.PE"
+        }
+        apply_scale_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], APPLY_SCALE_INSTR]},
+        }
+        # Const template for data_packing PE instruction
+        data_packing_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
+        }
+
+        # Output GLB IO template
+        io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "out"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [int(self.halide_gen_args_dict["vec_height"])],
+                    "cycle_stride": [
+                        1,
+                        int(self.halide_gen_args_dict["vec_height"]) + 1,
+                    ],
+                    "dimensionality": 2,
+                    "extent": [
+                        int(self.halide_gen_args_dict["vec_height"]),
+                        int(self.halide_gen_args_dict["vec_width"])
+                        // int(self.halide_gen_args_dict["mu_i"])
+                        // 2 # Because of data packing,
+                    ],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1, 1],
+                }
+            },
+        }
+
+        # Collect MEM.out1 sources, emitting activations without delay
+        mem_no_delay_srcs = []
+        for iname in instances.keys():
+            m = re.fullmatch(r"mem_mu2tree_(\d+)", iname)
+            if m:
+                mem_no_delay_srcs.append((int(m.group(1)), f"{iname}.data_out_1"))
+        mem_no_delay_srcs.sort(key=lambda x: x[0])
+
+        # Collect MEM.out0 sources, emitting activations with delay of image size
+        mem_with_delay_srcs = []
+        for iname in instances.keys():
+            m = re.fullmatch(r"mem_mu2tree_(\d+)", iname)
+            if m:
+                mem_with_delay_srcs.append((int(m.group(1)), f"{iname}.data_out_0"))
+        mem_with_delay_srcs.sort(key=lambda x: x[0])
+
+        # Determine how many pipeline registers we need (max tree depth + 1)
+        # NOTE: This is not used. We don't actually insert shift registers here as it makes the graph unroutable.
+        n_regs = int(self.halide_gen_args_dict["tree_stages"]) + 1
+        assert n_regs % 2 == 0, "Number of pipeline registers must be even"
+
+        def build_apply_pipeline(group, idx, src, n_regs):
+            """
+            Build a pipeline with shift registers
+            group: "mu" or "mem" for naming the pipeline
+            idx: lane index [0..31]
+            src: source for this lane (mem_mu2tree.data_out_0 or mem_mu2tree.data_out_1)
+            """
+
+            naming_base = f"apply_scale_{group}_{idx}_stencil"
+            pe_name = f"{naming_base}$inner_compute$apply_scale"
+            c0_name = f"{naming_base}$inner_compute$c0"
+
+            # PE + const connection for apply scale instruction
+            instances[pe_name] = copy.deepcopy(pe_tpl)
+            instances[c0_name] = copy.deepcopy(apply_scale_const_tpl)
+            add_conn_once(f"{pe_name}.inst", f"{c0_name}.out")
+
+            # Shift-FIFO chain
+            head = None
+            prev = None
+            if n_regs > 0:
+                for k in range(n_regs):
+                    rname = f"{naming_base}$d_reg__U0$reg{k}"
+                    instances[rname] = copy.deepcopy(shift_reg_tpl)
+                    if k == 0:
+                        # First shift FIFO
+                        add_conn_once(src, f"{rname}.in")
+                        head = rname
+                    else:
+                        add_conn_once(f"{prev}.out", f"{rname}.in")
+                    prev = rname
+                data0_src = f"{prev}.out"  # Tail shift FIFO feeds PE
+            else:
+                data0_src = src  # Bypass shift FIFOs and feed src directly
+
+            # Tail -> PE.data0, and scale broadcast to data1 port
+            add_conn_once(data0_src, f"{pe_name}.data0")
+            assert SCALE_PE_SRC.split(".")[0] in instances, f"SCALE_PE_SRC {SCALE_PE_SRC} not found in instances, check get scale PE name."
+            add_conn_once(SCALE_PE_SRC, f"{pe_name}.data1")
+
+            return f"{pe_name}.O0"
+
+        # Build 32 MU pipelines and 32 MEM pipelines as we have 32 MU IOs in Zircon
+        # Also create apply_outputs dict for sorting and data packing
+        apply_outputs = {"mem_no_delay": {}, "mem_with_delay": {}}
+        for idx, pin in mem_no_delay_srcs:
+            apply_outputs["mem_no_delay"][idx] = build_apply_pipeline("mem_no_delay", idx, pin, n_regs=0)
+
+        for idx, pin in mem_with_delay_srcs:
+            apply_outputs["mem_with_delay"][idx] = build_apply_pipeline("mem_with_delay", idx, pin, n_regs=0)
+
+        # Data_packing stage: pair adjacent apply_scale PEs
+        # Create pending lists for sorting
+        pending_ios_mem_no_delay = []
+        pending_ios_mem_with_delay = []
+
+        # Pack adjacent apply_scale outputs for mem_no_delay, which corresponds to second 32 channels
+        mem_no_delay_idxs = sorted(apply_outputs["mem_no_delay"].keys())
+        for i in range(0, len(mem_no_delay_idxs) - 1, 2):
+            idx0, idx1 = mem_no_delay_idxs[i], mem_no_delay_idxs[i + 1]
+
+            naming_base = f"data_packing_pair_mem_no_delay_{idx0}_{idx1}_stencil"
+            data_packing_pe = f"{naming_base}$inner_compute$data_packing"
+            data_packing_const = f"{naming_base}$inner_compute$c0_dp"
+
+            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
+
+            add_conn_once(apply_outputs["mem_no_delay"][idx0], f"{data_packing_pe}.data1") #
+            add_conn_once(apply_outputs["mem_no_delay"][idx1], f"{data_packing_pe}.data0")
+
+            orig_idx = idx0
+            pending_ios_mem_no_delay.append((orig_idx, data_packing_pe))
+
+        # Pack adjacent apply_scale outputs for mem_with_delay, which corresponds to first 32 channels
+        mem_idxs = sorted(apply_outputs["mem_with_delay"].keys())
+        for i in range(0, len(mem_idxs) - 1, 2):
+            idx0, idx1 = mem_idxs[i], mem_idxs[i + 1]
+
+            naming_base = f"data_packing_pair_mem_with_delay_{idx0}_{idx1}_stencil"
+            data_packing_pe = f"{naming_base}$inner_compute$data_packing"
+            data_packing_const = f"{naming_base}$inner_compute$c0_dp"
+
+            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
+
+            add_conn_once(apply_outputs["mem_with_delay"][idx0], f"{data_packing_pe}.data1")
+            add_conn_once(apply_outputs["mem_with_delay"][idx1], f"{data_packing_pe}.data0")
+
+            orig_idx = idx0
+            pending_ios_mem_with_delay.append((orig_idx, data_packing_pe))
+
+        # Instantiate output IOs, MEM with delay first, then MEM no delay
+        pending_ios_mem_with_delay = sorted(pending_ios_mem_with_delay, key=lambda x: x[0])
+        pending_ios_mem_no_delay  = sorted(pending_ios_mem_no_delay,  key=lambda x: x[0])
+        quantized_output_ios = []
+
+        # Assign sorted index to all quantized output IOs, MEM with delay first, then MEM no delay
+        # MEM with delay indexes
+        for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_with_delay):
+            io_name = (f"io16_quantized_output_stencil_clkwrk_{ascending_idx}_op_hcompute_quantized_output_stencil_{ascending_idx}_write_0")
+            instances[io_name] = copy.deepcopy(io_tpl)
+            add_conn_once(f"{data_packing_pe}.O0", f"{io_name}.in")
+            quantized_output_ios.append(io_name)
+
+        # MEM no delay indexes
+        idx_offset = len(pending_ios_mem_with_delay)
+        for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_no_delay):
+            io_name = (f"io16_quantized_output_stencil_clkwrk_{idx_offset + ascending_idx}_op_hcompute_quantized_output_stencil_{idx_offset + ascending_idx}_write_0")
+            instances[io_name] = copy.deepcopy(io_tpl)
+            add_conn_once(f"{data_packing_pe}.O0", f"{io_name}.in")
+            quantized_output_ios.append(io_name)
+
+
+        # Type instances of self.<port> to corresponding IO.out
+        type_fields = top_module["type"][1]
+        for io_inst in quantized_output_ios:
+            port_name = io_inst.replace("io16_", "")
+            type_fields.append([port_name, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port_name}", f"{io_inst}.out")
+
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-        # Also update design_meta_halide.json to update mu_inputs shape
-        # TODO: This applies hack to design_meta as well. Do we want to create a new class?
+        # Update design_meta_halide.json to update mu_inputs shape and add quantized_output_stencil
         design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
         with open(design_meta_path, "r") as f:
             design_meta = json.load(f)
         assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input which is mu input"
         # Real input shape should match vec_width instead of vec_width_fake
         design_meta["IOs"]["inputs"][0]["shape"][0] = int(self.halide_gen_args_dict["vec_width"])
+        # Add quantized_output_stencil
+        design_meta["IOs"]["outputs"].append(
+            {
+                "bitwidth": 16,
+                "datafile": "quantized_output_stencil.raw",
+                "name": "quantized_output_stencil",
+                "shape": [int(self.halide_gen_args_dict["mu_i"]), int(self.halide_gen_args_dict["vec_width"])*int(self.halide_gen_args_dict["vec_height"])//2//int(self.halide_gen_args_dict["mu_i"])],
+            }
+        )
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)

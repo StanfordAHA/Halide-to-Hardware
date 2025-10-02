@@ -90,18 +90,15 @@ int main(int argc, char **argv) {
     for (int z = 0; z < real_mu_input.dim(2).extent(); z++) {
         for (int y = 0; y < real_mu_input.dim(1).extent(); y++) {
             for (int x = 0; x < real_mu_input.dim(0).extent(); x++) {
-                real_mu_input(x, y, z) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 32768.0f);
+                // Use [-10, 10], which is a typical range for activations of most models
+                real_mu_input(x, y, z) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
             }
         }
     }
 
-    // Gold output
-    // processor.output = Buffer<uint16_t>(int(vec_height / 2));
-    // auto real_output = Buffer<uint16_t>(int(vec_height / 2));
-
+    // Gold scale output
     processor.output = Buffer<uint16_t>(vec_height);
     auto real_output = Buffer<uint16_t>(vec_height, int(vec_width / block_size));
-
     for (int y = 0; y < real_mu_input.dim(1).extent(); y++) {
         // For each block along width (e.g., block_size=64, vec_width=128 -> 2 blocks)
         for (int b = 0; b < int(vec_width / block_size); b++) {
@@ -125,60 +122,111 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Gold quantized output in INT8 with packing of two 8-bit INT8 into one 16-bit word
+    auto quantized_output_packed = Buffer<uint16_t>(int(block_size / 2), vec_height, int(vec_width / block_size));
+    for (int b = 0; b < int(vec_width / block_size); b++) {
+        for (int p = 0; p < vec_height; p++) {
+            for (int c = 0; c < int(block_size / 2); c++) {
+                int c0 = b * block_size + (c * 2);
+                int c1 = c0 + 1;
+
+                // Channel c0, write low byte first
+                int b0 = c0 / block_size;
+                uint8_t exp0 = static_cast<uint8_t>(real_output(p, b0) & 0xFF);
+                float actual_scale0 = powf(2.0f, static_cast<float>(exp0) - 127.0f);
+                int ch_in_tile0 = c0 % mu_i;
+                int tile_idx0 = c0 / mu_i;
+                uint8_t q0 = 0;
+                if (tile_idx0 < real_mu_input.dim(2).extent() && ch_in_tile0 < real_mu_input.dim(0).extent()) {
+                    float f0 = bfloat16_to_float_process(real_mu_input(ch_in_tile0, p, tile_idx0));
+                    int q = lroundf(f0 / actual_scale0);
+                    // For quantized data, we clamp to INT8 range.
+                    // We should do this in quant_e8m0 test as well. But unfortunately, we missed it and the quantized data might overflow.
+                    // Zircon hardware will have the overflow problem as well, when the quantized data is >= 127.5 in some corner cases.
+                    if (q < -128) q = -128;
+                    if (q > 127)  q = 127;
+                    q0 = static_cast<uint8_t>(static_cast<int8_t>(q));
+                }
+
+                // Write low byte for this [word within 64, pixel, 64ch tile]
+                quantized_output_packed(c, p, b) = static_cast<uint16_t>(q0);
+
+                // Channel c1, packed with low byte
+                int b1 = c1 / block_size;
+                uint8_t exp1 = static_cast<uint8_t>(real_output(p, b1) & 0xFF);
+                float actual_scale1 = powf(2.0f, static_cast<float>(exp1) - 127.0f);
+                int ch_in_tile1 = c1 % mu_i;
+                int tile_idx1 = c1 / mu_i;
+                uint8_t q1 = 0;
+                if (tile_idx1 < real_mu_input.dim(2).extent() && ch_in_tile1 < real_mu_input.dim(0).extent()) {
+                    float f1 = bfloat16_to_float_process(real_mu_input(ch_in_tile1, p, tile_idx1));
+                    int q = lroundf(f1 / actual_scale1);
+                    if (q < -128) q = -128;
+                    if (q > 127)  q = 127;
+                    q1 = static_cast<uint8_t>(static_cast<int8_t>(q));
+                }
+
+                // pack high byte
+                quantized_output_packed(c, p, b) = bit8_pack(q1, quantized_output_packed(c, p, b));
+            }
+        }
+    }
+
+    // Save packed quantized output
+    saveHalideBufferToRawBigEndian(quantized_output_packed, "bin/quantized_output_stencil.raw");
     saveHalideBufferToRawBigEndian(real_mu_input, "bin/mu_input_host_stencil.raw");
     saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
 
-    // // Create glb bank config file for packing
-    // // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
-    // std::cout << "Checking for GLB bank configuration..." << std::endl;
-    // std::cout << "USE_GLB_BANK_CONFIG = " << getenv("USE_GLB_BANK_CONFIG") << std::endl;
-    // if (getenv("USE_GLB_BANK_CONFIG") && std::stoi(getenv("USE_GLB_BANK_CONFIG"))) {
-    //     std::vector<int> mu_input_host_stencil_pos = parse_glb_bank_config_num_list("MU_INPUT_HOST_STENCIL_POS");
-    //     std::vector<int> glb_input_host_stencil_pos = parse_glb_bank_config_num_list("GLB_INPUT_HOST_STENCIL_POS");
-    //     std::vector<int> hw_output_stencil_pos = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_POS");
+    // Create glb bank config file for packing
+    // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
+    std::cout << "Checking for GLB bank configuration..." << std::endl;
+    std::cout << "USE_GLB_BANK_CONFIG = " << getenv("USE_GLB_BANK_CONFIG") << std::endl;
+    if (getenv("USE_GLB_BANK_CONFIG") && std::stoi(getenv("USE_GLB_BANK_CONFIG"))) {
+        // Assign the x-coordinates
+        std::vector<int> mu_input_host_stencil_pos = parse_glb_bank_config_num_list("MU_INPUT_HOST_STENCIL_POS");
+        std::vector<int> hw_scale_output_stencil_pos = parse_glb_bank_config_num_list("HW_SCALE_OUTPUT_STENCIL_POS");
+        std::vector<int> quantized_output_stencil_pos = parse_glb_bank_config_num_list("QUANTIZED_OUTPUT_STENCIL_POS");
 
-    //     std::vector<int> glb_input_host_stencil_packed = parse_glb_bank_config_num_list("GLB_INPUT_HOST_STENCIL_PACKED");
-    //     std::vector<int> hw_output_stencil_packed = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_PACKED");
-    //     std::vector<int> hw_output_stencil_bank_toggle_mode = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_BANK_TOGGLE_MODE");
+        // Assign the packing config
+        std::vector<int> hw_scale_output_stencil_packed = parse_glb_bank_config_num_list("HW_SCALE_OUTPUT_STENCIL_PACKED");
+        std::vector<int> quantized_output_stencil_packed = parse_glb_bank_config_num_list("QUANTIZED_OUTPUT_STENCIL_PACKED");
 
-    //     // Create the glb_bank_config.json structure
-    //     json config = {
-    //         {"mu_inputs", {
-    //             {
-    //                 {"mu_input_host_stencil", {
-    //                     {"x_coord", mu_input_host_stencil_pos}
-    //                 }}
-    //             }
-    //         }},
-    //         {"inputs", {
-    //             {
-    //                 {"glb_input_host_stencil", {
-    //                     {"x_coord", glb_input_host_stencil_pos},
-    //                     {"E64_packed", glb_input_host_stencil_packed}
-    //                 }}
-    //             }
-    //         }},
-    //         {"outputs", {
-    //             {
-    //                 {"hw_output_stencil", {
-    //                     {"x_coord", hw_output_stencil_pos},
-    //                     {"E64_packed", hw_output_stencil_packed},
-    //                     {"bank_toggle_mode", hw_output_stencil_bank_toggle_mode}
-    //                 }}
-    //             }
-    //         }}
-    //     };
+        // Create the glb_bank_config.json structure
+        json config = {
+            {"mu_inputs", {
+                {
+                    {"mu_input_host_stencil", {
+                        {"x_coord", mu_input_host_stencil_pos}
+                    }}
+                }
+            }},
+            {"outputs", {
+                {
+                    {"hw_scale_output_stencil", {
+                        {"x_coord", hw_scale_output_stencil_pos},
+                        {"E64_packed", hw_scale_output_stencil_packed}
+                    }}
+                },
+                {
+                    {"quantized_output_stencil", {
+                        {"x_coord", quantized_output_stencil_pos},
+                        {"E64_packed", quantized_output_stencil_packed}
+                    }}
+                }
+            }}
+        };
 
-    //     std::ofstream file("bin/glb_bank_config.json");
-    //     if (file.is_open()) {
-    //         file << config.dump(4) << std::endl;
-    //         file.close();
-    //         std::cout << "Successfully wrote to bin/glb_bank_config.json" << std::endl;
-    //     } else {
-    //         std::cerr << "Unable to open file for writing." << std::endl;
-    //         return 1;
-    //     }
-    // }
+        // Write to file
+        std::ofstream file("bin/glb_bank_config.json");
+        if (file.is_open()) {
+            file << config.dump(4) << std::endl;
+            file.close();
+            std::cout << "Successfully wrote to bin/glb_bank_config.json" << std::endl;
+        } else {
+            std::cerr << "Unable to open file for writing." << std::endl;
+            return 1;
+        }
+    }
 
     auto output = processor.process_command(argc, argv);
 

@@ -16,6 +16,13 @@
       "shape": [1, 56, 56],
       "pixels_per_cycle": 1,
       "datafile": "bin/hw_output.raw"
+      },
+      {
+        "name": "quantized_output_stencil",
+        "bitwidth": 16,
+        "shape": [32, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/quantized_output_stencil.raw"
       }
     ]
   },
