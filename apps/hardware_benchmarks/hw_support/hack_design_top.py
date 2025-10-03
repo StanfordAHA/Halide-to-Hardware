@@ -3636,26 +3636,42 @@ class GlobalDesignHacker:
             pes_balanced = 0
 
             connections = mod_def["connections"]
+            new_connections = []
             for edge in connections:
                 left, right = edge[0], edge[1]
                 left_instance_name = left.split(".")[0]
                 left_port = left.split(".")[1] if "." in left else ""
+                right_instance_name = right.split(".")[0]
+                right_port = right.split(".")[1] if "." in right else ""
 
-                if left_port == "O0" and left_instance_name in name_to_id:
+                left_is_pe_output = left_port == "O0" and left_instance_name in name_to_id
+                right_is_pe_output = right_port == "O0" and right_instance_name in name_to_id
+
+                if left_is_pe_output or right_is_pe_output:
                     pes_balanced += 1
-                    pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                    if left_is_pe_output:
+                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                    else:
+                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
                     pond_instance = copy.deepcopy(pond_tpl)
                     pond_instance["genargs"]["ID"][1] = pond_name
                     instances[pond_name] = pond_instance
 
                     # Found the PE output, insert pond here
                     connections.remove(edge)
-                    connections.append([left, f"{pond_name}.data_in_pond_0"])
-                    connections.append([f"{pond_name}.data_out_pond_1", right])
+                    if left_is_pe_output:
+                        new_connections.append([left, f"{pond_name}.data_in_pond_0"])
+                        new_connections.append([f"{pond_name}.data_out_pond_1", right])
+                    else:
+                        new_connections.append([right, f"{pond_name}.data_in_pond_0"])
+                        new_connections.append([f"{pond_name}.data_out_pond_1", left])
+
                     print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing\033[0m")
 
                 if pes_balanced >= num_balance_pes:
                     break
+
+            connections.extend(new_connections)
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
