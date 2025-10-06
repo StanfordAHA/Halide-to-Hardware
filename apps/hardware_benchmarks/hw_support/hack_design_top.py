@@ -3263,6 +3263,10 @@ class SelectedDesignHacker:
         MEM tile output port 1 goes to tree_mu PEs, without delay.
         It also inserts apply-scale pipeline and scale broadcast for fused quantization.
         '''
+        SCALE_PE_SRC = "op_hcompute_scale_output_glb_stencil$inner_compute$get_shared_exp_i3200i78_i1489.O0"
+        APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
+        DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
+
         with open(json_path, "r") as f:
             design = json.load(f)
 
@@ -3354,59 +3358,145 @@ class SelectedDesignHacker:
         # Remove original direct MU->tree edges
         connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
 
-        # Configure GLB store DMA to extract valid data
+        # Add shift FIFO for scale output data packing
+        shift_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 1},
+        }
+        pipeline_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 0},
+        }
+        scale_output_shift_fifo_name = "scale_output_shift_fifo"
+        if scale_output_shift_fifo_name not in instances:
+            instances[scale_output_shift_fifo_name] = copy.deepcopy(shift_fifo_tpl)
+
+        # Collect the pre-hacked single scale-output IO, then rename + clone to indexed names
+        scale_output_IO = []
+        existing_ios = [n for n in instances.keys() if "io16_hw_scale_output_stencil_op_hcompute_hw_scale_output_stencil_write_0" in n]
+        assert len(existing_ios) == 1, "Expect one scale output IO of pre-hacked graph"
+        old_io = existing_ios[0]
+        old_port = old_io.replace("io16_", "")
+
+        # Remove any old top-level type/connection using the legacy non-indexed port
+        type_fields = top_module["type"][1]
+        type_fields[:] = [f for f in type_fields if f[0] != old_port]
+        connections[:] = [c for c in connections if c[0] != f"self.{old_port}" and c[1] != f"self.{old_port}"]
+        connections[:] = [c for c in connections if c[0] != f"{old_io}.out" and c[1] != f"{old_io}.out"]
+        connections[:] = [c for c in connections if old_io not in c[0] and old_io not in c[1]]
+
+        # Build new indexed names
+        new_io0 = "io16_hw_scale_output_stencil_clkwrk_0_op_hcompute_hw_scale_output_stencil_0_write_0"
+        new_io1 = "io16_hw_scale_output_stencil_clkwrk_1_op_hcompute_hw_scale_output_stencil_1_write_0"
+
+        # Rename existing to idx 0, then clone idx 1; insertion order yields [0, 1]
+        inst_copy = copy.deepcopy(instances.pop(old_io))
+        instances[new_io0] = inst_copy
+        if new_io1 not in instances:
+            instances[new_io1] = copy.deepcopy(inst_copy)
+
+        # Add new top-level type fields and connect self port to each IO.out
+        for io_name, idx in [(new_io0, 0), (new_io1, 1)]:
+            port = io_name.replace("io16_", "")
+            if all(field[0] != port for field in type_fields):
+                type_fields.append([port, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port}", f"{io_name}.out")
+            scale_output_IO.append(io_name)
+
+        # Remove any old scale PE -> scale IO .in connections before rewiring
+        scale_io_inputs = {f"{n}.in" for n in scale_output_IO}
+        connections[:] = [c for c in connections if c[0] not in scale_io_inputs and c[1] not in scale_io_inputs]
+
+        # Create scale data packing PE and connections
+        scale_data_packing_pe_name = "scale_output_data_packing_stencil$inner_compute$data_packing"
+        scale_data_packing_const_name = "scale_output_data_packing_stencil$inner_compute$c0_dp"
+        if scale_data_packing_pe_name not in instances:
+            instances[scale_data_packing_pe_name] = {"modref": "global.PE"}
+        if scale_data_packing_const_name not in instances:
+            instances[scale_data_packing_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
+            }
+        add_conn_once(f"{scale_data_packing_pe_name}.inst", f"{scale_data_packing_const_name}.out")
+
+        # SCALE_PE_SRC -> data_packing.in0
+        add_conn_once(SCALE_PE_SRC, f"{scale_data_packing_pe_name}.data0")
+
+        # SCALE_PE_SRC -> shift FIFO -> data_packing.in1
+        add_conn_once(SCALE_PE_SRC, f"{scale_output_shift_fifo_name}.in")
+        add_conn_once(f"{scale_output_shift_fifo_name}.out", f"{scale_data_packing_pe_name}.data1")
+
+        # data_packing.O0 -> additional FIFOs for index 0 IO
+        # We need at least 5 additional FIFOs to balance the paths. We might remove this if we can improve the data rate.
+        additional_fifo_names = []
+        num_additional_fifos = 5  # Add 5 additional FIFOs
+
+        # Create FIFO instance name
+        for i in range(num_additional_fifos):
+            fifo_name = f"scale_output_additional_fifo_{i}"
+            additional_fifo_names.append(fifo_name)
+            if fifo_name not in instances:
+                instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
+
+        # Connect data packing PE to first additional FIFO
+        if num_additional_fifos > 0:
+            add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{additional_fifo_names[0]}.in")
+
+            # Chain the additional FIFOs
+            for i in range(1, num_additional_fifos):
+                add_conn_once(f"{additional_fifo_names[i-1]}.out", f"{additional_fifo_names[i]}.in")
+
+            # Connect last additional FIFO to index 0 IO
+            index_0_io = scale_output_IO[0]  # First IO is index 0
+            add_conn_once(f"{additional_fifo_names[-1]}.out", f"{index_0_io}.in")
+
+            # Connect data packing PE directly to index 1 IO (bypass additional FIFOs)
+            index_1_io = scale_output_IO[1]  # Second IO is index 1
+            add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{index_1_io}.in")
+        else:
+            # Fallback: connect directly to both IOs if no additional FIFOs
+            for io_name in scale_output_IO:
+                add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{io_name}.in")
+
+        # Configure GLB store DMA to extract valid data of scale output, and consider data packing
+        # Collect all scale output IOs instances
+        scale_output_IO_idx = 0
+        total_channels = int(self.halide_gen_args_dict["vec_width"])
+        img_size = int(self.halide_gen_args_dict["vec_height"])
+        mu_OC = int(self.halide_gen_args_dict["mu_i"])
         for instance_name, instance_conf in instances.items():
-            if re.match(r"io16_.*_output", instance_name):
+            if "io16_hw_scale_output_stencil" in instance_name:
                 # Two cases:
                 # 1. vec_width is 64, meaning we only skip at the very beginning
                 # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
-                assert (
-                    int(self.halide_gen_args_dict["vec_width"]) >= 64
-                    and int(self.halide_gen_args_dict["vec_width"]) % 64 == 0
-                ), f"vec_width must be >= 64 and divisible by 64 as mx block size is 64"
-                if int(self.halide_gen_args_dict["vec_width"]) == 64:
-                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(
-                        self.halide_gen_args_dict["vec_height"]
-                    )
-                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+                assert (total_channels >= 64 and total_channels % 64 == 0), f"vec_width must be >= 64 and divisible by 64 as mx block size is 64"
+                if total_channels == 64:
+                    # The "1" comes from the data packing offset, and "2" comes from the IO interleaving
+                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = img_size + 1 + 2 * scale_output_IO_idx
+                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [4]
                     instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 1
-                    instance_conf["metadata"]["in2glb_0"]["extent"] = [
-                        int(self.halide_gen_args_dict["vec_height"])
-                    ]
+                    instance_conf["metadata"]["in2glb_0"]["extent"] = [img_size // len(scale_output_IO) // 2]
                     instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
                     instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1]
                 else:
-                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(
-                        self.halide_gen_args_dict["vec_height"]
-                    )
-                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [
-                        1,
-                        int(self.halide_gen_args_dict["vec_height"]) + 1,
-                    ]
+                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = img_size + 1 + 2 * scale_output_IO_idx
+                    # 2 * (len(scale_output_IO) - 1) comes from the skip of other IO tiles at the end of each valid data stream, and it's 2 because of the data packing
+                    # One of the "1" comes from the default stride of 1
+                    # The other "1" comes from data packing offset
+                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [4, img_size + 2 * (len(scale_output_IO) - 1) + 1 + 1]
                     instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 2
-                    instance_conf["metadata"]["in2glb_0"]["extent"] = [
-                        int(self.halide_gen_args_dict["vec_height"]),
-                        int(self.halide_gen_args_dict["vec_width"])
-                        # The actual reduction tree width is double the size of mu_i
-                        // (int(self.halide_gen_args_dict["mu_i"]) * 2),
-                    ]
+                    # The actual reduction tree width is double the size of mu_i
+                    instance_conf["metadata"]["in2glb_0"]["extent"] = [img_size // len(scale_output_IO) // 2, total_channels // (mu_OC * 2)]
                     instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
                     instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1, 1]
+                scale_output_IO_idx += 1
 
         # Apply-scale pipeline + scale broadcast + output IOs
-        SCALE_PE_SRC = "op_hcompute_scale_output_glb_stencil$inner_compute$get_shared_exp_i3200i78_i1489.O0"
-        APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
-        DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
-
-        shift_reg_tpl = {
-            "genref": "coreir.reg",
-            "genargs": {"width": ["Int", 16]},
-            "modargs": {
-                "clk_posedge": ["Bool", True],
-                "init": [["BitVector", 16], "16'h0000"],
-            },
-            "metadata": {"extra_data": 2},
-        }
         pe_tpl = {
             "modref": "global.PE"
         }
@@ -3422,29 +3512,44 @@ class SelectedDesignHacker:
             "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
         }
 
-        # Output GLB IO template
-        io_tpl = {
-            "modref": "global.IO",
-            "modargs": {"mode": ["String", "out"]},
-            "metadata": {
-                "in2glb_0": {
-                    "cycle_starting_addr": [int(self.halide_gen_args_dict["vec_height"])],
-                    "cycle_stride": [
-                        1,
-                        int(self.halide_gen_args_dict["vec_height"]) + 1,
-                    ],
-                    "dimensionality": 2,
-                    "extent": [
-                        int(self.halide_gen_args_dict["vec_height"]),
-                        int(self.halide_gen_args_dict["vec_width"])
-                        // int(self.halide_gen_args_dict["mu_i"])
-                        // 2 # Because of data packing,
-                    ],
-                    "write_data_starting_addr": [0],
-                    "write_data_stride": [1, 1],
-                }
-            },
-        }
+        # Output GLB IO template for quantized_output_stencil
+        # Two cases:
+        # 1. vec_width is 64, meaning we only skip at the very beginning
+        # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
+        if total_channels == 64:
+            io_tpl = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "out"]},
+                "metadata": {
+                    "in2glb_0": {
+                        "cycle_starting_addr": [img_size],
+                        "cycle_stride": [1],
+                        "dimensionality": 1,
+                        "extent": [img_size],
+                        "write_data_starting_addr": [0],
+                        "write_data_stride": [1],
+                    }
+                },
+            }
+        else:
+            io_tpl = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "out"]},
+                "metadata": {
+                    "in2glb_0": {
+                        "cycle_starting_addr": [img_size],
+                        "cycle_stride": [1, img_size + 1],
+                        "dimensionality": 2,
+                        "extent": [
+                            img_size,
+                            # Because block size is double the size of mu_OC
+                            total_channels // mu_OC // 2
+                        ],
+                        "write_data_starting_addr": [0],
+                        "write_data_stride": [1, 1],
+                    }
+                },
+            }
 
         # Collect MEM.out1 sources, emitting activations without delay
         mem_no_delay_srcs = []
@@ -3490,7 +3595,7 @@ class SelectedDesignHacker:
             if n_regs > 0:
                 for k in range(n_regs):
                     rname = f"{naming_base}$d_reg__U0$reg{k}"
-                    instances[rname] = copy.deepcopy(shift_reg_tpl)
+                    instances[rname] = copy.deepcopy(shift_fifo_tpl)
                     if k == 0:
                         # First shift FIFO
                         add_conn_once(src, f"{rname}.in")
@@ -3607,9 +3712,16 @@ class SelectedDesignHacker:
                 "bitwidth": 16,
                 "datafile": "quantized_output_stencil.raw",
                 "name": "quantized_output_stencil",
-                "shape": [int(self.halide_gen_args_dict["mu_i"]), int(self.halide_gen_args_dict["vec_width"])*int(self.halide_gen_args_dict["vec_height"])//2//int(self.halide_gen_args_dict["mu_i"])],
+                "shape": [mu_OC, img_size * total_channels // mu_OC // 2],
             }
         )
+        # Fix the name and shape of hw_scale_output_stencil
+        for output in design_meta["IOs"]["outputs"]:
+            if output["name"] == "hw_scale_output_stencil":
+                output["datafile"] = "hw_scale_output.raw"
+                # img_size * num_blocks // 2 because of data packing
+                output["shape"] = [img_size * total_channels // mu_OC // 2 // 2]
+                break
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)

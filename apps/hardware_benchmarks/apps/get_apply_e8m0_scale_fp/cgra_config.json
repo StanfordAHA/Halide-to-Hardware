@@ -11,11 +11,11 @@
     ],
     "output": [
       {
-      "name": "hw_output",
-      "bitwidth": 16,
-      "shape": [1, 56, 56],
-      "pixels_per_cycle": 1,
-      "datafile": "bin/hw_output.raw"
+        "name": "hw_scale_output_stencil",
+        "bitwidth": 16,
+        "shape": [1, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/hw_scale_output.raw"
       },
       {
         "name": "quantized_output_stencil",

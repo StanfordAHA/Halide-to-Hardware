@@ -90,15 +90,17 @@ int main(int argc, char **argv) {
     for (int z = 0; z < real_mu_input.dim(2).extent(); z++) {
         for (int y = 0; y < real_mu_input.dim(1).extent(); y++) {
             for (int x = 0; x < real_mu_input.dim(0).extent(); x++) {
-                // Use [-10, 10], which is a typical range for activations of most models
-                real_mu_input(x, y, z) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
+                // // Use [-10, 10], which is a typical range for activations of most models
+                // real_mu_input(x, y, z) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
+                // Use [-1024, 1024], which helps check scale output since otherwise scales are all the same
+                real_mu_input(x, y, z) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 2048.0f - 1024.0f);
             }
         }
     }
 
-    // Gold scale output
-    processor.output = Buffer<uint16_t>(vec_height);
-    auto real_output = Buffer<uint16_t>(vec_height, int(vec_width / block_size));
+    // Gold scale output - packed along dimension 0
+    processor.output = Buffer<uint16_t>(int(vec_height));
+    auto real_output = Buffer<uint16_t>(int(vec_height / 2), int(vec_width / block_size));
     for (int y = 0; y < real_mu_input.dim(1).extent(); y++) {
         // For each block along width (e.g., block_size=64, vec_width=128 -> 2 blocks)
         for (int b = 0; b < int(vec_width / block_size); b++) {
@@ -115,15 +117,21 @@ int main(int argc, char **argv) {
                 }
             }
 
-            real_output(y, b) = get_shared_exp(max_val_bf16);
-
-        // // Pack every two 8-bit scale into one 16-bit word.
-        // real_output(int(y / 2)) = (y & 1) ? bit8_pack(get_shared_exp(max_val_bf16), real_output(int(y / 2))) : get_shared_exp(max_val_bf16);
+            // Pack every two 8-bit scale into one 16-bit word along dimension 0
+            uint16_t packed_scale = get_shared_exp(max_val_bf16);
+            if (y & 1) {
+                // Odd y: pack with the previous even y value
+                real_output(int(y / 2), b) = bit8_pack(packed_scale, real_output(int(y / 2), b));
+            } else {
+                // Even y: store as low byte, will be packed with next odd y
+                real_output(int(y / 2), b) = packed_scale;
+            }
         }
     }
 
     // Gold quantized output in INT8 with packing of two 8-bit INT8 into one 16-bit word
     auto quantized_output_packed = Buffer<uint16_t>(int(block_size / 2), vec_height, int(vec_width / block_size));
+    int overflow_count = 0;
     for (int b = 0; b < int(vec_width / block_size); b++) {
         for (int p = 0; p < vec_height; p++) {
             for (int c = 0; c < int(block_size / 2); c++) {
@@ -132,7 +140,15 @@ int main(int argc, char **argv) {
 
                 // Channel c0, write low byte first
                 int b0 = c0 / block_size;
-                uint8_t exp0 = static_cast<uint8_t>(real_output(p, b0) & 0xFF);
+                // Extract the appropriate 8-bit scale from packed data
+                uint8_t exp0;
+                if (p & 1) {
+                    // Odd pixel: extract high byte from packed data
+                    exp0 = static_cast<uint8_t>((real_output(int(p / 2), b0) >> 8) & 0xFF);
+                } else {
+                    // Even pixel: extract low byte from packed data
+                    exp0 = static_cast<uint8_t>(real_output(int(p / 2), b0) & 0xFF);
+                }
                 float actual_scale0 = powf(2.0f, static_cast<float>(exp0) - 127.0f);
                 int ch_in_tile0 = c0 % mu_i;
                 int tile_idx0 = c0 / mu_i;
@@ -144,7 +160,9 @@ int main(int argc, char **argv) {
                     // We should do this in quant_e8m0 test as well. But unfortunately, we missed it and the quantized data might overflow.
                     // Zircon hardware will have the overflow problem as well, when the quantized data is >= 127.5 in some corner cases.
                     if (q < -128) q = -128;
-                    if (q > 127)  q = 127;
+                    // We comment out the gold overflow saturation to match the Zircon hardware behavior.
+                    // if (q > 127)  q = 127;
+                    if (q > 127) overflow_count++;
                     q0 = static_cast<uint8_t>(static_cast<int8_t>(q));
                 }
 
@@ -153,7 +171,15 @@ int main(int argc, char **argv) {
 
                 // Channel c1, packed with low byte
                 int b1 = c1 / block_size;
-                uint8_t exp1 = static_cast<uint8_t>(real_output(p, b1) & 0xFF);
+                // Extract the appropriate 8-bit scale from packed data
+                uint8_t exp1;
+                if (p & 1) {
+                    // Odd pixel: extract high byte from packed data
+                    exp1 = static_cast<uint8_t>((real_output(int(p / 2), b1) >> 8) & 0xFF);
+                } else {
+                    // Even pixel: extract low byte from packed data
+                    exp1 = static_cast<uint8_t>(real_output(int(p / 2), b1) & 0xFF);
+                }
                 float actual_scale1 = powf(2.0f, static_cast<float>(exp1) - 127.0f);
                 int ch_in_tile1 = c1 % mu_i;
                 int tile_idx1 = c1 / mu_i;
@@ -162,7 +188,8 @@ int main(int argc, char **argv) {
                     float f1 = bfloat16_to_float_process(real_mu_input(ch_in_tile1, p, tile_idx1));
                     int q = lroundf(f1 / actual_scale1);
                     if (q < -128) q = -128;
-                    if (q > 127)  q = 127;
+                    // if (q > 127)  q = 127;
+                    if (q > 127) overflow_count++;
                     q1 = static_cast<uint8_t>(static_cast<int8_t>(q));
                 }
 
@@ -171,11 +198,12 @@ int main(int argc, char **argv) {
             }
         }
     }
+    std::cout << "[WARNING] Overflow max INT8 (127) count: " << overflow_count << " percentage: " << static_cast<float>(overflow_count) / static_cast<float>(vec_height * vec_width) * 100.0f << "%" << std::endl;
 
     // Save packed quantized output
-    saveHalideBufferToRawBigEndian(quantized_output_packed, "bin/quantized_output_stencil.raw");
     saveHalideBufferToRawBigEndian(real_mu_input, "bin/mu_input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    saveHalideBufferToRawBigEndian(real_output, "bin/hw_scale_output.raw");
+    saveHalideBufferToRawBigEndian(quantized_output_packed, "bin/quantized_output_stencil.raw");
 
     // Create glb bank config file for packing
     // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
@@ -191,6 +219,9 @@ int main(int argc, char **argv) {
         std::vector<int> hw_scale_output_stencil_packed = parse_glb_bank_config_num_list("HW_SCALE_OUTPUT_STENCIL_PACKED");
         std::vector<int> quantized_output_stencil_packed = parse_glb_bank_config_num_list("QUANTIZED_OUTPUT_STENCIL_PACKED");
 
+        // Assign the bank toggle mode config
+        std::vector<int> hw_scale_output_stencil_bank_toggle_mode = parse_glb_bank_config_num_list("HW_SCALE_OUTPUT_STENCIL_BANK_TOGGLE_MODE");
+
         // Create the glb_bank_config.json structure
         json config = {
             {"mu_inputs", {
@@ -204,7 +235,8 @@ int main(int argc, char **argv) {
                 {
                     {"hw_scale_output_stencil", {
                         {"x_coord", hw_scale_output_stencil_pos},
-                        {"E64_packed", hw_scale_output_stencil_packed}
+                        {"E64_packed", hw_scale_output_stencil_packed},
+                        {"bank_toggle_mode", hw_scale_output_stencil_bank_toggle_mode}
                     }}
                 },
                 {

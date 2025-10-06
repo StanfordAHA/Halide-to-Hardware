@@ -551,26 +551,49 @@ def hack_config_for_bank_toggle_mode(meta):
     # Modify address gen for IO tiles in bank toggle mode
     for io in meta["IOs"]["outputs"]:
         if "io_tiles" in io:
+            real_tile_idx = 0
+            tile_n_start_addr = 0
             for tile in io["io_tiles"]:
                 if tile["bank_toggle_mode"] == 1:
+                    if tile["is_fake_io"] == 0:
+                        real_tile_idx += 1
                     print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output tile {tile['name']}...\033[0m")
                     addr = tile.get("addr", {})
                     if addr:
-                        assert addr["dimensionality"] == 1, "Bank toggle mode only supports 1D addr_dict for now"
-                        cycle_stride_per_bank = addr["cycle_stride"][0] // real_tile_cnt
-                        if addr["cycle_starting_addr"][0] > 1:
-                            # If cycle_starting_addr is > 1, then it probably means it's skipping pixels for interleaving across another GLB tile
-                            # So we need to adjust it for data stored in another GLB tile for bank toggle mode
-                            addr["cycle_starting_addr"][0] = 1 + (addr["cycle_starting_addr"][0] - 1) * (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)
+                        cycle_stride_per_bank = addr["cycle_stride"][0] // io['num_real_tiles']
+                        if real_tile_idx % 2 == 0:
+                            # This means we are skipping pixels for interleaving across another GLB tile
+                            # So we need to adjust starting addr for data stored in another GLB tile for bank toggle mode
+                            addr["cycle_starting_addr"][0] = tile_n_start_addr + (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * cycle_stride_per_bank
+                        else:
+                            # Store the cycle starting addr of n-th real tile for n+1-th starting addr calculation
+                            tile_n_start_addr = addr["cycle_starting_addr"][0]
                         # Update the strides, extents, and dimensionality for bank toggle mode
-                        # We skip (BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) pixels for inter-GLB tile skipping
-                        addr["cycle_stride"] = [1 * cycle_stride_per_bank, 1 * cycle_stride_per_bank, (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) * cycle_stride_per_bank]
-                        addr["dimensionality"] = 3
+                        # Need additional two dimensions for tweaks across banks and tiles
+                        addr["dimensionality"] += 2
+                        new_cycle_stride = [
+                            cycle_stride_per_bank,
+                            cycle_stride_per_bank,
+                            (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) * cycle_stride_per_bank,
+                        ]
+                        if addr["dimensionality"] > 3:
+                            assert addr["dimensionality"] == 4, "Need to think about a cleaner way to hack cycle stride for 3D and more loop levels."
+                            # new_cycle_stride.append(addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * new_cycle_stride[2] + addr["cycle_stride"][0])
+                            # Skip the same amount of data as the starting addr of tile N+1, which are bogus data stream length + GLB tile width offset
+                            new_cycle_stride.append(tile_n_start_addr + (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * cycle_stride_per_bank + 1)
+
+                        addr["cycle_stride"] = new_cycle_stride
                         assert addr["extent"][0] % (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
                         # 2 is the number of banks per GLB tile
-                        addr["extent"] = [BANK_DATA_WIDTH // CGRA_DATA_WIDTH, 2, addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)]
+                        new_extent = [BANK_DATA_WIDTH // CGRA_DATA_WIDTH, 2, addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)]
+                        if addr["dimensionality"] > 3:
+                            new_extent.extend(addr["extent"][1:])
+                        addr["extent"] = new_extent
                         # We have to backtrack the address when interleaving across banks
                         addr["write_data_stride"] = [1, 1 - (BANK_DATA_WIDTH // CGRA_DATA_WIDTH), 1]
+                        if addr["dimensionality"] > 3:
+                            for _ in range(addr["dimensionality"] - 3):
+                                addr["write_data_stride"].append(1)
     return meta
 
 
