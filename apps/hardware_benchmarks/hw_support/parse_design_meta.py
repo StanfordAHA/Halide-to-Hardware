@@ -409,15 +409,19 @@ def zircon_input_act_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, 
     This logic assumes K1, Y0, X0 tiling on the MU, which is the case for the
     conv5 layers in the ResNet18 thus far.
     """
-    print(f"\033[93m INFO: Applying input padding workaround to avoid Zircon MU bug...this workaroud should only be used if MU tiling is in order K2, Y0, X0.\033[0m")
+    print(f"\033[93m INFO: Applying input padding workaround to avoid Zircon MU bug...this workaroud should only be used if MU tiling is in order (K2 and/or K1) THEN Y0 THEN X0.\033[0m")
 
-    assert len(extents) == 3, "Tiling must have EXACTLY 3 dimensions (K2, Y0, X0) for this workaround. Alternate tiling will need a different modification to cycle starting addr and/or stride."
+    assert (len(extents) == 3 or len(extents) == 4), "Tiling must have EXACTLY 3 dimensions (K2/K1, Y0, X0) or 4 dimensions (K2, K1, Y0, X0) for this workaround. Alternate tiling will need a different modification to cycle starting addr and/or stride."
 
-    cycle_strides = [1] * 3 # X0
+    cycle_strides = [1] * len(extents) # X0
     # Y0: Skip "padding size" number of columns. + 1 b/c cycle stride 1 = no skip
     cycle_strides[1] = zircon_input_act_padding_workaround_size + 1
-    # K2: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
+    # K2/K1: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
     cycle_strides[2] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
+
+    if len(extents) == 4:
+        # K1/K1: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
+        cycle_strides[3] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
 
     return cycle_strides
 
