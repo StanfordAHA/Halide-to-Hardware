@@ -3431,7 +3431,14 @@ class SelectedDesignHacker:
         add_conn_once(SCALE_PE_SRC, f"{scale_output_shift_fifo_name}.in")
         add_conn_once(f"{scale_output_shift_fifo_name}.out", f"{scale_data_packing_pe_name}.data1")
 
-        # data_packing.O0 -> additional FIFOs for index 0 IO
+        # Insert a MEM tile to broadcast scale data_packing output to both IOs
+        scale_output_broadcast_mem_name = "mem_scale_output_broadcast"
+        if scale_output_broadcast_mem_name not in instances:
+            instances[scale_output_broadcast_mem_name] = copy.deepcopy(mem_tpl)
+        # Connect data_packing.O0 -> MEM.data_in_0
+        add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{scale_output_broadcast_mem_name}.data_in_0")
+
+        # data_packing (via MEM).O0 -> additional FIFOs for index 0 IO
         # We need at least 5 additional FIFOs to balance the paths. We might remove this if we can improve the data rate.
         additional_fifo_names = []
         num_additional_fifos = 5  # Add 5 additional FIFOs
@@ -3443,9 +3450,9 @@ class SelectedDesignHacker:
             if fifo_name not in instances:
                 instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
 
-        # Connect data packing PE to first additional FIFO
+        # Connect MEM.data_out_0 to first additional FIFO
         if num_additional_fifos > 0:
-            add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{additional_fifo_names[0]}.in")
+            add_conn_once(f"{scale_output_broadcast_mem_name}.data_out_0", f"{additional_fifo_names[0]}.in")
 
             # Chain the additional FIFOs
             for i in range(1, num_additional_fifos):
@@ -3455,13 +3462,13 @@ class SelectedDesignHacker:
             index_0_io = scale_output_IO[0]  # First IO is index 0
             add_conn_once(f"{additional_fifo_names[-1]}.out", f"{index_0_io}.in")
 
-            # Connect data packing PE directly to index 1 IO (bypass additional FIFOs)
+            # Connect MEM.data_out_0 directly to index 1 IO (bypass additional FIFOs)
             index_1_io = scale_output_IO[1]  # Second IO is index 1
-            add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{index_1_io}.in")
+            add_conn_once(f"{scale_output_broadcast_mem_name}.data_out_0", f"{index_1_io}.in")
         else:
             # Fallback: connect directly to both IOs if no additional FIFOs
             for io_name in scale_output_IO:
-                add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{io_name}.in")
+                add_conn_once(f"{scale_output_broadcast_mem_name}.data_out_0", f"{io_name}.in")
 
         # Configure GLB store DMA to extract valid data of scale output, and consider data packing
         # Collect all scale output IOs instances
@@ -3469,31 +3476,21 @@ class SelectedDesignHacker:
         total_channels = int(self.halide_gen_args_dict["vec_width"])
         img_size = int(self.halide_gen_args_dict["vec_height"])
         mu_OC = int(self.halide_gen_args_dict["mu_i"])
+        number_of_blocks = total_channels // (mu_OC * 2)
         for instance_name, instance_conf in instances.items():
             if "io16_hw_scale_output_stencil" in instance_name:
                 # Two cases:
                 # 1. vec_width is 64, meaning we only skip at the very beginning
                 # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
                 assert (total_channels >= 64 and total_channels % 64 == 0), f"vec_width must be >= 64 and divisible by 64 as mx block size is 64"
-                if total_channels == 64:
-                    # The "1" comes from the data packing offset, and "2" comes from the IO interleaving
-                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = img_size + 1 + 2 * scale_output_IO_idx
-                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [4]
-                    instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 1
-                    instance_conf["metadata"]["in2glb_0"]["extent"] = [img_size // len(scale_output_IO) // 2]
-                    instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
-                    instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1]
-                else:
-                    instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = img_size + 1 + 2 * scale_output_IO_idx
-                    # 2 * (len(scale_output_IO) - 1) comes from the skip of other IO tiles at the end of each valid data stream, and it's 2 because of the data packing
-                    # One of the "1" comes from the default stride of 1
-                    # The other "1" comes from data packing offset
-                    instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [4, img_size + 2 * (len(scale_output_IO) - 1) + 1 + 1]
-                    instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 2
-                    # The actual reduction tree width is double the size of mu_i
-                    instance_conf["metadata"]["in2glb_0"]["extent"] = [img_size // len(scale_output_IO) // 2, total_channels // (mu_OC * 2)]
-                    instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
-                    instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1, 1]
+                instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = scale_output_IO_idx
+                instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [len(scale_output_IO)]
+                instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 1
+                # Number of scales is divided by 2 because of data packing
+                instance_conf["metadata"]["in2glb_0"]["extent"] = [img_size * number_of_blocks // 2 // len(scale_output_IO)]
+                instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1]
+
                 scale_output_IO_idx += 1
 
         # Apply-scale pipeline + scale broadcast + output IOs
@@ -3522,10 +3519,10 @@ class SelectedDesignHacker:
                 "modargs": {"mode": ["String", "out"]},
                 "metadata": {
                     "in2glb_0": {
-                        "cycle_starting_addr": [img_size],
+                        "cycle_starting_addr": [img_size * 2],
                         "cycle_stride": [1],
                         "dimensionality": 1,
-                        "extent": [img_size],
+                        "extent": [img_size * 2],
                         "write_data_starting_addr": [0],
                         "write_data_stride": [1],
                     }
@@ -3537,11 +3534,11 @@ class SelectedDesignHacker:
                 "modargs": {"mode": ["String", "out"]},
                 "metadata": {
                     "in2glb_0": {
-                        "cycle_starting_addr": [img_size],
-                        "cycle_stride": [1, img_size + 1],
+                        "cycle_starting_addr": [img_size * 2],
+                        "cycle_stride": [1, img_size * 2 + 1],
                         "dimensionality": 2,
                         "extent": [
-                            img_size,
+                            img_size * 2,
                             # Because block size is double the size of mu_OC
                             total_channels // mu_OC // 2
                         ],
@@ -3671,22 +3668,311 @@ class SelectedDesignHacker:
         pending_ios_mem_no_delay  = sorted(pending_ios_mem_no_delay,  key=lambda x: x[0])
         quantized_output_ios = []
 
-        # Assign sorted index to all quantized output IOs, MEM with delay first, then MEM no delay
-        # MEM with delay indexes
-        for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_with_delay):
-            io_name = (f"io16_quantized_output_stencil_clkwrk_{ascending_idx}_op_hcompute_quantized_output_stencil_{ascending_idx}_write_0")
-            instances[io_name] = copy.deepcopy(io_tpl)
-            add_conn_once(f"{data_packing_pe}.O0", f"{io_name}.in")
-            quantized_output_ios.append(io_name)
+        # Insert MEM tiles between data packing PEs and quantized output IOs
+        # Pair every two data packing PEs and connect them to MEM tiles
+        all_pending_ios = []
 
-        # MEM no delay indexes
+        # Add MEM with delay data packing PEs
+        for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_with_delay):
+            all_pending_ios.append((ascending_idx, data_packing_pe, "mem_with_delay"))
+
+        # Add MEM no delay data packing PEs
         idx_offset = len(pending_ios_mem_with_delay)
         for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_no_delay):
-            io_name = (f"io16_quantized_output_stencil_clkwrk_{idx_offset + ascending_idx}_op_hcompute_quantized_output_stencil_{idx_offset + ascending_idx}_write_0")
+            all_pending_ios.append((idx_offset + ascending_idx, data_packing_pe, "mem_no_delay"))
+
+        # Sort all pending IOs by their ascending index
+        all_pending_ios.sort(key=lambda x: x[0])
+
+        # Assert that we have an even number of data packing PEs for pairing
+        assert len(all_pending_ios) % 2 == 0, f"Expected even number of data packing PEs for pairing, got {len(all_pending_ios)}"
+
+        # Create MEM tiles for pairing data packing PEs to interleave data streams
+        mem_tile_outputs = []
+        pair_offset = len(all_pending_ios) // 2
+        num_pipeline_fifos = 7  # Number of pipeline FIFOs to add between data_packing_pe1 and MEM tile
+        for pair_idx in range(pair_offset):
+            idx0, data_packing_pe0, group0 = all_pending_ios[pair_idx]
+            idx1, data_packing_pe1, group1 = all_pending_ios[pair_idx + pair_offset]
+
+            # Create MEM tile for this pair to interleave data streams
+            mem_tile_name = f"mem_quantized_output_pair_{idx0}_{idx1}"
+            mem_tile_inst = copy.deepcopy(mem_tpl)
+            instances[mem_tile_name] = mem_tile_inst
+
+            # Connect data packing PEs to MEM tile inputs
+            add_conn_once(f"{data_packing_pe0}.O0", f"{mem_tile_name}.data_in_0")
+
+            # Create pipeline FIFOs for data_packing_pe1.O0 -> mem_tile_name.data_in_1 path
+            # This is a bit tricky. We want to ensure the data going into both input ports of MEM tile won't arrive at the same time.
+            # We need write-after-write constraint, but looks like it's not implemented.
+            # Adding pipeline FIFOs at pre-PnR stage won't actually gurantee the data won't arrive at the same time. Changing placement may cause a bug.
+            fifo_names = []
+            for fifo_idx in range(num_pipeline_fifos):
+                fifo_name = f"pipeline_fifo_{mem_tile_name}_data_in_1_{fifo_idx}"
+                fifo_names.append(fifo_name)
+                instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
+
+            # Chain the FIFOs together
+            add_conn_once(f"{data_packing_pe1}.O0", f"{fifo_names[0]}.in")
+            for i in range(1, num_pipeline_fifos):
+                add_conn_once(f"{fifo_names[i-1]}.out", f"{fifo_names[i]}.in")
+            add_conn_once(f"{fifo_names[num_pipeline_fifos-1]}.out", f"{mem_tile_name}.data_in_1")
+
+            # Store MEM tile outputs for later connection to IOs
+            mem_tile_outputs.append((pair_idx, f"{mem_tile_name}.data_out_0", f"{mem_tile_name}.data_out_1"))
+
+        # Create quantized output IOs connected to MEM tile outputs to interleave data streams
+        for mem_tile_idx, output0, output1 in mem_tile_outputs:
+            # Create one IO connected to MEM tile output 0 (renamed with halved index)
+            io_name = f"io16_quantized_output_stencil_clkwrk_{mem_tile_idx}_op_hcompute_quantized_output_stencil_{mem_tile_idx}_write_0"
             instances[io_name] = copy.deepcopy(io_tpl)
-            add_conn_once(f"{data_packing_pe}.O0", f"{io_name}.in")
+            add_conn_once(output0, f"{io_name}.in")
             quantized_output_ios.append(io_name)
 
+        # Type instances of self.<port> to corresponding IO.out
+        type_fields = top_module["type"][1]
+        for io_inst in quantized_output_ios:
+            port_name = io_inst.replace("io16_", "")
+            type_fields.append([port_name, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port_name}", f"{io_inst}.out")
+
+        # Apply-scale pipeline + scale broadcast + output IOs
+        pe_tpl = {
+            "modref": "global.PE"
+        }
+        apply_scale_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], APPLY_SCALE_INSTR]},
+        }
+        # Const template for data_packing PE instruction
+        data_packing_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
+        }
+
+        # Output GLB IO template for quantized_output_stencil
+        # Two cases:
+        # 1. vec_width is 64, meaning we only skip at the very beginning
+        # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
+        if total_channels == 64:
+            io_tpl = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "out"]},
+                "metadata": {
+                    "in2glb_0": {
+                        "cycle_starting_addr": [img_size],
+                        "cycle_stride": [1],
+                        "dimensionality": 1,
+                        "extent": [img_size * 2],
+                        "write_data_starting_addr": [0],
+                        "write_data_stride": [1],
+                    }
+                },
+            }
+        else:
+            io_tpl = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "out"]},
+                "metadata": {
+                    "in2glb_0": {
+                        "cycle_starting_addr": [img_size * 2],
+                        "cycle_stride": [1, img_size * 2 + 1],
+                        "dimensionality": 2,
+                        "extent": [
+                            img_size * 2,
+                            # Because block size is double the size of mu_OC
+                            total_channels // mu_OC // 2
+                        ],
+                        "write_data_starting_addr": [0],
+                        "write_data_stride": [1, 1],
+                    }
+                },
+            }
+
+        # Collect MEM.out1 sources, emitting activations without delay
+        mem_no_delay_srcs = []
+        for iname in instances.keys():
+            m = re.fullmatch(r"mem_mu2tree_(\d+)", iname)
+            if m:
+                mem_no_delay_srcs.append((int(m.group(1)), f"{iname}.data_out_1"))
+        mem_no_delay_srcs.sort(key=lambda x: x[0])
+
+        # Collect MEM.out0 sources, emitting activations with delay of image size
+        mem_with_delay_srcs = []
+        for iname in instances.keys():
+            m = re.fullmatch(r"mem_mu2tree_(\d+)", iname)
+            if m:
+                mem_with_delay_srcs.append((int(m.group(1)), f"{iname}.data_out_0"))
+        mem_with_delay_srcs.sort(key=lambda x: x[0])
+
+        # Determine how many pipeline registers we need (max tree depth + 1)
+        # NOTE: This is not used. We don't actually insert shift registers here as it makes the graph unroutable.
+        n_regs = int(self.halide_gen_args_dict["tree_stages"]) + 1
+        assert n_regs % 2 == 0, "Number of pipeline registers must be even"
+
+        def build_apply_pipeline(group, idx, src, n_regs):
+            """
+            Build a pipeline with shift registers
+            group: "mu" or "mem" for naming the pipeline
+            idx: lane index [0..31]
+            src: source for this lane (mem_mu2tree.data_out_0 or mem_mu2tree.data_out_1)
+            """
+
+            naming_base = f"apply_scale_{group}_{idx}_stencil"
+            pe_name = f"{naming_base}$inner_compute$apply_scale"
+            c0_name = f"{naming_base}$inner_compute$c0"
+
+            # PE + const connection for apply scale instruction
+            instances[pe_name] = copy.deepcopy(pe_tpl)
+            instances[c0_name] = copy.deepcopy(apply_scale_const_tpl)
+            add_conn_once(f"{pe_name}.inst", f"{c0_name}.out")
+
+            # Shift-FIFO chain
+            head = None
+            prev = None
+            if n_regs > 0:
+                for k in range(n_regs):
+                    rname = f"{naming_base}$d_reg__U0$reg{k}"
+                    instances[rname] = copy.deepcopy(shift_fifo_tpl)
+                    if k == 0:
+                        # First shift FIFO
+                        add_conn_once(src, f"{rname}.in")
+                        head = rname
+                    else:
+                        add_conn_once(f"{prev}.out", f"{rname}.in")
+                    prev = rname
+                data0_src = f"{prev}.out"  # Tail shift FIFO feeds PE
+            else:
+                data0_src = src  # Bypass shift FIFOs and feed src directly
+
+            # Tail -> PE.data0, and scale broadcast to data1 port
+            add_conn_once(data0_src, f"{pe_name}.data0")
+            assert SCALE_PE_SRC.split(".")[0] in instances, f"SCALE_PE_SRC {SCALE_PE_SRC} not found in instances, check get scale PE name."
+            add_conn_once(SCALE_PE_SRC, f"{pe_name}.data1")
+
+            return f"{pe_name}.O0"
+
+        # Build 32 MU pipelines and 32 MEM pipelines as we have 32 MU IOs in Zircon
+        # Also create apply_outputs dict for sorting and data packing
+        apply_outputs = {"mem_no_delay": {}, "mem_with_delay": {}}
+        for idx, pin in mem_no_delay_srcs:
+            apply_outputs["mem_no_delay"][idx] = build_apply_pipeline("mem_no_delay", idx, pin, n_regs=0)
+
+        for idx, pin in mem_with_delay_srcs:
+            apply_outputs["mem_with_delay"][idx] = build_apply_pipeline("mem_with_delay", idx, pin, n_regs=0)
+
+        # Data_packing stage: pair adjacent apply_scale PEs
+        # Create pending lists for sorting
+        pending_ios_mem_no_delay = []
+        pending_ios_mem_with_delay = []
+
+        # Pack adjacent apply_scale outputs for mem_no_delay, which corresponds to second 32 channels
+        mem_no_delay_idxs = sorted(apply_outputs["mem_no_delay"].keys())
+        for i in range(0, len(mem_no_delay_idxs) - 1, 2):
+            idx0, idx1 = mem_no_delay_idxs[i], mem_no_delay_idxs[i + 1]
+
+            naming_base = f"data_packing_pair_mem_no_delay_{idx0}_{idx1}_stencil"
+            data_packing_pe = f"{naming_base}$inner_compute$data_packing"
+            data_packing_const = f"{naming_base}$inner_compute$c0_dp"
+
+            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
+
+            add_conn_once(apply_outputs["mem_no_delay"][idx0], f"{data_packing_pe}.data1") #
+            add_conn_once(apply_outputs["mem_no_delay"][idx1], f"{data_packing_pe}.data0")
+
+            orig_idx = idx0
+            pending_ios_mem_no_delay.append((orig_idx, data_packing_pe))
+
+        # Pack adjacent apply_scale outputs for mem_with_delay, which corresponds to first 32 channels
+        mem_idxs = sorted(apply_outputs["mem_with_delay"].keys())
+        for i in range(0, len(mem_idxs) - 1, 2):
+            idx0, idx1 = mem_idxs[i], mem_idxs[i + 1]
+
+            naming_base = f"data_packing_pair_mem_with_delay_{idx0}_{idx1}_stencil"
+            data_packing_pe = f"{naming_base}$inner_compute$data_packing"
+            data_packing_const = f"{naming_base}$inner_compute$c0_dp"
+
+            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
+
+            add_conn_once(apply_outputs["mem_with_delay"][idx0], f"{data_packing_pe}.data1")
+            add_conn_once(apply_outputs["mem_with_delay"][idx1], f"{data_packing_pe}.data0")
+
+            orig_idx = idx0
+            pending_ios_mem_with_delay.append((orig_idx, data_packing_pe))
+
+        # Instantiate output IOs, MEM with delay first, then MEM no delay
+        pending_ios_mem_with_delay = sorted(pending_ios_mem_with_delay, key=lambda x: x[0])
+        pending_ios_mem_no_delay  = sorted(pending_ios_mem_no_delay,  key=lambda x: x[0])
+        quantized_output_ios = []
+
+        # Insert MEM tiles between data packing PEs and quantized output IOs
+        # Pair every two data packing PEs and connect them to MEM tiles
+        all_pending_ios = []
+
+        # Add MEM with delay data packing PEs
+        for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_with_delay):
+            all_pending_ios.append((ascending_idx, data_packing_pe, "mem_with_delay"))
+
+        # Add MEM no delay data packing PEs
+        idx_offset = len(pending_ios_mem_with_delay)
+        for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_no_delay):
+            all_pending_ios.append((idx_offset + ascending_idx, data_packing_pe, "mem_no_delay"))
+
+        # Sort all pending IOs by their ascending index
+        all_pending_ios.sort(key=lambda x: x[0])
+
+        # Assert that we have an even number of data packing PEs for pairing
+        assert len(all_pending_ios) % 2 == 0, f"Expected even number of data packing PEs for pairing, got {len(all_pending_ios)}"
+
+        # Create MEM tiles for pairing data packing PEs to interleave data streams
+        mem_tile_outputs = []
+        pair_offset = len(all_pending_ios) // 2
+        num_pipeline_fifos = 7  # Number of pipeline FIFOs to add between data_packing_pe1 and MEM tile
+        for pair_idx in range(pair_offset):
+            idx0, data_packing_pe0, group0 = all_pending_ios[pair_idx]
+            idx1, data_packing_pe1, group1 = all_pending_ios[pair_idx + pair_offset]
+
+            # Create MEM tile for this pair to interleave data streams
+            mem_tile_name = f"mem_quantized_output_pair_{idx0}_{idx1}"
+            mem_tile_inst = copy.deepcopy(mem_tpl)
+            instances[mem_tile_name] = mem_tile_inst
+
+            # Connect data packing PEs to MEM tile inputs
+            add_conn_once(f"{data_packing_pe0}.O0", f"{mem_tile_name}.data_in_0")
+
+            # Create pipeline FIFOs for data_packing_pe1.O0 -> mem_tile_name.data_in_1 path
+            # This is a bit tricky. We want to ensure the data going into both input ports of MEM tile won't arrive at the same time.
+            # We need write-after-write constraint, but looks like it's not implemented.
+            # Adding pipeline FIFOs at pre-PnR stage won't actually gurantee the data won't arrive at the same time. Changing placement may cause a bug.
+            fifo_names = []
+            for fifo_idx in range(num_pipeline_fifos):
+                fifo_name = f"pipeline_fifo_{mem_tile_name}_data_in_1_{fifo_idx}"
+                fifo_names.append(fifo_name)
+                instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
+
+            # Chain the FIFOs together
+            add_conn_once(f"{data_packing_pe1}.O0", f"{fifo_names[0]}.in")
+            for i in range(1, num_pipeline_fifos):
+                add_conn_once(f"{fifo_names[i-1]}.out", f"{fifo_names[i]}.in")
+            add_conn_once(f"{fifo_names[num_pipeline_fifos-1]}.out", f"{mem_tile_name}.data_in_1")
+
+            # Store MEM tile outputs for later connection to IOs
+            mem_tile_outputs.append((pair_idx, f"{mem_tile_name}.data_out_0", f"{mem_tile_name}.data_out_1"))
+
+        # Create quantized output IOs connected to MEM tile outputs to interleave data streams
+        for mem_tile_idx, output0, output1 in mem_tile_outputs:
+            # Create one IO connected to MEM tile output 0 (renamed with halved index)
+            io_name = f"io16_quantized_output_stencil_clkwrk_{mem_tile_idx}_op_hcompute_quantized_output_stencil_{mem_tile_idx}_write_0"
+            instances[io_name] = copy.deepcopy(io_tpl)
+            add_conn_once(output0, f"{io_name}.in")
+            quantized_output_ios.append(io_name)
 
         # Type instances of self.<port> to corresponding IO.out
         type_fields = top_module["type"][1]

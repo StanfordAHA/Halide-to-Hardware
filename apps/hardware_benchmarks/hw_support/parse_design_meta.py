@@ -5,6 +5,7 @@ import pprint
 import sys
 import re
 import copy
+import traceback
 from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
 
 def atoi(text):
@@ -560,11 +561,12 @@ def hack_config_for_bank_toggle_mode(meta):
                     print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output tile {tile['name']}...\033[0m")
                     addr = tile.get("addr", {})
                     if addr:
+                        word_width_per_tile = 2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH # which is 8 in zircon
                         cycle_stride_per_bank = addr["cycle_stride"][0] // io['num_real_tiles']
                         if real_tile_idx % 2 == 0:
                             # This means we are skipping pixels for interleaving across another GLB tile
                             # So we need to adjust starting addr for data stored in another GLB tile for bank toggle mode
-                            addr["cycle_starting_addr"][0] = tile_n_start_addr + (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * cycle_stride_per_bank
+                            addr["cycle_starting_addr"][0] = tile_n_start_addr + word_width_per_tile * cycle_stride_per_bank
                         else:
                             # Store the cycle starting addr of n-th real tile for n+1-th starting addr calculation
                             tile_n_start_addr = addr["cycle_starting_addr"][0]
@@ -574,23 +576,25 @@ def hack_config_for_bank_toggle_mode(meta):
                         new_cycle_stride = [
                             cycle_stride_per_bank,
                             cycle_stride_per_bank,
-                            (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) * cycle_stride_per_bank,
+                            (word_width_per_tile + 1) * cycle_stride_per_bank,
                         ]
+                        # Although we support 2D DMA config, we currently use MEM tiles to filter dummy data.
+                        # This helps avoid a very strict division constraint on extent.
                         if addr["dimensionality"] > 3:
                             assert addr["dimensionality"] == 4, "Need to think about a cleaner way to hack cycle stride for 3D and more loop levels."
                             # new_cycle_stride.append(addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * new_cycle_stride[2] + addr["cycle_stride"][0])
                             # Skip the same amount of data as the starting addr of tile N+1, which are bogus data stream length + GLB tile width offset
-                            new_cycle_stride.append(tile_n_start_addr + (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * cycle_stride_per_bank + 1)
+                            new_cycle_stride.append(tile_n_start_addr + word_width_per_tile * cycle_stride_per_bank + 1)
 
                         addr["cycle_stride"] = new_cycle_stride
-                        assert addr["extent"][0] % (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
-                        # 2 is the number of banks per GLB tile
-                        new_extent = [BANK_DATA_WIDTH // CGRA_DATA_WIDTH, 2, addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)]
+                        assert addr["extent"][0] % word_width_per_tile == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
+                        # 2 is the number of banks per GLB tile, take the ceiling of the division
+                        new_extent = [word_width_per_tile // 2, 2, addr["extent"][0] // word_width_per_tile]
                         if addr["dimensionality"] > 3:
                             new_extent.extend(addr["extent"][1:])
                         addr["extent"] = new_extent
                         # We have to backtrack the address when interleaving across banks
-                        addr["write_data_stride"] = [1, 1 - (BANK_DATA_WIDTH // CGRA_DATA_WIDTH), 1]
+                        addr["write_data_stride"] = [1, 1 - word_width_per_tile // 2, 1]
                         if addr["dimensionality"] > 3:
                             for _ in range(addr["dimensionality"] - 3):
                                 addr["write_data_stride"].append(1)
@@ -632,7 +636,7 @@ def main():
 
 
     outputName = 'bin/design_meta.json'
-    with open(outputName, 'w', encoding='utf-8') as fileout:
+    try:
         halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
         if halide_gen_args is not None:
             # If pad_o in args call padding functions to modify extents
@@ -658,7 +662,23 @@ def main():
             meta = hack_addr_gen_for_mu_tiling(meta, args.mu_tiling)
 
         print("writing to", outputName)
-        json.dump(meta, fileout, indent=2)
+        with open(outputName, 'w', encoding='utf-8') as fileout:
+            json.dump(meta, fileout, indent=2)
+    except Exception as e:
+        # Dump the error location and traceback
+        # Dump broken metadata even if it failed for easier debugging
+        print("\033[91m ERROR: Exception occurred during design meta processing!\033[0m")
+        print("Full traceback:")
+        traceback.print_exc()
+        # Save the broken meta to design_meta_broken.json
+        try:
+            print(f"\033[93m WARNING: Saving broken metadata to bin/design_meta_broken.json...\033[0m")
+            with open("bin/design_meta_broken.json", 'w', encoding='utf-8') as fileout:
+                json.dump(meta, fileout, indent=2)
+        except Exception as write_error:
+            print(f"\033[91m ERROR: Failed to write broken metadata: {write_error}\033[0m")
+        # Re-raise the original exception
+        raise
 
 
 if __name__ == "__main__":
