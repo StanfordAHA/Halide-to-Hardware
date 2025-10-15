@@ -74,6 +74,9 @@ class SelectedDesignHacker:
             )
         hack_method(json_path, bin_path)
 
+
+
+
     def hack_for_scalar_reduction_static(self, json_path, bin_path):
 
         # TODO: Hardcode input pipelining regs for now
@@ -4059,6 +4062,85 @@ class GlobalDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+    def hack_for_pond_path_balancing(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        modules = design["namespaces"]["global"]["modules"]
+
+        for mod_name, mod_def in modules.items():
+            if "instances" not in mod_def or "connections" not in mod_def:
+                continue  # Skip modules without instances or connections
+
+            instances = mod_def["instances"]
+
+            # Manually insert a pond instance on each path to be balanced
+            pond_tpl = {
+                "genref": "cgralib.Pond",
+                "genargs": {
+                    "ID": ["String", ""],
+                    "has_stencil_valid": ["Bool", True],
+                    "num_inputs": ["Int", 2],
+                    "num_outputs": ["Int", 2],
+                    "width": ["Int", 16],
+                },
+                "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+                "metadata": {"config": {}, "mode": "pond"},
+            }
+
+            # For all path_balancing PEs, create a path balancing pond instance and modify the corresponding connections
+            path_balancing_json = f"{bin_path}/path_balancing.json"
+            assert os.path.exists(path_balancing_json), f"Expected path_balancing.json at {path_balancing_json}"
+            with open(path_balancing_json, "r") as f:
+                path_balancing_info = json.load(f)
+
+            balance_lengths = path_balancing_info["balance_lengths"]
+            name_to_id = path_balancing_info["name_to_id"]
+            num_balance_pes = len(balance_lengths)
+            pes_balanced = 0
+
+            connections = mod_def["connections"]
+            new_connections = []
+            for edge in connections:
+                left, right = edge[0], edge[1]
+                left_instance_name = left.split(".")[0]
+                left_port = left.split(".")[1] if "." in left else ""
+                right_instance_name = right.split(".")[0]
+                right_port = right.split(".")[1] if "." in right else ""
+
+                left_is_pe_output = left_port == "O0" and left_instance_name in name_to_id
+                right_is_pe_output = right_port == "O0" and right_instance_name in name_to_id
+
+                if left_is_pe_output or right_is_pe_output:
+                    pes_balanced += 1
+                    if left_is_pe_output:
+                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                    else:
+                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
+                    pond_instance = copy.deepcopy(pond_tpl)
+                    pond_instance["genargs"]["ID"][1] = pond_name
+                    instances[pond_name] = pond_instance
+
+                    # Found the PE output, insert pond here
+                    connections.remove(edge)
+                    if left_is_pe_output:
+                        new_connections.append([left, f"{pond_name}.data_in_pond_0"])
+                        new_connections.append([f"{pond_name}.data_out_pond_1", right])
+                    else:
+                        new_connections.append([right, f"{pond_name}.data_in_pond_0"])
+                        new_connections.append([f"{pond_name}.data_out_pond_1", left])
+
+                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing\033[0m")
+
+                if pes_balanced >= num_balance_pes:
+                    break
+
+            connections.extend(new_connections)
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
 
 class GlobalDesignMetaHakcer:
     """
@@ -4151,6 +4233,12 @@ def main():
 
     # Perform global hack of design_top.json to add MU prefix for MU IOs
     global_design_top_hacker.add_mu_prefix_to_io(args.design_top_json)
+
+    # Perform global hack of design_top.json to insert ponds for path balancing
+    # TODO: This should NOT be set in application_parameters. It should be set by the flow on the 2nd pass
+    use_pond_path_balancing = os.getenv("POND_PATH_BALANCING", "0") != "0"
+    if use_pond_path_balancing:
+        global_design_top_hacker.hack_for_pond_path_balancing(args.design_top_json, args.bin_dir)
 
     ## Hack design_meta_halide.json
     global_design_meta_hacker = GlobalDesignMetaHakcer()
