@@ -7,8 +7,8 @@ using namespace std;
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// TODO: Change this scale based on the layer
-const float scale = 0.78125f;
+auto QUANT_SCALE = getenv("QUANT_SCALE");
+const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
 
 // Quantize
 // Compute pipeline: quantize (bf16 mul) -> bf16-to-int16 typecast -> data packing
@@ -35,7 +35,7 @@ public:
       hw_input(c, x, y) = cast<bfloat16_t>(input(c, x, y));
 
       // Quantize and typecast
-      unpacked_result(c, x, y) = e8m0_quant(hw_input(c, x, y) * cast<bfloat16_t>(scale), reinterpret(type_of<bfloat16_t>(), cast<uint16_t>(127)));
+      unpacked_result(c, x, y) = e8m0_quant(hw_input(c, x, y) * cast<bfloat16_t>(quant_scale), reinterpret(type_of<bfloat16_t>(), cast<uint16_t>(127)));
 
       // Pack
       result(c_pack, x, y) = bit8_pack(unpacked_result(2 * c_pack + 1, x, y), unpacked_result(2 * c_pack, x, y));

@@ -7,8 +7,12 @@ using namespace std;
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// This should be fused scale of quantize+dequantize; change this as needed
-const float scale = 0.78125f;
+
+auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+auto QUANT_SCALE = getenv("QUANT_SCALE");
+const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
+const float scale = dequant_scale * quant_scale;
 
 // DequantizeQuantizeRelu
 // Compute pipeline: bf16 mul (quantize+dequantize) -> relu -> bf16-to-int16 typecast -> data packing

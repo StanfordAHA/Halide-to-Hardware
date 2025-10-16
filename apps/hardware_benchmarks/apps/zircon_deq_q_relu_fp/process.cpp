@@ -71,7 +71,14 @@ int main( int argc, char **argv ) {
   auto out_img = OX ? atoi(OX) : 14;
   auto n_oc = OC ? atoi(OC) : 64;
 
-  const float scale = 0.78125f;
+  auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+  const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+  printf("Using dequant_scale of %f\n", dequant_scale);
+  auto QUANT_SCALE = getenv("QUANT_SCALE");
+  const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
+  printf("Using quant_scale of %f\n", quant_scale);
+  const float scale = dequant_scale * quant_scale;
+  printf("Using fused scale of %f\n", scale);
 
   processor.input   = Buffer<uint16_t>(n_oc, out_img, out_img);
   processor.output  = Buffer<uint16_t>(int(n_oc / 2), out_img, out_img);

@@ -7,9 +7,10 @@ using namespace std;
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// TODO: Change these scales based on the layer
-const float dequant_scale = 0.5f;
-const float quant_scale = 0.5f;
+auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+auto QUANT_SCALE = getenv("QUANT_SCALE");
+const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
 
 // DequantizeResidualReluQuantize
 // Compute pipeline: bf16 mul (dequantize) -> residual -> relu -> bf16 mul (quantize) -> bf16-to-int16 typecast -> data packing

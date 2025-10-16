@@ -71,7 +71,9 @@ int main( int argc, char **argv ) {
   auto out_img = OX ? atoi(OX) : 14;
   auto n_oc = OC ? atoi(OC) : 64;
 
-  const float scale = 0.78125f;
+  auto QUANT_SCALE = getenv("QUANT_SCALE");
+  const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
+  printf("Using quant_scale of %f\n", quant_scale);
 
   processor.input   = Buffer<uint16_t>(n_oc, out_img, out_img);
   processor.output  = Buffer<uint16_t>(int(n_oc / 2), out_img, out_img);
@@ -91,7 +93,7 @@ int main( int argc, char **argv ) {
   for (int y = 0; y < processor.output.dim(2).extent(); y++) {
     for (int x = 0; x < processor.output.dim(1).extent(); x++) {
       for (int c = 0; c < processor.input.dim(0).extent(); c++) {
-          float result = bfloat16_to_float_process(processor.input(c, x, y)) * scale;
+          float result = bfloat16_to_float_process(processor.input(c, x, y)) * quant_scale;
           // cast to int8 for all value
           int8_t result_int8 = static_cast<int8_t>(std::round(result));
           // pack every two int8 channels into one 16-bit word

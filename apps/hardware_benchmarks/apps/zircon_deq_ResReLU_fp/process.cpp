@@ -71,7 +71,9 @@ int main( int argc, char **argv ) {
   auto out_img = OX ? atoi(OX) : 14;
   auto n_oc = OC ? atoi(OC) : 64;
 
-  const float dequant_scale = 0.00016880035400390625f;
+  auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+  const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+  printf("Using dequant_scale of %f\n", dequant_scale);
 
   processor.inputs["mu_hw_input_stencil.mat"]               = Buffer<uint16_t>(n_oc, out_img, out_img);
   processor.inputs["hw_residual_input_stencil.raw" ]        = Buffer<uint16_t>(n_oc, out_img, out_img);

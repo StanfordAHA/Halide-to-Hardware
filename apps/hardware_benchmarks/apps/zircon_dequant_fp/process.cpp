@@ -71,7 +71,10 @@ int main( int argc, char **argv ) {
   auto out_img = OX ? atoi(OX) : 14;
   auto n_oc = OC ? atoi(OC) : 256;
 
-  const float scale = 0.000065326690674f;
+
+  auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+  const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+  printf("Using dequant_scale of %f\n", dequant_scale);
 
   processor.input   = Buffer<uint16_t>(n_oc, out_img, out_img);
   processor.output  = Buffer<uint16_t>(n_oc, out_img, out_img);
@@ -92,7 +95,7 @@ int main( int argc, char **argv ) {
   for (int y = 0; y < processor.output.dim(2).extent(); y++) {
     for (int x = 0; x < processor.output.dim(1).extent(); x++) {
       for (int c = 0; c < processor.input.dim(0).extent(); c++) {
-          float result = bfloat16_to_float_process(processor.input(c, x, y)) * scale;
+          float result = bfloat16_to_float_process(processor.input(c, x, y)) * dequant_scale;
           processor.output(c, x, y) = float_to_bfloat16_process(result);
         }
       }

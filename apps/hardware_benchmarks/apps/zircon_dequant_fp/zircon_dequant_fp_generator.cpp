@@ -7,8 +7,9 @@ using namespace std;
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// TODO: Set the appropriate scale based on the layer
-const float scale = 0.000065326690674f;
+
+auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
 
 // Dequantize (fpmul)
 class Dequantize : public Halide::Generator<Dequantize> {
@@ -33,7 +34,7 @@ public:
 
       mu_hw_input(c, x, y) = cast<bfloat16_t>(input(c, x, y));
 
-      result(c, x, y) = mu_hw_input(c, x, y) * cast<bfloat16_t>(scale);
+      result(c, x, y) = mu_hw_input(c, x, y) * cast<bfloat16_t>(dequant_scale);
 
       hw_output(c, x, y) = result(c, x, y);
       output(c, x, y) = cast<uint16_t>(hw_output(c, x, y));

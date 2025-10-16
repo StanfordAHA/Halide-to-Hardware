@@ -7,8 +7,9 @@ using namespace std;
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// TODO: Change these scales based on the layer
-const float dequant_scale = 0.00016880035400390625f;
+
+auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
+const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
 
 // DequantizeResidualRelu
 // Compute pipeline: bf16 mul (dequantize) -> residual -> relu
