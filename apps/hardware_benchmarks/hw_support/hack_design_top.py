@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, re, argparse, json, copy
+from collections import OrderedDict, defaultdict, Counter
 from pretty_format_json import pretty_format_json
 
 APPS_NEEDING_HACKS = [
@@ -24,6 +25,7 @@ APPS_NEEDING_HACKS = [
     "get_e8m0_scale_test_fp",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
+    "maxpooling_dense_rv_fp",
 ]
 
 
@@ -3446,9 +3448,6 @@ class SelectedDesignHacker:
             add_conn_once(f"{adder_inst}.O0", f"{out_io_inst}.in")
             add_conn_once(f"self.{tl_data_port}", f"{out_io_inst}.out")
 
-        # Reorder IO out instances by clkwrk index
-        from collections import OrderedDict
-
         inst_items = list(instances.items())
         io_out_group = []
         others = []
@@ -3484,6 +3483,475 @@ class SelectedDesignHacker:
             add_3_output["name"] = "add_3_output_stencil"
             add_3_output["datafile"] = "hw_add_3.raw"
             design_meta["IOs"]["outputs"].append(add_3_output)
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_maxpooling_dense_rv_fp_rv(self, json_path, bin_path):
+        '''
+        Unhacked compute graph consists of unroll number of PE chains with IOs and MEMs servring as line buffers.
+        Some chain use one MEM and some use two, while one MEM per chain is enough.
+        To handle multiple channels per lane, unhacked graph uses n_ic // unroll FIFOs between adjacent PEs to interleave across channels.
+        Dense RV maxpooling is not compilable with clockwork, so there are redundant FIFOs for compute delay matching.
+        This hack collapses all redundant FIFOs, remove redundant MEMs, and configure GLB DMA to handle multiple channels per lane.
+        '''
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "maxpooling_dense_rv_fp"
+        module = design["namespaces"]["global"]["modules"][top_module_name]
+        instances = module["instances"]
+        connections = module["connections"]
+
+        # -----Collapse all shift FIFO $d_reg chains-----
+        # Define helpers to identify shift chains
+        def is_shift(edge_point: str) -> bool:
+            return "$d_reg" in edge_point
+
+        def is_shift_in(edge_point: str) -> bool:
+            return is_shift(edge_point) and edge_point.endswith(".in")
+
+        def is_shift_out(edge_point: str) -> bool:
+            return is_shift(edge_point) and edge_point.endswith(".out")
+
+        def inst_of(edge_point: str) -> str:
+            return edge_point.rsplit(".", 1)[0]
+
+        # Collect directed views of shift chains
+        shift_in_driver = {}
+        shift_out_fanout = defaultdict(set)
+        for a, b in connections:
+            if is_shift_out(a): shift_out_fanout[a].add(b)
+            if is_shift_out(b): shift_out_fanout[b].add(a)
+            if is_shift_in(a): shift_in_driver[a] = b
+            if is_shift_in(b): shift_in_driver[b] = a
+
+        head_in_ports = [ip for ip, drv in shift_in_driver.items() if not is_shift_out(drv)]
+
+        bridged = set()
+        for head_in in head_in_ports:
+            upstream_src = shift_in_driver[head_in]
+            head_out = f"{inst_of(head_in)}.out"
+            stack = [head_out]
+            visited_out = set()
+            sinks = set()
+            while stack:
+                outp = stack.pop()
+                if outp in visited_out:
+                    continue
+                visited_out.add(outp)
+                for nxt in shift_out_fanout.get(outp, []):
+                    if is_shift_in(nxt):
+                        stack.append(f"{inst_of(nxt)}.out")
+                    else:
+                        sinks.add(nxt)
+            for dst in sinks:
+                bridged.add((dst, upstream_src))
+
+        kept = []
+        for a, b in connections:
+            if is_shift(a) or is_shift(b):
+                continue
+            kept.append([a, b])
+
+        tmp = []
+        seen = set()
+        for d, s in kept + [[d, s] for (d, s) in sorted(bridged)]:
+            key = (d, s)
+            if key in seen: continue
+            seen.add(key)
+            tmp.append([d, s])
+        connections = tmp
+
+        for name in list(instances.keys()):
+            if "$d_reg" in name:
+                del instances[name]
+
+        # -----Collect PE chains using constant PE as heads-----
+        # Define patterns for PEs, MEMs, and IOs. ChatGPT generated regexes.
+        floatmax_pat = re.compile(
+            r"^(?P<base>op_hcompute_max_pooling_inner_stencil_(?P<chain>\d+)"
+            r"\$inner_compute\$float_max_[^\.]+)\.(?P<pin>.+)$"
+        )
+        const_pat = re.compile(
+            r"^(?P<base>op_hcompute_max_pooling_inner_stencil(?:_(?P<chain>\d+))?"
+            r"\$inner_compute\$const_i\d+_i\d+)\.(?P<pin>.+)$"
+        )
+        io_out_pat = re.compile(r"^io16in_input_host_stencil_clkwrk_\d+_.+_read_0\.out$")
+        mem_out_pat = re.compile(
+            r"^(?P<mem>input_host_global_wrapper_global_wrapper_stencil"
+            r"\$ub_input_host_global_wrapper_global_wrapper_stencil_[^\.]+_garnet)\.data_out_(?P<port>[01])$"
+        )
+        mem_any_pat = re.compile(
+            r"^(?P<mem>input_host_global_wrapper_global_wrapper_stencil"
+            r"\$ub_input_host_global_wrapper_global_wrapper_stencil_[^\.]+_garnet)\."
+        )
+
+        # Collect all max PEs per chain with O0->data1 conns
+        chain_pe_set = defaultdict(set)
+        pe_next = defaultdict(dict)
+        pe_prev = defaultdict(dict)
+
+        for a, b in connections:
+            for ep in (a, b):
+                m = floatmax_pat.match(ep)
+                if m:
+                    chain_pe_set[int(m.group("chain"))].add(m.group("base"))
+            for src, dst in ((a, b), (b, a)):
+                ms = floatmax_pat.match(src)
+                md = floatmax_pat.match(dst)
+                if not (ms and md):
+                    continue
+                if ms.group("pin") != "O0" or md.group("pin") != "data1":
+                    continue
+                c = int(ms.group("chain"))
+                if c != int(md.group("chain")):
+                    continue
+                u = ms.group("base")
+                v = md.group("base")
+                pe_next[c][u] = v
+                pe_prev[c][v] = u
+
+        # Identify head max PE from const.O0 -> max.data0
+        chain_head_max = {}
+        chain_const_base = {}
+        for a, b in connections:
+            for src, dst in ((a, b), (b, a)):
+                mc = const_pat.match(src)
+                md = floatmax_pat.match(dst)
+                if not (mc and md):
+                    continue
+                if mc.group("pin") != "O0" or md.group("pin") != "data0":
+                    continue
+                chain = int(mdst_chain := md.group("chain"))
+                chain_head_max[chain] = md.group("base")
+                chain_const_base[chain] = mc.group("base")
+
+        # Order PEs: [const PE] + walk from first max PE via O0->data1
+        # Note: const PE is needed for providing minimum BF16 value
+        chain_to_ordered_pes = {}
+        for chain, pes in chain_pe_set.items():
+            head_max = chain_head_max.get(chain)
+            if not head_max:
+                head_candidates = [p for p in pes if p not in pe_prev[chain]]
+                head_max = sorted(head_candidates)[0] if head_candidates else sorted(pes)[0]
+            order = []
+            cur = head_max
+            visited = set()
+            while cur and cur not in visited:
+                order.append(cur)
+                visited.add(cur)
+                cur = pe_next[chain].get(cur)
+            const_base = chain_const_base.get(chain)
+            chain_to_ordered_pes[chain] = ([const_base] if const_base else []) + order
+
+        chain_ids = [c for c in sorted(chain_to_ordered_pes) if len(chain_to_ordered_pes[c]) >= 1]
+
+        # Allowed data1 edges: const -> first max PE, and max PE cascade O0->data1
+        allowed_d1 = set()
+        for c in chain_to_ordered_pes:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+            has_const = "$const_" in ordered[0]
+            real = ordered[1:] if has_const else ordered[:]
+            # const -> PE1.data1
+            if has_const and real:
+                const_base = ordered[0]
+                pe1 = real[0]
+                allowed_d1.add((pe1 + ".data1", const_base + ".O0"))
+            # PEk.O0 -> PE(k+1).data1
+            for u, v in zip(real[:-1], real[1:]):
+                allowed_d1.add((v + ".data1", u + ".O0"))
+
+        # -----Identify IO and MEMs per chain and only keep one MEM per chain-----
+        chain_io = {}
+        chain_mems = defaultdict(Counter)
+        for a, b in connections:
+            for src, dst in ((a, b), (b, a)):
+                if io_out_pat.match(src):
+                    md = floatmax_pat.match(dst)
+                    if md and md.group("pin") == "data0":
+                        chain_io[int(md.group("chain"))] = src
+                mout = mem_out_pat.match(src)
+                mdst = floatmax_pat.match(dst)
+                if mout and mdst and mdst.group("pin") == "data0":
+                    chain = int(mdst.group("chain"))
+                    chain_mems[chain][mout.group("mem")] += 1
+
+        chain_mem_keep = {}
+        for c in chain_ids:
+            if chain_mems[c]:
+                chain_mem_keep[c] = chain_mems[c].most_common(1)[0][0]
+            else:
+                any_mem = next((n for n in instances if mem_any_pat.match(n)), None)
+                if any_mem:
+                    chain_mem_keep[c] = any_mem
+
+        # -----Remove old feeds into PE.data0 and mark MEMs to delete-----
+        to_delete_mems = set()
+        for c in chain_ids:
+            keep = chain_mem_keep.get(c)
+            if keep:
+                for mname in chain_mems[c]:
+                    if mname != keep:
+                        to_delete_mems.add(mname)
+
+        # Determine compute PEs and exclude const PE
+        pe_data0_targets = set()
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            # const present if string contains "$const_" (robust)
+            start_idx = 1 if ordered and "$const_" in ordered[0] else 0
+            for base in ordered[start_idx:]:
+                pe_data0_targets.add(base + ".data0")
+
+        filtered = []
+        for a, b in connections:
+            drop = False
+
+            # Drop edges with deleted MEMs
+            for ep in (a, b):
+                ma = mem_any_pat.match(ep)
+                if ma and ma.group("mem") in to_delete_mems:
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges with compute PE.data0 targets waiting to be rewired
+            if a in pe_data0_targets or b in pe_data0_targets:
+                continue
+
+            # Drop edges with MEM.data_out_* -> PE.data0 (even for kept MEMs and waiting to be rewired)
+            for src, dst in ((a, b), (b, a)):
+                if mem_out_pat.match(src) and dst in pe_data0_targets:
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges into max PE.data1 unless it is explicitly allowed
+            def ends_at_disallowed_d1(x, y):
+                return (x.endswith(".data1") and floatmax_pat.match(x) and (x, y) not in allowed_d1)
+
+            if ends_at_disallowed_d1(a, b) or ends_at_disallowed_d1(b, a):
+                continue
+
+            filtered.append([a, b])
+        connections = filtered
+
+        # -----Rename kept MEMs (mem_c{chain}) and update endpoints-----
+        def replace_endpoint_prefix(ep: str, old: str, new: str) -> str:
+            return ep.replace(old + ".", new + ".") if ep.startswith(old + ".") else ep
+
+        rename_map = {}
+        for c in chain_ids:
+            old = chain_mem_keep.get(c)
+            if not old:
+                continue
+            new = f"mem_c{c}"
+            unique = new
+            k = 0
+            while unique in instances and unique != old:
+                k += 1
+                unique = f"{new}_{k}"
+            if unique != old:
+                instances[unique] = instances.pop(old)
+                rename_map[old] = unique
+
+        if rename_map:
+            updated = []
+            for a, b in connections:
+                na, nb = a, b
+                for old, new in rename_map.items():
+                    na = replace_endpoint_prefix(na, old, new)
+                    nb = replace_endpoint_prefix(nb, old, new)
+                updated.append([na, nb])
+            connections = updated
+
+        def mem_data_out(c: int, port: int) -> str:
+            base = rename_map.get(chain_mem_keep[c], chain_mem_keep[c])
+            return f"{base}.data_out_{port}"
+
+        # -----Instantiate six FIFOs per chain and wire the line buffer graph-----
+        shift_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 1},
+        }
+
+        # Define helper to create shift FIFO names
+        def create_shift_fifo_name(base: str) -> str:
+            if base not in instances:
+                return base
+            idx = 1
+            while f"{base}_{idx}" in instances:
+                idx += 1
+            return f"{base}_{idx}"
+
+        # Define helper to add connections
+        def add_conn(dst: str, src: str):
+            connections.append([dst, src])
+
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+
+            first_is_const = ordered and ("$const_" in ordered[0])
+            compute_pes = ordered[1:] if first_is_const else ordered[:]
+
+            # Group PEs by IO, MEM port1, and MEM port0
+            group_io = compute_pes[0:3]
+            group_mem_port1 = compute_pes[3:6]
+            group_mem_port0 = compute_pes[6:9]
+
+            io_src = chain_io.get(c)
+            if not io_src:
+                # Pick any io.out in design
+                for a, b in connections:
+                    if io_out_pat.match(a): io_src = a; break
+                    if io_out_pat.match(b): io_src = b; break
+            if not io_src:
+                continue
+
+            # Ensure first compute PE also has const->data1 (old const->data0 is removed)
+            const_base = chain_const_base.get(c)
+            pe1 = group_io[0] if group_io else None
+
+            # Create six FIFOs per chain
+            names = [
+                create_shift_fifo_name(f"fifo_c{c}_io_0"),
+                create_shift_fifo_name(f"fifo_c{c}_io_1"),
+                create_shift_fifo_name(f"fifo_c{c}_p1_0"),
+                create_shift_fifo_name(f"fifo_c{c}_p1_1"),
+                create_shift_fifo_name(f"fifo_c{c}_p0_0"),
+                create_shift_fifo_name(f"fifo_c{c}_p0_1"),
+            ]
+            for fname in names:
+                instances[fname] = copy.deepcopy(shift_fifo_tpl)
+
+            fifo_io0, fifo_io1, fifo_p10, fifo_p11, fifo_p00, fifo_p01 = names
+
+            # IO path: IO->PE1, IO->fifo0->PE2, IO->fifo0->fifo1->PE3
+            if len(group_io) >= 1: add_conn(group_io[0] + ".data0", io_src)
+            add_conn(fifo_io0 + ".in", io_src)
+            if len(group_io) >= 2: add_conn(group_io[1] + ".data0", fifo_io0 + ".out")
+            add_conn(fifo_io1 + ".in", fifo_io0 + ".out")
+            if len(group_io) >= 3: add_conn(group_io[2] + ".data0", fifo_io1 + ".out")
+
+            # Explicitly add const -> first compute PE.data1
+            if const_base and pe1:
+                add_conn(pe1 + ".data1", const_base + ".O0")
+
+            # MEM port1: port1->PE4, ->fifo2->PE5, ->fifo2->fifo3->PE6
+            if group_mem_port1:
+                p1_src = mem_data_out(c, 1)
+                add_conn(group_mem_port1[0] + ".data0", p1_src)
+                add_conn(fifo_p10 + ".in", p1_src)
+                if len(group_mem_port1) >= 2: add_conn(group_mem_port1[1] + ".data0", fifo_p10 + ".out")
+                add_conn(fifo_p11 + ".in", fifo_p10 + ".out")
+                if len(group_mem_port1) >= 3: add_conn(group_mem_port1[2] + ".data0", fifo_p11 + ".out")
+
+            # MEM port0: port0->PE7, ->fifo4->PE8, ->fifo4->fifo5->PE9
+            if group_mem_port0:
+                p0_src = mem_data_out(c, 0)
+                add_conn(group_mem_port0[0] + ".data0", p0_src)
+                add_conn(fifo_p00 + ".in", p0_src)
+                if len(group_mem_port0) >= 2: add_conn(group_mem_port0[1] + ".data0", fifo_p00 + ".out")
+                add_conn(fifo_p01 + ".in", fifo_p00 + ".out")
+                if len(group_mem_port0) >= 3: add_conn(group_mem_port0[2] + ".data0", fifo_p01 + ".out")
+            # IO.O0: O0 -> PE1, ->fifo0->PE2, ->fifo0->fifo1->PE3
+            if const_base and group_io:
+                add_conn(group_io[0] + ".data1", const_base + ".O0")
+
+        # -----Delete unused MEMs and drop dangling edges-----
+        for m in to_delete_mems:
+            if m in instances:
+                del instances[m]
+
+        deleted_prefixes = tuple(m + "." for m in to_delete_mems)
+        pruned = []
+        seen = set()
+        for d, s in connections:
+            if d.startswith(deleted_prefixes) or s.startswith(deleted_prefixes):
+                continue
+            key = (d, s)
+            if key in seen:
+                continue
+            seen.add(key)
+            pruned.append([d, s])
+
+        module["connections"] = pruned
+
+        # -----Configure input and output IOs DMA-----
+        img_size = int(self.halide_gen_args_dict["in_img"])
+        n_ic = int(self.halide_gen_args_dict["n_ic"])
+        ksize = int(self.halide_gen_args_dict["ksize"])
+        stride = int(self.halide_gen_args_dict["stride"])
+        unroll = int(self.halide_gen_args_dict["unroll"])
+        channel_per_lane = n_ic // unroll
+        out_img_size = (img_size - ksize) // stride + 1
+        cycle_stride_y = stride * ((img_size // stride) + (ksize - 1))
+        row_tail_cycles = (out_img_size - 1) * stride
+        cycle_stride_c = row_tail_cycles + stride * cycle_stride_y
+        for io_instance in instances:
+            # Two cases:
+            # 1. n_ic == unroll, then each IO stores data continously
+            # 2. n_ic // unroll > 1, then needs n_ic // unroll blocks with read/write data stride
+            if "io16in_input_host_stencil" in io_instance:
+                if n_ic == unroll:
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1]
+                    instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 1
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [img_size * img_size]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [1]
+                else:
+                    assert n_ic % unroll == 0, "n_ic must be divisible by unroll"
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1, 1]
+                    instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 2
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [img_size * img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [channel_per_lane, 1 - channel_per_lane * (img_size * img_size - 1)]
+
+            elif "io16_hw_output" in io_instance:
+                if n_ic == unroll:
+                    # Skip dummy data for line buffer shifting at the beginning
+                    # Which is two lines of data plus the kernel size - 1
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [img_size * 2 + ksize - 1]
+                    # instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride]
+                    # Directly use "hardware-friendly" cycle stride
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - (out_img_size - 1) * stride]
+                    instances[io_instance]["metadata"]["in2glb_0"]["dimensionality"] = 2
+                    instances[io_instance]["metadata"]["in2glb_0"]["extent"] = [out_img_size, out_img_size]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_stride"] = [1, out_img_size]
+                else:
+                    assert n_ic % unroll == 0, "n_ic must be divisible by unroll"
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [img_size * 2 + ksize - 1]
+                    # instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - (out_img_size - 1) * stride, img_size * 2 + ksize]
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - row_tail_cycles, cycle_stride_c]
+                    instances[io_instance]["metadata"]["in2glb_0"]["dimensionality"] = 3
+                    instances[io_instance]["metadata"]["in2glb_0"]["extent"] = [out_img_size, out_img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_stride"] = [channel_per_lane, channel_per_lane, 1 - channel_per_lane * (out_img_size * out_img_size - 1)]
+
+        # -----Overwrite the JSON-----
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # -----Update design_meta_halide.json with correct input and output shapes-----
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input"
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expected only one output"
+        design_meta["IOs"]["inputs"][0]["shape"] = [n_ic, img_size, img_size]
+        design_meta["IOs"]["outputs"][0]["shape"] = [n_ic, (img_size - ksize) // stride + 1, (img_size - ksize) // stride + 1]
+
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
