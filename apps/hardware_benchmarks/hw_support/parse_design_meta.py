@@ -263,6 +263,21 @@ def addGLBBankConfig(meta):
         for _, cfg in blk.items():
             for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
                 output_pack_map[x] = flag
+
+    # Build {x_pos: use_multi_bank_mode} maps from "use_multi_bank_mode"
+    input_use_multi_bank_map = {}
+    for blk in glb_json.get("inputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("use_multi_bank_mode", []), cfg.get("x_coord", [])):
+                input_use_multi_bank_map[x] = flag
+
+    output_use_multi_bank_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("use_multi_bank_mode", []), cfg.get("x_coord", [])):
+                output_use_multi_bank_map[x] = flag
+
+    # Build {x_pos: bank_toggle_mode} map
     bank_toggle_mode_map = {}
     for blk in glb_json.get("outputs", []):
         for _, cfg in blk.items():
@@ -281,12 +296,16 @@ def addGLBBankConfig(meta):
             # Add E64_packed flag for input tiles
             meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 0)
 
+            # Add use_multi_bank_mode for input tiles
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["use_multi_bank_mode"] = input_use_multi_bank_map.get(io_tile["x_pos"], 0)
+
     # Add E64_packed, bank_toggle_mode, and is_fake_io flags for output tiles
     for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
         assert "io_tiles" in output_dict, "io_tiles must be key of output_dict"
         for tile_index, io_tile in enumerate(output_dict["io_tiles"]):
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["bank_toggle_mode"] = bank_toggle_mode_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["use_multi_bank_mode"] = output_use_multi_bank_map.get(io_tile["x_pos"], 0)
 
     # Hack bank toggle config only if bank_toggle_mode_map is not empty
     if bank_toggle_mode_map:
