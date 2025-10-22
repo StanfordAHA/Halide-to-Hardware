@@ -26,6 +26,7 @@ APPS_NEEDING_HACKS = [
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
+    "fully_connected_layer_fp",
 ]
 
 
@@ -2090,17 +2091,16 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_mat_vec_mul_fp_rv(self, json_path, bin_path):
+    def hack_for_mat_vec_mul_fp_rv(self, json_path, bin_path, top_module="mat_vec_mul_fp"):
         # Load the design JSON
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top_module = "mat_vec_mul_fp"
         tree_out_pond_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_garnet$"
         tree_out_pond_clk_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_clk_en_const$"
         pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
 
-        # Locate the mat_vec_mul_fp module
+        # Locate the top module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
             print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
@@ -2253,6 +2253,38 @@ class SelectedDesignHacker:
                 else:
                     raise RuntimeError(f"Instance {inst_name} is not a coreir.const")
 
+        # Reorder the instances entries for matrix & vector IOs
+        matrix_ios = []
+        vector_ios = []
+        other_instances = []
+        for instance in list(instance_dict.keys()):
+            if "io16in_vector_host_stencil" in instance:
+                match = re.search(r"clkwrk_(\d+)_op_hcompute_vector_glb_stencil_\1_read_0$", instance)
+                idx = int(match.group(1)) if match else -1
+                vector_ios.append((idx, instance))
+            elif "io16in_matrix_host_stencil" in instance:
+                match = re.search(r"_(\d+)(?:$|_)", instance)
+                idx = int(match.group(1)) if match else -1
+                matrix_ios.append((idx, instance))
+            else:
+                other_instances.append(instance)
+
+        # Sort the IO instances by index
+        matrix_ios.sort(key=lambda x: x[0])
+        vector_ios.sort(key=lambda x: x[0])
+
+        reordered = {}
+        for instance in other_instances:
+            reordered[instance] = instance_dict[instance]
+        for _, instance in matrix_ios:
+            reordered[instance] = instance_dict[instance]
+        for _, instance in vector_ios:
+            reordered[instance] = instance_dict[instance]
+
+        # Overwrite the instance dictionary
+        instance_dict.clear()
+        instance_dict.update(reordered)
+
         # Write the patched design back out
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
@@ -2267,12 +2299,128 @@ class SelectedDesignHacker:
                 "bitwidth": 16,
                 "datafile": "vector_host_stencil.raw",
                 "name": "vector_host_stencil",
-                "shape": [
-                    int(self.halide_gen_args_dict["matrix_width"]),
-                    int(self.halide_gen_args_dict["matrix_height"]),
-                ],
+                "shape": [int(self.halide_gen_args_dict["matrix_width"])],
             }
         )
+        for input in design_meta["IOs"]["inputs"]:
+            if input["name"] == "matrix_host_stencil":
+                input["shape"] = [
+                    int(self.halide_gen_args_dict["matrix_width"]),
+                    int(self.halide_gen_args_dict["matrix_height"]),
+                ]
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expected only one output"
+        design_meta["IOs"]["outputs"][0]["shape"] = [int(self.halide_gen_args_dict["matrix_height"])]
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_fully_connected_layer_fp_rv(self, json_path, bin_path):
+        # Implement the hack for mat_vec_mul_fp_rv first and then add bias IO and PE later
+        self.hack_for_mat_vec_mul_fp_rv(json_path, bin_path, top_module="fully_connected_layer_fp")
+
+        # Add bias IO and PE
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "fully_connected_layer_fp"
+        instances = design["namespaces"]["global"]["modules"][top_module]["instances"]
+        conns = design["namespaces"]["global"]["modules"][top_module]["connections"]
+        type_fields = design["namespaces"]["global"]["modules"][top_module]["type"][1]
+
+        # Bias input IO instantiation and connection
+        bias_io_name = "io16in_bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0"
+        if bias_io_name not in instances:
+            instances[bias_io_name] = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "in"]},
+                "metadata": {
+                    "glb2out_0": {
+                        "cycle_starting_addr": [0],
+                        "cycle_stride": [1],
+                        "dimensionality": 1,
+                        "extent": [int(self.halide_gen_args_dict["matrix_height"])],
+                        "read_data_starting_addr": [0],
+                        "read_data_stride": [1],
+                    }
+                },
+            }
+
+            # Module type field change for bias input IO
+            type_fields.append(
+                [  # keep naming consistent with your port convention
+                    "bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0",
+                    ["Array", 16, "BitIn"],
+                ]
+            )
+            conns.append(
+                [
+                    "self.bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0",
+                    f"{bias_io_name}.in",
+                ]
+            )
+
+        # Bias add PE instantiation and connection
+        bias_const_name = "op_hcompute_bias_add$inner_compute$c0"
+        if bias_const_name not in instances:
+            instances[bias_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {
+                    "value": [["BitVector", 84], "84'h000008000410002480082"]
+                },
+            }
+
+        bias_add_name = "op_hcompute_bias_add$inner_compute$float_DW_fp_add_bias"
+        if bias_add_name not in instances:
+            instances[bias_add_name] = {"modref": "global.PE"}
+
+        # Instruction connection for bias add PE
+        conns.append([f"{bias_add_name}.inst", f"{bias_const_name}.out"])
+
+        # Bias IO input -> bias add PE data0
+        conns.append([f"{bias_add_name}.data0", f"{bias_io_name}.out"])
+
+        # Find the existing connection: pond.data_out_pond_1 -> output IO .in
+        # And rewire through bias add PE: pond -> PE.data0, PE.O0 -> IO.in
+        pond_to_out_idx = None
+        pond_src = None
+        out_io_in = None
+        for i, (left, right) in enumerate(conns):
+            if left.endswith(".data_out_pond_1") and right.endswith(".in"):
+                pond_to_out_idx = i
+                pond_src = left
+                out_io_in = right
+                break
+
+        assert pond_to_out_idx, "Could not find final pond -> output IO connection for FC."
+
+        # Remove the direct pond -> output IO connection
+        conns.pop(pond_to_out_idx)
+
+        # Insert pond -> bias_add.data1  and  bias_add.O0 -> output IO .in
+        conns.append([f"{bias_add_name}.data1", pond_src])
+        conns.append([f"{bias_add_name}.O0", out_io_in])
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Update design_meta to include bias
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+
+        # Add bias tensor description
+        if not any(x.get("name") == "bias_host_stencil" for x in design_meta["IOs"]["inputs"]):
+            design_meta["IOs"]["inputs"].append(
+                {
+                    "bitwidth": 16,
+                    "datafile": "bias_host_stencil.raw",
+                    "name": "bias_host_stencil",
+                    "shape": [int(self.halide_gen_args_dict["matrix_height"])],
+                }
+            )
+
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
