@@ -108,11 +108,11 @@ int main(int argc, char **argv) {
         }
     }
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input_upper"], "bin/input_upper_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.inputs["input_lower"], "bin/input_lower_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.inputs["cos_upper"], "bin/cos_upper_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.inputs["sin_upper"], "bin/sin_upper_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input_upper"], "bin/input_upper_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.inputs["input_lower"], "bin/input_lower_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.inputs["cos_upper"], "bin/cos_upper_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.inputs["sin_upper"], "bin/sin_upper_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 

@@ -35,15 +35,15 @@ uint16_t round_to_even_process(float a) {
   //uint32_t e = reinterpret_cast<uint32_t&>(a);
   union_var.f = a;
   uint32_t e = union_var.val;
-  
+
   // round float to even, comment out this codeblock for truncation
   uint32_t half = 0x00008000;
   uint32_t sum = e + half;
-  
+
   // check if bottom bits are all zero
   uint32_t mantissa_mask = 0x0000ffff;
   bool is_zeroed = (sum & mantissa_mask) == 0;
-  
+
   // clear last bit (round even) on tie
   uint32_t clear_mask = ~( ((uint32_t)is_zeroed) << 16);
   e = sum & clear_mask;
@@ -73,7 +73,7 @@ float bfloat16_to_float_process(uint16_t b) {
     return ret;
 }
 
-void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
+void save_halide_buffer_to_raw(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
     std::ofstream out(filename, std::ios::binary);
     if (!out.is_open()) {
         std::cerr << "Failed to open file for writing: " << filename << std::endl;
@@ -91,7 +91,7 @@ void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buf
     out.close();
 }
 
-void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
+void load_raw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {
         std::cerr << "Failed to open file for reading: " << filename << std::endl;
@@ -144,31 +144,15 @@ void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<ui
     inFile.close();
 }
 
-void copyFile(const std::string &srcPath, const std::string &dstPath) {
-    std::ifstream src(srcPath, std::ios::binary);
-    std::ofstream dst(dstPath, std::ios::binary);
-
-    if (!src.is_open() || !dst.is_open()) {
-        throw std::runtime_error("Error opening files while copying from " + srcPath + " to " + dstPath);
-    }
-
-    dst << src.rdbuf();
-}
-
-bool file_exists(const std::string& name) {
-    std::ifstream f(name.c_str());
-    return f.good();
-}
-
 std::vector<int> parse_glb_bank_config_env_var(const std::string& env_var_name) {
     std::vector<int> values;
     const char* env_var_value = std::getenv(env_var_name.c_str());
-    
+
     if (env_var_value) {
         std::string value_str = env_var_value;
         std::istringstream iss(value_str);
         std::string token;
-        
+
         // Split the string by commas and convert to integers
         while (std::getline(iss, token, ',')) {
             // Trim potential whitespace
@@ -179,7 +163,7 @@ std::vector<int> parse_glb_bank_config_env_var(const std::string& env_var_name) 
     } else {
         std::cerr << "Environment variable " << env_var_name << " not found." << std::endl;
     }
-    
+
     return values;
 }
 
@@ -193,7 +177,7 @@ int main( int argc, char **argv ) {
       };
       functions["cpu"] = [&](){ cpu_process( processor ); } ;
   #endif
-  
+
   #if defined(WITH_COREIR)
       auto coreir_process = [&]( auto &proc ) {
           run_coreir_on_interpreter<>( "bin/design_top.json",
@@ -202,7 +186,7 @@ int main( int argc, char **argv ) {
       };
       functions["coreir"] = [&](){ coreir_process( processor ); };
   #endif
-  
+
   #if defined(WITH_CLOCKWORK)
       auto clockwork_process = [&]( auto &proc ) {
         RDAI_Platform *rdai_platform = RDAI_register_platform( &rdai_clockwork_sim_ops );
@@ -230,7 +214,7 @@ int main( int argc, char **argv ) {
   int PO_LEFT = pad_o_left;
   int PO_RIGHT = pad_o_right;
   int padded_out_img = out_img + PO_LEFT + PO_RIGHT;
-      
+
   // Add all defined functions
   processor.run_calls = functions;
 
@@ -238,7 +222,7 @@ int main( int argc, char **argv ) {
   processor.output                                = Buffer<uint16_t>(n_oc, out_img, out_img);
 
   processor.inputs_preset = true;
-  
+
   for (int y = 0; y < processor.inputs["hw_input_stencil.mat"].dim(2).extent(); y++) {
     for (int x = 0; x < processor.inputs["hw_input_stencil.mat"].dim(1).extent(); x++) {
       for (int w = 0; w < processor.inputs["hw_input_stencil.mat"].dim(0).extent(); w++) {
@@ -260,7 +244,7 @@ int main( int argc, char **argv ) {
 
   std::cout << "Writing hw_input_stencil.mat to bin folder" << std::endl;
   save_image(processor.inputs["hw_input_stencil.mat"], "bin/hw_input_stencil.mat");
-  
+
   std::cout << "Writing output to bin folder" << std::endl;
   save_image(padded_gold_output, "bin/hw_output.mat");
 
@@ -295,7 +279,7 @@ int main( int argc, char **argv ) {
   //       return 1;
   //   }
   // }
-  
+
   return processor.process_command(argc, argv);
-  
+
 }

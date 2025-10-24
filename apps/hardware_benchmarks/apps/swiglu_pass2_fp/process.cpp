@@ -103,10 +103,10 @@ int main(int argc, char **argv) {
         );
     }
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input"], "bin/input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(pass1_out_stencil, "bin/pass1_out_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(up_tensor_stencil, "bin/up_tensor_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input"], "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(pass1_out_stencil, "bin/pass1_out_host_stencil.raw");
+    save_halide_buffer_to_raw(up_tensor_stencil, "bin/up_tensor_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 
