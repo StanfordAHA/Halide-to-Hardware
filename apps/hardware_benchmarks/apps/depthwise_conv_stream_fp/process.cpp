@@ -202,9 +202,9 @@ int main( int argc, char **argv ) {
       std::cout << "Writing input_host_stencil.raw to bin folder" << std::endl;
       std::cout << "Writing kernel_host_stencil.raw to bin folder" << std::endl;
       std::cout << "Writing hw_output.raw to bin folder" << std::endl;
-      saveHalideBufferToRawBigEndian(input_host_stencil_full, "bin/input_host_stencil.raw");
-      saveHalideBufferToRawBigEndian(kernel_host_stencil_full, "bin/kernel_host_stencil.raw");
-      saveHalideBufferToRawBigEndian(output_host_stencil_full, "bin/hw_output.raw");
+      save_halide_buffer_to_raw(input_host_stencil_full, "bin/input_host_stencil.raw");
+      save_halide_buffer_to_raw(kernel_host_stencil_full, "bin/kernel_host_stencil.raw");
+      save_halide_buffer_to_raw(output_host_stencil_full, "bin/hw_output.raw");
     }
 
     // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1

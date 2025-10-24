@@ -98,8 +98,8 @@ int main(int argc, char **argv) {
         real_output(y) = max_val_bf16;
     }
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/mu_input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/mu_input_host_stencil.raw");
+    save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 

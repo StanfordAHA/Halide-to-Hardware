@@ -1,8 +1,3 @@
-#include <iostream>
-#include <math.h>
-#include <cstdio>
-#include <fstream>
-#include <vector>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 #include "hw_support_utils.h"
@@ -226,35 +221,35 @@ int main( int argc, char **argv ) {
 
     // use provided inputs first: convert .mat to bin/.raw or copy .raw to bin/.raw
     if (use_torch_gold_str == "") {
-      if (file_exists("input_host_stencil.mat")) {
+      if (std::filesystem::exists("input_host_stencil.mat")) {
         std::cout << "Removing existing input_host_stencil.mat" << std::endl;
         remove("input_host_stencil.mat");
       }
       std::cout << "Writing input_host_stencil.mat to bin folder" << std::endl;
       save_image(processor.inputs["input_host_stencil.mat"], "bin/input_host_stencil.mat");
 
-      if (file_exists("kernel_host_stencil.mat")) {
+      if (std::filesystem::exists("kernel_host_stencil.mat")) {
         std::cout << "Removing existing kernel_host_stencil.mat" << std::endl;
         remove("kernel_host_stencil.mat");
       }
       std::cout << "Writing kernel_host_stencil.mat to bin folder" << std::endl;
       save_image(processor.inputs["kernel_host_stencil.mat"], "bin/kernel_host_stencil.mat");
 
-      if (file_exists("bias_host_stencil.raw")) {
+      if (std::filesystem::exists("bias_host_stencil.raw")) {
         std::cout << "Removing existing bias_host_stencil.raw" << std::endl;
         remove("bias_host_stencil.raw");
       }
       std::cout << "Writing bias_host_stencil.raw to bin folder" << std::endl;
-      saveHalideBufferToRawBigEndian(processor.inputs["bias_host_stencil.raw"], "bin/bias_host_stencil.raw");
+      save_halide_buffer_to_raw(processor.inputs["bias_host_stencil.raw"], "bin/bias_host_stencil.raw");
 
-      if (file_exists("residual_host_stencil.mat")) {
+      if (std::filesystem::exists("residual_host_stencil.mat")) {
         std::cout << "Removing existing residual_host_stencil.mat" << std::endl;
         remove("residual_host_stencil.mat");
       }
       std::cout << "Writing residual_host_stencil.mat to bin folder" << std::endl;
       save_image(processor.inputs["residual_host_stencil.mat"], "bin/residual_host_stencil.mat");
 
-      if (file_exists("hw_output.mat")) {
+      if (std::filesystem::exists("hw_output.mat")) {
         std::cout << "Removing existing hw_output.mat" << std::endl;
         remove("hw_output.mat");
       }
@@ -262,20 +257,20 @@ int main( int argc, char **argv ) {
       save_image(output_gold_tensor, "bin/hw_output.mat");
     } else {
       std::cout << "Reading input_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/input_host_stencil.mat", "./input_host_stencil.mat");
+      std::filesystem::copy_file("pytorch_gold/" + use_torch_gold_str + "/input_host_stencil.mat", "./input_host_stencil.mat");
 
       std::cout << "Reading kernel_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/kernel_host_stencil.mat", "./kernel_host_stencil.mat");
+      std::filesystem::copy_file("pytorch_gold/" + use_torch_gold_str + "/kernel_host_stencil.mat", "./kernel_host_stencil.mat");
 
       // Have to use raw for bias since Halide mat2raw has issues with 1D array
       std::cout << "Reading bias_host_stencil.raw from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/bias_host_stencil.raw", "./bias_host_stencil.raw");
+      std::filesystem::copy_file("pytorch_gold/" + use_torch_gold_str + "/bias_host_stencil.raw", "./bias_host_stencil.raw");
 
       std::cout << "Reading residual_host_stencil.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/residual_host_stencil.mat", "./residual_host_stencil.mat");
+      std::filesystem::copy_file("pytorch_gold/" + use_torch_gold_str + "/residual_host_stencil.mat", "./residual_host_stencil.mat");
 
       std::cout << "Reading hw_output.mat from " << "pytorch_gold/" << use_torch_gold << std::endl;
-      copyFile("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./hw_output.mat");
+      std::filesystem::copy_file("pytorch_gold/" + use_torch_gold_str + "/hw_output.mat", "./hw_output.mat");
     }
 
     return processor.process_command(argc, argv);
