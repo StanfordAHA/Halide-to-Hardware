@@ -536,6 +536,7 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                         elif io_type == "inputs":
                             orig_start_addr = addr["read_data_starting_addr"]
                             addr["read_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
+                            addr["tb_write_starting_addr"] = orig_start_addr
     return meta
 
 
