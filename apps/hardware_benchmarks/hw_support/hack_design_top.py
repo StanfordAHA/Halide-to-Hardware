@@ -2392,7 +2392,7 @@ class SelectedDesignHacker:
                 out_io_in = right
                 break
 
-        assert pond_to_out_idx, "Could not find final pond -> output IO connection for FC."
+        assert pond_to_out_idx is not None, "Could not find final pond -> output IO connection for FC."
 
         # Remove the direct pond -> output IO connection
         conns.pop(pond_to_out_idx)

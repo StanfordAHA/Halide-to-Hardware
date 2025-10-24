@@ -103,8 +103,16 @@ int main(int argc, char **argv) {
     }
 
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input"], "bin/input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(gold_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input"], "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(gold_output, "bin/hw_output.raw");
+
+    // Create glb bank config
+    using namespace glb_cfg;
+    const config_spec spec = {
+        {tensor_spec{"input_host_stencil", {"x_coord"}}},
+        {tensor_spec{"hw_output", {"x_coord"}}}
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 
