@@ -263,6 +263,21 @@ def addGLBBankConfig(meta):
         for _, cfg in blk.items():
             for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
                 output_pack_map[x] = flag
+
+    # Build {x_pos: use_multi_bank_mode} maps from "use_multi_bank_mode"
+    input_use_multi_bank_map = {}
+    for blk in glb_json.get("inputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("use_multi_bank_mode", []), cfg.get("x_coord", [])):
+                input_use_multi_bank_map[x] = flag
+
+    output_use_multi_bank_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("use_multi_bank_mode", []), cfg.get("x_coord", [])):
+                output_use_multi_bank_map[x] = flag
+
+    # Build {x_pos: bank_toggle_mode} map
     bank_toggle_mode_map = {}
     for blk in glb_json.get("outputs", []):
         for _, cfg in blk.items():
@@ -279,14 +294,18 @@ def addGLBBankConfig(meta):
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
 
             # Add E64_packed flag for input tiles
-            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 1)
+
+            # Add use_multi_bank_mode for input tiles
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["use_multi_bank_mode"] = input_use_multi_bank_map.get(io_tile["x_pos"], 1)
 
     # Add E64_packed, bank_toggle_mode, and is_fake_io flags for output tiles
     for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
         assert "io_tiles" in output_dict, "io_tiles must be key of output_dict"
         for tile_index, io_tile in enumerate(output_dict["io_tiles"]):
-            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 1)
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["bank_toggle_mode"] = bank_toggle_mode_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["use_multi_bank_mode"] = output_use_multi_bank_map.get(io_tile["x_pos"], 1)
 
     # Hack bank toggle config only if bank_toggle_mode_map is not empty
     if bank_toggle_mode_map:
@@ -318,9 +337,13 @@ def E64_packing(json_data):
     for section, pack_set in [("inputs", input_pack_x), ("outputs", output_pack_x)]:
         for blk in json_data.get("GLB_BANK_CONFIG", {}).get(section, []):
             for _, cfg in blk.items():
-                for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
-                    if flag == 1:
-                        pack_set.add(x)
+                # If GLB_BANK_CONFIG is set but E64_packed is missing, treat all x_coords as packed
+                if "E64_packed" not in cfg:
+                    pack_set.update(cfg.get("x_coord", []))
+                else:
+                    for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                        if flag == 1:
+                            pack_set.add(x)
 
     # If GLB_BANK_CONFIG is empty, treat all io_tiles as packed
     if not json_data.get("GLB_BANK_CONFIG"):
@@ -513,6 +536,7 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                         elif io_type == "inputs":
                             orig_start_addr = addr["read_data_starting_addr"]
                             addr["read_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
+                            addr["tb_write_starting_addr"] = orig_start_addr
     return meta
 
 

@@ -109,9 +109,9 @@ int main( int argc, char **argv ) {
   }
 
   // Save buffer to raw
-  saveHalideBufferToRawBigEndian(processor.inputs["input"], "bin/hw_input_stencil.raw");
-  saveHalideBufferToRawBigEndian(processor.inputs["e8m0"], "bin/hw_e8m0_stencil.raw");
-  saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+  save_halide_buffer_to_raw(processor.inputs["input"], "bin/hw_input_stencil.raw");
+  save_halide_buffer_to_raw(processor.inputs["e8m0"], "bin/hw_e8m0_stencil.raw");
+  save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
   //processor.tolerance = 1;
   std::cout << "Running with tolerance=" << processor.tolerance << std::endl;

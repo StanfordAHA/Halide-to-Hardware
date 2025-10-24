@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <functional>
 #include <vector>
+#include <filesystem>
+#include "glb_bank_config.h"
 #include "HalideBuffer.h"
 using Halide::Runtime::Buffer;
 
@@ -19,19 +21,10 @@ uint16_t float_to_bfloat16_process(float f);
 float bfloat16_to_float_process(uint16_t b);
 
 // Save a Halide buffer (of uint16_t values) to a file in raw big-endian format
-void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename);
+void save_halide_buffer_to_raw(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename);
 
 // Load raw data from a big-endian file into a Halide buffer
-void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer);
-
-// Copy a file from source path to destination path
-void copyFile(const std::string &srcPath, const std::string &dstPath);
-
-// Check if a file exists
-bool file_exists(const std::string& name);
-
-// Parse a GLB bank configuration to extract x-coordinates for all software IOs
-std::vector<int> parse_glb_bank_config_num_list(const std::string& env_var_name);
+void load_raw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer);
 
 extern "C" {
     // CPU implementations for custom instructions

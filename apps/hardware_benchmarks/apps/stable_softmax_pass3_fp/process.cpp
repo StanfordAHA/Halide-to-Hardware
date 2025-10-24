@@ -92,9 +92,9 @@ int main(int argc, char **argv) {
         processor.output(x) = float_to_bfloat16_process(bfloat16_to_float_process(processor.inputs["input.mat"](x)) / bfloat16_to_float_process(pass2_sum(0)));
     }
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(pass2_sum, "bin/pass2_sum_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(pass2_sum, "bin/pass2_sum_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 
