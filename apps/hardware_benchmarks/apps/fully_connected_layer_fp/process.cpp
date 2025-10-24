@@ -1,11 +1,5 @@
-#include "coreir.h"
-#include "halide_image_io.h"
 #include "hardware_process_helper.h"
-#include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <math.h>
-#include <vector>
+#include "halide_image_io.h"
 #include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
@@ -130,73 +124,55 @@ int main(int argc, char **argv) {
         real_output(y) = float_to_bfloat16_process(sum);
     }
 
-    saveHalideBufferToRawBigEndian(real_matrix, "bin/matrix_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_vector, "bin/vector_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_bias, "bin/bias_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    // Check for gold tensors
+    bool use_resnet_gold = std::filesystem::exists("resnet18_gold_tensors/matrix_host_stencil_0.raw");
 
-    // Create glb bank config file for packing
-    // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
-    std::cout << "Checking for GLB bank configuration..." << std::endl;
-    std::cout << "USE_GLB_BANK_CONFIG = " << getenv("USE_GLB_BANK_CONFIG") << std::endl;
-    if (getenv("USE_GLB_BANK_CONFIG") && std::stoi(getenv("USE_GLB_BANK_CONFIG"))) {
-        std::vector<int> matrix_host_stencil_pos = parse_glb_bank_config_num_list("MATRIX_HOST_STENCIL_POS");
-        std::vector<int> vector_host_stencil_pos = parse_glb_bank_config_num_list("VECTOR_HOST_STENCIL_POS");
-        std::vector<int> bias_host_stencil_pos = parse_glb_bank_config_num_list("BIAS_HOST_STENCIL_POS");
-        std::vector<int> hw_output_stencil_pos = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_POS");
-
-        std::vector<int> matrix_host_stencil_packed = parse_glb_bank_config_num_list("MATRIX_HOST_STENCIL_PACKED");
-        std::vector<int> vector_host_stencil_packed = parse_glb_bank_config_num_list("VECTOR_HOST_STENCIL_PACKED");
-        std::vector<int> bias_host_stencil_packed = parse_glb_bank_config_num_list("BIAS_HOST_STENCIL_PACKED");
-        std::vector<int> hw_output_stencil_packed = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_PACKED");
-
-        std::vector<int> matrix_host_stencil_multi_bank_mode = parse_glb_bank_config_num_list("MATRIX_HOST_STENCIL_MULTI_BANK_MODE");
-        std::vector<int> vector_host_stencil_multi_bank_mode = parse_glb_bank_config_num_list("VECTOR_HOST_STENCIL_MULTI_BANK_MODE");
-
-        // Create the glb_bank_config.json structure
-        json config = {
-            {"inputs", {
-                {
-                    {"matrix_host_stencil", {
-                        {"x_coord", matrix_host_stencil_pos},
-                        {"E64_packed", matrix_host_stencil_packed},
-                        {"use_multi_bank_mode", matrix_host_stencil_multi_bank_mode}
-                    }}
-                },
-                {
-                    {"vector_host_stencil", {
-                        {"x_coord", vector_host_stencil_pos},
-                        {"E64_packed", vector_host_stencil_packed},
-                        {"use_multi_bank_mode", vector_host_stencil_multi_bank_mode}
-                    }}
-                },
-                {
-                    {"bias_host_stencil", {
-                        {"x_coord", bias_host_stencil_pos},
-                        {"E64_packed", bias_host_stencil_packed}
-                    }}
-                }
-            }},
-            {"outputs", {
-                {
-                    {"hw_output_stencil", {
-                        {"x_coord", hw_output_stencil_pos},
-                        {"E64_packed", hw_output_stencil_packed}
-                    }}
-                }
-            }}
-        };
-
-        std::ofstream file("bin/glb_bank_config.json");
-        if (file.is_open()) {
-            file << config.dump(4) << std::endl;
-            file.close();
-            std::cout << "Successfully wrote to bin/glb_bank_config.json" << std::endl;
-        } else {
-            std::cerr << "Unable to open file for writing." << std::endl;
-            return 1;
-        }
+    if (use_resnet_gold) {
+        std::cout << "Using ResNet18 gold tensors" << std::endl;
+        // Copy gold tensors to bin directory
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/matrix_host_stencil_0.raw",
+            "bin/matrix_host_stencil.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/vector_host_stencil.raw",
+            "bin/vector_host_stencil.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/bias_host_stencil_0.raw",
+            "bin/bias_host_stencil.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/hw_output_0.raw",
+            "bin/hw_output.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+    } else {
+        std::cout << "Generating random tensors" << std::endl;
+        save_halide_buffer_to_raw(real_matrix, "bin/matrix_host_stencil.raw");
+        save_halide_buffer_to_raw(real_vector, "bin/vector_host_stencil.raw");
+        save_halide_buffer_to_raw(real_bias, "bin/bias_host_stencil.raw");
+        save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
     }
+
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {
+            tensor_spec{"matrix_host_stencil", {"x_coord", "E64_packed", "use_multi_bank_mode"}},
+            tensor_spec{"vector_host_stencil", {"x_coord", "E64_packed", "use_multi_bank_mode"}},
+            tensor_spec{"bias_host_stencil", {"x_coord", "E64_packed"}}
+        },
+        {
+            tensor_spec{"hw_output", {"x_coord", "E64_packed"}}
+        },
+        {}
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 

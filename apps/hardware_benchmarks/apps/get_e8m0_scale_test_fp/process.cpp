@@ -1,12 +1,6 @@
-#include "coreir.h"
-#include "halide_image_io.h"
 #include "hardware_process_helper.h"
+#include "halide_image_io.h"
 #include "hw_support_utils.h"
-#include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <math.h>
-#include <vector>
 
 #if defined(WITH_CPU)
 #include "get_e8m0_scale_test_fp.h"
@@ -113,61 +107,25 @@ int main(int argc, char **argv) {
         real_output(int(y / 2)) = (y & 1) ? bit8_pack(get_shared_exp(max_val_bf16), real_output(int(y / 2))) : get_shared_exp(max_val_bf16);
     }
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/mu_input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(processor.inputs["input_2.mat"], "bin/glb_input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/mu_input_host_stencil.raw");
+    save_halide_buffer_to_raw(processor.inputs["input_2.mat"], "bin/glb_input_host_stencil.raw");
+    save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
 
-    // Create glb bank config file for packing
-    // Generate glb_bank_config.json if "USE_GLB_BANK_CONFIG" is 1
-    std::cout << "Checking for GLB bank configuration..." << std::endl;
-    std::cout << "USE_GLB_BANK_CONFIG = " << getenv("USE_GLB_BANK_CONFIG") << std::endl;
-    if (getenv("USE_GLB_BANK_CONFIG") && std::stoi(getenv("USE_GLB_BANK_CONFIG"))) {
-        std::vector<int> mu_input_host_stencil_pos = parse_glb_bank_config_num_list("MU_INPUT_HOST_STENCIL_POS");
-        std::vector<int> glb_input_host_stencil_pos = parse_glb_bank_config_num_list("GLB_INPUT_HOST_STENCIL_POS");
-        std::vector<int> hw_output_stencil_pos = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_POS");
-
-        std::vector<int> glb_input_host_stencil_packed = parse_glb_bank_config_num_list("GLB_INPUT_HOST_STENCIL_PACKED");
-        std::vector<int> hw_output_stencil_packed = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_PACKED");
-        std::vector<int> hw_output_stencil_bank_toggle_mode = parse_glb_bank_config_num_list("HW_OUTPUT_STENCIL_BANK_TOGGLE_MODE");
-
-        // Create the glb_bank_config.json structure
-        json config = {
-            {"mu_inputs", {
-                {
-                    {"mu_input_host_stencil", {
-                        {"x_coord", mu_input_host_stencil_pos}
-                    }}
-                }
-            }},
-            {"inputs", {
-                {
-                    {"glb_input_host_stencil", {
-                        {"x_coord", glb_input_host_stencil_pos},
-                        {"E64_packed", glb_input_host_stencil_packed}
-                    }}
-                }
-            }},
-            {"outputs", {
-                {
-                    {"hw_output_stencil", {
-                        {"x_coord", hw_output_stencil_pos},
-                        {"E64_packed", hw_output_stencil_packed},
-                        {"bank_toggle_mode", hw_output_stencil_bank_toggle_mode}
-                    }}
-                }
-            }}
-        };
-
-        std::ofstream file("bin/glb_bank_config.json");
-        if (file.is_open()) {
-            file << config.dump(4) << std::endl;
-            file.close();
-            std::cout << "Successfully wrote to bin/glb_bank_config.json" << std::endl;
-        } else {
-            std::cerr << "Unable to open file for writing." << std::endl;
-            return 1;
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {
+            tensor_spec{"glb_input_host_stencil", {"x_coord", "E64_packed"}}
+        },
+        {
+            tensor_spec{"hw_output", {"x_coord", "E64_packed", "bank_toggle_mode"}}
+        },
+        {
+            tensor_spec{"mu_input_host_stencil", {"x_coord"}}
         }
-    }
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 

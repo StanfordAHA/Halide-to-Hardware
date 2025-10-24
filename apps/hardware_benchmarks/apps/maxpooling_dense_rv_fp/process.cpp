@@ -1,9 +1,3 @@
-#include <iostream>
-#include <math.h>
-#include <cstdio>
-#include <fstream>
-#include <vector>
-#include <cstdint>
 #include "hardware_process_helper.h"
 #include "halide_image_io.h"
 #include "hw_support_utils.h"
@@ -146,11 +140,37 @@ int main( int argc, char **argv ) {
               << real_output.dim(1).extent() << "x"
               << real_output.dim(2).extent() << "\n";
 
-    std::cout << "Writing input_host_stencil.raw to bin folder" << std::endl;
-    saveHalideBufferToRawBigEndian(real_input, "bin/input_host_stencil.raw");
+    // Check for gold tensors
+    bool use_resnet_gold = std::filesystem::exists("resnet18_gold_tensors/input_host_stencil_0_0_0_0.raw");
+    if (use_resnet_gold) {
+        std::cout << "Using ResNet18 gold tensors" << std::endl;
+        // Copy gold tensors to bin directory
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/input_host_stencil_0_0_0_0.raw",
+            "bin/input_host_stencil.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/hw_output_0_0_0_0.raw",
+            "bin/hw_output.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+    }
+    else {
+        std::cout << "Generating random tensors" << std::endl;
+        save_halide_buffer_to_raw(real_input, "bin/input_host_stencil.raw");
+        save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
+    }
 
-    std::cout << "Writing hw_output.raw to bin folder" << std::endl;
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {tensor_spec{"input_host_stencil", {"x_coord"}}},
+        {tensor_spec{"hw_output", {"x_coord"}}},
+        {}
+    };
+    write_glb_bank_config(spec);
 
     return processor.process_command(argc, argv);
 }
