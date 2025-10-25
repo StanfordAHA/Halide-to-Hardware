@@ -122,7 +122,6 @@ int main(int argc, char **argv) {
             }
         }
     }
-    std::cout << "[WARNING] Overflow max INT8 (127) count: " << overflow_count << " percentage: " << static_cast<float>(overflow_count) / static_cast<float>(vec_height * vec_width) * 100.0f << "%" << std::endl;
 
     // Gold quantized output in INT8 with packing of two 8-bit INT8 into one 16-bit word
     auto quantized_output_packed = Buffer<uint16_t>(int(block_size / 2), vec_height, int(vec_width / block_size));
