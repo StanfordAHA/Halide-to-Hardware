@@ -1,13 +1,7 @@
-#include "bf16_op.h"
-#include "coreir.h"
-#include "halide_image_io.h"
 #include "hardware_process_helper.h"
+#include "halide_image_io.h"
 #include "hw_support_utils.h"
-#include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <math.h>
-#include <vector>
+
 
 #if defined(WITH_CPU)
 #include "avgpool_layer_fp.h"
@@ -102,9 +96,27 @@ int main(int argc, char **argv) {
         gold_output(c, 0, 0) = float_to_bfloat16_process(avg);
     }
 
-
-    save_halide_buffer_to_raw(processor.inputs["input"], "bin/input_host_stencil.raw");
-    save_halide_buffer_to_raw(gold_output, "bin/hw_output.raw");
+    // Check for gold tensors
+    bool use_resnet_gold = std::filesystem::exists("resnet18_gold_tensors/input_host_stencil.raw");
+    if (use_resnet_gold) {
+        std::cout << "Using ResNet18 gold tensors" << std::endl;
+        // Copy gold tensors to bin directory
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/input_host_stencil.raw",
+            "bin/input_host_stencil.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+        std::filesystem::copy_file(
+            "resnet18_gold_tensors/hw_output.raw",
+            "bin/hw_output.raw",
+            std::filesystem::copy_options::overwrite_existing
+        );
+    }
+    else {
+        std::cout << "Generating random tensors" << std::endl;
+        save_halide_buffer_to_raw(processor.inputs["input"], "bin/input_host_stencil.raw");
+        save_halide_buffer_to_raw(gold_output, "bin/hw_output.raw");
+    }
 
     // Create glb bank config
     using namespace glb_cfg;
