@@ -86,7 +86,7 @@ int main( int argc, char **argv ) {
     ///// INPUT IMAGE /////
     processor.inputs["input"] = Halide::Runtime::Buffer<uint16_t>(Z, X, Y);
     auto input_copy = processor.inputs["input"];
-    loadRawDataToBuffer("input_host_stencil.raw", input_copy);
+    load_raw_to_halide_buffer("input_host_stencil.raw", input_copy);
 
     std::cout << "input has dims: " << processor.inputs["input"].dim(0).extent() << "x"
               << processor.inputs["input"].dim(1).extent() << "x"
@@ -97,7 +97,7 @@ int main( int argc, char **argv ) {
     ///// KERNEL WEIGHTS /////
     processor.inputs["kernel"] = Halide::Runtime::Buffer<uint16_t>(W, Z, K_X, K_Y);
     auto kernel_copy = processor.inputs["kernel"];
-    loadRawDataToBuffer("kernel_host_stencil.raw", kernel_copy);
+    load_raw_to_halide_buffer("kernel_host_stencil.raw", kernel_copy);
 
     std::cout << "kernel has dims: " << processor.inputs["kernel"].dim(0).extent() << "x"
               << processor.inputs["kernel"].dim(1).extent() << "x"
@@ -109,7 +109,7 @@ int main( int argc, char **argv ) {
     ///// BIAS /////
     processor.inputs["bias"] = Halide::Runtime::Buffer<uint16_t>(W);
     auto bias_copy = processor.inputs["bias"];
-    loadRawDataToBuffer("bias_host_stencil.raw", bias_copy);
+    load_raw_to_halide_buffer("bias_host_stencil.raw", bias_copy);
 
     std::cout << "bias has dims: " << processor.inputs["bias"].dim(0).extent() << "\n";
     // print first element of bias

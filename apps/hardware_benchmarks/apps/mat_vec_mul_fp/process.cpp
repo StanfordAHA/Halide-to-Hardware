@@ -1,11 +1,5 @@
-#include "coreir.h"
-#include "halide_image_io.h"
 #include "hardware_process_helper.h"
-#include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <math.h>
-#include <vector>
+#include "halide_image_io.h"
 #include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
@@ -120,9 +114,24 @@ int main(int argc, char **argv) {
         real_output(y) = float_to_bfloat16_process(sum);
     }
 
-    saveHalideBufferToRawBigEndian(real_matrix, "bin/matrix_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_vector, "bin/vector_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(real_matrix, "bin/matrix_host_stencil.raw");
+    save_halide_buffer_to_raw(real_vector, "bin/vector_host_stencil.raw");
+    save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
+
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {
+            tensor_spec{"matrix_host_stencil", {"x_coord", "E64_packed", "use_multi_bank_mode"}},
+            tensor_spec{"vector_host_stencil", {"x_coord", "E64_packed", "use_multi_bank_mode"}}
+        },
+        {
+            tensor_spec{"hw_output", {"x_coord", "E64_packed"}}
+        },
+        {}
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 

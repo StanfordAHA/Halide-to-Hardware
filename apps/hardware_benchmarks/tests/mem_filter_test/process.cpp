@@ -87,8 +87,8 @@ int main( int argc, char **argv ) {
       }
   }
 
-  saveHalideBufferToRawBigEndian(real_input, "bin/hw_input_stencil.raw");
-  saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+  save_halide_buffer_to_raw(real_input, "bin/hw_input_stencil.raw");
+  save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
 
   return processor.process_command(argc, argv);
 

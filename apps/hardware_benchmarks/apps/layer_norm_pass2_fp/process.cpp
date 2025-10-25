@@ -103,9 +103,9 @@ int main(int argc, char **argv) {
     const float vec_size = float(vec_width) * float(vec_height);
     real_output(0) = float_to_bfloat16_process(sqrt(sum / vec_size));
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(vec_avg, "bin/vec_avg_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(vec_avg, "bin/vec_avg_host_stencil.raw");
+    save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 
