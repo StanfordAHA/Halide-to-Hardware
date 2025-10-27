@@ -3390,6 +3390,15 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+        # Update design_meta_halide.json to update output shape
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expect only one output in avgpool_layer_fp"
+        design_meta["IOs"]["outputs"][0]["shape"] = [int(self.halide_gen_args_dict["n_ic"]), 1, 1]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
     def hack_for_get_e8m0_scale_test_fp_rv(self, json_path, bin_path):
         with open(json_path, "r") as f:
             design = json.load(f)
