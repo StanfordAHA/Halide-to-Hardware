@@ -5,6 +5,7 @@ import pprint
 import sys
 import re
 import copy
+import traceback
 from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
 
 def atoi(text):
@@ -262,6 +263,21 @@ def addGLBBankConfig(meta):
         for _, cfg in blk.items():
             for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
                 output_pack_map[x] = flag
+
+    # Build {x_pos: use_multi_bank_mode} maps from "use_multi_bank_mode"
+    input_use_multi_bank_map = {}
+    for blk in glb_json.get("inputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("use_multi_bank_mode", []), cfg.get("x_coord", [])):
+                input_use_multi_bank_map[x] = flag
+
+    output_use_multi_bank_map = {}
+    for blk in glb_json.get("outputs", []):
+        for _, cfg in blk.items():
+            for flag, x in zip(cfg.get("use_multi_bank_mode", []), cfg.get("x_coord", [])):
+                output_use_multi_bank_map[x] = flag
+
+    # Build {x_pos: bank_toggle_mode} map
     bank_toggle_mode_map = {}
     for blk in glb_json.get("outputs", []):
         for _, cfg in blk.items():
@@ -278,14 +294,18 @@ def addGLBBankConfig(meta):
                 meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["is_glb_input"] = 0
 
             # Add E64_packed flag for input tiles
-            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["E64_packed"] = input_pack_map.get(io_tile["x_pos"], 1)
+
+            # Add use_multi_bank_mode for input tiles
+            meta["IOs"]["inputs"][input_index]["io_tiles"][tile_index]["use_multi_bank_mode"] = input_use_multi_bank_map.get(io_tile["x_pos"], 1)
 
     # Add E64_packed, bank_toggle_mode, and is_fake_io flags for output tiles
     for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
         assert "io_tiles" in output_dict, "io_tiles must be key of output_dict"
         for tile_index, io_tile in enumerate(output_dict["io_tiles"]):
-            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["E64_packed"] = output_pack_map.get(io_tile["x_pos"], 1)
             meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["bank_toggle_mode"] = bank_toggle_mode_map.get(io_tile["x_pos"], 0)
+            meta["IOs"]["outputs"][output_index]["io_tiles"][tile_index]["use_multi_bank_mode"] = output_use_multi_bank_map.get(io_tile["x_pos"], 1)
 
     # Hack bank toggle config only if bank_toggle_mode_map is not empty
     if bank_toggle_mode_map:
@@ -317,9 +337,13 @@ def E64_packing(json_data):
     for section, pack_set in [("inputs", input_pack_x), ("outputs", output_pack_x)]:
         for blk in json_data.get("GLB_BANK_CONFIG", {}).get(section, []):
             for _, cfg in blk.items():
-                for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
-                    if flag == 1:
-                        pack_set.add(x)
+                # If GLB_BANK_CONFIG is set but E64_packed is missing, treat all x_coords as packed
+                if "E64_packed" not in cfg:
+                    pack_set.update(cfg.get("x_coord", []))
+                else:
+                    for flag, x in zip(cfg.get("E64_packed", []), cfg.get("x_coord", [])):
+                        if flag == 1:
+                            pack_set.add(x)
 
     # If GLB_BANK_CONFIG is empty, treat all io_tiles as packed
     if not json_data.get("GLB_BANK_CONFIG"):
@@ -338,9 +362,17 @@ def E64_packing(json_data):
     def process_io(io_entries, unique_positions, pack_x_set):
         trimmed_entries = []
         for entry in io_entries:
+            # Check per-entry if packing is actually used (any tile at a packed x)
+            entry_uses_packing = any(tile["x_pos"] in pack_x_set for tile in entry["io_tiles"])
+
             # Enforce assertion only if packing is used
-            if pack_x_set and (len(entry["io_tiles"]) % 4 != 0):
+            if entry_uses_packing and (len(entry["io_tiles"]) % 4 != 0):
                 raise AssertionError("Number of io_tiles must be a multiple of 4 for E64 mode")
+
+            # If this entry doesn't use packing at all, leave it untouched
+            if not entry_uses_packing:
+                trimmed_entries.append(entry)
+                continue
 
             new_io_tiles = []
             shape_updated = False
@@ -544,26 +576,52 @@ def hack_config_for_bank_toggle_mode(meta):
     # Modify address gen for IO tiles in bank toggle mode
     for io in meta["IOs"]["outputs"]:
         if "io_tiles" in io:
+            real_tile_idx = 0
+            tile_n_start_addr = 0
             for tile in io["io_tiles"]:
                 if tile["bank_toggle_mode"] == 1:
+                    if tile["is_fake_io"] == 0:
+                        real_tile_idx += 1
                     print(f"\033[94m INFO: Modifying address generator config for bank toggle mode for output tile {tile['name']}...\033[0m")
                     addr = tile.get("addr", {})
                     if addr:
-                        assert addr["dimensionality"] == 1, "Bank toggle mode only supports 1D addr_dict for now"
-                        cycle_stride_per_bank = addr["cycle_stride"][0] // real_tile_cnt
-                        if addr["cycle_starting_addr"][0] > 1:
-                            # If cycle_starting_addr is > 1, then it probably means it's skipping pixels for interleaving across another GLB tile
-                            # So we need to adjust it for data stored in another GLB tile for bank toggle mode
-                            addr["cycle_starting_addr"][0] = 1 + (addr["cycle_starting_addr"][0] - 1) * (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)
+                        word_width_per_tile = 2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH # which is 8 in zircon
+                        cycle_stride_per_bank = addr["cycle_stride"][0] // io['num_real_tiles']
+                        if real_tile_idx % 2 == 0:
+                            # This means we are skipping pixels for interleaving across another GLB tile
+                            # So we need to adjust starting addr for data stored in another GLB tile for bank toggle mode
+                            addr["cycle_starting_addr"][0] = tile_n_start_addr + word_width_per_tile * cycle_stride_per_bank
+                        else:
+                            # Store the cycle starting addr of n-th real tile for n+1-th starting addr calculation
+                            tile_n_start_addr = addr["cycle_starting_addr"][0]
                         # Update the strides, extents, and dimensionality for bank toggle mode
-                        # We skip (BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) pixels for inter-GLB tile skipping
-                        addr["cycle_stride"] = [1 * cycle_stride_per_bank, 1 * cycle_stride_per_bank, (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH + 1) * cycle_stride_per_bank]
-                        addr["dimensionality"] = 3
-                        assert addr["extent"][0] % (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
-                        # 2 is the number of banks per GLB tile
-                        addr["extent"] = [BANK_DATA_WIDTH // CGRA_DATA_WIDTH, 2, addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH)]
+                        # Need additional two dimensions for tweaks across banks and tiles
+                        addr["dimensionality"] += 2
+                        new_cycle_stride = [
+                            cycle_stride_per_bank,
+                            cycle_stride_per_bank,
+                            (word_width_per_tile + 1) * cycle_stride_per_bank,
+                        ]
+                        # Although we support 2D DMA config, we currently use MEM tiles to filter dummy data.
+                        # This helps avoid a very strict division constraint on extent.
+                        if addr["dimensionality"] > 3:
+                            assert addr["dimensionality"] == 4, "Need to think about a cleaner way to hack cycle stride for 3D and more loop levels."
+                            # new_cycle_stride.append(addr["extent"][0] // (2 * BANK_DATA_WIDTH // CGRA_DATA_WIDTH) * new_cycle_stride[2] + addr["cycle_stride"][0])
+                            # Skip the same amount of data as the starting addr of tile N+1, which are bogus data stream length + GLB tile width offset
+                            new_cycle_stride.append(tile_n_start_addr + word_width_per_tile * cycle_stride_per_bank + 1)
+
+                        addr["cycle_stride"] = new_cycle_stride
+                        assert addr["extent"][0] % word_width_per_tile == 0, "Extent must be divisible by GLB tile word width for bank toggle mode"
+                        # 2 is the number of banks per GLB tile, take the ceiling of the division
+                        new_extent = [word_width_per_tile // 2, 2, addr["extent"][0] // word_width_per_tile]
+                        if addr["dimensionality"] > 3:
+                            new_extent.extend(addr["extent"][1:])
+                        addr["extent"] = new_extent
                         # We have to backtrack the address when interleaving across banks
-                        addr["write_data_stride"] = [1, 1 - (BANK_DATA_WIDTH // CGRA_DATA_WIDTH), 1]
+                        addr["write_data_stride"] = [1, 1 - word_width_per_tile // 2, 1]
+                        if addr["dimensionality"] > 3:
+                            for _ in range(addr["dimensionality"] - 3):
+                                addr["write_data_stride"].append(1)
     return meta
 
 
@@ -602,7 +660,7 @@ def main():
 
 
     outputName = 'bin/design_meta.json'
-    with open(outputName, 'w', encoding='utf-8') as fileout:
+    try:
         halide_gen_args = os.getenv("HALIDE_GEN_ARGS")
         if halide_gen_args is not None:
             # If pad_o in args call padding functions to modify extents
@@ -628,7 +686,23 @@ def main():
             meta = hack_addr_gen_for_mu_tiling(meta, args.mu_tiling)
 
         print("writing to", outputName)
-        json.dump(meta, fileout, indent=2)
+        with open(outputName, 'w', encoding='utf-8') as fileout:
+            json.dump(meta, fileout, indent=2)
+    except Exception as e:
+        # Dump the error location and traceback
+        # Dump broken metadata even if it failed for easier debugging
+        print("\033[91m ERROR: Exception occurred during design meta processing!\033[0m")
+        print("Full traceback:")
+        traceback.print_exc()
+        # Save the broken meta to design_meta_broken.json
+        try:
+            print(f"\033[93m WARNING: Saving broken metadata to bin/design_meta_broken.json...\033[0m")
+            with open("bin/design_meta_broken.json", 'w', encoding='utf-8') as fileout:
+                json.dump(meta, fileout, indent=2)
+        except Exception as write_error:
+            print(f"\033[91m ERROR: Failed to write broken metadata: {write_error}\033[0m")
+        # Re-raise the original exception
+        raise
 
 
 if __name__ == "__main__":
