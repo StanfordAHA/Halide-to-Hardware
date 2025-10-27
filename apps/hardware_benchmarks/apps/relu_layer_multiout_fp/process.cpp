@@ -117,16 +117,16 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "Writing hw_input_stencil.raw to bin folder" << std::endl;
-    saveHalideBufferToRawBigEndian(processor.inputs["hw_input_stencil.raw"], "bin/hw_input_stencil.raw");
+    save_halide_buffer_to_raw(processor.inputs["hw_input_stencil.raw"], "bin/hw_input_stencil.raw");
 
     std::cout << "Writing hw_bias_stencil.raw to bin folder" << std::endl;
-    saveHalideBufferToRawBigEndian(processor.inputs["hw_bias_stencil.raw"], "bin/hw_bias_stencil.raw");
+    save_halide_buffer_to_raw(processor.inputs["hw_bias_stencil.raw"], "bin/hw_bias_stencil.raw");
 
     std::cout << "Writing output to bin folder" << std::endl;
-    saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
     std::cout << "Writing hw_add_3.raw to bin folder" << std::endl;
-    saveHalideBufferToRawBigEndian(real_add3_output, "bin/hw_add_3.raw");
+    save_halide_buffer_to_raw(real_add3_output, "bin/hw_add_3.raw");
 
     return processor.process_command(argc, argv);
 }

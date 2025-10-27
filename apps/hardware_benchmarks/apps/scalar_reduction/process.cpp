@@ -24,7 +24,7 @@
 using namespace Halide::Tools;
 using namespace Halide::Runtime;
 
-void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<int16_t> &buffer, const std::string &filename) {
+void save_halide_buffer_to_raw(const Halide::Runtime::Buffer<int16_t> &buffer, const std::string &filename) {
     std::ofstream out(filename, std::ios::binary);
     if (!out.is_open()) {
         std::cerr << "Failed to open file for writing: " << filename << std::endl;
@@ -122,8 +122,8 @@ int main(int argc, char ** argv) {
     }
     real_output(0) = sum;
 
-    saveHalideBufferToRawBigEndian(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
-    saveHalideBufferToRawBigEndian(real_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
 
     auto output = processor.process_command(argc, argv);
 

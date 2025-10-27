@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, re, argparse, json, copy
+from collections import OrderedDict, defaultdict, Counter
 from pretty_format_json import pretty_format_json
 
 APPS_NEEDING_HACKS = [
@@ -24,6 +25,8 @@ APPS_NEEDING_HACKS = [
     "get_e8m0_scale_test_fp",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
+    "maxpooling_dense_rv_fp",
+    "fully_connected_layer_fp",
 ]
 
 
@@ -2088,17 +2091,16 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_mat_vec_mul_fp_rv(self, json_path, bin_path):
+    def hack_for_mat_vec_mul_fp_rv(self, json_path, bin_path, top_module="mat_vec_mul_fp"):
         # Load the design JSON
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top_module = "mat_vec_mul_fp"
         tree_out_pond_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_garnet$"
         tree_out_pond_clk_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_clk_en_const$"
         pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
 
-        # Locate the mat_vec_mul_fp module
+        # Locate the top module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
             print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
@@ -2251,6 +2253,38 @@ class SelectedDesignHacker:
                 else:
                     raise RuntimeError(f"Instance {inst_name} is not a coreir.const")
 
+        # Reorder the instances entries for matrix & vector IOs
+        matrix_ios = []
+        vector_ios = []
+        other_instances = []
+        for instance in list(instance_dict.keys()):
+            if "io16in_vector_host_stencil" in instance:
+                match = re.search(r"clkwrk_(\d+)_op_hcompute_vector_glb_stencil_\1_read_0$", instance)
+                idx = int(match.group(1)) if match else -1
+                vector_ios.append((idx, instance))
+            elif "io16in_matrix_host_stencil" in instance:
+                match = re.search(r"_(\d+)(?:$|_)", instance)
+                idx = int(match.group(1)) if match else -1
+                matrix_ios.append((idx, instance))
+            else:
+                other_instances.append(instance)
+
+        # Sort the IO instances by index
+        matrix_ios.sort(key=lambda x: x[0])
+        vector_ios.sort(key=lambda x: x[0])
+
+        reordered = {}
+        for instance in other_instances:
+            reordered[instance] = instance_dict[instance]
+        for _, instance in matrix_ios:
+            reordered[instance] = instance_dict[instance]
+        for _, instance in vector_ios:
+            reordered[instance] = instance_dict[instance]
+
+        # Overwrite the instance dictionary
+        instance_dict.clear()
+        instance_dict.update(reordered)
+
         # Write the patched design back out
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
@@ -2265,12 +2299,128 @@ class SelectedDesignHacker:
                 "bitwidth": 16,
                 "datafile": "vector_host_stencil.raw",
                 "name": "vector_host_stencil",
-                "shape": [
-                    int(self.halide_gen_args_dict["matrix_width"]),
-                    int(self.halide_gen_args_dict["matrix_height"]),
-                ],
+                "shape": [int(self.halide_gen_args_dict["matrix_width"])],
             }
         )
+        for input in design_meta["IOs"]["inputs"]:
+            if input["name"] == "matrix_host_stencil":
+                input["shape"] = [
+                    int(self.halide_gen_args_dict["matrix_width"]),
+                    int(self.halide_gen_args_dict["matrix_height"]),
+                ]
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expected only one output"
+        design_meta["IOs"]["outputs"][0]["shape"] = [int(self.halide_gen_args_dict["matrix_height"])]
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_fully_connected_layer_fp_rv(self, json_path, bin_path):
+        # Implement the hack for mat_vec_mul_fp_rv first and then add bias IO and PE later
+        self.hack_for_mat_vec_mul_fp_rv(json_path, bin_path, top_module="fully_connected_layer_fp")
+
+        # Add bias IO and PE
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "fully_connected_layer_fp"
+        instances = design["namespaces"]["global"]["modules"][top_module]["instances"]
+        conns = design["namespaces"]["global"]["modules"][top_module]["connections"]
+        type_fields = design["namespaces"]["global"]["modules"][top_module]["type"][1]
+
+        # Bias input IO instantiation and connection
+        bias_io_name = "io16in_bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0"
+        if bias_io_name not in instances:
+            instances[bias_io_name] = {
+                "modref": "global.IO",
+                "modargs": {"mode": ["String", "in"]},
+                "metadata": {
+                    "glb2out_0": {
+                        "cycle_starting_addr": [0],
+                        "cycle_stride": [1],
+                        "dimensionality": 1,
+                        "extent": [int(self.halide_gen_args_dict["matrix_height"])],
+                        "read_data_starting_addr": [0],
+                        "read_data_stride": [1],
+                    }
+                },
+            }
+
+            # Module type field change for bias input IO
+            type_fields.append(
+                [  # keep naming consistent with your port convention
+                    "bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0",
+                    ["Array", 16, "BitIn"],
+                ]
+            )
+            conns.append(
+                [
+                    "self.bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0",
+                    f"{bias_io_name}.in",
+                ]
+            )
+
+        # Bias add PE instantiation and connection
+        bias_const_name = "op_hcompute_bias_add$inner_compute$c0"
+        if bias_const_name not in instances:
+            instances[bias_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {
+                    "value": [["BitVector", 84], "84'h000008000410002480082"]
+                },
+            }
+
+        bias_add_name = "op_hcompute_bias_add$inner_compute$float_DW_fp_add_bias"
+        if bias_add_name not in instances:
+            instances[bias_add_name] = {"modref": "global.PE"}
+
+        # Instruction connection for bias add PE
+        conns.append([f"{bias_add_name}.inst", f"{bias_const_name}.out"])
+
+        # Bias IO input -> bias add PE data0
+        conns.append([f"{bias_add_name}.data0", f"{bias_io_name}.out"])
+
+        # Find the existing connection: pond.data_out_pond_1 -> output IO .in
+        # And rewire through bias add PE: pond -> PE.data0, PE.O0 -> IO.in
+        pond_to_out_idx = None
+        pond_src = None
+        out_io_in = None
+        for i, (left, right) in enumerate(conns):
+            if left.endswith(".data_out_pond_1") and right.endswith(".in"):
+                pond_to_out_idx = i
+                pond_src = left
+                out_io_in = right
+                break
+
+        assert pond_to_out_idx is not None, "Could not find final pond -> output IO connection for FC."
+
+        # Remove the direct pond -> output IO connection
+        conns.pop(pond_to_out_idx)
+
+        # Insert pond -> bias_add.data1  and  bias_add.O0 -> output IO .in
+        conns.append([f"{bias_add_name}.data1", pond_src])
+        conns.append([f"{bias_add_name}.O0", out_io_in])
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Update design_meta to include bias
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+
+        # Add bias tensor description
+        if not any(x.get("name") == "bias_host_stencil" for x in design_meta["IOs"]["inputs"]):
+            design_meta["IOs"]["inputs"].append(
+                {
+                    "bitwidth": 16,
+                    "datafile": "bias_host_stencil.raw",
+                    "name": "bias_host_stencil",
+                    "shape": [int(self.halide_gen_args_dict["matrix_height"])],
+                }
+            )
+
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
@@ -3260,6 +3410,16 @@ class SelectedDesignHacker:
             f.write(pretty_format_json(design))
 
     def hack_for_get_apply_e8m0_scale_fp_rv(self, json_path, bin_path):
+        '''
+        This hack inserts MEM tiles between MU IOs and tree_mem / tree_mu PEs.
+        MEM tile output port 0 goes to tree_mem PEs, with a delay of image size.
+        MEM tile output port 1 goes to tree_mu PEs, without delay.
+        It also inserts apply-scale pipeline and scale broadcast for fused quantization.
+        '''
+        SCALE_PE_SRC = "op_hcompute_scale_output_glb_stencil$inner_compute$get_shared_exp_i3200i78_i1489.O0"
+        APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
+        DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
+
         with open(json_path, "r") as f:
             design = json.load(f)
 
@@ -3268,7 +3428,7 @@ class SelectedDesignHacker:
         top_module = design["namespaces"]["global"]["modules"][top_module_name]
         connections = top_module["connections"]
 
-        # Insert MEM tiles between MU IOs and tree_mem PEs
+        # Insert MEM tiles between MU IOs and tree_mem / tree_mu PEs
         mem_tpl = {
             "genref": "cgralib.Mem",
             "genargs": {
@@ -3290,62 +3450,516 @@ class SelectedDesignHacker:
             "modargs": {"config": ["Json", {}], "init": ["Json", None], "mode": ["String", "lake"]},
             "metadata": {"config": {}, "init": None, "mode": "lake"},
         }
-        new_instances = {}
-        new_conns = []
-        mem_count = 0
+
+        def clkwrk_idx_from_port(p):
+            # Helper function to extract MU IO clkwrk index from port name
+            m = re.search(r"_clkwrk_(\d+)_op_hcompute_mu_input_io_stencil", p)
+            return int(m.group(1)) if m else None
+
+        # Helper function to add a connection only if it doesn't already exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Collect original MU->tree connections and ports
         for a, b in list(connections):
             is_mu_a = a.startswith("io16in_mu_")
             is_mu_b = b.startswith("io16in_mu_")
-            is_tree_a = "op_hcompute_tree_mem" in a and ".data" in a
-            is_tree_b = "op_hcompute_tree_mem" in b and ".data" in b
-            if is_mu_a and is_tree_b:
+            is_tree_mem_a = "op_hcompute_tree_mem" in a and ".data" in a
+            is_tree_mem_b = "op_hcompute_tree_mem" in b and ".data" in b
+            is_tree_mu_a  = "op_hcompute_tree_mu"  in a and ".data" in a
+            is_tree_mu_b  = "op_hcompute_tree_mu"  in b and ".data" in b
+
+            if is_mu_a and (is_tree_mem_b or is_tree_mu_b):
                 mu_port, tree_port = a, b
-            elif is_mu_b and is_tree_a:
+            elif is_mu_b and (is_tree_mem_a or is_tree_mu_a):
                 mu_port, tree_port = b, a
             else:
                 continue
-            mem_name = f"mem_mu2tree_{mem_count}"
-            tpl = copy.deepcopy(mem_tpl)
-            new_instances[mem_name] = tpl
-            new_conns.append([mu_port, f"{mem_name}.data_in_0"])
-            new_conns.append([f"{mem_name}.data_out_0", tree_port])
-            mem_count += 1
+
+            # Instantiate MEMs buffering activations with matching index to MU IOs
+            mu_idx = clkwrk_idx_from_port(mu_port)
+            assert mu_idx is not None, f"Cannot parse clkwrk index from MU port: {mu_port}"
+            mem_name = f"mem_mu2tree_{mu_idx}"
+            if mem_name not in instances:
+                tpl = copy.deepcopy(mem_tpl)
+                instances[mem_name] = tpl
+
+            # Connect MU->MEM.in0
+            add_conn_once(mu_port, f"{mem_name}.data_in_0")
+
+            # Connect MEM.out0->tree_mem and MEM.out1->tree_mu
+            if "op_hcompute_tree_mem" in tree_port:
+                add_conn_once(f"{mem_name}.data_out_0", tree_port)
+            else:
+                assert "op_hcompute_tree_mu" in tree_port, f"Tree PE port {tree_port} is not a tree_mem or tree_mu port"
+                add_conn_once(f"{mem_name}.data_out_1", tree_port)
+
         def is_direct_mu2tree(edge):
+            # Helper function to check if an edge is a direct MU->tree edge in original connections
             x, y = edge
             mu_x = x.startswith("io16in_mu_")
             mu_y = y.startswith("io16in_mu_")
-            tree_x = "op_hcompute_tree_mem" in x and ".data" in x
-            tree_y = "op_hcompute_tree_mem" in y and ".data" in y
-            return (mu_x and tree_y) or (mu_y and tree_x)
+            tree_mem_x = "op_hcompute_tree_mem" in x and ".data" in x
+            tree_mem_y = "op_hcompute_tree_mem" in y and ".data" in y
+            tree_mu_x  = "op_hcompute_tree_mu"  in x and ".data" in x
+            tree_mu_y  = "op_hcompute_tree_mu"  in y and ".data" in y
+            return ((mu_x and (tree_mem_y or tree_mu_y)) or
+                    (mu_y and (tree_mem_x or tree_mu_x)))
+
+        # Remove original direct MU->tree edges
         connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
-        instances.update(new_instances)
-        connections.extend(new_conns)
 
-        # Add bogus data init to all shift registers
-        for inst_name, inst_conf in instances.items():
-            if "$d_reg" in inst_name:
-                assert inst_conf.get("genref") == "coreir.reg", f"Instance {inst_name} is not a shift register."
-                if "metadata" not in inst_conf:
-                    inst_conf["metadata"] = {}
-                inst_conf["metadata"]["extra_data"] = 1
+        # Add shift FIFO for scale output data packing
+        shift_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 1},
+        }
+        pipeline_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 0},
+        }
+        scale_output_shift_fifo_name = "scale_output_shift_fifo"
+        if scale_output_shift_fifo_name not in instances:
+            instances[scale_output_shift_fifo_name] = copy.deepcopy(shift_fifo_tpl)
 
-        # Output needs to skip first half as they are results from bogus data
+        # Collect the pre-hacked single scale-output IO, then rename + clone to indexed names
+        scale_output_IO = []
+        existing_ios = [n for n in instances.keys() if "io16_hw_scale_output_stencil_op_hcompute_hw_scale_output_stencil_write_0" in n]
+        assert len(existing_ios) == 1, "Expect one scale output IO of pre-hacked graph"
+        old_io = existing_ios[0]
+        old_port = old_io.replace("io16_", "")
+
+        # Remove any old top-level type/connection using the legacy non-indexed port
+        type_fields = top_module["type"][1]
+        type_fields[:] = [f for f in type_fields if f[0] != old_port]
+        connections[:] = [c for c in connections if c[0] != f"self.{old_port}" and c[1] != f"self.{old_port}"]
+        connections[:] = [c for c in connections if c[0] != f"{old_io}.out" and c[1] != f"{old_io}.out"]
+        connections[:] = [c for c in connections if old_io not in c[0] and old_io not in c[1]]
+
+        # Build new indexed names
+        new_io0 = "io16_hw_scale_output_stencil_clkwrk_0_op_hcompute_hw_scale_output_stencil_0_write_0"
+        new_io1 = "io16_hw_scale_output_stencil_clkwrk_1_op_hcompute_hw_scale_output_stencil_1_write_0"
+
+        # Rename existing to idx 0, then clone idx 1; insertion order yields [0, 1]
+        inst_copy = copy.deepcopy(instances.pop(old_io))
+        instances[new_io0] = inst_copy
+        if new_io1 not in instances:
+            instances[new_io1] = copy.deepcopy(inst_copy)
+
+        # Add new top-level type fields and connect self port to each IO.out
+        for io_name, idx in [(new_io0, 0), (new_io1, 1)]:
+            port = io_name.replace("io16_", "")
+            if all(field[0] != port for field in type_fields):
+                type_fields.append([port, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port}", f"{io_name}.out")
+            scale_output_IO.append(io_name)
+
+        # Remove any old scale PE -> scale IO .in connections before rewiring
+        scale_io_inputs = {f"{n}.in" for n in scale_output_IO}
+        connections[:] = [c for c in connections if c[0] not in scale_io_inputs and c[1] not in scale_io_inputs]
+
+        # Create scale data packing PE and connections
+        scale_data_packing_pe_name = "scale_output_data_packing_stencil$inner_compute$data_packing"
+        scale_data_packing_const_name = "scale_output_data_packing_stencil$inner_compute$c0_dp"
+        if scale_data_packing_pe_name not in instances:
+            instances[scale_data_packing_pe_name] = {"modref": "global.PE"}
+        if scale_data_packing_const_name not in instances:
+            instances[scale_data_packing_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
+            }
+        add_conn_once(f"{scale_data_packing_pe_name}.inst", f"{scale_data_packing_const_name}.out")
+
+        # SCALE_PE_SRC -> data_packing.in0
+        add_conn_once(SCALE_PE_SRC, f"{scale_data_packing_pe_name}.data0")
+
+        # SCALE_PE_SRC -> shift FIFO -> data_packing.in1
+        add_conn_once(SCALE_PE_SRC, f"{scale_output_shift_fifo_name}.in")
+        add_conn_once(f"{scale_output_shift_fifo_name}.out", f"{scale_data_packing_pe_name}.data1")
+
+        # Insert a MEM tile to broadcast scale data_packing output to both IOs
+        scale_output_broadcast_mem_name = "mem_scale_output_broadcast"
+        if scale_output_broadcast_mem_name not in instances:
+            instances[scale_output_broadcast_mem_name] = copy.deepcopy(mem_tpl)
+        # Connect data_packing.O0 -> MEM.data_in_0
+        add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{scale_output_broadcast_mem_name}.data_in_0")
+
+        # data_packing (via MEM).O0 -> additional FIFOs for index 0 IO
+        # We need at least 5 additional FIFOs to balance the paths. We might remove this if we can improve the data rate.
+        additional_fifo_names = []
+        num_additional_fifos = 5  # Add 5 additional FIFOs
+
+        # Create FIFO instance name
+        for i in range(num_additional_fifos):
+            fifo_name = f"scale_output_additional_fifo_{i}"
+            additional_fifo_names.append(fifo_name)
+            if fifo_name not in instances:
+                instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
+
+        # Connect MEM.data_out_0 to first additional FIFO
+        if num_additional_fifos > 0:
+            add_conn_once(f"{scale_output_broadcast_mem_name}.data_out_0", f"{additional_fifo_names[0]}.in")
+
+            # Chain the additional FIFOs
+            for i in range(1, num_additional_fifos):
+                add_conn_once(f"{additional_fifo_names[i-1]}.out", f"{additional_fifo_names[i]}.in")
+
+            # Connect last additional FIFO to index 0 IO
+            index_0_io = scale_output_IO[0]  # First IO is index 0
+            add_conn_once(f"{additional_fifo_names[-1]}.out", f"{index_0_io}.in")
+
+            # Connect MEM.data_out_0 directly to index 1 IO (bypass additional FIFOs)
+            index_1_io = scale_output_IO[1]  # Second IO is index 1
+            add_conn_once(f"{scale_output_broadcast_mem_name}.data_out_0", f"{index_1_io}.in")
+        else:
+            # Fallback: connect directly to both IOs if no additional FIFOs
+            for io_name in scale_output_IO:
+                add_conn_once(f"{scale_output_broadcast_mem_name}.data_out_0", f"{io_name}.in")
+
+        # Configure GLB store DMA to extract valid data of scale output, and consider data packing
+        # Collect all scale output IOs instances
+        scale_output_IO_idx = 0
+        total_channels = int(self.halide_gen_args_dict["vec_width"])
+        img_size = int(self.halide_gen_args_dict["vec_height"])
+        mu_OC = int(self.halide_gen_args_dict["mu_i"])
+        number_of_blocks = total_channels // (mu_OC * 2)
         for instance_name, instance_conf in instances.items():
-            if re.match(r"io16_.*_output", instance_name):
-                instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = int(self.halide_gen_args_dict["vec_height"])
+            if "io16_hw_scale_output_stencil" in instance_name:
+                # Two cases:
+                # 1. vec_width is 64, meaning we only skip at the very beginning
+                # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
+                assert (total_channels >= 64 and total_channels % 64 == 0), f"vec_width must be >= 64 and divisible by 64 as mx block size is 64"
+                instance_conf["metadata"]["in2glb_0"]["cycle_starting_addr"][0] = scale_output_IO_idx
+                instance_conf["metadata"]["in2glb_0"]["cycle_stride"] = [len(scale_output_IO)]
+                instance_conf["metadata"]["in2glb_0"]["dimensionality"] = 1
+                # Number of scales is divided by 2 because of data packing
+                instance_conf["metadata"]["in2glb_0"]["extent"] = [img_size * number_of_blocks // 2 // len(scale_output_IO)]
+                instance_conf["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                instance_conf["metadata"]["in2glb_0"]["write_data_stride"] = [1]
+
+                scale_output_IO_idx += 1
+
+        # Apply-scale pipeline + scale broadcast + output IOs
+        pe_tpl = {
+            "modref": "global.PE"
+        }
+        apply_scale_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], APPLY_SCALE_INSTR]},
+        }
+        # Const template for data_packing PE instruction
+        data_packing_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
+        }
+
+        # Output GLB IO template for quantized_output_stencil
+        # Two cases:
+        # 1. vec_width is 64, meaning we only skip at the very beginning
+        # 2. vec_width >=128 and vec_width % 64 == 0, meaning we have to skip pixels between loops
+        # if total_channels == 64:
+        #     io_tpl = {
+        #         "modref": "global.IO",
+        #         "modargs": {"mode": ["String", "out"]},
+        #         "metadata": {
+        #             "in2glb_0": {
+        #                 "cycle_starting_addr": [img_size * 2],
+        #                 "cycle_stride": [1],
+        #                 "dimensionality": 1,
+        #                 "extent": [img_size * 2],
+        #                 "write_data_starting_addr": [0],
+        #                 "write_data_stride": [1],
+        #             }
+        #         },
+        #     }
+        # else:
+        #     io_tpl = {
+        #         "modref": "global.IO",
+        #         "modargs": {"mode": ["String", "out"]},
+        #         "metadata": {
+        #             "in2glb_0": {
+        #                 "cycle_starting_addr": [img_size * 2],
+        #                 "cycle_stride": [1, img_size * 2 + 1],
+        #                 "dimensionality": 2,
+        #                 "extent": [
+        #                     img_size * 2,
+        #                     # Because block size is double the size of mu_OC
+        #                     total_channels // mu_OC // 2
+        #                 ],
+        #                 "write_data_starting_addr": [0],
+        #                 "write_data_stride": [1, 1],
+        #             }
+        #         },
+        #     }
+
+        # Output GLB IO template
+        io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "out"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [int(self.halide_gen_args_dict["vec_height"])],
+                    "cycle_stride": [
+                        1,
+                        int(self.halide_gen_args_dict["vec_height"]) + 1,
+                    ],
+                    "dimensionality": 2,
+                    "extent": [
+                        int(self.halide_gen_args_dict["vec_height"]),
+                        int(self.halide_gen_args_dict["vec_width"])
+                        // int(self.halide_gen_args_dict["mu_i"])
+                        // 2 # Because of data packing,
+                    ],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1, 1],
+                }
+            },
+        }
+
+        # Collect MEM.out1 sources, emitting activations without delay
+        mem_no_delay_srcs = []
+        for iname in instances.keys():
+            m = re.fullmatch(r"mem_mu2tree_(\d+)", iname)
+            if m:
+                mem_no_delay_srcs.append((int(m.group(1)), f"{iname}.data_out_1"))
+        mem_no_delay_srcs.sort(key=lambda x: x[0])
+
+        # Collect MEM.out0 sources, emitting activations with delay of image size
+        mem_with_delay_srcs = []
+        for iname in instances.keys():
+            m = re.fullmatch(r"mem_mu2tree_(\d+)", iname)
+            if m:
+                mem_with_delay_srcs.append((int(m.group(1)), f"{iname}.data_out_0"))
+        mem_with_delay_srcs.sort(key=lambda x: x[0])
+
+        # Determine how many pipeline registers we need (max tree depth + 1)
+        # NOTE: This is not used. We don't actually insert shift registers here as it makes the graph unroutable.
+        n_regs = int(self.halide_gen_args_dict["tree_stages"]) + 1
+        assert n_regs % 2 == 0, "Number of pipeline registers must be even"
+
+        def build_apply_pipeline(group, idx, src, n_regs):
+            """
+            Build a pipeline with shift registers
+            group: "mu" or "mem" for naming the pipeline
+            idx: lane index [0..31]
+            src: source for this lane (mem_mu2tree.data_out_0 or mem_mu2tree.data_out_1)
+            """
+
+            naming_base = f"apply_scale_{group}_{idx}_stencil"
+            pe_name = f"{naming_base}$inner_compute$apply_scale"
+            c0_name = f"{naming_base}$inner_compute$c0"
+
+            # PE + const connection for apply scale instruction
+            instances[pe_name] = copy.deepcopy(pe_tpl)
+            instances[c0_name] = copy.deepcopy(apply_scale_const_tpl)
+            add_conn_once(f"{pe_name}.inst", f"{c0_name}.out")
+
+            # Shift-FIFO chain
+            head = None
+            prev = None
+            if n_regs > 0:
+                for k in range(n_regs):
+                    rname = f"{naming_base}$d_reg__U0$reg{k}"
+                    instances[rname] = copy.deepcopy(shift_fifo_tpl)
+                    if k == 0:
+                        # First shift FIFO
+                        add_conn_once(src, f"{rname}.in")
+                        head = rname
+                    else:
+                        add_conn_once(f"{prev}.out", f"{rname}.in")
+                    prev = rname
+                data0_src = f"{prev}.out"  # Tail shift FIFO feeds PE
+            else:
+                data0_src = src  # Bypass shift FIFOs and feed src directly
+
+            # Tail -> PE.data0, and scale broadcast to data1 port
+            add_conn_once(data0_src, f"{pe_name}.data0")
+            assert SCALE_PE_SRC.split(".")[0] in instances, f"SCALE_PE_SRC {SCALE_PE_SRC} not found in instances, check get scale PE name."
+            add_conn_once(SCALE_PE_SRC, f"{pe_name}.data1")
+
+            return f"{pe_name}.O0"
+
+        # Build 32 MU pipelines and 32 MEM pipelines as we have 32 MU IOs in Zircon
+        # Also create apply_outputs dict for sorting and data packing
+        apply_outputs = {"mem_no_delay": {}, "mem_with_delay": {}}
+        for idx, pin in mem_no_delay_srcs:
+            apply_outputs["mem_no_delay"][idx] = build_apply_pipeline("mem_no_delay", idx, pin, n_regs=0)
+
+        for idx, pin in mem_with_delay_srcs:
+            apply_outputs["mem_with_delay"][idx] = build_apply_pipeline("mem_with_delay", idx, pin, n_regs=0)
+
+        # Data_packing stage: pair adjacent apply_scale PEs
+        # Create pending lists for sorting
+        pending_ios_mem_no_delay = []
+        pending_ios_mem_with_delay = []
+
+        # Pack adjacent apply_scale outputs for mem_no_delay, which corresponds to second 32 channels
+        mem_no_delay_idxs = sorted(apply_outputs["mem_no_delay"].keys())
+        for i in range(0, len(mem_no_delay_idxs) - 1, 2):
+            idx0, idx1 = mem_no_delay_idxs[i], mem_no_delay_idxs[i + 1]
+
+            naming_base = f"data_packing_pair_mem_no_delay_{idx0}_{idx1}_stencil"
+            data_packing_pe = f"{naming_base}$inner_compute$data_packing"
+            data_packing_const = f"{naming_base}$inner_compute$c0_dp"
+
+            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
+
+            add_conn_once(apply_outputs["mem_no_delay"][idx0], f"{data_packing_pe}.data1") #
+            add_conn_once(apply_outputs["mem_no_delay"][idx1], f"{data_packing_pe}.data0")
+
+            orig_idx = idx0
+            pending_ios_mem_no_delay.append((orig_idx, data_packing_pe))
+
+        # Pack adjacent apply_scale outputs for mem_with_delay, which corresponds to first 32 channels
+        mem_idxs = sorted(apply_outputs["mem_with_delay"].keys())
+        for i in range(0, len(mem_idxs) - 1, 2):
+            idx0, idx1 = mem_idxs[i], mem_idxs[i + 1]
+
+            naming_base = f"data_packing_pair_mem_with_delay_{idx0}_{idx1}_stencil"
+            data_packing_pe = f"{naming_base}$inner_compute$data_packing"
+            data_packing_const = f"{naming_base}$inner_compute$c0_dp"
+
+            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
+
+            add_conn_once(apply_outputs["mem_with_delay"][idx0], f"{data_packing_pe}.data1")
+            add_conn_once(apply_outputs["mem_with_delay"][idx1], f"{data_packing_pe}.data0")
+
+            orig_idx = idx0
+            pending_ios_mem_with_delay.append((orig_idx, data_packing_pe))
+
+        # Instantiate output IOs, MEM with delay first, then MEM no delay
+        pending_ios_mem_with_delay = sorted(pending_ios_mem_with_delay, key=lambda x: x[0])
+        pending_ios_mem_no_delay  = sorted(pending_ios_mem_no_delay,  key=lambda x: x[0])
+        quantized_output_ios = []
+
+        # # Insert MEM tiles between data packing PEs and quantized output IOs
+        # # Pair every two data packing PEs and connect them to MEM tiles
+        # all_pending_ios = []
+
+        # # Add MEM with delay data packing PEs
+        # for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_with_delay):
+        #     all_pending_ios.append((ascending_idx, data_packing_pe, "mem_with_delay"))
+
+        # # Add MEM no delay data packing PEs
+        # idx_offset = len(pending_ios_mem_with_delay)
+        # for ascending_idx, (_, data_packing_pe) in enumerate(pending_ios_mem_no_delay):
+        #     all_pending_ios.append((idx_offset + ascending_idx, data_packing_pe, "mem_no_delay"))
+
+        # # Sort all pending IOs by their ascending index
+        # all_pending_ios.sort(key=lambda x: x[0])
+
+        # # Assert that we have an even number of data packing PEs for pairing
+        # assert len(all_pending_ios) % 2 == 0, f"Expected even number of data packing PEs for pairing, got {len(all_pending_ios)}"
+
+        # # Create MEM tiles for pairing data packing PEs to interleave data streams
+        # mem_tile_outputs = []
+        # pair_offset = len(all_pending_ios) // 2
+        # num_pipeline_fifos = 7  # Number of pipeline FIFOs to add between data_packing_pe1 and MEM tile
+        # for pair_idx in range(pair_offset):
+        #     idx0, data_packing_pe0, group0 = all_pending_ios[pair_idx]
+        #     idx1, data_packing_pe1, group1 = all_pending_ios[pair_idx + pair_offset]
+
+        #     # Create MEM tile for this pair to interleave data streams
+        #     mem_tile_name = f"mem_quantized_output_pair_{idx0}_{idx1}"
+        #     mem_tile_inst = copy.deepcopy(mem_tpl)
+        #     instances[mem_tile_name] = mem_tile_inst
+
+        #     # Connect data packing PEs to MEM tile inputs
+        #     add_conn_once(f"{data_packing_pe0}.O0", f"{mem_tile_name}.data_in_0")
+
+        #     # Create pipeline FIFOs for data_packing_pe1.O0 -> mem_tile_name.data_in_1 path
+        #     # This is a bit tricky. We want to ensure the data going into both input ports of MEM tile won't arrive at the same time.
+        #     # We need write-after-write constraint, but looks like it's not implemented.
+        #     # Adding pipeline FIFOs at pre-PnR stage won't actually gurantee the data won't arrive at the same time. Changing placement may cause a bug.
+        #     fifo_names = []
+        #     for fifo_idx in range(num_pipeline_fifos):
+        #         fifo_name = f"pipeline_fifo_{mem_tile_name}_data_in_1_{fifo_idx}"
+        #         fifo_names.append(fifo_name)
+        #         instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
+
+        #     # Chain the FIFOs together
+        #     add_conn_once(f"{data_packing_pe1}.O0", f"{fifo_names[0]}.in")
+        #     for i in range(1, num_pipeline_fifos):
+        #         add_conn_once(f"{fifo_names[i-1]}.out", f"{fifo_names[i]}.in")
+        #     add_conn_once(f"{fifo_names[num_pipeline_fifos-1]}.out", f"{mem_tile_name}.data_in_1")
+
+        #     # Store MEM tile outputs for later connection to IOs
+        #     mem_tile_outputs.append((pair_idx, f"{mem_tile_name}.data_out_0", f"{mem_tile_name}.data_out_1"))
+
+        # mem_with_delay group
+        for ascending_idx, (_orig_idx, data_packing_pe) in enumerate(pending_ios_mem_with_delay):
+            io_idx = ascending_idx  # 0..15
+            io_name = f"io16_quantized_output_stencil_clkwrk_{io_idx}_op_hcompute_quantized_output_stencil_{io_idx}_write_0"
+            if io_name not in instances:
+                instances[io_name] = copy.deepcopy(io_tpl)
+            add_conn_once(f"{data_packing_pe}.O0", f"{io_name}.in")
+            quantized_output_ios.append(io_name)
+
+        # mem_no_delay group
+        base = len(pending_ios_mem_with_delay)  # 16
+        for ascending_idx, (_orig_idx, data_packing_pe) in enumerate(pending_ios_mem_no_delay):
+            io_idx = base + ascending_idx  # 16..31
+            io_name = f"io16_quantized_output_stencil_clkwrk_{io_idx}_op_hcompute_quantized_output_stencil_{io_idx}_write_0"
+            if io_name not in instances:
+                instances[io_name] = copy.deepcopy(io_tpl)
+            add_conn_once(f"{data_packing_pe}.O0", f"{io_name}.in")
+            quantized_output_ios.append(io_name)
+
+        # # Create quantized output IOs connected to MEM tile outputs to interleave data streams
+        # for mem_tile_idx, output0, output1 in mem_tile_outputs:
+        #     # Create one IO connected to MEM tile output 0 (renamed with halved index)
+        #     io_name = f"io16_quantized_output_stencil_clkwrk_{mem_tile_idx}_op_hcompute_quantized_output_stencil_{mem_tile_idx}_write_0"
+        #     instances[io_name] = copy.deepcopy(io_tpl)
+        #     add_conn_once(output0, f"{io_name}.in")
+        #     quantized_output_ios.append(io_name)
+
+        # Type instances of self.<port> to corresponding IO.out
+        type_fields = top_module["type"][1]
+        for io_inst in quantized_output_ios:
+            port_name = io_inst.replace("io16_", "")
+            type_fields.append([port_name, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port_name}", f"{io_inst}.out")
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-        # Also update design_meta_halide.json to update mu_inputs shape
-        # TODO: This applies hack to design_meta as well. Do we want to create a new class?
+        # Update design_meta_halide.json to update mu_inputs shape and add quantized_output_stencil
         design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
         with open(design_meta_path, "r") as f:
             design_meta = json.load(f)
         assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input which is mu input"
         # Real input shape should match vec_width instead of vec_width_fake
         design_meta["IOs"]["inputs"][0]["shape"][0] = int(self.halide_gen_args_dict["vec_width"])
+        # Add quantized_output_stencil
+        design_meta["IOs"]["outputs"].append(
+            {
+                "bitwidth": 16,
+                "datafile": "quantized_output_stencil.raw",
+                "name": "quantized_output_stencil",
+                "shape": [mu_OC, img_size * total_channels // mu_OC // 2],
+            }
+        )
+        # Fix the name and shape of hw_scale_output_stencil
+        for output in design_meta["IOs"]["outputs"]:
+            if output["name"] == "hw_scale_output_stencil":
+                output["datafile"] = "hw_scale_output.raw"
+                # img_size * num_blocks // 2 because of data packing
+                output["shape"] = [img_size * total_channels // mu_OC // 2 // 2]
+                break
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
@@ -3446,9 +4060,6 @@ class SelectedDesignHacker:
             add_conn_once(f"{adder_inst}.O0", f"{out_io_inst}.in")
             add_conn_once(f"self.{tl_data_port}", f"{out_io_inst}.out")
 
-        # Reorder IO out instances by clkwrk index
-        from collections import OrderedDict
-
         inst_items = list(instances.items())
         io_out_group = []
         others = []
@@ -3484,6 +4095,475 @@ class SelectedDesignHacker:
             add_3_output["name"] = "add_3_output_stencil"
             add_3_output["datafile"] = "hw_add_3.raw"
             design_meta["IOs"]["outputs"].append(add_3_output)
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_maxpooling_dense_rv_fp_rv(self, json_path, bin_path):
+        '''
+        Unhacked compute graph consists of unroll number of PE chains with IOs and MEMs servring as line buffers.
+        Some chain use one MEM and some use two, while one MEM per chain is enough.
+        To handle multiple channels per lane, unhacked graph uses n_ic // unroll FIFOs between adjacent PEs to interleave across channels.
+        Dense RV maxpooling is not compilable with clockwork, so there are redundant FIFOs for compute delay matching.
+        This hack collapses all redundant FIFOs, remove redundant MEMs, and configure GLB DMA to handle multiple channels per lane.
+        '''
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "maxpooling_dense_rv_fp"
+        module = design["namespaces"]["global"]["modules"][top_module_name]
+        instances = module["instances"]
+        connections = module["connections"]
+
+        # -----Collapse all shift FIFO $d_reg chains-----
+        # Define helpers to identify shift chains
+        def is_shift(edge_point: str) -> bool:
+            return "$d_reg" in edge_point
+
+        def is_shift_in(edge_point: str) -> bool:
+            return is_shift(edge_point) and edge_point.endswith(".in")
+
+        def is_shift_out(edge_point: str) -> bool:
+            return is_shift(edge_point) and edge_point.endswith(".out")
+
+        def inst_of(edge_point: str) -> str:
+            return edge_point.rsplit(".", 1)[0]
+
+        # Collect directed views of shift chains
+        shift_in_driver = {}
+        shift_out_fanout = defaultdict(set)
+        for a, b in connections:
+            if is_shift_out(a): shift_out_fanout[a].add(b)
+            if is_shift_out(b): shift_out_fanout[b].add(a)
+            if is_shift_in(a): shift_in_driver[a] = b
+            if is_shift_in(b): shift_in_driver[b] = a
+
+        head_in_ports = [ip for ip, drv in shift_in_driver.items() if not is_shift_out(drv)]
+
+        bridged = set()
+        for head_in in head_in_ports:
+            upstream_src = shift_in_driver[head_in]
+            head_out = f"{inst_of(head_in)}.out"
+            stack = [head_out]
+            visited_out = set()
+            sinks = set()
+            while stack:
+                outp = stack.pop()
+                if outp in visited_out:
+                    continue
+                visited_out.add(outp)
+                for nxt in shift_out_fanout.get(outp, []):
+                    if is_shift_in(nxt):
+                        stack.append(f"{inst_of(nxt)}.out")
+                    else:
+                        sinks.add(nxt)
+            for dst in sinks:
+                bridged.add((dst, upstream_src))
+
+        kept = []
+        for a, b in connections:
+            if is_shift(a) or is_shift(b):
+                continue
+            kept.append([a, b])
+
+        tmp = []
+        seen = set()
+        for d, s in kept + [[d, s] for (d, s) in sorted(bridged)]:
+            key = (d, s)
+            if key in seen: continue
+            seen.add(key)
+            tmp.append([d, s])
+        connections = tmp
+
+        for name in list(instances.keys()):
+            if "$d_reg" in name:
+                del instances[name]
+
+        # -----Collect PE chains using constant PE as heads-----
+        # Define patterns for PEs, MEMs, and IOs. ChatGPT generated regexes.
+        floatmax_pat = re.compile(
+            r"^(?P<base>op_hcompute_max_pooling_inner_stencil_(?P<chain>\d+)"
+            r"\$inner_compute\$float_max_[^\.]+)\.(?P<pin>.+)$"
+        )
+        const_pat = re.compile(
+            r"^(?P<base>op_hcompute_max_pooling_inner_stencil(?:_(?P<chain>\d+))?"
+            r"\$inner_compute\$const_i\d+_i\d+)\.(?P<pin>.+)$"
+        )
+        io_out_pat = re.compile(r"^io16in_input_host_stencil_clkwrk_\d+_.+_read_0\.out$")
+        mem_out_pat = re.compile(
+            r"^(?P<mem>input_host_global_wrapper_global_wrapper_stencil"
+            r"\$ub_input_host_global_wrapper_global_wrapper_stencil_[^\.]+_garnet)\.data_out_(?P<port>[01])$"
+        )
+        mem_any_pat = re.compile(
+            r"^(?P<mem>input_host_global_wrapper_global_wrapper_stencil"
+            r"\$ub_input_host_global_wrapper_global_wrapper_stencil_[^\.]+_garnet)\."
+        )
+
+        # Collect all max PEs per chain with O0->data1 conns
+        chain_pe_set = defaultdict(set)
+        pe_next = defaultdict(dict)
+        pe_prev = defaultdict(dict)
+
+        for a, b in connections:
+            for ep in (a, b):
+                m = floatmax_pat.match(ep)
+                if m:
+                    chain_pe_set[int(m.group("chain"))].add(m.group("base"))
+            for src, dst in ((a, b), (b, a)):
+                ms = floatmax_pat.match(src)
+                md = floatmax_pat.match(dst)
+                if not (ms and md):
+                    continue
+                if ms.group("pin") != "O0" or md.group("pin") != "data1":
+                    continue
+                c = int(ms.group("chain"))
+                if c != int(md.group("chain")):
+                    continue
+                u = ms.group("base")
+                v = md.group("base")
+                pe_next[c][u] = v
+                pe_prev[c][v] = u
+
+        # Identify head max PE from const.O0 -> max.data0
+        chain_head_max = {}
+        chain_const_base = {}
+        for a, b in connections:
+            for src, dst in ((a, b), (b, a)):
+                mc = const_pat.match(src)
+                md = floatmax_pat.match(dst)
+                if not (mc and md):
+                    continue
+                if mc.group("pin") != "O0" or md.group("pin") != "data0":
+                    continue
+                chain = int(mdst_chain := md.group("chain"))
+                chain_head_max[chain] = md.group("base")
+                chain_const_base[chain] = mc.group("base")
+
+        # Order PEs: [const PE] + walk from first max PE via O0->data1
+        # Note: const PE is needed for providing minimum BF16 value
+        chain_to_ordered_pes = {}
+        for chain, pes in chain_pe_set.items():
+            head_max = chain_head_max.get(chain)
+            if not head_max:
+                head_candidates = [p for p in pes if p not in pe_prev[chain]]
+                head_max = sorted(head_candidates)[0] if head_candidates else sorted(pes)[0]
+            order = []
+            cur = head_max
+            visited = set()
+            while cur and cur not in visited:
+                order.append(cur)
+                visited.add(cur)
+                cur = pe_next[chain].get(cur)
+            const_base = chain_const_base.get(chain)
+            chain_to_ordered_pes[chain] = ([const_base] if const_base else []) + order
+
+        chain_ids = [c for c in sorted(chain_to_ordered_pes) if len(chain_to_ordered_pes[c]) >= 1]
+
+        # Allowed data1 edges: const -> first max PE, and max PE cascade O0->data1
+        allowed_d1 = set()
+        for c in chain_to_ordered_pes:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+            has_const = "$const_" in ordered[0]
+            real = ordered[1:] if has_const else ordered[:]
+            # const -> PE1.data1
+            if has_const and real:
+                const_base = ordered[0]
+                pe1 = real[0]
+                allowed_d1.add((pe1 + ".data1", const_base + ".O0"))
+            # PEk.O0 -> PE(k+1).data1
+            for u, v in zip(real[:-1], real[1:]):
+                allowed_d1.add((v + ".data1", u + ".O0"))
+
+        # -----Identify IO and MEMs per chain and only keep one MEM per chain-----
+        chain_io = {}
+        chain_mems = defaultdict(Counter)
+        for a, b in connections:
+            for src, dst in ((a, b), (b, a)):
+                if io_out_pat.match(src):
+                    md = floatmax_pat.match(dst)
+                    if md and md.group("pin") == "data0":
+                        chain_io[int(md.group("chain"))] = src
+                mout = mem_out_pat.match(src)
+                mdst = floatmax_pat.match(dst)
+                if mout and mdst and mdst.group("pin") == "data0":
+                    chain = int(mdst.group("chain"))
+                    chain_mems[chain][mout.group("mem")] += 1
+
+        chain_mem_keep = {}
+        for c in chain_ids:
+            if chain_mems[c]:
+                chain_mem_keep[c] = chain_mems[c].most_common(1)[0][0]
+            else:
+                any_mem = next((n for n in instances if mem_any_pat.match(n)), None)
+                if any_mem:
+                    chain_mem_keep[c] = any_mem
+
+        # -----Remove old feeds into PE.data0 and mark MEMs to delete-----
+        to_delete_mems = set()
+        for c in chain_ids:
+            keep = chain_mem_keep.get(c)
+            if keep:
+                for mname in chain_mems[c]:
+                    if mname != keep:
+                        to_delete_mems.add(mname)
+
+        # Determine compute PEs and exclude const PE
+        pe_data0_targets = set()
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            # const present if string contains "$const_" (robust)
+            start_idx = 1 if ordered and "$const_" in ordered[0] else 0
+            for base in ordered[start_idx:]:
+                pe_data0_targets.add(base + ".data0")
+
+        filtered = []
+        for a, b in connections:
+            drop = False
+
+            # Drop edges with deleted MEMs
+            for ep in (a, b):
+                ma = mem_any_pat.match(ep)
+                if ma and ma.group("mem") in to_delete_mems:
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges with compute PE.data0 targets waiting to be rewired
+            if a in pe_data0_targets or b in pe_data0_targets:
+                continue
+
+            # Drop edges with MEM.data_out_* -> PE.data0 (even for kept MEMs and waiting to be rewired)
+            for src, dst in ((a, b), (b, a)):
+                if mem_out_pat.match(src) and dst in pe_data0_targets:
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges into max PE.data1 unless it is explicitly allowed
+            def ends_at_disallowed_d1(x, y):
+                return (x.endswith(".data1") and floatmax_pat.match(x) and (x, y) not in allowed_d1)
+
+            if ends_at_disallowed_d1(a, b) or ends_at_disallowed_d1(b, a):
+                continue
+
+            filtered.append([a, b])
+        connections = filtered
+
+        # -----Rename kept MEMs (mem_c{chain}) and update endpoints-----
+        def replace_endpoint_prefix(ep: str, old: str, new: str) -> str:
+            return ep.replace(old + ".", new + ".") if ep.startswith(old + ".") else ep
+
+        rename_map = {}
+        for c in chain_ids:
+            old = chain_mem_keep.get(c)
+            if not old:
+                continue
+            new = f"mem_c{c}"
+            unique = new
+            k = 0
+            while unique in instances and unique != old:
+                k += 1
+                unique = f"{new}_{k}"
+            if unique != old:
+                instances[unique] = instances.pop(old)
+                rename_map[old] = unique
+
+        if rename_map:
+            updated = []
+            for a, b in connections:
+                na, nb = a, b
+                for old, new in rename_map.items():
+                    na = replace_endpoint_prefix(na, old, new)
+                    nb = replace_endpoint_prefix(nb, old, new)
+                updated.append([na, nb])
+            connections = updated
+
+        def mem_data_out(c: int, port: int) -> str:
+            base = rename_map.get(chain_mem_keep[c], chain_mem_keep[c])
+            return f"{base}.data_out_{port}"
+
+        # -----Instantiate six FIFOs per chain and wire the line buffer graph-----
+        shift_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 1},
+        }
+
+        # Define helper to create shift FIFO names
+        def create_shift_fifo_name(base: str) -> str:
+            if base not in instances:
+                return base
+            idx = 1
+            while f"{base}_{idx}" in instances:
+                idx += 1
+            return f"{base}_{idx}"
+
+        # Define helper to add connections
+        def add_conn(dst: str, src: str):
+            connections.append([dst, src])
+
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+
+            first_is_const = ordered and ("$const_" in ordered[0])
+            compute_pes = ordered[1:] if first_is_const else ordered[:]
+
+            # Group PEs by IO, MEM port1, and MEM port0
+            group_io = compute_pes[0:3]
+            group_mem_port1 = compute_pes[3:6]
+            group_mem_port0 = compute_pes[6:9]
+
+            io_src = chain_io.get(c)
+            if not io_src:
+                # Pick any io.out in design
+                for a, b in connections:
+                    if io_out_pat.match(a): io_src = a; break
+                    if io_out_pat.match(b): io_src = b; break
+            if not io_src:
+                continue
+
+            # Ensure first compute PE also has const->data1 (old const->data0 is removed)
+            const_base = chain_const_base.get(c)
+            pe1 = group_io[0] if group_io else None
+
+            # Create six FIFOs per chain
+            names = [
+                create_shift_fifo_name(f"fifo_c{c}_io_0"),
+                create_shift_fifo_name(f"fifo_c{c}_io_1"),
+                create_shift_fifo_name(f"fifo_c{c}_p1_0"),
+                create_shift_fifo_name(f"fifo_c{c}_p1_1"),
+                create_shift_fifo_name(f"fifo_c{c}_p0_0"),
+                create_shift_fifo_name(f"fifo_c{c}_p0_1"),
+            ]
+            for fname in names:
+                instances[fname] = copy.deepcopy(shift_fifo_tpl)
+
+            fifo_io0, fifo_io1, fifo_p10, fifo_p11, fifo_p00, fifo_p01 = names
+
+            # IO path: IO->PE1, IO->fifo0->PE2, IO->fifo0->fifo1->PE3
+            if len(group_io) >= 1: add_conn(group_io[0] + ".data0", io_src)
+            add_conn(fifo_io0 + ".in", io_src)
+            if len(group_io) >= 2: add_conn(group_io[1] + ".data0", fifo_io0 + ".out")
+            add_conn(fifo_io1 + ".in", fifo_io0 + ".out")
+            if len(group_io) >= 3: add_conn(group_io[2] + ".data0", fifo_io1 + ".out")
+
+            # Explicitly add const -> first compute PE.data1
+            if const_base and pe1:
+                add_conn(pe1 + ".data1", const_base + ".O0")
+
+            # MEM port1: port1->PE4, ->fifo2->PE5, ->fifo2->fifo3->PE6
+            if group_mem_port1:
+                p1_src = mem_data_out(c, 1)
+                add_conn(group_mem_port1[0] + ".data0", p1_src)
+                add_conn(fifo_p10 + ".in", p1_src)
+                if len(group_mem_port1) >= 2: add_conn(group_mem_port1[1] + ".data0", fifo_p10 + ".out")
+                add_conn(fifo_p11 + ".in", fifo_p10 + ".out")
+                if len(group_mem_port1) >= 3: add_conn(group_mem_port1[2] + ".data0", fifo_p11 + ".out")
+
+            # MEM port0: port0->PE7, ->fifo4->PE8, ->fifo4->fifo5->PE9
+            if group_mem_port0:
+                p0_src = mem_data_out(c, 0)
+                add_conn(group_mem_port0[0] + ".data0", p0_src)
+                add_conn(fifo_p00 + ".in", p0_src)
+                if len(group_mem_port0) >= 2: add_conn(group_mem_port0[1] + ".data0", fifo_p00 + ".out")
+                add_conn(fifo_p01 + ".in", fifo_p00 + ".out")
+                if len(group_mem_port0) >= 3: add_conn(group_mem_port0[2] + ".data0", fifo_p01 + ".out")
+            # IO.O0: O0 -> PE1, ->fifo0->PE2, ->fifo0->fifo1->PE3
+            if const_base and group_io:
+                add_conn(group_io[0] + ".data1", const_base + ".O0")
+
+        # -----Delete unused MEMs and drop dangling edges-----
+        for m in to_delete_mems:
+            if m in instances:
+                del instances[m]
+
+        deleted_prefixes = tuple(m + "." for m in to_delete_mems)
+        pruned = []
+        seen = set()
+        for d, s in connections:
+            if d.startswith(deleted_prefixes) or s.startswith(deleted_prefixes):
+                continue
+            key = (d, s)
+            if key in seen:
+                continue
+            seen.add(key)
+            pruned.append([d, s])
+
+        module["connections"] = pruned
+
+        # -----Configure input and output IOs DMA-----
+        img_size = int(self.halide_gen_args_dict["in_img"])
+        n_ic = int(self.halide_gen_args_dict["n_ic"])
+        ksize = int(self.halide_gen_args_dict["ksize"])
+        stride = int(self.halide_gen_args_dict["stride"])
+        unroll = int(self.halide_gen_args_dict["unroll"])
+        channel_per_lane = n_ic // unroll
+        out_img_size = (img_size - ksize) // stride + 1
+        cycle_stride_y = stride * ((img_size // stride) + (ksize - 1))
+        row_tail_cycles = (out_img_size - 1) * stride
+        cycle_stride_c = row_tail_cycles + stride * cycle_stride_y
+        for io_instance in instances:
+            # Two cases:
+            # 1. n_ic == unroll, then each IO stores data continously
+            # 2. n_ic // unroll > 1, then needs n_ic // unroll blocks with read/write data stride
+            if "io16in_input_host_stencil" in io_instance:
+                if n_ic == unroll:
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1]
+                    instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 1
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [img_size * img_size]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [1]
+                else:
+                    assert n_ic % unroll == 0, "n_ic must be divisible by unroll"
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1, 1]
+                    instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 2
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [img_size * img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [channel_per_lane, 1 - channel_per_lane * (img_size * img_size - 1)]
+
+            elif "io16_hw_output" in io_instance:
+                if n_ic == unroll:
+                    # Skip dummy data for line buffer shifting at the beginning
+                    # Which is two lines of data plus the kernel size - 1
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [img_size * 2 + ksize - 1]
+                    # instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride]
+                    # Directly use "hardware-friendly" cycle stride
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - (out_img_size - 1) * stride]
+                    instances[io_instance]["metadata"]["in2glb_0"]["dimensionality"] = 2
+                    instances[io_instance]["metadata"]["in2glb_0"]["extent"] = [out_img_size, out_img_size]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_stride"] = [1, out_img_size]
+                else:
+                    assert n_ic % unroll == 0, "n_ic must be divisible by unroll"
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [img_size * 2 + ksize - 1]
+                    # instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - (out_img_size - 1) * stride, img_size * 2 + ksize]
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - row_tail_cycles, cycle_stride_c]
+                    instances[io_instance]["metadata"]["in2glb_0"]["dimensionality"] = 3
+                    instances[io_instance]["metadata"]["in2glb_0"]["extent"] = [out_img_size, out_img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_stride"] = [channel_per_lane, channel_per_lane, 1 - channel_per_lane * (out_img_size * out_img_size - 1)]
+
+        # -----Overwrite the JSON-----
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # -----Update design_meta_halide.json with correct input and output shapes-----
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input"
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expected only one output"
+        design_meta["IOs"]["inputs"][0]["shape"] = [n_ic, img_size, img_size]
+        design_meta["IOs"]["outputs"][0]["shape"] = [n_ic, (img_size - ksize) // stride + 1, (img_size - ksize) // stride + 1]
+
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 

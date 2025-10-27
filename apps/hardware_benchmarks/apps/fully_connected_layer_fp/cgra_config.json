@@ -1,0 +1,34 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "hw_matrix",
+        "bitwidth": 16,
+        "shape": [64, 32],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/matrix_host_stencil.raw"
+      },
+      {
+        "name": "hw_vector",
+        "bitwidth": 16,
+        "shape": [32],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/vector_host_stencil.raw"
+      },
+      {
+        "name": "hw_bias",
+        "bitwidth": 16,
+        "shape": [64],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/bias_host_stencil.raw"
+      }
+    ],
+    "output": {
+      "name": "hw_output",
+      "bitwidth": 16,
+      "shape": [64],
+      "pixels_per_cycle": 1,
+      "datafile": "bin/hw_output_stencil.raw"
+    }
+  }
+}

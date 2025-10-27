@@ -75,7 +75,6 @@ public:
 
         // get e8m0 scale
         scale_output_cgra(y) = get_shared_exp(abs_max_bf16(tree_mu[total_stages](0, y), tree_mem[total_stages](0, y)));
-        // scale_output_cgra(y) = abs_max_bf16(tree_mu[total_stages](0, y), tree_mem[total_stages](0, y));
 
         // data packing
         Func pack_out("pack_out");

@@ -1,6 +1,5 @@
 #include "hw_support_utils.h"
 #include <cmath>
-
 #include <fstream>
 #include <iostream>
 #include <cstring>
@@ -54,7 +53,7 @@ float bfloat16_to_float_process(uint16_t b) {
     return ret;
 }
 
-void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
+void save_halide_buffer_to_raw(const Halide::Runtime::Buffer<uint16_t>& buffer, const std::string& filename) {
     std::ofstream out(filename, std::ios::binary);
     if (!out.is_open()) {
         std::cerr << "Failed to open file for writing: " << filename << std::endl;
@@ -72,7 +71,7 @@ void saveHalideBufferToRawBigEndian(const Halide::Runtime::Buffer<uint16_t>& buf
     out.close();
 }
 
-void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
+void load_raw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {
         std::cerr << "Failed to open file for reading: " << filename << std::endl;
@@ -123,22 +122,6 @@ void loadRawDataToBuffer(const std::string& filename, Halide::Runtime::Buffer<ui
     }
 
     inFile.close();
-}
-
-void copyFile(const std::string &srcPath, const std::string &dstPath) {
-    std::ifstream src(srcPath, std::ios::binary);
-    std::ofstream dst(dstPath, std::ios::binary);
-
-    if (!src.is_open() || !dst.is_open()) {
-        throw std::runtime_error("Error opening files while copying from " + srcPath + " to " + dstPath);
-    }
-
-    dst << src.rdbuf();
-}
-
-bool file_exists(const std::string& name) {
-    std::ifstream f(name.c_str());
-    return f.good();
 }
 
 std::vector<int> parse_glb_bank_config_num_list(const std::string& env_var_name) {
