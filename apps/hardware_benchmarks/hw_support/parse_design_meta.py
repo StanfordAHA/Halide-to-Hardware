@@ -561,6 +561,8 @@ def hack_addr_gen_for_k_dim_host_tiling(meta):
     ios_without_k_dim_tiling_addr_offset_env = os.environ.get("NO_K_TILING_ADDR_OFFSET", "")
     ios_without_k_dim_tiling_addr_offset = ios_without_k_dim_tiling_addr_offset_env.split(" ") if ios_without_k_dim_tiling_addr_offset_env else []
 
+    packed_outputs = "PACKED_OUTPUTS" in os.environ and os.environ["PACKED_OUTPUTS"] == "1"
+
     for io_type in ["inputs", "outputs"]:
          for io in meta["IOs"][io_type]:
             if "io_tiles" in io:
@@ -570,6 +572,8 @@ def hack_addr_gen_for_k_dim_host_tiling(meta):
                     continue
                 num_io_tiles = len(io["io_tiles"])
                 io_bw_per_cycle = num_io_tiles * NUM_BYTES_PER_IO_TILE
+                if packed_outputs:
+                    io_bw_per_cycle *= 2
                 for tile in io["io_tiles"]:
                     addr = tile.get("addr", {})
                     if io_type == "outputs":
