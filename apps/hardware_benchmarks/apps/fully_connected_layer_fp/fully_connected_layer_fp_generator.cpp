@@ -18,6 +18,8 @@ public:
     GeneratorParam<int> matrix_width_fake{ "matrix_width_fake", 64 };
     GeneratorParam<int> matrix_height_fake{ "matrix_height_fake", 4 };
 
+    GeneratorParam<int> n_oc{ "n_oc", 1024 };
+
     // glb_i determines the matrix and vector glb unrolling
     GeneratorParam<int> glb_i{ "glb_i", 8 };
 

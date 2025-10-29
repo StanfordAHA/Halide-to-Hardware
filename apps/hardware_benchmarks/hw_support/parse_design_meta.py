@@ -478,12 +478,12 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
         assert "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE" in os.environ, "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE environment variable must be set for ZIRCON_INPUT_ACT_PADDING_WORKAROUND"
         zircon_input_act_padding_workaround_size = int(os.environ.get("ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE", 0))
     # K dimension host tiling: used in resnet18 conv5 in Zircon
-    k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
-    if k_dim_host_tiling:
-        assert "NUM_K_HOST_TILING_KERNELS" in os.environ, "NUM_K_HOST_TILING_KERNELS environment variable must be set for K_DIM_HOST_TILING"
-        assert "K_DIM_HOST_TILING_IDX" in os.environ, "K_DIM_HOST_TILING_IDX environment variable must be set for K_DIM_HOST_TILING"
-        num_k_host_tiling_kernels = int(os.environ.get("NUM_K_HOST_TILING_KERNELS"))
-        k_dim_host_tiling_idx = int(os.environ.get("K_DIM_HOST_TILING_IDX"))
+    # k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
+    # if k_dim_host_tiling:
+    #     assert "NUM_K_HOST_TILING_KERNELS" in os.environ, "NUM_K_HOST_TILING_KERNELS environment variable must be set for K_DIM_HOST_TILING"
+    #     assert "K_DIM_HOST_TILING_IDX" in os.environ, "K_DIM_HOST_TILING_IDX environment variable must be set for K_DIM_HOST_TILING"
+    #     num_k_host_tiling_kernels = int(os.environ.get("NUM_K_HOST_TILING_KERNELS"))
+    #     k_dim_host_tiling_idx = int(os.environ.get("K_DIM_HOST_TILING_IDX"))
 
 
     # Update the address generator config in the design meta
@@ -517,27 +517,76 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
                     # Add a new key to indicate that this is modified for MU tiling
                     tile["hacked_for_mu_tiling"] = True
 
-                    # zircon k dim tiling
-                    if k_dim_host_tiling:
-                        assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
-                        HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
-                        n_oc_match = re.search(r'n_oc=(\d+)', HALIDE_GEN_ARGS)
-                        assert n_oc_match, "No n_oc in HALIDE_GEN_ARGS!"
-                        n_oc = int(n_oc_match.group(1))
+                    # # zircon k dim tiling
+                    # if k_dim_host_tiling:
+                    #     assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
+                    #     HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
+                    #     n_oc_match = re.search(r'n_oc=(\d+)', HALIDE_GEN_ARGS)
+                    #     assert n_oc_match, "No n_oc in HALIDE_GEN_ARGS!"
+                    #     n_oc = int(n_oc_match.group(1))
 
-                        if io_type == "outputs":
-                            orig_start_addr = addr["write_data_starting_addr"]
-                            addr["gold_check_starting_addr"] = orig_start_addr
-                            addr["write_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
-                            if "extent_multiplier" in tile:
-                                tile["extent_multiplier"] *= num_k_host_tiling_kernels
-                            else:
-                                tile["extent_multiplier"] = num_k_host_tiling_kernels
-                        elif io_type == "inputs":
-                            orig_start_addr = addr["read_data_starting_addr"]
-                            addr["read_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
-                            addr["tb_write_starting_addr"] = orig_start_addr
+                    #     if io_type == "outputs":
+                    #         orig_start_addr = addr["write_data_starting_addr"]
+                    #         addr["gold_check_starting_addr"] = orig_start_addr
+                    #         addr["write_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
+                    #         if "extent_multiplier" in tile:
+                    #             tile["extent_multiplier"] *= num_k_host_tiling_kernels
+                    #         else:
+                    #             tile["extent_multiplier"] = num_k_host_tiling_kernels
+                    #     elif io_type == "inputs":
+                    #         orig_start_addr = addr["read_data_starting_addr"]
+                    #         addr["read_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // MU_WORD_NUM_BYTES) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
+                    #         addr["tb_write_starting_addr"] = orig_start_addr
     return meta
+
+
+def hack_addr_gen_for_k_dim_host_tiling(meta):
+    MU_WORD_NUM_BYTES = 32  # 32 bytes per word in the MU
+    BANK_DATA_WIDTH = 64  # 64 bits per bank in GLB
+    BANK_NUM_BYTES = BANK_DATA_WIDTH // 8  # 8 bytes per bank in GLB
+    CGRA_WORD_NUM_BYTES = 2 # 2 bytes per word in CGRA
+    NUM_BYTES_PER_IO_TILE = 4 # 4 bytes per IO tile (4-wide word)
+
+    assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
+    HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
+    n_oc_match = re.search(r'n_oc=(\d+)', HALIDE_GEN_ARGS)
+    assert n_oc_match, "No n_oc in HALIDE_GEN_ARGS!"
+    n_oc = int(n_oc_match.group(1))
+
+    assert "NUM_K_HOST_TILING_KERNELS" in os.environ, "NUM_K_HOST_TILING_KERNELS environment variable must be set for K_DIM_HOST_TILING"
+    assert "K_DIM_HOST_TILING_IDX" in os.environ, "K_DIM_HOST_TILING_IDX environment variable must be set for K_DIM_HOST_TILING"
+    num_k_host_tiling_kernels = int(os.environ.get("NUM_K_HOST_TILING_KERNELS"))
+    k_dim_host_tiling_idx = int(os.environ.get("K_DIM_HOST_TILING_IDX"))
+
+    ios_without_k_dim_tiling_addr_offset_env = os.environ.get("NO_K_TILING_ADDR_OFFSET", "")
+    ios_without_k_dim_tiling_addr_offset = ios_without_k_dim_tiling_addr_offset_env.split(" ") if ios_without_k_dim_tiling_addr_offset_env else []
+
+    for io_type in ["inputs", "outputs"]:
+         for io in meta["IOs"][io_type]:
+            if "io_tiles" in io:
+                io_name = io.get("name", "")
+                if io_name in ios_without_k_dim_tiling_addr_offset:
+                    print(f"\033[93m INFO: Skipping k-dim host tiling address offset for IO {io_name} as specified by NO_K_TILING_ADDR_OFFSET environment variable.\033[0m")
+                    continue
+                num_io_tiles = len(io["io_tiles"])
+                io_bw_per_cycle = num_io_tiles * NUM_BYTES_PER_IO_TILE
+                for tile in io["io_tiles"]:
+                    addr = tile.get("addr", {})
+                    if io_type == "outputs":
+                        orig_start_addr = addr["write_data_starting_addr"]
+                        addr["gold_check_starting_addr"] = orig_start_addr
+                        addr["write_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // io_bw_per_cycle) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
+                        if "extent_multiplier" in tile:
+                            tile["extent_multiplier"] *= num_k_host_tiling_kernels
+                        else:
+                            tile["extent_multiplier"] = num_k_host_tiling_kernels
+                    elif io_type == "inputs":
+                        orig_start_addr = addr["read_data_starting_addr"]
+                        addr["read_data_starting_addr"] = [orig_start_addr[0] + k_dim_host_tiling_idx * ((n_oc // num_k_host_tiling_kernels) // io_bw_per_cycle) * (BANK_NUM_BYTES//CGRA_WORD_NUM_BYTES)]
+                        addr["tb_write_starting_addr"] = orig_start_addr
+
+    return meta
+
 
 
 def hack_config_for_bank_toggle_mode(meta):
@@ -684,6 +733,11 @@ def main():
         if args.mu_tiling != "":
             print(f"\033[94m INFO: Modifying address generator config based on MU tiling from {args.mu_tiling}. This change will be applied to all inputs and outputs...\033[0m")
             meta = hack_addr_gen_for_mu_tiling(meta, args.mu_tiling)
+
+        k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
+        if k_dim_host_tiling:
+            print(f"\033[94m INFO: Modifying address generator config for K dimension host tiling...\033[0m")
+            meta = hack_addr_gen_for_k_dim_host_tiling(meta)
 
         print("writing to", outputName)
         with open(outputName, 'w', encoding='utf-8') as fileout:
