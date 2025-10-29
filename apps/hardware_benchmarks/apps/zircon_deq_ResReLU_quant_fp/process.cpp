@@ -134,7 +134,7 @@ int main( int argc, char **argv ) {
   save_image(processor.inputs["mu_hw_input_stencil.mat"], "bin/mu_hw_input_stencil.mat");
 
   // std::cout << "Writing hw_residual_input_stencil.raw to bin folder" << std::endl;
-  // saveHalideBufferToRawBigEndian(processor.inputs["hw_residual_input_stencil.raw"], "bin/hw_residual_input_stencil.raw");
+  // save_halide_buffer_to_raw(processor.inputs["hw_residual_input_stencil.raw"], "bin/hw_residual_input_stencil.raw");
 
 
   std::cout << "Writing output to bin folder" << std::endl;

@@ -103,7 +103,7 @@ int main( int argc, char **argv ) {
     }
 
   // std::cout << "Writing hw_input_stencil.mat to bin folder" << std::endl;
-  // saveHalideBufferToRawBigEndian(processor.input, "bin/hw_input_stencil.raw");
+  // save_halide_buffer_to_raw(processor.input, "bin/hw_input_stencil.raw");
 
   // Copy the pre-existing raw file into the bin folder for now
   int ret = system("cp hw_input_stencil.raw bin/hw_input_stencil.raw");
@@ -116,7 +116,7 @@ int main( int argc, char **argv ) {
   std::cout << "Copying pre-existing hw_input_stencil.raw to bin folder" << std::endl;
 
   std::cout << "Writing output to bin folder" << std::endl;
-  saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+  save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
   return processor.process_command(argc, argv);
 

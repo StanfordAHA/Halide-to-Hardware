@@ -108,10 +108,10 @@ int main( int argc, char **argv ) {
     }
 
   std::cout << "Writing mu_hw_input_stencil.mat to bin folder" << std::endl;
-  saveHalideBufferToRawBigEndian(processor.input, "bin/mu_hw_input_stencil.raw");
+  save_halide_buffer_to_raw(processor.input, "bin/mu_hw_input_stencil.raw");
 
   std::cout << "Writing output to bin folder" << std::endl;
-  saveHalideBufferToRawBigEndian(processor.output, "bin/hw_output.raw");
+  save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
 
   return processor.process_command(argc, argv);
 
