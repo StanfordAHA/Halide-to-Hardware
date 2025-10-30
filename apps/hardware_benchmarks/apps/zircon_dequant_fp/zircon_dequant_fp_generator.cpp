@@ -10,18 +10,14 @@ using namespace Halide::ConciseCasts;
 
 auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
 const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
-auto QUANT_SCALE = getenv("QUANT_SCALE");
-const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
-const float scale = dequant_scale * quant_scale;
 
-// DequantizeQuantizeRelu
-// Compute pipeline: bf16 mul (quantize+dequantize) -> relu -> bf16-to-int16 typecast -> data packing
-class DequantizeQuantizeRelu : public Halide::Generator<DequantizeQuantizeRelu> {
+// Dequantize (fpmul)
+class Dequantize : public Halide::Generator<Dequantize> {
 public:
     Input<Buffer<uint16_t>>  input{"input", 3};
     Output<Buffer<uint16_t>> output{"output", 3};
 
-    GeneratorParam<int> out_img{"out_img", 14};
+    GeneratorParam<int> out_img{"out_img", 56};
     GeneratorParam<int> n_oc{"n_oc", 64};
 
     GeneratorParam<int32_t> myunroll{"myunroll", 1};
@@ -31,19 +27,17 @@ public:
     void generate() {
         /* THE ALGORITHM */
 
-      Var x("x"), y("y"), c("c"), c_pack("c_pack");
+      Var x("x"), y("y"), c("c");
       Func mu_hw_input("mu_hw_input");
       Func hw_output("hw_output");
-      Func unpacked_result, result;
+      Func result;
 
       mu_hw_input(c, x, y) = cast<bfloat16_t>(input(c, x, y));
 
-      unpacked_result(c, x, y) = e8m0_quant(max(mu_hw_input(c, x, y) * cast<bfloat16_t>(scale), cast<bfloat16_t>(0.0f)), reinterpret(type_of<bfloat16_t>(), cast<uint16_t>(127)));
+      result(c, x, y) = mu_hw_input(c, x, y) * cast<bfloat16_t>(dequant_scale);
 
-      result(c_pack, x, y) = bit8_pack(unpacked_result(2 * c_pack + 1, x, y), unpacked_result(2 * c_pack, x, y));
-
-      hw_output(c_pack, x, y) = result(c_pack, x, y);
-      output(c_pack, x, y) = cast<uint16_t>(hw_output(c_pack, x, y));
+      hw_output(c, x, y) = result(c, x, y);
+      output(c, x, y) = cast<uint16_t>(hw_output(c, x, y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::CoreIR) ||
@@ -63,16 +57,16 @@ public:
 
           output.bound(x, 0, out_img);
           output.bound(y, 0, out_img);
-          output.bound(c_pack, 0, int(n_oc / 2));
+          output.bound(c, 0, n_oc);
 
           hw_output.compute_root();
           hw_output
             .tile(x,y, xo,yo, xi,yi, out_img, out_img)
-            .reorder(c_pack, xi, yi, xo, yo)
+            .reorder(c, xi, yi, xo, yo)
             .hw_accelerate(xi, xo);
-          hw_output.unroll(c_pack, std::max(1,int(unroll / 2)));
+          hw_output.unroll(c, unroll);
 
-          result.compute_at(hw_output, xo).unroll(c_pack, std::max(1,int(unroll / 2)));
+          result.compute_at(hw_output, xo).unroll(c, unroll);
 
           mu_hw_input.stream_to_accelerator();
           mu_hw_input.in().unroll(c, unroll);
@@ -85,4 +79,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(DequantizeQuantizeRelu, zircon_deq_q_relu_fp)
+HALIDE_REGISTER_GENERATOR(Dequantize, zircon_dequant_fp)
