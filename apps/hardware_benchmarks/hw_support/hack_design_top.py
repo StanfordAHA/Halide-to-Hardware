@@ -4756,10 +4756,10 @@ class GlobalDesignHacker:
                     connections.remove(edge)
                     if left_is_path_balance_pe_output:
                         connections.append([left, f"{pond_name}.data_in_pond_0"])
-                        connections.append([f"{pond_name}.data_out_pond_0", right])
+                        connections.append([f"{pond_name}.data_out_pond_1", right])
                     else:
                         connections.append([right, f"{pond_name}.data_in_pond_0"])
-                        connections.append([f"{pond_name}.data_out_pond_0", left])
+                        connections.append([f"{pond_name}.data_out_pond_1", left])
 
                     print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is PE -> Pond. \033[0m")
 
