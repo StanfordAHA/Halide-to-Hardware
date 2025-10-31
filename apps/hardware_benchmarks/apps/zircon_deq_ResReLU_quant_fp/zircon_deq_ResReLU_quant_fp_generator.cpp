@@ -7,18 +7,17 @@ using namespace std;
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-
 auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
 const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
 auto QUANT_SCALE = getenv("QUANT_SCALE");
 const float quant_scale = QUANT_SCALE ? atof(QUANT_SCALE) : 0.5f;
-const float scale = dequant_scale * quant_scale;
 
-// DequantizeQuantizeRelu
-// Compute pipeline: bf16 mul (quantize+dequantize) -> relu -> bf16-to-int16 typecast -> data packing
-class DequantizeQuantizeRelu : public Halide::Generator<DequantizeQuantizeRelu> {
+// DequantizeResidualReluQuantize
+// Compute pipeline: bf16 mul (dequantize) -> residual -> relu -> bf16 mul (quantize) -> bf16-to-int16 typecast -> data packing
+class DequantizeResidualReluQuantize : public Halide::Generator<DequantizeResidualReluQuantize> {
 public:
     Input<Buffer<uint16_t>>  input{"input", 3};
+    Input<Buffer<uint16_t>>  residual_input{"residual_input", 3};
     Output<Buffer<uint16_t>> output{"output", 3};
 
     GeneratorParam<int> out_img{"out_img", 14};
@@ -33,13 +32,21 @@ public:
 
       Var x("x"), y("y"), c("c"), c_pack("c_pack");
       Func mu_hw_input("mu_hw_input");
+      Func hw_residual_input("hw_residual_input");
       Func hw_output("hw_output");
       Func unpacked_result, result;
+      Func relu_output;
 
       mu_hw_input(c, x, y) = cast<bfloat16_t>(input(c, x, y));
+      hw_residual_input(c, x, y) = cast<bfloat16_t>(residual_input(c, x, y));
 
-      unpacked_result(c, x, y) = e8m0_quant(max(mu_hw_input(c, x, y) * cast<bfloat16_t>(scale), cast<bfloat16_t>(0.0f)), reinterpret(type_of<bfloat16_t>(), cast<uint16_t>(127)));
+      // dequantize (fpmul), add residual, relu
+      relu_output(c, x, y) = max(mu_hw_input(c, x, y) * cast<bfloat16_t>(dequant_scale) + hw_residual_input(c, x, y), cast<bfloat16_t>(0.0f));
 
+      // quantize (fpmul), typecast to int16
+      unpacked_result(c, x, y) = e8m0_quant(relu_output(c, x, y) * cast<bfloat16_t>(quant_scale), reinterpret(type_of<bfloat16_t>(), cast<uint16_t>(127)));
+
+      // pack every two int8 channels into one 16-bit word
       result(c_pack, x, y) = bit8_pack(unpacked_result(2 * c_pack + 1, x, y), unpacked_result(2 * c_pack, x, y));
 
       hw_output(c_pack, x, y) = result(c_pack, x, y);
@@ -77,6 +84,9 @@ public:
           mu_hw_input.stream_to_accelerator();
           mu_hw_input.in().unroll(c, unroll);
 
+          hw_residual_input.stream_to_accelerator();
+          hw_residual_input.in().unroll(c, unroll);
+
         } else {
 
         }
@@ -85,4 +95,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(DequantizeQuantizeRelu, zircon_deq_q_relu_fp)
+HALIDE_REGISTER_GENERATOR(DequantizeResidualReluQuantize, zircon_deq_ResReLU_quant_fp)

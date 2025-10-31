@@ -4721,24 +4721,30 @@ class GlobalDesignHacker:
 
             balance_lengths = path_balancing_info["balance_lengths"]
             name_to_id = path_balancing_info["name_to_id"]
+            pe_to_pond = path_balancing_info["pe_to_pond"]
             num_balance_pes = len(balance_lengths)
             pes_balanced = 0
 
             connections = mod_def["connections"]
-            new_connections = []
-            for edge in connections:
+            connections_iter = copy.deepcopy(connections)
+            for edge in connections_iter:
                 left, right = edge[0], edge[1]
                 left_instance_name = left.split(".")[0]
                 left_port = left.split(".")[1] if "." in left else ""
                 right_instance_name = right.split(".")[0]
                 right_port = right.split(".")[1] if "." in right else ""
 
-                left_is_pe_output = left_port == "O0" and left_instance_name in name_to_id
-                right_is_pe_output = right_port == "O0" and right_instance_name in name_to_id
+                pe_input_port_names = ["data0", "data1", "data2"]
 
-                if left_is_pe_output or right_is_pe_output:
+                left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == True)
+                right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == True)
+
+                left_is_path_balance_pe_input = left_port in pe_input_port_names and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == False)
+                right_is_path_balance_pe_input = right_port in pe_input_port_names and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == False)
+
+                if left_is_path_balance_pe_output or right_is_path_balance_pe_output:
                     pes_balanced += 1
-                    if left_is_pe_output:
+                    if left_is_path_balance_pe_output:
                         pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
                     else:
                         pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
@@ -4748,19 +4754,37 @@ class GlobalDesignHacker:
 
                     # Found the PE output, insert pond here
                     connections.remove(edge)
-                    if left_is_pe_output:
-                        new_connections.append([left, f"{pond_name}.data_in_pond_0"])
-                        new_connections.append([f"{pond_name}.data_out_pond_1", right])
+                    if left_is_path_balance_pe_output:
+                        connections.append([left, f"{pond_name}.data_in_pond_0"])
+                        connections.append([f"{pond_name}.data_out_pond_1", right])
                     else:
-                        new_connections.append([right, f"{pond_name}.data_in_pond_0"])
-                        new_connections.append([f"{pond_name}.data_out_pond_1", left])
+                        connections.append([right, f"{pond_name}.data_in_pond_0"])
+                        connections.append([f"{pond_name}.data_out_pond_1", left])
 
-                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing\033[0m")
+                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is PE -> Pond. \033[0m")
+
+                elif left_is_path_balance_pe_input or right_is_path_balance_pe_input:
+                    pes_balanced += 1
+                    if left_is_path_balance_pe_input:
+                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                    else:
+                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
+                    pond_instance = copy.deepcopy(pond_tpl)
+                    pond_instance["genargs"]["ID"][1] = pond_name
+                    instances[pond_name] = pond_instance
+
+                    # Found the PE input, insert pond here (pond drives PE input)
+                    connections.remove(edge)
+                    if left_is_path_balance_pe_input:
+                        connections.append([f"{pond_name}.data_out_pond_1", left])
+                        connections.append([right, f"{pond_name}.data_in_pond_0"])
+                    else:
+                        connections.append([f"{pond_name}.data_out_pond_1", right])
+                        connections.append([left, f"{pond_name}.data_in_pond_0"])
+                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is Pond -> PE. \033[0m")
 
                 if pes_balanced >= num_balance_pes:
                     break
-
-            connections.extend(new_connections)
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
@@ -4872,3 +4896,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # global_design_top_hacker = GlobalDesignHacker()
+    # design_top = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/zircon_deq_ResReLU_quant_fp/bin_saved/design_top.json"
+    # bin_dir = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/zircon_deq_ResReLU_quant_fp/bin_saved"
+    # global_design_top_hacker.hack_for_pond_path_balancing(design_top, bin_dir)
