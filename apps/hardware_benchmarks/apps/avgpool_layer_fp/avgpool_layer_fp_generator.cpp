@@ -10,6 +10,10 @@ public:
     Input<Buffer<uint16_t>> input{ "input", 3 };
     Output<Buffer<uint16_t>> output{ "output", 3 };
 
+    // Ensure n_ic_fake // glb_i is 16 for graph generation, too small may create shift regs; too large may create MEMs
+    GeneratorParam<int> in_img_fake{ "in_img_fake", 7 };
+    GeneratorParam<int> n_ic_fake{ "n_ic_fake", 512 };
+
     GeneratorParam<int> in_img{ "in_img", 7 };
     GeneratorParam<int> n_ic{ "n_ic", 512 };
 
@@ -32,7 +36,7 @@ public:
         input_cgra(c, x, y) = input_glb(c, x, y);
 
         // Reduction over x and y
-        RDom r(0, in_img, 0, in_img);
+        RDom r(0, in_img_fake, 0, in_img_fake);
         output_cgra(c, x, y) = bf16(0);
         output_cgra(c, x, y) += input_cgra(c, x + r.x, y + r.y) * bf16(1.0f / (float(in_img) * float(in_img)));
 
@@ -43,18 +47,18 @@ public:
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::Clockwork)) {
 
-            input_host.bound(c, 0, n_ic)
-                .bound(x, 0, in_img)
-                .bound(y, 0, in_img);
-            input_glb.bound(c, 0, n_ic)
-                .bound(x, 0, in_img)
-                .bound(y, 0, in_img);
-            input_cgra.bound_extent(c, n_ic);
+            input_host.bound(c, 0, n_ic_fake)
+                .bound(x, 0, in_img_fake)
+                .bound(y, 0, in_img_fake);
+            input_glb.bound(c, 0, n_ic_fake)
+                .bound(x, 0, in_img_fake)
+                .bound(y, 0, in_img_fake);
+            input_cgra.bound_extent(c, n_ic_fake);
 
-            output.bound(c, 0, n_ic).bound(x, 0, 1).bound(y, 0, 1);
-            hw_output.bound(c, 0, n_ic).bound(x, 0, 1).bound(y, 0, 1);
-            output_glb.bound(c, 0, n_ic).bound(x, 0, 1).bound(y, 0, 1);
-            output_cgra.bound_extent(c, n_ic);
+            output.bound(c, 0, n_ic_fake).bound(x, 0, 1).bound(y, 0, 1);
+            hw_output.bound(c, 0, n_ic_fake).bound(x, 0, 1).bound(y, 0, 1);
+            output_glb.bound(c, 0, n_ic_fake).bound(x, 0, 1).bound(y, 0, 1);
+            output_cgra.bound_extent(c, n_ic_fake);
 
             // Host-level tiling over channels
             Var c_host, c_glb, c_cgra;
@@ -65,7 +69,7 @@ public:
 
             // Global-buffer level
             output_glb.compute_at(hw_output, c_host)
-                .split(c, c_glb, c_cgra, n_ic)
+                .split(c, c_glb, c_cgra, n_ic_fake)
                 .reorder(c_cgra, c_glb);
 
             // Unroll output over glb
