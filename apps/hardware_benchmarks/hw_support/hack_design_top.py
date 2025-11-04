@@ -22,7 +22,7 @@ APPS_NEEDING_HACKS = [
     "mem_filter_test",
     "avgpool_layer_fp",
     "mat_vec_mul_fp",
-    "get_e8m0_scale_test_fp",
+    "get_e8m0_scale_tree_fp",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
@@ -3752,24 +3752,215 @@ class SelectedDesignHacker:
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
-    def hack_for_get_e8m0_scale_test_fp_rv(self, json_path, bin_path):
+    def hack_for_get_e8m0_scale_tree_fp_rv(self, json_path, bin_path):
+        '''
+        This hack inserts MEM tiles between MU IOs and tree_mem / tree_mu PEs.
+        MEM tile output port 0 goes to tree_mem PEs, with a delay of image size.
+        MEM tile output port 1 goes to tree_mu PEs, without delay.
+        It also inserts unquantized output paths and scale broadcast.
+        '''
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top_module = "get_e8m0_scale_test_fp"
-        instances = design["namespaces"]["global"]["modules"][top_module]["instances"]
+        top_module_name = "get_e8m0_scale_tree_fp"
+        instances = design["namespaces"]["global"]["modules"][top_module_name]["instances"]
+        top_module = design["namespaces"]["global"]["modules"][top_module_name]
+        connections = top_module["connections"]
 
-        # Add extra_data metadata to all shift registers for bogus data init
-        for inst_name, inst_conf in instances.items():
-            if "$d_reg" in inst_name:
-                assert inst_conf.get("genref") == "coreir.reg", f"Instance {inst_name} is not a shift register."
-                if "metadata" not in inst_conf:
-                    inst_conf["metadata"] = {}
-                inst_conf["metadata"]["extra_data"] = 1
+        def clkwrk_idx_from_port(p):
+            # Helper function to extract MU IO clkwrk index from port name
+            m = re.search(r"_clkwrk_(\d+)_op_hcompute_mu_input_io_stencil", p)
+            return int(m.group(1)) if m else None
+
+        # Helper function to add a connection only if it doesn't already exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Collect original MU->tree connections and ports
+        for a, b in list(connections):
+            is_mu_a = a.startswith("io16in_mu_")
+            is_mu_b = b.startswith("io16in_mu_")
+            is_tree_mem_a = "op_hcompute_tree_mem" in a and ".data" in a
+            is_tree_mem_b = "op_hcompute_tree_mem" in b and ".data" in b
+            is_tree_mu_a  = "op_hcompute_tree_mu"  in a and ".data" in a
+            is_tree_mu_b  = "op_hcompute_tree_mu"  in b and ".data" in b
+
+            if is_mu_a and (is_tree_mem_b or is_tree_mu_b):
+                mu_port, tree_port = a, b
+            elif is_mu_b and (is_tree_mem_a or is_tree_mu_a):
+                mu_port, tree_port = b, a
+            else:
+                continue
+
+            # Instantiate MEMs buffering activations with matching index to MU IOs
+            mu_idx = clkwrk_idx_from_port(mu_port)
+            assert mu_idx is not None, f"Cannot parse clkwrk index from MU port: {mu_port}"
+            mem_name = f"mem_mu2tree_{mu_idx}"
+            if mem_name not in instances:
+                tpl = copy.deepcopy(self.mem_tpl)
+                instances[mem_name] = tpl
+
+            # Connect MU->MEM.in0
+            add_conn_once(mu_port, f"{mem_name}.data_in_0")
+
+            # Connect MEM.out0->tree_mem and MEM.out1->tree_mu
+            if "op_hcompute_tree_mem" in tree_port:
+                add_conn_once(f"{mem_name}.data_out_0", tree_port)
+            else:
+                assert "op_hcompute_tree_mu" in tree_port, f"Tree PE port {tree_port} is not a tree_mem or tree_mu port"
+                add_conn_once(f"{mem_name}.data_out_1", tree_port)
+
+        def is_direct_mu2tree(edge):
+            # Helper function to check if an edge is a direct MU->tree edge in original connections
+            x, y = edge
+            mu_x = x.startswith("io16in_mu_")
+            mu_y = y.startswith("io16in_mu_")
+            tree_mem_x = "op_hcompute_tree_mem" in x and ".data" in x
+            tree_mem_y = "op_hcompute_tree_mem" in y and ".data" in y
+            tree_mu_x  = "op_hcompute_tree_mu"  in x and ".data" in x
+            tree_mu_y  = "op_hcompute_tree_mu"  in y and ".data" in y
+            return ((mu_x and (tree_mem_y or tree_mu_y)) or
+                    (mu_y and (tree_mem_x or tree_mu_x)))
+
+        # Remove original direct MU->tree edges
+        connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
+
+        # Find scale PE name and create single scale output IO
+        scale_pe_name = None
+        for instance_name, instance_conf in instances.items():
+            if "get_shared_exp" in instance_name:
+                scale_pe_name = instance_name
+                break
+        assert scale_pe_name is not None, "Cannot find scale PE"
+
+        # Collect the pre-hacked single scale-output IO and rename to indexed name
+        existing_ios = [n for n in instances.keys() if "io16_hw_scale_output_stencil_op_hcompute_hw_scale_output_stencil_write_0" in n]
+        assert len(existing_ios) == 1, "Expect one scale output IO of pre-hacked graph"
+        old_io = existing_ios[0]
+        old_port = old_io.replace("io16_", "")
+
+        # Remove any old top-level type/connection using the legacy non-indexed port
+        type_fields = top_module["type"][1]
+        type_fields[:] = [f for f in type_fields if f[0] != old_port]
+        connections[:] = [c for c in connections if c[0] != f"self.{old_port}" and c[1] != f"self.{old_port}"]
+        connections[:] = [c for c in connections if c[0] != f"{old_io}.out" and c[1] != f"{old_io}.out"]
+        connections[:] = [c for c in connections if old_io not in c[0] and old_io not in c[1]]
+
+        # Create single scale output IO
+        scale_output_io_name = "io16_hw_scale_output_stencil_clkwrk_0_op_hcompute_hw_scale_output_stencil_0_write_0"
+        inst_copy = copy.deepcopy(instances.pop(old_io))
+        instances[scale_output_io_name] = inst_copy
+
+        # Add top-level type field and connect self port to IO.out
+        scale_port = scale_output_io_name.replace("io16_", "")
+        if all(field[0] != scale_port for field in type_fields):
+            type_fields.append([scale_port, ["Array", 16, "Bit"]])
+        add_conn_once(f"self.{scale_port}", f"{scale_output_io_name}.out")
+
+        # Insert a MEM tile to filter scale output
+        mem_scale_filter_name = "mem_scale_filter"
+        if mem_scale_filter_name not in instances:
+            instances[mem_scale_filter_name] = copy.deepcopy(self.mem_tpl)
+
+        # Connect scale PE -> MEM -> scale output IO
+        add_conn_once(f"{scale_pe_name}.O0", f"{mem_scale_filter_name}.data_in_0")
+        add_conn_once(f"{mem_scale_filter_name}.data_out_0", f"{scale_output_io_name}.in")
+
+        # Configure GLB store DMA for single scale output
+        total_channels = int(self.halide_gen_args_dict["vec_width"])
+        img_size = int(self.halide_gen_args_dict["vec_height"])
+        mu_OC = int(self.halide_gen_args_dict["mu_i"])
+        number_of_blocks = total_channels // (mu_OC * 2)
+
+        # Configure the single scale output IO
+        inst_copy["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+        inst_copy["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+        inst_copy["metadata"]["in2glb_0"]["dimensionality"] = 1
+        inst_copy["metadata"]["in2glb_0"]["extent"] = [img_size * number_of_blocks]
+        inst_copy["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+        inst_copy["metadata"]["in2glb_0"]["write_data_stride"] = [1]
+
+        # Output GLB IO template for unquantized output
+        io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "out"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    "extent": [total_channels * img_size // mu_OC],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1],
+                }
+            },
+        }
+
+        # Collect MU IO sources from connections
+        # We'll directly connect MU IOs to output IOs without any apply scale or data packing
+        mu_io_sources = {}
+        for conn in connections:
+            for port in conn:
+                # Look for MU IO outputs
+                if port.startswith("io16in_mu_") and "op_hcompute_mu_input_io_stencil" in port:
+                    # Extract the clkwrk index
+                    m = re.search(r"_clkwrk_(\d+)_op_hcompute_mu_input_io_stencil", port)
+                    if m:
+                        mu_idx = int(m.group(1))
+                        mu_io_sources[mu_idx] = port
+
+        # Sort by index
+        sorted_mu_indices = sorted(mu_io_sources.keys())
+
+        # Create unquantized output IOs and connect them directly to MU IOs
+        unquantized_output_ios = []
+        for io_idx, mu_idx in enumerate(sorted_mu_indices):
+            io_name = f"io16_unquantized_output_stencil_clkwrk_{io_idx}_op_hcompute_unquantized_output_stencil_{io_idx}_write_0"
+            if io_name not in instances:
+                instances[io_name] = copy.deepcopy(io_tpl)
+
+            # Connect MU IO directly to output IO
+            add_conn_once(mu_io_sources[mu_idx], f"{io_name}.in")
+            unquantized_output_ios.append(io_name)
+
+        # Type instances of self.<port> to corresponding IO.out
+        type_fields = top_module["type"][1]
+        for io_inst in unquantized_output_ios:
+            port_name = io_inst.replace("io16_", "")
+            type_fields.append([port_name, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port_name}", f"{io_inst}.out")
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+        # Update design_meta_halide.json to update mu_inputs shape and add unquantized_output_stencil
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input which is mu input"
+        # Real input shape should match vec_width instead of vec_width_fake
+        design_meta["IOs"]["inputs"][0]["shape"][0] = int(self.halide_gen_args_dict["vec_width"])
+        # Add unquantized_output_stencil
+        design_meta["IOs"]["outputs"].append(
+            {
+                "bitwidth": 16,
+                "datafile": "unquantized_output_stencil.raw",
+                "name": "unquantized_output_stencil",
+                "shape": [len(unquantized_output_ios), img_size * total_channels // len(unquantized_output_ios)],
+            }
+        )
+        # Fix the name and shape of hw_scale_output_stencil
+        for output in design_meta["IOs"]["outputs"]:
+            if output["name"] == "hw_scale_output_stencil":
+                output["datafile"] = "hw_scale_output.raw"
+                output["shape"] = [img_size * number_of_blocks]
+                break
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
 
     def hack_for_get_apply_e8m0_scale_fp_rv(self, json_path, bin_path):
         '''
@@ -3778,7 +3969,6 @@ class SelectedDesignHacker:
         MEM tile output port 1 goes to tree_mu PEs, without delay.
         It also inserts apply-scale pipeline and scale broadcast for fused quantization.
         '''
-        SCALE_PE_SRC = "op_hcompute_scale_output_glb_stencil$inner_compute$get_shared_exp_i3200i78_i1489.O0"
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -3890,6 +4080,13 @@ class SelectedDesignHacker:
         connections[:] = [c for c in connections if c[0] not in scale_io_inputs and c[1] not in scale_io_inputs]
 
         # Create scale data packing PE and connections
+        # Find scale PE name
+        scale_pe_name = None
+        for instance_name, instance_conf in instances.items():
+            if "get_shared_exp" in instance_name:
+                scale_pe_name = instance_name
+                break
+        assert scale_pe_name is not None, "Cannot find scale PE"
         scale_data_packing_pe_name = "scale_output_data_packing_stencil$inner_compute$data_packing"
         scale_data_packing_const_name = "scale_output_data_packing_stencil$inner_compute$c0_dp"
         if scale_data_packing_pe_name not in instances:
@@ -3903,10 +4100,10 @@ class SelectedDesignHacker:
         add_conn_once(f"{scale_data_packing_pe_name}.inst", f"{scale_data_packing_const_name}.out")
 
         # SCALE_PE_SRC -> data_packing.in0
-        add_conn_once(SCALE_PE_SRC, f"{scale_data_packing_pe_name}.data0")
+        add_conn_once(f"{scale_pe_name}.O0", f"{scale_data_packing_pe_name}.data0")
 
         # SCALE_PE_SRC -> shift FIFO -> data_packing.in1
-        add_conn_once(SCALE_PE_SRC, f"{scale_output_shift_fifo_name}.in")
+        add_conn_once(f"{scale_pe_name}.O0", f"{scale_output_shift_fifo_name}.in")
         add_conn_once(f"{scale_output_shift_fifo_name}.out", f"{scale_data_packing_pe_name}.data1")
 
         # Insert a MEM tile to broadcast scale data_packing output to both IOs
@@ -4094,8 +4291,7 @@ class SelectedDesignHacker:
 
             # Tail -> PE.data0, and scale broadcast to data1 port
             add_conn_once(data0_src, f"{pe_name}.data0")
-            assert SCALE_PE_SRC.split(".")[0] in instances, f"SCALE_PE_SRC {SCALE_PE_SRC} not found in instances, check get scale PE name."
-            add_conn_once(SCALE_PE_SRC, f"{pe_name}.data1")
+            add_conn_once(f"{scale_pe_name}.O0", f"{pe_name}.data1")
 
             return f"{pe_name}.O0"
 
