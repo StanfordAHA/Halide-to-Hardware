@@ -17,6 +17,8 @@ public:
     GeneratorParam<int> in_img{ "in_img", 7 };
     GeneratorParam<int> n_ic{ "n_ic", 512 };
 
+    GeneratorParam<int> pad{ "pad", 1 };
+
     // glb_i determines the input glb unrolling
     GeneratorParam<int> glb_i{ "glb_i", 32 };
 
@@ -38,7 +40,7 @@ public:
         // Reduction over x and y
         RDom r(0, in_img_fake, 0, in_img_fake);
         output_cgra(c, x, y) = bf16(0);
-        output_cgra(c, x, y) += input_cgra(c, x + r.x, y + r.y) * bf16(1.0f / (float(in_img) * float(in_img)));
+        output_cgra(c, x, y) += input_cgra(c, x + r.x, y + r.y) * bf16(1.0f / ((float(in_img) - float(pad)) * (float(in_img) - float(pad))));
 
         output_glb(c, x, y) = output_cgra(c, x, y);
         hw_output(c, x, y) = output_glb(c, x, y);
