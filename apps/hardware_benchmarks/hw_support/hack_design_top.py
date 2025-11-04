@@ -4885,6 +4885,19 @@ class GlobalDesignHacker:
     """
 
     def __init__(self):
+        # Provide pond template for path balancing
+        self.pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {
+                "ID": ["String", ""],
+                "has_stencil_valid": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "width": ["Int", 16],
+            },
+            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+            "metadata": {"config": {}, "mode": "pond"},
+        }
         # No filtering by apps
         pass
 
