@@ -80,20 +80,18 @@ int main(int argc, char **argv) {
 
     // Input
     processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width_fake, vec_height);
-    auto real_input = Buffer<uint16_t>(glb_i, vec_height, int(vec_width / glb_i));
-    for (int z = 0; z < real_input.dim(2).extent(); z++) {
-        for (int y = 0; y < real_input.dim(1).extent(); y++) {
-            for (int x = 0; x < real_input.dim(0).extent(); x++) {
-                // Use [-1024, 1024], which helps check scale output since otherwise scales are all the same
-                real_input(x, y, z) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 2048.0f - 1024.0f);
-            }
+    auto real_input = Buffer<uint16_t>(vec_width, vec_height);
+    for (int h = 0; h < real_input.dim(1).extent(); h++) {
+        for (int w = 0; w < real_input.dim(0).extent(); w++) {
+            // Use [-1024, 1024], which helps check scale output since otherwise scales are all the same
+            real_input(w, h) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 2048.0f - 1024.0f);
         }
     }
 
     // Gold scale output
     processor.output = Buffer<uint16_t>(int(vec_height));
-    auto real_output = Buffer<uint16_t>(int(vec_height), int(vec_width / block_size));
-    for (int y = 0; y < real_input.dim(1).extent(); y++) {
+    auto real_output = Buffer<uint16_t>(int(vec_width / block_size), int(vec_height));
+    for (int h = 0; h < real_input.dim(1).extent(); h++) {
         // For each block along width (e.g., block_size=64, vec_width=128 -> 2 blocks)
         for (int b = 0; b < int(vec_width / block_size); b++) {
             float max_val = 0.0f;
@@ -102,16 +100,14 @@ int main(int argc, char **argv) {
             // For channels in the block (e.g., 64 channels)
             for (int ch = 0; ch < block_size; ch++) {
                 int channel_idx = b * block_size + ch;
-                int x = channel_idx % glb_i;
-                int z = channel_idx / glb_i;
-                if (z < real_input.dim(2).extent() && x < real_input.dim(0).extent()) {
-                    max_val_bf16 = abs_max(max_val_bf16, real_input(x, y, z));
+                if (channel_idx < real_input.dim(0).extent()) {
+                    max_val_bf16 = abs_max(max_val_bf16, real_input(channel_idx, h));
                 }
             }
 
             // Store scale directly without packing
             uint16_t scale = get_shared_exp(max_val_bf16);
-            real_output(y, b) = scale;
+            real_output(b, h) = scale;
         }
     }
 

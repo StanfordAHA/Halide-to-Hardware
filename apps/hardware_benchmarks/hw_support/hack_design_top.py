@@ -3965,9 +3965,9 @@ class SelectedDesignHacker:
 
     def hack_for_get_e8m0_scale_tree_gb_input_rv(self, json_path, bin_path):
         '''
-        This hack inserts MEM tiles between GLB IOs and tree_mem / tree_glb PEs.
-        MEM tile output port 0 goes to tree_mem PEs, with a delay of image size.
-        MEM tile output port 1 goes to tree_glb PEs, without delay.
+        This hack creates two paths for GLB IOs:
+        1. GLB IOs -> tree_glb (direct connection, no delay)
+        2. GLB IOs -> shift fifo -> tree_fifo (with delay)
         '''
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -3988,54 +3988,58 @@ class SelectedDesignHacker:
             if pair not in connections:
                 connections.append(pair)
 
-        # Collect original GLB->tree connections and ports
+        # Collect original GLB->tree connections and create new routing
+        glb_to_tree_fifo = []  # Will get shift FIFOs
+        glb_to_tree_glb = []   # Direct connections
+
         for a, b in list(connections):
             is_glb_a = a.startswith("io16in_")
             is_glb_b = b.startswith("io16in_")
-            is_tree_mem_a = "op_hcompute_tree_mem" in a and ".data" in a
-            is_tree_mem_b = "op_hcompute_tree_mem" in b and ".data" in b
+            is_tree_fifo_a = "op_hcompute_tree_fifo" in a and ".data" in a
+            is_tree_fifo_b = "op_hcompute_tree_fifo" in b and ".data" in b
             is_tree_glb_a  = "op_hcompute_tree_glb"  in a and ".data" in a
             is_tree_glb_b  = "op_hcompute_tree_glb"  in b and ".data" in b
 
-            if is_glb_a and (is_tree_mem_b or is_tree_glb_b):
-                glb_port, tree_port = a, b
-            elif is_glb_b and (is_tree_mem_a or is_tree_glb_a):
-                glb_port, tree_port = b, a
-            else:
-                continue
+            if is_glb_a and is_tree_fifo_b:
+                glb_to_tree_fifo.append((a, b))
+            elif is_glb_b and is_tree_fifo_a:
+                glb_to_tree_fifo.append((b, a))
+            elif is_glb_a and is_tree_glb_b:
+                glb_to_tree_glb.append((a, b))
+            elif is_glb_b and is_tree_glb_a:
+                glb_to_tree_glb.append((b, a))
 
-            # Instantiate MEMs buffering activations with matching index to GLB IOs
-            glb_idx = clkwrk_idx_from_port(glb_port)
-            assert glb_idx is not None, f"Cannot parse clkwrk index from GLB port: {glb_port}"
-            mem_name = f"mem_glb2tree_{glb_idx}"
-            if mem_name not in instances:
-                tpl = copy.deepcopy(self.mem_tpl)
-                instances[mem_name] = tpl
-
-            # Connect GLB->MEM.in0
-            add_conn_once(glb_port, f"{mem_name}.data_in_0")
-
-            # Connect MEM.out0->tree_mem and MEM.out1->tree_glb
-            if "op_hcompute_tree_mem" in tree_port:
-                add_conn_once(f"{mem_name}.data_out_0", tree_port)
-            else:
-                assert "op_hcompute_tree_glb" in tree_port, f"Tree PE port {tree_port} is not a tree_mem or tree_glb port"
-                add_conn_once(f"{mem_name}.data_out_1", tree_port)
-
+        # Remove original direct GLB->tree edges
         def is_direct_glb2tree(edge):
-            # Helper function to check if an edge is a direct GLB->tree edge in original connections
             x, y = edge
             glb_x = x.startswith("io16in_")
             glb_y = y.startswith("io16in_")
-            tree_mem_x = "op_hcompute_tree_mem" in x and ".data" in x
-            tree_mem_y = "op_hcompute_tree_mem" in y and ".data" in y
+            tree_fifo_x = "op_hcompute_tree_fifo" in x and ".data" in x
+            tree_fifo_y = "op_hcompute_tree_fifo" in y and ".data" in y
             tree_glb_x  = "op_hcompute_tree_glb"  in x and ".data" in x
             tree_glb_y  = "op_hcompute_tree_glb"  in y and ".data" in y
-            return ((glb_x and (tree_mem_y or tree_glb_y)) or
-                    (glb_y and (tree_mem_x or tree_glb_x)))
+            return ((glb_x and (tree_fifo_y or tree_glb_y)) or
+                    (glb_y and (tree_fifo_x or tree_glb_x)))
 
-        # Remove original direct GLB->tree edges
         connections[:] = [c for c in connections if not is_direct_glb2tree(c)]
+
+        # Create direct connections: GLB IOs -> tree_glb
+        for glb_port, tree_glb_port in glb_to_tree_glb:
+            add_conn_once(glb_port, tree_glb_port)
+
+        # Create shift FIFO connections: GLB IOs -> shift_fifo -> tree_fifo
+        for glb_port, tree_fifo_port in glb_to_tree_fifo:
+            glb_idx = clkwrk_idx_from_port(glb_port)
+            assert glb_idx is not None, f"Cannot parse clkwrk index from GLB port: {glb_port}"
+
+            # Create shift FIFO instance
+            fifo_name = f"shift_fifo_glb2tree_{glb_idx}"
+            if fifo_name not in instances:
+                instances[fifo_name] = copy.deepcopy(self.shift_fifo_tpl)
+
+            # Connect GLB -> shift_fifo -> tree_fifo
+            add_conn_once(glb_port, f"{fifo_name}.in")
+            add_conn_once(f"{fifo_name}.out", tree_fifo_port)
 
         # Find scale PE name and create single scale output IO
         scale_pe_name = None
@@ -4069,14 +4073,8 @@ class SelectedDesignHacker:
             type_fields.append([scale_port, ["Array", 16, "Bit"]])
         add_conn_once(f"self.{scale_port}", f"{scale_output_io_name}.out")
 
-        # Insert a MEM tile to filter scale output
-        mem_scale_filter_name = "mem_scale_filter"
-        if mem_scale_filter_name not in instances:
-            instances[mem_scale_filter_name] = copy.deepcopy(self.mem_tpl)
-
-        # Connect scale PE -> MEM -> scale output IO
-        add_conn_once(f"{scale_pe_name}.O0", f"{mem_scale_filter_name}.data_in_0")
-        add_conn_once(f"{mem_scale_filter_name}.data_out_0", f"{scale_output_io_name}.in")
+        # Connect scale PE directly to scale output IO
+        add_conn_once(f"{scale_pe_name}.O0", f"{scale_output_io_name}.in")
 
         # Configure GLB store DMA for single scale output
         total_channels = int(self.halide_gen_args_dict["vec_width"])
@@ -4085,22 +4083,21 @@ class SelectedDesignHacker:
         number_of_blocks = total_channels // (mu_OC * 2)
 
         # Configure the single scale output IO
-        inst_copy["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
-        inst_copy["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+        inst_copy["metadata"]["in2glb_0"]["cycle_starting_addr"] = [1]
+        inst_copy["metadata"]["in2glb_0"]["cycle_stride"] = [2]
         inst_copy["metadata"]["in2glb_0"]["dimensionality"] = 1
         inst_copy["metadata"]["in2glb_0"]["extent"] = [img_size * number_of_blocks]
         inst_copy["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
         inst_copy["metadata"]["in2glb_0"]["write_data_stride"] = [1]
 
         # Configure input IOs schedule - each IO linearly takes in data
-        input_extent = total_channels * img_size // mu_OC
         for inst_name, inst_conf in instances.items():
             if inst_name.startswith("io16in_input_host_stencil_"):
                 if "metadata" in inst_conf and "glb2out_0" in inst_conf["metadata"]:
                     inst_conf["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
                     inst_conf["metadata"]["glb2out_0"]["cycle_stride"] = [1]
                     inst_conf["metadata"]["glb2out_0"]["dimensionality"] = 1
-                    inst_conf["metadata"]["glb2out_0"]["extent"] = [input_extent]
+                    inst_conf["metadata"]["glb2out_0"]["extent"] = [total_channels // mu_OC * img_size]
                     inst_conf["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
                     inst_conf["metadata"]["glb2out_0"]["read_data_stride"] = [1]
 

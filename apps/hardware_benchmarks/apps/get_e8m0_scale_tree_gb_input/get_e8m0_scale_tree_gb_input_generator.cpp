@@ -48,9 +48,9 @@ public:
         const int tile_size = 1 << int(tree_stages);
         const int total_stages = int(tree_stages);
         std::vector<Func> tree_glb(total_stages + 1);
-        std::vector<Func> tree_mem(total_stages + 1);
+        std::vector<Func> tree_fifo(total_stages + 1);
         tree_glb[0](x, y) = input_cgra(x, y);
-        tree_mem[0](x, y) = input_cgra(x, y);
+        tree_fifo[0](x, y) = input_cgra(x, y);
 
         // Reduction tree for GLB input
         for (int s = 1; s <= total_stages; s++) {
@@ -65,17 +65,17 @@ public:
 
         // Reduction tree for memory input
         for (int s = 1; s <= total_stages; s++) {
-            Func stage("tree_mem_" + std::to_string(s));
+            Func stage("tree_fifo_" + std::to_string(s));
             // At stage s the effective domain (along xi) is ceil(tile_size / (2^s)).
             Expr prev_extent = (tile_size + ((1 << (s - 1)) - 1)) / (1 << (s - 1));
             stage(x, y) = abs_max_bf16(
-                tree_mem[s - 1](2 * x, y),
-                select((2 * x + 1) < prev_extent, tree_mem[s - 1](2 * x + 1, y), 0));
-            tree_mem[s] = stage;
+                tree_fifo[s - 1](2 * x, y),
+                select((2 * x + 1) < prev_extent, tree_fifo[s - 1](2 * x + 1, y), 0));
+            tree_fifo[s] = stage;
         }
 
         // get e8m0 scale
-        scale_output_cgra(y) = get_shared_exp(abs_max_bf16(tree_glb[total_stages](0, y), tree_mem[total_stages](0, y)));
+        scale_output_cgra(y) = get_shared_exp(abs_max_bf16(tree_glb[total_stages](0, y), tree_fifo[total_stages](0, y)));
 
         // output buffers assignment
         // scale_output_glb(y_pack) = pack_out(y_pack);
@@ -118,7 +118,7 @@ public:
                 tree_glb[s].compute_at(scale_output_glb, y_glb).unroll(x);
             }
             for (int s = 1; s <= total_stages; s++) {
-                tree_mem[s].compute_at(scale_output_glb, y_glb).unroll(x);
+                tree_fifo[s].compute_at(scale_output_glb, y_glb).unroll(x);
             }
 
             // Input buffers tiling schedule for mu input
