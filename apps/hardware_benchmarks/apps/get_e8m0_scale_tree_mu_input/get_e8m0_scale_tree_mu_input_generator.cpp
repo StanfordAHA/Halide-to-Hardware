@@ -8,8 +8,8 @@ using namespace Halide::ConciseCasts;
 class Get_E8M0_Scale_Tree : public Halide::Generator<Get_E8M0_Scale_Tree> {
 public:
     // mu_input: input from MU IOs
-    // scale_output: packed e8m0 scale
-    // quantized_output: quantized packed output
+    // scale_output: unpacked e8m0 scale
+    // unquantized_output: same as input, unquantized BF16
     Input<Buffer<uint16_t>> mu_input{ "mu_input", 2 };
     Output<Buffer<uint16_t>> scale_output{ "scale_output", 1 };
 
@@ -170,5 +170,5 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(Get_E8M0_Scale_Tree, get_e8m0_scale_tree_fp)
+HALIDE_REGISTER_GENERATOR(Get_E8M0_Scale_Tree, get_e8m0_scale_tree_mu_input)
 

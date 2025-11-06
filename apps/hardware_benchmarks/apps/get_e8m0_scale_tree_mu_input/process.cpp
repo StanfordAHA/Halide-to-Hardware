@@ -3,7 +3,7 @@
 #include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
-#include "get_e8m0_scale_tree_fp.h"
+#include "get_e8m0_scale_tree_mu_input.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -12,7 +12,7 @@
 
 #if defined(WITH_CLOCKWORK)
 #include "clockwork_sim_platform.h"
-#include "get_e8m0_scale_tree_fp_clockwork.h"
+#include "get_e8m0_scale_tree_mu_input_clockwork.h"
 #include "rdai_api.h"
 #endif
 
@@ -21,11 +21,11 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("get_e8m0_scale_tree_fp", { "mu_input.mat" });
+    ManyInOneOut_ProcessController<uint16_t> processor("get_e8m0_scale_tree_mu_input", { "mu_input.mat" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        get_e8m0_scale_tree_fp(proc.inputs["mu_input.mat"], proc.output);
+        get_e8m0_scale_tree_mu_input(proc.inputs["mu_input.mat"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            get_e8m0_scale_tree_fp_clockwork(proc.inputs["mu_input.mat"], proc.output);
+            get_e8m0_scale_tree_mu_input_clockwork(proc.inputs["mu_input.mat"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");

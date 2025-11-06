@@ -33,7 +33,7 @@ include ../../hw_support/Makefile.inc
 # RDAI_PLATFORM_RUNTIME         : RDAI platform runtime to use
 ###############################################################################
 
-TESTNAME                        = get_e8m0_scale_tree_fp
+TESTNAME                        = get_e8m0_scale_tree_mu_input
 USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64-enable_ponds-bfloat_hardware
 RDAI_PLATFORM_RUNTIME           = clockwork_sim

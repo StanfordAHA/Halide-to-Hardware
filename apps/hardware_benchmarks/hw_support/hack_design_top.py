@@ -22,7 +22,7 @@ APPS_NEEDING_HACKS = [
     "mem_filter_test",
     "avgpool_layer_fp",
     "mat_vec_mul_fp",
-    "get_e8m0_scale_tree_fp",
+    "get_e8m0_scale_tree_mu_input",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
@@ -3752,7 +3752,7 @@ class SelectedDesignHacker:
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
-    def hack_for_get_e8m0_scale_tree_fp_rv(self, json_path, bin_path):
+    def hack_for_get_e8m0_scale_tree_mu_input_rv(self, json_path, bin_path):
         '''
         This hack inserts MEM tiles between MU IOs and tree_mem / tree_mu PEs.
         MEM tile output port 0 goes to tree_mem PEs, with a delay of image size.
@@ -3762,7 +3762,7 @@ class SelectedDesignHacker:
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top_module_name = "get_e8m0_scale_tree_fp"
+        top_module_name = "get_e8m0_scale_tree_mu_input"
         instances = design["namespaces"]["global"]["modules"][top_module_name]["instances"]
         top_module = design["namespaces"]["global"]["modules"][top_module_name]
         connections = top_module["connections"]
