@@ -47,6 +47,85 @@ class SelectedDesignHacker:
             item.split("=") for item in (HALIDE_GEN_ARGS or "").strip().split()
         )
 
+        # Instance templates
+        self.APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
+        self.DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
+        self.FP_MUL_INSTR = "84'h00000420009004040000e"
+        self.FP_ADD_INSTR = "84'h000008000410002480082"
+
+        self.pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {
+                "ID": ["String", ""],
+                "has_stencil_valid": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "width": ["Int", 16],
+            },
+            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+            "metadata": {"config": {}, "mode": "pond"},
+        }
+        self.mem_tpl = {
+            "genref": "cgralib.Mem",
+            "genargs": {
+                "ID": ["String", ""],
+                "ctrl_width": ["Int", 16],
+                "has_chain_en": ["Bool", False],
+                "has_external_addrgen": ["Bool", False],
+                "has_flush": ["Bool", True],
+                "has_read_valid": ["Bool", False],
+                "has_reset": ["Bool", False],
+                "has_stencil_valid": ["Bool", True],
+                "has_valid": ["Bool", False],
+                "is_rom": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "use_prebuilt_mem": ["Bool", True],
+                "width": ["Int", 16]
+            },
+            "modargs": {"config": ["Json", {}], "init": ["Json", None], "mode": ["String", "lake"]},
+            "metadata": {"config": {}, "init": None, "mode": "lake"},
+        }
+        self.shift_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 1},
+        }
+        self.pipeline_fifo_tpl = {
+            "genref": "coreir.reg",
+            "genargs": {"width": ["Int", 16]},
+            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
+            "metadata": {"extra_data": 0},
+        }
+        self.pe_tpl = {
+            "modref": "global.PE"
+        }
+        self.apply_scale_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], self.APPLY_SCALE_INSTR]},
+        }
+        self.data_packing_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], self.DATA_PACKING_INSTR]},
+        }
+        self.fp_add_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], self.FP_ADD_INSTR]},
+        }
+        self.fp_mul_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], self.FP_MUL_INSTR]},
+        }
+        self.const_clk_tpl = {
+            "modref": "corebit.const",
+            "modargs": {"value": ["Bool", True]},
+        }
+
     def hack_design_if_needed(self, testname, json_path, bin_path):
         """
         Only apply hacks if `testname` is in self.hack_apps.
@@ -1976,118 +2055,156 @@ class SelectedDesignHacker:
             f.write(pretty_format_json(design))
 
     def hack_for_vector_reduction_fp_rv(self, json_path, bin_path):
-
         with open(json_path, "r") as f:
             design = json.load(f)
 
         top_module = "vector_reduction_fp"
-        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
-        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
-
-        # Const PE instance to remove
-        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
-
-        # Locate "vector_reduction_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
             print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
+
         vector_reduction_fp = global_modules[top_module]
-
-        # Remove the tile instance and its clk_en_const
         instance_dict = vector_reduction_fp.get("instances", {})
-        if tree_out_pond in instance_dict:
-            del instance_dict[tree_out_pond]
-        if tree_out_pond_clk in instance_dict:
-            del instance_dict[tree_out_pond_clk]
+        original_connections = vector_reduction_fp.get("connections", [])
 
-        # Remove references to the tile from connections,
-        #    capturing upstream => old_input, downstream => old_output
-        old_input = None
-        old_output = None
-        new_connections = []
+        # Old instances to remove
+        old_tree_pond_instance_name = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
+        old_tree_pond_clk_instance_name = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
+        old_single_accum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_i3092_i792"
+        old_single_accum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
+        old_single_accum_pond_clk = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_clk_en_const"
+        old_const_feeder_pe = "op_hcompute_output_cgra_stencil$inner_compute$const_i3085_i631"
 
-        connection_list = vector_reduction_fp.get("connections", [])
-        for conn in connection_list:
-            left, right = conn[0], conn[1]
+        # New instances to add
+        filter_mem_instance_name = "vector_reduction_fp_filter_mem"
+        accum_pond_0_name = "vector_reduction_fp_accum_pond_0"
+        accum_pond_1_name = "vector_reduction_fp_accum_pond_1"
+        accum_pe_0_name = "vector_reduction_fp_accum_pe_0"
+        accum_pe_1_name = "vector_reduction_fp_accum_pe_1"
+        final_reduce_pe_name = "vector_reduction_fp_final_reduce_pe"
+        accum_pe_0_inst_const_name = "vector_reduction_fp_accum_pe_0_inst_const"
+        accum_pe_1_inst_const_name = "vector_reduction_fp_accum_pe_1_inst_const"
+        final_reduce_pe_inst_const_name = "vector_reduction_fp_final_reduce_pe_inst_const"
+        shared_clk_const_name = "vector_reduction_fp_clk_en_const"
 
-            # Check references to tile or its clk const
-            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
-            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
-
-            if not (refs_tile_left or refs_tile_right):
-                # If no reference to tile, keep it for now
-                new_connections.append(conn)
-                continue
-
-            # If referencing the tile, skip it but see if it's data_in or data_out
-            if tree_out_pond in left:
-                if ".data_in_pond_" in left or ".data_in_" in left:
-                    old_input = right
-            elif tree_out_pond in right:
-                if ".data_in_pond_" in right or ".data_in_" in right:
-                    old_input = left
-
-            if tree_out_pond in left:
-                if ".data_out_pond_" in left or ".data_out_" in left:
-                    old_output = right
-            elif tree_out_pond in right:
-                if ".data_out_pond_" in right or ".data_out_" in right:
-                    old_output = left
-
-        # Reconnect old_input -> old_output if both exist
-        if old_input and old_output:
-            new_connections.append([old_input, old_output])
-        else:
-            print(
-                f"WARNING: Could not find both data_in and data_out references for "
-                f"tile '{tree_out_pond}'. No direct reconnection added."
-            )
-
-        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
-        #    from the instance dictionary (if present)
-        if pe_to_remove in instance_dict:
-            del instance_dict[pe_to_remove]
-
-        # Filter out any connections referencing const PE instance
-        final_connections = []
-        for conn in new_connections:
-            left, right = conn[0], conn[1]
-            if pe_to_remove in left or pe_to_remove in right:
-                # skip any references to that PE
-                continue
-            final_connections.append(conn)
-
-        # Update the final connection list
-        vector_reduction_fp["connections"] = final_connections
-
-        # Identify psum PE with Pond and generate fifo bypass config
-        # Write bypass config to design_top at the top level
-        psum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
-        PE_fifos_bypass_config = {
-            psum_pe_name: {
-                # HACK: Assuming the PE input port connected to Pond is "data_in_0"
-                # We bypass the input and output fifos on the feedback path
-                "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1,
-            }
-        }
-        PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
-        print(f"Writing PE_fifos_bypass_config to {PE_fifos_bypass_config_path}")
-        with open(PE_fifos_bypass_config_path, "w") as f:
-            json.dump(PE_fifos_bypass_config, f, indent=2)
-
-        # Update output IO tile extent to match the number of output pixels
-        # Also have to update cycle_start_addr and stride, as it means handshake rather than cycles in dense rv scenario
+        tree_output_signal = "op_hcompute_tree_3_stencil$inner_compute$float_DW_fp_add_i3145_i792.O0"
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        io_in_port = f"{io_out_name}.in"
+
+        # Delete old instances
+        for name in [
+            old_tree_pond_instance_name,
+            old_tree_pond_clk_instance_name,
+            old_single_accum_pe_name,
+            old_single_accum_pond_name,
+            old_single_accum_pond_clk,
+            old_const_feeder_pe,
+        ]:
+            if name in instance_dict:
+                del instance_dict[name]
+
+        # Shared clk const
+        if shared_clk_const_name not in instance_dict:
+            instance_dict[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # Filter mem
+        if filter_mem_instance_name not in instance_dict:
+            instance_dict[filter_mem_instance_name] = copy.deepcopy(self.mem_tpl)
+
+        # Accum ponds
+        if accum_pond_0_name not in instance_dict:
+            instance_dict[accum_pond_0_name] = copy.deepcopy(self.pond_tpl)
+        if accum_pond_1_name not in instance_dict:
+            instance_dict[accum_pond_1_name] = copy.deepcopy(self.pond_tpl)
+
+        # PEs
+        if accum_pe_0_name not in instance_dict:
+            instance_dict[accum_pe_0_name] = copy.deepcopy(self.pe_tpl)
+        if accum_pe_1_name not in instance_dict:
+            instance_dict[accum_pe_1_name] = copy.deepcopy(self.pe_tpl)
+        if final_reduce_pe_name not in instance_dict:
+            instance_dict[final_reduce_pe_name] = copy.deepcopy(self.pe_tpl)
+
+        # Find PE instruction from reduction tree
+        pe_inst_source_name = "op_hcompute_tree_1_stencil$inner_compute$c0"
+        if pe_inst_source_name not in instance_dict:
+            raise RuntimeError(f"[ERROR] Instruction node '{pe_inst_source_name}' not found to clone.")
+        pe_inst_source = instance_dict[pe_inst_source_name]
+
+        if accum_pe_0_inst_const_name not in instance_dict:
+            instance_dict[accum_pe_0_inst_const_name] = copy.deepcopy(pe_inst_source)
+        if accum_pe_1_inst_const_name not in instance_dict:
+            instance_dict[accum_pe_1_inst_const_name] = copy.deepcopy(pe_inst_source)
+        if final_reduce_pe_inst_const_name not in instance_dict:
+            instance_dict[final_reduce_pe_inst_const_name] = copy.deepcopy(pe_inst_source)
+
+        # Write PE fifos bypass config - only bypass tile-level output fifos in accumulator PEs
+        bypass_cfg = {
+            accum_pe_0_name: {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1},
+            accum_pe_1_name: {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1},
+        }
+        bypass_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        print(f"Writing PE_fifos_bypass_config to {bypass_path}")
+        with open(bypass_path, "w") as f:
+            json.dump(bypass_cfg, f, indent=2)
+
+        connections = []
+
+        # Helper function to add a connection only if it doesn't already exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        removed_instances = {
+            old_tree_pond_instance_name,
+            old_tree_pond_clk_instance_name,
+            old_single_accum_pe_name,
+            old_single_accum_pond_name,
+            old_single_accum_pond_clk,
+            old_const_feeder_pe,
+        }
+
+        for left, right in original_connections:
+            if any(rem in left or rem in right for rem in removed_instances):
+                continue
+            if tree_output_signal in left or tree_output_signal in right:
+                tree_output_signal = "op_hcompute_tree_3_stencil$inner_compute$float_DW_fp_add_i3145_i792.O0"
+            add_conn_once(left, right)
+
+        # New connections
+        add_conn_once(tree_output_signal, f"{filter_mem_instance_name}.data_in_0")
+
+        add_conn_once(f"{shared_clk_const_name}.out", f"{filter_mem_instance_name}.clk_en")
+        add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_0_name}.clk_en")
+        add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_1_name}.clk_en")
+
+        add_conn_once(f"{filter_mem_instance_name}.data_out_0", f"{accum_pe_0_name}.data1")
+        add_conn_once(f"{filter_mem_instance_name}.data_out_1", f"{accum_pe_1_name}.data1")
+
+        add_conn_once(f"{accum_pe_0_inst_const_name}.out", f"{accum_pe_0_name}.inst")
+        add_conn_once(f"{accum_pe_1_inst_const_name}.out", f"{accum_pe_1_name}.inst")
+        add_conn_once(f"{final_reduce_pe_inst_const_name}.out", f"{final_reduce_pe_name}.inst")
+
+        add_conn_once(f"{accum_pond_0_name}.data_out_pond_0", f"{accum_pe_0_name}.data0")
+        add_conn_once(f"{accum_pond_0_name}.data_in_pond_0", f"{accum_pe_0_name}.O0")
+        add_conn_once(f"{accum_pond_0_name}.data_out_pond_1", f"{final_reduce_pe_name}.data0")
+
+        add_conn_once(f"{accum_pond_1_name}.data_out_pond_0", f"{accum_pe_1_name}.data0")
+        add_conn_once(f"{accum_pond_1_name}.data_in_pond_0", f"{accum_pe_1_name}.O0")
+        add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
+
+        add_conn_once(f"{final_reduce_pe_name}.O0", io_in_port)
+
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [
             int(self.halide_gen_args_dict["vec_height"])
         ]
-        # We want to accept every valid handshake starting from the first one
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
 
-        # Overwrite the JSON
+        vector_reduction_fp["connections"] = connections
+
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
@@ -2098,7 +2215,12 @@ class SelectedDesignHacker:
 
         tree_out_pond_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_garnet$"
         tree_out_pond_clk_pattern = r"^tree_\d+_stencil\$ub_tree_\d+_stencil_BANK_\d+_clk_en_const$"
-        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+        const_pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
+        single_accum_pe_prefix = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
+        old_output_pond = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
+        old_output_pond_clk = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_clk_en_const"
+        old_output_pe_const = "op_hcompute_output_cgra_stencil_1$inner_compute$c0"
+        out_io = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
 
         # Locate the top module
         global_modules = design["namespaces"]["global"]["modules"]
@@ -2116,57 +2238,161 @@ class SelectedDesignHacker:
         for k in ponds + clks:
             del instance_dict[k]
         # Hook up connection
-        old_input = old_output = None
-        new_connections = []
+        old_input_signal = None
+        old_output_sink = None
+        kept_connections = []
         for left, right in connection_list:
-            match_left = re.match(tree_out_pond_pattern, left.split(".")[0]) or re.match(
-                tree_out_pond_clk_pattern, left.split(".")[0]
+            left_base = left.split(".")[0]
+            right_base = right.split(".")[0]
+
+            match_left = re.match(tree_out_pond_pattern, left_base) or re.match(
+                tree_out_pond_clk_pattern, left_base
             )
-            match_right = re.match(tree_out_pond_pattern, right.split(".")[0]) or re.match(
-                tree_out_pond_clk_pattern, right.split(".")[0]
+            match_right = re.match(tree_out_pond_pattern, right_base) or re.match(
+                tree_out_pond_clk_pattern, right_base
             )
+
             if not (match_left or match_right):
-                new_connections.append([left, right])
+                kept_connections.append([left, right])
                 continue
+
             if match_left:
                 if ".data_in" in left:
-                    old_input = right
+                    old_input_signal = right
                 if ".data_out" in left:
-                    old_output = right
+                    old_output_sink = right
             if match_right:
                 if ".data_in" in right:
-                    old_input = left
+                    old_input_signal = left
                 if ".data_out" in right:
-                    old_output = left
-        if old_input and old_output:
-            new_connections.append([old_input, old_output])
-        else:
-            assert False, "[ERROR] Could not find data_in and data_out for pond tile."
+                    old_output_sink = left
+
+        if not (old_input_signal and old_output_sink):
+            raise RuntimeError("[ERROR] Could not find data_in and data_out for reduction pond tile.")
 
         # Remove const PE instance and its connections
-        if pe_to_remove in instance_dict:
-            del instance_dict[pe_to_remove]
-        filtered_conns = [
-            c for c in new_connections if pe_to_remove not in c[0] and pe_to_remove not in c[1]
-        ]
-        mat["connections"] = filtered_conns
+        if const_pe_to_remove in instance_dict:
+            del instance_dict[const_pe_to_remove]
 
-        # Generate FIFO bypass config for the psum PE
-        psum_pe = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
-        bypass_cfg = {psum_pe: {"input_fifo_bypass": [1, 0, 0], "output_fifo_bypass": 1}}
+        # Remove single accum PE
+        single_accum_pes = [
+            name for name in instance_dict if name.startswith(single_accum_pe_prefix)
+        ]
+        for name in single_accum_pes:
+            del instance_dict[name]
+
+        # Remove old output pond and clk
+        for name in [old_output_pond, old_output_pond_clk, old_output_pe_const]:
+            if name in instance_dict:
+                del instance_dict[name]
+
+        # Filter connections
+        connections = []
+
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+        removed_instances = set(ponds + clks + [const_pe_to_remove] + single_accum_pes + [old_output_pond, old_output_pond_clk, old_output_pe_const])
+
+        for left, right in kept_connections:
+            if any(rem in left or rem in right for rem in removed_instances):
+                continue
+            add_conn_once(left, right)
+
+        # Build new reduction: mem -> 2 accums -> final reduce -> IO
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        filter_mem_instance_name = f"{top_module}_filter_mem"
+        accum_pond_0_name = f"{top_module}_accum_pond_0"
+        accum_pond_1_name = f"{top_module}_accum_pond_1"
+        accum_pe_0_name = f"{top_module}_accum_pe_0"
+        accum_pe_1_name = f"{top_module}_accum_pe_1"
+        final_reduce_pe_name = f"{top_module}_final_reduce_pe"
+        accum_pe_0_inst_const_name = f"{top_module}_accum_pe_0_inst_const"
+        accum_pe_1_inst_const_name = f"{top_module}_accum_pe_1_inst_const"
+        final_reduce_pe_inst_const_name = f"{top_module}_final_reduce_pe_inst_const"
+
+        # Shared clk const
+        if shared_clk_const_name not in instance_dict:
+            instance_dict[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # Filter MEMs
+        if filter_mem_instance_name not in instance_dict:
+            instance_dict[filter_mem_instance_name] = copy.deepcopy(self.mem_tpl)
+
+        # Accum ponds
+        if accum_pond_0_name not in instance_dict:
+            instance_dict[accum_pond_0_name] = copy.deepcopy(self.pond_tpl)
+        if accum_pond_1_name not in instance_dict:
+            instance_dict[accum_pond_1_name] = copy.deepcopy(self.pond_tpl)
+
+        # two accumulator PEs + final reducer
+        if accum_pe_0_name not in instance_dict:
+            instance_dict[accum_pe_0_name] = copy.deepcopy(self.pe_tpl)
+        if accum_pe_1_name not in instance_dict:
+            instance_dict[accum_pe_1_name] = copy.deepcopy(self.pe_tpl)
+        if final_reduce_pe_name not in instance_dict:
+            instance_dict[final_reduce_pe_name] = copy.deepcopy(self.pe_tpl)
+
+        # Find PE instruction from reduction tree
+        pe_inst_source_name = "op_hcompute_tree_1_stencil$inner_compute$c0"
+        if pe_inst_source_name not in instance_dict:
+            raise RuntimeError(f"[ERROR] Instruction node '{pe_inst_source_name}' not found to clone.")
+        pe_inst_source = instance_dict[pe_inst_source_name]
+
+        if accum_pe_0_inst_const_name not in instance_dict:
+            instance_dict[accum_pe_0_inst_const_name] = copy.deepcopy(pe_inst_source)
+        if accum_pe_1_inst_const_name not in instance_dict:
+            instance_dict[accum_pe_1_inst_const_name] = copy.deepcopy(pe_inst_source)
+        if final_reduce_pe_inst_const_name not in instance_dict:
+            instance_dict[final_reduce_pe_inst_const_name] = copy.deepcopy(pe_inst_source)
+
+        # Tree output -> filter mem
+        add_conn_once(old_input_signal, f"{filter_mem_instance_name}.data_in_0")
+
+        # Clk -> filter mem + ponds
+        add_conn_once(f"{shared_clk_const_name}.out", f"{filter_mem_instance_name}.clk_en")
+        add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_0_name}.clk_en")
+        add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_1_name}.clk_en")
+
+        # Filter mem -> two accum PEs
+        add_conn_once(f"{filter_mem_instance_name}.data_out_0", f"{accum_pe_0_name}.data1")
+        add_conn_once(f"{filter_mem_instance_name}.data_out_1", f"{accum_pe_1_name}.data1")
+
+        # Per-PE insts
+        add_conn_once(f"{accum_pe_0_inst_const_name}.out", f"{accum_pe_0_name}.inst")
+        add_conn_once(f"{accum_pe_1_inst_const_name}.out", f"{accum_pe_1_name}.inst")
+        add_conn_once(f"{final_reduce_pe_inst_const_name}.out", f"{final_reduce_pe_name}.inst")
+
+        # Ponds feedback and spill
+        add_conn_once(f"{accum_pond_0_name}.data_out_pond_0", f"{accum_pe_0_name}.data0")
+        add_conn_once(f"{accum_pond_0_name}.data_in_pond_0", f"{accum_pe_0_name}.O0")
+        add_conn_once(f"{accum_pond_0_name}.data_out_pond_1", f"{final_reduce_pe_name}.data0")
+
+        add_conn_once(f"{accum_pond_1_name}.data_out_pond_0", f"{accum_pe_1_name}.data0")
+        add_conn_once(f"{accum_pond_1_name}.data_in_pond_0", f"{accum_pe_1_name}.O0")
+        add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
+
+        # Final reduce -> output IO
+        add_conn_once(f"{final_reduce_pe_name}.O0", f"{out_io}.in")
+
+        # Write PE fifos bypass config - only bypass tile-level output fifos in accumulator PEs
+        bypass_cfg = {
+            accum_pe_0_name: {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1},
+            accum_pe_1_name: {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1},
+        }
         bypass_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
         print(f"Writing PE_fifos_bypass_config to {bypass_path}")
         with open(bypass_path, "w") as f:
             json.dump(bypass_cfg, f, indent=2)
 
-        # Update the output-IO tile’s metadata to match matrix_height size
-        out_io = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+        # Update the output-IO tile's metadata to match matrix_height size
         md = instance_dict[out_io]["metadata"]["in2glb_0"]
         md["extent"] = [int(self.halide_gen_args_dict["matrix_height"])]
         md["cycle_starting_addr"] = [0]
         md["cycle_stride"] = [1]
 
-        # Update the input-IO tile’s metadata to match matrix size
+        # Update the input-IO tile's metadata to match matrix size
         in_io_pattern = "io16in_matrix_host_stencil"
         for in_io_instance in instance_dict:
             if in_io_pattern in in_io_instance:
@@ -2207,10 +2433,7 @@ class SelectedDesignHacker:
             if m
         )
         for idx, pe_name in mul_list:
-            io_name = (
-                f"io16in_vector_host_stencil_clkwrk_{idx}"
-                f"_op_hcompute_vector_glb_stencil_{idx}_read_0"
-            )
+            io_name = (f"io16in_vector_host_stencil_clkwrk_{idx}_op_hcompute_vector_glb_stencil_{idx}_read_0")
             # Add the IO instance
             instance_dict[io_name] = {
                 "modref": "global.IO",
@@ -2218,22 +2441,15 @@ class SelectedDesignHacker:
                 "metadata": vector_meta,
             }
             # Connect self.vector_host_stencil* to io.in
-            mat["connections"].append(
-                [
-                    f"self.vector_host_stencil_clkwrk_{idx}"
-                    f"_op_hcompute_vector_glb_stencil_{idx}_read_0",
-                    f"{io_name}.in",
-                ]
-            )
+            add_conn_once(f"self.vector_host_stencil_clkwrk_{idx}_op_hcompute_vector_glb_stencil_{idx}_read_0", f"{io_name}.in")
             # Connect pe.data1 to io.out
-            mat["connections"].append([f"{pe_name}.data1", f"{io_name}.out"])
+            add_conn_once(f"{pe_name}.data1", f"{io_name}.out")
         # Update the module’s type record to include vector_host_stencil fields
         type_fields = mat["type"][1]
         for idx, _ in mul_list:
             type_fields.append(
                 [
-                    f"vector_host_stencil_clkwrk_{idx}"
-                    f"_op_hcompute_vector_glb_stencil_{idx}_read_0",
+                    f"vector_host_stencil_clkwrk_{idx}_op_hcompute_vector_glb_stencil_{idx}_read_0",
                     ["Array", 16, "BitIn"],
                 ]
             )
@@ -2249,7 +2465,7 @@ class SelectedDesignHacker:
                     # inst["modargs"]["value"] is a 2-element list:
                     # [ ["BitVector", width], hexstring ]
                     # update the hexstring to multiply two inputs instead of constant
-                    inst["modargs"]["value"][1] = "84'h00000420009004040000e"
+                    inst["modargs"]["value"][1] = self.FP_MUL_INSTR
                 else:
                     raise RuntimeError(f"Instance {inst_name} is not a coreir.const")
 
@@ -2284,6 +2500,9 @@ class SelectedDesignHacker:
         # Overwrite the instance dictionary
         instance_dict.clear()
         instance_dict.update(reordered)
+
+        # Write back connections
+        mat["connections"] = connections
 
         # Write the patched design back out
         with open(json_path, "w") as f:
@@ -2327,6 +2546,10 @@ class SelectedDesignHacker:
         conns = design["namespaces"]["global"]["modules"][top_module]["connections"]
         type_fields = design["namespaces"]["global"]["modules"][top_module]["type"][1]
 
+        # Names produced by the mat-vec hack
+        final_reduce_pe_name = f"{top_module}_final_reduce_pe"
+        out_io_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
+
         # Bias input IO instantiation and connection
         bias_io_name = "io16in_bias_host_stencil_clkwrk_0_op_hcompute_bias_glb_stencil_0_read_0"
         if bias_io_name not in instances:
@@ -2366,7 +2589,7 @@ class SelectedDesignHacker:
                 "genref": "coreir.const",
                 "genargs": {"width": ["Int", 84]},
                 "modargs": {
-                    "value": [["BitVector", 84], "84'h000008000410002480082"]
+                    "value": [["BitVector", 84], self.FP_ADD_INSTR]
                 },
             }
 
@@ -2374,32 +2597,29 @@ class SelectedDesignHacker:
         if bias_add_name not in instances:
             instances[bias_add_name] = {"modref": "global.PE"}
 
-        # Instruction connection for bias add PE
-        conns.append([f"{bias_add_name}.inst", f"{bias_const_name}.out"])
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in conns:
+                conns.append(pair)
 
-        # Bias IO input -> bias add PE data0
-        conns.append([f"{bias_add_name}.data0", f"{bias_io_name}.out"])
+        # Find and remove the current final_reduce -> IO connection
+        final_to_io_pairs = []
+        for idx, (left, right) in enumerate(list(conns)):
+            is_final_left = left == f"{final_reduce_pe_name}.O0" and right == f"{out_io_name}.in"
+            is_final_right = right == f"{final_reduce_pe_name}.O0" and left == f"{out_io_name}.in"
+            if is_final_left or is_final_right:
+                final_to_io_pairs.append(idx)
+        for idx in reversed(final_to_io_pairs):
+            conns.pop(idx)
 
-        # Find the existing connection: pond.data_out_pond_1 -> output IO .in
-        # And rewire through bias add PE: pond -> PE.data0, PE.O0 -> IO.in
-        pond_to_out_idx = None
-        pond_src = None
-        out_io_in = None
-        for i, (left, right) in enumerate(conns):
-            if left.endswith(".data_out_pond_1") and right.endswith(".in"):
-                pond_to_out_idx = i
-                pond_src = left
-                out_io_in = right
-                break
-
-        assert pond_to_out_idx is not None, "Could not find final pond -> output IO connection for FC."
-
-        # Remove the direct pond -> output IO connection
-        conns.pop(pond_to_out_idx)
-
-        # Insert pond -> bias_add.data1  and  bias_add.O0 -> output IO .in
-        conns.append([f"{bias_add_name}.data1", pond_src])
-        conns.append([f"{bias_add_name}.O0", out_io_in])
+        # Insert new connections:
+        # final_reduce_pe.O0 -> bias_add.data1
+        # bias_io.out -> bias_add.data0
+        # bias_add.O0 -> io.in
+        add_conn_once(f"{bias_add_name}.inst", f"{bias_const_name}.out")
+        add_conn_once(f"{bias_add_name}.data0", f"{bias_io_name}.out")
+        add_conn_once(f"{bias_add_name}.data1", f"{final_reduce_pe_name}.O0")
+        add_conn_once(f"{bias_add_name}.O0", f"{out_io_name}.in")
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
@@ -3204,18 +3424,6 @@ class SelectedDesignHacker:
 
         # 2. Insert Pond: intercept PE->Mem writes, fork back to PE and forward to Mem
         mems = {n for n, i in instances.items() if i.get("genref") == "cgralib.Mem"}
-        pond_tpl = {
-            "genref": "cgralib.Pond",
-            "genargs": {
-                "ID": ["String", ""],
-                "has_stencil_valid": ["Bool", True],
-                "num_inputs": ["Int", 2],
-                "num_outputs": ["Int", 2],
-                "width": ["Int", 16],
-            },
-            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
-            "metadata": {"config": {}, "mode": "pond"},
-        }
 
         new_conns = []
         counts = {}
@@ -3248,7 +3456,7 @@ class SelectedDesignHacker:
             cnt = counts.get(key, 0)
             p = f"{mem}$pond_{idx}_{cnt}"
             counts[key] = cnt + 1
-            inst = copy.deepcopy(pond_tpl)
+            inst = copy.deepcopy(self.pond_tpl)
             inst["genargs"]["ID"][1] = p
             instances[p] = inst
 
@@ -3307,55 +3515,198 @@ class SelectedDesignHacker:
 
         avg = modules[top_module]
         instances = avg["instances"]
-        conns = avg["connections"]
+        old_conns = avg["connections"]
 
         # Remove constant PEs
         for inst in list(instances):
             if inst.startswith(const_prefix):
                 del instances[inst]
-        filtered = [c for c in conns if const_prefix not in c[0] and const_prefix not in c[1]]
+        filtered_conns = [
+            c for c in old_conns if const_prefix not in c[0] and const_prefix not in c[1]
+        ]
 
-        # Replace each Mem tile with a Pond instance named "<mem>$pond"
-        pond_tpl = {
-            "genref": "cgralib.Pond",
-            "genargs": {
-                "ID": ["String", ""],
-                "has_stencil_valid": ["Bool", True],
-                "num_inputs": ["Int", 2],
-                "num_outputs": ["Int", 2],
-                "width": ["Int", 16],
-            },
-            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
-            "metadata": {"config": {}, "mode": "pond"},
-        }
-
-        mem_to_pond = {}
-        for name, inst in list(instances.items()):
-            if inst.get("genref") == "cgralib.Mem":
-                pond_name = f"{name}$pond"
-                mem_to_pond[name] = pond_name
-                new_inst = copy.deepcopy(pond_tpl)
-                new_inst["genargs"]["ID"][1] = pond_name
-                instances[pond_name] = new_inst
+        # Remove old single pond + PE accumulator and rewire connections
+        old_output_pond = "output_cgra_stencil$ub_output_cgra_stencil_BANK_"
+        old_output_pond_clk = "output_cgra_stencil$ub_output_cgra_stencil_BANK_"
+        old_output_pe_const = "op_hcompute_output_cgra_stencil_"
+        ponds_by_idx = {}
+        clks_by_idx = {}
+        adds_by_idx = {}
+        muls_by_idx = {}
+        for inst_name in list(instances):
+            if inst_name.startswith(old_output_pond) and inst_name.endswith("_garnet"):
+                # ...BANK_<i>_garnet
+                idx = int(inst_name.split("_BANK_")[1].split("_")[0])
+                ponds_by_idx[idx] = inst_name
+            elif inst_name.startswith(old_output_pond_clk) and inst_name.endswith("_clk_en_const"):
+                idx = int(inst_name.split("_BANK_")[1].split("_")[0])
+                clks_by_idx[idx] = inst_name
+            elif inst_name.startswith(old_output_pe_const) and "$inner_compute$float_DW_fp_add_" in inst_name:
+                # op_hcompute_output_cgra_stencil_<i>$inner_compute$float_DW_fp_add_...
+                idx = int(inst_name.split("op_hcompute_output_cgra_stencil_")[1].split("$")[0])
+                adds_by_idx[idx] = inst_name
+            elif inst_name.startswith(old_output_pe_const) and "$inner_compute$float_DW_fp_mul" in inst_name:
+                idx = int(inst_name.split("op_hcompute_output_cgra_stencil_")[1].split("$")[0])
+                muls_by_idx[idx] = inst_name
+        # Delete instances
+        for i, name in ponds_by_idx.items():
+            if name in instances:
                 del instances[name]
+        for i, name in clks_by_idx.items():
+            if name in instances:
+                del instances[name]
+        for i, name in adds_by_idx.items():
+            if name in instances:
+                del instances[name]
+        # Rewire connections: pond.data_out_pond_1 -> lane becomes mul.O0 -> lane
+        rewired_conns = []
+        for left, right in filtered_conns:
+            rewired = False
 
-        # Rename all connections: data_in_* -> data_in_pond_0, data_out_i -> data_out_pond_i
-        def rename_port(tok):
-            m = re.match(r"^(.+)\.(data_(?:in|out))_(\d+)$", tok)
-            if m and m.group(1) in mem_to_pond:
-                old, dtype, idx = m.group(1), m.group(2), m.group(3)
-                new_name = mem_to_pond[old]
-                if dtype == "data_in":
-                    new_idx = "0"
-                else:
-                    new_idx = idx
-                return f"{new_name}.{dtype}_pond_{new_idx}"
-            for old, new in mem_to_pond.items():
-                if tok.startswith(old + "."):
-                    return tok.replace(old + ".", new + ".", 1)
-            return tok
+            # Left side is pond out_1
+            if ".data_out_pond_1" in left:
+                pond_inst = left.split(".")[0]
+                if pond_inst.startswith(old_output_pond):
+                    idx = int(pond_inst.split("_BANK_")[1].split("_")[0])
+                    # pond i corresponds to mul (i+1)
+                    mul_inst = muls_by_idx.get(idx + 1)
+                    if mul_inst is not None:
+                        rewired_conns.append([f"{mul_inst}.O0", right])
+                        rewired = True
 
-        avg["connections"] = [(rename_port(a), rename_port(b)) for (a, b) in filtered]
+            # Right side is pond out_1
+            if (not rewired) and ".data_out_pond_1" in right:
+                pond_inst = right.split(".")[0]
+                if pond_inst.startswith(old_output_pond):
+                    idx = int(pond_inst.split("_BANK_")[1].split("_")[0])
+                    mul_inst = muls_by_idx.get(idx + 1)
+                    if mul_inst is not None:
+                        rewired_conns.append([left, f"{mul_inst}.O0"])
+                        rewired = True
+
+            if rewired:
+                continue
+
+            # Drop any other edge touching old pond / clk / add
+            left_base = left.split(".")[0]
+            right_base = right.split(".")[0]
+            if (
+                left_base in ponds_by_idx.values()
+                or right_base in ponds_by_idx.values()
+                or left_base in clks_by_idx.values()
+                or right_base in clks_by_idx.values()
+                or left_base in adds_by_idx.values()
+                or right_base in adds_by_idx.values()
+            ):
+                continue
+
+            rewired_conns.append([left, right])
+
+        # Use rewired_conns for the rest
+        filtered_conns = rewired_conns
+
+        # Find all output IOs and all final "src -> IO.in" connections
+        io_in_conns = []
+        for left, right in filtered_conns:
+            if right.endswith(".in"):
+                io_inst = right.split(".")[0]
+                if io_inst in instances and instances[io_inst].get("modref") == "global.IO" and instances[io_inst].get("modargs").get("mode") == ["String", "out"]:
+                    io_in_conns.append((left, right))
+
+        if not io_in_conns:
+            raise ValueError("Cannot find any final source that drives output IO.")
+
+        # Keep old connections that are not affected by the hack
+        kept_conns = []
+        for left, right in filtered_conns:
+            if (left, right) in io_in_conns:
+                continue
+            kept_conns.append([left, right])
+
+        # One shared clk const
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # Rebuild connections
+        connections = []
+
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Keep unaffected connections
+        for left, right in kept_conns:
+            add_conn_once(left, right)
+
+        # Per-lane accumulators
+        lane_bypass_cfg = {}
+        for lane_idx, (old_final_src, final_sink) in enumerate(io_in_conns):
+            lane_prefix = f"{top_module}_lane_{lane_idx}"
+
+            filter_mem_name = f"{lane_prefix}_filter_mem"
+            accum_pond_0_name = f"{lane_prefix}_accum_pond_0"
+            accum_pond_1_name = f"{lane_prefix}_accum_pond_1"
+            accum_pe_0_name = f"{lane_prefix}_accum_pe_0"
+            accum_pe_1_name = f"{lane_prefix}_accum_pe_1"
+            final_reduce_pe_name = f"{lane_prefix}_final_reduce_pe"
+            accum_pe_0_inst_const_name = f"{lane_prefix}_accum_pe_0_inst_const"
+            accum_pe_1_inst_const_name = f"{lane_prefix}_accum_pe_1_inst_const"
+            final_reduce_pe_inst_const_name = f"{lane_prefix}_final_reduce_pe_inst_const"
+
+            if filter_mem_name not in instances:
+                instances[filter_mem_name] = copy.deepcopy(self.mem_tpl)
+            if accum_pond_0_name not in instances:
+                instances[accum_pond_0_name] = copy.deepcopy(self.pond_tpl)
+            if accum_pond_1_name not in instances:
+                instances[accum_pond_1_name] = copy.deepcopy(self.pond_tpl)
+            if accum_pe_0_name not in instances:
+                instances[accum_pe_0_name] = copy.deepcopy(self.pe_tpl)
+            if accum_pe_1_name not in instances:
+                instances[accum_pe_1_name] = copy.deepcopy(self.pe_tpl)
+            if final_reduce_pe_name not in instances:
+                instances[final_reduce_pe_name] = copy.deepcopy(self.pe_tpl)
+            if accum_pe_0_inst_const_name not in instances:
+                instances[accum_pe_0_inst_const_name] = copy.deepcopy(self.fp_add_const_tpl)
+            if accum_pe_1_inst_const_name not in instances:
+                instances[accum_pe_1_inst_const_name] = copy.deepcopy(self.fp_add_const_tpl)
+            if final_reduce_pe_inst_const_name not in instances:
+                instances[final_reduce_pe_inst_const_name] = copy.deepcopy(self.fp_add_const_tpl)
+
+            add_conn_once(old_final_src, f"{filter_mem_name}.data_in_0")
+
+            add_conn_once(f"{shared_clk_const_name}.out", f"{filter_mem_name}.clk_en")
+            add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_0_name}.clk_en")
+            add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_1_name}.clk_en")
+
+            add_conn_once(f"{filter_mem_name}.data_out_0", f"{accum_pe_0_name}.data1")
+            add_conn_once(f"{filter_mem_name}.data_out_1", f"{accum_pe_1_name}.data1")
+
+            add_conn_once(f"{accum_pe_0_inst_const_name}.out", f"{accum_pe_0_name}.inst")
+            add_conn_once(f"{accum_pe_1_inst_const_name}.out", f"{accum_pe_1_name}.inst")
+            add_conn_once(f"{final_reduce_pe_inst_const_name}.out", f"{final_reduce_pe_name}.inst")
+
+            add_conn_once(f"{accum_pond_0_name}.data_out_pond_0", f"{accum_pe_0_name}.data0")
+            add_conn_once(f"{accum_pond_0_name}.data_in_pond_0", f"{accum_pe_0_name}.O0")
+            add_conn_once(f"{accum_pond_0_name}.data_out_pond_1", f"{final_reduce_pe_name}.data0")
+
+            add_conn_once(f"{accum_pond_1_name}.data_out_pond_0", f"{accum_pe_1_name}.data0")
+            add_conn_once(f"{accum_pond_1_name}.data_in_pond_0", f"{accum_pe_1_name}.O0")
+            add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
+
+            add_conn_once(f"{final_reduce_pe_name}.O0", final_sink)
+
+            lane_bypass_cfg[accum_pe_0_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
+            lane_bypass_cfg[accum_pe_1_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
+
+        # Write back all-lane connections
+        avg["connections"] = connections
+
+        # Write bypass config for all accumulator PEs
+        bypass_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        with open(bypass_path, "w") as f:
+            json.dump(lane_bypass_cfg, f, indent=2)
 
         # Configure input IO with stride to read pixels from the same channel
         for inst_name, inst_conf in instances.items():
@@ -3390,10 +3741,12 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-        # Update design_meta_halide.json to update output shape
+        # Update design_meta_halide.json to update input/output shape
         design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
         with open(design_meta_path, "r") as f:
             design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expect only one input in avgpool_layer_fp"
+        design_meta["IOs"]["inputs"][0]["shape"] = [int(self.halide_gen_args_dict["n_ic"]), int(self.halide_gen_args_dict["in_img"]), int(self.halide_gen_args_dict["in_img"])]
         assert len(design_meta["IOs"]["outputs"]) == 1, "Expect only one output in avgpool_layer_fp"
         design_meta["IOs"]["outputs"][0]["shape"] = [int(self.halide_gen_args_dict["n_ic"]), 1, 1]
         with open(design_meta_path, "w") as f:
@@ -3426,8 +3779,6 @@ class SelectedDesignHacker:
         It also inserts apply-scale pipeline and scale broadcast for fused quantization.
         '''
         SCALE_PE_SRC = "op_hcompute_scale_output_glb_stencil$inner_compute$get_shared_exp_i3200i78_i1489.O0"
-        APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
-        DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
 
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -3436,29 +3787,6 @@ class SelectedDesignHacker:
         instances = design["namespaces"]["global"]["modules"][top_module_name]["instances"]
         top_module = design["namespaces"]["global"]["modules"][top_module_name]
         connections = top_module["connections"]
-
-        # Insert MEM tiles between MU IOs and tree_mem / tree_mu PEs
-        mem_tpl = {
-            "genref": "cgralib.Mem",
-            "genargs": {
-                "ID": ["String", ""],
-                "ctrl_width": ["Int", 16],
-                "has_chain_en": ["Bool", False],
-                "has_external_addrgen": ["Bool", False],
-                "has_flush": ["Bool", True],
-                "has_read_valid": ["Bool", False],
-                "has_reset": ["Bool", False],
-                "has_stencil_valid": ["Bool", True],
-                "has_valid": ["Bool", False],
-                "is_rom": ["Bool", True],
-                "num_inputs": ["Int", 2],
-                "num_outputs": ["Int", 2],
-                "use_prebuilt_mem": ["Bool", True],
-                "width": ["Int", 16]
-            },
-            "modargs": {"config": ["Json", {}], "init": ["Json", None], "mode": ["String", "lake"]},
-            "metadata": {"config": {}, "init": None, "mode": "lake"},
-        }
 
         def clkwrk_idx_from_port(p):
             # Helper function to extract MU IO clkwrk index from port name
@@ -3492,7 +3820,7 @@ class SelectedDesignHacker:
             assert mu_idx is not None, f"Cannot parse clkwrk index from MU port: {mu_port}"
             mem_name = f"mem_mu2tree_{mu_idx}"
             if mem_name not in instances:
-                tpl = copy.deepcopy(mem_tpl)
+                tpl = copy.deepcopy(self.mem_tpl)
                 instances[mem_name] = tpl
 
             # Connect MU->MEM.in0
@@ -3521,21 +3849,9 @@ class SelectedDesignHacker:
         connections[:] = [c for c in connections if not is_direct_mu2tree(c)]
 
         # Add shift FIFO for scale output data packing
-        shift_fifo_tpl = {
-            "genref": "coreir.reg",
-            "genargs": {"width": ["Int", 16]},
-            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
-            "metadata": {"extra_data": 1},
-        }
-        pipeline_fifo_tpl = {
-            "genref": "coreir.reg",
-            "genargs": {"width": ["Int", 16]},
-            "modargs": {"clk_posedge": ["Bool", True], "init": [["BitVector", 16], "16'h0000"]},
-            "metadata": {"extra_data": 0},
-        }
         scale_output_shift_fifo_name = "scale_output_shift_fifo"
         if scale_output_shift_fifo_name not in instances:
-            instances[scale_output_shift_fifo_name] = copy.deepcopy(shift_fifo_tpl)
+            instances[scale_output_shift_fifo_name] = copy.deepcopy(self.shift_fifo_tpl)
 
         # Collect the pre-hacked single scale-output IO, then rename + clone to indexed names
         scale_output_IO = []
@@ -3582,7 +3898,7 @@ class SelectedDesignHacker:
             instances[scale_data_packing_const_name] = {
                 "genref": "coreir.const",
                 "genargs": {"width": ["Int", 84]},
-                "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
+                "modargs": {"value": [["BitVector", 84], self.DATA_PACKING_INSTR]},
             }
         add_conn_once(f"{scale_data_packing_pe_name}.inst", f"{scale_data_packing_const_name}.out")
 
@@ -3596,7 +3912,7 @@ class SelectedDesignHacker:
         # Insert a MEM tile to broadcast scale data_packing output to both IOs
         scale_output_broadcast_mem_name = "mem_scale_output_broadcast"
         if scale_output_broadcast_mem_name not in instances:
-            instances[scale_output_broadcast_mem_name] = copy.deepcopy(mem_tpl)
+            instances[scale_output_broadcast_mem_name] = copy.deepcopy(self.mem_tpl)
         # Connect data_packing.O0 -> MEM.data_in_0
         add_conn_once(f"{scale_data_packing_pe_name}.O0", f"{scale_output_broadcast_mem_name}.data_in_0")
 
@@ -3610,7 +3926,7 @@ class SelectedDesignHacker:
             fifo_name = f"scale_output_additional_fifo_{i}"
             additional_fifo_names.append(fifo_name)
             if fifo_name not in instances:
-                instances[fifo_name] = copy.deepcopy(pipeline_fifo_tpl)
+                instances[fifo_name] = copy.deepcopy(self.pipeline_fifo_tpl)
 
         # Connect MEM.data_out_0 to first additional FIFO
         if num_additional_fifos > 0:
@@ -3656,20 +3972,6 @@ class SelectedDesignHacker:
                 scale_output_IO_idx += 1
 
         # Apply-scale pipeline + scale broadcast + output IOs
-        pe_tpl = {
-            "modref": "global.PE"
-        }
-        apply_scale_const_tpl = {
-            "genref": "coreir.const",
-            "genargs": {"width": ["Int", 84]},
-            "modargs": {"value": [["BitVector", 84], APPLY_SCALE_INSTR]},
-        }
-        # Const template for data_packing PE instruction
-        data_packing_const_tpl = {
-            "genref": "coreir.const",
-            "genargs": {"width": ["Int", 84]},
-            "modargs": {"value": [["BitVector", 84], DATA_PACKING_INSTR]},
-        }
 
         # Output GLB IO template for quantized_output_stencil
         # Two cases:
@@ -3768,8 +4070,8 @@ class SelectedDesignHacker:
             c0_name = f"{naming_base}$inner_compute$c0"
 
             # PE + const connection for apply scale instruction
-            instances[pe_name] = copy.deepcopy(pe_tpl)
-            instances[c0_name] = copy.deepcopy(apply_scale_const_tpl)
+            instances[pe_name] = copy.deepcopy(self.pe_tpl)
+            instances[c0_name] = copy.deepcopy(self.apply_scale_const_tpl)
             add_conn_once(f"{pe_name}.inst", f"{c0_name}.out")
 
             # Shift-FIFO chain
@@ -3778,7 +4080,7 @@ class SelectedDesignHacker:
             if n_regs > 0:
                 for k in range(n_regs):
                     rname = f"{naming_base}$d_reg__U0$reg{k}"
-                    instances[rname] = copy.deepcopy(shift_fifo_tpl)
+                    instances[rname] = copy.deepcopy(self.shift_fifo_tpl)
                     if k == 0:
                         # First shift FIFO
                         add_conn_once(src, f"{rname}.in")
@@ -3820,8 +4122,8 @@ class SelectedDesignHacker:
             data_packing_pe = f"{naming_base}$inner_compute$data_packing"
             data_packing_const = f"{naming_base}$inner_compute$c0_dp"
 
-            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
-            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            instances[data_packing_pe] = copy.deepcopy(self.pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(self.data_packing_const_tpl)
             add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
 
             add_conn_once(apply_outputs["mem_no_delay"][idx0], f"{data_packing_pe}.data1") #
@@ -3839,8 +4141,8 @@ class SelectedDesignHacker:
             data_packing_pe = f"{naming_base}$inner_compute$data_packing"
             data_packing_const = f"{naming_base}$inner_compute$c0_dp"
 
-            instances[data_packing_pe] = copy.deepcopy(pe_tpl)
-            instances[data_packing_const] = copy.deepcopy(data_packing_const_tpl)
+            instances[data_packing_pe] = copy.deepcopy(self.pe_tpl)
+            instances[data_packing_const] = copy.deepcopy(self.data_packing_const_tpl)
             add_conn_once(f"{data_packing_pe}.inst", f"{data_packing_const}.out")
 
             add_conn_once(apply_outputs["mem_with_delay"][idx0], f"{data_packing_pe}.data1")
@@ -4583,6 +4885,19 @@ class GlobalDesignHacker:
     """
 
     def __init__(self):
+        # Provide pond template for path balancing
+        self.pond_tpl = {
+            "genref": "cgralib.Pond",
+            "genargs": {
+                "ID": ["String", ""],
+                "has_stencil_valid": ["Bool", True],
+                "num_inputs": ["Int", 2],
+                "num_outputs": ["Int", 2],
+                "width": ["Int", 16],
+            },
+            "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
+            "metadata": {"config": {}, "mode": "pond"},
+        }
         # No filtering by apps
         pass
 
@@ -4699,20 +5014,6 @@ class GlobalDesignHacker:
 
             instances = mod_def["instances"]
 
-            # Manually insert a pond instance on each path to be balanced
-            pond_tpl = {
-                "genref": "cgralib.Pond",
-                "genargs": {
-                    "ID": ["String", ""],
-                    "has_stencil_valid": ["Bool", True],
-                    "num_inputs": ["Int", 2],
-                    "num_outputs": ["Int", 2],
-                    "width": ["Int", 16],
-                },
-                "modargs": {"config": ["Json", {}], "mode": ["String", "pond"]},
-                "metadata": {"config": {}, "mode": "pond"},
-            }
-
             # For all path_balancing PEs, create a path balancing pond instance and modify the corresponding connections
             path_balancing_json = f"{bin_path}/path_balancing.json"
             assert os.path.exists(path_balancing_json), f"Expected path_balancing.json at {path_balancing_json}"
@@ -4748,7 +5049,7 @@ class GlobalDesignHacker:
                         pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
                     else:
                         pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
-                    pond_instance = copy.deepcopy(pond_tpl)
+                    pond_instance = copy.deepcopy(self.pond_tpl)
                     pond_instance["genargs"]["ID"][1] = pond_name
                     instances[pond_name] = pond_instance
 
@@ -4769,7 +5070,7 @@ class GlobalDesignHacker:
                         pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
                     else:
                         pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
-                    pond_instance = copy.deepcopy(pond_tpl)
+                    pond_instance = copy.deepcopy(self.pond_tpl)
                     pond_instance["genargs"]["ID"][1] = pond_name
                     instances[pond_name] = pond_instance
 
