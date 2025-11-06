@@ -1,0 +1,25 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "hw_input",
+        "bitwidth": 16,
+        "shape": [64, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/input_host_stencil.raw"
+      }
+    ],
+    "output": [
+      {
+        "name": "hw_scale_output_stencil",
+        "bitwidth": 16,
+        "shape": [1, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/hw_scale_output.raw"
+      }
+    ]
+  },
+  "testing": {
+    "total_cycles": 40000
+  }
+}

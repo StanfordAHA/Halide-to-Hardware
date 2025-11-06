@@ -23,6 +23,7 @@ APPS_NEEDING_HACKS = [
     "avgpool_layer_fp",
     "mat_vec_mul_fp",
     "get_e8m0_scale_tree_mu_input",
+    "get_e8m0_scale_tree_gb_input",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
@@ -3952,6 +3953,168 @@ class SelectedDesignHacker:
                 "shape": [len(unquantized_output_ios), img_size * total_channels // len(unquantized_output_ios)],
             }
         )
+        # Fix the name and shape of hw_scale_output_stencil
+        for output in design_meta["IOs"]["outputs"]:
+            if output["name"] == "hw_scale_output_stencil":
+                output["datafile"] = "hw_scale_output.raw"
+                output["shape"] = [img_size * number_of_blocks]
+                break
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_get_e8m0_scale_tree_gb_input_rv(self, json_path, bin_path):
+        '''
+        This hack inserts MEM tiles between GLB IOs and tree_mem / tree_glb PEs.
+        MEM tile output port 0 goes to tree_mem PEs, with a delay of image size.
+        MEM tile output port 1 goes to tree_glb PEs, without delay.
+        '''
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "get_e8m0_scale_tree_gb_input"
+        instances = design["namespaces"]["global"]["modules"][top_module_name]["instances"]
+        top_module = design["namespaces"]["global"]["modules"][top_module_name]
+        connections = top_module["connections"]
+
+        def clkwrk_idx_from_port(p):
+            # Helper function to extract GLB IO clkwrk index from port name
+            m = re.search(r"_clkwrk_(\d+)_op_hcompute_input_gb_stencil", p)
+            return int(m.group(1)) if m else None
+
+        # Helper function to add a connection only if it doesn't already exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Collect original GLB->tree connections and ports
+        for a, b in list(connections):
+            is_glb_a = a.startswith("io16in_")
+            is_glb_b = b.startswith("io16in_")
+            is_tree_mem_a = "op_hcompute_tree_mem" in a and ".data" in a
+            is_tree_mem_b = "op_hcompute_tree_mem" in b and ".data" in b
+            is_tree_glb_a  = "op_hcompute_tree_glb"  in a and ".data" in a
+            is_tree_glb_b  = "op_hcompute_tree_glb"  in b and ".data" in b
+
+            if is_glb_a and (is_tree_mem_b or is_tree_glb_b):
+                glb_port, tree_port = a, b
+            elif is_glb_b and (is_tree_mem_a or is_tree_glb_a):
+                glb_port, tree_port = b, a
+            else:
+                continue
+
+            # Instantiate MEMs buffering activations with matching index to GLB IOs
+            glb_idx = clkwrk_idx_from_port(glb_port)
+            assert glb_idx is not None, f"Cannot parse clkwrk index from GLB port: {glb_port}"
+            mem_name = f"mem_glb2tree_{glb_idx}"
+            if mem_name not in instances:
+                tpl = copy.deepcopy(self.mem_tpl)
+                instances[mem_name] = tpl
+
+            # Connect GLB->MEM.in0
+            add_conn_once(glb_port, f"{mem_name}.data_in_0")
+
+            # Connect MEM.out0->tree_mem and MEM.out1->tree_glb
+            if "op_hcompute_tree_mem" in tree_port:
+                add_conn_once(f"{mem_name}.data_out_0", tree_port)
+            else:
+                assert "op_hcompute_tree_glb" in tree_port, f"Tree PE port {tree_port} is not a tree_mem or tree_glb port"
+                add_conn_once(f"{mem_name}.data_out_1", tree_port)
+
+        def is_direct_glb2tree(edge):
+            # Helper function to check if an edge is a direct GLB->tree edge in original connections
+            x, y = edge
+            glb_x = x.startswith("io16in_")
+            glb_y = y.startswith("io16in_")
+            tree_mem_x = "op_hcompute_tree_mem" in x and ".data" in x
+            tree_mem_y = "op_hcompute_tree_mem" in y and ".data" in y
+            tree_glb_x  = "op_hcompute_tree_glb"  in x and ".data" in x
+            tree_glb_y  = "op_hcompute_tree_glb"  in y and ".data" in y
+            return ((glb_x and (tree_mem_y or tree_glb_y)) or
+                    (glb_y and (tree_mem_x or tree_glb_x)))
+
+        # Remove original direct GLB->tree edges
+        connections[:] = [c for c in connections if not is_direct_glb2tree(c)]
+
+        # Find scale PE name and create single scale output IO
+        scale_pe_name = None
+        for instance_name, instance_conf in instances.items():
+            if "get_shared_exp" in instance_name:
+                scale_pe_name = instance_name
+                break
+        assert scale_pe_name is not None, "Cannot find scale PE"
+
+        # Collect the pre-hacked single scale-output IO and rename to indexed name
+        existing_ios = [n for n in instances.keys() if "io16_hw_scale_output_stencil_op_hcompute_hw_scale_output_stencil_write_0" in n]
+        assert len(existing_ios) == 1, "Expect one scale output IO of pre-hacked graph"
+        old_io = existing_ios[0]
+        old_port = old_io.replace("io16_", "")
+
+        # Remove any old top-level type/connection using the legacy non-indexed port
+        type_fields = top_module["type"][1]
+        type_fields[:] = [f for f in type_fields if f[0] != old_port]
+        connections[:] = [c for c in connections if c[0] != f"self.{old_port}" and c[1] != f"self.{old_port}"]
+        connections[:] = [c for c in connections if c[0] != f"{old_io}.out" and c[1] != f"{old_io}.out"]
+        connections[:] = [c for c in connections if old_io not in c[0] and old_io not in c[1]]
+
+        # Create single scale output IO
+        scale_output_io_name = "io16_hw_scale_output_stencil_clkwrk_0_op_hcompute_hw_scale_output_stencil_0_write_0"
+        inst_copy = copy.deepcopy(instances.pop(old_io))
+        instances[scale_output_io_name] = inst_copy
+
+        # Add top-level type field and connect self port to IO.out
+        scale_port = scale_output_io_name.replace("io16_", "")
+        if all(field[0] != scale_port for field in type_fields):
+            type_fields.append([scale_port, ["Array", 16, "Bit"]])
+        add_conn_once(f"self.{scale_port}", f"{scale_output_io_name}.out")
+
+        # Insert a MEM tile to filter scale output
+        mem_scale_filter_name = "mem_scale_filter"
+        if mem_scale_filter_name not in instances:
+            instances[mem_scale_filter_name] = copy.deepcopy(self.mem_tpl)
+
+        # Connect scale PE -> MEM -> scale output IO
+        add_conn_once(f"{scale_pe_name}.O0", f"{mem_scale_filter_name}.data_in_0")
+        add_conn_once(f"{mem_scale_filter_name}.data_out_0", f"{scale_output_io_name}.in")
+
+        # Configure GLB store DMA for single scale output
+        total_channels = int(self.halide_gen_args_dict["vec_width"])
+        img_size = int(self.halide_gen_args_dict["vec_height"])
+        mu_OC = int(self.halide_gen_args_dict["glb_i"])
+        number_of_blocks = total_channels // (mu_OC * 2)
+
+        # Configure the single scale output IO
+        inst_copy["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
+        inst_copy["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+        inst_copy["metadata"]["in2glb_0"]["dimensionality"] = 1
+        inst_copy["metadata"]["in2glb_0"]["extent"] = [img_size * number_of_blocks]
+        inst_copy["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+        inst_copy["metadata"]["in2glb_0"]["write_data_stride"] = [1]
+
+        # Configure input IOs schedule - each IO linearly takes in data
+        input_extent = total_channels * img_size // mu_OC
+        for inst_name, inst_conf in instances.items():
+            if inst_name.startswith("io16in_input_host_stencil_"):
+                if "metadata" in inst_conf and "glb2out_0" in inst_conf["metadata"]:
+                    inst_conf["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    inst_conf["metadata"]["glb2out_0"]["cycle_stride"] = [1]
+                    inst_conf["metadata"]["glb2out_0"]["dimensionality"] = 1
+                    inst_conf["metadata"]["glb2out_0"]["extent"] = [input_extent]
+                    inst_conf["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    inst_conf["metadata"]["glb2out_0"]["read_data_stride"] = [1]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Update design_meta_halide.json to update input shape
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input"
+        # Real input shape should match vec_width instead of vec_width_fake
+        design_meta["IOs"]["inputs"][0]["shape"][0] = int(self.halide_gen_args_dict["vec_width"])
         # Fix the name and shape of hw_scale_output_stencil
         for output in design_meta["IOs"]["outputs"]:
             if output["name"] == "hw_scale_output_stencil":
