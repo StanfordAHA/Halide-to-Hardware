@@ -4734,13 +4734,11 @@ class GlobalDesignHacker:
                 right_instance_name = right.split(".")[0]
                 right_port = right.split(".")[1] if "." in right else ""
 
-                pe_input_port_names = ["data0", "data1", "data2"]
+                left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]][0] == True)
+                right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]][0] == True)
 
-                left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == True)
-                right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == True)
-
-                left_is_path_balance_pe_input = left_port in pe_input_port_names and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == False)
-                right_is_path_balance_pe_input = right_port in pe_input_port_names and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == False)
+                left_is_path_balance_pe_input = left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]][0] == False) and (left_port == pe_to_pond[name_to_id[left_instance_name]][1])
+                right_is_path_balance_pe_input = right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]][0] == False) and (right_port == pe_to_pond[name_to_id[right_instance_name]][1])
 
                 if left_is_path_balance_pe_output or right_is_path_balance_pe_output:
                     pes_balanced += 1
