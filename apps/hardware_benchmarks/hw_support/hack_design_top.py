@@ -24,6 +24,7 @@ APPS_NEEDING_HACKS = [
     "mat_vec_mul_fp",
     "get_e8m0_scale_tree_mu_input",
     "get_e8m0_scale_tree_gb_input",
+    "apply_e8m0_scale_single_IO",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
@@ -125,6 +126,34 @@ class SelectedDesignHacker:
         self.const_clk_tpl = {
             "modref": "corebit.const",
             "modargs": {"value": ["Bool", True]},
+        }
+        self.input_io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "in"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    "extent": [128],
+                    "read_data_starting_addr": [0],
+                    "read_data_stride": [1],
+                }
+            }
+        }
+        self.output_io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "out"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    "extent": [128],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1],
+                }
+            }
         }
 
     def hack_design_if_needed(self, testname, json_path, bin_path):
@@ -4121,6 +4150,332 @@ class SelectedDesignHacker:
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
+
+    def hack_for_apply_e8m0_scale_single_IO_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "apply_e8m0_scale_single_IO"
+        modules = design["namespaces"]["global"]["modules"]
+        if top_module_name not in modules:
+            raise KeyError(f"Top module '{top_module_name}' not found in design JSON.")
+
+        top_module = modules[top_module_name]
+        instances = top_module["instances"]
+        connections = top_module["connections"]
+        type_fields = top_module["type"][1]
+
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Collapse input scale IOs down to a single broadcaster.
+        scale_io_prefix = "io16in_input_scale_host_stencil"
+        scale_io_instances = [
+            name for name in instances.keys() if name.startswith(scale_io_prefix)
+        ]
+        if not scale_io_instances:
+            raise RuntimeError("No input scale IO instances found to collapse.")
+
+        def scale_io_index(name: str) -> int:
+            match = re.search(r"clkwrk_(\d+)", name)
+            return int(match.group(1)) if match else 0
+
+        scale_io_keep = min(scale_io_instances, key=scale_io_index)
+
+        # Remove redundant input scale IO instances and their related ports/connections.
+        removal_tokens = []
+        for inst_name in scale_io_instances:
+            if inst_name == scale_io_keep:
+                continue
+            instances.pop(inst_name, None)
+
+            data_port = inst_name.replace("io16in_", "")
+            read_en_port = data_port.replace("_read_0", "_read_en")
+            removal_tokens.extend(
+                [
+                    inst_name,
+                    f"self.{data_port}",
+                    f"self.{read_en_port}",
+                ]
+            )
+            type_fields[:] = [
+                field
+                for field in type_fields
+                if field[0] not in {data_port, read_en_port}
+            ]
+
+        if removal_tokens:
+            filtered_connections = []
+            for src, dst in connections:
+                if any(token in src or token in dst for token in removal_tokens):
+                    continue
+                filtered_connections.append([src, dst])
+            connections[:] = filtered_connections
+
+        # Rebuild e8m0 quant PE scale broadcast so every data1 port sees the kept IO.
+        e8m0_quant_instances = [
+            name for name in instances if "$inner_compute$e8m0_quant" in name
+        ]
+        assert (
+            e8m0_quant_instances
+        ), "Expected to find e8m0 quant PEs, but none were detected."
+
+        quant_tokens = {f"{name}.data1" for name in e8m0_quant_instances}
+        filtered_connections = []
+        for src, dst in connections:
+            if any(token in src or token in dst for token in quant_tokens):
+                continue
+            filtered_connections.append([src, dst])
+        connections[:] = filtered_connections
+        for quant in e8m0_quant_instances:
+            add_conn_once(f"{quant}.data1", f"{scale_io_keep}.out")
+
+        # Create scale packing path: IO -> (direct + FIFO) -> data packing PE -> new output IOs.
+        scale_fifo_name = "shift_fifo_input_scale_broadcast"
+        if scale_fifo_name not in instances:
+            instances[scale_fifo_name] = copy.deepcopy(self.shift_fifo_tpl)
+
+        scale_packing_pe = "op_hcompute_hw_scale_packed_output$inner_compute$data_packing"
+        scale_packing_const = "op_hcompute_hw_scale_packed_output$inner_compute$c0"
+        if scale_packing_pe not in instances:
+            instances[scale_packing_pe] = copy.deepcopy(self.pe_tpl)
+        if scale_packing_const not in instances:
+            instances[scale_packing_const] = copy.deepcopy(self.data_packing_const_tpl)
+        add_conn_once(f"{scale_packing_pe}.inst", f"{scale_packing_const}.out")
+
+        add_conn_once(f"{scale_io_keep}.out", f"{scale_packing_pe}.data0")
+        add_conn_once(f"{scale_io_keep}.out", f"{scale_fifo_name}.in")
+        add_conn_once(f"{scale_fifo_name}.out", f"{scale_packing_pe}.data1")
+
+        # Instantiate two output IOs for packed scale data.
+        scale_output_ios = [
+            (
+                "io16_hw_scale_packed_output_stencil_clkwrk_0_op_hcompute_hw_scale_packed_output_stencil_0_write_0",
+                "hw_scale_packed_output_stencil_clkwrk_0_op_hcompute_hw_scale_packed_output_stencil_0_write_0",
+            ),
+            (
+                "io16_hw_scale_packed_output_stencil_clkwrk_1_op_hcompute_hw_scale_packed_output_stencil_1_write_1",
+                "hw_scale_packed_output_stencil_clkwrk_1_op_hcompute_hw_scale_packed_output_stencil_1_write_1",
+            ),
+        ]
+
+        for idx, (inst_name, port_name) in enumerate(scale_output_ios):
+            if inst_name not in instances:
+                instances[inst_name] = copy.deepcopy(self.output_io_tpl)
+
+            if all(field[0] != port_name for field in type_fields):
+                type_fields.append([port_name, ["Array", 16, "Bit"]])
+
+            add_conn_once(f"self.{port_name}", f"{inst_name}.out")
+            num_pipeline_fifos = 10
+            if idx == 0 and num_pipeline_fifos > 0:
+                upstream = f"{scale_packing_pe}.O0"
+                for fifo_idx in range(num_pipeline_fifos):
+                    fifo_name = f"pipeline_fifo_scale_packed_output_{fifo_idx}"
+                    if fifo_name not in instances:
+                        instances[fifo_name] = copy.deepcopy(self.pipeline_fifo_tpl)
+                    add_conn_once(upstream, f"{fifo_name}.in")
+                    upstream = f"{fifo_name}.out"
+                add_conn_once(upstream, f"{inst_name}.in")
+            else:
+                add_conn_once(f"{scale_packing_pe}.O0", f"{inst_name}.in")
+
+        # Reorder IO instances to keep category-wise indexing monotonic.
+        io_category_patterns = OrderedDict(
+            [
+                (
+                    "input_bf_act_host",
+                    re.compile(
+                        r"io16in_input_bf_act_host_stencil_clkwrk_(\d+)_op_hcompute_input_bf_act_glb_stencil(?:_(\d+))?_read_0"
+                    ),
+                ),
+                (
+                    "input_scale_host",
+                    re.compile(
+                        r"io16in_input_scale_host_stencil_clkwrk_(\d+)_op_hcompute_input_scale_glb_stencil(?:_(\d+))?_read_0"
+                    ),
+                ),
+                (
+                    "hw_output_mxint8_act",
+                    re.compile(
+                        r"io16_hw_output_mxint8_act_stencil_clkwrk_(\d+)_op_hcompute_hw_output_mxint8_act_stencil(?:_(\d+))?_write_0"
+                    ),
+                ),
+                (
+                    "hw_scale_packed_output",
+                    re.compile(
+                        r"io16_hw_scale_packed_output_stencil_clkwrk_(\d+)_op_hcompute_hw_scale_packed_output_stencil_(\d+)_write_(\d+)"
+                    ),
+                ),
+            ]
+        )
+
+        category_entries = {cat: [] for cat in io_category_patterns}
+        other_entries = []
+        for name, inst in instances.items():
+            matched = False
+            for cat, pattern in io_category_patterns.items():
+                m = pattern.match(name)
+                if m:
+                    idx = tuple(int(g) for g in m.groups() if g is not None)
+                    category_entries[cat].append((idx, name, inst))
+                    matched = True
+                    break
+            if not matched:
+                other_entries.append((name, inst))
+
+        reordered_instances = OrderedDict()
+        for name, inst in other_entries:
+            reordered_instances[name] = inst
+        for cat in io_category_patterns:
+            entries = sorted(category_entries[cat], key=lambda x: x[0])
+            for _, name, inst in entries:
+                reordered_instances[name] = inst
+
+        top_module["instances"] = reordered_instances
+        instances = top_module["instances"]
+
+        num_pixels = int(self.halide_gen_args_dict["vec_height"])
+        num_channels = int(self.halide_gen_args_dict["vec_width"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+        num_blocks = num_channels // (glb_i * 2) if glb_i != 0 else 0
+        glb_io_metadata = {
+            "input_bf_act_host": (
+                "glb2out_0",
+                {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    "extent": [num_pixels * num_channels // int(self.halide_gen_args_dict["glb_i"])],
+                    "read_data_starting_addr": [0],
+                    "read_data_stride": [1],
+                },
+            ),
+            "input_scale_host": (
+                "glb2out_0",
+                {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1, 1],
+                    "dimensionality": 2,
+                    "extent": [2, num_pixels * num_blocks],
+                    "read_data_starting_addr": [0],
+                    "read_data_stride": [0, 1],
+                },
+            ),
+            "hw_output_mxint8_act": (
+                "in2glb_0",
+                {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    # Divided by glb_i because of data packing
+                    "extent": [num_pixels * num_channels // glb_i],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1],
+                },
+            ),
+            "hw_scale_packed_output": (
+                "in2glb_0",
+                {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [2],
+                    "dimensionality": 1,
+                    "extent": [num_pixels * num_blocks // 2 if num_blocks else 0],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1],
+                },
+            ),
+        }
+
+        for name, inst_conf in instances.items():
+            matched_category = None
+            for cat in io_category_patterns:
+                if category_entries[cat] and any(entry[1] == name for entry in category_entries[cat]):
+                    matched_category = cat
+                    break
+            if matched_category is None:
+                continue
+
+            metadata = inst_conf.setdefault("metadata", {})
+            md_key, md_template = glb_io_metadata.get(matched_category, (None, None))
+            if md_key is None:
+                continue
+            metadata[md_key] = copy.deepcopy(md_template)
+
+        hw_scale_entries = sorted(
+            category_entries["hw_scale_packed_output"], key=lambda x: x[0]
+        )
+        if hw_scale_entries:
+            num_scale_ios = len(hw_scale_entries)
+            assert (
+                num_blocks > 0 and num_scale_ios > 0
+            ), "Scale output metadata requires positive blocks and IO count."
+
+            # Divided by 2 because of data packing
+            extent_per_scale_io = num_pixels * num_blocks // 2 // num_scale_ios
+
+            for idx, (_, inst_name, _) in enumerate(hw_scale_entries):
+                md = instances[inst_name]["metadata"]["in2glb_0"]
+                # Direct Stream:  0,0,1,1,2,2,3,3,4,...
+                # Shifted Stream: x,0,0,1,1,2,2,3,3,...
+                md["cycle_starting_addr"] = [2 + idx * 4]
+                md["cycle_stride"] = [num_scale_ios * 4]
+                md["dimensionality"] = 1
+                md["extent"] = [extent_per_scale_io]
+                md["write_data_starting_addr"] = [0]
+                md["write_data_stride"] = [1]
+
+        # Persist modifications.
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Update design_meta_halide.json with accurate IO metadata for RV flow.
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        if os.path.exists(design_meta_path):
+            with open(design_meta_path, "r") as f:
+                design_meta = json.load(f)
+
+            ios = design_meta.setdefault("IOs", {})
+            inputs = ios.setdefault("inputs", [])
+            outputs = ios.setdefault("outputs", [])
+
+            # Update input shapes
+            for entry in inputs:
+                if entry.get("name") == "input_bf_act_host_stencil":
+                    entry["shape"] = [num_channels, num_pixels]
+                elif entry.get("name") == "input_scale_host_stencil":
+                    entry["shape"] = [num_blocks, num_pixels]
+
+            # Update / append outputs
+            hw_output_entry = None
+            scale_output_entry = None
+            for entry in outputs:
+                if entry.get("name") == "hw_output_mxint8_act_stencil":
+                    hw_output_entry = entry
+                elif entry.get("name") == "hw_scale_packed_output_stencil":
+                    scale_output_entry = entry
+
+            if hw_output_entry is not None:
+                hw_output_entry["datafile"] = "hw_output_mxint8_act.raw"
+                hw_output_entry["shape"] = [num_channels // 2, num_pixels]
+
+            if scale_output_entry is None:
+                scale_output_entry = {
+                    "bitwidth": 16,
+                    "datafile": "hw_scale_packed_output.raw",
+                    "name": "hw_scale_packed_output_stencil",
+                    "shape": [num_blocks // 2, num_pixels],
+                }
+                outputs.append(scale_output_entry)
+            else:
+                scale_output_entry["datafile"] = "hw_scale_packed_output.raw"
+                scale_output_entry["shape"] = [num_blocks // 2, num_pixels]
+
+            with open(design_meta_path, "w") as f:
+                json.dump(design_meta, f, indent=2)
+
 
     def hack_for_get_apply_e8m0_scale_fp_rv(self, json_path, bin_path):
         '''
