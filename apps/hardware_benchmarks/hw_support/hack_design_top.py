@@ -24,6 +24,7 @@ APPS_NEEDING_HACKS = [
     "mat_vec_mul_fp",
     "get_e8m0_scale_tree_mu_input",
     "get_e8m0_scale_tree_gb_input",
+    "get_e8m0_scale_accum_gb_input",
     "apply_e8m0_scale_single_IO",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
@@ -54,6 +55,7 @@ class SelectedDesignHacker:
         self.DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
         self.FP_MUL_INSTR = "84'h00000420009004040000e"
         self.FP_ADD_INSTR = "84'h000008000410002480082"
+        self.ABS_MAX_INSTR = "84'h0008003fff94400440016"
 
         self.pond_tpl = {
             "genref": "cgralib.Pond",
@@ -122,6 +124,11 @@ class SelectedDesignHacker:
             "genref": "coreir.const",
             "genargs": {"width": ["Int", 84]},
             "modargs": {"value": [["BitVector", 84], self.FP_MUL_INSTR]},
+        }
+        self.abs_max_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], self.ABS_MAX_INSTR]},
         }
         self.const_clk_tpl = {
             "modref": "corebit.const",
@@ -4150,6 +4157,259 @@ class SelectedDesignHacker:
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
+
+    def hack_for_get_e8m0_scale_accum_gb_input_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "get_e8m0_scale_accum_gb_input"
+        top_module = design["namespaces"]["global"]["modules"][top_module_name]
+        instances = top_module["instances"]
+        original_connections = top_module["connections"]
+
+        abs_max_pe_data1_re = re.compile(
+            r"^(op_hcompute_abs_max_stencil_(?P<idx>\d+)\$inner_compute\$float_DW_fp_add_[^\.]+\.)(?P<pin>data1)$"
+        )
+        abs_max_pond_out_re = re.compile(
+            r"^abs_max_stencil\$ub_abs_max_stencil_BANK_(?P<bank>\d+)_garnet\.data_out_pond_1$"
+        )
+        packer_data_port_re = re.compile(
+            r"^op_hcompute_output_cgra_stencil(_\d+)?\$inner_compute\$bit8_pack_[^\.]+\.data[01]$"
+        )
+        packer_o0_re = re.compile(
+            r"^(op_hcompute_output_cgra_stencil(_\d+)?\$inner_compute\$bit8_pack_[^\.]+)\.O0$"
+        )
+        output_pond_data_in_re = re.compile(
+            r"^(output_cgra_stencil\$ub_output_cgra_stencil_BANK_\d+_garnet)\.data_in_pond_0$"
+        )
+        output_pond_data_out_re = re.compile(
+            r"^(output_cgra_stencil\$ub_output_cgra_stencil_BANK_\d+_garnet)\.data_out_pond_0$"
+        )
+
+        lane_input_sources = {}
+        lane_final_sinks = {}
+        packer_sinks_to_remove = set()
+        packer_to_output_pond = {}
+        output_pond_to_io = {}
+
+        for left, right in original_connections:
+            for endpoint, other in ((left, right), (right, left)):
+                pe_match = abs_max_pe_data1_re.match(endpoint)
+                if pe_match:
+                    lane_idx = int(pe_match.group("idx")) - 1
+                    lane_input_sources.setdefault(lane_idx, other)
+                packer_match = packer_o0_re.match(endpoint)
+                if packer_match:
+                    pack_inst = packer_match.group(1)
+                    pond_match = output_pond_data_in_re.match(other)
+                    if pond_match:
+                        packer_to_output_pond[pack_inst] = pond_match.group(1)
+            pond_match = abs_max_pond_out_re.match(left)
+            if pond_match and packer_data_port_re.match(right):
+                lane_idx = int(pond_match.group("bank"))
+                lane_final_sinks[lane_idx] = right
+                packer_sinks_to_remove.add(right)
+            pond_match = abs_max_pond_out_re.match(right)
+            if pond_match and packer_data_port_re.match(left):
+                lane_idx = int(pond_match.group("bank"))
+                lane_final_sinks[lane_idx] = left
+                packer_sinks_to_remove.add(left)
+            pond_out_match = output_pond_data_out_re.match(left)
+            if pond_out_match and right.endswith(".in") and right.startswith("io"):
+                output_pond_to_io[pond_out_match.group(1)] = right
+            pond_out_match = output_pond_data_out_re.match(right)
+            if pond_out_match and left.endswith(".in") and left.startswith("io"):
+                output_pond_to_io[pond_out_match.group(1)] = left
+
+        expected_lane_count = len(lane_final_sinks)
+        if len(lane_input_sources) != expected_lane_count:
+            raise ValueError(
+                f"Expected {expected_lane_count} lane input sources, found {len(lane_input_sources)}."
+            )
+        if len(lane_final_sinks) != expected_lane_count:
+            raise ValueError(
+                f"Expected {expected_lane_count} lane final sinks, found {len(lane_final_sinks)}."
+            )
+
+        packer_to_io = {}
+        for pack_inst, pond_inst in packer_to_output_pond.items():
+            io_sink = output_pond_to_io.get(pond_inst)
+            if io_sink:
+                packer_to_io[pack_inst] = io_sink
+
+        def endpoint_instance(endpoint: str) -> str:
+            return endpoint.split(".")[0]
+
+        # Collect instances to delete (old single-accumulator implementation)
+        instances_to_delete = set()
+        for inst_name in list(instances.keys()):
+            if "op_hcompute_abs_max_stencil$inner_compute$const" in inst_name:
+                instances_to_delete.add(inst_name)
+            elif inst_name.startswith("op_hcompute_abs_max_stencil_") and "$inner_compute$float_DW_fp_add" in inst_name:
+                instances_to_delete.add(inst_name)
+            elif inst_name.startswith("op_hcompute_abs_max_stencil_") and "$inner_compute$c" in inst_name:
+                instances_to_delete.add(inst_name)
+            elif inst_name.startswith("abs_max_stencil$ub_abs_max_stencil_BANK_"):
+                instances_to_delete.add(inst_name)
+            elif inst_name.startswith("output_cgra_stencil$ub_output_cgra_stencil_"):
+                instances_to_delete.add(inst_name)
+
+        for idx, src in lane_input_sources.items():
+            if endpoint_instance(src) in instances_to_delete:
+                raise ValueError(f"Lane {idx} input source '{src}' would be deleted; cannot build dual accum.")
+
+        for inst_name in instances_to_delete:
+            instances.pop(inst_name, None)
+
+        cleaned_connections = []
+        for left, right in original_connections:
+            if endpoint_instance(left) in instances_to_delete or endpoint_instance(right) in instances_to_delete:
+                continue
+            if left in packer_sinks_to_remove or right in packer_sinks_to_remove:
+                continue
+            cleaned_connections.append([left, right])
+
+        connections = []
+
+        def add_conn_once(src: str, dst: str):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        for left, right in cleaned_connections:
+            add_conn_once(left, right)
+
+        shared_clk_const_name = f"{top_module_name}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        lane_bypass_cfg = {}
+        for lane_idx in sorted(lane_final_sinks.keys()):
+            lane_prefix = f"{top_module_name}_lane_{lane_idx}"
+            filter_mem_name = f"{lane_prefix}_filter_mem"
+            accum_pond_0_name = f"{lane_prefix}_accum_pond_0"
+            accum_pond_1_name = f"{lane_prefix}_accum_pond_1"
+            accum_pe_0_name = f"{lane_prefix}_accum_pe_0"
+            accum_pe_1_name = f"{lane_prefix}_accum_pe_1"
+            final_reduce_pe_name = f"{lane_prefix}_final_reduce_pe"
+            accum_pe_0_const = f"{lane_prefix}_accum_pe_0_inst_const"
+            accum_pe_1_const = f"{lane_prefix}_accum_pe_1_inst_const"
+            final_reduce_pe_const = f"{lane_prefix}_final_reduce_pe_inst_const"
+
+            if filter_mem_name not in instances:
+                mem_inst = copy.deepcopy(self.mem_tpl)
+                mem_inst["genargs"]["ID"][1] = filter_mem_name
+                instances[filter_mem_name] = mem_inst
+            if accum_pond_0_name not in instances:
+                pond0_inst = copy.deepcopy(self.pond_tpl)
+                pond0_inst["genargs"]["ID"][1] = accum_pond_0_name
+                instances[accum_pond_0_name] = pond0_inst
+            if accum_pond_1_name not in instances:
+                pond1_inst = copy.deepcopy(self.pond_tpl)
+                pond1_inst["genargs"]["ID"][1] = accum_pond_1_name
+                instances[accum_pond_1_name] = pond1_inst
+            if accum_pe_0_name not in instances:
+                instances[accum_pe_0_name] = copy.deepcopy(self.pe_tpl)
+            if accum_pe_1_name not in instances:
+                instances[accum_pe_1_name] = copy.deepcopy(self.pe_tpl)
+            if final_reduce_pe_name not in instances:
+                instances[final_reduce_pe_name] = copy.deepcopy(self.pe_tpl)
+            if accum_pe_0_const not in instances:
+                instances[accum_pe_0_const] = copy.deepcopy(self.abs_max_const_tpl)
+            if accum_pe_1_const not in instances:
+                instances[accum_pe_1_const] = copy.deepcopy(self.abs_max_const_tpl)
+            if final_reduce_pe_const not in instances:
+                instances[final_reduce_pe_const] = copy.deepcopy(self.abs_max_const_tpl)
+
+            lane_input_src = lane_input_sources[lane_idx]
+            final_sink = lane_final_sinks[lane_idx]
+            final_sink_base = final_sink.rsplit(".", 1)[0]
+            packer_to_io_sink = packer_to_io.get(final_sink_base)
+            if not packer_to_io_sink:
+                raise ValueError(f"No IO sink found for packer '{final_sink_base}'.")
+
+            add_conn_once(lane_input_src, f"{filter_mem_name}.data_in_0")
+
+            add_conn_once(f"{shared_clk_const_name}.out", f"{filter_mem_name}.clk_en")
+            add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_0_name}.clk_en")
+            add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_1_name}.clk_en")
+
+            add_conn_once(f"{filter_mem_name}.data_out_0", f"{accum_pe_0_name}.data1")
+            add_conn_once(f"{filter_mem_name}.data_out_1", f"{accum_pe_1_name}.data1")
+
+            add_conn_once(f"{accum_pe_0_const}.out", f"{accum_pe_0_name}.inst")
+            add_conn_once(f"{accum_pe_1_const}.out", f"{accum_pe_1_name}.inst")
+            add_conn_once(f"{final_reduce_pe_const}.out", f"{final_reduce_pe_name}.inst")
+
+            add_conn_once(f"{accum_pond_0_name}.data_out_pond_0", f"{accum_pe_0_name}.data0")
+            add_conn_once(f"{accum_pe_0_name}.O0", f"{accum_pond_0_name}.data_in_pond_0")
+            add_conn_once(f"{accum_pond_0_name}.data_out_pond_1", f"{final_reduce_pe_name}.data0")
+
+            add_conn_once(f"{accum_pond_1_name}.data_out_pond_0", f"{accum_pe_1_name}.data0")
+            add_conn_once(f"{accum_pe_1_name}.O0", f"{accum_pond_1_name}.data_in_pond_0")
+            add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
+
+            add_conn_once(f"{final_reduce_pe_name}.O0", final_sink)
+            add_conn_once(f"{final_sink_base}.O0", packer_to_io_sink)
+
+            lane_bypass_cfg[accum_pe_0_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
+            lane_bypass_cfg[accum_pe_1_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
+            lane_bypass_cfg[final_reduce_pe_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
+
+        top_module["connections"] = connections
+
+        # Update input IO metadata
+        head_dim = int(self.halide_gen_args_dict["head_dim"])
+        seq_heads_prod = int(self.halide_gen_args_dict["seq_heads_prod"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+        block_size = 64
+
+        for inst_name, inst_config in instances.items():
+            if "io16in_input_host_stencil" in inst_name and inst_config.get("modref") == "global.IO":
+                md = inst_config["metadata"]["glb2out_0"]
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1, 1, 1]
+                md["dimensionality"] = 3
+                md["extent"] = [block_size, head_dim // glb_i, seq_heads_prod // block_size]
+                md["read_data_starting_addr"] = [0]
+                read_stride_0 = head_dim // glb_i
+                read_stride_1 = 1 - read_stride_0 * (block_size - 1)
+                read_stride_2 = 1
+                md["read_data_stride"] = [read_stride_0, read_stride_1, read_stride_2]
+
+        # Update output IO metadata
+        for inst_name, inst_config in instances.items():
+            if "io16_hw_output_stencil" in inst_name and inst_config.get("modref") == "global.IO":
+                md = inst_config["metadata"]["in2glb_0"]
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [head_dim * (seq_heads_prod // block_size) // glb_i]
+                md["write_data_starting_addr"] = [0]
+                md["write_data_stride"] = [1]
+
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        if os.path.exists(design_meta_path):
+            with open(design_meta_path, "r") as f:
+                design_meta = json.load(f)
+
+            inputs = design_meta.get("IOs", {}).get("inputs", [])
+            outputs = design_meta.get("IOs", {}).get("outputs", [])
+            assert len(inputs) == 1, "Expect exactly one input in design_meta_halide.json"
+            assert len(outputs) == 1, "Expect exactly one output in design_meta_halide.json"
+
+            inputs[0]["shape"] = [head_dim, seq_heads_prod]
+            outputs[0]["shape"] = [head_dim // 2, seq_heads_prod // block_size]
+
+            with open(design_meta_path, "w") as f:
+                json.dump(design_meta, f, indent=2)
+
+        bypass_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        with open(bypass_path, "w") as f:
+            json.dump(lane_bypass_cfg, f, indent=2)
 
     def hack_for_apply_e8m0_scale_single_IO_rv(self, json_path, bin_path):
         with open(json_path, "r") as f:
