@@ -14,7 +14,7 @@
       "bitwidth": 16,
       "shape": [512, 1, 1],
       "pixels_per_cycle": 1,
-      "datafile": "bin/hw_output_stencil.raw"
+      "datafile": "bin/hw_output.raw"
     }
   }
 }

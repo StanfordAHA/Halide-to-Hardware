@@ -56,6 +56,7 @@ class SelectedDesignHacker:
         self.FP_MUL_INSTR = "84'h00000420009004040000e"
         self.FP_ADD_INSTR = "84'h000008000410002480082"
         self.ABS_MAX_INSTR = "84'h0008003fff94400440016"
+        self.GET_SHARED_EXP_INSTR = "84'h0200040dc420041530025"
 
         self.pond_tpl = {
             "genref": "cgralib.Pond",
@@ -129,6 +130,11 @@ class SelectedDesignHacker:
             "genref": "coreir.const",
             "genargs": {"width": ["Int", 84]},
             "modargs": {"value": [["BitVector", 84], self.ABS_MAX_INSTR]},
+        }
+        self.get_shared_exp_const_tpl = {
+            "genref": "coreir.const",
+            "genargs": {"width": ["Int", 84]},
+            "modargs": {"value": [["BitVector", 84], self.GET_SHARED_EXP_INSTR]},
         }
         self.const_clk_tpl = {
             "modref": "corebit.const",
@@ -4292,9 +4298,11 @@ class SelectedDesignHacker:
             accum_pe_0_name = f"{lane_prefix}_accum_pe_0"
             accum_pe_1_name = f"{lane_prefix}_accum_pe_1"
             final_reduce_pe_name = f"{lane_prefix}_final_reduce_pe"
+            get_shared_exp_pe_name = f"{lane_prefix}_get_shared_exp_pe"
             accum_pe_0_const = f"{lane_prefix}_accum_pe_0_inst_const"
             accum_pe_1_const = f"{lane_prefix}_accum_pe_1_inst_const"
             final_reduce_pe_const = f"{lane_prefix}_final_reduce_pe_inst_const"
+            get_shared_exp_pe_const = f"{lane_prefix}_get_shared_exp_pe_inst_const"
 
             if filter_mem_name not in instances:
                 mem_inst = copy.deepcopy(self.mem_tpl)
@@ -4314,12 +4322,16 @@ class SelectedDesignHacker:
                 instances[accum_pe_1_name] = copy.deepcopy(self.pe_tpl)
             if final_reduce_pe_name not in instances:
                 instances[final_reduce_pe_name] = copy.deepcopy(self.pe_tpl)
+            if get_shared_exp_pe_name not in instances:
+                instances[get_shared_exp_pe_name] = copy.deepcopy(self.pe_tpl)
             if accum_pe_0_const not in instances:
                 instances[accum_pe_0_const] = copy.deepcopy(self.abs_max_const_tpl)
             if accum_pe_1_const not in instances:
                 instances[accum_pe_1_const] = copy.deepcopy(self.abs_max_const_tpl)
             if final_reduce_pe_const not in instances:
                 instances[final_reduce_pe_const] = copy.deepcopy(self.abs_max_const_tpl)
+            if get_shared_exp_pe_const not in instances:
+                instances[get_shared_exp_pe_const] = copy.deepcopy(self.get_shared_exp_const_tpl)
 
             lane_input_src = lane_input_sources[lane_idx]
             final_sink = lane_final_sinks[lane_idx]
@@ -4340,6 +4352,7 @@ class SelectedDesignHacker:
             add_conn_once(f"{accum_pe_0_const}.out", f"{accum_pe_0_name}.inst")
             add_conn_once(f"{accum_pe_1_const}.out", f"{accum_pe_1_name}.inst")
             add_conn_once(f"{final_reduce_pe_const}.out", f"{final_reduce_pe_name}.inst")
+            add_conn_once(f"{get_shared_exp_pe_const}.out", f"{get_shared_exp_pe_name}.inst")
 
             add_conn_once(f"{accum_pond_0_name}.data_out_pond_0", f"{accum_pe_0_name}.data0")
             add_conn_once(f"{accum_pe_0_name}.O0", f"{accum_pond_0_name}.data_in_pond_0")
@@ -4349,12 +4362,12 @@ class SelectedDesignHacker:
             add_conn_once(f"{accum_pe_1_name}.O0", f"{accum_pond_1_name}.data_in_pond_0")
             add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
 
-            add_conn_once(f"{final_reduce_pe_name}.O0", final_sink)
+            add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_shared_exp_pe_name}.data0")
+            add_conn_once(f"{get_shared_exp_pe_name}.O0", final_sink)
             add_conn_once(f"{final_sink_base}.O0", packer_to_io_sink)
 
             lane_bypass_cfg[accum_pe_0_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
             lane_bypass_cfg[accum_pe_1_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
-            lane_bypass_cfg[final_reduce_pe_name] = {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1}
 
         top_module["connections"] = connections
 

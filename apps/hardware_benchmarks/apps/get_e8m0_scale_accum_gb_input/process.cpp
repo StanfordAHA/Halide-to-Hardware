@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     auto real_input = Buffer<uint16_t>(head_dim, seq_heads_prod);
     for (int s = 0; s < real_input.dim(1).extent(); s++) {
         for (int d = 0; d < real_input.dim(0).extent(); d++) {
-            real_input(d, s) = float_to_bfloat16_process(static_cast<float>((rand() / (float) RAND_MAX) * 60.0f - 30.0f));
+            real_input(d, s) = float_to_bfloat16_process(static_cast<float>((rand() / (float) RAND_MAX) * 2048.0f - 1024.0f));
         }
     }
 
@@ -102,7 +102,9 @@ int main(int argc, char **argv) {
                 max1 = abs_max(max1, real_input(d1, base + r));
             }
 
-            real_output(d_pack, s) = bit8_pack(max1, max0);
+            const uint16_t scale0 = get_shared_exp(max0);
+            const uint16_t scale1 = get_shared_exp(max1);
+            real_output(d_pack, s) = bit8_pack(scale1, scale0);
         }
     }
 
