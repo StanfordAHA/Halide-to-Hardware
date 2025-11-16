@@ -26,6 +26,7 @@ APPS_NEEDING_HACKS = [
     "get_e8m0_scale_tree_gb_input",
     "get_e8m0_scale_accum_gb_input",
     "apply_e8m0_scale_single_IO",
+    "apply_e8m0_scale_multi_IOs",
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
@@ -4749,6 +4750,77 @@ class SelectedDesignHacker:
             with open(design_meta_path, "w") as f:
                 json.dump(design_meta, f, indent=2)
 
+    def hack_for_apply_e8m0_scale_multi_IOs_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        modules = design["namespaces"]["global"]["modules"]
+        top_module_name = "apply_e8m0_scale_multi_IOs"
+        if top_module_name not in modules:
+            raise KeyError(f"Top module '{top_module_name}' not found in design JSON.")
+
+        instances = modules[top_module_name]["instances"]
+
+        head_dim = int(self.halide_gen_args_dict["head_dim"])
+        seq_heads_prod = int(self.halide_gen_args_dict["seq_heads_prod"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+        block_size = int(self.halide_gen_args_dict.get("block_size", 64))
+
+        for inst_name, inst_config in instances.items():
+            if inst_config.get("modref") != "global.IO":
+                continue
+
+            metadata = inst_config.setdefault("metadata", {})
+            if "io16in_input_bf_act_host_stencil" in inst_name:
+                md = metadata.setdefault("glb2out_0", {})
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [(head_dim * seq_heads_prod) // glb_i]
+                md["read_data_starting_addr"] = [0]
+                md["read_data_stride"] = [1]
+            elif "io16in_input_scale_host_stencil" in inst_name:
+                md = metadata.setdefault("glb2out_0", {})
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1, 1, 1]
+                md["dimensionality"] = 3
+                md["extent"] = [head_dim // glb_i, block_size, seq_heads_prod // block_size]
+                md["read_data_starting_addr"] = [0]
+                md["read_data_stride"] = [1, 1 - (head_dim // glb_i), 1]
+            elif "io16_hw_output_mxint8_act_stencil" in inst_name:
+                md = metadata.setdefault("in2glb_0", {})
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [(head_dim * seq_heads_prod) // glb_i]
+                md["write_data_starting_addr"] = [0]
+                md["write_data_stride"] = [1]
+
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        if os.path.exists(design_meta_path):
+            with open(design_meta_path, "r") as f:
+                design_meta = json.load(f)
+
+            ios = design_meta.setdefault("IOs", {})
+            inputs = ios.setdefault("inputs", [])
+            outputs = ios.setdefault("outputs", [])
+
+            for entry in inputs:
+                if entry.get("name") == "input_bf_act_host_stencil":
+                    entry["shape"] = [head_dim, seq_heads_prod]
+                elif entry.get("name") == "input_scale_host_stencil":
+                    entry["shape"] = [head_dim // 2, seq_heads_prod // block_size]
+
+            for entry in outputs:
+                if entry.get("name") == "hw_output_mxint8_act_stencil":
+                    entry["shape"] = [head_dim // 2, seq_heads_prod]
+                    entry["datafile"] = "hw_output_mxint8_act.raw"
+
+            with open(design_meta_path, "w") as f:
+                json.dump(design_meta, f, indent=2)
 
     def hack_for_get_apply_e8m0_scale_fp_rv(self, json_path, bin_path):
         '''
@@ -6075,6 +6147,83 @@ class GlobalDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
+    def sort_IO_instances(self, json_path):
+        """
+        Sort IO instances (global.IO) by the stencil index.
+        Inputs use "stencil_<idx>_read" while outputs use "stencil_<idx>_write".
+        """
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        namespaces = design.get("namespaces", {})
+
+        def is_io_instance(inst_def):
+            if not isinstance(inst_def, dict):
+                return False
+            if inst_def.get("modref") != "global.IO":
+                return False
+            mode_arg = inst_def.get("modargs", {}).get("mode")
+            if not isinstance(mode_arg, list) or len(mode_arg) < 2:
+                return False
+            return mode_arg[-1] in ("in", "out")
+
+        def extract_idx(inst_name, mode):
+            if mode == "in":
+                match = re.search(r"stencil_(\d+)_read", inst_name)
+            else:
+                match = re.search(r"stencil_(\d+)_write", inst_name)
+            if not match:
+                match = re.search(r"stencil_(\d+)", inst_name)
+            return int(match.group(1)) if match else 0
+
+        def flush_pending(pending, out_dict):
+            if not pending:
+                return
+            pending.sort(
+                key=lambda entry: (
+                    entry["mode_direction"],
+                    entry["idx"],
+                    entry["name"],
+                )
+            )
+            for entry in pending:
+                out_dict[entry["name"]] = entry["inst"]
+            pending.clear()
+
+        for namespace in namespaces.values():
+            modules = namespace.get("modules", {})
+            for module in modules.values():
+                instances = module.get("instances")
+                if not isinstance(instances, dict) or not instances:
+                    continue
+
+                new_instances = OrderedDict()
+                pending_ios = []
+
+                for inst_name, inst_def in instances.items():
+                    if is_io_instance(inst_def):
+                        mode = inst_def["modargs"]["mode"][-1]
+                        idx = extract_idx(inst_name, mode)
+                        pending_ios.append(
+                            {
+                                "name": inst_name,
+                                "inst": inst_def,
+                                "idx": idx,
+                                "mode_direction": 0 if mode == "in" else 1,
+                            }
+                        )
+                    else:
+                        flush_pending(pending_ios, new_instances)
+                        new_instances[inst_name] = inst_def
+
+                flush_pending(pending_ios, new_instances)
+
+                module["instances"] = new_instances
+
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
 
 class GlobalDesignMetaHakcer:
     """
@@ -6167,6 +6316,8 @@ def main():
 
     # Perform global hack of design_top.json to add MU prefix for MU IOs
     global_design_top_hacker.add_mu_prefix_to_io(args.design_top_json)
+    # Perform global hack of design_top.json to sort IO instances
+    global_design_top_hacker.sort_IO_instances(args.design_top_json)
 
     # Perform global hack of design_top.json to insert ponds for path balancing
     # TODO: This should NOT be set in application_parameters. It should be set by the flow on the 2nd pass
