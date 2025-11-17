@@ -113,15 +113,33 @@ int main(int argc, char **argv) {
     // Gold scale_packed_output
     const int scale_blocks = real_input_scale.dim(0).extent();
     const int packed_blocks = (scale_blocks + 1) / 2;
-    auto real_scale_packed_output = Buffer<uint16_t>(packed_blocks, real_input_scale.dim(1).extent());
-    for (int h = 0; h < real_input_scale.dim(1).extent(); h++) {
-        for (int b = 0; b < scale_blocks; b++) {
-            uint16_t scale = real_input_scale(b, h);
-            int packed_idx = b / 2;
-            if (b & 1) {
-                real_scale_packed_output(packed_idx, h) = bit8_pack(scale, real_scale_packed_output(packed_idx, h));
+    const int height = real_input_scale.dim(1).extent();
+    Buffer<uint16_t> real_scale_packed_output;
+    if (scale_blocks >= 2) {
+        // Pack along the block dimension
+        real_scale_packed_output = Buffer<uint16_t>(packed_blocks, height);
+        for (int h = 0; h < height; h++) {
+            for (int b = 0; b < scale_blocks; b++) {
+                uint16_t scale = real_input_scale(b, h);
+                int packed_idx = b / 2;
+                if (b & 1) {
+                    real_scale_packed_output(packed_idx, h) = bit8_pack(scale, real_scale_packed_output(packed_idx, h));
+                } else {
+                    real_scale_packed_output(packed_idx, h) = scale;
+                }
+            }
+        }
+    } else {
+        // Pack along the height dimension
+        const int packed_height = (height + 1) / 2;
+        real_scale_packed_output = Buffer<uint16_t>(packed_blocks, packed_height);
+        for (int h = 0; h < height; h++) {
+            uint16_t scale = real_input_scale(0, h);
+            int packed_idx = h / 2;
+            if (h & 1) {
+                real_scale_packed_output(0, packed_idx) = bit8_pack(scale, real_scale_packed_output(0, packed_idx));
             } else {
-                real_scale_packed_output(packed_idx, h) = scale;
+                real_scale_packed_output(0, packed_idx) = scale;
             }
         }
     }

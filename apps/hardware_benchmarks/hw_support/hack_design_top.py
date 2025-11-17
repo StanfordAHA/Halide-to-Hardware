@@ -4736,16 +4736,17 @@ class SelectedDesignHacker:
                 hw_output_entry["shape"] = [num_channels // 2, num_pixels]
 
             if scale_output_entry is None:
+                scale_output_shape = [num_blocks // 2, num_pixels] if num_blocks >= 2 else [num_pixels // 2]
                 scale_output_entry = {
                     "bitwidth": 16,
                     "datafile": "hw_scale_packed_output.raw",
                     "name": "hw_scale_packed_output_stencil",
-                    "shape": [num_blocks // 2, num_pixels],
+                    "shape": scale_output_shape,
                 }
                 outputs.append(scale_output_entry)
             else:
                 scale_output_entry["datafile"] = "hw_scale_packed_output.raw"
-                scale_output_entry["shape"] = [num_blocks // 2, num_pixels]
+                scale_output_entry["shape"] = scale_output_shape
 
             with open(design_meta_path, "w") as f:
                 json.dump(design_meta, f, indent=2)
