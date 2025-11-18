@@ -8,6 +8,7 @@ APPS_NEEDING_HACKS = [
     "scalar_reduction",
     "scalar_reduction_fp",
     "scalar_max_fp",
+    "stable_softmax_pass1_fp",
     "stable_softmax_pass2_fp",
     "stable_softmax_pass3_fp",
     "scalar_avg_fp",
@@ -2098,41 +2099,57 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_vector_reduction_fp_rv(self, json_path, bin_path):
+    def vector_reduction_tree_helper(
+        self,
+        json_path,
+        bin_path,
+        top_module="vector_reduction_fp",
+        tree_end_pe_name="op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_",
+        old_accum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet",
+        old_accum_pond_clk_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_clk_en_const",
+        old_const_feeder_pe_name = "op_hcompute_output_cgra_stencil$inner_compute$const_i3085_i631",
+    ):
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top_module = "vector_reduction_fp"
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
             print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
             return
 
-        vector_reduction_fp = global_modules[top_module]
-        instance_dict = vector_reduction_fp.get("instances", {})
-        original_connections = vector_reduction_fp.get("connections", [])
+        top_module_json = global_modules[top_module]
+        instance_dict = top_module_json.get("instances", {})
+        original_connections = top_module_json.get("connections", [])
 
         # Old instances to remove
-        old_tree_pond_instance_name = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
-        old_tree_pond_clk_instance_name = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
-        old_single_accum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_i3092_i792"
-        old_single_accum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
-        old_single_accum_pond_clk = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_clk_en_const"
-        old_const_feeder_pe = "op_hcompute_output_cgra_stencil$inner_compute$const_i3085_i631"
+        tree_stages = int(self.halide_gen_args_dict["tree_stages"])
+        old_tree_pond_instance_name = f"tree_{tree_stages}_stencil$ub_tree_{tree_stages}_stencil_BANK_0_garnet"
+        old_tree_pond_clk_instance_name = f"tree_{tree_stages}_stencil$ub_tree_{tree_stages}_stencil_BANK_0_clk_en_const"
+        old_single_accum_pe_name = tree_end_pe_name
+        old_single_accum_pond_name = old_accum_pond_name
+        old_single_accum_pond_clk = old_accum_pond_clk_name
+        old_const_feeder_pe = old_const_feeder_pe_name
 
         # New instances to add
-        filter_mem_instance_name = "vector_reduction_fp_filter_mem"
-        accum_pond_0_name = "vector_reduction_fp_accum_pond_0"
-        accum_pond_1_name = "vector_reduction_fp_accum_pond_1"
-        accum_pe_0_name = "vector_reduction_fp_accum_pe_0"
-        accum_pe_1_name = "vector_reduction_fp_accum_pe_1"
-        final_reduce_pe_name = "vector_reduction_fp_final_reduce_pe"
-        accum_pe_0_inst_const_name = "vector_reduction_fp_accum_pe_0_inst_const"
-        accum_pe_1_inst_const_name = "vector_reduction_fp_accum_pe_1_inst_const"
-        final_reduce_pe_inst_const_name = "vector_reduction_fp_final_reduce_pe_inst_const"
-        shared_clk_const_name = "vector_reduction_fp_clk_en_const"
+        filter_mem_instance_name = f"{top_module}_filter_mem"
+        accum_pond_0_name = f"{top_module}_accum_pond_0"
+        accum_pond_1_name = f"{top_module}_accum_pond_1"
+        accum_pe_0_name = f"{top_module}_accum_pe_0"
+        accum_pe_1_name = f"{top_module}_accum_pe_1"
+        final_reduce_pe_name = f"{top_module}_final_reduce_pe"
+        accum_pe_0_inst_const_name = f"{top_module}_accum_pe_0_inst_const"
+        accum_pe_1_inst_const_name = f"{top_module}_accum_pe_1_inst_const"
+        final_reduce_pe_inst_const_name = f"{top_module}_final_reduce_pe_inst_const"
+        shared_clk_const_name = f"{top_module}_clk_en_const"
 
-        tree_output_signal = "op_hcompute_tree_3_stencil$inner_compute$float_DW_fp_add_i3145_i792.O0"
+        tree_output_pe_partial_name = f"op_hcompute_tree_{tree_stages}_stencil$inner_compute$float_"
+        tree_output_pe_name = None
+        for temp_instance in instance_dict:
+            if tree_output_pe_partial_name in temp_instance:
+                tree_output_pe_name = temp_instance
+                break
+        assert tree_output_pe_name is not None, f"ERROR: Could not find tree output PE instance name for {top_module}"
+        tree_output_signal = tree_output_pe_name + ".O0"
         io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
         io_in_port = f"{io_out_name}.in"
 
@@ -2214,7 +2231,7 @@ class SelectedDesignHacker:
             if any(rem in left or rem in right for rem in removed_instances):
                 continue
             if tree_output_signal in left or tree_output_signal in right:
-                tree_output_signal = "op_hcompute_tree_3_stencil$inner_compute$float_DW_fp_add_i3145_i792.O0"
+                tree_output_signal = tree_output_pe_name + ".O0"
             add_conn_once(left, right)
 
         # New connections
@@ -2241,16 +2258,43 @@ class SelectedDesignHacker:
 
         add_conn_once(f"{final_reduce_pe_name}.O0", io_in_port)
 
-        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [
-            int(self.halide_gen_args_dict["vec_height"])
-        ]
+        # Configure output IO metadata
+        vec_length = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [num_vecs]
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
         instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
 
-        vector_reduction_fp["connections"] = connections
+        # Configure input IO metadata
+        for inst_name, inst_conf in instance_dict.items():
+            if "io16in_input_host_stencil" in inst_name and inst_conf.get("modref") == "global.IO":
+                md = inst_conf["metadata"]["glb2out_0"]
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [num_vecs * vec_length // glb_i]
+                md["read_data_starting_addr"] = [0]
+                md["read_data_stride"] = [1]
+
+        top_module_json["connections"] = connections
 
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+        # Update design_meta_halide.json to update input and output shapes
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input"
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expected only one output"
+        design_meta["IOs"]["inputs"][0]["shape"] = [vec_length, num_vecs]
+        design_meta["IOs"]["outputs"][0]["shape"] = [num_vecs]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+    def hack_for_vector_reduction_fp_rv(self, json_path, bin_path, top_module="vector_reduction_fp"):
+        self.vector_reduction_tree_helper(json_path, bin_path, top_module)
 
     def hack_for_mat_vec_mul_fp_rv(self, json_path, bin_path, top_module="mat_vec_mul_fp"):
         # Load the design JSON
@@ -2802,6 +2846,17 @@ class SelectedDesignHacker:
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+    def hack_for_stable_softmax_pass1_fp_rv(self, json_path, bin_path):
+        self.vector_reduction_tree_helper(
+            json_path,
+            bin_path,
+            top_module="stable_softmax_pass1_fp",
+            tree_end_pe_name="op_hcompute_max_output_cgra_inner_stencil_1$inner_compute$float_max_",
+            old_accum_pond_name="max_output_cgra_inner_stencil$ub_max_output_cgra_inner_stencil_BANK_0_garnet",
+            old_accum_pond_clk_name="max_output_cgra_inner_stencil$ub_max_output_cgra_inner_stencil_BANK_0_clk_en_const",
+            old_const_feeder_pe_name="op_hcompute_max_output_cgra_inner_stencil$inner_compute$const_i3133_i631",
+        )
 
     def hack_for_stable_softmax_pass2_fp_rv(self, json_path, bin_path):
 
