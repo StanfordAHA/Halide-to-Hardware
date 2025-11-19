@@ -4516,7 +4516,7 @@ class SelectedDesignHacker:
         out_img_size = (img_size - ksize) // stride + 1
         cycle_stride_y = stride * ((img_size // stride) + (ksize - 1))
         row_tail_cycles = (out_img_size - 1) * stride
-        cycle_stride_c = row_tail_cycles + stride * cycle_stride_y
+        cycle_stride_c = row_tail_cycles + stride * cycle_stride_y - img_size
         for io_instance in instances:
             # Two cases:
             # 1. n_ic == unroll, then each IO stores data continously
@@ -4534,9 +4534,9 @@ class SelectedDesignHacker:
                     instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
                     instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1, 1]
                     instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 2
-                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [img_size * img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [(img_size - 1) * img_size, channel_per_lane]
                     instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
-                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [channel_per_lane, 1 - channel_per_lane * (img_size * img_size - 1)]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [channel_per_lane, 1 - channel_per_lane * ((img_size - 1) * img_size - 1)]
 
             elif "io16_hw_output" in io_instance:
                 if n_ic == unroll:
