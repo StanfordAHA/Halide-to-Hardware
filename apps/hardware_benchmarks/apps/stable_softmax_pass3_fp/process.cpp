@@ -27,11 +27,11 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("stable_softmax_pass3_fp", { "input.mat", "pass2_sum.mat" });
+    ManyInOneOut_ProcessController<uint16_t> processor("stable_softmax_pass3_fp", { "input.mat" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        stable_softmax_pass3_fp(proc.inputs["input.mat"], proc.inputs["pass2_sum.mat"], proc.output);
+        stable_softmax_pass3_fp(proc.inputs["input.mat"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            stable_softmax_pass3_fp_clockwork(proc.inputs["input.mat"], proc.inputs["pass2_sum.mat"], proc.output);
+            stable_softmax_pass3_fp_clockwork(proc.inputs["input.mat"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -67,34 +67,71 @@ int main(int argc, char **argv) {
 
     processor.run_calls = functions;
 
-    auto vec_len_env = getenv("vec_len");
+    auto vec_width_fake_env = getenv("vec_width_fake");
+    auto vec_height_fake_env = getenv("vec_height_fake");
+    auto vec_width_env = getenv("vec_width");
+    auto vec_height_env = getenv("vec_height");
 
-    auto vec_len = vec_len_env ? atoi(vec_len_env) : 512;
+    auto vec_width_fake = vec_width_fake_env ? atoi(vec_width_fake_env) : 128;
+    auto vec_height_fake = vec_height_fake_env ? atoi(vec_height_fake_env) : 4;
+    auto vec_width = vec_width_env ? atoi(vec_width_env) : 128;
+    auto vec_height = vec_height_env ? atoi(vec_height_env) : 128;
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
-    // Input
-    processor.inputs["input.mat"] = Buffer<uint16_t>(vec_len);
-    auto input_copy_stencil = processor.inputs["input.mat"];
-    for (int x = 0; x < input_copy_stencil.dim(0).extent(); x++) {
-        input_copy_stencil(x) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 14.0f - 7.0f);
+    // Softmax pass 1 input
+    auto softmax_pass1_input = Buffer<uint16_t>(vec_width, vec_height);
+    for (int y = 0; y < softmax_pass1_input.dim(1).extent(); y++) {
+        for (int x = 0; x < softmax_pass1_input.dim(0).extent(); x++) {
+            softmax_pass1_input(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
+        }
     }
 
-    // Pass2 sum input
-    processor.inputs["pass2_sum.mat"] = Buffer<uint16_t>(vec_len);
-    auto pass2_sum = Buffer<uint16_t>(1);
-    pass2_sum(0) = float_to_bfloat16_process(7.0f);
-
-    // Gold output
-    processor.output = Buffer<uint16_t>(vec_len);
-    for (int x = 0; x < processor.inputs["input.mat"].dim(0).extent(); x++) {
-        processor.output(x) = float_to_bfloat16_process(bfloat16_to_float_process(processor.inputs["input.mat"](x)) / bfloat16_to_float_process(pass2_sum(0)));
+    // Softmax pass 2 input vec max
+    auto vec_max_pass2_input = Buffer<uint16_t>(vec_height);
+    for (int y = 0; y < softmax_pass1_input.dim(1).extent(); y++) {
+        // Initialize to 0 as pond is hardcoded to be 0 in Zircon
+        float max_val = 0.0f;
+        for (int x = 0; x < softmax_pass1_input.dim(0).extent(); x++) {
+            max_val = std::max(max_val, bfloat16_to_float_process(softmax_pass1_input(x, y)));
+        }
+        vec_max_pass2_input(y) = float_to_bfloat16_process(max_val);
     }
 
-    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
-    save_halide_buffer_to_raw(pass2_sum, "bin/pass2_sum_host_stencil.raw");
-    save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
+    // Softmax pass 3 input exp(x - vec max)
+    auto exp_pass3_input = Buffer<uint16_t>(vec_width, vec_height);
+    for (int y = 0; y < exp_pass3_input.dim(1).extent(); y++) {
+        for (int x = 0; x < exp_pass3_input.dim(0).extent(); x++) {
+            exp_pass3_input(x, y) = float_to_bfloat16_process(exp(bfloat16_to_float_process(softmax_pass1_input(x, y)) - bfloat16_to_float_process(vec_max_pass2_input(y))));
+        }
+    }
+
+    // Softmax pass 3 output - using reference softmax implementation
+    auto softmax_pass3_output = Buffer<uint16_t>(vec_width, vec_height);
+    // Use reference implementation for stable, well-tested softmax
+    reference_softmax_2d(softmax_pass1_input, softmax_pass3_output);
+
+    // Define fake processor input and output placeholer buffers
+    processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
+    processor.output = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
+
+    save_halide_buffer_to_raw(exp_pass3_input, "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(softmax_pass3_output, "bin/hw_output.raw");
+
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {
+            tensor_spec{"input_host_stencil", {"x_coord"}},
+        },
+        {
+            tensor_spec{"hw_output", {"x_coord"}}
+        },
+        {}
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 

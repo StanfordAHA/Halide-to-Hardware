@@ -59,6 +59,7 @@ class SelectedDesignHacker:
         self.FP_ADD_INSTR = "84'h000008000410002480082"
         self.ABS_MAX_INSTR = "84'h0008003fff94400440016"
         self.GET_SHARED_EXP_INSTR = "84'h0200040dc420041530025"
+        self.DUMMY_MAX_NOP_INSTR = "84'h0010005fefe0800400092"
 
         self.pond_tpl = {
             "genref": "cgralib.Pond",
@@ -2625,7 +2626,385 @@ class SelectedDesignHacker:
                 json.dump(design_meta_halide, f, indent=2)
 
     def hack_for_stable_softmax_pass3_fp_rv(self, json_path, bin_path):
-        return self.hack_for_stable_softmax_pass3_fp_static(json_path, bin_path)
+        """
+        Restructure stable_softmax_pass3_fp for:
+        - Unrolled input IOs -> input buffer MEM.data_out_1 -> reduction tree with dual-accumulator schedule -> final reduce PE -> sum buffer MEM
+        - For each unrolled lane: input IO -> MEM.data_in_0
+        - Remove unnecessary mem tiles between tree stages
+        - Add dual accumulator schedules
+        """
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "stable_softmax_pass3_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            raise RuntimeError(f"[ERROR] Module '{top_module}' not found in design.")
+
+        top_module_json = global_modules[top_module]
+        instance_dict = top_module_json.get("instances", {})
+        original_connections = top_module_json.get("connections", [])
+
+        # Determine number of tree stages
+        tree_stages = int(self.halide_gen_args_dict["tree_stages"])
+
+        # Identify instances to remove
+        # 1. Remove tree intermediate mem tiles for all stages
+        tree_mem_tiles = []
+        tree_clk_consts = []
+        for inst_name in list(instance_dict.keys()):
+            # Check if this is a tree mem tile for any stage
+            for stage in range(1, tree_stages + 1):
+                if f"tree_{stage}_stencil$ub_tree_{stage}_stencil_BANK" in inst_name:
+                    if "garnet" in inst_name:
+                        tree_mem_tiles.append(inst_name)
+                    elif "clk_en_const" in inst_name:
+                        tree_clk_consts.append(inst_name)
+                    break
+
+        # 2. Remove output_cgra_stencil MEM instances EXCEPT BANK_0
+        output_cgra_stencil_mems_to_remove = []
+        output_cgra_stencil_clks_to_remove = []
+        output_cgra_stencil_mem_main = None
+
+        for inst_name in list(instance_dict.keys()):
+            if "output_cgra_stencil$ub_output_cgra_stencil_BANK" in inst_name:
+                if "BANK_0" in inst_name and "garnet" in inst_name:
+                    output_cgra_stencil_mem_main = inst_name
+                elif "garnet" in inst_name:
+                    output_cgra_stencil_mems_to_remove.append(inst_name)
+                elif "clk_en_const" in inst_name:
+                     # If it's not for BANK_0, remove it
+                    if "BANK_0" not in inst_name:
+                        output_cgra_stencil_clks_to_remove.append(inst_name)
+
+        # 3. Remove old single accumulator PE and const feeder
+        old_const_feeder_candidates = []
+        old_single_accum_pe_candidates = []
+
+        for inst_name in instance_dict:
+            if "op_hcompute_sum_cgra_stencil" in inst_name:
+                if "inner_compute$const" in inst_name:
+                    old_const_feeder_candidates.append(inst_name)
+                if "float_DW_fp_add" in inst_name:
+                    old_single_accum_pe_candidates.append(inst_name)
+
+        # Find sum_cgra_stencil MEM instances to remove (we'll connect final_reduce_pe directly to division pipeline)
+        sum_mem_name = None
+        sum_mem_clk_name = None
+        sum_cgra_stencil_ponds_to_remove = []
+        sum_cgra_stencil_clks_to_remove = []
+
+        for inst_name in instance_dict:
+            if "sum_cgra_stencil$ub_sum_cgra_stencil_BANK" in inst_name and "garnet" in inst_name:
+                # Remove all sum_cgra_stencil MEM instances
+                if "BANK_0" in inst_name:
+                    sum_mem_name = inst_name
+                    sum_mem_clk_name = inst_name.replace("_garnet", "_clk_en_const")
+                sum_cgra_stencil_ponds_to_remove.append(inst_name)
+                clk_name = inst_name.replace("_garnet", "_clk_en_const")
+                if clk_name in instance_dict:
+                    sum_cgra_stencil_clks_to_remove.append(clk_name)
+
+        # Collect all instances to remove
+        instances_to_remove = set(tree_mem_tiles + tree_clk_consts)
+        instances_to_remove.update(sum_cgra_stencil_ponds_to_remove)
+        instances_to_remove.update(sum_cgra_stencil_clks_to_remove)
+        if sum_mem_name:
+            instances_to_remove.add(sum_mem_name)
+        if sum_mem_clk_name and sum_mem_clk_name in instance_dict:
+            instances_to_remove.add(sum_mem_clk_name)
+        instances_to_remove.update(output_cgra_stencil_mems_to_remove)
+        instances_to_remove.update(output_cgra_stencil_clks_to_remove)
+        instances_to_remove.update(old_const_feeder_candidates)
+        instances_to_remove.update(old_single_accum_pe_candidates)
+
+        # Remove instances
+        for inst_name in instances_to_remove:
+            if inst_name in instance_dict:
+                del instance_dict[inst_name]
+
+        # Find the final tree stage PE
+        final_tree_stage = tree_stages
+        final_tree_pe_name = None
+
+        candidate_pes = []
+        for inst_name in instance_dict:
+            if f"op_hcompute_tree_{final_tree_stage}_stencil" in inst_name and "float_DW_fp_add" in inst_name:
+                candidate_pes.append(inst_name)
+
+        if candidate_pes:
+            final_tree_pe_name = candidate_pes[0]
+
+        if final_tree_pe_name is None:
+            raise RuntimeError(f"[ERROR] Could not find tree_{final_tree_stage}_stencil PE")
+
+        final_tree_pe_output = f"{final_tree_pe_name}.O0"
+
+        # Create new instances for dual accumulator schedule
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        filter_mem_name = f"{top_module}_filter_mem"
+        accum_pond_0_name = f"{top_module}_accum_pond_0"
+        accum_pond_1_name = f"{top_module}_accum_pond_1"
+        accum_pe_0_name = f"{top_module}_accum_pe_0"
+        accum_pe_1_name = f"{top_module}_accum_pe_1"
+        final_reduce_pe_name = f"{top_module}_final_reduce_pe"
+        accum_pe_0_inst_const_name = f"{top_module}_accum_pe_0_inst_const"
+        accum_pe_1_inst_const_name = f"{top_module}_accum_pe_1_inst_const"
+        final_reduce_pe_inst_const_name = f"{top_module}_final_reduce_pe_inst_const"
+
+        # Add new instances
+        if shared_clk_const_name not in instance_dict:
+            instance_dict[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        if filter_mem_name not in instance_dict:
+            instance_dict[filter_mem_name] = copy.deepcopy(self.mem_tpl)
+
+        if accum_pond_0_name not in instance_dict:
+            instance_dict[accum_pond_0_name] = copy.deepcopy(self.pond_tpl)
+
+        if accum_pond_1_name not in instance_dict:
+            instance_dict[accum_pond_1_name] = copy.deepcopy(self.pond_tpl)
+
+        if accum_pe_0_name not in instance_dict:
+            instance_dict[accum_pe_0_name] = copy.deepcopy(self.pe_tpl)
+
+        if accum_pe_1_name not in instance_dict:
+            instance_dict[accum_pe_1_name] = copy.deepcopy(self.pe_tpl)
+
+        if final_reduce_pe_name not in instance_dict:
+            instance_dict[final_reduce_pe_name] = copy.deepcopy(self.pe_tpl)
+
+        # Find PE instruction from final tree stage PE
+        final_tree_pe_inst_name = f"{final_tree_pe_name.replace('$inner_compute$float_DW_fp_add', '$inner_compute$c0')}"
+        if final_tree_pe_inst_name not in instance_dict:
+             for k in instance_dict:
+                 if f"op_hcompute_tree_{final_tree_stage}_stencil" in k and "$inner_compute$c0" in k:
+                     final_tree_pe_inst_name = k
+                     break
+
+        if final_tree_pe_inst_name in instance_dict:
+            pe_inst_source = instance_dict[final_tree_pe_inst_name]
+
+            if accum_pe_0_inst_const_name not in instance_dict:
+                instance_dict[accum_pe_0_inst_const_name] = copy.deepcopy(pe_inst_source)
+            if accum_pe_1_inst_const_name not in instance_dict:
+                instance_dict[accum_pe_1_inst_const_name] = copy.deepcopy(pe_inst_source)
+            if final_reduce_pe_inst_const_name not in instance_dict:
+                instance_dict[final_reduce_pe_inst_const_name] = copy.deepcopy(pe_inst_source)
+        else:
+             raise RuntimeError(f"[ERROR] Could not find instruction node for tree PE")
+
+        # Build new connections
+        connections = []
+
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Reconnect all consecutive tree stages
+        for stage_i in range(1, tree_stages):
+            stage_i_plus_1 = stage_i + 1
+
+            tree_i_plus_1_pe_names = [k for k in instance_dict if f"op_hcompute_tree_{stage_i_plus_1}_stencil" in k and "float_DW_fp_add" in k]
+            current_stage_mems = [m for m in tree_mem_tiles if f"tree_{stage_i}_stencil" in m]
+
+            for tree_mem in current_stage_mems:
+                upstream_port = None
+                for l, r in original_connections:
+                    if tree_mem in l and ".data_in" in l: upstream_port = r
+                    elif tree_mem in r and ".data_in" in r: upstream_port = l
+
+                if not upstream_port: continue
+
+                mem_outputs = []
+                for l, r in original_connections:
+                    if tree_mem in l and ".data_out" in l: mem_outputs.append(r)
+                    elif tree_mem in r and ".data_out" in r: mem_outputs.append(l)
+
+                for out_port in mem_outputs:
+                    for pe in tree_i_plus_1_pe_names:
+                        if pe in out_port:
+                            add_conn_once(upstream_port, out_port)
+
+        # Filter out connections involving removed instances
+        for left, right in original_connections:
+            if any(rem in left or rem in right for rem in instances_to_remove):
+                continue
+
+            if any(tree_mem in left or tree_mem in right for tree_mem in tree_mem_tiles):
+                continue
+
+            # Skip direct connections from IO to fp_mul (to be replaced by IO -> MEM -> fp_mul)
+            if "io16in_input_host_stencil" in left and "op_hcompute_output_glb_stencil" in right and "float_DW_fp_mul" in right:
+                continue
+            if "io16in_input_host_stencil" in right and "op_hcompute_output_glb_stencil" in left and "float_DW_fp_mul" in left:
+                continue
+
+            # Skip connections from output_cgra_stencil_mem (broadcast logic will handle this)
+            if output_cgra_stencil_mem_main:
+                if output_cgra_stencil_mem_main in left or output_cgra_stencil_mem_main in right:
+                     if ".data_out" in left or ".data_out" in right:
+                         continue
+
+            # Skip connections involving sum_cgra_stencil MEM (we're removing it and connecting directly)
+            if sum_mem_name and (sum_mem_name in left or sum_mem_name in right):
+                continue
+            if sum_mem_clk_name and (sum_mem_clk_name in left or sum_mem_clk_name in right):
+                continue
+
+            add_conn_once(left, right)
+
+
+        # New connections for dual accumulator schedule
+        add_conn_once(final_tree_pe_output, f"{filter_mem_name}.data_in_0")
+
+        add_conn_once(f"{shared_clk_const_name}.out", f"{filter_mem_name}.clk_en")
+        add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_0_name}.clk_en")
+        add_conn_once(f"{shared_clk_const_name}.out", f"{accum_pond_1_name}.clk_en")
+
+        add_conn_once(f"{filter_mem_name}.data_out_0", f"{accum_pe_0_name}.data1")
+        add_conn_once(f"{filter_mem_name}.data_out_1", f"{accum_pe_1_name}.data1")
+
+        add_conn_once(f"{accum_pe_0_inst_const_name}.out", f"{accum_pe_0_name}.inst")
+        add_conn_once(f"{accum_pe_1_inst_const_name}.out", f"{accum_pe_1_name}.inst")
+        add_conn_once(f"{final_reduce_pe_inst_const_name}.out", f"{final_reduce_pe_name}.inst")
+
+        add_conn_once(f"{accum_pond_0_name}.data_out_pond_0", f"{accum_pe_0_name}.data0")
+        add_conn_once(f"{accum_pond_0_name}.data_in_pond_0", f"{accum_pe_0_name}.O0")
+        add_conn_once(f"{accum_pond_0_name}.data_out_pond_1", f"{final_reduce_pe_name}.data0")
+
+        add_conn_once(f"{accum_pond_1_name}.data_out_pond_0", f"{accum_pe_1_name}.data0")
+        add_conn_once(f"{accum_pond_1_name}.data_in_pond_0", f"{accum_pe_1_name}.O0")
+        add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
+
+        # Connect final_reduce_pe directly to division pipeline (bypassing sum buffer MEM)
+        # Find division pipeline PEs
+        get_mant_pe_name = None
+        sub_exp_pe_name = None
+        for inst_name in instance_dict:
+            if "op_hcompute_output_cgra_stencil" in inst_name and "fp_getmant" in inst_name:
+                get_mant_pe_name = inst_name
+            elif "op_hcompute_output_cgra_stencil" in inst_name and "fp_subexp" in inst_name:
+                sub_exp_pe_name = inst_name
+
+        if get_mant_pe_name:
+            add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_mant_pe_name}.data0")
+        if sub_exp_pe_name:
+            add_conn_once(f"{final_reduce_pe_name}.O0", f"{sub_exp_pe_name}.data1")
+
+        # Find all fp_mul PEs dynamically
+        fp_mul_pe_instances = []
+        for inst_name in instance_dict:
+            if "op_hcompute_output_glb_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
+                fp_mul_pe_instances.append(inst_name)
+
+        # Extract lane indices from fp_mul PE names
+        # Pattern: op_hcompute_output_glb_stencil[_<idx>]$inner_compute$float_DW_fp_mul_...
+        def extract_lane_idx(pe_name):
+            # Remove the prefix and suffix
+            if "op_hcompute_output_glb_stencil$" in pe_name:
+                return 0  # No suffix means lane 0
+            elif "op_hcompute_output_glb_stencil_" in pe_name:
+                # Extract number after the underscore
+                match = re.search(r"op_hcompute_output_glb_stencil_(\d+)\$", pe_name)
+                if match:
+                    return int(match.group(1))
+            return None
+
+        # Build mapping of lane_idx -> fp_mul_pe_name
+        lane_to_fp_mul = {}
+        for pe_name in fp_mul_pe_instances:
+            lane_idx = extract_lane_idx(pe_name)
+            if lane_idx is not None:
+                lane_to_fp_mul[lane_idx] = pe_name
+
+        # Find all tile_input_stencil MEMs
+        tile_input_mems = {}
+        for inst_name in instance_dict:
+            if "tile_input_stencil$ub_tile_input_stencil_BANK" in inst_name and "garnet" in inst_name:
+                # Extract BANK index
+                match = re.search(r"BANK_(\d+)_garnet", inst_name)
+                if match:
+                    bank_idx = int(match.group(1))
+                    tile_input_mems[bank_idx] = inst_name
+
+        # Connect each fp_mul PE to its corresponding tile_input_stencil MEM
+        # Based on the pattern: BANK_<lane_idx> -> op_hcompute_output_glb_stencil[_<lane_idx>]
+        for lane_idx, fp_mul_pe_name in sorted(lane_to_fp_mul.items()):
+            # Connect BANK_<lane_idx> to fp_mul PE for lane <lane_idx>
+            if lane_idx in tile_input_mems:
+                tile_input_mem_name = tile_input_mems[lane_idx]
+                add_conn_once(f"{tile_input_mem_name}.data_out_1", f"{fp_mul_pe_name}.data0")
+
+        # Broadcast Division Output (MEM) -> All fp_mul PEs
+        if output_cgra_stencil_mem_main:
+            for fp_mul_pe_name in fp_mul_pe_instances:
+                add_conn_once(f"{output_cgra_stencil_mem_main}.data_out_0", f"{fp_mul_pe_name}.data1")
+
+        top_module_json["connections"] = connections
+
+        # Write PE fifos bypass config for dual accumulator PEs
+        bypass_cfg = {
+            accum_pe_0_name: {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1},
+            accum_pe_1_name: {"input_fifo_bypass": [0, 0, 0], "output_fifo_bypass": 1},
+        }
+        bypass_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
+        print(f"Writing PE_fifos_bypass_config to {bypass_path}")
+        with open(bypass_path, "w") as f:
+            json.dump(bypass_cfg, f, indent=2)
+
+        # Configure IO metadata
+        num_vec = int(self.halide_gen_args_dict["vec_height"])
+        vec_len = int(self.halide_gen_args_dict["vec_width"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+
+        for inst_name, inst_config in instance_dict.items():
+            if inst_config.get("modref") != "global.IO":
+                continue
+
+            metadata = inst_config.setdefault("metadata", {})
+
+            if "io16in_input_host_stencil" in inst_name:
+                md = metadata.setdefault("glb2out_0", {})
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [num_vec * vec_len // glb_i]
+                md["read_data_starting_addr"] = [0]
+                md["read_data_stride"] = [1]
+            elif "io16_hw_output_stencil" in inst_name:
+                md = metadata.setdefault("in2glb_0", {})
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [num_vec * vec_len // glb_i]
+                md["write_data_starting_addr"] = [0]
+                md["write_data_stride"] = [1]
+
+        # Hack design_meta_halide.json, assert only one input and one output, input and output should both have shape [vec_len, num_vec]
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        if os.path.exists(design_meta_path):
+            with open(design_meta_path, "r") as f:
+                design_meta = json.load(f)
+
+            inputs = design_meta.get("IOs", {}).get("inputs", [])
+            outputs = design_meta.get("IOs", {}).get("outputs", [])
+
+            assert len(inputs) == 1, "Expect exactly one input in design_meta_halide.json"
+            assert len(outputs) == 1, "Expect exactly one output in design_meta_halide.json"
+
+            inputs[0]["shape"] = [vec_len, num_vec]
+            outputs[0]["shape"] = [vec_len, num_vec]
+
+            with open(design_meta_path, "w") as f:
+                json.dump(design_meta, f, indent=2)
+
+        # Write updated JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
 
     def hack_for_scalar_avg_fp_rv(self, json_path, bin_path):
 
