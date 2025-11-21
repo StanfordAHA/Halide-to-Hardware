@@ -5866,6 +5866,87 @@ class SelectedDesignHacker:
 
         module["connections"] = pruned
 
+        # -----Add dummy_max_nop PEs at the end of each PE chain lane before output IOs-----
+        dummy_max_nop = int(self.halide_gen_args_dict.get("dummy_max_nop", 0))
+        if dummy_max_nop > 0:
+            # Pattern to match output IOs (for maxpooling_dense_rv_fp)
+            output_io_pat = re.compile(r"^io16.*hw_output.*\.in$")
+
+            # Find the last PE in each chain (the one without a next PE)
+            chain_last_pe = {}
+            for c in chain_ids:
+                ordered = chain_to_ordered_pes[c]
+                if not ordered:
+                    continue
+                has_const = "$const_" in ordered[0] if ordered else False
+                real = ordered[1:] if has_const else ordered[:]
+                if real:
+                    # Last PE is the last one in the real compute PEs
+                    chain_last_pe[c] = real[-1]
+
+            # Find connections from last PE.O0 to output IO.in
+            pe_to_io_connections = []
+            for idx, conn in enumerate(pruned):
+                dst, src = conn[0], conn[1]
+                # Check if src is a last PE's O0 and dst is an output IO
+                for chain, last_pe in chain_last_pe.items():
+                    if src == f"{last_pe}.O0" and output_io_pat.match(dst):
+                        pe_to_io_connections.append((idx, chain, last_pe, dst))
+                        break
+                    # Also check reverse direction
+                    if dst == f"{last_pe}.O0" and output_io_pat.match(src):
+                        pe_to_io_connections.append((idx, chain, last_pe, src))
+                        break
+
+            # Remove connections to be rewired (process in reverse order to maintain indices)
+            indices_to_remove = sorted([idx for idx, _, _, _ in pe_to_io_connections], reverse=True)
+            for idx in indices_to_remove:
+                pruned.pop(idx)
+
+            # Create dummy PEs and rewire connections
+            for _, chain, last_pe, io_in_port in pe_to_io_connections:
+
+                # Create dummy_max_nop PEs for this chain
+                dummy_pe_names = []
+                dummy_const_names = []
+                for i in range(dummy_max_nop):
+                    dummy_pe_name = f"dummy_max_nop_c{chain}_pe{i}"
+                    dummy_const_name = f"dummy_max_nop_c{chain}_const{i}"
+
+                    # Create const instruction instance
+                    if dummy_const_name not in instances:
+                        instances[dummy_const_name] = {
+                            "genref": "coreir.const",
+                            "genargs": {"width": ["Int", 84]},
+                            "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                        }
+
+                    # Create PE instance
+                    if dummy_pe_name not in instances:
+                        instances[dummy_pe_name] = {"modref": "global.PE"}
+
+                    dummy_pe_names.append(dummy_pe_name)
+                    dummy_const_names.append(dummy_const_name)
+
+                # Wire up the chain: last_pe.O0 -> first_dummy.data0
+                if dummy_pe_names:
+                    pruned.append([f"{dummy_pe_names[0]}.data0", f"{last_pe}.O0"])
+                    pruned.append([f"{dummy_pe_names[0]}.inst", f"{dummy_const_names[0]}.out"])
+
+                    # Wire up dummy PEs in chain: dummy[i].O0 -> dummy[i+1].data0
+                    for i in range(len(dummy_pe_names) - 1):
+                        pruned.append([f"{dummy_pe_names[i+1]}.data0", f"{dummy_pe_names[i]}.O0"])
+                        pruned.append([f"{dummy_pe_names[i+1]}.inst", f"{dummy_const_names[i+1]}.out"])
+
+                    # Wire last dummy PE to output IO
+                    pruned.append([io_in_port, f"{dummy_pe_names[-1]}.O0"])
+                else:
+                    # If dummy_max_nop is 0, just reconnect (shouldn't happen due to check above)
+                    pruned.append([io_in_port, f"{last_pe}.O0"])
+
+            # Update module connections
+            module["connections"] = pruned
+
         # -----Configure input and output IOs DMA-----
         img_size = int(self.halide_gen_args_dict["in_img"])
         n_ic = int(self.halide_gen_args_dict["n_ic"])
