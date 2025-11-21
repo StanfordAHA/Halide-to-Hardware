@@ -2854,6 +2854,12 @@ class SelectedDesignHacker:
             if sum_mem_clk_name and (sum_mem_clk_name in left or sum_mem_clk_name in right):
                 continue
 
+            # Skip connections from fp_mul PEs to output IOs
+            if "op_hcompute_output_glb_stencil" in left and "float_DW_fp_mul" in left and "io16_hw_output_stencil" in right:
+                continue
+            if "op_hcompute_output_glb_stencil" in right and "float_DW_fp_mul" in right and "io16_hw_output_stencil" in left:
+                continue
+
             add_conn_once(left, right)
 
 
@@ -2942,6 +2948,68 @@ class SelectedDesignHacker:
         if output_cgra_stencil_mem_main:
             for fp_mul_pe_name in fp_mul_pe_instances:
                 add_conn_once(f"{output_cgra_stencil_mem_main}.data_out_0", f"{fp_mul_pe_name}.data1")
+
+        # Connect fp_mul PEs to output IOs with matching indexes
+        # Extract stencil indexes from input IO instances
+        def extract_io_idx(io_name, is_input):
+            """Extract stencil index from IO instance name.
+            Input IOs use stencil_<idx>_read or stencil_<idx>
+            Output IOs use stencil_<idx>_write or stencil_<idx>
+            """
+            if is_input:
+                match = re.search(r"stencil_(\d+)_read", io_name)
+            else:
+                match = re.search(r"stencil_(\d+)_write", io_name)
+            if not match:
+                match = re.search(r"stencil_(\d+)", io_name)
+            return int(match.group(1)) if match else 0
+
+        # Find all input IO instances and map by stencil index
+        input_io_by_idx = {}
+        output_io_by_idx = {}
+
+        for inst_name, inst_config in instance_dict.items():
+            if inst_config.get("modref") != "global.IO":
+                continue
+
+            if "io16in_input_host_stencil" in inst_name:
+                idx = extract_io_idx(inst_name, is_input=True)
+                input_io_by_idx[idx] = inst_name
+            elif "io16_hw_output_stencil" in inst_name:
+                idx = extract_io_idx(inst_name, is_input=False)
+                output_io_by_idx[idx] = inst_name
+
+        # Build mapping from input IO index -> BANK index from original connections
+        input_io_idx_to_bank_idx = {}
+        for left, right in original_connections:
+            # Look for connections tile_input_stencil$ub_tile_input_stencil_BANK_X.data_in_0 <-> io16in_input_host_stencil_..._stencil_Y_read_0.out
+            bank_match = None
+            input_io_name = None
+
+            if "tile_input_stencil$ub_tile_input_stencil_BANK" in left and ".data_in_0" in left:
+                bank_match = re.search(r"BANK_(\d+)_garnet", left)
+                if "io16in_input_host_stencil" in right and ".out" in right:
+                    input_io_name = right.split(".")[0]
+            elif "tile_input_stencil$ub_tile_input_stencil_BANK" in right and ".data_in_0" in right:
+                bank_match = re.search(r"BANK_(\d+)_garnet", right)
+                if "io16in_input_host_stencil" in left and ".out" in left:
+                    input_io_name = left.split(".")[0]
+
+            if bank_match and input_io_name:
+                bank_idx = int(bank_match.group(1))
+                input_io_idx = extract_io_idx(input_io_name, is_input=True)
+                input_io_idx_to_bank_idx[input_io_idx] = bank_idx
+
+        # Connect fp_mul PEs to output IOs based on input IO index matching
+        # Path: input IO (index i) -> BANK (index j) -> fp_mul (lane j) -> output IO (index i)
+        # So for each input IO index i, find which BANK j it connects to,
+        # then find fp_mul with lane j, and connect it to output IO with index i
+        for input_io_idx, bank_idx in input_io_idx_to_bank_idx.items():
+            # Find fp_mul PE with lane matching the BANK index
+            if bank_idx in lane_to_fp_mul and input_io_idx in output_io_by_idx:
+                fp_mul_pe_name = lane_to_fp_mul[bank_idx]
+                output_io_name = output_io_by_idx[input_io_idx]
+                add_conn_once(f"{fp_mul_pe_name}.O0", f"{output_io_name}.in")
 
         top_module_json["connections"] = connections
 
