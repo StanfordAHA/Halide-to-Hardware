@@ -6441,13 +6441,15 @@ def main():
     if use_rv:
         print("Removing stencil memory instances for RV mode...")
         global_design_top_hacker.remove_stencil_mem_rv(args.design_top_json)
+        # Perform global hack of design_top.json to remove redundant zeros in ROM configuration
+        # TODO: This should work for static apps as well, but camera_pipeline_2x2 seems to have pixel mismatches. Trigger this only in RV for now.
+        # TODO: Need to investigate when implementing RV camera pipeline
+        global_design_top_hacker.remove_rom_zeros(args.design_top_json)
 
     # Perform global hack of design_top.json to add MU prefix for MU IOs
     global_design_top_hacker.add_mu_prefix_to_io(args.design_top_json)
     # Perform global hack of design_top.json to sort IO instances
     global_design_top_hacker.sort_IO_instances(args.design_top_json)
-    # Perform global hack of design_top.json to remove redundant zeros in ROM configuration
-    global_design_top_hacker.remove_rom_zeros(args.design_top_json)
 
     # Perform global hack of design_top.json to insert ponds for path balancing
     # TODO: This should NOT be set in application_parameters. It should be set by the flow on the 2nd pass
