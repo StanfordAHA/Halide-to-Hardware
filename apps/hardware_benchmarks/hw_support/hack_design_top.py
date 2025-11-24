@@ -12,6 +12,7 @@ APPS_NEEDING_HACKS = [
     "stable_softmax_pass2_fp",
     "stable_softmax_pass3_fp",
     "scalar_avg_fp",
+    "layer_norm_pass1_fp",
     "layer_norm_pass2_fp",
     "layer_norm_pass3_fp",
     "gelu_pass2_fp",
@@ -2625,18 +2626,20 @@ class SelectedDesignHacker:
             with open(design_meta_halide_path, "w") as f:
                 json.dump(design_meta_halide, f, indent=2)
 
-    def hack_for_stable_softmax_pass3_fp_rv(self, json_path, bin_path):
+    def _hack_reduction_followed_by_elementwise_rv(self, json_path, bin_path, top_module, scalar_op_type, elementwise_op_type):
         """
-        Restructure stable_softmax_pass3_fp for:
-        - Unrolled input IOs -> input buffer MEM.data_out_1 -> reduction tree with dual-accumulator schedule -> final reduce PE -> sum buffer MEM
-        - For each unrolled lane: input IO -> MEM.data_in_0
-        - Remove unnecessary mem tiles between tree stages
-        - Add dual accumulator schedules
+        Common function for restructuring designs with reduction followed by elementwise operations.
+
+        Args:
+            json_path: Path to design JSON
+            bin_path: Path to bin directory
+            top_module: Name of the top module
+            scalar_op_type: "division" or "fp_mul" - the scalar operation on reduced result
+            elementwise_op_type: "fp_mul" or "fp_add" - the elementwise operation with input
         """
         with open(json_path, "r") as f:
             design = json.load(f)
 
-        top_module = "stable_softmax_pass3_fp"
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
             raise RuntimeError(f"[ERROR] Module '{top_module}' not found in design.")
@@ -2689,7 +2692,7 @@ class SelectedDesignHacker:
                 if "float_DW_fp_add" in inst_name:
                     old_single_accum_pe_candidates.append(inst_name)
 
-        # Find sum_cgra_stencil MEM instances to remove (we'll connect final_reduce_pe directly to division pipeline)
+        # Find sum_cgra_stencil MEM instances to remove (we'll connect final_reduce_pe directly to scalar operation)
         sum_mem_name = None
         sum_mem_clk_name = None
         sum_cgra_stencil_ponds_to_remove = []
@@ -2836,10 +2839,11 @@ class SelectedDesignHacker:
             if any(tree_mem in left or tree_mem in right for tree_mem in tree_mem_tiles):
                 continue
 
-            # Skip direct connections from IO to fp_mul (to be replaced by IO -> MEM -> fp_mul)
-            if "io16in_input_host_stencil" in left and "op_hcompute_output_glb_stencil" in right and "float_DW_fp_mul" in right:
+            # Skip direct connections from IO to elementwise operation (to be replaced by IO -> MEM -> elementwise)
+            elementwise_op_pattern = f"float_DW_{elementwise_op_type}"
+            if "io16in_input_host_stencil" in left and "op_hcompute_output_glb_stencil" in right and elementwise_op_pattern in right:
                 continue
-            if "io16in_input_host_stencil" in right and "op_hcompute_output_glb_stencil" in left and "float_DW_fp_mul" in left:
+            if "io16in_input_host_stencil" in right and "op_hcompute_output_glb_stencil" in left and elementwise_op_pattern in left:
                 continue
 
             # Skip connections from output_cgra_stencil_mem (broadcast logic will handle this)
@@ -2854,10 +2858,10 @@ class SelectedDesignHacker:
             if sum_mem_clk_name and (sum_mem_clk_name in left or sum_mem_clk_name in right):
                 continue
 
-            # Skip connections from fp_mul PEs to output IOs
-            if "op_hcompute_output_glb_stencil" in left and "float_DW_fp_mul" in left and "io16_hw_output_stencil" in right:
+            # Skip connections from elementwise PEs to output IOs
+            if "op_hcompute_output_glb_stencil" in left and elementwise_op_pattern in left and "io16_hw_output_stencil" in right:
                 continue
-            if "op_hcompute_output_glb_stencil" in right and "float_DW_fp_mul" in right and "io16_hw_output_stencil" in left:
+            if "op_hcompute_output_glb_stencil" in right and elementwise_op_pattern in right and "io16_hw_output_stencil" in left:
                 continue
 
             add_conn_once(left, right)
@@ -2885,29 +2889,41 @@ class SelectedDesignHacker:
         add_conn_once(f"{accum_pond_1_name}.data_in_pond_0", f"{accum_pe_1_name}.O0")
         add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
 
-        # Connect final_reduce_pe directly to division pipeline (bypassing sum buffer MEM)
-        # Find division pipeline PEs
-        get_mant_pe_name = None
-        sub_exp_pe_name = None
+        # Connect final_reduce_pe directly to scalar operation (bypassing sum buffer MEM)
+        if scalar_op_type == "division":
+            # Find division pipeline PEs
+            get_mant_pe_name = None
+            sub_exp_pe_name = None
+            for inst_name in instance_dict:
+                if "op_hcompute_output_cgra_stencil" in inst_name and "fp_getmant" in inst_name:
+                    get_mant_pe_name = inst_name
+                elif "op_hcompute_output_cgra_stencil" in inst_name and "fp_subexp" in inst_name:
+                    sub_exp_pe_name = inst_name
+
+            if get_mant_pe_name:
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_mant_pe_name}.data0")
+            if sub_exp_pe_name:
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{sub_exp_pe_name}.data1")
+        elif scalar_op_type == "fp_mul":
+            # Find fp_mul PE for scalar operation
+            scalar_fp_mul_pe_name = None
+            for inst_name in instance_dict:
+                if "op_hcompute_output_cgra_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
+                    scalar_fp_mul_pe_name = inst_name
+                    break
+
+            if scalar_fp_mul_pe_name:
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{scalar_fp_mul_pe_name}.data0")
+
+        # Find all elementwise operation PEs dynamically
+        elementwise_op_pattern = f"float_DW_{elementwise_op_type}"
+        elementwise_pe_instances = []
         for inst_name in instance_dict:
-            if "op_hcompute_output_cgra_stencil" in inst_name and "fp_getmant" in inst_name:
-                get_mant_pe_name = inst_name
-            elif "op_hcompute_output_cgra_stencil" in inst_name and "fp_subexp" in inst_name:
-                sub_exp_pe_name = inst_name
+            if "op_hcompute_output_glb_stencil" in inst_name and elementwise_op_pattern in inst_name:
+                elementwise_pe_instances.append(inst_name)
 
-        if get_mant_pe_name:
-            add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_mant_pe_name}.data0")
-        if sub_exp_pe_name:
-            add_conn_once(f"{final_reduce_pe_name}.O0", f"{sub_exp_pe_name}.data1")
-
-        # Find all fp_mul PEs dynamically
-        fp_mul_pe_instances = []
-        for inst_name in instance_dict:
-            if "op_hcompute_output_glb_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
-                fp_mul_pe_instances.append(inst_name)
-
-        # Extract lane indices from fp_mul PE names
-        # Pattern: op_hcompute_output_glb_stencil[_<idx>]$inner_compute$float_DW_fp_mul_...
+        # Extract lane indices from elementwise PE names
+        # Pattern: op_hcompute_output_glb_stencil[_<idx>]$inner_compute$float_DW_<op>_...
         def extract_lane_idx(pe_name):
             # Remove the prefix and suffix
             if "op_hcompute_output_glb_stencil$" in pe_name:
@@ -2919,12 +2935,12 @@ class SelectedDesignHacker:
                     return int(match.group(1))
             return None
 
-        # Build mapping of lane_idx -> fp_mul_pe_name
-        lane_to_fp_mul = {}
-        for pe_name in fp_mul_pe_instances:
+        # Build mapping of lane_idx -> elementwise_pe_name
+        lane_to_elementwise = {}
+        for pe_name in elementwise_pe_instances:
             lane_idx = extract_lane_idx(pe_name)
             if lane_idx is not None:
-                lane_to_fp_mul[lane_idx] = pe_name
+                lane_to_elementwise[lane_idx] = pe_name
 
         # Find all tile_input_stencil MEMs
         tile_input_mems = {}
@@ -2936,20 +2952,21 @@ class SelectedDesignHacker:
                     bank_idx = int(match.group(1))
                     tile_input_mems[bank_idx] = inst_name
 
-        # Connect each fp_mul PE to its corresponding tile_input_stencil MEM
+        # Connect each elementwise PE to its corresponding tile_input_stencil MEM
         # Based on the pattern: BANK_<lane_idx> -> op_hcompute_output_glb_stencil[_<lane_idx>]
-        for lane_idx, fp_mul_pe_name in sorted(lane_to_fp_mul.items()):
-            # Connect BANK_<lane_idx> to fp_mul PE for lane <lane_idx>
+        for lane_idx, elementwise_pe_name in sorted(lane_to_elementwise.items()):
+            # Connect BANK_<lane_idx> to elementwise PE for lane <lane_idx>
             if lane_idx in tile_input_mems:
                 tile_input_mem_name = tile_input_mems[lane_idx]
-                add_conn_once(f"{tile_input_mem_name}.data_out_1", f"{fp_mul_pe_name}.data0")
+                add_conn_once(f"{tile_input_mem_name}.data_out_1", f"{elementwise_pe_name}.data0")
 
-        # Broadcast Division Output (MEM) -> All fp_mul PEs
+        # Broadcast Scalar Operation Output (MEM) -> Pipeline FIFOs -> All elementwise PEs
         if output_cgra_stencil_mem_main:
-            for fp_mul_pe_name in fp_mul_pe_instances:
-                add_conn_once(f"{output_cgra_stencil_mem_main}.data_out_0", f"{fp_mul_pe_name}.data1")
+            # Broadcast from MEM to all elementwise PEs
+            for elementwise_pe_name in elementwise_pe_instances:
+                add_conn_once(f"{output_cgra_stencil_mem_main}.data_out_0", f"{elementwise_pe_name}.data1")
 
-        # Connect fp_mul PEs to output IOs with matching indexes
+        # Connect elementwise PEs to output IOs with matching indexes
         # Extract stencil indexes from input IO instances
         def extract_io_idx(io_name, is_input):
             """Extract stencil index from IO instance name.
@@ -3000,16 +3017,16 @@ class SelectedDesignHacker:
                 input_io_idx = extract_io_idx(input_io_name, is_input=True)
                 input_io_idx_to_bank_idx[input_io_idx] = bank_idx
 
-        # Connect fp_mul PEs to output IOs based on input IO index matching
-        # Path: input IO (index i) -> BANK (index j) -> fp_mul (lane j) -> output IO (index i)
+        # Connect elementwise PEs to output IOs based on input IO index matching
+        # Path: input IO (index i) -> BANK (index j) -> elementwise (lane j) -> output IO (index i)
         # So for each input IO index i, find which BANK j it connects to,
-        # then find fp_mul with lane j, and connect it to output IO with index i
+        # then find elementwise with lane j, and connect it to output IO with index i
         for input_io_idx, bank_idx in input_io_idx_to_bank_idx.items():
-            # Find fp_mul PE with lane matching the BANK index
-            if bank_idx in lane_to_fp_mul and input_io_idx in output_io_by_idx:
-                fp_mul_pe_name = lane_to_fp_mul[bank_idx]
+            # Find elementwise PE with lane matching the BANK index
+            if bank_idx in lane_to_elementwise and input_io_idx in output_io_by_idx:
+                elementwise_pe_name = lane_to_elementwise[bank_idx]
                 output_io_name = output_io_by_idx[input_io_idx]
-                add_conn_once(f"{fp_mul_pe_name}.O0", f"{output_io_name}.in")
+                add_conn_once(f"{elementwise_pe_name}.O0", f"{output_io_name}.in")
 
         top_module_json["connections"] = connections
 
@@ -3072,6 +3089,21 @@ class SelectedDesignHacker:
         # Write updated JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+    def hack_for_stable_softmax_pass3_fp_rv(self, json_path, bin_path):
+        """
+        Restructure stable_softmax_pass3_fp for:
+        - Unrolled input IOs -> input buffer MEM.data_out_1 -> reduction tree with dual-accumulator schedule -> final reduce PE -> sum buffer MEM
+        - For each unrolled lane: input IO -> MEM.data_in_0
+        - Remove unnecessary mem tiles between tree stages
+        - Add dual accumulator schedules
+        """
+        self._hack_reduction_followed_by_elementwise_rv(
+            json_path, bin_path,
+            top_module="stable_softmax_pass3_fp",
+            scalar_op_type="division",
+            elementwise_op_type="fp_mul"
+        )
 
 
     def hack_for_scalar_avg_fp_rv(self, json_path, bin_path):
@@ -3191,6 +3223,23 @@ class SelectedDesignHacker:
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
+
+    def hack_for_layer_norm_pass1_fp_rv(self, json_path, bin_path):
+        """
+        Restructure layer_norm_pass1_fp for:
+        - Unrolled input IOs -> input buffer MEM.data_out_1 -> reduction tree with dual-accumulator schedule -> final reduce PE -> fp_mul (scalar op)
+        - For each unrolled lane: input IO -> MEM.data_in_0
+        - Remove unnecessary mem tiles between tree stages
+        - Add dual accumulator schedules
+        - Elementwise operation: fp_add
+        - Scalar operation: fp_mul
+        """
+        self._hack_reduction_followed_by_elementwise_rv(
+            json_path, bin_path,
+            top_module="layer_norm_pass1_fp",
+            scalar_op_type="fp_mul",
+            elementwise_op_type="fp_add"
+        )
 
     def hack_for_layer_norm_pass2_fp_rv(self, json_path, bin_path):
 
