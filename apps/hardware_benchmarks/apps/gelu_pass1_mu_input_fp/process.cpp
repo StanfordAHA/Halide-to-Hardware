@@ -97,6 +97,7 @@ int main(int argc, char **argv) {
 
     save_halide_buffer_to_raw(processor.inputs["input"], "bin/mu_input_host_stencil.raw");
     save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(processor.inputs["input"], "bin/hw_activation_output.raw");
 
     // Create glb bank config
     using namespace glb_cfg;
@@ -104,7 +105,8 @@ int main(int argc, char **argv) {
     const config_spec spec = {
         {},
         {
-            tensor_spec{"hw_output", {"x_coord"}}
+            tensor_spec{"hw_output", {"x_coord"}},
+            tensor_spec{"hw_activation_output", {"x_coord"}}
         },
         {
             tensor_spec{"mu_input_host_stencil", {"x_coord"}}

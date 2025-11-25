@@ -15,6 +15,7 @@ APPS_NEEDING_HACKS = [
     "layer_norm_pass1_fp",
     "layer_norm_pass2_fp",
     "layer_norm_pass3_fp",
+    "gelu_pass1_mu_input_fp",
     "gelu_pass2_fp",
     "silu_pass2_fp",
     "swiglu_pass2_fp",
@@ -3442,6 +3443,124 @@ class SelectedDesignHacker:
 
     def hack_for_layer_norm_pass3_fp_rv(self, json_path, bin_path):
         return self.hack_for_layer_norm_pass3_fp_static(json_path, bin_path)
+
+    def hack_for_gelu_pass1_mu_input_fp_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "gelu_pass1_mu_input_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        gelu_pass1_mu_input_fp = global_modules[top_module]
+
+        instances = gelu_pass1_mu_input_fp["instances"]
+        connections = gelu_pass1_mu_input_fp["connections"]
+        type_fields = gelu_pass1_mu_input_fp["type"][1]
+
+        # Get halide gen args
+        vec_len = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        mu_i = int(self.halide_gen_args_dict["mu_i"])
+        extent = vec_len * num_vecs // mu_i
+
+        # Find all input IO instances matching pattern (without MU_ prefix)
+        input_io_instances = {}
+        for inst_name, inst_config in instances.items():
+            if (inst_name.startswith("io16in_mu_input_host_stencil") and
+                inst_config.get("modref") == "global.IO" and
+                "_clkwrk_" in inst_name and
+                "_op_hcompute_mu_input_glb_stencil" in inst_name):
+                # Extract clkwrk index
+                match = re.search(r"_clkwrk_(\d+)_op_hcompute_mu_input_glb_stencil", inst_name)
+                if match:
+                    clkwrk_idx = int(match.group(1))
+                    # Extract stencil index from the read operation
+                    # Pattern can be either "stencil_read" (index 0) or "stencil_<idx>_read"
+                    # Look for pattern like "glb_stencil_10_read" or "glb_stencil_read"
+                    stencil_match = re.search(r"glb_stencil_(\d+)_read", inst_name)
+                    if stencil_match:
+                        stencil_idx = int(stencil_match.group(1))
+                    else:
+                        # If no number after "glb_stencil", it's stencil_0 (implicit)
+                        stencil_idx = 0
+                    input_io_instances[clkwrk_idx] = {
+                        "name": inst_name,
+                        "stencil_idx": stencil_idx
+                    }
+
+        # Sort by clkwrk index
+        sorted_indices = sorted(input_io_instances.keys())
+
+        # Create output IO template
+        output_io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "out"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    "extent": [extent],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1]
+                }
+            }
+        }
+
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Create output IO instances and connections
+        output_io_names = []
+        for clkwrk_idx in sorted_indices:
+            input_io_info = input_io_instances[clkwrk_idx]
+            stencil_idx = input_io_info["stencil_idx"]
+            input_io_name = input_io_info["name"]
+
+            # Create output IO name with matching index
+            output_io_name = f"io16_hw_activation_output_stencil_clkwrk_{clkwrk_idx}_op_hcompute_hw_activation_output_stencil_{stencil_idx}_write_0"
+
+            # Create output IO instance if it doesn't exist
+            if output_io_name not in instances:
+                instances[output_io_name] = copy.deepcopy(output_io_tpl)
+
+            # Create direct connection from input IO .out to output IO .in
+            add_conn_once(f"{input_io_name}.out", f"{output_io_name}.in")
+
+            # Add self connection and type field
+            port_name = output_io_name.replace("io16_", "")
+            if all(field[0] != port_name for field in type_fields):
+                type_fields.append([port_name, ["Array", 16, "Bit"]])
+            add_conn_once(f"self.{port_name}", f"{output_io_name}.out")
+
+            output_io_names.append(output_io_name)
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Update design_meta_halide.json
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+
+        # Add new output to design_meta_halide.json
+        design_meta["IOs"]["outputs"].append({
+            "bitwidth": 16,
+            "datafile": "hw_activation_output.raw",
+            "name": "hw_activation_output_stencil",
+            "shape": [vec_len, num_vecs]
+        })
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
 
     def hack_for_gelu_pass2_fp_rv(self, json_path, bin_path):
         return self.hack_for_gelu_pass2_fp_static(json_path, bin_path)
