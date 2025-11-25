@@ -47,6 +47,16 @@ class SelectedDesignHacker:
             item.split("=") for item in (HALIDE_GEN_ARGS or "").strip().split()
         )
 
+        # Instance templates
+        self.APPLY_SCALE_INSTR = "84'h0220001000550015300a9"
+        self.DATA_PACKING_INSTR = "84'h0200201104128c0d3001d"
+        self.FP_MUL_INSTR = "84'h00000420009004040000e"
+        self.FP_ADD_INSTR = "84'h000008000410002480082"
+        self.ABS_MAX_INSTR = "84'h0008003fff94400440016"
+        self.GET_SHARED_EXP_INSTR = "84'h0200040dc420041530025"
+        self.DUMMY_MAX_NOP_INSTR = "84'h0010005fefe0800400092"
+
+
     def hack_design_if_needed(self, testname, json_path, bin_path):
         """
         Only apply hacks if `testname` is in self.hack_apps.
