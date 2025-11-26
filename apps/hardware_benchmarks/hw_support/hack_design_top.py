@@ -5954,7 +5954,8 @@ class SelectedDesignHacker:
         Some chain use one MEM and some use two, while one MEM per chain is enough.
         To handle multiple channels per lane, unhacked graph uses n_ic // unroll FIFOs between adjacent PEs to interleave across channels.
         Dense RV maxpooling is not compilable with clockwork, so there are redundant FIFOs for compute delay matching.
-        This hack collapses all redundant FIFOs, remove redundant MEMs, and configure GLB DMA to handle multiple channels per lane.
+        This hack collapses all redundant FIFOs, removes redundant MEMs and constant PEs, hardcodes the first max PE instruction
+        with DUMMY_MAX_NOP_INSTR, and configures GLB DMA to handle multiple channels per lane.
         '''
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -6028,7 +6029,7 @@ class SelectedDesignHacker:
             if "$d_reg" in name:
                 del instances[name]
 
-        # -----Collect PE chains using constant PE as heads-----
+        # -----Collect PE chains-----
         # Define patterns for PEs, MEMs, and IOs. ChatGPT generated regexes.
         floatmax_pat = re.compile(
             r"^(?P<base>op_hcompute_max_pooling_inner_stencil_(?P<chain>\d+)"
@@ -6037,6 +6038,9 @@ class SelectedDesignHacker:
         const_pat = re.compile(
             r"^(?P<base>op_hcompute_max_pooling_inner_stencil(?:_(?P<chain>\d+))?"
             r"\$inner_compute\$const_i\d+_i\d+)\.(?P<pin>.+)$"
+        )
+        const_inst_pat = re.compile(
+            r"^op_hcompute_max_pooling_inner_stencil(?:_\d+)?\$inner_compute\$c\d+\.out$"
         )
         io_out_pat = re.compile(r"^io16in_input_host_stencil_clkwrk_\d+_.+_read_0\.out$")
         mem_out_pat = re.compile(
@@ -6088,8 +6092,7 @@ class SelectedDesignHacker:
                 chain_head_max[chain] = md.group("base")
                 chain_const_base[chain] = mc.group("base")
 
-        # Order PEs: [const PE] + walk from first max PE via O0->data1
-        # Note: const PE is needed for providing minimum BF16 value
+        # Order PEs: walk from first max PE via O0->data1
         chain_to_ordered_pes = {}
         for chain, pes in chain_pe_set.items():
             head_max = chain_head_max.get(chain)
@@ -6103,26 +6106,35 @@ class SelectedDesignHacker:
                 order.append(cur)
                 visited.add(cur)
                 cur = pe_next[chain].get(cur)
-            const_base = chain_const_base.get(chain)
-            chain_to_ordered_pes[chain] = ([const_base] if const_base else []) + order
+            chain_to_ordered_pes[chain] = order
 
         chain_ids = [c for c in sorted(chain_to_ordered_pes) if len(chain_to_ordered_pes[c]) >= 1]
 
-        # Allowed data1 edges: const -> first max PE, and max PE cascade O0->data1
+        # Identify first max PE per chain and collect old const instruction instances connected to them
+        first_pe_per_chain = {}
+        old_const_inst_to_delete = set()
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+            first_pe = ordered[0]
+            first_pe_per_chain[c] = first_pe
+            # Find const instruction instances connected to first PE's .inst port
+            for a, b in connections:
+                for src, dst in ((a, b), (b, a)):
+                    if const_inst_pat.match(src) and dst == first_pe + ".inst":
+                        # Extract node name
+                        const_inst_base = src.rsplit(".", 1)[0]
+                        old_const_inst_to_delete.add(const_inst_base)
+
+        # Allowed data1 edges: max PE cascade O0->data1
         allowed_d1 = set()
         for c in chain_to_ordered_pes:
             ordered = chain_to_ordered_pes[c]
             if not ordered:
                 continue
-            has_const = "$const_" in ordered[0]
-            real = ordered[1:] if has_const else ordered[:]
-            # const -> PE1.data1
-            if has_const and real:
-                const_base = ordered[0]
-                pe1 = real[0]
-                allowed_d1.add((pe1 + ".data1", const_base + ".O0"))
             # PEk.O0 -> PE(k+1).data1
-            for u, v in zip(real[:-1], real[1:]):
+            for u, v in zip(ordered[:-1], ordered[1:]):
                 allowed_d1.add((v + ".data1", u + ".O0"))
 
         # -----Identify IO and MEMs per chain and only keep one MEM per chain-----
@@ -6158,13 +6170,11 @@ class SelectedDesignHacker:
                     if mname != keep:
                         to_delete_mems.add(mname)
 
-        # Determine compute PEs and exclude const PE
+        # Determine compute PEs
         pe_data0_targets = set()
         for c in chain_ids:
             ordered = chain_to_ordered_pes[c]
-            # const present if string contains "$const_" (robust)
-            start_idx = 1 if ordered and "$const_" in ordered[0] else 0
-            for base in ordered[start_idx:]:
+            for base in ordered:
                 pe_data0_targets.add(base + ".data0")
 
         filtered = []
@@ -6177,6 +6187,24 @@ class SelectedDesignHacker:
                 if ma and ma.group("mem") in to_delete_mems:
                     drop = True
                     break
+            if drop:
+                continue
+
+            # Drop edges with constant PEs (will be removed)
+            for ep in (a, b):
+                if const_pat.match(ep):
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges from old const instruction instances to first max PE.inst
+            for src, dst in ((a, b), (b, a)):
+                if const_inst_pat.match(src):
+                    const_inst_base = src.rsplit(".", 1)[0]
+                    if const_inst_base in old_const_inst_to_delete and dst.endswith(".inst"):
+                        drop = True
+                        break
             if drop:
                 continue
 
@@ -6261,8 +6289,7 @@ class SelectedDesignHacker:
             if not ordered:
                 continue
 
-            first_is_const = ordered and ("$const_" in ordered[0])
-            compute_pes = ordered[1:] if first_is_const else ordered[:]
+            compute_pes = ordered
 
             # Group PEs by IO, MEM port1, and MEM port0
             group_io = compute_pes[0:3]
@@ -6278,9 +6305,17 @@ class SelectedDesignHacker:
             if not io_src:
                 continue
 
-            # Ensure first compute PE also has const->data1 (old const->data0 is removed)
-            const_base = chain_const_base.get(c)
-            pe1 = group_io[0] if group_io else None
+            # Create const instruction for first max PE
+            first_pe = group_io[0] if group_io else None
+            if first_pe:
+                const_inst_name = f"first_pe_c{c}_inst"
+                if const_inst_name not in instances:
+                    instances[const_inst_name] = {
+                        "genref": "coreir.const",
+                        "genargs": {"width": ["Int", 84]},
+                        "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                    }
+                add_conn(first_pe + ".inst", const_inst_name + ".out")
 
             # Create six FIFOs per chain
             names = [
@@ -6303,10 +6338,6 @@ class SelectedDesignHacker:
             add_conn(fifo_io1 + ".in", fifo_io0 + ".out")
             if len(group_io) >= 3: add_conn(group_io[2] + ".data0", fifo_io1 + ".out")
 
-            # Explicitly add const -> first compute PE.data1
-            if const_base and pe1:
-                add_conn(pe1 + ".data1", const_base + ".O0")
-
             # MEM port1: port1->PE4, ->fifo2->PE5, ->fifo2->fifo3->PE6
             if group_mem_port1:
                 p1_src = mem_data_out(c, 1)
@@ -6324,14 +6355,21 @@ class SelectedDesignHacker:
                 if len(group_mem_port0) >= 2: add_conn(group_mem_port0[1] + ".data0", fifo_p00 + ".out")
                 add_conn(fifo_p01 + ".in", fifo_p00 + ".out")
                 if len(group_mem_port0) >= 3: add_conn(group_mem_port0[2] + ".data0", fifo_p01 + ".out")
-            # IO.O0: O0 -> PE1, ->fifo0->PE2, ->fifo0->fifo1->PE3
-            if const_base and group_io:
-                add_conn(group_io[0] + ".data1", const_base + ".O0")
 
-        # -----Delete unused MEMs and drop dangling edges-----
+        # -----Delete unused MEMs and constant PEs, drop dangling edges-----
         for m in to_delete_mems:
             if m in instances:
                 del instances[m]
+
+        # Delete constant PEs
+        for name in list(instances.keys()):
+            if const_pat.match(name):
+                del instances[name]
+
+        # Delete only old const instruction instances connected to first max PE in each chain
+        for name in old_const_inst_to_delete:
+            if name in instances:
+                del instances[name]
 
         deleted_prefixes = tuple(m + "." for m in to_delete_mems)
         pruned = []
@@ -6359,11 +6397,9 @@ class SelectedDesignHacker:
                 ordered = chain_to_ordered_pes[c]
                 if not ordered:
                     continue
-                has_const = "$const_" in ordered[0] if ordered else False
-                real = ordered[1:] if has_const else ordered[:]
-                if real:
-                    # Last PE is the last one in the real compute PEs
-                    chain_last_pe[c] = real[-1]
+                if ordered:
+                    # Last PE is the last one in the compute PEs
+                    chain_last_pe[c] = ordered[-1]
 
             # Find connections from last PE.O0 to output IO.in
             pe_to_io_connections = []
