@@ -3464,9 +3464,10 @@ class SelectedDesignHacker:
         vec_len = int(self.halide_gen_args_dict["vec_width"])
         num_vecs = int(self.halide_gen_args_dict["vec_height"])
         mu_i = int(self.halide_gen_args_dict["mu_i"])
+        dummy_max_nop = int(self.halide_gen_args_dict.get("dummy_max_nop", "0"))
         extent = vec_len * num_vecs // mu_i
 
-        # Find all input IO instances matching pattern (without MU_ prefix)
+        # Find all MU input IO instances
         input_io_instances = {}
         for inst_name, inst_config in instances.items():
             if (inst_name.startswith("io16in_mu_input_host_stencil") and
@@ -3494,6 +3495,10 @@ class SelectedDesignHacker:
         # Sort by clkwrk index
         sorted_indices = sorted(input_io_instances.keys())
 
+        # Divide lanes into two halves
+        first_half_indices = [idx for idx in sorted_indices if idx < mu_i // 2]
+        second_half_indices = [idx for idx in sorted_indices if idx >= mu_i // 2]
+
         # Create output IO template
         output_io_tpl = {
             "modref": "global.IO",
@@ -3516,30 +3521,266 @@ class SelectedDesignHacker:
             if pair not in connections:
                 connections.append(pair)
 
-        # Create output IO instances and connections
-        output_io_names = []
-        for clkwrk_idx in sorted_indices:
+        # Helper function to remove connection
+        # Connections can be in [src, dst] or [dst, src] format
+        def remove_conn(src, dst):
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+            elif pair2 in connections:
+                connections.remove(pair2)
+
+        # For second half: remove compute pipelines and create pass-through paths
+        for clkwrk_idx in second_half_indices:
             input_io_info = input_io_instances[clkwrk_idx]
             stencil_idx = input_io_info["stencil_idx"]
             input_io_name = input_io_info["name"]
 
-            # Create output IO name with matching index
-            output_io_name = f"io16_hw_activation_output_stencil_clkwrk_{clkwrk_idx}_op_hcompute_hw_activation_output_stencil_{stencil_idx}_write_0"
+            # Find output IO instance for hw_output_stencil (offset by mu_i)
+            output_clkwrk_idx = clkwrk_idx + mu_i
+            output_io_name = f"io16_hw_output_stencil_clkwrk_{output_clkwrk_idx}_op_hcompute_hw_output_stencil"
+            if stencil_idx > 0:
+                output_io_name += f"_{stencil_idx}"
+            output_io_name += "_write_0"
+
+            # Pattern to match compute pipeline instances for this clkwrk_idx
+            compute_pattern = f"op_hcompute_output_cgra_stencil_{clkwrk_idx}$"
+
+            # Remove ALL connections involving the compute pipeline
+            connections_to_remove = []
+            for conn in connections:
+                src, dst = conn[0], conn[1]
+                # Check if either source or destination is part of the compute pipeline
+                src_is_compute = src.startswith(compute_pattern)
+                dst_is_compute = dst.startswith(compute_pattern)
+
+                if src_is_compute or dst_is_compute:
+                    connections_to_remove.append(conn)
+
+            for conn in connections_to_remove:
+                remove_conn(conn[0], conn[1])
+
+            # Collect all compute pipeline instances to remove (MEMs, PEs, constants, etc.)
+            compute_instances_to_remove = []
+            for inst_name in instances.keys():
+                if inst_name.startswith(compute_pattern):
+                    compute_instances_to_remove.append(inst_name)
+
+            # Remove compute pipeline instances that are no longer connected
+            for inst_name in compute_instances_to_remove:
+                # Check if this instance is still referenced in any connection
+                still_referenced = False
+                for conn in connections:
+                    src, dst = conn[0], conn[1]
+                    # Extract instance name from connection endpoints
+                    src_inst = src.split(".")[0] if "." in src else src
+                    dst_inst = dst.split(".")[0] if "." in dst else dst
+                    if inst_name == src_inst or inst_name == dst_inst:
+                        still_referenced = True
+                        break
+
+                # Only remove if not referenced in any connection
+                if not still_referenced:
+                    del instances[inst_name]
+
+            # Create dummy PEs chain
+            dummy_pe_names = []
+            dummy_const_names = []
+            for i in range(dummy_max_nop):
+                dummy_pe_name = f"dummy_max_nop_gelu_pass1_mu_input_fp_clkwrk_{clkwrk_idx}_pe{i}"
+                dummy_const_name = f"dummy_max_nop_gelu_pass1_mu_input_fp_clkwrk_{clkwrk_idx}_const{i}"
+
+                # Create const instruction instance
+                if dummy_const_name not in instances:
+                    instances[dummy_const_name] = {
+                        "genref": "coreir.const",
+                        "genargs": {"width": ["Int", 84]},
+                        "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                    }
+
+                # Create PE instance
+                if dummy_pe_name not in instances:
+                    instances[dummy_pe_name] = {"modref": "global.PE"}
+
+                dummy_pe_names.append(dummy_pe_name)
+                dummy_const_names.append(dummy_const_name)
+
+            # Verify input IO instance exists
+            if input_io_name not in instances:
+                raise ValueError(f"[ERROR]: {input_io_name} not found in instances.")
+
+            # Remove any existing connections from input IO to io16_hw_output_stencil (we don't want this for second half)
+            connections_to_remove = []
+            for conn in connections:
+                src, dst = conn[0], conn[1]
+                if (src == f"{input_io_name}.out" and dst == f"{output_io_name}.in"):
+                    connections_to_remove.append(conn)
+            for conn in connections_to_remove:
+                remove_conn(conn[0], conn[1])
+
+            # Remove self connections for unused io16_hw_output_stencil output IOs (second half)
+            port_name = output_io_name.replace("io16_", "")
+            connections_to_remove = []
+            for conn in connections:
+                src, dst = conn[0], conn[1]
+                # Remove self connections: self.port_name -> output_io.out
+                if (src == f"self.{port_name}" and dst == f"{output_io_name}.out"):
+                    connections_to_remove.append(conn)
+            for conn in connections_to_remove:
+                remove_conn(conn[0], conn[1])
+
+            # Remove the unused io16_hw_output_stencil output IO instance (second half)
+            if output_io_name in instances:
+                del instances[output_io_name]
+
+            # Wire up the chain: input_io.out -> first_dummy.data0 (only for hw_activation_output_stencil)
+            if dummy_pe_names:
+                add_conn_once(f"{dummy_pe_names[0]}.data0", f"{input_io_name}.out")
+                add_conn_once(f"{dummy_pe_names[0]}.inst", f"{dummy_const_names[0]}.out")
+
+                # Wire up dummy PEs in chain: dummy[i].O0 -> dummy[i+1].data0
+                for i in range(len(dummy_pe_names) - 1):
+                    add_conn_once(f"{dummy_pe_names[i+1]}.data0", f"{dummy_pe_names[i]}.O0")
+                    add_conn_once(f"{dummy_pe_names[i+1]}.inst", f"{dummy_const_names[i+1]}.out")
+            else:
+                # If dummy_max_nop is 0, we'll connect directly to activation output IO below
+                pass
+
+            # Create output IO instance and connection for hw_activation_output_stencil (second half only)
+            activation_output_io_name = f"io16_hw_activation_output_stencil_clkwrk_{clkwrk_idx}_op_hcompute_hw_activation_output_stencil_{stencil_idx}_write_0"
 
             # Create output IO instance if it doesn't exist
-            if output_io_name not in instances:
-                instances[output_io_name] = copy.deepcopy(output_io_tpl)
+            if activation_output_io_name not in instances:
+                instances[activation_output_io_name] = copy.deepcopy(output_io_tpl)
+            else:
+                # Update extent if it already exists
+                instances[activation_output_io_name]["metadata"]["in2glb_0"]["extent"] = [extent]
 
-            # Create direct connection from input IO .out to output IO .in
-            add_conn_once(f"{input_io_name}.out", f"{output_io_name}.in")
+            # Connect from the output of the pass-through path (either dummy PE chain or direct)
+            if dummy_pe_names:
+                # Connect from last dummy PE to activation output IO
+                add_conn_once(f"{activation_output_io_name}.in", f"{dummy_pe_names[-1]}.O0")
+            else:
+                # Direct connection from input IO to activation output IO
+                add_conn_once(f"{activation_output_io_name}.in", f"{input_io_name}.out")
 
             # Add self connection and type field
-            port_name = output_io_name.replace("io16_", "")
+            port_name = activation_output_io_name.replace("io16_", "")
             if all(field[0] != port_name for field in type_fields):
                 type_fields.append([port_name, ["Array", 16, "Bit"]])
-            add_conn_once(f"self.{port_name}", f"{output_io_name}.out")
+            add_conn_once(f"self.{port_name}", f"{activation_output_io_name}.out")
 
-            output_io_names.append(output_io_name)
+        # For first half: insert input buffer MEM between input IO and final fp mul PE
+        # First, find or create shared clock constant
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # Update extents for first half output IOs (io16_hw_output_stencil) and insert MEM buffers
+        for clkwrk_idx in first_half_indices:
+            input_io_info = input_io_instances[clkwrk_idx]
+            stencil_idx = input_io_info["stencil_idx"]
+            input_io_name = input_io_info["name"]
+            output_clkwrk_idx = clkwrk_idx + mu_i
+            output_io_name = f"io16_hw_output_stencil_clkwrk_{output_clkwrk_idx}_op_hcompute_hw_output_stencil"
+            if stencil_idx > 0:
+                output_io_name += f"_{stencil_idx}"
+            output_io_name += "_write_0"
+
+            if output_io_name in instances:
+                instances[output_io_name]["metadata"]["in2glb_0"]["extent"] = [extent]
+
+            # Find both fp mul PEs connected to this input IO
+            # Pattern: op_hcompute_output_cgra_stencil $inner_compute$float_DW_fp_mul
+            # First fp mul PE: has .data0 connected to input IO
+            # Final fp mul PE: has .data1 connected to input IO and .O0 connected to output IO
+            first_fp_mul_pe_name = None
+            final_fp_mul_pe_name = None
+
+            # Check both with and without "MU_" prefix for input IO
+            input_io_sources = [f"{input_io_name}.out", f"MU_{input_io_name}.out"]
+
+            # Find first fp mul PE connected to input IO via .data0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b in input_io_sources) or
+                    (b.endswith(".data0") and a in input_io_sources)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        first_fp_mul_pe_name = pe_inst
+                        break
+
+            # Find final fp mul PE connected to output IO via .O0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".O0") and b == f"{output_io_name}.in") or
+                    (b.endswith(".O0") and a == f"{output_io_name}.in")):
+                    pe_port = a if a.endswith(".O0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        final_fp_mul_pe_name = pe_inst
+                        break
+
+            if first_fp_mul_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find first fp mul PE (data0) for clkwrk_idx {clkwrk_idx}.")
+            if final_fp_mul_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find final fp mul PE (O0->output) for clkwrk_idx {clkwrk_idx}.")
+
+            # Verify final fp mul PE's .data1 is connected to input IO
+            final_fp_mul_data1_conn = None
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a == f"{final_fp_mul_pe_name}.data1" and b in input_io_sources) or
+                    (b == f"{final_fp_mul_pe_name}.data1" and a in input_io_sources)):
+                    final_fp_mul_data1_conn = conn
+                    break
+
+            if final_fp_mul_data1_conn is None:
+                raise ValueError(f"[ERROR]: Final fp mul PE {final_fp_mul_pe_name} for clkwrk_idx {clkwrk_idx} does not have .data1 connected to input IO.")
+
+            # Find connection from input IO to first fp mul PE's data0
+            first_fp_mul_data0_conn = None
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a == f"{first_fp_mul_pe_name}.data0" and b in input_io_sources) or
+                    (b == f"{first_fp_mul_pe_name}.data0" and a in input_io_sources)):
+                    first_fp_mul_data0_conn = conn
+                    break
+
+            if first_fp_mul_data0_conn is None:
+                raise ValueError(f"[ERROR]: First fp mul PE {first_fp_mul_pe_name} for clkwrk_idx {clkwrk_idx} does not have .data0 connected to input IO.")
+
+            # Create input buffer MEM instance
+            input_buffer_mem_name = f"{top_module}_input_buffer_mem_clkwrk_{clkwrk_idx}"
+            if input_buffer_mem_name not in instances:
+                instances[input_buffer_mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[input_buffer_mem_name]["genargs"]["ID"][1] = input_buffer_mem_name
+
+            # Break existing connections from input IO to both fp mul PEs
+            remove_conn(first_fp_mul_data0_conn[0], first_fp_mul_data0_conn[1])
+            remove_conn(final_fp_mul_data1_conn[0], final_fp_mul_data1_conn[1])
+
+            # Get input IO port from connection
+            input_io_port = None
+            for port in first_fp_mul_data0_conn:
+                if port in input_io_sources:
+                    input_io_port = port
+                    break
+
+            if input_io_port is None:
+                raise ValueError(f"[ERROR]: Could not find input IO port in connection for clkwrk_idx {clkwrk_idx}.")
+
+            # Wire up MEM: input IO -> MEM -> both fp mul PEs
+            add_conn_once(input_io_port, f"{input_buffer_mem_name}.data_in_0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{first_fp_mul_pe_name}.data0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{final_fp_mul_pe_name}.data1")
+
+            # Connect clock enable
+            add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
@@ -3555,8 +3796,12 @@ class SelectedDesignHacker:
             "bitwidth": 16,
             "datafile": "hw_activation_output.raw",
             "name": "hw_activation_output_stencil",
-            "shape": [vec_len, num_vecs]
+            "shape": [vec_len // 2, num_vecs]
         })
+
+        # Modify existing output shapes
+        for output in design_meta["IOs"]["outputs"]:
+            output["shape"] = [vec_len // 2, num_vecs]
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)

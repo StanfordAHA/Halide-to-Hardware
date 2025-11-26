@@ -69,9 +69,11 @@ int main(int argc, char **argv) {
 
     auto vec_width_env = getenv("vec_width");
     auto vec_height_env = getenv("vec_height");
+    auto mu_i_env = getenv("mu_i");
 
     auto vec_width = vec_width_env ? atoi(vec_width_env) : 3072;
     auto vec_height = vec_height_env ? atoi(vec_height_env) : 64;
+    auto mu_i = mu_i_env ? atoi(mu_i_env) : 32;
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
@@ -85,19 +87,35 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Gold output
-    processor.output = Buffer<uint16_t>(vec_width, vec_height);
-    for (int y = 0; y < processor.inputs["input"].dim(1).extent(); y++) {
-        for (int x = 0; x < processor.inputs["input"].dim(0).extent(); x++) {
-            processor.output(x, y) = float_to_bfloat16_process(
-                expf(-1.702f * bfloat16_to_float_process(processor.inputs["input"](x, y)))
+    // Computed half lanes output
+    // 0,1,2,...,mu_i/2-1, mu_i, mu_i+1, mu_i+2, ... (interleaved pattern)
+    auto computed_output = Buffer<uint16_t>(int(vec_width / 2), vec_height);
+    for (int y = 0; y < computed_output.dim(1).extent(); y++) {
+        for (int x = 0; x < computed_output.dim(0).extent(); x++) {
+            int input_x = (x % (mu_i / 2)) + (x / (mu_i / 2)) * mu_i;
+            computed_output(x, y) = float_to_bfloat16_process(
+                bfloat16_to_float_process(processor.inputs["input"](input_x, y)) /
+                (1.0f + expf(-1.702f * bfloat16_to_float_process(processor.inputs["input"](input_x, y))))
             );
         }
     }
 
+    // Pass through half lanes output
+    // The second half of each mu_i group (mu_i/2, mu_i/2+1, ..., mu_i-1, mu_i+mu_i/2, ...)
+    auto pass_through_output = Buffer<uint16_t>(int(vec_width / 2), vec_height);
+    for (int y = 0; y < pass_through_output.dim(1).extent(); y++) {
+        for (int x = 0; x < pass_through_output.dim(0).extent(); x++) {
+            int input_x = (x % (mu_i / 2)) + mu_i / 2 + (x / (mu_i / 2)) * mu_i;
+            pass_through_output(x, y) = processor.inputs["input"](input_x, y);
+        }
+    }
+
     save_halide_buffer_to_raw(processor.inputs["input"], "bin/mu_input_host_stencil.raw");
-    save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
-    save_halide_buffer_to_raw(processor.inputs["input"], "bin/hw_activation_output.raw");
+    save_halide_buffer_to_raw(computed_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(pass_through_output, "bin/hw_activation_output.raw");
+
+    // Fake placeholder for processor output
+    processor.output = Buffer<uint16_t>(vec_width, vec_height);
 
     // Create glb bank config
     using namespace glb_cfg;

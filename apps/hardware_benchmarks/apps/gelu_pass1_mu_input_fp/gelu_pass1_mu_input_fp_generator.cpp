@@ -6,7 +6,8 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 // This app computes GELU with approximation x*sigmoid(1.702*x)
-// pass1 = exp(-1.702*x)
+// First half lanes (e.g. 16 lanes) compute x/(1+exp(-1.702*x))
+// Second half lanes (e.g. 16 lanes) pass through to GLB
 class GELULayerPass1MuInputFP : public Halide::Generator<GELULayerPass1MuInputFP> {
 public:
     Input<Buffer<uint16_t>> mu_input{ "mu_input", 2 };
@@ -17,6 +18,9 @@ public:
 
     // mu_i determines the input glb unrolling
     GeneratorParam<int> mu_i{ "mu_i", 32 };
+
+    // dummy_max_nop determines the number of nops to insert for path balancing
+    GeneratorParam<int> dummy_max_nop{ "dummy_max_nop", 0 };
 
     void generate() {
         /* THE ALGORITHM */
@@ -29,7 +33,7 @@ public:
         mu_input_glb(x, y) = mu_input_host(x, y);
         mu_input_cgra(x, y) = mu_input_glb(x, y);
 
-        output_cgra(x, y) = exp(bf16(-1.702f) * mu_input_cgra(x, y));
+        output_cgra(x, y) = mu_input_cgra(x, y) / (bf16(1.0f) + exp(bf16(-1.702f) * mu_input_cgra(x, y)));
 
         output_glb(x, y) = output_cgra(x, y);
         hw_output(x, y) = output_glb(x, y);
