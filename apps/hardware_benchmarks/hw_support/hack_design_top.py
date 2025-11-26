@@ -1301,110 +1301,6 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
 
-    def hack_for_gelu_pass2_fp_static(self, json_path, bin_path):
-
-        with open(json_path, "r") as f:
-            design = json.load(f)
-
-        top_module = "gelu_pass2_fp"
-
-        # Locate "stable_softmax_pass2_fp" module
-        global_modules = design["namespaces"]["global"]["modules"]
-        if top_module not in global_modules:
-            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
-            return
-        gelu_pass2_fp = global_modules[top_module]
-        instance_dict = gelu_pass2_fp.get("instances", {})
-
-        # Remove replicated IOs to stream pass1_out and only keep one for broadcasting to divison PEs
-        max_io_prefix = "io16in_pass1_out_host_stencil_"
-        all_inst = list(instance_dict.keys())
-        pass3_sum_insts = [inst for inst in all_inst if inst.startswith(max_io_prefix)]
-        if len(pass3_sum_insts) > 1:
-            # Sort them and keep the first
-            pass3_sum_insts.sort()
-            keep_inst = pass3_sum_insts[0]
-            remove_insts = pass3_sum_insts[1:]
-
-            # Remove from instance_dict
-            for r in remove_insts:
-                del instance_dict[r]
-
-            # The module "type" is gelu_pass2_fp["type"] = ["Record",[...]]
-            type_list = gelu_pass2_fp["type"][1]
-
-            # Convert instance name -> the corresponding type prefix
-            def inst_to_field_prefix(name):
-                if name.startswith("io16in_"):
-                    return name[len("io16in_") :]
-                return name
-
-            keep_prefix = inst_to_field_prefix(keep_inst)
-            remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
-
-            # Update the type record, removing fields for the removed instances
-            new_type_list = []
-            for field_pair in type_list:
-                field_name, field_type = field_pair
-                if "io16in_pass1_out_host_stencil_" not in field_name:
-                    # Not a vecmax field => keep
-                    new_type_list.append(field_pair)
-                    continue
-                # It's a vecmax field => keep only if it belongs to keep_prefix
-                # (i.e. starts with keep_prefix)
-                if field_name.startswith(keep_prefix):
-                    new_type_list.append(field_pair)
-                # else skip
-            gelu_pass2_fp["type"][1] = new_type_list
-
-            # Fix up connections: if referencing removed inst or fields, unify to keep inst
-            new_conn = []
-            for left, right in gelu_pass2_fp["connections"]:
-                new_left, new_right = left, right
-
-                # If the removed instance name is in the path, unify to keep_inst
-                for rinst in remove_insts:
-                    if rinst in new_left:
-                        new_left = new_left.replace(rinst, keep_inst)
-                    if rinst in new_right:
-                        new_right = new_right.replace(rinst, keep_inst)
-
-                # If the removed field prefix is in the path, unify it to keep_prefix
-                for rpref in remove_prefixes:
-                    if rpref in new_left:
-                        new_left = new_left.replace(rpref, keep_prefix)
-                    if rpref in new_right:
-                        new_right = new_right.replace(rpref, keep_prefix)
-
-                new_conn.append([new_left, new_right])
-
-            gelu_pass2_fp["connections"] = new_conn
-
-        # Deduplicate final connections: remove exact duplicates
-        final_dedup = []
-        seen = set()
-        for c in gelu_pass2_fp["connections"]:
-            # Represent connection as tuple (left, right)
-            t = tuple(c)
-            if t not in seen:
-                seen.add(t)
-                final_dedup.append(c)
-
-        gelu_pass2_fp["connections"] = final_dedup
-
-        # Configure the IO to read the same addr of GLB repeatedly
-        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
-        for inst_name, inst_config in instance_dict.items():
-            if (
-                "io16in_pass1_out_host_stencil" in inst_name
-                and inst_config["modref"] == "global.IO"
-            ):
-                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
-
-        # Overwrite the JSON
-        with open(json_path, "w") as f:
-            f.write(pretty_format_json(design))
-
     def hack_for_silu_pass2_fp_static(self, json_path, bin_path):
 
         with open(json_path, "r") as f:
@@ -3808,7 +3704,119 @@ class SelectedDesignHacker:
 
 
     def hack_for_gelu_pass2_fp_rv(self, json_path, bin_path):
-        return self.hack_for_gelu_pass2_fp_static(json_path, bin_path)
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "gelu_pass2_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        gelu_pass2_fp = global_modules[top_module]
+
+        instances = gelu_pass2_fp["instances"]
+        connections = gelu_pass2_fp["connections"]
+
+        # Find all input IO instances matching the pattern
+        input_io_instances = []
+        for inst_name, inst_config in instances.items():
+            if (inst_name.startswith("io16in_input_host_stencil") and
+                inst_config.get("modref") == "global.IO" and
+                "_clkwrk_" in inst_name and
+                "_op_hcompute_input_glb_stencil" in inst_name):
+                input_io_instances.append(inst_name)
+
+        # Sort IO instances by clkwrk index for consistent ordering
+        def extract_clkwrk_idx(name):
+            match = re.search(r"_clkwrk_(\d+)_", name)
+            return int(match.group(1)) if match else 0
+        input_io_instances.sort(key=extract_clkwrk_idx)
+
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Helper function to remove connection
+        def remove_conn(src, dst):
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+            elif pair2 in connections:
+                connections.remove(pair2)
+
+        # Find or create shared clock constant
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # For each input IO, insert MEM buffer between IO and broadcasted PEs
+        for input_io_name in input_io_instances:
+            # Find the two PEs connected to this input IO
+            pe_data0_name = None
+            pe_data1_name = None
+            data0_conn = None
+            data1_conn = None
+
+            input_io_out = f"{input_io_name}.out"
+
+            # Find PE with .data0 connected to input IO
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b == input_io_out) or
+                    (b.endswith(".data0") and a == input_io_out)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        pe_data0_name = pe_inst
+                        data0_conn = conn
+                        break
+
+            # Find PE with .data1 connected to input IO
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data1") and b == input_io_out) or
+                    (b.endswith(".data1") and a == input_io_out)):
+                    pe_port = a if a.endswith(".data1") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        pe_data1_name = pe_inst
+                        data1_conn = conn
+                        break
+
+            if pe_data0_name is None:
+                raise ValueError(f"[ERROR]: Could not find PE with .data0 connected to {input_io_name}.")
+            if pe_data1_name is None:
+                raise ValueError(f"[ERROR]: Could not find PE with .data1 connected to {input_io_name}.")
+
+            # Create input buffer MEM instance
+            # Extract clkwrk index for naming
+            clkwrk_idx = extract_clkwrk_idx(input_io_name)
+            input_buffer_mem_name = f"{top_module}_input_buffer_mem_clkwrk_{clkwrk_idx}"
+            if input_buffer_mem_name not in instances:
+                instances[input_buffer_mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[input_buffer_mem_name]["genargs"]["ID"][1] = input_buffer_mem_name
+
+            # Break existing connections from input IO to both PEs
+            remove_conn(data0_conn[0], data0_conn[1])
+            remove_conn(data1_conn[0], data1_conn[1])
+
+            # Wire up MEM: input IO -> MEM -> both PEs
+            add_conn_once(input_io_out, f"{input_buffer_mem_name}.data_in_0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{pe_data0_name}.data0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{pe_data1_name}.data1")
+
+            # Connect clock enable
+            add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
 
     def hack_for_silu_pass2_fp_rv(self, json_path, bin_path):
         return self.hack_for_silu_pass2_fp_static(json_path, bin_path)

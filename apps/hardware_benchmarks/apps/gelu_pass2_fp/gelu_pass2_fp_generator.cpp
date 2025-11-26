@@ -6,82 +6,74 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 // This app computes GELU with approximation x*sigmoid(1.702*x)
-// GELU pass 2: x/(1+exp(-1.702*x))
-class GELULayerPass2 : public Halide::Generator<GELULayerPass2> {
+// Compute GELU for the second half of lanes
+class GELULayerPass2FP : public Halide::Generator<GELULayerPass2FP> {
 public:
-    Input<Buffer<uint16_t>> input{ "input", 1 };
-    Input<Buffer<uint16_t>> pass1_out{ "pass1_out", 1 };
-    Output<Buffer<uint16_t>> output{ "output", 1 };
+    Input<Buffer<uint16_t>> input{ "input", 2 };
+    Output<Buffer<uint16_t>> output{ "output", 2 };
 
-    GeneratorParam<int> vec_len{ "vec_len", 512 };
+    GeneratorParam<int> vec_width{ "vec_width", 3072 };
+    GeneratorParam<int> vec_height{ "vec_height", 64 };
 
     // glb_i determines the input glb unrolling
-    GeneratorParam<int> glb_i{ "glb_i", 8 };
-
-    // glb_o determines the output glb unrolling
-    GeneratorParam<int> glb_o{ "glb_o", 8 };
+    GeneratorParam<int> glb_i{ "glb_i", 16 };
 
     void generate() {
         /* THE ALGORITHM */
-        Var x("x");
+        Var x("x"), y("y");
         Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
-        Func hw_pass1_out("hw_pass1_out"), pass1_out_host("pass1_out_host"), pass1_out_glb("pass1_out_glb"), pass1_out_cgra("pass1_out_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
-        hw_input(x) = bf16(input(x));
-        input_host(x) = hw_input(x);
-        input_glb(x) = input_host(x);
-        input_cgra(x) = input_glb(x);
+        hw_input(x, y) = bf16(input(x, y));
+        input_host(x, y) = hw_input(x, y);
+        input_glb(x, y) = input_host(x, y);
+        input_cgra(x, y) = input_glb(x, y);
 
-        hw_pass1_out(x) = bf16(pass1_out(x));
-        pass1_out_host(x) = hw_pass1_out(x);
-        pass1_out_glb(x) = pass1_out_host(x);
-        pass1_out_cgra(x) = pass1_out_glb(x);
+        output_cgra(x, y) = input_cgra(x, y) / (bf16(1.0f) + exp(bf16(-1.702f) * input_cgra(x, y)));
 
-        output_cgra(x) = input_cgra(x) / pass1_out_cgra(x);
-
-        output_glb(x) = output_cgra(x);
-        hw_output(x) = output_glb(x);
-        output(x) = u16(hw_output(x));
+        output_glb(x, y) = output_cgra(x, y);
+        hw_output(x, y) = output_glb(x, y);
+        output(x, y) = u16(hw_output(x, y));
 
         /* THE SCHEDULE */
         if (get_target().has_feature(Target::Clockwork)) {
 
-            output.bound(x, 0, vec_len);
-            hw_output.bound(x, 0, vec_len);
-            output_cgra.bound(x, 0, vec_len);
+            output.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            hw_output.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            output_cgra.bound(x, 0, vec_width).bound(y, 0, vec_height);
 
             Var x_host, x_glb, x_cgra;
+            Var y_host, y_glb, y_cgra;
 
             // Produce loop levels: host, global buffer, cgra
             // Host loop level
             hw_output.compute_root();
             hw_output
-                .split(x, x_host, x_glb, vec_len)
-                .reorder(x_glb, x_host)
-                .hw_accelerate(x_glb, x_host);
+                .split(x, x_host, x_glb, vec_width)
+                .split(y, y_host, y_glb, vec_height)
+                .reorder(x_glb, y_glb, x_host, y_host)
+                .hw_accelerate(y_glb, y_host)
+                .unroll(x_glb, glb_i);
 
             // GLB loop level
-            output_glb.compute_at(hw_output, x_host);  // global buffer
+            output_glb.compute_at(hw_output, y_host);  // global buffer
             output_glb
-                .split(x, x_glb, x_cgra, vec_len)
-                .reorder(x_cgra, x_glb);
+                .split(x, x_glb, x_cgra, vec_width)
+                .split(y, y_glb, y_cgra, vec_height)
+                .reorder(x_cgra, y_cgra, x_glb, y_glb)
+                .unroll(x_cgra, glb_i);
 
-            // Unroll output over glb (default 1)
-            hw_output.unroll(x_glb, glb_o);
-            output_glb.unroll(x_cgra, glb_o);
-
-            output_cgra.compute_at(output_glb, x_glb);  // memtile
-            output_cgra.unroll(x, glb_i);
+            output_cgra.compute_at(output_glb, y_glb).unroll(x, glb_i);
 
             // Input buffers
             input_host.compute_root().accelerator_input();
-            input_glb.compute_at(hw_output, x_host).unroll(x, glb_i);
-            input_cgra.compute_at(output_glb, x_glb).unroll(x, glb_i);
-
-            pass1_out_host.compute_root().accelerator_input();
-            pass1_out_glb.compute_at(hw_output, x_host).unroll(x, glb_i);
-            pass1_out_cgra.compute_at(output_glb, x_glb).unroll(x, glb_i);
+            input_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
+            input_cgra
+                .compute_at(output_glb, y_glb)
+                .split(x, x_glb, x_cgra, vec_width)
+                .split(y, y_glb, y_cgra, vec_height)
+                .reorder(x_cgra, y_cgra, x_glb, y_glb)
+                .unroll(x_cgra, glb_i);
 
         } else {  // schedule to CPU
             output_cgra.compute_root();
@@ -91,4 +83,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(GELULayerPass2, gelu_pass2_fp)
+HALIDE_REGISTER_GENERATOR(GELULayerPass2FP, gelu_pass2_fp)
